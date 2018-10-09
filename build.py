@@ -29,10 +29,15 @@ else:
 		cwd=os.path.expanduser("~/blender-fork/blender")
 	)
 
-subprocess.check_call( ['cp', '-Rv', 'blender/*', os.path.expanduser("~/blender-fork/blender/")] )
+os.system('cp -Rv blender/* ~/blender-fork/blender/')
+os.system('mkdir ~/blender_vr_build')
 subprocess.check_call(
-	['make'], 
-	cwd=os.path.expanduser("~/blender-fork/blender")
+	['cmake', '-g', '"unix makefiles"', os.path.expanduser("~/blender-fork/blender")],
+	cwd=os.path.expanduser("~/blender_vr_build")
+)
+subprocess.check_call(
+	['make'],
+	cwd=os.path.expanduser("~/blender_vr_build")
 )
 
 ##TODO run cmake to build the plugin, and then copy it to the blender-fork/blender/...
