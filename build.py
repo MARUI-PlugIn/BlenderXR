@@ -1,8 +1,9 @@
-#!/bin/python
+#!/usr/bin/python
 import os, sys, subprocess
 
-if not os.path.isdir( os.path.expanduser("~/blender-fork") ):
-	os.mkdir( os.path.expanduser("~/blender-fork") )
+if not os.path.isdir( os.path.expanduser("~/blender-fork/blender") ):
+	if not os.path.isdir( os.path.expanduser("~/blender-fork") ):
+		os.mkdir( os.path.expanduser("~/blender-fork") )
 
 	subprocess.check_call(
 		['git', 'clone', 'https://git.blender.org/blender.git'], 
