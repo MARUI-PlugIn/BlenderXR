@@ -19,7 +19,7 @@ Windows:
 Visual Studio projects to build BlenderXR are provided in the /vs/ folder.
 
 Linux:
-Use the CMakeLists.txt provided in the main folder. Tested with gcc 7.3+ and clang 9.1+.
+Use the CMakeLists.txt provided in the main folder. Tested with gcc 7.3+.
 
 ## COPYRIGHT/LICENSE:
 The BlenderXR source code is copyright (c) 2018 MARUI-PlugIn (inc.)
