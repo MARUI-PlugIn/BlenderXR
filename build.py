@@ -24,6 +24,22 @@ if not os.path.isdir( os.path.expanduser("~/blender-fork/blender") ):
 		['git', 'checkout', 'blender2.8'], 
 		cwd=os.path.expanduser("~/blender-fork/blender")
 	)
+elif len( os.listdir(os.path.expanduser("~/blender-fork/blender/release/scripts/addons")) ) == 0:
+	subprocess.check_call(
+		['git', 'submodule', 'update', '--init', '--recursive'], 
+		cwd=os.path.expanduser("~/blender-fork/blender")
+	)
+
+	subprocess.check_call(
+		['git', 'submodule', 'foreach', 'git', 'checkout', 'master'], 
+		cwd=os.path.expanduser("~/blender-fork/blender")
+	)
+
+	subprocess.check_call(
+		['git', 'checkout', 'blender2.8'], 
+		cwd=os.path.expanduser("~/blender-fork/blender")
+	)
+
 else:
 	subprocess.check_call(
 		['git', 'pull'], 
