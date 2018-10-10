@@ -42,6 +42,10 @@ elif len( os.listdir(os.path.expanduser("~/blender-fork/blender/release/scripts/
 
 else:
 	subprocess.check_call(
+		['git', 'stash'], 
+		cwd=os.path.expanduser("~/blender-fork/blender")
+	)
+	subprocess.check_call(
 		['git', 'pull'], 
 		cwd=os.path.expanduser("~/blender-fork/blender")
 	)
@@ -49,7 +53,7 @@ else:
 os.system('cp -Rv blender/* ~/blender-fork/blender/')
 os.system('mkdir ~/blender_vr_build')
 subprocess.check_call(
-	['cmake', '-g', '"unix makefiles"', os.path.expanduser("~/blender-fork/blender")],
+	['cmake', '-g', '"unix makefiles"', "-DPYTHON_VERSION=3.6", os.path.expanduser("~/blender-fork/blender")],
 	cwd=os.path.expanduser("~/blender_vr_build")
 )
 subprocess.check_call(
