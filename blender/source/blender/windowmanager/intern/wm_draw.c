@@ -149,17 +149,19 @@ static bool wm_draw_region_stereo_set(Main *bmain, ScrArea *sa, ARegion *ar, eSt
 #if WITH_VR
 				RegionView3D *rv3d = ar->regiondata;
 				if (rv3d && (rv3d->rflag & RV3D_IS_VR)) {
+					v3d->stereo3d_flag |= V3D_S3D_DISPVR;
 					/* Hide text, cursor, and object origins / extras overlays. */
 					v3d->overlay.flag = V3D_OVERLAY_HIDE_TEXT | V3D_OVERLAY_HIDE_CURSOR |
 										V3D_OVERLAY_HIDE_OBJECT_ORIGINS | V3D_OVERLAY_HIDE_OBJECT_XTRAS;
 					/* Hide navigation gizmo. */
 					v3d->gizmo_flag = V3D_GIZMO_HIDE_NAVIGATE;
 
-					static bool init = false;
-					if (!init) {
-						/* Enable annotations by default. */
+					/* Enable scene annotations by default. */
+					static Main	*prev_main;
+					if (prev_main != bmain) {
 						v3d->flag2 &= (~V3D_RENDER_OVERRIDE);
 						v3d->flag2 |= V3D_SHOW_ANNOTATION;
+						prev_main = bmain;
 					}
 				}
 #endif

@@ -297,6 +297,9 @@ typedef struct View3D {
 #define V3D_S3D_DISPCAMERAS		(1 << 0)
 #define V3D_S3D_DISPPLANE		(1 << 1)
 #define V3D_S3D_DISPVOLUME		(1 << 2)
+#if WITH_VR
+#define V3D_S3D_DISPVR			(1 << 3)
+#endif
 
 /* View3D->flag (short) */
 /*#define V3D_FLAG_DEPRECATED_1 (1 << 0) */ /*UNUSED */
