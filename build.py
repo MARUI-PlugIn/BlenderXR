@@ -57,7 +57,7 @@ subprocess.check_call(
 	cwd=os.path.expanduser("~/blender_vr_build")
 )
 subprocess.check_call(
-	['make'],
+	['make', 'install'],
 	cwd=os.path.expanduser("~/blender_vr_build")
 )
 
