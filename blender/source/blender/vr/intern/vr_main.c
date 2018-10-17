@@ -52,6 +52,7 @@
 #include "BLI_winstuff.h"
 #else
 #include <dlfcn.h>
+#include <unistd.h>
 #include <GL/glxew.h>
 #endif
 
@@ -145,11 +146,17 @@ static int vr_load_dll_functions(void)
 			#ifdef WIN32
 			vr_dll = LoadLibrary("BlenderXR_SteamVR.dll");
 			#elif defined __linux__
-			vr_dll = dlopen("libBlenderXR_SteamVR.so", RTLD_NOW | RTLD_LOCAL);
-			#elif defined __APPLE__
-			vr_dll = dlopen("BlenderXR_SteamVR.bundle", RTLD_NOW | RTLD_LOCAL);
-			#else
-			return -1;
+			static char proc_path[PATH_MAX];
+			static char path[PATH_MAX];
+			memset(path, 0, sizeof(path));
+			pid_t pid = getpid();
+			sprintf(proc_path, "/proc/%d/exe", pid);
+			ssize_t len = readlink(proc_path, path, PATH_MAX);
+			if (len != -1) {
+				/* Replace the "blender" tail */
+				sprintf(&path[len-7], "libBlenderXR_SteamVR.so");
+				vr_dll = dlopen(path, RTLD_NOW | RTLD_LOCAL);
+			}
 			#endif
 			if (vr_dll) {
 				vr.type = VR_TYPE_STEAM;
