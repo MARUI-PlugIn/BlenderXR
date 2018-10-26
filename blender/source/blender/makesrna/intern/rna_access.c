@@ -2070,7 +2070,7 @@ static void rna_property_update(bContext *C, Main *bmain, Scene *scene, PointerR
 				prop->update(bmain, scene, ptr);
 		}
 
-#if 1
+#if 0
 		/* TODO(campbell): Should eventually be replaced entirely by message bus (below)
 		 * for now keep since COW, bugs are hard to track when we have other missing updates. */
 		if (prop->noteflag) {
@@ -2097,7 +2097,7 @@ static void rna_property_update(bContext *C, Main *bmain, Scene *scene, PointerR
 	if (!is_rna || (prop->flag & PROP_IDPROPERTY)) {
 		/* WARNING! This is so property drivers update the display!
 		 * not especially nice  */
-		DEG_id_tag_update(ptr->id.data, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
+		DEG_id_tag_update(ptr->id.data, OB_RECALC_OB | OB_RECALC_DATA);
 		WM_main_add_notifier(NC_WINDOW, NULL);
 		/* Not nice as well, but the only way to make sure material preview
 		 * is updated with custom nodes.
@@ -7075,7 +7075,7 @@ int RNA_function_call_direct_va(bContext *C, ReportList *reports, PointerRNA *pt
 				case PROP_COLLECTION:
 				{
 					StructRNA *srna = va_arg(args, StructRNA *);
-					ListBase **arg = va_arg(args, ListBase * *);
+					ListBase **arg = va_arg(args, ListBase **);
 					err = rna_function_parameter_parse(&funcptr, parm, type, ftype, len, arg, retdata,
 					                                   srna, tid, fid, pid);
 					break;
@@ -7975,6 +7975,10 @@ IDOverrideStaticPropertyOperation *RNA_property_override_property_operation_get(
 eRNAOverrideStatus RNA_property_static_override_status(PointerRNA *ptr, PropertyRNA *prop, const int index)
 {
 	int override_status = 0;
+
+	if (!BKE_override_static_is_enabled()) {
+		return override_status;
+	}
 
 	if (!ptr || !prop || !ptr->id.data || !((ID *)ptr->id.data)->override_static) {
 		return override_status;

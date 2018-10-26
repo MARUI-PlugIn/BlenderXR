@@ -156,6 +156,7 @@ class DATA_PT_curve_texture_space(CurveButtonsPanel, Panel):
 
 class DATA_PT_geometry_curve(CurveButtonsPanelCurve, Panel):
     bl_label = "Geometry"
+    bl_options = {'DEFAULT_CLOSED'}
 
     @classmethod
     def poll(cls, context):
@@ -226,6 +227,7 @@ class DATA_PT_geometry_curve_bevel(CurveButtonsPanelCurve, Panel):
 
 class DATA_PT_pathanim(CurveButtonsPanelCurve, Panel):
     bl_label = "Path Animation"
+    bl_options = {'DEFAULT_CLOSED'}
 
     def draw_header(self, context):
         curve = context.curve
@@ -252,6 +254,7 @@ class DATA_PT_pathanim(CurveButtonsPanelCurve, Panel):
 
 class DATA_PT_active_spline(CurveButtonsPanelActive, Panel):
     bl_label = "Active Spline"
+    bl_options = {'DEFAULT_CLOSED'}
 
     def draw(self, context):
         layout = self.layout
@@ -321,6 +324,7 @@ class DATA_PT_active_spline(CurveButtonsPanelActive, Panel):
 
 class DATA_PT_font(CurveButtonsPanelText, Panel):
     bl_label = "Font"
+    bl_options = {'DEFAULT_CLOSED'}
 
     def draw(self, context):
         layout = self.layout
@@ -429,13 +433,14 @@ class DATA_PT_paragraph_spacing(CurveButtonsPanelText, Panel):
 
 class DATA_PT_text_boxes(CurveButtonsPanelText, Panel):
     bl_label = "Text Boxes"
+    bl_options = {'DEFAULT_CLOSED'}
 
     def draw(self, context):
         layout = self.layout
 
         text = context.curve
 
-        layout.operator("font.textbox_add", icon='ZOOMIN')
+        layout.operator("font.textbox_add", icon='ADD')
 
         for i, box in enumerate(text.text_boxes):
 

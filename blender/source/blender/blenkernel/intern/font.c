@@ -1053,7 +1053,7 @@ makebreak:
 				textbox_scale(&tb_scale, &cu->tb[tb_index], 1.0f / cu->fsize);
 				/* The initial Y origin of the textbox is hardcoded to 1.0f * text scale. */
 				const float textbox_y_origin = 1.0f;
-				float yoff;
+				float yoff = 0.0f;
 
 				switch (cu->align_y) {
 					case CU_ALIGN_Y_TOP_BASELINE:
@@ -1084,7 +1084,7 @@ makebreak:
 		}
 		else {
 			/* Non text-box case handled separately. */
-			float yoff;
+			float yoff = 0.0f;
 
 			switch (cu->align_y) {
 				case CU_ALIGN_Y_TOP_BASELINE:
@@ -1118,7 +1118,7 @@ makebreak:
 	/* Note: Only OB_CURVE objects could have a path  */
 	if (cu->textoncurve && cu->textoncurve->type == OB_CURVE) {
 		BLI_assert(cu->textoncurve->runtime.curve_cache != NULL);
-		if (cu->textoncurve->runtime.curve_cache->path) {
+		if (cu->textoncurve->runtime.curve_cache != NULL && cu->textoncurve->runtime.curve_cache->path != NULL) {
 			float distfac, imat[4][4], imat3[3][3], cmat[3][3];
 			float minx, maxx, miny, maxy;
 			float timeofs, sizefac;

@@ -28,6 +28,14 @@
  *  \brief General operations for speakers.
  */
 
+#include "../vr/vr_build.h"
+#if WITH_VR
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+#endif
+
 struct Main;
 struct Speaker;
 
@@ -37,5 +45,11 @@ void BKE_speaker_copy_data(struct Main *bmain, struct Speaker *spk_dst, const st
 struct Speaker *BKE_speaker_copy(struct Main *bmain, const struct Speaker *spk);
 void BKE_speaker_make_local(struct Main *bmain, struct Speaker *spk, const bool lib_local);
 void BKE_speaker_free(struct Speaker *spk);
+
+#if WITH_VR
+#ifdef __cplusplus
+}
+#endif
+#endif
 
 #endif

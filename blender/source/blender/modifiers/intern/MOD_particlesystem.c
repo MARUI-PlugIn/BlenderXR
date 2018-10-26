@@ -162,7 +162,7 @@ static void deformVerts(
 
 			if (edit_btmesh) {
 				/* In edit mode get directly from the edit mesh. */
-				psmd->mesh_original = BKE_bmesh_to_mesh_nomain(edit_btmesh->bm, &(struct BMeshToMeshParams){0});
+				psmd->mesh_original = BKE_mesh_from_bmesh_for_eval_nomain(edit_btmesh->bm, 0);
 			}
 			else {
 				/* Otherwise get regular mesh. */
@@ -247,14 +247,12 @@ ModifierTypeInfo modifierType_ParticleSystem = {
 	/* deformMatrices_DM */ NULL,
 	/* deformMatricesEM_DM*/NULL,
 	/* applyModifier_DM */  NULL,
-	/* applyModifierEM_DM */NULL,
 
 	/* deformVerts */       deformVerts,
 	/* deformMatrices */    NULL,
 	/* deformVertsEM */     NULL,
 	/* deformMatricesEM */  NULL,
 	/* applyModifier */     NULL,
-	/* applyModifierEM */   NULL,
 
 	/* initData */          initData,
 	/* requiredDataMask */  requiredDataMask,

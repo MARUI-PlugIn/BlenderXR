@@ -288,16 +288,15 @@ void *get_nearest_bone(
 
 /* called in space.c */
 /* previously "selectconnected_armature" */
-static int armature_select_linked_invoke(bContext *C, wmOperator *op, const wmEvent *event)
+static int armature_select_linked_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *event)
 {
 	bArmature *arm;
 	EditBone *bone, *curBone, *next;
-	const bool extend = RNA_boolean_get(op->ptr, "extend");
 
 	view3d_operator_needs_opengl(C);
 
 	Base *base = NULL;
-	bone = get_nearest_bone(C, event->mval, !extend, &base);
+	bone = get_nearest_bone(C, event->mval, true, &base);
 
 	if (!bone)
 		return OPERATOR_CANCELLED;
@@ -307,12 +306,7 @@ static int armature_select_linked_invoke(bContext *C, wmOperator *op, const wmEv
 	/* Select parents */
 	for (curBone = bone; curBone; curBone = next) {
 		if ((curBone->flag & BONE_UNSELECTABLE) == 0) {
-			if (extend) {
-				curBone->flag &= ~(BONE_SELECTED | BONE_TIPSEL | BONE_ROOTSEL);
-			}
-			else {
-				curBone->flag |= (BONE_SELECTED | BONE_TIPSEL | BONE_ROOTSEL);
-			}
+			curBone->flag |= (BONE_SELECTED | BONE_TIPSEL | BONE_ROOTSEL);
 		}
 
 		if (curBone->flag & BONE_CONNECTED)
@@ -327,10 +321,7 @@ static int armature_select_linked_invoke(bContext *C, wmOperator *op, const wmEv
 			next = curBone->next;
 			if ((curBone->parent == bone) && (curBone->flag & BONE_UNSELECTABLE) == 0) {
 				if (curBone->flag & BONE_CONNECTED) {
-					if (extend)
-						curBone->flag &= ~(BONE_SELECTED | BONE_TIPSEL | BONE_ROOTSEL);
-					else
-						curBone->flag |= (BONE_SELECTED | BONE_TIPSEL | BONE_ROOTSEL);
+					curBone->flag |= (BONE_SELECTED | BONE_TIPSEL | BONE_ROOTSEL);
 					bone = curBone;
 					break;
 				}
@@ -370,9 +361,6 @@ void ARMATURE_OT_select_linked(wmOperatorType *ot)
 
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
-
-	/* properties */
-	RNA_def_boolean(ot->srna, "extend", false, "Extend", "Extend selection instead of deselecting everything first");
 }
 
 /* utility function for get_nearest_editbonepoint */
@@ -902,7 +890,7 @@ static int armature_de_select_more_exec(bContext *C, wmOperator *UNUSED(op))
 	uint objects_len = 0;
 	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
-		Object * ob = objects[ob_index];
+		Object *ob = objects[ob_index];
 		armature_select_more_less(ob, true);
 		WM_event_add_notifier(C, NC_OBJECT | ND_BONE_SELECT, ob);
 	}
@@ -931,7 +919,7 @@ static int armature_de_select_less_exec(bContext *C, wmOperator *UNUSED(op))
 	uint objects_len = 0;
 	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
-		Object * ob = objects[ob_index];
+		Object *ob = objects[ob_index];
 		armature_select_more_less(ob, false);
 		WM_event_add_notifier(C, NC_OBJECT | ND_BONE_SELECT, ob);
 	}
@@ -1003,8 +991,8 @@ static void select_similar_length(bContext *C, const float thresh)
 	uint objects_len = 0;
 	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
-		Object * ob = objects[ob_index];
-		bArmature * arm = ob->data;
+		Object *ob = objects[ob_index];
+		bArmature *arm = ob->data;
 		bool changed = false;
 
 		for (EditBone *ebone = arm->edbo->first; ebone; ebone = ebone->next) {
@@ -1051,8 +1039,8 @@ static void select_similar_direction(bContext *C, const float thresh)
 	uint objects_len = 0;
 	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
-		Object * ob = objects[ob_index];
-		bArmature * arm = ob->data;
+		Object *ob = objects[ob_index];
+		bArmature *arm = ob->data;
 		bool changed = false;
 
 		for (EditBone *ebone = arm->edbo->first; ebone; ebone = ebone->next) {
@@ -1082,8 +1070,8 @@ static void select_similar_layer(bContext *C)
 	uint objects_len = 0;
 	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
-		Object * ob = objects[ob_index];
-		bArmature * arm = ob->data;
+		Object *ob = objects[ob_index];
+		bArmature *arm = ob->data;
 		bool changed = false;
 
 		for (EditBone *ebone = arm->edbo->first; ebone; ebone = ebone->next) {
@@ -1119,8 +1107,8 @@ static void select_similar_prefix(bContext *C)
 	uint objects_len = 0;
 	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
-		Object * ob = objects[ob_index];
-		bArmature * arm = ob->data;
+		Object *ob = objects[ob_index];
+		bArmature *arm = ob->data;
 		bool changed = false;
 
 		/* Find matches */
@@ -1158,8 +1146,8 @@ static void select_similar_suffix(bContext *C)
 	uint objects_len = 0;
 	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
-		Object * ob = objects[ob_index];
-		bArmature * arm = ob->data;
+		Object *ob = objects[ob_index];
+		bArmature *arm = ob->data;
 		bool changed = false;
 
 		/* Find matches */
@@ -1351,91 +1339,81 @@ void ARMATURE_OT_select_similar(wmOperatorType *ot)
 
 /* ********************* select hierarchy operator ************** */
 
+/* No need to convert to multi-objects. Just like we keep the non-active bones
+ * selected we then keep the non-active objects untouched (selected/unselected). */
 static int armature_select_hierarchy_exec(bContext *C, wmOperator *op)
 {
-	ViewLayer *view_layer = CTX_data_view_layer(C);
-
-	const int direction = RNA_enum_get(op->ptr, "direction");
+	Object *ob = CTX_data_edit_object(C);
+	EditBone *ebone_active;
+	int direction = RNA_enum_get(op->ptr, "direction");
 	const bool add_to_sel = RNA_boolean_get(op->ptr, "extend");
+	bool changed = false;
+	bArmature *arm = (bArmature *)ob->data;
 
-	bool multi_changed = false;
-	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
-	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
-		Object * ob = objects[ob_index];
-		bArmature * arm = ob->data;
+	ebone_active = arm->act_edbone;
+	if (ebone_active == NULL) {
+		return OPERATOR_CANCELLED;
+	}
 
-		EditBone *ebone_active;
-		bool changed = false;
+	if (direction == BONE_SELECT_PARENT) {
+		if (ebone_active->parent) {
+			EditBone *ebone_parent;
 
-		arm = (bArmature *)ob->data;
+			ebone_parent = ebone_active->parent;
 
-		ebone_active = arm->act_edbone;
-		if (ebone_active == NULL) {
-			continue;
-		}
-
-		if (direction == BONE_SELECT_PARENT) {
-			if (ebone_active->parent) {
-				EditBone *ebone_parent;
-
-				ebone_parent = ebone_active->parent;
-
-				if (EBONE_SELECTABLE(arm, ebone_parent)) {
-					arm->act_edbone = ebone_parent;
-
-					if (!add_to_sel) {
-						ED_armature_ebone_select_set(ebone_active, false);
-					}
-					ED_armature_ebone_select_set(ebone_parent, true);
-
-					changed = true;
-				}
-			}
-
-		}
-		else {  /* BONE_SELECT_CHILD */
-			EditBone *ebone_iter, *ebone_child = NULL;
-			int pass;
-
-			/* First pass, only connected bones (the logical direct child)/ */
-			for (pass = 0; pass < 2 && (ebone_child == NULL); pass++) {
-				for (ebone_iter = arm->edbo->first; ebone_iter; ebone_iter = ebone_iter->next) {
-					/* Possible we have multiple children, some invisible. */
-					if (EBONE_SELECTABLE(arm, ebone_iter)) {
-						if (ebone_iter->parent == ebone_active) {
-							if ((pass == 1) || (ebone_iter->flag & BONE_CONNECTED)) {
-								ebone_child = ebone_iter;
-								break;
-							}
-						}
-					}
-				}
-			}
-
-			if (ebone_child) {
-				arm->act_edbone = ebone_child;
+			if (EBONE_SELECTABLE(arm, ebone_parent)) {
+				arm->act_edbone = ebone_parent;
 
 				if (!add_to_sel) {
 					ED_armature_ebone_select_set(ebone_active, false);
 				}
-				ED_armature_ebone_select_set(ebone_child, true);
+				ED_armature_ebone_select_set(ebone_parent, true);
 
 				changed = true;
 			}
 		}
 
-		if (changed == false) {
-			continue;
+	}
+	else {  /* BONE_SELECT_CHILD */
+		EditBone *ebone_iter, *ebone_child = NULL;
+		int pass;
+
+		/* first pass, only connected bones (the logical direct child) */
+		for (pass = 0; pass < 2 && (ebone_child == NULL); pass++) {
+			for (ebone_iter = arm->edbo->first; ebone_iter; ebone_iter = ebone_iter->next) {
+				/* possible we have multiple children, some invisible */
+				if (EBONE_SELECTABLE(arm, ebone_iter)) {
+					if (ebone_iter->parent == ebone_active) {
+						if ((pass == 1) || (ebone_iter->flag & BONE_CONNECTED)) {
+							ebone_child = ebone_iter;
+							break;
+						}
+					}
+				}
+			}
 		}
 
-		multi_changed = true;
-		ED_armature_edit_sync_selection(arm->edbo);
-		WM_event_add_notifier(C, NC_OBJECT | ND_BONE_SELECT, ob);
-	}
-	MEM_freeN(objects);
+		if (ebone_child) {
+			arm->act_edbone = ebone_child;
 
-	return multi_changed ? OPERATOR_FINISHED : OPERATOR_CANCELLED;
+			if (!add_to_sel) {
+				ED_armature_ebone_select_set(ebone_active, false);
+			}
+			ED_armature_ebone_select_set(ebone_child, true);
+
+			changed = true;
+		}
+	}
+
+	if (changed == false) {
+		return OPERATOR_CANCELLED;
+	}
+
+	ED_armature_edit_sync_selection(arm->edbo);
+
+	WM_event_add_notifier(C, NC_OBJECT | ND_BONE_SELECT, ob);
+
+	return OPERATOR_FINISHED;
 }
 
 void ARMATURE_OT_select_hierarchy(wmOperatorType *ot)
@@ -1471,15 +1449,15 @@ void ARMATURE_OT_select_hierarchy(wmOperatorType *ot)
  */
 static int armature_select_mirror_exec(bContext *C, wmOperator *op)
 {
-	ViewLayer * view_layer = CTX_data_view_layer(C);
+	ViewLayer *view_layer = CTX_data_view_layer(C);
 	const bool active_only = RNA_boolean_get(op->ptr, "only_active");
 	const bool extend = RNA_boolean_get(op->ptr, "extend");
 
 	uint objects_len = 0;
 	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
-		Object * ob = objects[ob_index];
-		bArmature * arm = ob->data;
+		Object *ob = objects[ob_index];
+		bArmature *arm = ob->data;
 
 		EditBone *ebone, *ebone_mirror_act = NULL;
 

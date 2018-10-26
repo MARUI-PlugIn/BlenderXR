@@ -83,7 +83,7 @@ const EnumPropertyItem rna_enum_id_type_items[] = {
 	{ID_TE, "TEXTURE", ICON_TEXTURE_DATA, "Texture", ""},
 	{ID_WM, "WINDOWMANAGER", ICON_FULLSCREEN, "Window Manager", ""},
 	{ID_WO, "WORLD", ICON_WORLD_DATA, "World", ""},
-	{ID_WS, "WORKSPACE", ICON_SPLITSCREEN, "Workspace", ""},
+	{ID_WS, "WORKSPACE", ICON_WORKSPACE, "Workspace", ""},
 	{0, NULL, 0, NULL, NULL}
 };
 
@@ -355,7 +355,7 @@ static ID *rna_ID_copy(ID *id, Main *bmain)
 
 static ID *rna_ID_override_create(ID *id, Main *bmain)
 {
-	if (id->lib == NULL) {
+	if (!BKE_override_static_is_enabled() || id->lib == NULL) {
 		return NULL;
 	}
 
@@ -433,7 +433,7 @@ static struct ID *rna_ID_make_local(struct ID *self, Main *bmain, bool clear_pro
 }
 
 
-static AnimData * rna_ID_animation_data_create(ID *id, Main *bmain)
+static AnimData *rna_ID_animation_data_create(ID *id, Main *bmain)
 {
 	AnimData *adt = BKE_animdata_add_id(id);
 	DEG_relations_tag_update(bmain);

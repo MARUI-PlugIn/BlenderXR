@@ -286,12 +286,6 @@ class DOPESHEET_HT_editor_buttons(Header):
         sub.active = toolsettings.use_proportional_action
         sub.prop(toolsettings, "proportional_edit_falloff", text="", icon_only=True)
 
-        row = layout.row(align=True)
-        row.operator("action.copy", text="", icon='COPYDOWN')
-        row.operator("action.paste", text="", icon='PASTEDOWN')
-        if st.mode not in {'GPENCIL', 'MASK'}:
-            row.operator("action.paste", text="", icon='PASTEFLIPDOWN').flipped = True
-
 
 class DOPESHEET_MT_editor_menus(Menu):
     bl_idname = "DOPESHEET_MT_editor_menus"
@@ -473,6 +467,9 @@ class DOPESHEET_MT_key(Menu):
         layout.operator("action.frame_jump")
 
         layout.separator()
+        layout.operator("action.copy")
+        layout.operator("action.paste")
+        layout.operator("action.paste", text="Paste Flipped").flipped = True
         layout.operator("action.duplicate_move")
         layout.operator("action.delete")
 
@@ -485,10 +482,6 @@ class DOPESHEET_MT_key(Menu):
         layout.operator("action.clean").channels = False
         layout.operator("action.clean", text="Clean Channels").channels = True
         layout.operator("action.sample")
-
-        layout.separator()
-        layout.operator("action.copy")
-        layout.operator("action.paste")
 
 
 class DOPESHEET_MT_key_transform(Menu):

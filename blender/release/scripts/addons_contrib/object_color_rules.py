@@ -260,8 +260,8 @@ class OBJECT_PT_color_rules(Panel):
 
         col = row.column()
         colsub = col.column(align=True)
-        colsub.operator("object.color_rules_add", icon='ZOOMIN', text="")
-        colsub.operator("object.color_rules_remove", icon='ZOOMOUT', text="")
+        colsub.operator("object.color_rules_add", icon='ADD', text="")
+        colsub.operator("object.color_rules_remove", icon='REMOVE', text="")
 
         colsub = col.column(align=True)
         colsub.operator("object.color_rules_move", text="", icon='TRIA_UP').direction = -1

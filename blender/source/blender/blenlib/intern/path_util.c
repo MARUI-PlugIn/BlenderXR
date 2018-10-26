@@ -1202,12 +1202,12 @@ bool BLI_path_program_search(
 		do {
 			temp = strchr(path, separator);
 			if (temp) {
-				strncpy(filename, path, temp - path);
+				memcpy(filename, path, temp - path);
 				filename[temp - path] = 0;
 				path = temp + 1;
 			}
 			else {
-				strncpy(filename, path, sizeof(filename));
+				BLI_strncpy(filename, path, sizeof(filename));
 			}
 
 			BLI_path_append(filename, maxlen, name);
@@ -1342,16 +1342,6 @@ void BLI_make_file_string(const char *relabase, char *string, const char *dir, c
 	else {
 		return; /* string is NULL, probably shouldnt happen but return anyway */
 	}
-
-
-	/* we first push all slashes into unix mode, just to make sure we don't get
-	 * any mess with slashes later on. -jesterKing */
-	/* constant strings can be passed for those parameters - don't change them - elubie */
-#if 0
-	BLI_str_replace_char(relabase, '\\', '/');
-	BLI_str_replace_char(dir, '\\', '/');
-	BLI_str_replace_char(file, '\\', '/');
-#endif
 
 	/* Resolve relative references */
 	if (relabase && dir[0] == '/' && dir[1] == '/') {

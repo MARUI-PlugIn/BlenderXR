@@ -96,7 +96,7 @@ static void eevee_engine_init(void *ved)
 	}
 
 	/* EEVEE_effects_init needs to go first for TAA */
-	EEVEE_effects_init(sldata, vedata, camera);
+	EEVEE_effects_init(sldata, vedata, camera, false);
 	EEVEE_materials_init(sldata, stl, fbl);
 	EEVEE_lights_init(sldata);
 	EEVEE_lightprobes_init(sldata, vedata);
@@ -137,7 +137,7 @@ void EEVEE_cache_populate(void *vedata, Object *ob)
 	}
 
 	if (DRW_object_is_renderable(ob) &&
-	    DRW_check_object_visible_within_active_context(ob))
+	    DRW_object_is_visible_in_active_context(ob))
 	{
 		if (ELEM(ob->type, OB_MESH, OB_CURVE, OB_SURF, OB_FONT, OB_MBALL)) {
 			EEVEE_materials_cache_populate(vedata, sldata, ob, &cast_shadow);

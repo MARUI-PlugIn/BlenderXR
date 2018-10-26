@@ -638,7 +638,7 @@ static void node_socket_circle_draw(const bContext *C, bNodeTree *ntree, Pointer
 	RNA_pointer_create((ID *)ntree, &RNA_NodeSocket, sock, &ptr);
 	sock->typeinfo->draw_color((bContext *)C, &ptr, &node_ptr, color);
 
-	immAttrib4fv(col, color);
+	immAttr4fv(col, color);
 	immVertex2f(pos, sock->locx, sock->locy);
 }
 
@@ -1460,7 +1460,7 @@ void drawnodespace(const bContext *C, ARegion *ar)
 	draw_tree_path(snode);
 
 	/* scrollers */
-	scrollers = UI_view2d_scrollers_calc(C, v2d, 10, V2D_GRID_CLAMP, V2D_ARG_DUMMY, V2D_ARG_DUMMY);
+	scrollers = UI_view2d_scrollers_calc(C, v2d, NULL, 10, V2D_GRID_CLAMP, V2D_ARG_DUMMY, V2D_ARG_DUMMY);
 	UI_view2d_scrollers_draw(C, v2d, scrollers);
 	UI_view2d_scrollers_free(scrollers);
 }

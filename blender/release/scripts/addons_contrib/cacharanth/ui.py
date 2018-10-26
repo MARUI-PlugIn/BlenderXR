@@ -153,7 +153,7 @@ class VIEW3D_PT_MeshcacheToolsPanel(Panel):
 
         row = layout.row(align=True)
         row.prop(scene, "meshcache_folder", text="Export Path")
-        row.operator("buttons.meshcache_folder_set", icon='FILESEL', text="")
+        row.operator("buttons.meshcache_folder_set", icon='FILEBROWSER', text="")
 
 
         row = layout.row(align=True)

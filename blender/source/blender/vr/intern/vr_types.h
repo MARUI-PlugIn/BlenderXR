@@ -15,10 +15,10 @@
 * along with this program; if not, write to the Free Software Foundation,
 * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 *
-* The Original Code is Copyright (C) 2016 by Mike Erwin.
+* The Original Code is Copyright (C) 2018 by Blender Foundation.
 * All rights reserved.
 *
-* Contributor(s): Blender Foundation
+* Contributor(s): MARUI-PlugIn
 *
 * ***** END GPL LICENSE BLOCK *****
 */
@@ -135,6 +135,12 @@ template <typename T = float> struct Coord2D {
 		y /= len;
 		return *this;
 	};
+	/* Angle function */
+	T angle(const Coord2D& other) const {
+		T n = this->normalize() * other.normalize();
+		n = (n < (T)-1.0 ? (T)-1.0 : (n > (T)1.0 ? (T)1.0 : n));
+		return std::acos(n);
+	};
 	/* Addition operator */
 	Coord2D operator+(const Coord2D& other) const {
 		return Coord2D(x + other.x, y + other.y);
@@ -146,6 +152,10 @@ template <typename T = float> struct Coord2D {
 	/* Multiplication operator */
 	Coord2D operator*(const T& c) const {
 		return Coord2D(x*c, y*c);
+	};
+	/* Multiplication (dot product) function */
+	T operator*(const Coord2D& other) const {
+		return x * other.x + y * other.y;
 	};
 	/* Division operator */
 	Coord2D operator/(const T& c) const {

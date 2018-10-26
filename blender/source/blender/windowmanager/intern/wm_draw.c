@@ -87,10 +87,9 @@
 #include "../vr/vr_main.h"
 #endif
 
-
 /* ******************* paint cursor *************** */
 
-static void wm_paintcursor_draw(bContext *C, ARegion *ar)
+static void wm_paintcursor_draw(bContext *C, ScrArea *sa, ARegion *ar)
 {
 	wmWindowManager *wm = CTX_wm_manager(C);
 	wmWindow *win = CTX_wm_window(C);
@@ -99,6 +98,15 @@ static void wm_paintcursor_draw(bContext *C, ARegion *ar)
 
 	if (ar->visible && ar == screen->active_region) {
 		for (pc = wm->paintcursors.first; pc; pc = pc->next) {
+
+			if ((pc->space_type != SPACE_TYPE_ANY) && (sa->spacetype != pc->space_type)) {
+				continue;
+			}
+
+			if ((pc->region_type != RGN_TYPE_ANY) && (ar->regiontype != pc->region_type)) {
+				continue;
+			}
+
 			if (pc->poll == NULL || pc->poll(C)) {
 				/* Prevent drawing outside region. */
 				glEnable(GL_SCISSOR_TEST);
@@ -150,11 +158,10 @@ static bool wm_draw_region_stereo_set(Main *bmain, ScrArea *sa, ARegion *ar, eSt
 				RegionView3D *rv3d = ar->regiondata;
 				if (rv3d && (rv3d->rflag & RV3D_IS_VR)) {
 					v3d->stereo3d_flag |= V3D_S3D_DISPVR;
-					/* Hide text, cursor, and object origins / extras overlays. */
-					v3d->overlay.flag = V3D_OVERLAY_HIDE_TEXT | V3D_OVERLAY_HIDE_CURSOR |
-										V3D_OVERLAY_HIDE_OBJECT_ORIGINS | V3D_OVERLAY_HIDE_OBJECT_XTRAS;
+					/* Hide text and cursor overlays. */
+					v3d->overlay.flag |= (V3D_OVERLAY_HIDE_TEXT | V3D_OVERLAY_HIDE_CURSOR);
 					/* Hide navigation gizmo. */
-					v3d->gizmo_flag = V3D_GIZMO_HIDE_NAVIGATE;
+					v3d->gizmo_flag |= V3D_GIZMO_HIDE_NAVIGATE;
 
 					/* Enable scene annotations by default. */
 					static Main	*prev_main;
@@ -561,12 +568,15 @@ static void wm_draw_window_offscreen(bContext *C, wmWindow *win, bool stereo)
 				vr_do_interaction();
 
 				/* Draw to VR offscreen buffers. */
-				for (int view = 0; view < 2; view++) {
+				for (int view = 0; view < 2; ++view) {
 					wm_draw_region_stereo_set(bmain, sa, ar, view);
 					vr_draw_region_bind(ar, view);
 					ED_region_do_draw(C, ar);
 					vr_draw_region_unbind(ar, view);
 				}
+
+				/* Perform post-render interactions. */
+				vr_do_post_render_interaction();
 
 				ar->do_draw = false;
 				CTX_wm_region_set(C, NULL);
@@ -658,9 +668,9 @@ static void wm_draw_window_onscreen(bContext *C, wmWindow *win, int view)
 				/* Restore screen viewport coordinates. */
 				wmWindowViewport(win);
 
-				/* Blit the screen */
-				// TODO: Use the side corresponding to the dominant eye.
-				wm_draw_region_blend(ar, 0, false);
+				/* Blit the screen. */
+				/* TODO_XR: Use the side corresponding to the dominant eye. */
+				wm_draw_region_blend(ar, 1, false);
 				continue;
 			}
 #endif
@@ -691,7 +701,7 @@ static void wm_draw_window_onscreen(bContext *C, wmWindow *win, int view)
 					CTX_wm_region_set(C, ar);
 
 					/* make region ready for draw, scissor, pixelspace */
-					wm_paintcursor_draw(C, ar);
+					wm_paintcursor_draw(C, sa, ar);
 
 					CTX_wm_region_set(C, NULL);
 					CTX_wm_area_set(C, NULL);

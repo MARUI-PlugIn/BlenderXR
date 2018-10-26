@@ -1143,7 +1143,7 @@ TreeElementIcon tree_element_get_icon(TreeStoreElem *tselem, TreeElement *te)
 				else if (te->idcode == SEQ_TYPE_SOUND_RAM)
 					data.icon = ICON_SOUND;
 				else if (te->idcode == SEQ_TYPE_IMAGE)
-					data.icon = ICON_IMAGE_COL;
+					data.icon = ICON_IMAGE;
 				else
 					data.icon = ICON_PARTICLES;
 				break;
@@ -1225,6 +1225,9 @@ TreeElementIcon tree_element_get_icon(TreeStoreElem *tselem, TreeElement *te)
 				case OB_EMPTY:
 					if (ob->dup_group) {
 						data.icon = ICON_OUTLINER_OB_GROUP_INSTANCE;
+					}
+					else if (ob->empty_drawtype == OB_EMPTY_IMAGE) {
+						data.icon = ICON_OUTLINER_OB_IMAGE;
 					}
 					else {
 						data.icon = ICON_OUTLINER_OB_EMPTY;
@@ -1311,7 +1314,7 @@ TreeElementIcon tree_element_get_icon(TreeStoreElem *tselem, TreeElement *te)
 					data.icon = ICON_OUTLINER_DATA_GREASEPENCIL; break;
 				case ID_LP:
 				{
-					LightProbe * lp = (LightProbe *)tselem->id;
+					LightProbe *lp = (LightProbe *)tselem->id;
 					switch (lp->type) {
 						case LIGHTPROBE_TYPE_CUBE:
 							data.icon = ICON_LIGHTPROBE_CUBEMAP; break;
@@ -1328,7 +1331,7 @@ TreeElementIcon tree_element_get_icon(TreeStoreElem *tselem, TreeElement *te)
 					data.icon = ICON_BRUSH_DATA; break;
 				case ID_SCR:
 				case ID_WS:
-					data.icon = ICON_SPLITSCREEN; break;
+					data.icon = ICON_WORKSPACE; break;
 				default:
 					break;
 			}
@@ -1423,7 +1426,7 @@ static void outliner_draw_iconrow_doit(
 
 	if (active != OL_DRAWSEL_NONE) {
 		float ufac = UI_UNIT_X / 20.0f;
-		float color[4] = {1.0f, 1.0f, 1.0f, 0.4f};
+		float color[4] = {1.0f, 1.0f, 1.0f, 0.2f};
 
 		UI_draw_roundbox_corner_set(UI_CNR_ALL);
 		color[3] *= alpha_fac;
@@ -1693,7 +1696,7 @@ static void outliner_draw_tree_element(
 
 		if (!(ELEM(tselem->type, TSE_RNA_PROPERTY, TSE_RNA_ARRAY_ELEM, TSE_ID_BASE))) {
 			tselem_draw_icon(block, xmax, (float)startx + offsx, (float)*starty, tselem, te, alpha_fac, true);
-			offsx += UI_UNIT_X + 2 * ufac;
+			offsx += UI_UNIT_X + 4 * ufac;
 		}
 		else
 			offsx += 2 * ufac;
@@ -1714,13 +1717,13 @@ static void outliner_draw_tree_element(
 				        (float)startx + offsx + 2 * ufac, (float)*starty + 2 * ufac, ICON_LIBRARY_DATA_DIRECT,
 				        alpha_fac);
 			}
-			offsx += UI_UNIT_X + 2 * ufac;
+			offsx += UI_UNIT_X + 4 * ufac;
 		}
 		else if (ELEM(tselem->type, 0, TSE_LAYER_COLLECTION) && ID_IS_STATIC_OVERRIDE(tselem->id)) {
 			UI_icon_draw_alpha(
 			        (float)startx + offsx + 2 * ufac, (float)*starty + 2 * ufac, ICON_LIBRARY_DATA_OVERRIDE,
 			        alpha_fac);
-			offsx += UI_UNIT_X + 2 * ufac;
+			offsx += UI_UNIT_X + 4 * ufac;
 		}
 		GPU_blend(false);
 

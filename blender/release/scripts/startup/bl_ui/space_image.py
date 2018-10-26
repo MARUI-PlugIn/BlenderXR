@@ -39,30 +39,18 @@ from bpy.app.translations import pgettext_iface as iface_
 
 
 class ImagePaintPanel(UnifiedPaintPanel):
-    bl_space_type = 'IMAGE_EDITOR'
-    bl_region_type = 'TOOLS'
+    bl_space_type = 'PROPERTIES'
+    bl_region_type = 'WINDOW'
 
 
 class BrushButtonsPanel(UnifiedPaintPanel):
-    bl_space_type = 'IMAGE_EDITOR'
-    bl_region_type = 'TOOLS'
+    bl_space_type = 'PROPERTIES'
+    bl_region_type = 'WINDOW'
 
     @classmethod
     def poll(cls, context):
-        sima = context.space_data
         toolsettings = context.tool_settings.image_paint
-        return sima.show_paint and toolsettings.brush
-
-
-class UVToolsPanel:
-    bl_space_type = 'IMAGE_EDITOR'
-    bl_region_type = 'TOOLS'
-    bl_category = "Tools"
-
-    @classmethod
-    def poll(cls, context):
-        sima = context.space_data
-        return sima.show_uvedit and not context.tool_settings.use_uv_sculpt
+        return toolsettings.brush
 
 
 class IMAGE_MT_view(Menu):
@@ -527,7 +515,6 @@ class IMAGE_HT_header(Header):
         ima = sima.image
         iuser = sima.image_user
         toolsettings = context.tool_settings
-        mode = sima.mode
 
         show_render = sima.show_render
         show_uvedit = sima.show_uvedit
@@ -560,13 +547,10 @@ class IMAGE_HT_header(Header):
             row = layout.row()
             row.template_ID(sima, "mask", new="mask.new")
 
-        layout.separator_spacer()
-
-        if show_uvedit or show_maskedit or mode == 'PAINT':
-            layout.prop(sima, "use_realtime_update", icon_only=True, icon='FILE_REFRESH')
-
         if not show_render:
             layout.prop(sima, "use_image_pin", text="")
+
+        layout.separator_spacer()
 
         if show_uvedit:
             uvedit = sima.uv_editor
@@ -588,7 +572,8 @@ class IMAGE_HT_header(Header):
             sub.active = toolsettings.proportional_edit != 'DISABLED'
             sub.prop(toolsettings, "proportional_edit_falloff", icon_only=True)
 
-        layout.prop(sima, "pivot_point", icon_only=True)
+        if show_uvedit or show_maskedit:
+            layout.prop(sima, "pivot_point", icon_only=True)
 
         row = layout.row()
         row.popover(
@@ -648,6 +633,7 @@ class MASK_MT_editor_menus(Menu):
         if show_uvedit:
             layout.menu("IMAGE_MT_uvs")
         if show_maskedit:
+            layout.menu("MASK_MT_add")
             layout.menu("MASK_MT_mask")
 
 
@@ -661,8 +647,6 @@ from .properties_mask_common import (
     MASK_PT_spline,
     MASK_PT_point,
     MASK_PT_display,
-    MASK_PT_tools,
-    MASK_PT_add,
 )
 
 
@@ -689,18 +673,6 @@ class IMAGE_PT_active_mask_spline(MASK_PT_spline, Panel):
 class IMAGE_PT_active_mask_point(MASK_PT_point, Panel):
     bl_space_type = 'IMAGE_EDITOR'
     bl_region_type = 'UI'
-
-
-class IMAGE_PT_tools_mask(MASK_PT_tools, Panel):
-    bl_space_type = 'IMAGE_EDITOR'
-    bl_region_type = 'TOOLS'
-    bl_category = 'Mask'
-
-
-class IMAGE_PT_tools_mask_add(MASK_PT_add, Panel):
-    bl_space_type = 'IMAGE_EDITOR'
-    bl_region_type = 'TOOLS'
-    bl_category = 'Mask'
 
 
 # --- end mask ---
@@ -852,8 +824,8 @@ class IMAGE_PT_render_slots(Panel):
         )
 
         col = row.column(align=True)
-        col.operator("image.add_render_slot", icon='ZOOMIN', text="")
-        col.operator("image.remove_render_slot", icon='ZOOMOUT', text="")
+        col.operator("image.add_render_slot", icon='ADD', text="")
+        col.operator("image.remove_render_slot", icon='REMOVE', text="")
 
         col.separator()
 
@@ -861,7 +833,8 @@ class IMAGE_PT_render_slots(Panel):
 
 
 class IMAGE_PT_paint(Panel, ImagePaintPanel):
-    bl_label = "Paint"
+    bl_label = "Brush"
+    bl_context = ".paint_common_2d"
     bl_category = "Tools"
 
     def draw(self, context):
@@ -876,14 +849,10 @@ class IMAGE_PT_paint(Panel, ImagePaintPanel):
         if brush:
             brush_texpaint_common(self, context, layout, brush, settings)
 
-    @classmethod
-    def poll(cls, context):
-        sima = context.space_data
-        return sima.show_paint
-
 
 class IMAGE_PT_tools_brush_overlay(BrushButtonsPanel, Panel):
     bl_label = "Overlay"
+    bl_context = ".paint_common_2d"
     bl_options = {'DEFAULT_CLOSED'}
     bl_category = "Options"
 
@@ -947,6 +916,7 @@ class IMAGE_PT_tools_brush_overlay(BrushButtonsPanel, Panel):
 
 class IMAGE_PT_tools_brush_texture(BrushButtonsPanel, Panel):
     bl_label = "Texture"
+    bl_context = ".paint_common_2d"
     bl_options = {'DEFAULT_CLOSED'}
     bl_category = "Tools"
 
@@ -964,6 +934,7 @@ class IMAGE_PT_tools_brush_texture(BrushButtonsPanel, Panel):
 
 class IMAGE_PT_tools_mask_texture(BrushButtonsPanel, Panel):
     bl_label = "Texture Mask"
+    bl_context = ".paint_common_2d"
     bl_options = {'DEFAULT_CLOSED'}
     bl_category = "Tools"
 
@@ -979,27 +950,9 @@ class IMAGE_PT_tools_mask_texture(BrushButtonsPanel, Panel):
         brush_mask_texture_settings(col, brush)
 
 
-class IMAGE_PT_tools_brush_tool(BrushButtonsPanel, Panel):
-    bl_label = "Tool"
-    bl_options = {'DEFAULT_CLOSED'}
-    bl_category = "Options"
-
-    def draw(self, context):
-        layout = self.layout
-        toolsettings = context.tool_settings.image_paint
-        brush = toolsettings.brush
-
-        layout.prop(brush, "image_tool", text="")
-
-        row = layout.row(align=True)
-        row.prop(brush, "use_paint_sculpt", text="", icon='SCULPTMODE_HLT')
-        row.prop(brush, "use_paint_vertex", text="", icon='VPAINT_HLT')
-        row.prop(brush, "use_paint_weight", text="", icon='WPAINT_HLT')
-        row.prop(brush, "use_paint_image", text="", icon='TPAINT_HLT')
-
-
 class IMAGE_PT_paint_stroke(BrushButtonsPanel, Panel):
-    bl_label = "Paint Stroke"
+    bl_label = "Stroke"
+    bl_context = ".paint_common_2d"
     bl_options = {'DEFAULT_CLOSED'}
     bl_category = "Tools"
 
@@ -1067,7 +1020,8 @@ class IMAGE_PT_paint_stroke(BrushButtonsPanel, Panel):
 
 
 class IMAGE_PT_paint_curve(BrushButtonsPanel, Panel):
-    bl_label = "Paint Curve"
+    bl_label = "Curve"
+    bl_context = ".paint_common_2d"
     bl_options = {'DEFAULT_CLOSED'}
     bl_category = "Tools"
 
@@ -1091,7 +1045,7 @@ class IMAGE_PT_paint_curve(BrushButtonsPanel, Panel):
 
 class IMAGE_PT_tools_imagepaint_symmetry(BrushButtonsPanel, Panel):
     bl_category = "Tools"
-    bl_context = "imagepaint"
+    bl_context = ".imagepaint_2d"
     bl_label = "Tiling"
     bl_options = {'DEFAULT_CLOSED'}
 
@@ -1109,8 +1063,10 @@ class IMAGE_PT_tools_imagepaint_symmetry(BrushButtonsPanel, Panel):
 
 class IMAGE_PT_tools_brush_appearance(BrushButtonsPanel, Panel):
     bl_label = "Appearance"
+    bl_context = ".paint_common_2d"
     bl_options = {'DEFAULT_CLOSED'}
     bl_category = "Options"
+    bl_parent_id = "IMAGE_PT_tools_brush_overlay"
 
     def draw(self, context):
         layout = self.layout
@@ -1135,26 +1091,6 @@ class IMAGE_PT_tools_brush_appearance(BrushButtonsPanel, Panel):
         sub = col.column()
         sub.active = brush.use_custom_icon
         sub.prop(brush, "icon_filepath", text="")
-
-
-class IMAGE_PT_tools_paint_options(BrushButtonsPanel, Panel):
-    bl_label = "Image Paint"
-    bl_category = "Options"
-
-    def draw(self, context):
-        layout = self.layout
-
-        toolsettings = context.tool_settings
-        # brush = toolsettings.image_paint.brush
-        ups = toolsettings.unified_paint_settings
-
-        col = layout.column(align=True)
-        col.label(text="Unified Settings:")
-
-        row = col.row()
-        row.prop(ups, "use_unified_size", text="Size")
-        row.prop(ups, "use_unified_strength", text="Strength")
-        col.prop(ups, "use_unified_color", text="Color")
 
 
 class IMAGE_PT_uv_sculpt_curve(Panel):
@@ -1383,7 +1319,6 @@ classes = (
     IMAGE_HT_header,
     MASK_MT_editor_menus,
     IMAGE_PT_mask,
-    IMAGE_PT_tools_mask_add,
     IMAGE_PT_mask_layers,
     IMAGE_PT_mask_display,
     IMAGE_PT_active_mask_spline,
@@ -1397,14 +1332,11 @@ classes = (
     IMAGE_PT_paint,
     IMAGE_PT_tools_brush_overlay,
     IMAGE_PT_tools_brush_texture,
-    IMAGE_PT_tools_mask,
     IMAGE_PT_tools_mask_texture,
-    IMAGE_PT_tools_brush_tool,
     IMAGE_PT_paint_stroke,
     IMAGE_PT_paint_curve,
     IMAGE_PT_tools_imagepaint_symmetry,
     IMAGE_PT_tools_brush_appearance,
-    IMAGE_PT_tools_paint_options,
     IMAGE_PT_uv_sculpt,
     IMAGE_PT_uv_sculpt_curve,
     IMAGE_PT_view_scopes,

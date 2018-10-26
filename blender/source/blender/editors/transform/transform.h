@@ -516,6 +516,7 @@ typedef struct TransInfo {
 	float		auto_values[4];
 	float		axis[3];
 	float		axis_orig[3];	/* TransCon can change 'axis', store the original value here */
+	float		axis_ortho[3];
 
 	bool		remove_on_cancel; /* remove elements if operator is canceled */
 
@@ -632,7 +633,8 @@ typedef struct TransInfo {
 #define HLP_ANGLE		2
 #define HLP_HARROW		3
 #define HLP_VARROW		4
-#define HLP_TRACKBALL	5
+#define HLP_CARROW		5
+#define HLP_TRACKBALL	6
 
 /* transinfo->con->mode */
 #define CON_APPLY		1
@@ -823,6 +825,7 @@ eRedrawFlag handleMouseInput(struct TransInfo *t, struct MouseInput *mi, const s
 void applyMouseInput(struct TransInfo *t, struct MouseInput *mi, const int mval[2], float output[3]);
 
 void setCustomPoints(TransInfo *t, MouseInput *mi, const int start[2], const int end[2]);
+void setCustomPointsFromDirection(TransInfo *t, MouseInput *mi, const float dir[2]);
 void setInputPostFct(MouseInput *mi, void	(*post)(struct TransInfo *t, float values[3]));
 
 /*********************** Generics ********************************/

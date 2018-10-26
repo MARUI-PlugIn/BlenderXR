@@ -2,16 +2,12 @@
 /* Solid Wirefram implementation
  * Mike Erwin, Clément Foucault */
 
-/* This shader follows the principles of
- * http://developer.download.nvidia.com/SDK/10/direct3d/Source/SolidWireframe/Doc/SolidWireframe.pdf */
-
 layout(lines) in;
-layout(triangle_strip, max_vertices=6) out;
+layout(triangle_strip, max_vertices=4) out;
 
 uniform mat4 ProjectionMatrix;
 uniform vec2 viewportSize;
 
-in vec4 vPos[];
 in vec4 pPos[];
 in ivec4 vData[];
 #ifdef VERTEX_FACING
@@ -34,8 +30,14 @@ out float facing;
 /* See fragment shader */
 flat out vec2 ssPos[3];
 
-#define FACE_ACTIVE     (1 << 2)
-#define FACE_SELECTED   (1 << 3)
+/* Some bugged AMD drivers need these global variables. See T55961 */
+#ifdef VERTEX_SELECTION
+vec3 vertex_color[3];
+#endif
+
+#ifdef VERTEX_FACING
+float v_facing[3];
+#endif
 
 /* project to screen space */
 vec2 proj(vec4 pos)
@@ -46,11 +48,11 @@ vec2 proj(vec4 pos)
 void doVertex(int v, vec4 pos)
 {
 #ifdef VERTEX_SELECTION
-	vertexColor = EDIT_MESH_vertex_color(vData[v].x).rgb;
+	vertexColor = vertex_color[v];
 #endif
 
 #ifdef VERTEX_FACING
-	facing = vFacing[v];
+	facing = v_facing[v];
 #endif
 
 	gl_Position = pos;
@@ -83,19 +85,26 @@ void main()
 
 	/* Perspective */
 	if (ProjectionMatrix[3][3] == 0.0) {
-		/* vPos[i].z is negative and we don't want
-		 * our fixvec to be flipped */
-		dirs1 *= -vPos[0].z;
-		dirs2 *= -vPos[1].z;
+		dirs1 *= pPos[0].w;
+		dirs2 *= pPos[1].w;
 	}
+
+#ifdef VERTEX_SELECTION
+	vertex_color[0] = EDIT_MESH_vertex_color(vData[0].x).rgb;
+	vertex_color[1] = EDIT_MESH_vertex_color(vData[1].x).rgb;
+#endif
+
+#ifdef VERTEX_FACING
+	/* Weird but some buggy AMD drivers need this. */
+	v_facing[0] = vFacing[0];
+	v_facing[1] = vFacing[1];
+#endif
 
 	/* Edge / Vert data */
 	ssPos[0] = ssPos[2] = pos[0];
 	ssPos[1] = pos[1];
 	flag[0] = flag[2] = (vData[0].x << 8);
 	flag[1] = (vData[1].x << 8);
-
-	doVertex(0, pPos[0] + vec4(-dirs1.xy, 0.0, 0.0));
 	doVertex(0, pPos[0] + vec4( dirs1.zw, 0.0, 0.0));
 	doVertex(0, pPos[0] + vec4(-dirs1.zw, 0.0, 0.0));
 
@@ -105,9 +114,6 @@ void main()
 
 	doVertex(1, pPos[1] + vec4( dirs2.zw, 0.0, 0.0));
 	doVertex(1, pPos[1] + vec4(-dirs2.zw, 0.0, 0.0));
-
-	flag[2] = 0;
-	doVertex(1, pPos[1] + vec4( dirs2.xy, 0.0, 0.0));
 
 	EndPrimitive();
 }

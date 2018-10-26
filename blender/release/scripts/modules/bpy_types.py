@@ -454,6 +454,8 @@ class Mesh(bpy_types.ID):
         # if no edges - calculate them
         if faces and (not edges):
             self.update(calc_edges=True)
+        elif edges:
+            self.update(calc_edges_loose=True)
 
     @property
     def edge_keys(self):
@@ -468,7 +470,7 @@ class MeshEdge(StructRNA):
         return ord_ind(*tuple(self.vertices))
 
 
-class MeshTessFace(StructRNA):
+class MeshLoopTriangle(StructRNA):
     __slots__ = ()
 
     @property
@@ -476,32 +478,18 @@ class MeshTessFace(StructRNA):
         """The midpoint of the face."""
         face_verts = self.vertices[:]
         mesh_verts = self.id_data.vertices
-        if len(face_verts) == 3:
-            return (mesh_verts[face_verts[0]].co +
-                    mesh_verts[face_verts[1]].co +
-                    mesh_verts[face_verts[2]].co
-                    ) / 3.0
-        else:
-            return (mesh_verts[face_verts[0]].co +
-                    mesh_verts[face_verts[1]].co +
-                    mesh_verts[face_verts[2]].co +
-                    mesh_verts[face_verts[3]].co
-                    ) / 4.0
+        return (mesh_verts[face_verts[0]].co +
+                mesh_verts[face_verts[1]].co +
+                mesh_verts[face_verts[2]].co
+                ) / 3.0
 
     @property
     def edge_keys(self):
         verts = self.vertices[:]
-        if len(verts) == 3:
-            return (ord_ind(verts[0], verts[1]),
-                    ord_ind(verts[1], verts[2]),
-                    ord_ind(verts[2], verts[0]),
-                    )
-        else:
-            return (ord_ind(verts[0], verts[1]),
-                    ord_ind(verts[1], verts[2]),
-                    ord_ind(verts[2], verts[3]),
-                    ord_ind(verts[3], verts[0]),
-                    )
+        return (ord_ind(verts[0], verts[1]),
+                ord_ind(verts[1], verts[2]),
+                ord_ind(verts[2], verts[0]),
+                )
 
 
 class MeshPolygon(StructRNA):
@@ -887,7 +875,7 @@ class Menu(StructRNA, _GenericUI, metaclass=RNAMeta):
                 props.menu_idname = self.bl_idname
 
             if add_operator:
-                props = row.operator(add_operator, text="", icon='ZOOMOUT')
+                props = row.operator(add_operator, text="", icon='REMOVE')
                 props.name = name
                 props.remove_name = True
 
@@ -901,7 +889,7 @@ class Menu(StructRNA, _GenericUI, metaclass=RNAMeta):
             sub.emboss = 'NORMAL'
             sub.prop(wm, "preset_name", text="")
 
-            props = row.operator(add_operator, text="", icon='ZOOMIN')
+            props = row.operator(add_operator, text="", icon='ADD')
             props.name = wm.preset_name
 
     def draw_preset(self, context):

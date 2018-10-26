@@ -506,32 +506,19 @@ static void gpencil_add_draw_data(void *vedata, Object *ob)
 	int i = stl->g_data->gp_cache_used - 1;
 	tGPencilObjectCache *cache_ob = &stl->g_data->gp_object_cache[i];
 
-	if (cache_ob->is_dup_ob == false) {
-		/* save init shading group */
-		cache_ob->init_grp = stl->storage->shgroup_id;
+	/* save init shading group */
+	cache_ob->init_grp = stl->storage->shgroup_id;
 
-		/* fill shading groups */
-		if (!is_multiedit) {
-			DRW_gpencil_populate_datablock(&e_data, vedata, scene, ob, cache_ob);
-		}
-		else {
-			DRW_gpencil_populate_multiedit(&e_data, vedata, scene, ob, cache_ob);
-		}
-
-		/* save end shading group */
-		cache_ob->end_grp = stl->storage->shgroup_id - 1;
+	/* fill shading groups */
+	if ((!is_multiedit) || (cache_ob->is_dup_ob)) {
+		DRW_gpencil_populate_datablock(&e_data, vedata, scene, ob, cache_ob);
 	}
 	else {
-		/* save init shading group */
-		cache_ob->init_grp = stl->storage->shgroup_id;
-
-		DRW_gpencil_populate_datablock(
-		        &e_data, vedata, scene, ob,
-		        cache_ob);
-
-		/* save end shading group */
-		cache_ob->end_grp = stl->storage->shgroup_id - 1;
+		DRW_gpencil_populate_multiedit(&e_data, vedata, scene, ob, cache_ob);
 	}
+
+	/* save end shading group */
+	cache_ob->end_grp = stl->storage->shgroup_id - 1;
 
 	/* FX passses */
 	cache_ob->has_fx = false;
@@ -549,7 +536,7 @@ static void gpencil_add_draw_data(void *vedata, Object *ob)
 void GPENCIL_cache_populate(void *vedata, Object *ob)
 {
 	/* object must be visible */
-	if (!DRW_check_object_visible_within_active_context(ob)) {
+	if (!DRW_object_is_visible_in_active_context(ob)) {
 		return;
 	}
 
@@ -592,8 +579,12 @@ void GPENCIL_cache_populate(void *vedata, Object *ob)
 			gpencil_add_draw_data(vedata, ob);
 		}
 
-		/* draw current painting strokes */
-		if (draw_ctx->obact == ob) {
+		/* draw current painting strokes
+		* (only if region is equal to originated paint region)
+		*/
+		if ((draw_ctx->obact == ob) &&
+		    ((gpd->runtime.ar == NULL) || (gpd->runtime.ar == draw_ctx->ar)))
+		{
 			DRW_gpencil_populate_buffer_strokes(&e_data, vedata, ts, ob);
 		}
 

@@ -435,6 +435,19 @@ static void generateStrokes(
 			}
 		}
 	}
+	/* verify layer pass */
+	if (mmd->layer_pass > 0) {
+		if ((mmd->flag & GP_BUILD_INVERT_LAYERPASS) == 0) {
+			if (gpl->pass_index != mmd->layer_pass) {
+				return;
+			}
+		}
+		else {
+			if (gpl->pass_index == mmd->layer_pass) {
+				return;
+			}
+		}
+	}
 
 	/* Early exit if outside of the frame range for this modifier
 	 * (e.g. to have one forward, and one backwards modifier)
@@ -515,27 +528,6 @@ static void generateStrokes(
 	}
 }
 
-/* ******************************************** */
-
-/* FIXME: Baking the Build Modifier is currently unsupported.
- * Adding support for this is more complicated than for other
- * modifiers, as to implement this, we'd have to add more frames,
- * which would in turn break how the modifier functions.
- */
-#if 0
-static void bakeModifier(
-        Main *bmain, const Depsgraph *UNUSED(depsgraph),
-        GpencilModifierData *md, Object *ob)
-{
-	bGPdata *gpd = ob->data;
-
-	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
-		for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
-
-		}
-	}
-}
-#endif
 
 /* ******************************************** */
 
@@ -544,13 +536,14 @@ GpencilModifierTypeInfo modifierType_Gpencil_Build = {
 	/* structName */        "BuildGpencilModifierData",
 	/* structSize */        sizeof(BuildGpencilModifierData),
 	/* type */              eGpencilModifierTypeType_Gpencil,
-	/* flags */             0,
+	/* flags */             eGpencilModifierTypeFlag_NoApply,
 
 	/* copyData */          copyData,
 
 	/* deformStroke */      NULL,
 	/* generateStrokes */   generateStrokes,
 	/* bakeModifier */      NULL,
+	/* remapTime */         NULL,
 
 	/* initData */          initData,
 	/* freeData */          NULL,

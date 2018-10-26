@@ -64,8 +64,8 @@ class VIEW3D_MT_Space_Dynamic_Menu(Menu):
             UseSeparator(self, context)
             layout.menu("VIEW3D_MT_AddMenu", icon='OBJECT_DATAMODE')
             layout.menu("VIEW3D_MT_View_Directions", icon='ZOOM_ALL')
-            layout.menu("VIEW3D_MT_View_Navigation", icon='ROTATE')
-            layout.menu("VIEW3D_MT_View_Toggle", icon='SPLITSCREEN')
+            layout.menu("VIEW3D_MT_View_Navigation", icon='PIVOT_BOUNDBOX')
+            layout.menu("VIEW3D_MT_View_Toggle", icon='WORKSPACE')
             layout.operator("view3d.snap_cursor_to_center",
                             text="Cursor to Center")
             layout.operator("view3d.snap_cursor_to_grid",
@@ -91,9 +91,9 @@ class VIEW3D_MT_Space_Dynamic_Menu(Menu):
             UseSeparator(self, context)
             layout.menu("VIEW3D_MT_TransformMenu", icon='MANIPUL')
             layout.menu("VIEW3D_MT_MirrorMenu", icon='MOD_MIRROR')
-            layout.menu("VIEW3D_MT_CursorMenu", icon='CURSOR')
+            layout.menu("VIEW3D_MT_CursorMenu", icon='PIVOT_CURSOR')
             UseSeparator(self, context)
-            layout.menu("VIEW3D_MT_ParentMenu", icon='ROTACTIVE')
+            layout.menu("VIEW3D_MT_ParentMenu", icon='PIVOT_ACTIVE')
             layout.menu("VIEW3D_MT_GroupMenu", icon='GROUP')
             UseSeparator(self, context)
             layout.menu("VIEW3D_MT_object_specials", text="Specials", icon='SOLO_OFF')
@@ -126,11 +126,11 @@ class VIEW3D_MT_Space_Dynamic_Menu(Menu):
             UseSeparator(self, context)
             layout.menu("VIEW3D_MT_TransformMenuEdit", icon='MANIPUL')
             layout.menu("VIEW3D_MT_MirrorMenu", icon='MOD_MIRROR')
-            layout.menu("VIEW3D_MT_EditCursorMenu", icon='CURSOR')
+            layout.menu("VIEW3D_MT_EditCursorMenu", icon='PIVOT_CURSOR')
             UseSeparator(self, context)
             layout.menu("VIEW3D_MT_UV_Map", icon='MOD_UVPROJECT')
             layout.menu("VIEW3D_MT_edit_mesh_specials", icon='SOLO_OFF')
-            layout.menu("VIEW3D_MT_edit_mesh_extrude", icon='ORTHO')
+            layout.menu("VIEW3D_MT_edit_mesh_extrude", icon='XRAY')
             UseSeparator(self, context)
             layout.operator_menu_enum("object.modifier_add", "type", icon='MODIFIER')
             layout.operator_menu_enum("object.constraint_add",
@@ -230,9 +230,9 @@ class VIEW3D_MT_Space_Dynamic_Menu(Menu):
             UseSeparator(self, context)
             layout.menu("VIEW3D_MT_TransformMenu", icon='MANIPUL')
             layout.menu("VIEW3D_MT_MirrorMenu", icon='MOD_MIRROR')
-            layout.menu("VIEW3D_MT_CursorMenu", icon='CURSOR')
+            layout.menu("VIEW3D_MT_CursorMenu", icon='PIVOT_CURSOR')
             UseSeparator(self, context)
-            layout.menu("VIEW3D_MT_ParentMenu", icon='ROTACTIVE')
+            layout.menu("VIEW3D_MT_ParentMenu", icon='PIVOT_ACTIVE')
             layout.menu("VIEW3D_MT_GroupMenu", icon='GROUP')
             UseSeparator(self, context)
             layout.menu("VIEW3D_MT_object_specials", text="Specials", icon='SOLO_OFF')
@@ -265,7 +265,7 @@ class VIEW3D_MT_Space_Dynamic_Menu(Menu):
             UseSeparator(self, context)
             layout.menu("VIEW3D_MT_TransformMenu", icon='MANIPUL')
             layout.menu("VIEW3D_MT_MirrorMenu", icon='MOD_MIRROR')
-            layout.menu("VIEW3D_MT_CursorMenu", icon='CURSOR')
+            layout.menu("VIEW3D_MT_CursorMenu", icon='PIVOT_CURSOR')
             layout.menu("VIEW3D_MT_EditCurveCtrlpoints",
                         icon='CURVE_BEZCURVE')
             layout.menu("VIEW3D_MT_EditCurveSpecials",
@@ -294,9 +294,9 @@ class VIEW3D_MT_Space_Dynamic_Menu(Menu):
             UseSeparator(self, context)
             layout.menu("VIEW3D_MT_TransformMenu", icon='MANIPUL')
             layout.menu("VIEW3D_MT_MirrorMenu", icon='MOD_MIRROR')
-            layout.menu("VIEW3D_MT_CursorMenu", icon='CURSOR')
+            layout.menu("VIEW3D_MT_CursorMenu", icon='PIVOT_CURSOR')
             UseSeparator(self, context)
-            layout.menu("VIEW3D_MT_ParentMenu", icon='ROTACTIVE')
+            layout.menu("VIEW3D_MT_ParentMenu", icon='PIVOT_ACTIVE')
             layout.menu("VIEW3D_MT_GroupMenu", icon='GROUP')
             UseSeparator(self, context)
             layout.menu("VIEW3D_MT_object_specials", text="Specials", icon='SOLO_OFF')
@@ -325,7 +325,7 @@ class VIEW3D_MT_Space_Dynamic_Menu(Menu):
                         icon='OUTLINER_OB_SURFACE')
             layout.menu("VIEW3D_MT_TransformMenu", icon='MANIPUL')
             layout.menu("VIEW3D_MT_MirrorMenu", icon='MOD_MIRROR')
-            layout.menu("VIEW3D_MT_CursorMenu", icon='CURSOR')
+            layout.menu("VIEW3D_MT_CursorMenu", icon='PIVOT_CURSOR')
             UseSeparator(self, context)
             layout.prop_menu_enum(settings, "proportional_edit",
                                   icon="PROP_CON")
@@ -357,9 +357,9 @@ class VIEW3D_MT_Space_Dynamic_Menu(Menu):
             UseSeparator(self, context)
             layout.menu("VIEW3D_MT_TransformMenu", icon='MANIPUL')
             layout.menu("VIEW3D_MT_MirrorMenu", icon='MOD_MIRROR')
-            layout.menu("VIEW3D_MT_CursorMenu", icon='CURSOR')
+            layout.menu("VIEW3D_MT_CursorMenu", icon='PIVOT_CURSOR')
             UseSeparator(self, context)
-            layout.menu("VIEW3D_MT_ParentMenu", icon='ROTACTIVE')
+            layout.menu("VIEW3D_MT_ParentMenu", icon='PIVOT_ACTIVE')
             layout.menu("VIEW3D_MT_GroupMenu", icon='GROUP')
             UseSeparator(self, context)
             layout.menu("VIEW3D_MT_object_specials", text="Specials", icon='SOLO_OFF')
@@ -388,7 +388,7 @@ class VIEW3D_MT_Space_Dynamic_Menu(Menu):
                                       icon='OUTLINER_OB_META')
             layout.menu("VIEW3D_MT_TransformMenu", icon='MANIPUL')
             layout.menu("VIEW3D_MT_MirrorMenu", icon='MOD_MIRROR')
-            layout.menu("VIEW3D_MT_CursorMenu", icon='CURSOR')
+            layout.menu("VIEW3D_MT_CursorMenu", icon='PIVOT_CURSOR')
             UseSeparator(self, context)
             layout.prop_menu_enum(settings, "proportional_edit",
                                   icon="PROP_CON")
@@ -418,9 +418,9 @@ class VIEW3D_MT_Space_Dynamic_Menu(Menu):
             UseSeparator(self, context)
             layout.menu("VIEW3D_MT_TransformMenu", icon='MANIPUL')
             layout.menu("VIEW3D_MT_MirrorMenu", icon='MOD_MIRROR')
-            layout.menu("VIEW3D_MT_CursorMenu", icon='CURSOR')
+            layout.menu("VIEW3D_MT_CursorMenu", icon='PIVOT_CURSOR')
             UseSeparator(self, context)
-            layout.menu("VIEW3D_MT_ParentMenu", icon='ROTACTIVE')
+            layout.menu("VIEW3D_MT_ParentMenu", icon='PIVOT_ACTIVE')
             layout.menu("VIEW3D_MT_GroupMenu", icon='GROUP')
             UseSeparator(self, context)
             layout.menu("VIEW3D_MT_object_specials", text="Specials", icon='SOLO_OFF')
@@ -470,9 +470,9 @@ class VIEW3D_MT_Space_Dynamic_Menu(Menu):
             layout.menu("VIEW3D_MT_Object", icon='VIEW3D')
             UseSeparator(self, context)
             layout.menu("VIEW3D_MT_TransformMenu", icon='MANIPUL')
-            layout.menu("VIEW3D_MT_CursorMenuLite", icon='CURSOR')
+            layout.menu("VIEW3D_MT_CursorMenuLite", icon='PIVOT_CURSOR')
             UseSeparator(self, context)
-            layout.menu("VIEW3D_MT_ParentMenu", icon='ROTACTIVE')
+            layout.menu("VIEW3D_MT_ParentMenu", icon='PIVOT_ACTIVE')
             layout.menu("VIEW3D_MT_GroupMenu", icon='GROUP')
             UseSeparator(self, context)
             layout.menu("VIEW3D_MT_object_specials", text="Specials", icon='SOLO_OFF')
@@ -501,9 +501,9 @@ class VIEW3D_MT_Space_Dynamic_Menu(Menu):
             layout.menu("VIEW3D_MT_Object", icon='VIEW3D')
             UseSeparator(self, context)
             layout.menu("VIEW3D_MT_TransformMenuLite", icon='MANIPUL')
-            layout.menu("VIEW3D_MT_CursorMenuLite", icon='CURSOR')
+            layout.menu("VIEW3D_MT_CursorMenuLite", icon='PIVOT_CURSOR')
             UseSeparator(self, context)
-            layout.menu("VIEW3D_MT_ParentMenu", icon='ROTACTIVE')
+            layout.menu("VIEW3D_MT_ParentMenu", icon='PIVOT_ACTIVE')
             layout.menu("VIEW3D_MT_GroupMenu", icon='GROUP')
             UseSeparator(self, context)
             layout.menu("VIEW3D_MT_object_specials", text="Specials", icon='SOLO_OFF')
@@ -533,9 +533,9 @@ class VIEW3D_MT_Space_Dynamic_Menu(Menu):
             UseSeparator(self, context)
             layout.menu("VIEW3D_MT_TransformMenuArmature", icon='MANIPUL')
             layout.menu("VIEW3D_MT_MirrorMenu", icon='MOD_MIRROR')
-            layout.menu("VIEW3D_MT_CursorMenuLite", icon='CURSOR')
+            layout.menu("VIEW3D_MT_CursorMenuLite", icon='PIVOT_CURSOR')
             UseSeparator(self, context)
-            layout.menu("VIEW3D_MT_ParentMenu", icon='ROTACTIVE')
+            layout.menu("VIEW3D_MT_ParentMenu", icon='PIVOT_ACTIVE')
             layout.menu("VIEW3D_MT_GroupMenu", icon='GROUP')
             UseSeparator(self, context)
             layout.menu("VIEW3D_MT_object_specials", text="Specials", icon='SOLO_OFF')
@@ -570,8 +570,8 @@ class VIEW3D_MT_Space_Dynamic_Menu(Menu):
             UseSeparator(self, context)
             layout.menu("VIEW3D_MT_TransformMenuArmatureEdit", icon='MANIPUL')
             layout.menu("VIEW3D_MT_MirrorMenu", icon='MOD_MIRROR')
-            layout.menu("VIEW3D_MT_CursorMenuLite", icon='CURSOR')
-            layout.menu("VIEW3D_MT_ParentMenu", icon='ROTACTIVE')
+            layout.menu("VIEW3D_MT_CursorMenuLite", icon='PIVOT_CURSOR')
+            layout.menu("VIEW3D_MT_ParentMenu", icon='PIVOT_ACTIVE')
             layout.menu("VIEW3D_MT_armature_specials", icon='SOLO_OFF')
             layout.menu("VIEW3D_MT_edit_armature_roll",
                         icon='BONE_DATA')
@@ -599,7 +599,7 @@ class VIEW3D_MT_Space_Dynamic_Menu(Menu):
             layout.menu("VIEW3D_MT_TransformMenuArmaturePose", icon='MANIPUL')
             layout.menu("VIEW3D_MT_pose_transform", icon='EMPTY_DATA')
             UseSeparator(self, context)
-            layout.menu("VIEW3D_MT_CursorMenuLite", icon='CURSOR')
+            layout.menu("VIEW3D_MT_CursorMenuLite", icon='PIVOT_CURSOR')
             layout.menu("VIEW3D_MT_PoseCopy", icon='FILE')
 
             if arm.display_type in {'BBONE', 'ENVELOPE'}:
@@ -635,9 +635,9 @@ class VIEW3D_MT_Space_Dynamic_Menu(Menu):
             UseSeparator(self, context)
             layout.menu("VIEW3D_MT_TransformMenu", icon='MANIPUL')
             layout.menu("VIEW3D_MT_MirrorMenu", icon='MOD_MIRROR')
-            layout.menu("VIEW3D_MT_CursorMenu", icon='CURSOR')
+            layout.menu("VIEW3D_MT_CursorMenu", icon='PIVOT_CURSOR')
             UseSeparator(self, context)
-            layout.menu("VIEW3D_MT_ParentMenu", icon='ROTACTIVE')
+            layout.menu("VIEW3D_MT_ParentMenu", icon='PIVOT_ACTIVE')
             layout.menu("VIEW3D_MT_GroupMenu", icon='GROUP')
             UseSeparator(self, context)
             layout.menu("VIEW3D_MT_object_specials", text="Specials", icon='SOLO_OFF')
@@ -666,7 +666,7 @@ class VIEW3D_MT_Space_Dynamic_Menu(Menu):
             UseSeparator(self, context)
             layout.menu("VIEW3D_MT_TransformMenu", icon='MANIPUL')
             layout.menu("VIEW3D_MT_MirrorMenu", icon='MOD_MIRROR')
-            layout.menu("VIEW3D_MT_CursorMenu", icon='CURSOR')
+            layout.menu("VIEW3D_MT_CursorMenu", icon='PIVOT_CURSOR')
             UseSeparator(self, context)
             layout.prop_menu_enum(settings, "proportional_edit",
                                   icon="PROP_CON")
@@ -695,9 +695,9 @@ class VIEW3D_MT_Space_Dynamic_Menu(Menu):
             UseSeparator(self, context)
             layout.menu("VIEW3D_MT_TransformMenuLite", icon='MANIPUL')
             layout.menu("VIEW3D_MT_MirrorMenu", icon='MOD_MIRROR')
-            layout.menu("VIEW3D_MT_CursorMenuLite", icon='CURSOR')
+            layout.menu("VIEW3D_MT_CursorMenuLite", icon='PIVOT_CURSOR')
             UseSeparator(self, context)
-            layout.menu("VIEW3D_MT_ParentMenu", icon='ROTACTIVE')
+            layout.menu("VIEW3D_MT_ParentMenu", icon='PIVOT_ACTIVE')
             layout.menu("VIEW3D_MT_GroupMenu", icon='GROUP')
             UseSeparator(self, context)
             layout.menu("VIEW3D_MT_object_specials", text="Specials", icon='SOLO_OFF')
@@ -726,9 +726,9 @@ class VIEW3D_MT_Space_Dynamic_Menu(Menu):
             layout.menu("VIEW3D_MT_Object", icon='VIEW3D')
             UseSeparator(self, context)
             layout.menu("VIEW3D_MT_TransformMenuLite", icon='MANIPUL')
-            layout.menu("VIEW3D_MT_CursorMenuLite", icon='CURSOR')
+            layout.menu("VIEW3D_MT_CursorMenuLite", icon='PIVOT_CURSOR')
             UseSeparator(self, context)
-            layout.menu("VIEW3D_MT_ParentMenu", icon='ROTACTIVE')
+            layout.menu("VIEW3D_MT_ParentMenu", icon='PIVOT_ACTIVE')
             layout.menu("VIEW3D_MT_GroupMenu", icon='GROUP')
             UseSeparator(self, context)
             layout.operator_menu_enum("object.constraint_add",
@@ -754,7 +754,7 @@ class VIEW3D_MT_Space_Dynamic_Menu(Menu):
             UseSeparator(self, context)
             layout.menu("VIEW3D_MT_TransformMenu", icon='MANIPUL')
             layout.menu("VIEW3D_MT_MirrorMenu", icon='MOD_MIRROR')
-            layout.menu("VIEW3D_MT_CursorMenuLite", icon='CURSOR')
+            layout.menu("VIEW3D_MT_CursorMenuLite", icon='PIVOT_CURSOR')
             UseSeparator(self, context)
             layout.prop_menu_enum(settings, "proportional_edit",
                                   icon="PROP_CON")
@@ -1351,7 +1351,7 @@ class VIEW3D_MT_Edit_Multi(Menu):
 
         prop = layout.operator("wm.context_set_value",
                                text="Vertex & Face Select",
-                               icon='ORTHO')
+                               icon='XRAY')
         prop.value = "(True, False, True)"
         prop.data_path = "tool_settings.mesh_select_mode"
 
@@ -1653,7 +1653,7 @@ class VIEW3D_MT_Hide_Masks(Menu):
 
         props = layout.operator("paint.mask_lasso_gesture", text="Lasso Mask")
         UseSeparator(self, context)
-        props = layout.operator("view3d.select_border", text="Box Mask", icon="BORDER_RECT")
+        props = layout.operator("view3d.select_box", text="Box Mask", icon="BORDER_RECT")
         props = layout.operator("paint.hide_show", text="Box Hide")
         props.action = 'HIDE'
         props.area = 'INSIDE'
@@ -2228,7 +2228,7 @@ class VIEW3D_MT_Shade(Menu):
                 layout.operator("OBJECT_OT_shade_flat")
 
         UseSeparator(self, context)
-        layout.operator("view3d.display_wire_all", text="Wire all", icon='WIRE')
+        layout.operator("view3d.display_wire_all", text="Wire all", icon='SHADING_WIRE')
         layout.prop(context.object, "show_in_front", text="X-Ray", icon="META_CUBE")
 
         UseSeparator(self, context)
@@ -2272,7 +2272,7 @@ class VIEW3D_MT_Select_Object(Menu):
     def draw(self, context):
         layout = self.layout
         layout.operator_context = 'INVOKE_REGION_WIN'
-        layout.operator("view3d.select_border")
+        layout.operator("view3d.select_box")
         layout.operator("view3d.select_circle")
         UseSeparator(self, context)
         layout.operator("object.select_all").action = 'TOGGLE'
@@ -2322,7 +2322,7 @@ class VIEW3D_MT_Select_Edit_Mesh(Menu):
 
     def draw(self, context):
         layout = self.layout
-        layout.operator("view3d.select_border")
+        layout.operator("view3d.select_box")
         layout.operator("view3d.select_circle")
         UseSeparator(self, context)
         layout.operator("mesh.select_all").action = 'TOGGLE'
@@ -2388,7 +2388,7 @@ class VIEW3D_MT_Select_Edit_Curve(Menu):
 
     def draw(self, context):
         layout = self.layout
-        layout.operator("view3d.select_border")
+        layout.operator("view3d.select_box")
         layout.operator("view3d.select_circle")
         UseSeparator(self, context)
         layout.operator("curve.select_all").action = 'TOGGLE'
@@ -2413,7 +2413,7 @@ class VIEW3D_MT_SelectArmatureMenu(Menu):
 
     def draw(self, context):
         layout = self.layout
-        layout.operator("view3d.select_border")
+        layout.operator("view3d.select_box")
         layout.operator("armature.select_all")
         layout.operator("armature.select_inverse", text="Inverse")
         layout.operator("armature.select_hierarchy",
@@ -2437,7 +2437,7 @@ class VIEW3D_MT_Select_Edit_Armature(Menu):
     def draw(self, context):
         layout = self.layout
 
-        layout.operator("view3d.select_border")
+        layout.operator("view3d.select_box")
         layout.operator("view3d.select_circle")
 
         UseSeparator(self, context)
@@ -2480,7 +2480,7 @@ class VIEW3D_MT_Select_Pose(Menu):
 
     def draw(self, context):
         layout = self.layout
-        layout.operator("view3d.select_border")
+        layout.operator("view3d.select_box")
         layout.operator("view3d.select_circle")
         UseSeparator(self, context)
         layout.operator("pose.select_all").action = 'TOGGLE'
@@ -2561,7 +2561,7 @@ class VIEW3D_MT_Select_Edit_Surface(Menu):
 
     def draw(self, context):
         layout = self.layout
-        layout.operator("view3d.select_border")
+        layout.operator("view3d.select_box")
         layout.operator("view3d.select_circle")
         UseSeparator(self, context)
         layout.operator("curve.select_all").action = 'TOGGLE'
@@ -2582,7 +2582,7 @@ class VIEW3D_MT_SelectMetaball(Menu):
 
     def draw(self, context):
         layout = self.layout
-        layout.operator("view3d.select_border")
+        layout.operator("view3d.select_box")
         layout.operator("view3d.select_circle")
         UseSeparator(self, context)
         layout.operator("mball.select_all").action = 'TOGGLE'
@@ -2595,7 +2595,7 @@ class VIEW3D_MT_Select_Edit_Metaball(Menu):
 
     def draw(self, context):
         layout = self.layout
-        layout.operator("view3d.select_border")
+        layout.operator("view3d.select_box")
         layout.operator("view3d.select_circle")
         layout.operator("mball.select_all").action = 'TOGGLE'
         layout.operator("mball.select_all", text="Inverse").action = 'INVERT'
@@ -2620,7 +2620,7 @@ class VIEW3D_MT_Select_Particle(Menu):
     def draw(self, context):
         layout = self.layout
 
-        layout.operator("view3d.select_border")
+        layout.operator("view3d.select_box")
         layout.operator("view3d.select_circle")
         UseSeparator(self, context)
 
@@ -2647,7 +2647,7 @@ class VIEW3D_MT_Select_Edit_Lattice(Menu):
     def draw(self, context):
         layout = self.layout
 
-        layout.operator("view3d.select_border")
+        layout.operator("view3d.select_box")
         layout.operator("view3d.select_circle")
         UseSeparator(self, context)
         layout.operator("lattice.select_mirror")
@@ -2667,7 +2667,7 @@ class VIEW3D_MT_Select_Gpencil(Menu):
     def draw(self, context):
         layout = self.layout
 
-        layout.operator("gpencil.select_border")
+        layout.operator("gpencil.select_box")
         layout.operator("gpencil.select_circle")
 
         UseSeparator(self, context)
@@ -2705,7 +2705,7 @@ class VIEW3D_MT_Select_Paint_Mask(Menu):
 
     def draw(self, context):
         layout = self.layout
-        layout.operator("view3d.select_border")
+        layout.operator("view3d.select_box")
         layout.operator("view3d.select_circle")
         layout.operator("paint.face_select_all").action = 'TOGGLE'
         layout.operator("paint.face_select_all", text="Inverse").action = 'INVERT'
@@ -2717,7 +2717,7 @@ class VIEW3D_MT_Select_Paint_Mask_Vertex(Menu):
 
     def draw(self, context):
         layout = self.layout
-        layout.operator("view3d.select_border")
+        layout.operator("view3d.select_box")
         layout.operator("view3d.select_circle")
         layout.operator("paint.vert_select_all").action = 'TOGGLE'
         layout.operator("paint.vert_select_all", text="Inverse").action = 'INVERT'
@@ -2952,7 +2952,7 @@ def UseSeparator(operator, context):
 
 # Use compact brushes menus #
 def UseBrushesLists():
-    # separate function just for more convience
+    # separate function just for more convenience
     useLists = bpy.context.user_preferences.addons[__name__].preferences.use_brushes_lists
 
     return bool(useLists)

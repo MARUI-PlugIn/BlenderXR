@@ -10,7 +10,7 @@ This script/addon:
     - Converts multiple Actions
 
 TO-DO:
-    - To convert object's rotation mode (alrady done in Mutant Bob script,
+    - To convert object's rotation mode (already done in Mutant Bob script,
 		but not done in this one.
     - To understand "EnumProperty" and write it well.
     - Code clean
@@ -42,8 +42,6 @@ from bpy.props import (
     BoolProperty,
     EnumProperty,
 )
-
-order_list = ['QUATERNION', 'XYZ', 'XZY', 'YXZ', 'YZX', 'ZXY', 'ZYX']
 
 
 class convert():
@@ -223,28 +221,6 @@ class convert():
 convert = convert()
 
 
-# def initSceneProperties(scn):
-#
-# 	bpy.types.Scene.order_list = bpy.props.EnumProperty(
-# 	items = [('QUATERNION', 'QUATERNION', 'QUATERNION' ),
-# 	('XYZ', 'XYZ', 'XYZ' ),
-# 	('XZY', 'XZY', 'XZY' ),
-# 	('YXZ', 'YXZ', 'YXZ' ),
-# 	('YZX', 'YZX', 'YZX' ),
-# 	('ZXY', 'ZXY', 'ZXY' ),
-# 	('ZYX', 'ZYX', 'ZYX' ) ],
-# 	name = "Order",
-# 	description = "The target rotation mode")
-#
-# 	scn['order_list'] = 0
-#
-# 	return
-#
-# initSceneProperties(bpy.context.scene)
-
-
-# GUI (Panel)
-#
 class ToolsPanel(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'TOOLS'
@@ -294,7 +270,7 @@ class CONVERT_OT_quat2eu_current_action(bpy.types.Operator):
         obj = bpy.context.active_object
         pose_bones = bpy.context.selected_pose_bones
         action = obj.animation_data.action
-        order = order_list[bpy.context.scene['order_list']]
+        order = bpy.context.scene.order_list
         id_store = context.window_manager
 
         if id_store.rigify_convert_only_selected:
@@ -319,7 +295,7 @@ class CONVERT_OT_quat2eu_all_actions(bpy.types.Operator):
     def execute(op, context):
         obj = bpy.context.active_object
         pose_bones = bpy.context.selected_pose_bones
-        order = order_list[bpy.context.scene['order_list']]
+        order = bpy.context.scene.order_list
         id_store = context.window_manager
 
         if id_store.rigify_convert_only_selected:

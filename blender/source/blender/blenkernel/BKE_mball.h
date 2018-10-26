@@ -32,6 +32,15 @@
  *  \since March 2001
  *  \author nzc
  */
+
+ #include "../vr/vr_build.h"
+ #if WITH_VR
+ #ifdef __cplusplus
+ extern "C"
+ {
+ #endif
+ #endif
+
 struct BoundBox;
 struct Depsgraph;
 struct Main;
@@ -85,5 +94,11 @@ enum {
 };
 void BKE_mball_batch_cache_dirty_tag(struct MetaBall *mb, int mode);
 void BKE_mball_batch_cache_free(struct MetaBall *mb);
+
+#if WITH_VR
+#ifdef __cplusplus
+}
+#endif
+#endif
 
 #endif

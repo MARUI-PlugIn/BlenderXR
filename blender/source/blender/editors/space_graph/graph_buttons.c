@@ -874,7 +874,7 @@ static void graph_draw_driver_settings_panel(uiLayout *layout, ID *id, FCurve *f
 		/* add driver variable - add blank */
 		row = uiLayoutRow(layout, true);
 		block = uiLayoutGetBlock(row);
-		but = uiDefIconTextBut(block, UI_BTYPE_BUT, B_IPO_DEPCHANGE, ICON_ZOOMIN, IFACE_("Add Input Variable"),
+		but = uiDefIconTextBut(block, UI_BTYPE_BUT, B_IPO_DEPCHANGE, ICON_ADD, IFACE_("Add Input Variable"),
 		                       0, 0, 10 * UI_UNIT_X, UI_UNIT_Y,
 		                       NULL, 0.0, 0.0, 0, 0,
 		                       TIP_("Add a Driver Variable to keep track an input used by the driver"));
@@ -888,10 +888,10 @@ static void graph_draw_driver_settings_panel(uiLayout *layout, ID *id, FCurve *f
 		/* add driver variable */
 		row = uiLayoutRow(layout, false);
 		block = uiLayoutGetBlock(row);
-		but = uiDefIconTextBut(block, UI_BTYPE_BUT, B_IPO_DEPCHANGE, ICON_ZOOMIN, IFACE_("Add Input Variable"),
+		but = uiDefIconTextBut(block, UI_BTYPE_BUT, B_IPO_DEPCHANGE, ICON_ADD, IFACE_("Add Input Variable"),
 		                       0, 0, 10 * UI_UNIT_X, UI_UNIT_Y,
 		                       NULL, 0.0, 0.0, 0, 0,
-		                       TIP_("Driver variables ensure that all dependencies will be accounted for, eusuring that drivers will update correctly"));
+		                       TIP_("Driver variables ensure that all dependencies will be accounted for, ensuring that drivers will update correctly"));
 		UI_but_func_set(but, driver_add_var_cb, driver, NULL);
 
 		/* copy/paste (as sub-row) */
@@ -1198,6 +1198,7 @@ void graph_buttons_register(ARegionType *art)
 	pt->draw = graph_panel_drivers_popover;
 	pt->poll = graph_panel_drivers_popover_poll;
 	BLI_addtail(&art->paneltypes, pt);
+	WM_paneltype_add(pt); /* This panel isn't used in this region. Add explicitly to global list (so popovers work). */
 
 	pt = MEM_callocN(sizeof(PanelType), "spacetype graph panel modifiers");
 	strcpy(pt->idname, "GRAPH_PT_modifiers");

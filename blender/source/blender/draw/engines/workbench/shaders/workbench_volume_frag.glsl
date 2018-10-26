@@ -3,9 +3,15 @@ uniform mat4 ProjectionMatrix;
 uniform mat4 ModelMatrixInverse;
 uniform mat4 ModelViewMatrixInverse;
 uniform mat4 ModelMatrix;
+uniform vec3 OrcoTexCoFactors[2];
 
 uniform sampler2D depthBuffer;
+
 uniform sampler3D densityTexture;
+uniform sampler3D shadowTexture;
+uniform sampler3D flameTexture;
+uniform sampler1D flameColorTexture;
+uniform sampler1D transferTexture;
 
 uniform int samplesLen = 256;
 uniform float stepLength; /* Step length in local space. */
@@ -62,15 +68,35 @@ float line_unit_box_intersect_dist(vec3 lineorigin, vec3 linedirection)
 
 void volume_properties(vec3 ls_pos, out vec3 scattering, out float extinction)
 {
-	scattering = vec3(0.0);
-	extinction = 1e-8;
+	vec3 co = ls_pos * 0.5 + 0.5;
+#ifdef USE_COBA
+	float val = texture(densityTexture, co).r;
+	vec4 tval = texture(transferTexture, val) * densityScale;
+	tval.rgb = pow(tval.rgb, vec3(2.2));
+	scattering = tval.rgb * 1500.0;
+	extinction = max(1e-4, tval.a * 50.0);
+#else
+	float flame = texture(flameTexture, co).r;
+	vec4 emission = texture(flameColorTexture, flame);
+	float shadows = texture(shadowTexture, co).r;
+	vec4 density = texture(densityTexture, co); /* rgb: color, a: density */
 
-	vec4 density = texture(densityTexture, ls_pos * 0.5 + 0.5);
-	density.rgb /= density.a;
-	density *= densityScale;
+	scattering = density.rgb * density.a * densityScale;
+	extinction = max(1e-4, dot(scattering, vec3(0.33333)));
 
-	scattering = density.rgb;
-	extinction = max(1e-8, density.a);
+	scattering *= shadows * M_PI;
+	/* 800 is arbitrary and here to mimic old viewport. TODO make it a parameter */
+	scattering += pow(emission.rgb, vec3(2.2)) * emission.a * 800.0;
+#endif
+}
+
+void eval_volume_step(inout vec3 Lscat, float extinction, float step_len, out float Tr)
+{
+	Lscat *= phase_function_isotropic();
+	/* Evaluate Scattering */
+	Tr = exp(-extinction * step_len);
+	/* integrate along the current step segment */
+	Lscat = (Lscat - Lscat * Tr) / extinction;
 }
 
 #define P(x) ((x + 0.5) * (1.0 / 16.0))
@@ -96,18 +122,15 @@ vec4 volume_integration(
 		vec3 ls_pos = ray_ori + ray_dir * ray_len;
 
 		vec3 Lscat;
-		float s_extinction;
+		float s_extinction, Tr;
 		volume_properties(ls_pos, Lscat, s_extinction);
-		/* Evaluate Scattering */
-		float Tr = exp(-s_extinction * step_len);
-		/* integrate along the current step segment */
-		Lscat = (Lscat - Lscat * Tr) / s_extinction;
+		eval_volume_step(Lscat, s_extinction, step_len, Tr);
 		/* accumulate and also take into account the transmittance from previous steps */
 		final_scattering += final_transmittance * Lscat;
 		final_transmittance *= Tr;
 	}
 
-	return vec4(final_scattering, 1.0 - final_transmittance);
+	return vec4(final_scattering, final_transmittance);
 }
 
 void main()
@@ -134,15 +157,11 @@ void main()
 	step_len = 1.0 / step_len;
 
 	vec3 Lscat;
-	float s_extinction;
+	float s_extinction, Tr;
 	volume_properties(localPos, Lscat, s_extinction);
-	/* Evaluate Scattering */
-	float Tr = exp(-s_extinction * step_len);
-	/* integrate along the current step segment */
-	Lscat = (Lscat - Lscat * Tr) / s_extinction;
+	eval_volume_step(Lscat, s_extinction, step_len, Tr);
 
-	fragColor = vec4(Lscat, 1.0 - Tr);
-
+	fragColor = vec4(Lscat, Tr);
 #else
 	vec2 screen_uv = gl_FragCoord.xy / vec2(textureSize(depthBuffer, 0).xy);
 	bool is_persp = ProjectionMatrix[3][3] == 0.0;
@@ -156,9 +175,12 @@ void main()
 	vec3 vs_ray_dir = (is_persp) ? (vs_ray_end - vs_ray_ori) : vec3(0.0, 0.0, -1.0);
 	vs_ray_dir /= abs(vs_ray_dir.z);
 
-	vec3 ls_ray_dir = mat3(ModelViewMatrixInverse) * vs_ray_dir;
+	vec3 ls_ray_dir = mat3(ModelViewMatrixInverse) * vs_ray_dir * OrcoTexCoFactors[1] * 2.0;
 	vec3 ls_ray_ori = (ModelViewMatrixInverse * vec4(vs_ray_ori, 1.0)).xyz;
 	vec3 ls_ray_end = (ModelViewMatrixInverse * vec4(vs_ray_end, 1.0)).xyz;
+
+	ls_ray_ori = (OrcoTexCoFactors[0] + ls_ray_ori * OrcoTexCoFactors[1]) * 2.0 - 1.0;
+	ls_ray_end = (OrcoTexCoFactors[0] + ls_ray_end * OrcoTexCoFactors[1]) * 2.0 - 1.0;
 
 	/* TODO: Align rays to volume center so that it mimics old behaviour of slicing the volume. */
 

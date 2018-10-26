@@ -1521,7 +1521,6 @@ class WM_OT_copy_prev_settings(Operator):
         return os.path.isfile(old_userpref) and not os.path.isfile(new_userpref)
 
     def execute(self, context):
-        import os
         import shutil
 
         shutil.copytree(self._old_path(), self._new_path(), symlinks=True)
@@ -2204,7 +2203,7 @@ class WM_OT_addon_remove(Operator):
     # lame confirmation check
     def draw(self, context):
         self.layout.label(text="Remove Add-on: %r?" % self.module)
-        path, isdir = WM_OT_addon_remove.path_from_addon(self.module)
+        path, _isdir = WM_OT_addon_remove.path_from_addon(self.module)
         self.layout.label(text="Path: %r" % path)
 
     def invoke(self, context, event):
@@ -2521,11 +2520,11 @@ class WM_OT_studiolight_uninstall(Operator):
         userpref = context.user_preferences
         for studio_light in userpref.studio_lights:
             if studio_light.index == self.index:
-                if len(studio_light.path) > 0:
+                if studio_light.path:
                     self._remove_path(pathlib.Path(studio_light.path))
-                if len(studio_light.path_irr_cache) > 0:
+                if studio_light.path_irr_cache:
                     self._remove_path(pathlib.Path(studio_light.path_irr_cache))
-                if len(studio_light.path_sh_cache) > 0:
+                if studio_light.path_sh_cache:
                     self._remove_path(pathlib.Path(studio_light.path_sh_cache))
                 userpref.studio_lights.remove(studio_light)
                 return {'FINISHED'}
@@ -2559,8 +2558,6 @@ class WM_MT_splash(Menu):
 
         col = split.column()
 
-        col.label()
-
         sub = col.column(align=True)
         sub.label(text="Input and Shortcuts:")
         text = bpy.path.display_name(context.window_manager.keyconfigs.active.name)
@@ -2570,13 +2567,19 @@ class WM_MT_splash(Menu):
 
         col.separator()
 
+        sub = col.column(align=True)
+        sub.label(text="Theme:")
+        label = bpy.types.USERPREF_MT_interface_theme_presets.bl_label
+        if label == "Presets":
+            label = "Blender Dark"
+        sub.menu("USERPREF_MT_interface_theme_presets", text=label)
+
         # We need to make switching to a language easier first
         #sub = col.column(align=False)
         # sub.label(text="Language:")
         #userpref = context.user_preferences
         #sub.prop(userpref.system, "language", text="")
 
-        col.label()
         col.label()
 
         layout.label()
@@ -2661,17 +2664,41 @@ class WM_MT_splash(Menu):
             ).url = "https://www.blender.org/download/releases/%d-%d/" % bpy.app.version[:2]
             col2.operator(
                 "wm.url_open", text="Development Fund", icon='URL'
-            ).url = "https://www.blender.org/foundation/development-fund/"
+            ).url = "https://fund.blender.org"
         else:
             col2.operator(
                 "wm.url_open", text="Development Fund", icon='URL'
-            ).url = "https://www.blender.org/foundation/development-fund/"
+            ).url = "https://fund.blender.org"
             col2.operator(
                 "wm.url_open", text="Donate", icon='URL'
             ).url = "https://www.blender.org/foundation/donation-payment/"
 
         layout.separator()
 
+
+class WM_OT_drop_blend_file(Operator):
+    bl_idname = "wm.drop_blend_file"
+    bl_label = "Handle dropped .blend file"
+    bl_options = {'INTERNAL'}
+
+    filepath: StringProperty()
+
+    def invoke(self, context, event):
+        context.window_manager.popup_menu(self.draw_menu, title=bpy.path.basename(self.filepath), icon='QUESTION')
+        return {"FINISHED"}
+
+    def draw_menu(self, menu, context):
+        layout = menu.layout
+
+        col = layout.column()
+        col.operator_context = 'EXEC_DEFAULT'
+        col.operator("wm.open_mainfile", text="Open", icon='FILE_FOLDER').filepath = self.filepath
+
+        layout.separator()
+        col = layout.column()
+        col.operator_context = 'INVOKE_DEFAULT'
+        col.operator("wm.link", text="Link...", icon='LINK_BLEND').filepath = self.filepath
+        col.operator("wm.append", text="Append...", icon='APPEND_BLEND').filepath = self.filepath
 
 classes = (
     BRUSH_OT_active_index_set,
@@ -2706,6 +2733,7 @@ classes = (
     WM_OT_copy_prev_settings,
     WM_OT_doc_view,
     WM_OT_doc_view_manual,
+    WM_OT_drop_blend_file,
     WM_OT_keyconfig_activate,
     WM_OT_keyconfig_export,
     WM_OT_keyconfig_import,

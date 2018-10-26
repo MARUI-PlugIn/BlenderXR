@@ -402,6 +402,20 @@ bool BKE_gpencil_has_geometry_modifiers(Object *ob)
 	return false;
 }
 
+/* check if exist time modifiers */
+bool BKE_gpencil_has_time_modifiers(Object *ob)
+{
+	GpencilModifierData *md;
+	for (md = ob->greasepencil_modifiers.first; md; md = md->next) {
+		const GpencilModifierTypeInfo *mti = BKE_gpencil_modifierType_getInfo(md->type);
+
+		if (mti && mti->remapTime) {
+			return true;
+		}
+	}
+	return false;
+}
+
 /* apply stroke modifiers */
 void BKE_gpencil_stroke_modifiers(Depsgraph *depsgraph, Object *ob, bGPDlayer *gpl, bGPDframe *UNUSED(gpf), bGPDstroke *gps, bool is_render)
 {
@@ -459,6 +473,36 @@ void BKE_gpencil_geometry_modifiers(Depsgraph *depsgraph, Object *ob, bGPDlayer 
 	}
 }
 
+/* apply time modifiers */
+int BKE_gpencil_time_modifier(Depsgraph *depsgraph, Scene *scene, Object *ob,
+	bGPDlayer *gpl, int cfra, bool is_render)
+{
+	GpencilModifierData *md;
+	bGPdata *gpd = ob->data;
+	const bool is_edit = GPENCIL_ANY_EDIT_MODE(gpd);
+	int nfra = cfra;
+
+	for (md = ob->greasepencil_modifiers.first; md; md = md->next) {
+		if (GPENCIL_MODIFIER_ACTIVE(md, is_render)) {
+			const GpencilModifierTypeInfo *mti = BKE_gpencil_modifierType_getInfo(md->type);
+
+			if (GPENCIL_MODIFIER_EDIT(md, is_edit)) {
+				continue;
+			}
+
+			if (mti->remapTime) {
+				nfra = mti->remapTime(md, depsgraph, scene, ob, gpl, cfra);
+				/* if the frame number changed, don't evaluate more and return */
+				if (nfra != cfra) {
+					return nfra;
+				}
+			}
+		}
+	}
+
+	/* if no time modifier, return original frame number */
+	return nfra;
+}
 /* *************************************************** */
 
 void BKE_gpencil_eval_geometry(Depsgraph *depsgraph,

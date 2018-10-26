@@ -435,8 +435,11 @@ static void drw_shgroup_bone_ik_no_target_lines(const float start[3], const floa
 		g_data.lines_ik_no_target = shgroup_dynlines_dashed_uniform_color(g_data.passes.relationship_lines, fcolor);
 	}
 	/* reverse order to have less stipple overlap */
-	DRW_shgroup_call_dynamic_add(g_data.lines_ik_no_target, end);
-	DRW_shgroup_call_dynamic_add(g_data.lines_ik_no_target, start);
+	float v[3];
+	mul_v3_m4v3(v, g_data.ob->obmat, end);
+	DRW_shgroup_call_dynamic_add(g_data.lines_ik_no_target, v);
+	mul_v3_m4v3(v, g_data.ob->obmat, start);
+	DRW_shgroup_call_dynamic_add(g_data.lines_ik_no_target, v);
 }
 
 static void drw_shgroup_bone_ik_spline_lines(const float start[3], const float end[3])
@@ -446,8 +449,11 @@ static void drw_shgroup_bone_ik_spline_lines(const float start[3], const float e
 		g_data.lines_ik_spline = shgroup_dynlines_dashed_uniform_color(g_data.passes.relationship_lines, fcolor);
 	}
 	/* reverse order to have less stipple overlap */
-	DRW_shgroup_call_dynamic_add(g_data.lines_ik_spline, end);
-	DRW_shgroup_call_dynamic_add(g_data.lines_ik_spline, start);
+	float v[3];
+	mul_v3_m4v3(v, g_data.ob->obmat, end);
+	DRW_shgroup_call_dynamic_add(g_data.lines_ik_spline, v);
+	mul_v3_m4v3(v, g_data.ob->obmat, start);
+	DRW_shgroup_call_dynamic_add(g_data.lines_ik_spline, v);
 }
 
 /** \} */
@@ -940,6 +946,7 @@ static void ebone_spline_preview(EditBone *ebone, float result_array[MAX_BBONE_S
 	BBoneSplineParameters param;
 	EditBone *prev, *next;
 	float imat[4][4], bonemat[4][4];
+	float tmp[3];
 
 	memset(&param, 0, sizeof(param));
 
@@ -975,12 +982,18 @@ static void ebone_spline_preview(EditBone *ebone, float result_array[MAX_BBONE_S
 
 		if (prev) {
 			param.use_prev = true;
-			param.prev_bbone = (prev->segments > 1);
 
 			if (ebone->bbone_prev_type == BBONE_HANDLE_RELATIVE) {
 				zero_v3(param.prev_h);
 			}
+			else if (ebone->bbone_prev_type == BBONE_HANDLE_TANGENT) {
+				sub_v3_v3v3(tmp, prev->tail, prev->head);
+				sub_v3_v3v3(tmp, ebone->head, tmp);
+				mul_v3_m4v3(param.prev_h, imat, tmp);
+			}
 			else {
+				param.prev_bbone = (prev->segments > 1);
+
 				mul_v3_m4v3(param.prev_h, imat, prev->head);
 			}
 
@@ -992,12 +1005,18 @@ static void ebone_spline_preview(EditBone *ebone, float result_array[MAX_BBONE_S
 
 		if (next) {
 			param.use_next = true;
-			param.next_bbone = (next->segments > 1);
 
 			if (ebone->bbone_next_type == BBONE_HANDLE_RELATIVE) {
 				copy_v3_fl3(param.next_h, 0.0f, param.length, 0.0);
 			}
+			else if (ebone->bbone_next_type == BBONE_HANDLE_TANGENT) {
+				sub_v3_v3v3(tmp, next->tail, next->head);
+				add_v3_v3v3(tmp, ebone->tail, tmp);
+				mul_v3_m4v3(param.next_h, imat, tmp);
+			}
 			else {
+				param.next_bbone = (next->segments > 1);
+
 				mul_v3_m4v3(param.next_h, imat, next->tail);
 			}
 

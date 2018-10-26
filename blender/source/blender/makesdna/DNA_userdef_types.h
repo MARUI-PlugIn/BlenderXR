@@ -200,7 +200,13 @@ typedef struct ThemeUI {
 	char gizmo_secondary[4];
 	char gizmo_a[4];
 	char gizmo_b[4];
-	char pad2[4];
+
+	/* Icon Colors. */
+	char icon_collection[4];  /* Collection items */
+	char icon_object[4];      /* Object items */
+	char icon_object_data[4]; /* Object data items */
+	char icon_modifier[4];    /* Modifier and constraint items */
+	char icon_shading[4];     /* Shading related items */
 } ThemeUI;
 
 /* try to put them all in one, if needed a special struct can be created as well
@@ -281,8 +287,8 @@ typedef struct ThemeSpace {
 	char handle_sel_free[4], handle_sel_auto[4], handle_sel_vect[4], handle_sel_align[4], handle_sel_auto_clamped[4];
 
 	char ds_channel[4], ds_subchannel[4]; /* dopesheet */
-	char keytype_keyframe[4], keytype_extreme[4], keytype_breakdown[4], keytype_jitter[4]; /* keytypes */
-	char keytype_keyframe_select[4], keytype_extreme_select[4], keytype_breakdown_select[4], keytype_jitter_select[4]; /* keytypes */
+	char keytype_keyframe[4], keytype_extreme[4], keytype_breakdown[4], keytype_jitter[4], keytype_movehold[4]; /* keytypes */
+	char keytype_keyframe_select[4], keytype_extreme_select[4], keytype_breakdown_select[4], keytype_jitter_select[4], keytype_movehold_select[4]; /* keytypes */
 	char keyborder[4], keyborder_select[4];
 
 	char console_output[4], console_input[4], console_info[4], console_error[4];
@@ -877,8 +883,8 @@ typedef enum eText_Draw_Options {
 /* Grease Pencil Settings.
  * UserDef.gp_settings */
 typedef enum eGP_UserdefSettings {
-	GP_PAINT_DOSMOOTH		= (1 << 0),
-	GP_PAINT_DOSIMPLIFY		= (1 << 1),
+	GP_PAINT_DOSMOOTH		    = (1 << 0),
+	GP_PAINT_DOSIMPLIFY		    = (1 << 1),
 } eGP_UserdefSettings;
 
 enum {

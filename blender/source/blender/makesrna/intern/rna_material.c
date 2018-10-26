@@ -40,23 +40,28 @@
 
 const EnumPropertyItem rna_enum_ramp_blend_items[] = {
 	{MA_RAMP_BLEND, "MIX", 0, "Mix", ""},
-	{MA_RAMP_ADD, "ADD", 0, "Add", ""},
-	{MA_RAMP_MULT, "MULTIPLY", 0, "Multiply", ""},
-	{MA_RAMP_SUB, "SUBTRACT", 0, "Subtract", ""},
-	{MA_RAMP_SCREEN, "SCREEN", 0, "Screen", ""},
-	{MA_RAMP_DIV, "DIVIDE", 0, "Divide", ""},
-	{MA_RAMP_DIFF, "DIFFERENCE", 0, "Difference", ""},
+	{0, "", ICON_NONE, NULL, NULL},
 	{MA_RAMP_DARK, "DARKEN", 0, "Darken", ""},
-	{MA_RAMP_LIGHT, "LIGHTEN", 0, "Lighten", ""},
-	{MA_RAMP_OVERLAY, "OVERLAY", 0, "Overlay", ""},
-	{MA_RAMP_DODGE, "DODGE", 0, "Dodge", ""},
+	{MA_RAMP_MULT, "MULTIPLY", 0, "Multiply", ""},
 	{MA_RAMP_BURN, "BURN", 0, "Burn", ""},
-	{MA_RAMP_HUE, "HUE", 0, "Hue", ""},
-	{MA_RAMP_SAT, "SATURATION", 0, "Saturation", ""},
-	{MA_RAMP_VAL, "VALUE", 0, "Value", ""},
-	{MA_RAMP_COLOR, "COLOR", 0, "Color", ""},
+	{0, "", ICON_NONE, NULL, NULL},
+	{MA_RAMP_LIGHT, "LIGHTEN", 0, "Lighten", ""},
+	{MA_RAMP_SCREEN, "SCREEN", 0, "Screen", ""},
+	{MA_RAMP_DODGE, "DODGE", 0, "Dodge", ""},
+	{MA_RAMP_ADD, "ADD", 0, "Add", ""},
+	{0, "", ICON_NONE, NULL, NULL},
+	{MA_RAMP_OVERLAY, "OVERLAY", 0, "Overlay", ""},
 	{MA_RAMP_SOFT, "SOFT_LIGHT", 0, "Soft Light", ""},
 	{MA_RAMP_LINEAR, "LINEAR_LIGHT", 0, "Linear Light", ""},
+	{0, "", ICON_NONE, NULL, NULL},
+	{MA_RAMP_DIFF, "DIFFERENCE", 0, "Difference", ""},
+	{MA_RAMP_SUB, "SUBTRACT", 0, "Subtract", ""},
+	{MA_RAMP_DIV, "DIVIDE", 0, "Divide", ""},
+	{0, "", ICON_NONE, NULL, NULL},
+	{MA_RAMP_HUE, "HUE", 0, "Hue", ""},
+	{MA_RAMP_SAT, "SATURATION", 0, "Saturation", ""},
+	{MA_RAMP_COLOR, "COLOR", 0, "Color", ""},
+	{MA_RAMP_VAL, "VALUE", 0, "Value", ""},
 	{0, NULL, 0, NULL, NULL}
 };
 
@@ -555,7 +560,7 @@ static void rna_def_material_greasepencil(BlenderRNA *brna)
 	/* Flags */
 	prop = RNA_def_property(srna, "hide", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_STYLE_COLOR_HIDE);
-	RNA_def_property_ui_icon(prop, ICON_HIDE_OFF, 1);
+	RNA_def_property_ui_icon(prop, ICON_RESTRICT_VIEW_OFF, 1);
 	RNA_def_property_ui_text(prop, "Hide", "Set color Visibility");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_SHADING, "rna_MaterialGpencil_nopreview_update");
 

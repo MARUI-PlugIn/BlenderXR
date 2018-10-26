@@ -63,7 +63,6 @@ static struct PyModuleDef GPU_module_def = {
 PyObject *BPyInit_gpu(void)
 {
 	PyObject *sys_modules = PyImport_GetModuleDict();
-	PyObject *subsubmodule;
 	PyObject *submodule;
 	PyObject *mod;
 
@@ -71,23 +70,15 @@ PyObject *BPyInit_gpu(void)
 
 	PyModule_AddObject(mod, "types", (submodule = BPyInit_gpu_types()));
 	PyDict_SetItem(sys_modules, PyModule_GetNameObject(submodule), submodule);
-	Py_INCREF(submodule);
 
 	PyModule_AddObject(mod, "matrix", (submodule = BPyInit_gpu_matrix()));
 	PyDict_SetItem(sys_modules, PyModule_GetNameObject(submodule), submodule);
-	Py_INCREF(submodule);
 
 	PyModule_AddObject(mod, "select", (submodule = BPyInit_gpu_select()));
 	PyDict_SetItem(sys_modules, PyModule_GetNameObject(submodule), submodule);
-	Py_INCREF(submodule);
 
 	PyModule_AddObject(mod, "shader", (submodule = BPyInit_gpu_shader()));
 	PyDict_SetItem(sys_modules, PyModule_GetNameObject(submodule), submodule);
-	Py_INCREF(submodule);
-
-	PyModule_AddObject(submodule, "builtin", (subsubmodule = BPyInit_gpu_shader_builtin()));
-	PyDict_SetItem(sys_modules, PyModule_GetNameObject(subsubmodule), subsubmodule);
-	Py_INCREF(subsubmodule);
 
 	return mod;
 }

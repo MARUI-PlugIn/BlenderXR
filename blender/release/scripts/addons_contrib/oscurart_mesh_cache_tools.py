@@ -125,7 +125,7 @@ class OscEPc2ExporterPanel(View3DMCPanel, Panel):
 
         row = layout.column(align=1)
         row.prop(scene, "pc_pc2_folder", text="Folder")
-        row.operator("buttons.set_meshcache_folder", icon='FILESEL', text="Select Folder Path")
+        row.operator("buttons.set_meshcache_folder", icon='FILEBROWSER', text="Select Folder Path")
         row = layout.box().column(align=1)
         row.label("EXPORTER:")
         row.operator("group.linked_group_to_local", text="Linked To Local", icon="LINKED")

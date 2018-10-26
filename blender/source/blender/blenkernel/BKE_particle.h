@@ -41,6 +41,14 @@
 
 #include "BKE_customdata.h"
 
+#include "../vr/vr_build.h"
+#if WITH_VR
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+#endif
+
 struct ParticleSystemModifierData;
 struct ParticleSystem;
 struct ParticleKey;
@@ -67,7 +75,7 @@ struct ViewLayer;
 
 #define PARTICLE_COLLISION_MAX_COLLISIONS 10
 
-#define PARTICLE_P              ParticleData * pa; int p
+#define PARTICLE_P              ParticleData *pa; int p
 #define LOOP_PARTICLES  for (p = 0, pa = psys->particles; p < psys->totpart; p++, pa++)
 #define LOOP_EXISTING_PARTICLES for (p = 0, pa = psys->particles; p < psys->totpart; p++, pa++) if (!(pa->flag & PARS_UNEXIST))
 #define LOOP_SHOWN_PARTICLES for (p = 0, pa = psys->particles; p < psys->totpart; p++, pa++) if (!(pa->flag & (PARS_UNEXIST | PARS_NO_DISP)))
@@ -75,7 +83,7 @@ struct ViewLayer;
 #define LOOP_DYNAMIC_PARTICLES for (p = 0; p < psys->totpart; p++) if ((pa = psys->particles + p)->state.time > 0.0f)
 
 /* fast but sure way to get the modifier*/
-#define PARTICLE_PSMD ParticleSystemModifierData * psmd = sim->psmd ? sim->psmd : psys_get_modifier(sim->ob, sim->psys)
+#define PARTICLE_PSMD ParticleSystemModifierData *psmd = sim->psmd ? sim->psmd : psys_get_modifier(sim->ob, sim->psys)
 
 /* common stuff that many particle functions need */
 typedef struct ParticleSimulationData {
@@ -304,7 +312,7 @@ void psys_set_current_num(Object *ob, int index);
 struct LatticeDeformData *psys_create_lattice_deform_data(struct ParticleSimulationData *sim);
 
 struct ParticleSystem *psys_orig_get(struct ParticleSystem *psys);
-bool psys_in_edit_mode(struct Depsgraph *depsgraph, struct ParticleSystem *psys);
+bool psys_in_edit_mode(struct Depsgraph *depsgraph, const struct ParticleSystem *psys);
 bool psys_check_enabled(struct Object *ob, struct ParticleSystem *psys, const bool use_render_params);
 bool psys_check_edited(struct ParticleSystem *psys);
 
@@ -476,3 +484,9 @@ enum {
 };
 void BKE_particle_batch_cache_dirty_tag(struct ParticleSystem *psys, int mode);
 void BKE_particle_batch_cache_free(struct ParticleSystem *psys);
+
+#if WITH_VR
+#ifdef __cplusplus
+}
+#endif
+#endif

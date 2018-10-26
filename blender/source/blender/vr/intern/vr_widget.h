@@ -15,10 +15,10 @@
 * along with this program; if not, write to the Free Software Foundation,
 * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 *
-* The Original Code is Copyright (C) 2016 by Mike Erwin.
+* The Original Code is Copyright (C) 2018 by Blender Foundation.
 * All rights reserved.
 *
-* Contributor(s): Blender Foundation
+* Contributor(s): MARUI-PlugIn
 *
 * ***** END GPL LICENSE BLOCK *****
 */
@@ -55,17 +55,35 @@ public:
 		,
 		TYPE_NAVI_GRABAIR
 		,
-		TYPE_NAVI_TELEPORT
-		,
 		TYPE_NAVI_JOYSTICK
+		,
+		TYPE_NAVI_TELEPORT
 		,
 		TYPE_SHIFT
 		,
 		TYPE_ALT
 		,
-		TYPE_CURSOR_OFFSET
+		TYPE_CURSOROFFSET
 		,
 		TYPE_ANNOTATE
+		,
+		TYPE_MEASURE
+		,
+		TYPE_QUICKGRAB
+		,
+		TYPE_DELETE
+		,
+		TYPE_DUPLICATE
+		,
+		TYPE_UNDO
+		,
+		TYPE_REDO
+		,
+		TYPE_SWITCHTOOL
+		,
+		TYPE_SWITCHTOOLMODE
+		,
+		TYPE_MENU_COLORWHEEL
 	} Type;
 
 	// ============================================================================================== //
@@ -89,13 +107,14 @@ public:
 
 	virtual bool has_click(VR_UI::Cursor& c) const;	/* Test whether this widget supports "clicking". */
 	virtual void click(VR_UI::Cursor& c);	/* Click with the index finger / trigger. */
+	virtual bool has_drag(VR_UI::Cursor& c) const;	/* Test whether this widget supports "dragging". */
 	virtual void drag_start(VR_UI::Cursor& c);	/* Start a drag/hold-motion with the index finger / trigger. */
 	virtual void drag_contd(VR_UI::Cursor& c);	/* Continue drag/hold with index finger / trigger. */
 	virtual void drag_stop(VR_UI::Cursor& c);	/* Stop drag/hold with index finger / trigger. */
 	virtual bool allows_focus_steal(Type by) const;	/* Whether this widget allows other widgets to steal its focus. */
 	virtual bool steals_focus(Type from) const;	/* Whether this widget steals focus from other widgets. */
 
-	virtual void render_icon(const Mat44f& t, bool active = false, bool touched = false);	/* Render the icon/indication of the widget. */
+	virtual void render_icon(const Mat44f& t, VR_Side controller_side, bool active = false, bool touched = false);	/* Render the icon/indication of the widget. */
 	virtual void render(VR_Side side);	/* Apply the widget's custom render function (if any). */
 	bool do_render[VR_SIDES];	/* Flag to enable/disable the widget's render function. */
 };
@@ -189,7 +208,7 @@ public:
 	virtual void drag_contd(VR_UI::Cursor& c) override;	/* Continue drag/hold with the navigation button. */
 	virtual void drag_stop(VR_UI::Cursor& c) override;	/* Stop drag/hold with the  navigation button. */
 	
-	virtual void render_icon(const Mat44f& t, bool active = false, bool touched = false) override;	/* Render the icon/indication of the widget. */
+	virtual void render_icon(const Mat44f& t, VR_Side controller_side, bool active = false, bool touched = false) override;	/* Render the icon/indication of the widget. */
 
 	/* Interaction widget for grabbing-the-air navigation. */
 	class GrabAir : public VR_Widget
@@ -202,29 +221,8 @@ public:
 		virtual void drag_start(VR_UI::Cursor& c) override;	/* Start a drag/hold-motion with the navigation button. */
 		virtual void drag_contd(VR_UI::Cursor& c) override;	/* Continue drag/hold with the navigation button. */
 		virtual void drag_stop(VR_UI::Cursor& c) override;	/* Stop drag/hold with the  navigation button. */
-
-		virtual void render_icon(const Mat44f& t, bool active = false, bool touched = false) override;	/* Render the icon/indication of the widget. */
-	};
-
-	/* Interaction widget for teleport navigation. */
-	class Teleport : public VR_Widget
-	{
-	public:
-		static Teleport obj;	/* Singleton implementation object. */
-		virtual std::string name() override { return "NAVI_TELEPORT"; };	/* Get the name of this widget. */
-		virtual Type type() override { return TYPE_NAVI_TELEPORT; };	/* Type of Widget. */
-
-		static float transition_time; //!< Transition time between teleports (ms).
-		static float move_speed;
-
-		static Mat44f arrow_position;
-
-		virtual void drag_start(VR_UI::Cursor& c) override; //!< Start a drag/hold-motion with the navigation button.
-		virtual void drag_contd(VR_UI::Cursor& c) override; //!< Continue drag/hold with the navigation button.
-		virtual void drag_stop(VR_UI::Cursor& c) override; //!< Stop drag/hold with the  navigation button.
 		
-		virtual void render(VR_Side side) override; //!< Apply the widget's custom render function (if any).
-		virtual void render_icon(const Mat44f& t, bool active = false, bool touched = false) override; //!< Render the icon/indication of the widget.
+		virtual void render_icon(const Mat44f& t, VR_Side controller_side, bool active = false, bool touched = false) override;	/* Render the icon/indication of the widget. */
 	};
 
 	/* Interaction widget for joystick-style navigation. */
@@ -237,12 +235,31 @@ public:
 		static Joystick obj;	/* Singleton implementation object. */
 		virtual std::string name() override { return "NAVI_JOYSTICK"; };	/* Get the name of this widget. */
 		virtual Type type() override { return TYPE_NAVI_JOYSTICK; };	/* Type of Widget. */
-		
+
 		virtual void drag_start(VR_UI::Cursor& c) override;	/* Start a drag/hold-motion with the navigation button. */
 		virtual void drag_contd(VR_UI::Cursor& c) override;	/* Continue drag/hold with the navigation button. */
 		virtual void drag_stop(VR_UI::Cursor& c) override;	/* Stop drag/hold with the  navigation button. */
 
-		virtual void render_icon(const Mat44f& t, bool active = false, bool touched = false) override;	/* Render the icon/indication of the widget. */
+		virtual void render_icon(const Mat44f& t, VR_Side controller_side, bool active = false, bool touched = false) override;	/* Render the icon/indication of the widget. */
+	};
+
+	/* Interaction widget for teleport navigation. */
+	class Teleport : public VR_Widget
+	{
+		static Mat44f arrow;	/* Transformation matrix of the arrow (rotation set to identity). */
+
+		static bool cancel;	/* Whether to cancel the teleportation result. */
+	public:
+		static Teleport obj;	/* Singleton implementation object. */
+		virtual std::string name() override { return "NAVI_TELEPORT"; };	/* Get the name of this widget. */
+		virtual Type type() override { return TYPE_NAVI_TELEPORT; };	/* Type of Widget. */
+
+		virtual void drag_start(VR_UI::Cursor& c) override; //!< Start a drag/hold-motion with the navigation button.
+		virtual void drag_contd(VR_UI::Cursor& c) override; //!< Continue drag/hold with the navigation button.
+		virtual void drag_stop(VR_UI::Cursor& c) override; //!< Stop drag/hold with the  navigation button.
+		
+		virtual void render(VR_Side side) override; //!< Apply the widget's custom render function (if any).
+		virtual void render_icon(const Mat44f& t, VR_Side controller_side, bool active = false, bool touched = false) override; //!< Render the icon/indication of the widget.
 	};
 };
 
@@ -254,7 +271,7 @@ public:
 	virtual std::string name() override { return "SHIFT"; };	/* Get the name of this widget. */
 	virtual Type type() override { return TYPE_SHIFT; };	/* Type of Widget. */
 
-	virtual void render_icon(const Mat44f& t, bool active = false, bool touched = false) override;	/* Render the icon/indication of the widget. */
+	virtual void render_icon(const Mat44f& t, VR_Side controller_side, bool active = false, bool touched = false) override;	/* Render the icon/indication of the widget. */
 };
 
 /* Interaction widget for emulating an 'alt' key on a keyboard. */
@@ -265,7 +282,11 @@ public:
 	virtual std::string name() override { return "ALT"; };	/* Get the name of this widget. */
 	virtual Type type() override { return TYPE_ALT; };	/* Type of Widget. */
 
-	virtual void render_icon(const Mat44f& t, bool active = false, bool touched = false) override;	/* Render the icon/indication of the widget. */
+	virtual bool has_click(VR_UI::Cursor& c) const override;	/* Test whether this widget supports "clicking". */
+	virtual void click(VR_UI::Cursor& c) override;	/* Click with the index finger / trigger. */
+	virtual bool has_drag(VR_UI::Cursor& c) const override;	/* Test whether this widget supports "dragging". */
+
+	virtual void render_icon(const Mat44f& t, VR_Side controller_side, bool active = false, bool touched = false) override;	/* Render the icon/indication of the widget. */
 };
 
 /* Interaction widget for manipulating the VR UI cursor offset. */
@@ -273,8 +294,8 @@ class Widget_CursorOffset : public VR_Widget
 {
 public:
 	static Widget_CursorOffset obj;	/* Singleton implementation object. */
-	virtual std::string name() override { return "CURSOR_OFFSET"; };	/* Get the name of this widget. */
-	virtual Type type() override { return TYPE_CURSOR_OFFSET; };	/* Type of Widget. */
+	virtual std::string name() override { return "CURSOROFFSET"; };	/* Get the name of this widget. */
+	virtual Type type() override { return TYPE_CURSOROFFSET; };	/* Type of Widget. */
 
 	virtual bool has_click(VR_UI::Cursor& c) const override;	/* Test whether this widget supports "clicking". */
 	virtual void click(VR_UI::Cursor& c) override;	/* Click with the index finger / trigger. */
@@ -282,7 +303,7 @@ public:
 	virtual void drag_contd(VR_UI::Cursor& c) override;	/* Continue drag/hold with index finger / trigger. */
 	virtual void drag_stop(VR_UI::Cursor& c) override;	/* Stop drag/hold with index finger / trigger. */
 
-	virtual void render_icon(const Mat44f& t, bool active = false, bool touched = false) override;	/* Render the icon/indication of the widget. */
+	virtual void render_icon(const Mat44f& t, VR_Side controller_side, bool active = false, bool touched = false) override;	/* Render the icon/indication of the widget. */
 };
 
 struct bGPDspoint;
@@ -291,15 +312,25 @@ struct bGPDlayer;
 struct bGPDframe;
 struct bGPDstroke;
 struct Main;
+class Widget_Measure;
+class Widget_Menu_ColorWheel;
+class Widget_SwitchToolMode;
 
 /* Interaction widget for the gpencil annotation tool. */
 class Widget_Annotate : public VR_Widget
 {
+	friend class Widget_Measure;
+	friend class Widget_Menu_ColorWheel;
+	friend class Widget_SwitchToolMode;
+
 	static struct bGPdata *gpd;	/* The VR gpencil data .*/
-	static struct bGPDlayer *gpl;	/* The VR gpencil layer. */
-	static struct bGPDframe *gpf;	/* The VR gpencil frame. */
+	static std::vector<struct bGPDlayer *>gpl;	/* The VR gpencil layer. */
+	static std::vector<struct bGPDframe *>gpf;	/* The VR gpencil frame. */
 	static struct Main *main;	/* The current scene data. */
-	static int init(); /* Initialize the VR gpencil structs. */
+
+	static uint num_layers;	/* The number of VR gpencil layers (one layer for each color + measure tool layer). */
+	static uint active_layer;	/* The currently active VR gpencil layer. */
+	static int init(bool new_scene); /* Initialize the VR gpencil structs. */
 
 	static std::vector<bGPDspoint> points;	/* The 3D points associated with the current stroke. */
 
@@ -310,7 +341,7 @@ class Widget_Annotate : public VR_Widget
 	static bool eraser;	/* Whether the annotate widget is in eraser mode. */
 	static VR_Side cursor_side;	/* Side of the current interaction cursor. */
 	static float eraser_radius;	/* Radius of the eraser ball. */
-	static void erase_stroke(bGPDstroke *gps);	/*	Helper function to erase a stroke. */
+	static void erase_stroke(bGPDstroke *gps, bGPDframe *gp_frame);	/*	Helper function to erase a stroke. */
 public:
 	static Widget_Annotate obj;	/* Singleton implementation object. */
 	virtual std::string name() override { return "ANNOTATE"; };	/* Get the name of this widget. */
@@ -323,6 +354,153 @@ public:
 	virtual void drag_stop(VR_UI::Cursor& c) override;	/* Stop drag/hold with index finger / trigger. */
 
 	virtual void render(VR_Side side) override;	/* Apply the widget's custom render function (if any). */
+};
+
+class Widget_Measure : public VR_Widget
+{
+	static Coord3Df p0;	/* Starting point of the cursor. */
+	static Coord3Df p1;	/* Current / end point of the cursor. */
+
+	static float line_thickness;	/* Stroke thickness for lines. */
+	static float color[4];	/* Stroke color. */
+
+	static VR_Side cursor_side;	/* Side of the current interaction cursor. */
+public:
+	static Widget_Measure obj;	/* Singleton implementation object. */
+	virtual std::string name() override { return "MEASURE"; };	/* Get the name of this widget. */
+	virtual Type type() override { return TYPE_MEASURE; };	/* Type of Widget. */
+
+	virtual void drag_start(VR_UI::Cursor& c) override;	/* Start a drag/hold-motion with the index finger / trigger. */
+	virtual void drag_contd(VR_UI::Cursor& c) override;	/* Continue drag/hold with index finger / trigger. */
+	virtual void drag_stop(VR_UI::Cursor& c) override;	/* Stop drag/hold with index finger / trigger. */
+
+	virtual void render(VR_Side side) override;	/* Apply the widget's custom render function (if any). */
+};
+
+/* Interaction widget for the QuickGrab tool. */
+class Widget_QuickGrab : public VR_Widget
+{
+	static bool bimanual; /* Whether the current interaction is bimanual. */
+public:
+	static Widget_QuickGrab obj;	/* Singleton implementation object. */
+	virtual std::string name() override { return "QUICKGRAB"; };	/* Get the name of this widget. */
+	virtual Type type() override { return TYPE_QUICKGRAB; };	/* Type of Widget. */
+
+	virtual bool has_click(VR_UI::Cursor& c) const override;	/* Test whether this widget supports "clicking". */
+	virtual void click(VR_UI::Cursor& c) override;	/* Click with the index finger / trigger. */
+	virtual void drag_start(VR_UI::Cursor& c) override;	/* Start a drag/hold-motion with the index finger / trigger. */
+	virtual void drag_contd(VR_UI::Cursor& c) override;	/* Continue drag/hold with index finger / trigger. */
+	virtual void drag_stop(VR_UI::Cursor& c) override;	/* Stop drag/hold with index finger / trigger. */
+};
+
+/* Interaction widget for performing a 'delete' operation. */
+class Widget_Delete : public VR_Widget
+{
+public:
+	static Widget_Delete obj;	/* Singleton implementation object. */
+	virtual std::string name() override { return "DELETE"; };	/* Get the name of this widget. */
+	virtual Type type() override { return TYPE_DELETE; };	/* Type of Widget. */
+
+	virtual bool has_click(VR_UI::Cursor& c) const override;	/* Test whether this widget supports "clicking". */
+	virtual void click(VR_UI::Cursor& c) override;	/* Click with the index finger / trigger. */
+	virtual bool has_drag(VR_UI::Cursor& c) const override;	/* Test whether this widget supports "dragging". */
+
+	virtual void render_icon(const Mat44f& t, VR_Side controller_side, bool active = false, bool touched = false) override;	/* Render the icon/indication of the widget. */
+};
+
+/* Interaction widget for performing a 'duplicate' operation. */
+class Widget_Duplicate : public VR_Widget
+{
+public:
+	static Widget_Duplicate obj;	/* Singleton implementation object. */
+	virtual std::string name() override { return "DUPLICATE"; };	/* Get the name of this widget. */
+	virtual Type type() override { return TYPE_DUPLICATE; };	/* Type of Widget. */
+
+	virtual bool has_click(VR_UI::Cursor& c) const override;	/* Test whether this widget supports "clicking". */
+	virtual void click(VR_UI::Cursor& c) override;	/* Click with the index finger / trigger. */
+	virtual bool has_drag(VR_UI::Cursor& c) const override;	/* Test whether this widget supports "dragging". */
+
+	virtual void render_icon(const Mat44f& t, VR_Side controller_side, bool active = false, bool touched = false) override;	/* Render the icon/indication of the widget. */
+};
+
+/* Interaction widget for performing an 'undo' operation. */
+class Widget_Undo : public VR_Widget
+{
+public:
+	static Widget_Undo obj;	/* Singleton implementation object. */
+	virtual std::string name() override { return "UNDO"; };	/* Get the name of this widget. */
+	virtual Type type() override { return TYPE_UNDO; };	/* Type of Widget. */
+
+	virtual bool has_click(VR_UI::Cursor& c) const override;	/* Test whether this widget supports "clicking". */
+	virtual void click(VR_UI::Cursor& c) override;	/* Click with the index finger / trigger. */
+	virtual bool has_drag(VR_UI::Cursor& c) const override;	/* Test whether this widget supports "dragging". */
+
+	virtual void render_icon(const Mat44f& t, VR_Side controller_side, bool active = false, bool touched = false) override;	/* Render the icon/indication of the widget. */
+};
+
+/* Interaction widget for performing a 'redo' operation. */
+class Widget_Redo : public VR_Widget
+{
+public:
+	static Widget_Redo obj;	/* Singleton implementation object. */
+	virtual std::string name() override { return "REDO"; };	/* Get the name of this widget. */
+	virtual Type type() override { return TYPE_REDO; };	/* Type of Widget. */
+
+	virtual bool has_click(VR_UI::Cursor& c) const override;	/* Test whether this widget supports "clicking". */
+	virtual void click(VR_UI::Cursor& c) override;	/* Click with the index finger / trigger. */
+	virtual bool has_drag(VR_UI::Cursor& c) const override;	/* Test whether this widget supports "dragging". */
+
+	virtual void render_icon(const Mat44f& t, VR_Side controller_side, bool active = false, bool touched = false) override;	/* Render the icon/indication of the widget. */
+};
+
+/* Interaction widget for switching the currently active tool. */
+class Widget_SwitchTool : public VR_Widget
+{
+	static std::string curr_tool_str[VR_SIDES]; /* The name of the current tool (for both controllers). */
+public:
+	static Widget_SwitchTool obj;	/* Singleton implementation object. */
+	virtual std::string name() override { return "SWITCHTOOL"; };	/* Get the name of this widget. */
+	virtual Type type() override { return TYPE_SWITCHTOOL; };	/* Type of Widget. */
+
+	virtual bool has_click(VR_UI::Cursor& c) const override;	/* Test whether this widget supports "clicking". */
+	virtual void click(VR_UI::Cursor& c) override;	/* Click with the index finger / trigger. */
+	virtual bool has_drag(VR_UI::Cursor& c) const override;	/* Test whether this widget supports "dragging". */
+
+	virtual void render_icon(const Mat44f& t, VR_Side controller_side, bool active = false, bool touched = false) override;	/* Render the icon/indication of the widget. */
+};
+
+/* Interaction widget for switching the tool mode for the currently active tool. */
+class Widget_SwitchToolMode : public VR_Widget
+{
+	static std::string curr_tool_mode_str[VR_SIDES]; /* The name of the current tool mode (for both controllers). */
+	static void get_current_tool_mode(const VR_Widget *tool, VR_Side controller_side); /* Helper function to get the current tool mode. */
+	static void set_current_tool_mode(const VR_Widget *tool, VR_Side controller_side); /* Helper function to set the current tool mode. */
+public:
+	static Widget_SwitchToolMode obj;	/* Singleton implementation object. */
+	virtual std::string name() override { return "SWITCHTOOLMODE"; };	/* Get the name of this widget. */
+	virtual Type type() override { return TYPE_SWITCHTOOLMODE; };	/* Type of Widget. */
+
+	virtual bool has_click(VR_UI::Cursor& c) const override;	/* Test whether this widget supports "clicking". */
+	virtual void click(VR_UI::Cursor& c) override;	/* Click with the index finger / trigger. */
+	virtual bool has_drag(VR_UI::Cursor& c) const override;	/* Test whether this widget supports "dragging". */
+
+	virtual void render_icon(const Mat44f& t, VR_Side controller_side, bool active = false, bool touched = false) override;	/* Render the icon/indication of the widget. */
+};
+
+/* Interaction widget for the color wheel menu. */
+class Widget_Menu_ColorWheel : public VR_Widget
+{
+	static float color[4];	/* The currently selected color. */
+public:
+	static Widget_Menu_ColorWheel obj;	/* Singleton implementation object. */
+	virtual std::string name() override { return "MENU_COLORWHEEL"; };	/* Get the name of this widget. */
+	virtual Type type() override { return TYPE_MENU_COLORWHEEL; };	/* Type of Widget. */
+
+	virtual void drag_start(VR_UI::Cursor& c) override;	/* Start a drag/hold-motion with the index finger / trigger. */
+	virtual void drag_contd(VR_UI::Cursor& c) override;	/* Continue drag/hold with index finger / trigger. */
+	virtual void drag_stop(VR_UI::Cursor& c) override;	/* Stop drag/hold with index finger / trigger. */
+
+	virtual void render_icon(const Mat44f& t, VR_Side controller_side, bool active = false, bool touched = false) override;	/* Render the icon/indication of the widget. */
 };
 
 #endif /* __VR_WIDGET_H__ */

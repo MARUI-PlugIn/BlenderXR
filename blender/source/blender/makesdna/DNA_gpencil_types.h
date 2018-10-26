@@ -34,6 +34,7 @@
 #include "DNA_ID.h"
 #include "DNA_brush_types.h"
 
+struct ARegion;
 struct AnimData;
 struct CurveMapping;
 struct GHash;
@@ -235,9 +236,11 @@ typedef enum eGPDframe_Flag {
 
 /* Runtime temp data for bGPDlayer */
 typedef struct bGPDlayer_Runtime {
-	struct GHash *derived_data;     /* runtime data created by modifiers */
+	struct bGPDframe *derived_array;/* runtime data created by modifiers */
 	int icon_id;                    /* id for dynamic icon used to show annotation color preview for layer */
 	int batch_index;                /* batch used for dupli instances */
+	int len_derived;                /* len of the derived array */
+	char pad_[4];
 } bGPDlayer_Runtime;
 
 /* Grease-Pencil Annotations - 'Layer' */
@@ -257,7 +260,7 @@ typedef struct bGPDlayer {
 							 * needs to be kept unique, as it's used as the layer identifier */
 
 	short thickness;		/* thickness to apply to strokes (Annotations) */
-	char pad_1[2];
+	short pass_index;       /* used to filter groups of layers in modifiers */
 
 	struct Object *parent;  /* parent object */
 	float inverse[4][4];    /* inverse matrix (only used if parented) */
@@ -304,8 +307,7 @@ typedef enum eGPDlayer_OnionFlag {
 
 /* Runtime temp data for bGPdata */
 typedef struct bGPdata_Runtime {
-	/* Drawing Manager cache */
-	struct GHash *batch_cache_data;
+	struct ARegion *ar;         /* last region where drawing was originated */
 	void *sbuffer;				/* stroke buffer (can hold GP_STROKE_BUFFER_MAX) */
 
 	/* GP Object drawing */
@@ -328,6 +330,7 @@ typedef struct bGPdata_Runtime {
 typedef struct bGPgrid {
 	float color[3];
 	float scale[2];
+	float offset[2];
 	char _pad1[4];
 
 	int   lines;
@@ -442,6 +445,8 @@ typedef enum eGPdata_Flag {
 	GP_DATA_STROKE_FORCE_RECALC = (1 << 17),
 	/* Special mode drawing polygons */
 	GP_DATA_STROKE_POLYGON = (1 << 18),
+	/* Use adaptative UV scales */
+	GP_DATA_UV_ADAPTATIVE = (1 << 19),
 } eGPdata_Flag;
 
 /* gpd->onion_flag */

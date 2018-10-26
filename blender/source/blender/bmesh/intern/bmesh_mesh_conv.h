@@ -49,6 +49,7 @@ struct BMeshFromMeshParams {
 	uint use_shapekey : 1;
 	/* define the active shape key (index + 1) */
 	int active_shapekey;
+	int64_t cd_mask_extra;
 };
 void BM_mesh_bm_from_me(
         BMesh *bm, struct Mesh *me,
@@ -64,5 +65,10 @@ void BM_mesh_bm_to_me(
         struct Main *bmain, BMesh *bm, struct Mesh *me,
         const struct BMeshToMeshParams *params)
 ATTR_NONNULL(2, 3, 4);
+
+void BM_mesh_bm_to_me_for_eval(
+        BMesh *bm, struct Mesh *me, const int64_t cd_mask_extra)
+ATTR_NONNULL(1, 2);
+
 
 #endif /* __BMESH_MESH_CONV_H__ */

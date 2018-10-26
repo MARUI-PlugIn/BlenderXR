@@ -783,8 +783,8 @@ class PANEL(bpy.types.Panel):
 #Draw the buttons
             split = split.split()
             col = split.column()
-            col.operator("gllightpreset.action", icon="ZOOMIN", text="Add").button="add"
-            col.operator("gllightpreset.action", icon="ZOOMOUT", text="Delete").button="delete"
+            col.operator("gllightpreset.action", icon='ADD', text="Add").button="add"
+            col.operator("gllightpreset.action", icon='REMOVE', text="Delete").button="delete"
             col.operator("gllightpreset.action", icon="FILE_TICK", text="Save to Blend").button="save"
             col.operator("gllightpreset.action", icon="SORTALPHA", text="Sort").button="sort"
             col.operator("gllightpreset.action", icon="SHORTDISPLAY", text="Add Defaults").button="defaults"

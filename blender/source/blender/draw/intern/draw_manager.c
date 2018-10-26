@@ -153,12 +153,9 @@ struct DRWTextStore *DRW_text_cache_ensure(void)
 /** \name Settings
  * \{ */
 
-bool DRW_object_is_renderable(Object *ob)
+bool DRW_object_is_renderable(const Object *ob)
 {
 	BLI_assert(BKE_object_is_visible(ob, OB_VISIBILITY_CHECK_UNKNOWN_RENDER_MODE));
-
-	if (ob->dt < OB_SOLID)
-		return false;
 
 	if (ob->type == OB_MESH) {
 		if ((ob == DST.draw_ctx.object_edit) || BKE_object_is_in_editmode(ob)) {
@@ -178,7 +175,7 @@ bool DRW_object_is_renderable(Object *ob)
  * Return whether this object is visible depending if
  * we are rendering or drawing in the viewport.
  */
-bool DRW_check_object_visible_within_active_context(Object *ob)
+bool DRW_object_is_visible_in_active_context(const Object *ob)
 {
 	const eObjectVisibilityCheck mode = DRW_state_is_scene_render() ?
 	                                     OB_VISIBILITY_CHECK_FOR_RENDER :
@@ -197,9 +194,9 @@ bool DRW_object_is_flat_normal(const Object *ob)
 	return true;
 }
 
-bool DRW_check_psys_visible_within_active_context(
-        Object *object,
-        struct ParticleSystem *psys)
+bool DRW_object_is_visible_psys_in_active_context(
+        const Object *object,
+        const ParticleSystem *psys)
 {
 	const DRWContextState *draw_ctx = DRW_context_state_get();
 	const Scene *scene = draw_ctx->scene;
@@ -275,13 +272,13 @@ void DRW_transform_to_display(GPUTexture *tex, bool use_view_settings)
 
 	/* Full screen triangle */
 	immBegin(GPU_PRIM_TRIS, 3);
-	immAttrib2f(texco, 0.0f, 0.0f);
+	immAttr2f(texco, 0.0f, 0.0f);
 	immVertex2f(pos, -1.0f, -1.0f);
 
-	immAttrib2f(texco, 2.0f, 0.0f);
+	immAttr2f(texco, 2.0f, 0.0f);
 	immVertex2f(pos, 3.0f, -1.0f);
 
-	immAttrib2f(texco, 0.0f, 2.0f);
+	immAttr2f(texco, 0.0f, 2.0f);
 	immVertex2f(pos, -1.0f, 3.0f);
 	immEnd();
 
@@ -1289,7 +1286,7 @@ static void drw_engines_enable(ViewLayer *view_layer, RenderEngineType *engine_t
 {
 	Object *obact = OBACT(view_layer);
 	const int mode = CTX_data_mode_enum_ex(DST.draw_ctx.object_edit, obact, DST.draw_ctx.object_mode);
-	View3D * v3d = DST.draw_ctx.v3d;
+	View3D *v3d = DST.draw_ctx.v3d;
 	const int drawtype = v3d->shading.type;
 	const bool use_xray = XRAY_ENABLED(v3d);
 
@@ -1682,7 +1679,7 @@ static bool DRW_render_check_grease_pencil(Depsgraph *depsgraph)
 {
 	DEG_OBJECT_ITER_FOR_RENDER_ENGINE_BEGIN(depsgraph, ob)
 	{
-		if ((ob->type == OB_GPENCIL) && (DRW_check_object_visible_within_active_context(ob))) {
+		if ((ob->type == OB_GPENCIL) && (DRW_object_is_visible_in_active_context(ob))) {
 			return true;
 		}
 	}
@@ -2223,16 +2220,16 @@ static void draw_depth_texture_to_screen(GPUTexture *texture)
 
 	immBegin(GPU_PRIM_TRI_STRIP, 4);
 
-	immAttrib2f(texcoord, 0.0f, 0.0f);
+	immAttr2f(texcoord, 0.0f, 0.0f);
 	immVertex2f(pos, 0.0f, 0.0f);
 
-	immAttrib2f(texcoord, 1.0f, 0.0f);
+	immAttr2f(texcoord, 1.0f, 0.0f);
 	immVertex2f(pos, w, 0.0f);
 
-	immAttrib2f(texcoord, 0.0f, 1.0f);
+	immAttr2f(texcoord, 0.0f, 1.0f);
 	immVertex2f(pos, 0.0f, h);
 
-	immAttrib2f(texcoord, 1.0f, 1.0f);
+	immAttr2f(texcoord, 1.0f, 1.0f);
 	immVertex2f(pos, w, h);
 
 	immEnd();

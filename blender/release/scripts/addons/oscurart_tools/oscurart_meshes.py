@@ -79,7 +79,7 @@ def defReconst(self, OFFSET):
 
 
 class reConst(Operator):
-    """Erase vertices bellow cero X position value and rebuilds the symmetry. """
+    """Erase vertices below cero X position value and rebuilds the symmetry. """
     """It also creates two uv channels, one symmetrical and one asymmetrical"""
     bl_idname = "mesh.reconst_osc"
     bl_label = "ReConst Mesh"
@@ -125,7 +125,7 @@ def side(self, nombre, offset):
 
 
 class SelectMenor(Operator):
-    """Selects the vetex with an N position value on the X axis"""
+    """Selects the vertex with an N position value on the X axis"""
     bl_idname = "mesh.select_side_osc"
     bl_label = "Select Side"
     bl_options = {"REGISTER", "UNDO"}
@@ -157,7 +157,7 @@ class SelectMenor(Operator):
 class rvg(Operator):
     bl_idname = "mesh.resym_vertex_weights_osc"
     bl_label = "Resym Vertex Weights"
-    bl_description = ("Copies the symetrical weight value of the vertices on the X axys\n"
+    bl_description = ("Copies the symmetrical weight value of the vertices on the X axys\n"
                       "(It needs the XML map and the Active Object is not in Edit mode)")
     bl_options = {"REGISTER", "UNDO"}
 
@@ -288,7 +288,7 @@ class OscResymSave(Operator):
 
 
 class OscResymMesh(Operator):
-    """Copies the symetrical position of the vertices on the X axys. It needs the XML map"""
+    """Copies the symmetrical position of the vertices on the X axys. It needs the XML map"""
     bl_idname = "mesh.resym_mesh"
     bl_label = "Resym save Apply XML"
     bl_options = {"REGISTER", "UNDO"}
@@ -321,8 +321,7 @@ def DefOscObjectToMesh():
     MESH = ACTOBJ.to_mesh(
         scene=bpy.context.scene,
         apply_modifiers=True,
-        settings="RENDER",
-        calc_tessface=True)
+        settings="RENDER")
     OBJECT = bpy.data.objects.new(("%s_Freeze") % (ACTOBJ.name), MESH)
     bpy.context.scene.objects.link(OBJECT)
 
@@ -601,7 +600,7 @@ def defPasteUvsIsland(self, uvOffset, rotateUv,context):
         bm = bmesh.from_edit_mesh(bpy.context.object.data)
         bmesh.ops.reverse_uvs(bm, faces=[f for f in bm.faces if f.select])
         bmesh.ops.rotate_uvs(bm, faces=[f for f in bm.faces if f.select])
-        #bmesh.update_edit_mesh(bpy.context.object.data, tessface=False, destructive=False)
+        #bmesh.update_edit_mesh(bpy.context.object.data, loop_triangles=False, destructive=False)
 
 
 

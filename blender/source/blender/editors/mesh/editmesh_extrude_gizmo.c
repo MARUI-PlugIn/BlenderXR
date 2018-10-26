@@ -187,8 +187,8 @@ static void gizmo_mesh_extrude_setup(const bContext *UNUSED(C), wmGizmoGroup *gz
 			RNA_boolean_set(&macroptr, "release_confirm", true);
 			RNA_boolean_set_array(&macroptr, "constraint_axis", constraint);
 		}
-		wmGizmoOpElem *mpop = WM_gizmo_operator_get(ggd->adjust_xyz_no[i], 0);
-		mpop->is_redo = true;
+		wmGizmoOpElem *gzop = WM_gizmo_operator_get(ggd->adjust_xyz_no[i], 0);
+		gzop->is_redo = true;
 	}
 }
 
@@ -280,8 +280,8 @@ static void gizmo_mesh_extrude_refresh(const bContext *C, wmGizmoGroup *gzgroup)
 
 	/* Operator properties. */
 	if (use_normal) {
-		wmGizmoOpElem *mpop = WM_gizmo_operator_get(ggd->invoke_xyz_no[3], 0);
-		PointerRNA macroptr = RNA_pointer_get(&mpop->ptr, "TRANSFORM_OT_translate");
+		wmGizmoOpElem *gzop = WM_gizmo_operator_get(ggd->invoke_xyz_no[3], 0);
+		PointerRNA macroptr = RNA_pointer_get(&gzop->ptr, "TRANSFORM_OT_translate");
 		RNA_enum_set(&macroptr, "constraint_orientation", V3D_MANIP_NORMAL);
 	}
 
@@ -300,9 +300,9 @@ static void gizmo_mesh_extrude_refresh(const bContext *C, wmGizmoGroup *gzgroup)
 			    (orientation_type == ggd->data.orientation_type && constraint_axis[i]) :
 			    (orientation_type == V3D_MANIP_NORMAL && constraint_axis[2]))
 			{
-				wmGizmoOpElem *mpop = WM_gizmo_operator_get(ggd->adjust_xyz_no[i], 0);
+				wmGizmoOpElem *gzop = WM_gizmo_operator_get(ggd->adjust_xyz_no[i], 0);
 
-				PointerRNA macroptr = RNA_pointer_get(&mpop->ptr, "TRANSFORM_OT_translate");
+				PointerRNA macroptr = RNA_pointer_get(&gzop->ptr, "TRANSFORM_OT_translate");
 
 				RNA_float_set_array(&macroptr, "value", value);
 				RNA_boolean_set_array(&macroptr, "constraint_axis", constraint_axis);
@@ -337,15 +337,6 @@ static void gizmo_mesh_extrude_refresh(const bContext *C, wmGizmoGroup *gzgroup)
 	}
 }
 
-static int gizmo_cmp_temp_f(const void *gz_a_ptr, const void *gz_b_ptr)
-{
-	const wmGizmo *gz_a = gz_a_ptr;
-	const wmGizmo *gz_b = gz_b_ptr;
-	if      (gz_a->temp.f < gz_b->temp.f) return -1;
-	else if (gz_a->temp.f > gz_b->temp.f) return  1;
-	else                                  return  0;
-}
-
 static void gizmo_mesh_extrude_draw_prepare(const bContext *C, wmGizmoGroup *gzgroup)
 {
 	GizmoExtrudeGroup *ggd = gzgroup->customdata;
@@ -365,9 +356,9 @@ static void gizmo_mesh_extrude_draw_prepare(const bContext *C, wmGizmoGroup *gzg
 	{
 		RegionView3D *rv3d = CTX_wm_region_view3d(C);
 		LISTBASE_FOREACH (wmGizmo *, gz, &gzgroup->gizmos) {
-			gz->temp.f = -dot_v3v3(rv3d->viewinv[2], gz->matrix_offset[3]);
+			gz->temp.f = dot_v3v3(rv3d->viewinv[2], gz->matrix_offset[3]);
 		}
-		BLI_listbase_sort(&gzgroup->gizmos, gizmo_cmp_temp_f);
+		BLI_listbase_sort(&gzgroup->gizmos, WM_gizmo_cmp_temp_fl_reverse);
 	}
 }
 

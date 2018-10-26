@@ -95,7 +95,7 @@ class DATA_PT_rigify_buttons(bpy.types.Panel):
             if show_update_metarig:
 
                 layout.label(text="This metarig contains old rig-types that can be automatically upgraded to benefit of rigify's new features.", icon='ERROR')
-                layout.label(text= "To use it as-is you need to enable legacy mode.",)
+                layout.label(text="To use it as-is you need to enable legacy mode.",)
                 layout.operator("pose.rigify_upgrade_types", text="Upgrade Metarig")
 
             row = layout.row()
@@ -117,7 +117,7 @@ class DATA_PT_rigify_buttons(bpy.types.Panel):
                 row = col.row(align=True)
                 row.prop(id_store, "rigify_generate_mode", expand=True)
 
-                main_row = col.row(align=True).split(percentage=0.3)
+                main_row = col.row(align=True).split(factor=0.3)
                 col1 = main_row.column()
                 col2 = main_row.column()
                 col1.label(text="Rig Name")
@@ -214,14 +214,14 @@ class DATA_PT_rigify_layer_names(bpy.types.Panel):
                 return
 
         # UI
-        main_row = layout.row(align=True).split(0.05)
+        main_row = layout.row(align=True).split(factor=0.05)
         col1 = main_row.column()
         col2 = main_row.column()
         col1.label()
         for i in range(32):
             if i == 16 or i == 29:
                 col1.label()
-            col1.label(str(i+1) + '.')
+            col1.label(text=str(i+1) + '.')
 
         for i, rigify_layer in enumerate(arm.rigify_layers):
             # note: rigify_layer == arm.rigify_layers[i]
@@ -499,9 +499,9 @@ class DATA_OT_rigify_bone_group_remove_all(bpy.types.Operator):
 class DATA_UL_rigify_bone_groups(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         row = layout.row(align=True)
-        row = row.split(percentage=0.1)
+        row = row.split(factor=0.1)
         row.label(text=str(index+1))
-        row = row.split(percentage=0.7)
+        row = row.split(factor=0.7)
         row.prop(item, "name", text='', emboss=False)
         row = row.row(align=True)
         icon = 'LOCKED' if item.standard_colors_lock else 'UNLOCKED'
@@ -554,8 +554,8 @@ class DATA_PT_rigify_bone_groups(bpy.types.Panel):
         row.template_list("DATA_UL_rigify_bone_groups", "", obj.data, "rigify_colors", obj.data, "rigify_colors_index")
 
         col = row.column(align=True)
-        col.operator("armature.rigify_bone_group_add", icon='ZOOMIN', text="")
-        col.operator("armature.rigify_bone_group_remove", icon='ZOOMOUT', text="").idx = obj.data.rigify_colors_index
+        col.operator("armature.rigify_bone_group_add", icon='ZOOM_IN', text="")
+        col.operator("armature.rigify_bone_group_remove", icon='ZOOM_OUT', text="").idx = obj.data.rigify_colors_index
         col.menu("DATA_MT_rigify_bone_groups_specials", icon='DOWNARROW_HLT', text="")
         row = layout.row()
         row.prop(armature, 'rigify_theme_to_add', text = 'Theme')
@@ -688,8 +688,8 @@ class VIEW3D_PT_rigify_animation_tools(bpy.types.Panel):
             row.operator("rigify.transfer_ik_to_fk", text='FK2IK Action', icon='ACTION_TWEAK')
 
             row = self.layout.row(align=True)
-            row.operator("rigify.clear_animation", text="Clear IK Action", icon='CANCEL').type = "IK"
-            row.operator("rigify.clear_animation", text="Clear FK Action", icon='CANCEL').type = "FK"
+            row.operator("rigify.clear_animation", text="Clear IK Action", icon='CANCEL').anim_type = "IK"
+            row.operator("rigify.clear_animation", text="Clear FK Action", icon='CANCEL').anim_type = "FK"
 
             row = self.layout.row(align=True)
             op = row.operator("rigify.rotation_pole", icon='FORCE_HARMONIC', text='Switch to pole')

@@ -15,10 +15,10 @@
 * along with this program; if not, write to the Free Software Foundation,
 * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 *
-* The Original Code is Copyright (C) 2016 by Mike Erwin.
+* The Original Code is Copyright (C) 2018 by Blender Foundation.
 * All rights reserved.
 *
-* Contributor(s): Blender Foundation
+* Contributor(s): MARUI-PlugIn
 *
 * ***** END GPL LICENSE BLOCK *****
 */
@@ -235,7 +235,7 @@ public:
 	static const Mat44f& navigation_inverse_get(); /* Navigation matrix inverse. */
 	static const float& navigation_scale_get();   /* Scale factor for the Blender origin (origin_m * scale = blender_space_units). */
 	static void			navigation_set(const Mat44f& m);	/* Set navigation matrix. */
-	static void			navigation_apply(const Mat44f& m, VR_Space space = VR_SPACE_BLENDER, bool inverse = false); /* Apply navigational transformation, relative to current navigation. */
+	static void			navigation_apply_transformation(const Mat44f& m, VR_Space space = VR_SPACE_BLENDER, bool inverse = false); /* Apply navigational transformation, relative to current navigation. */
 	static void			navigation_reset(); /* Reset navigation matrix to identity. */
 
 	static void			navigation_fit_scene();	/* Reset navigation to fit the whole scene into the work area. */
@@ -276,8 +276,10 @@ public:
 	static VR_Side		hand_dominance_get();	/* Get dominant hand side (right-handed or left-handed). */
 	static void			hand_dominance_set(VR_Side side);	/* Set dominant hand side (right-handed or left-handed). */
 
-	static ShiftState	shift_key_get();	/* Get wether the SHIFT key is currently held down (on either controller). */
-	static AltState		alt_key_get();		/* Get wether the ALT key is currently held down (on either controller). */
+	static ShiftState	shift_key_get();	/* Get whether the SHIFT key is currently held down (on either controller). */
+	static AltState		alt_key_get();		/* Get whether the ALT key is currently held down (on either controller). */
+	static void			shift_key_set(ShiftState state);	/* Manually set the VR_UI shift key state. */
+	static void			alt_key_set(AltState state);	/* Manually set the VR_UI alt key state; */
 
 	static Mat44f		convert_space(const Mat44f& m, VR_Space m_space, VR_Space target_space); //!< Convert a matrix into target space. */
 	static Coord3Df		convert_space(const Coord3Df& v, VR_Space v_space, VR_Space target_space); //!< Convert vector/position into target space. */
@@ -291,6 +293,9 @@ public:
 	static uint			drag_threshold_time;		/* Time threshold (ms) to distinguish between "clicking" and "dragging". */
 
 	static bool			trigger_pressure_dynamics; /* Whether the controller trigger pressure should be used to attenuate/affect tool effect/magnitude. */
+
+	static int			undo_count;	/* Number of pending VR_UI undo operations to be executed post-scene render. */
+	static int			redo_count; /* Number of pending VR_UI redo operations to be executed post-scene render. */
 
 	/* Selection mode (raycast or proximity). */
 	enum SelectionMode {
@@ -316,6 +321,8 @@ public:
 	};
 	static SelectionVolumeAlignment selection_volume_alignment;	/* The current selection volume alignment mode. */
 
+	static bool stick_menu_active[VR_SIDES];	/* Whether a stick menu is active for the controller. */
+
 // ============================================================================================== //
 // ===========================    DYNAMIC UI OBJECT IMPLEMENTATION    =========================== //
 // ---------------------------------------------------------------------------------------------- //
@@ -332,8 +339,10 @@ public:
 	static Error	shutdown();					/* Shutdown UI module. */
 
 	static Error	update_tracking();			/* Update HMD and cursor positions, button state, etc. (pre-render). */
-	static Error	execute_operations();		/* Execute internal UI operations and possibly execute users actions in Blender. (post-render). */
+	static Error	execute_operations();		/* Execute internal UI operations and possibly execute users actions in Blender. (pre-render). */
 	static Error	update_cursor(Cursor& c);	/* Cursor interaction update. */
+	static Error	update_menus();				/* Update any VR floating menus. */
+	static Error	execute_post_render_operations();	/* Execute special UI operations (i.e. undo/redo) that need to be called after the scene is rendered. */
 
 	static Error	pre_render(VR_Side side);	/* Render UI elements, called prior to rendering the scene. */
 	static Error	post_render(VR_Side side);	/* Render UI elements, called after rendering the scene. */

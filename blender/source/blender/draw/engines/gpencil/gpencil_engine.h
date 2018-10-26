@@ -58,8 +58,8 @@ struct RenderLayer;
 
  /* used to save gpencil object data for drawing */
 typedef struct tGPencilObjectCache {
+	struct Object *ob;
 	struct bGPdata *gpd;
-	char ob_name[64];
 	int init_grp, end_grp;
 	int idx;  /*original index, can change after sort */
 
@@ -73,6 +73,7 @@ typedef struct tGPencilObjectCache {
 	DRWShadingGroup *fx_pixel_sh;
 	DRWShadingGroup *fx_rim_sh;
 	DRWShadingGroup *fx_shadow_sh;
+	DRWShadingGroup *fx_glow_sh;
 	DRWShadingGroup *fx_swirl_sh;
 	DRWShadingGroup *fx_flip_sh;
 	DRWShadingGroup *fx_light_sh;
@@ -81,7 +82,8 @@ typedef struct tGPencilObjectCache {
 	float obmat[4][4];
 	float zdepth;  /* z-depth value to sort gp object */
 	bool is_dup_ob;  /* flag to tag duplicate objects */
-	bool is_dup_onion; /* other object display onion already */
+	bool is_dup_data; /* other object uses datablock already */
+	int  data_idx;    /* derived data index */
 } tGPencilObjectCache;
 
   /* *********** LISTS *********** */
@@ -231,6 +233,8 @@ typedef struct GPENCIL_e_data {
 	struct GPUShader *gpencil_fx_blur_sh;
 	struct GPUShader *gpencil_fx_colorize_sh;
 	struct GPUShader *gpencil_fx_flip_sh;
+	struct GPUShader *gpencil_fx_glow_prepare_sh;
+	struct GPUShader *gpencil_fx_glow_resolve_sh;
 	struct GPUShader *gpencil_fx_light_sh;
 	struct GPUShader *gpencil_fx_pixel_sh;
 	struct GPUShader *gpencil_fx_rim_prepare_sh;
@@ -303,7 +307,7 @@ void DRW_gpencil_populate_buffer_strokes(
 void DRW_gpencil_populate_multiedit(
         struct GPENCIL_e_data *e_data, void *vedata,
         struct Scene *scene, struct Object *ob, struct tGPencilObjectCache *cache_ob);
-void DRW_gpencil_triangulate_stroke_fill(struct bGPDstroke *gps);
+void DRW_gpencil_triangulate_stroke_fill(struct Object *ob, struct bGPDstroke *gps);
 
 void DRW_gpencil_multisample_ensure(struct GPENCIL_Data *vedata, int rect_w, int rect_h);
 

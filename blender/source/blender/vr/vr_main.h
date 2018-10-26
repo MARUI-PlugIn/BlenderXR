@@ -15,10 +15,10 @@
 * along with this program; if not, write to the Free Software Foundation,
 * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 *
-* The Original Code is Copyright (C) 2016 by Mike Erwin.
+* The Original Code is Copyright (C) 2018 by Blender Foundation.
 * All rights reserved.
 *
-* Contributor(s): Blender Foundation
+* Contributor(s): MARUI-PlugIn
 *
 * ***** END GPL LICENSE BLOCK *****
 */
@@ -164,6 +164,7 @@ int vr_blit(void);	/* Blit the hmd. */
 
 /* Interaction/execution function. */
 void vr_do_interaction(void);	/* Interaction update/execution where the VR module may alter scene data. */
+void vr_do_post_render_interaction(void);	/* Interaction update/execution for special operations (i.e. undo/redo) that need to be called after the scene is rendered.	*/
 
 /* Drawing functions. */
 void vr_pre_scene_render(int side);	/* Pre-scene rendering call. */

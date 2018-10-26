@@ -46,6 +46,7 @@ struct PreviewImage;
 struct GPUVertBuf;
 
 struct GPUFrameBuffer;
+typedef struct GPUTexture GPUTexture;
 
 /* GPU Texture
  * - always returns unsigned char RGBA textures

@@ -48,10 +48,13 @@
 #include "BKE_customdata.h"
 #include "BKE_deform.h"
 #include "BKE_editmesh.h"
+#include "BKE_editmesh_cache.h"
 #include "BKE_editmesh_tangent.h"
 #include "BKE_mesh.h"
 #include "BKE_mesh_tangent.h"
+#include "BKE_mesh_runtime.h"
 #include "BKE_colorband.h"
+#include "BKE_cdderivedmesh.h"
 
 #include "bmesh.h"
 
@@ -142,13 +145,40 @@ typedef struct MeshRenderData {
 	int loose_vert_len;
 	int loose_edge_len;
 
+	/* Support for mapped mesh data. */
+	struct {
+		/* Must be set if we want to get mapped data. */
+		bool use;
+		bool supported;
+
+		Mesh *me_cage;
+
+		int vert_len;
+		int edge_len;
+		int tri_len;
+		int loop_len;
+		int poly_len;
+
+		int *loose_verts;
+		int  loose_vert_len;
+
+		int *loose_edges;
+		int  loose_edge_len;
+
+		/* origindex layers */
+		int *v_origindex;
+		int *e_origindex;
+		int *l_origindex;
+		int *p_origindex;
+	} mapped;
+
 	BMEditMesh *edit_bmesh;
 	struct EditMeshData *edit_data;
 
 	MVert *mvert;
-	MEdge *medge;
-	MLoop *mloop;
-	MPoly *mpoly;
+	const MEdge *medge;
+	const MLoop *mloop;
+	const MPoly *mpoly;
 	float (*orco)[3];  /* vertex coordinates normalized to bounding box */
 	bool is_orco_allocated;
 	MDeformVert *dvert;
@@ -180,6 +210,10 @@ typedef struct MeshRenderData {
 			int bweight;
 			int *uv;
 			int *vcol;
+#ifdef WITH_FREESTYLE
+			int freestyle_edge;
+			int freestyle_face;
+#endif
 		} offset;
 
 		struct {
@@ -409,6 +443,36 @@ static MeshRenderData *mesh_render_data_create_ex(
 		rdata->edit_bmesh = embm;
 		rdata->edit_data = me->runtime.edit_data;
 
+		if (embm->mesh_eval_cage && (embm->mesh_eval_cage->runtime.is_original == false)) {
+			Mesh *me_cage = embm->mesh_eval_cage;
+
+			rdata->mapped.me_cage = me_cage;
+			if (types & MR_DATATYPE_VERT) {
+				rdata->mapped.vert_len = me_cage->totvert;
+			}
+			if (types & MR_DATATYPE_EDGE) {
+				rdata->mapped.edge_len = me_cage->totedge;
+			}
+			if (types & MR_DATATYPE_LOOP) {
+				rdata->mapped.loop_len = me_cage->totloop;
+			}
+			if (types & MR_DATATYPE_POLY) {
+				rdata->mapped.poly_len = me_cage->totpoly;
+			}
+			if (types & MR_DATATYPE_LOOPTRI) {
+				rdata->mapped.tri_len = poly_to_tri_count(me_cage->totpoly, me_cage->totloop);
+			}
+
+			rdata->mapped.v_origindex = CustomData_get_layer(&me_cage->vdata, CD_ORIGINDEX);
+			rdata->mapped.e_origindex = CustomData_get_layer(&me_cage->edata, CD_ORIGINDEX);
+			rdata->mapped.l_origindex = CustomData_get_layer(&me_cage->ldata, CD_ORIGINDEX);
+			rdata->mapped.p_origindex = CustomData_get_layer(&me_cage->pdata, CD_ORIGINDEX);
+			rdata->mapped.supported = (
+			        rdata->mapped.v_origindex &&
+			        rdata->mapped.e_origindex &&
+			        rdata->mapped.p_origindex);
+		}
+
 		int bm_ensure_types = 0;
 		if (types & MR_DATATYPE_VERT) {
 			rdata->vert_len = bm->totvert;
@@ -419,23 +483,13 @@ static MeshRenderData *mesh_render_data_create_ex(
 			bm_ensure_types |= BM_EDGE;
 		}
 		if (types & MR_DATATYPE_LOOPTRI) {
-			BKE_editmesh_tessface_calc(embm);
-			int tottri = embm->tottri;
-			rdata->mlooptri = MEM_mallocN(sizeof(*rdata->mlooptri) * embm->tottri, __func__);
-			for (int index = 0; index < tottri ; index ++ ) {
-				BMLoop **bmtri = embm->looptris[index];
-				MLoopTri *mtri = &rdata->mlooptri[index];
-				mtri->tri[0] = BM_elem_index_get(bmtri[0]);
-				mtri->tri[1] = BM_elem_index_get(bmtri[1]);
-				mtri->tri[2] = BM_elem_index_get(bmtri[2]);
-			}
-			rdata->tri_len = tottri;
+			bm_ensure_types |= BM_LOOP;
 		}
 		if (types & MR_DATATYPE_LOOP) {
 			int totloop = bm->totloop;
 			if (is_auto_smooth) {
 				rdata->loop_normals = MEM_mallocN(sizeof(*rdata->loop_normals) * totloop, __func__);
-				int cd_loop_clnors_offset = CustomData_get_layer_index(&bm->ldata, CD_CUSTOMLOOPNORMAL);
+				int cd_loop_clnors_offset = CustomData_get_offset(&bm->ldata, CD_CUSTOMLOOPNORMAL);
 				BM_loops_calc_normal_vcos(
 				        bm, NULL, NULL, NULL, true, split_angle, rdata->loop_normals, NULL, NULL,
 				        cd_loop_clnors_offset, false);
@@ -453,6 +507,11 @@ static MeshRenderData *mesh_render_data_create_ex(
 			rdata->eve_act = BM_mesh_active_vert_get(bm);
 			rdata->cd.offset.crease = CustomData_get_offset(&bm->edata, CD_CREASE);
 			rdata->cd.offset.bweight = CustomData_get_offset(&bm->edata, CD_BWEIGHT);
+
+#ifdef WITH_FREESTYLE
+			rdata->cd.offset.freestyle_edge = CustomData_get_offset(&bm->edata, CD_FREESTYLE_EDGE);
+			rdata->cd.offset.freestyle_face = CustomData_get_offset(&bm->pdata, CD_FREESTYLE_FACE);
+#endif
 		}
 		if (types & (MR_DATATYPE_DVERT)) {
 			bm_ensure_types |= BM_VERT;
@@ -463,17 +522,31 @@ static MeshRenderData *mesh_render_data_create_ex(
 
 		BM_mesh_elem_index_ensure(bm, bm_ensure_types);
 		BM_mesh_elem_table_ensure(bm, bm_ensure_types & ~BM_LOOP);
+
+		if (types & MR_DATATYPE_LOOPTRI) {
+			/* Edit mode ensures this is valid, no need to calculate. */
+			BLI_assert((bm->totloop == 0) || (embm->looptris != NULL));
+			int tottri = embm->tottri;
+			MLoopTri *mlooptri = MEM_mallocN(sizeof(*rdata->mlooptri) * embm->tottri, __func__);
+			for (int index = 0; index < tottri ; index ++ ) {
+				BMLoop **bmtri = embm->looptris[index];
+				MLoopTri *mtri = &mlooptri[index];
+				mtri->tri[0] = BM_elem_index_get(bmtri[0]);
+				mtri->tri[1] = BM_elem_index_get(bmtri[1]);
+				mtri->tri[2] = BM_elem_index_get(bmtri[2]);
+			}
+			rdata->mlooptri = mlooptri;
+			rdata->tri_len = tottri;
+		}
+
 		if (types & MR_DATATYPE_OVERLAY) {
 			rdata->loose_vert_len = rdata->loose_edge_len = 0;
 
-			int *lverts = rdata->loose_verts = MEM_mallocN(rdata->vert_len * sizeof(int), "Loose Vert");
-			int *ledges = rdata->loose_edges = MEM_mallocN(rdata->edge_len * sizeof(int), "Loose Edges");
-
 			{
+				int *lverts = MEM_mallocN(rdata->vert_len * sizeof(int), __func__);
 				BLI_assert((bm->elem_table_dirty & BM_VERT) == 0);
-				BMVert **vtable = bm->vtable;
 				for (int i = 0; i < bm->totvert; i++) {
-					const BMVert *eve = vtable[i];
+					const BMVert *eve = BM_vert_at_index(bm, i);
 					if (!BM_elem_flag_test(eve, BM_ELEM_HIDDEN)) {
 						/* Loose vert */
 						if (eve->e == NULL || !bm_vert_has_visible_edge(eve)) {
@@ -481,13 +554,14 @@ static MeshRenderData *mesh_render_data_create_ex(
 						}
 					}
 				}
+				rdata->loose_verts = MEM_reallocN(lverts, rdata->loose_vert_len * sizeof(int));
 			}
 
 			{
+				int *ledges = MEM_mallocN(rdata->edge_len * sizeof(int), __func__);
 				BLI_assert((bm->elem_table_dirty & BM_EDGE) == 0);
-				BMEdge **etable = bm->etable;
 				for (int i = 0; i < bm->totedge; i++) {
-					const BMEdge *eed = etable[i];
+					const BMEdge *eed = BM_edge_at_index(bm, i);
 					if (!BM_elem_flag_test(eed, BM_ELEM_HIDDEN)) {
 						/* Loose edge */
 						if (eed->l == NULL || !bm_edge_has_visible_face(eed)) {
@@ -495,10 +569,49 @@ static MeshRenderData *mesh_render_data_create_ex(
 						}
 					}
 				}
+				rdata->loose_edges = MEM_reallocN(ledges, rdata->loose_edge_len * sizeof(int));
 			}
 
-			rdata->loose_verts = MEM_reallocN(rdata->loose_verts, rdata->loose_vert_len * sizeof(int));
-			rdata->loose_edges = MEM_reallocN(rdata->loose_edges, rdata->loose_edge_len * sizeof(int));
+			if (rdata->mapped.supported) {
+				Mesh *me_cage = embm->mesh_eval_cage;
+				rdata->mapped.loose_vert_len = rdata->mapped.loose_edge_len = 0;
+
+				if (rdata->loose_vert_len) {
+					int *lverts = MEM_mallocN(me_cage->totvert * sizeof(int), __func__);
+					const int *v_origindex = rdata->mapped.v_origindex;
+					for (int i = 0; i < me_cage->totvert; i++) {
+						const int v_orig = v_origindex[i];
+						if (v_orig != ORIGINDEX_NONE) {
+							BMVert *eve = BM_vert_at_index(bm, v_orig);
+							if (!BM_elem_flag_test(eve, BM_ELEM_HIDDEN)) {
+								/* Loose vert */
+								if (eve->e == NULL || !bm_vert_has_visible_edge(eve)) {
+									lverts[rdata->mapped.loose_vert_len++] = i;
+								}
+							}
+						}
+					}
+					rdata->mapped.loose_verts = MEM_reallocN(lverts, rdata->mapped.loose_vert_len * sizeof(int));
+				}
+
+				if (rdata->loose_edge_len) {
+					int *ledges = MEM_mallocN(me_cage->totedge * sizeof(int), __func__);
+					const int *e_origindex = rdata->mapped.e_origindex;
+					for (int i = 0; i < me_cage->totedge; i++) {
+						const int e_orig = e_origindex[i];
+						if (e_orig != ORIGINDEX_NONE) {
+							BMEdge *eed = BM_edge_at_index(bm, e_orig);
+							if (!BM_elem_flag_test(eed, BM_ELEM_HIDDEN)) {
+								/* Loose edge */
+								if (eed->l == NULL || !bm_edge_has_visible_face(eed)) {
+									ledges[rdata->mapped.loose_edge_len++] = i;
+								}
+							}
+						}
+					}
+					rdata->mapped.loose_edges = MEM_reallocN(ledges, rdata->mapped.loose_edge_len * sizeof(int));
+				}
+			}
 		}
 	}
 	else {
@@ -512,8 +625,9 @@ static MeshRenderData *mesh_render_data_create_ex(
 		}
 		if (types & MR_DATATYPE_LOOPTRI) {
 			const int tri_len = rdata->tri_len = poly_to_tri_count(me->totpoly, me->totloop);
-			rdata->mlooptri = MEM_mallocN(sizeof(*rdata->mlooptri) * tri_len, __func__);
-			BKE_mesh_recalc_looptri(me->mloop, me->mpoly, me->mvert, me->totloop, me->totpoly, rdata->mlooptri);
+			MLoopTri *mlooptri = MEM_mallocN(sizeof(*mlooptri) * tri_len, __func__);
+			BKE_mesh_recalc_looptri(me->mloop, me->mpoly, me->mvert, me->totloop, me->totpoly, mlooptri);
+			rdata->mlooptri = mlooptri;
 		}
 		if (types & MR_DATATYPE_LOOP) {
 			rdata->loop_len = me->totloop;
@@ -589,9 +703,8 @@ static MeshRenderData *mesh_render_data_create_ex(
 					BMesh *bm = me->edit_btmesh->bm;
 					rdata->orco = MEM_mallocN(sizeof(*rdata->orco) * rdata->vert_len, "orco mesh");
 					BLI_assert((bm->elem_table_dirty & BM_VERT) == 0);
-					BMVert **vtable = bm->vtable;
 					for (int i = 0; i < bm->totvert; i++) {
-						copy_v3_v3(rdata->orco[i], vtable[i]->co);
+						copy_v3_v3(rdata->orco[i], BM_vert_at_index(bm, i)->co);
 					}
 					BKE_mesh_orco_verts_transform(me, rdata->orco, rdata->vert_len, 0);
 				}
@@ -856,6 +969,9 @@ static void mesh_render_data_free(MeshRenderData *rdata)
 	MEM_SAFE_FREE(rdata->edge_select_bool);
 	MEM_SAFE_FREE(rdata->vert_color);
 
+	MEM_SAFE_FREE(rdata->mapped.loose_verts);
+	MEM_SAFE_FREE(rdata->mapped.loose_edges);
+
 	CustomData_free(&rdata->cd.output.ldata, rdata->loop_len);
 
 	MEM_freeN(rdata);
@@ -909,11 +1025,21 @@ static int mesh_render_data_verts_len_get(const MeshRenderData *rdata)
 	BLI_assert(rdata->types & MR_DATATYPE_VERT);
 	return rdata->vert_len;
 }
+static int mesh_render_data_verts_len_get_maybe_mapped(const MeshRenderData *rdata)
+{
+	BLI_assert(rdata->types & MR_DATATYPE_VERT);
+	return ((rdata->mapped.use == false) ? rdata->vert_len : rdata->mapped.vert_len);
+}
 
-static int mesh_render_data_loose_verts_len_get(const MeshRenderData *rdata)
+static int UNUSED_FUNCTION(mesh_render_data_loose_verts_len_get)(const MeshRenderData *rdata)
 {
 	BLI_assert(rdata->types & MR_DATATYPE_OVERLAY);
 	return rdata->loose_vert_len;
+}
+static int mesh_render_data_loose_verts_len_get_maybe_mapped(const MeshRenderData *rdata)
+{
+	BLI_assert(rdata->types & MR_DATATYPE_OVERLAY);
+	return ((rdata->mapped.use == false) ? rdata->loose_vert_len : rdata->mapped.loose_vert_len);
 }
 
 static int mesh_render_data_edges_len_get(const MeshRenderData *rdata)
@@ -921,17 +1047,32 @@ static int mesh_render_data_edges_len_get(const MeshRenderData *rdata)
 	BLI_assert(rdata->types & MR_DATATYPE_EDGE);
 	return rdata->edge_len;
 }
+static int mesh_render_data_edges_len_get_maybe_mapped(const MeshRenderData *rdata)
+{
+	BLI_assert(rdata->types & MR_DATATYPE_EDGE);
+	return ((rdata->mapped.use == false) ? rdata->edge_len : rdata->mapped.edge_len);
+}
 
-static int mesh_render_data_loose_edges_len_get(const MeshRenderData *rdata)
+static int UNUSED_FUNCTION(mesh_render_data_loose_edges_len_get)(const MeshRenderData *rdata)
 {
 	BLI_assert(rdata->types & MR_DATATYPE_OVERLAY);
 	return rdata->loose_edge_len;
+}
+static int mesh_render_data_loose_edges_len_get_maybe_mapped(const MeshRenderData *rdata)
+{
+	BLI_assert(rdata->types & MR_DATATYPE_OVERLAY);
+	return ((rdata->mapped.use == false) ? rdata->loose_edge_len : rdata->mapped.loose_edge_len);
 }
 
 static int mesh_render_data_looptri_len_get(const MeshRenderData *rdata)
 {
 	BLI_assert(rdata->types & MR_DATATYPE_LOOPTRI);
 	return rdata->tri_len;
+}
+static int mesh_render_data_looptri_len_get_maybe_mapped(const MeshRenderData *rdata)
+{
+	BLI_assert(rdata->types & MR_DATATYPE_LOOPTRI);
+	return ((rdata->mapped.use == false) ? rdata->tri_len : rdata->mapped.tri_len);
 }
 
 static int mesh_render_data_mat_len_get(const MeshRenderData *rdata)
@@ -950,6 +1091,11 @@ static int mesh_render_data_polys_len_get(const MeshRenderData *rdata)
 {
 	BLI_assert(rdata->types & MR_DATATYPE_POLY);
 	return rdata->poly_len;
+}
+static int mesh_render_data_polys_len_get_maybe_mapped(const MeshRenderData *rdata)
+{
+	BLI_assert(rdata->types & MR_DATATYPE_POLY);
+	return ((rdata->mapped.use == false) ? rdata->poly_len : rdata->mapped.poly_len);
 }
 
 /** \} */
@@ -972,8 +1118,17 @@ static void mesh_render_data_ensure_poly_normals_pack(MeshRenderData *rdata)
 			int i;
 
 			pnors_pack = rdata->poly_normals_pack = MEM_mallocN(sizeof(*pnors_pack) * rdata->poly_len, __func__);
-			BM_ITER_MESH_INDEX(efa, &fiter, bm, BM_FACES_OF_MESH, i) {
-				pnors_pack[i] = GPU_normal_convert_i10_v3(efa->no);
+			if (rdata->edit_data && rdata->edit_data->vertexCos != NULL) {
+				BKE_editmesh_cache_ensure_poly_normals(rdata->edit_bmesh, rdata->edit_data);
+				const float (*pnors)[3] = rdata->edit_data->polyNos;
+				for (i = 0; i < bm->totface; i++) {
+					pnors_pack[i] = GPU_normal_convert_i10_v3(pnors[i]);
+				}
+			}
+			else {
+				BM_ITER_MESH_INDEX(efa, &fiter, bm, BM_FACES_OF_MESH, i) {
+					pnors_pack[i] = GPU_normal_convert_i10_v3(efa->no);
+				}
 			}
 		}
 		else {
@@ -1177,11 +1332,11 @@ static void mesh_render_data_ensure_edge_select_bool(MeshRenderData *rdata, bool
 		        MEM_callocN(sizeof(*edge_select_bool) * rdata->edge_len, __func__);
 
 		for (int i = 0; i < rdata->poly_len; i++) {
-			MPoly *poly = &rdata->mpoly[i];
+			const MPoly *poly = &rdata->mpoly[i];
 
 			if (poly->flag & ME_FACE_SEL) {
 				for (int j = 0; j < poly->totloop; j++) {
-					MLoop *loop = &rdata->mloop[poly->loopstart + j];
+					const MLoop *loop = &rdata->mloop[poly->loopstart + j];
 					if (use_wire) {
 						edge_select_bool[loop->e] = true;
 					}
@@ -1213,8 +1368,14 @@ static bool mesh_render_data_pnors_pcenter_select_get(
 		if (BM_elem_flag_test(efa, BM_ELEM_HIDDEN)) {
 			return false;
 		}
-		BM_face_calc_center_mean(efa, r_center);
-		copy_v3_v3(r_pnors, efa->no);
+		if (rdata->edit_data && rdata->edit_data->vertexCos) {
+			copy_v3_v3(r_center, rdata->edit_data->polyCos[poly]);
+			copy_v3_v3(r_pnors, rdata->edit_data->polyNos[poly]);
+		}
+		else {
+			BM_face_calc_center_mean(efa, r_center);
+			copy_v3_v3(r_pnors, efa->no);
+		}
 		*r_selected = (BM_elem_flag_test(efa, BM_ELEM_SELECT) != 0) ? true : false;
 	}
 	else {
@@ -1227,6 +1388,40 @@ static bool mesh_render_data_pnors_pcenter_select_get(
 
 		*r_selected = false; /* No selection if not in edit mode */
 	}
+
+	return true;
+}
+static bool mesh_render_data_pnors_pcenter_select_get_mapped(
+        MeshRenderData *rdata, const int poly,
+        float r_pnors[3], float r_center[3], bool *r_selected)
+{
+	BLI_assert(rdata->types & (MR_DATATYPE_VERT | MR_DATATYPE_LOOP | MR_DATATYPE_POLY));
+	const int *p_origindex = rdata->mapped.p_origindex;
+	const int p_orig = p_origindex[poly];
+	if (p_orig == ORIGINDEX_NONE) {
+		return false;
+	}
+	BMEditMesh *em = rdata->edit_bmesh;
+	const BMFace *efa = BM_face_at_index(rdata->edit_bmesh->bm, p_orig);
+	if (BM_elem_flag_test(efa, BM_ELEM_HIDDEN)) {
+		return false;
+	}
+
+	Mesh *me_cage = em->mesh_eval_cage;
+	const MVert *mvert = me_cage->mvert;
+#if 0
+	const MEdge *medge = me_cage->medge;
+#endif
+	const MLoop *mloop = me_cage->mloop;
+	const MPoly *mpoly = me_cage->mpoly;
+
+	const MPoly *mp = mpoly + poly;
+	const MLoop *ml = mloop + mp->loopstart;
+
+	BKE_mesh_calc_poly_center(mp, ml, mvert, r_center);
+	BKE_mesh_calc_poly_normal(mp, ml, mvert, r_pnors);
+
+	*r_selected = (BM_elem_flag_test(efa, BM_ELEM_SELECT) != 0) ? true : false;
 
 	return true;
 }
@@ -1263,7 +1458,7 @@ static bool mesh_render_data_edge_vcos_manifold_pnors(
 	}
 	else {
 		MVert *mvert = rdata->mvert;
-		MEdge *medge = rdata->medge;
+		const MEdge *medge = rdata->medge;
 		EdgeAdjacentPolys *eap = rdata->edges_adjacent_polys;
 		float (*pnors)[3] = rdata->poly_normals;
 
@@ -1349,12 +1544,11 @@ static uchar mesh_render_data_looptri_flag(MeshRenderData *rdata, const BMFace *
 		fflag |= VFLAG_FACE_SELECTED;
 
 #ifdef WITH_FREESTYLE
-	BMesh *bm = rdata->edit_bmesh->bm;
-	if (CustomData_has_layer(&bm->pdata, CD_FREESTYLE_FACE)) {
-		FreestyleFace *ffa = CustomData_bmesh_get(&bm->pdata, efa->head.data, CD_FREESTYLE_FACE);
-
-		if (ffa->flag & FREESTYLE_FACE_MARK)
+	if (rdata->cd.offset.freestyle_face != -1) {
+		const FreestyleFace *ffa = BM_ELEM_CD_GET_VOID_P(efa, rdata->cd.offset.freestyle_face);
+		if (ffa->flag & FREESTYLE_FACE_MARK) {
 			fflag |= VFLAG_FACE_FREESTYLE;
+		}
 	}
 #endif
 
@@ -1379,16 +1573,6 @@ static void mesh_render_data_edge_flag(
 	if (!BM_elem_flag_test(eed, BM_ELEM_SMOOTH))
 		eattr->e_flag |= VFLAG_EDGE_SHARP;
 
-#ifdef WITH_FREESTYLE
-	BMesh *bm = rdata->edit_bmesh->bm;
-	if (CustomData_has_layer(&bm->edata, CD_FREESTYLE_EDGE)) {
-		FreestyleEdge *fed = CustomData_bmesh_get(&bm->edata, eed->head.data, CD_FREESTYLE_EDGE);
-
-		if (fed->flag & FREESTYLE_EDGE_MARK)
-			eattr->e_flag |= VFLAG_EDGE_FREESTYLE;
-	}
-#endif
-
 	/* Use a byte for value range */
 	if (rdata->cd.offset.crease != -1) {
 		float crease = BM_ELEM_CD_GET_FLOAT(eed, rdata->cd.offset.crease);
@@ -1404,11 +1588,20 @@ static void mesh_render_data_edge_flag(
 			eattr->bweight = (uchar)(bweight * 255.0f);
 		}
 	}
+
+#ifdef WITH_FREESTYLE
+	if (rdata->cd.offset.freestyle_edge != -1) {
+		const FreestyleEdge *fed = BM_ELEM_CD_GET_VOID_P(eed, rdata->cd.offset.freestyle_edge);
+		if (fed->flag & FREESTYLE_EDGE_MARK) {
+			eattr->e_flag |= VFLAG_EDGE_FREESTYLE;
+		}
+	}
+#endif
 }
 
 static uchar mesh_render_data_vertex_flag(MeshRenderData *rdata, const BMVert *eve)
 {
-	uchar vflag = 0;
+	uchar vflag = VFLAG_VERTEX_EXISTS;
 
 	/* Current vertex */
 	if (eve == rdata->eve_act)
@@ -1421,12 +1614,19 @@ static uchar mesh_render_data_vertex_flag(MeshRenderData *rdata, const BMVert *e
 }
 
 static void add_overlay_tri(
-        MeshRenderData *rdata, GPUVertBuf *vbo_pos, GPUVertBuf *vbo_nor, GPUVertBuf *vbo_data,
+        MeshRenderData *rdata, GPUVertBuf *vbo_pos, GPUVertBuf *vbo_nor, GPUVertBuf *vbo_data, GPUIndexBufBuilder *elb,
         const uint pos_id, const uint vnor_id, const uint lnor_id, const uint data_id,
         const BMLoop **bm_looptri, const int base_vert_idx)
 {
 	uchar fflag;
 	uchar vflag;
+
+	for (int i = 0; i < 3; ++i) {
+		if (!BM_elem_flag_test(bm_looptri[i]->v, BM_ELEM_TAG)) {
+			BM_elem_flag_enable(bm_looptri[i]->v, BM_ELEM_TAG);
+			GPU_indexbuf_add_generic_vert(elb, base_vert_idx + i);
+		}
+	}
 
 	if (vbo_pos) {
 		/* TODO(sybren): deduplicate this and all the other places it's pasted to in this file. */
@@ -1457,18 +1657,109 @@ static void add_overlay_tri(
 
 	if (vbo_data) {
 		fflag = mesh_render_data_looptri_flag(rdata, bm_looptri[0]->f);
-		uint i_prev = 1, i = 2;
-		for (uint i_next = 0; i_next < 3; i_next++) {
+		for (uint i = 0; i < 3; i++) {
+			const int i_next = (i + 1) % 3;
+			const int i_prev = (i + 2) % 3;
 			vflag = mesh_render_data_vertex_flag(rdata, bm_looptri[i]->v);
+			/* Opposite edge to the vertex at 'i'. */
 			EdgeDrawAttr eattr = {0};
-			if (bm_looptri[i_next] == bm_looptri[i_prev]->prev) {
+			const bool is_edge_real = (bm_looptri[i_next] == bm_looptri[i_prev]->prev);
+			if (is_edge_real) {
 				mesh_render_data_edge_flag(rdata, bm_looptri[i_next]->e, &eattr);
 			}
 			eattr.v_flag = fflag | vflag;
 			GPU_vertbuf_attr_set(vbo_data, data_id, base_vert_idx + i, &eattr);
+		}
+	}
+}
+static void add_overlay_tri_mapped(
+        MeshRenderData *rdata, GPUVertBuf *vbo_pos, GPUVertBuf *vbo_nor, GPUVertBuf *vbo_data, GPUIndexBufBuilder *elb,
+        const uint pos_id, const uint vnor_id, const uint lnor_id, const uint data_id,
+        BMFace *efa, const MLoopTri *mlt, const float poly_normal[3], const int base_vert_idx)
+{
+	BMEditMesh *embm = rdata->edit_bmesh;
+	BMesh *bm = embm->bm;
+	Mesh *me_cage = embm->mesh_eval_cage;
 
-			i_prev = i;
-			i = i_next;
+	const MVert *mvert = me_cage->mvert;
+	const MEdge *medge = me_cage->medge;
+	const MLoop *mloop = me_cage->mloop;
+#if 0
+	const MPoly *mpoly = me_cage->mpoly;
+#endif
+
+	const int *v_origindex = rdata->mapped.v_origindex;
+	const int *e_origindex = rdata->mapped.e_origindex;
+#if 0
+	const int *l_origindex = rdata->mapped.l_origindex;
+	const int *p_origindex = rdata->mapped.p_origindex;
+#endif
+
+	uchar fflag;
+	uchar vflag;
+
+	if (elb) {
+		for (int i = 0; i < 3; ++i) {
+			const int v_orig = v_origindex[mloop[mlt->tri[i]].v];
+			if (v_orig == ORIGINDEX_NONE) {
+				continue;
+			}
+			BMVert *v = BM_vert_at_index(bm, v_orig);
+			if (!BM_elem_flag_test(v, BM_ELEM_TAG)) {
+				BM_elem_flag_enable(v, BM_ELEM_TAG);
+				GPU_indexbuf_add_generic_vert(elb, base_vert_idx + i);
+			}
+		}
+	}
+
+	if (vbo_pos) {
+		for (uint i = 0; i < 3; i++) {
+			const float *pos = mvert[mloop[mlt->tri[i]].v].co;
+			GPU_vertbuf_attr_set(vbo_pos, pos_id, base_vert_idx + i, pos);
+		}
+	}
+
+	if (vbo_nor) {
+		/* TODO real loop normal */
+		GPUPackedNormal lnor = GPU_normal_convert_i10_v3(poly_normal);
+		for (uint i = 0; i < 3; i++) {
+			GPUPackedNormal vnor = GPU_normal_convert_i10_s3(mvert[mloop[mlt->tri[i]].v].no);
+			GPU_vertbuf_attr_set(vbo_nor, vnor_id, base_vert_idx + i, &vnor);
+			GPU_vertbuf_attr_set(vbo_nor, lnor_id, base_vert_idx + i, &lnor);
+		}
+	}
+
+	if (vbo_data) {
+		fflag = mesh_render_data_looptri_flag(rdata, efa);
+		for (uint i = 0; i < 3; i++) {
+			const int i_next = (i + 1) % 3;
+			const int i_prev = (i + 2) % 3;
+			const int v_orig = v_origindex[mloop[mlt->tri[i]].v];
+			if (v_orig != ORIGINDEX_NONE) {
+				BMVert *v = BM_vert_at_index(bm, v_orig);
+				vflag = mesh_render_data_vertex_flag(rdata, v);
+			}
+			else {
+				/* Importantly VFLAG_VERTEX_EXISTS is not set. */
+				vflag = 0;
+			}
+			/* Opposite edge to the vertex at 'i'. */
+			EdgeDrawAttr eattr = {0};
+			const int e_idx = mloop[mlt->tri[i_next]].e;
+			const int e_orig = e_origindex[e_idx];
+			if (e_orig != ORIGINDEX_NONE) {
+				const MEdge *ed = &medge[e_idx];
+				const uint tri_edge[2]  = {mloop[mlt->tri[i_prev]].v, mloop[mlt->tri[i_next]].v};
+				const bool is_edge_real = (
+				        ((ed->v1 == tri_edge[0]) && (ed->v2 == tri_edge[1])) ||
+				        ((ed->v1 == tri_edge[1]) && (ed->v2 == tri_edge[0])));
+				if (is_edge_real) {
+					BMEdge *eed = BM_edge_at_index(bm, e_orig);
+					mesh_render_data_edge_flag(rdata, eed, &eattr);
+				}
+			}
+			eattr.v_flag = fflag | vflag;
+			GPU_vertbuf_attr_set(vbo_data, data_id, base_vert_idx + i, &eattr);
 		}
 	}
 }
@@ -1488,7 +1779,7 @@ static void add_overlay_loose_edge(
 			}
 		}
 		else {
-			for (int i = 0; i < 2; ++i) {
+			for (int i = 0; i < 2; i++) {
 				const float *pos = (&eed->v1)[i]->co;
 				GPU_vertbuf_attr_set(vbo_pos, pos_id, base_vert_idx + i, pos);
 			}
@@ -1496,7 +1787,7 @@ static void add_overlay_loose_edge(
 	}
 
 	if (vbo_nor) {
-		for (int i = 0; i < 2; ++i) {
+		for (int i = 0; i < 2; i++) {
 			GPUPackedNormal vnor = GPU_normal_convert_i10_v3((&eed->v1)[i]->no);
 			GPU_vertbuf_attr_set(vbo_nor, vnor_id, base_vert_idx + i, &vnor);
 		}
@@ -1505,8 +1796,38 @@ static void add_overlay_loose_edge(
 	if (vbo_data) {
 		EdgeDrawAttr eattr = {0};
 		mesh_render_data_edge_flag(rdata, eed, &eattr);
-		for (int i = 0; i < 2; ++i) {
+		for (int i = 0; i < 2; i++) {
 			eattr.v_flag = mesh_render_data_vertex_flag(rdata, (&eed->v1)[i]);
+			GPU_vertbuf_attr_set(vbo_data, data_id, base_vert_idx + i, &eattr);
+		}
+	}
+}
+static void add_overlay_loose_edge_mapped(
+        MeshRenderData *rdata, GPUVertBuf *vbo_pos, GPUVertBuf *vbo_nor, GPUVertBuf *vbo_data,
+        const uint pos_id, const uint vnor_id, const uint data_id,
+        BMEdge *eed, const MVert *mvert, const MEdge *ed, const int base_vert_idx)
+{
+	if (vbo_pos) {
+		/* TODO(sybren): deduplicate this and all the other places it's pasted to in this file. */
+		for (int i = 0; i < 2; i++) {
+			const float *pos = mvert[*(&ed->v1 + i)].co;
+			GPU_vertbuf_attr_set(vbo_pos, pos_id, base_vert_idx + i, pos);
+		}
+	}
+
+	if (vbo_nor) {
+		for (int i = 0; i < 2; i++) {
+			GPUPackedNormal vnor = GPU_normal_convert_i10_s3(mvert[*(&ed->v1 + i)].no);
+			GPU_vertbuf_attr_set(vbo_nor, vnor_id, base_vert_idx + i, &vnor);
+		}
+	}
+
+	if (vbo_data) {
+		EdgeDrawAttr eattr = {0};
+		mesh_render_data_edge_flag(rdata, eed, &eattr);
+		for (int i = 0; i < 2; i++) {
+			const int v_orig = rdata->mapped.v_origindex[*(&ed->v1 + i)];
+			eattr.v_flag = (v_orig != ORIGINDEX_NONE) ? mesh_render_data_vertex_flag(rdata, (&eed->v1)[i]) : 0;
 			GPU_vertbuf_attr_set(vbo_data, data_id, base_vert_idx + i, &eattr);
 		}
 	}
@@ -1532,6 +1853,27 @@ static void add_overlay_loose_vert(
 
 	if (vbo_nor) {
 		GPUPackedNormal vnor = GPU_normal_convert_i10_v3(eve->no);
+		GPU_vertbuf_attr_set(vbo_nor, vnor_id, base_vert_idx, &vnor);
+	}
+
+	if (vbo_data) {
+		uchar vflag[4] = {0, 0, 0, 0};
+		vflag[0] = mesh_render_data_vertex_flag(rdata, eve);
+		GPU_vertbuf_attr_set(vbo_data, data_id, base_vert_idx, vflag);
+	}
+}
+static void add_overlay_loose_vert_mapped(
+        MeshRenderData *rdata, GPUVertBuf *vbo_pos, GPUVertBuf *vbo_nor, GPUVertBuf *vbo_data,
+        const uint pos_id, const uint vnor_id, const uint data_id,
+        const BMVert *eve, const MVert *mv, const int base_vert_idx)
+{
+	if (vbo_pos) {
+		const float *pos = mv->co;
+		GPU_vertbuf_attr_set(vbo_pos, pos_id, base_vert_idx, pos);
+	}
+
+	if (vbo_nor) {
+		GPUPackedNormal vnor = GPU_normal_convert_i10_s3(mv->no);
 		GPU_vertbuf_attr_set(vbo_nor, vnor_id, base_vert_idx, &vnor);
 	}
 
@@ -1659,6 +2001,8 @@ typedef struct MeshBatchCache {
 	GPUVertBuf *ed_tri_pos;
 	GPUVertBuf *ed_tri_nor; /* LoopNor, VertNor */
 	GPUVertBuf *ed_tri_data;
+	GPUTexture *ed_tri_data_tx;
+	GPUIndexBuf *ed_tri_verts;
 
 	GPUVertBuf *ed_ledge_pos;
 	GPUVertBuf *ed_ledge_nor; /* VertNor */
@@ -1670,6 +2014,7 @@ typedef struct MeshBatchCache {
 
 	GPUBatch *overlay_triangles;
 	GPUBatch *overlay_triangles_nor; /* GPU_PRIM_POINTS */
+	GPUBatch *overlay_triangles_lnor; /* GPU_PRIM_POINTS */
 	GPUBatch *overlay_loose_edges;
 	GPUBatch *overlay_loose_edges_nor; /* GPU_PRIM_POINTS */
 	GPUBatch *overlay_loose_verts;
@@ -1817,18 +2162,24 @@ static void mesh_batch_cache_discard_shaded_tri(MeshBatchCache *cache)
 {
 	GPU_VERTBUF_DISCARD_SAFE(cache->shaded_triangles_data);
 	if (cache->shaded_triangles_in_order) {
-		for (int i = 0; i < cache->mat_len; ++i) {
+		for (int i = 0; i < cache->mat_len; i++) {
 			GPU_INDEXBUF_DISCARD_SAFE(cache->shaded_triangles_in_order[i]);
 		}
 	}
 	if (cache->shaded_triangles) {
-		for (int i = 0; i < cache->mat_len; ++i) {
+		for (int i = 0; i < cache->mat_len; i++) {
 			GPU_BATCH_DISCARD_SAFE(cache->shaded_triangles[i]);
 		}
 	}
-
+	if (cache->texpaint_triangles) {
+		for (int i = 0; i < cache->mat_len; i++) {
+			/* They use shaded_triangles_in_order */
+			GPU_BATCH_DISCARD_SAFE(cache->texpaint_triangles[i]);
+		}
+	}
 	MEM_SAFE_FREE(cache->shaded_triangles_in_order);
 	MEM_SAFE_FREE(cache->shaded_triangles);
+	MEM_SAFE_FREE(cache->texpaint_triangles);
 
 	MEM_SAFE_FREE(cache->auto_layer_names);
 	MEM_SAFE_FREE(cache->auto_layer_is_srgb);
@@ -1882,11 +2233,16 @@ void DRW_mesh_batch_cache_dirty_tag(Mesh *me, int mode)
 			GPU_VERTBUF_DISCARD_SAFE(cache->ed_fcenter_pos_with_nor_and_sel); /* Contains select flag */
 			GPU_VERTBUF_DISCARD_SAFE(cache->ed_edge_pos);
 			GPU_VERTBUF_DISCARD_SAFE(cache->ed_vert_pos);
+			GPU_INDEXBUF_DISCARD_SAFE(cache->ed_tri_verts);
+			DRW_TEXTURE_FREE_SAFE(cache->ed_tri_data_tx);
 
 			GPU_BATCH_DISCARD_SAFE(cache->overlay_triangles);
 			GPU_BATCH_DISCARD_SAFE(cache->overlay_loose_verts);
 			GPU_BATCH_DISCARD_SAFE(cache->overlay_loose_edges);
 			GPU_BATCH_DISCARD_SAFE(cache->overlay_facedots);
+			GPU_BATCH_DISCARD_SAFE(cache->overlay_triangles_nor);
+			GPU_BATCH_DISCARD_SAFE(cache->overlay_triangles_lnor);
+			GPU_BATCH_DISCARD_SAFE(cache->overlay_loose_edges_nor);
 			/* Edit mode selection. */
 			GPU_BATCH_DISCARD_SAFE(cache->facedot_with_select_id);
 			GPU_BATCH_DISCARD_SAFE(cache->edges_with_select_id);
@@ -1937,13 +2293,13 @@ static void mesh_batch_cache_clear_selective(Mesh *me, GPUVertBuf *vert)
 		GPU_BATCH_DISCARD_SAFE(cache->points_with_normals);
 		GPU_BATCH_DISCARD_SAFE(cache->ledges_with_normals);
 		if (cache->shaded_triangles) {
-			for (int i = 0; i < cache->mat_len; ++i) {
+			for (int i = 0; i < cache->mat_len; i++) {
 				GPU_BATCH_DISCARD_SAFE(cache->shaded_triangles[i]);
 			}
 		}
 		MEM_SAFE_FREE(cache->shaded_triangles);
 		if (cache->texpaint_triangles) {
-			for (int i = 0; i < cache->mat_len; ++i) {
+			for (int i = 0; i < cache->mat_len; i++) {
 				GPU_BATCH_DISCARD_SAFE(cache->texpaint_triangles[i]);
 			}
 		}
@@ -1983,11 +2339,14 @@ static void mesh_batch_cache_clear(Mesh *me)
 	GPU_VERTBUF_DISCARD_SAFE(cache->ed_lvert_pos);
 	GPU_VERTBUF_DISCARD_SAFE(cache->ed_lvert_nor);
 	GPU_VERTBUF_DISCARD_SAFE(cache->ed_lvert_data);
+	GPU_INDEXBUF_DISCARD_SAFE(cache->ed_tri_verts);
 	GPU_BATCH_DISCARD_SAFE(cache->overlay_triangles);
 	GPU_BATCH_DISCARD_SAFE(cache->overlay_triangles_nor);
+	GPU_BATCH_DISCARD_SAFE(cache->overlay_triangles_lnor);
 	GPU_BATCH_DISCARD_SAFE(cache->overlay_loose_verts);
 	GPU_BATCH_DISCARD_SAFE(cache->overlay_loose_edges);
 	GPU_BATCH_DISCARD_SAFE(cache->overlay_loose_edges_nor);
+	DRW_TEXTURE_FREE_SAFE(cache->ed_tri_data_tx);
 
 	GPU_BATCH_DISCARD_SAFE(cache->overlay_weight_faces);
 	GPU_BATCH_DISCARD_SAFE(cache->overlay_weight_verts);
@@ -2023,7 +2382,7 @@ static void mesh_batch_cache_clear(Mesh *me)
 	mesh_batch_cache_discard_uvedit(cache);
 
 	if (cache->texpaint_triangles) {
-		for (int i = 0; i < cache->mat_len; ++i) {
+		for (int i = 0; i < cache->mat_len; i++) {
 			GPU_BATCH_DISCARD_SAFE(cache->texpaint_triangles[i]);
 		}
 	}
@@ -2356,7 +2715,7 @@ static GPUVertBuf *mesh_batch_cache_get_tri_pos_and_normals_ex(
 			attr_id.nor = GPU_vertformat_attr_add(&format, "nor", GPU_COMP_I10, 3, GPU_FETCH_INT_TO_FLOAT_UNIT);
 		}
 
-		const int tri_len = mesh_render_data_looptri_len_get(rdata);
+		const int tri_len = mesh_render_data_looptri_len_get_maybe_mapped(rdata);
 
 		GPUVertBuf *vbo = *r_vbo = GPU_vertbuf_create_with_format(&format);
 
@@ -2368,103 +2727,170 @@ static GPUVertBuf *mesh_batch_cache_get_tri_pos_and_normals_ex(
 		GPU_vertbuf_attr_get_raw_data(vbo, attr_id.pos, &pos_step);
 		GPU_vertbuf_attr_get_raw_data(vbo, attr_id.nor, &nor_step);
 
-		float (*lnors)[3] = rdata->loop_normals;
+		if (rdata->mapped.use == false) {
+			float (*lnors)[3] = rdata->loop_normals;
+			if (rdata->edit_bmesh) {
+				GPUPackedNormal *pnors_pack, *vnors_pack;
 
-		if (rdata->edit_bmesh) {
-			GPUPackedNormal *pnors_pack, *vnors_pack;
+				if (lnors == NULL) {
+					mesh_render_data_ensure_poly_normals_pack(rdata);
+					mesh_render_data_ensure_vert_normals_pack(rdata);
 
-			if (lnors == NULL) {
-				mesh_render_data_ensure_poly_normals_pack(rdata);
-				mesh_render_data_ensure_vert_normals_pack(rdata);
+					pnors_pack = rdata->poly_normals_pack;
+					vnors_pack = rdata->vert_normals_pack;
+				}
 
-				pnors_pack = rdata->poly_normals_pack;
-				vnors_pack = rdata->vert_normals_pack;
+				for (int i = 0; i < tri_len; i++) {
+					const BMLoop **bm_looptri = (const BMLoop **)rdata->edit_bmesh->looptris[i];
+					const BMFace *bm_face = bm_looptri[0]->f;
+
+					/* use_hide always for edit-mode */
+					if (BM_elem_flag_test(bm_face, BM_ELEM_HIDDEN)) {
+						continue;
+					}
+
+					if (lnors) {
+						for (uint t = 0; t < 3; t++) {
+							const float *nor = lnors[BM_elem_index_get(bm_looptri[t])];
+							*((GPUPackedNormal *)GPU_vertbuf_raw_step(&nor_step)) = GPU_normal_convert_i10_v3(nor);
+						}
+					}
+					else if (BM_elem_flag_test(bm_face, BM_ELEM_SMOOTH)) {
+						for (uint t = 0; t < 3; t++) {
+							*((GPUPackedNormal *)GPU_vertbuf_raw_step(&nor_step)) = vnors_pack[BM_elem_index_get(bm_looptri[t]->v)];
+						}
+					}
+					else {
+						const GPUPackedNormal *snor_pack = &pnors_pack[BM_elem_index_get(bm_face)];
+						for (uint t = 0; t < 3; t++) {
+							*((GPUPackedNormal *)GPU_vertbuf_raw_step(&nor_step)) = *snor_pack;
+						}
+					}
+
+					/* TODO(sybren): deduplicate this and all the other places it's pasted to in this file. */
+					if (rdata->edit_data && rdata->edit_data->vertexCos) {
+						for (uint t = 0; t < 3; t++) {
+							int vidx = BM_elem_index_get(bm_looptri[t]->v);
+							const float *pos = rdata->edit_data->vertexCos[vidx];
+							copy_v3_v3(GPU_vertbuf_raw_step(&pos_step), pos);
+						}
+					}
+					else {
+						for (uint t = 0; t < 3; t++) {
+							copy_v3_v3(GPU_vertbuf_raw_step(&pos_step), bm_looptri[t]->v->co);
+						}
+					}
+				}
 			}
-
-			for (int i = 0; i < tri_len; i++) {
-				const BMLoop **bm_looptri = (const BMLoop **)rdata->edit_bmesh->looptris[i];
-				const BMFace *bm_face = bm_looptri[0]->f;
-
-				/* use_hide always for edit-mode */
-				if (BM_elem_flag_test(bm_face, BM_ELEM_HIDDEN)) {
-					continue;
+			else {
+				if (lnors == NULL) {
+					/* Use normals from vertex. */
+					mesh_render_data_ensure_poly_normals_pack(rdata);
 				}
 
-				if (lnors) {
-					for (uint t = 0; t < 3; t++) {
-						const float *nor = lnors[BM_elem_index_get(bm_looptri[t])];
-						*((GPUPackedNormal *)GPU_vertbuf_raw_step(&nor_step)) = GPU_normal_convert_i10_v3(nor);
-					}
-				}
-				else if (BM_elem_flag_test(bm_face, BM_ELEM_SMOOTH)) {
-					for (uint t = 0; t < 3; t++) {
-						*((GPUPackedNormal *)GPU_vertbuf_raw_step(&nor_step)) = vnors_pack[BM_elem_index_get(bm_looptri[t]->v)];
-					}
-				}
-				else {
-					const GPUPackedNormal *snor_pack = &pnors_pack[BM_elem_index_get(bm_face)];
-					for (uint t = 0; t < 3; t++) {
-						*((GPUPackedNormal *)GPU_vertbuf_raw_step(&nor_step)) = *snor_pack;
-					}
-				}
+				for (int i = 0; i < tri_len; i++) {
+					const MLoopTri *mlt = &rdata->mlooptri[i];
+					const MPoly *mp = &rdata->mpoly[mlt->poly];
 
-				/* TODO(sybren): deduplicate this and all the other places it's pasted to in this file. */
-				if (rdata->edit_data && rdata->edit_data->vertexCos) {
-					for (uint t = 0; t < 3; t++) {
-						int vidx = BM_elem_index_get(bm_looptri[t]->v);
-						const float *pos = rdata->edit_data->vertexCos[vidx];
-						copy_v3_v3(GPU_vertbuf_raw_step(&pos_step), pos);
+					if (use_hide && (mp->flag & ME_HIDE)) {
+						continue;
 					}
-				}
-				else {
+
+					const uint vtri[3] = {
+						rdata->mloop[mlt->tri[0]].v,
+						rdata->mloop[mlt->tri[1]].v,
+						rdata->mloop[mlt->tri[2]].v,
+					};
+
+					if (lnors) {
+						for (uint t = 0; t < 3; t++) {
+							const float *nor = lnors[mlt->tri[t]];
+							*((GPUPackedNormal *)GPU_vertbuf_raw_step(&nor_step)) = GPU_normal_convert_i10_v3(nor);
+						}
+					}
+					else if (mp->flag & ME_SMOOTH) {
+						for (uint t = 0; t < 3; t++) {
+							const MVert *mv = &rdata->mvert[vtri[t]];
+							*((GPUPackedNormal *)GPU_vertbuf_raw_step(&nor_step)) = GPU_normal_convert_i10_s3(mv->no);
+						}
+					}
+					else {
+						const GPUPackedNormal *pnors_pack = &rdata->poly_normals_pack[mlt->poly];
+						for (uint t = 0; t < 3; t++) {
+							*((GPUPackedNormal *)GPU_vertbuf_raw_step(&nor_step)) = *pnors_pack;
+						}
+					}
+
 					for (uint t = 0; t < 3; t++) {
-						copy_v3_v3(GPU_vertbuf_raw_step(&pos_step), bm_looptri[t]->v->co);
+						const MVert *mv = &rdata->mvert[vtri[t]];
+						copy_v3_v3(GPU_vertbuf_raw_step(&pos_step), mv->co);
 					}
 				}
 			}
 		}
 		else {
-			if (lnors == NULL) {
-				/* Use normals from vertex. */
-				mesh_render_data_ensure_poly_normals_pack(rdata);
+			/* Note: mapped doesn't support lnors yet. */
+			BMesh *bm = rdata->edit_bmesh->bm;
+			Mesh *me_cage = rdata->mapped.me_cage;
+
+			/* TODO(campbell): unlike non-mapped modes we don't generate these on demand, just use if they exist.
+			 * this seems like a low priority TODO since mapped meshes typically
+			 * use the final mesh evaluated mesh for showing faces. */
+			const float (*lnors)[3] = CustomData_get_layer(&me_cage->ldata, CD_NORMAL);
+
+			/* TODO(campbell): this is quite an expensive operation for something
+			 * that's not used unless 'normal' display option is enabled. */
+			if (!CustomData_has_layer(&me_cage->pdata, CD_NORMAL)) {
+				/* TODO(campbell): this is quite an expensive operation for something
+				 * that's not used unless 'normal' display option is enabled. */
+				BKE_mesh_ensure_normals_for_display(me_cage);
 			}
+			const float (*polynors)[3] = CustomData_get_layer(&me_cage->pdata, CD_NORMAL);
 
+			const MVert *mvert = rdata->mapped.me_cage->mvert;
+			const MLoop *mloop = rdata->mapped.me_cage->mloop;
+			const MPoly *mpoly = rdata->mapped.me_cage->mpoly;
+
+			const MLoopTri *mlooptri = BKE_mesh_runtime_looptri_ensure(me_cage);
 			for (int i = 0; i < tri_len; i++) {
-				const MLoopTri *mlt = &rdata->mlooptri[i];
-				const MPoly *mp = &rdata->mpoly[mlt->poly];
+				const MLoopTri *mlt = &mlooptri[i];
+				const int p_orig = rdata->mapped.p_origindex[mlt->poly];
+				if (p_orig != ORIGINDEX_NONE) {
+					/* Assume 'use_hide' */
+					BMFace *efa = BM_face_at_index(bm, p_orig);
+					if (!BM_elem_flag_test(efa, BM_ELEM_HIDDEN)) {
+						const MPoly *mp = &mpoly[mlt->poly];
+						const uint vtri[3] = {
+							mloop[mlt->tri[0]].v,
+							mloop[mlt->tri[1]].v,
+							mloop[mlt->tri[2]].v,
+						};
 
-				if (use_hide && (mp->flag & ME_HIDE)) {
-					continue;
-				}
+						if (lnors) {
+							for (uint t = 0; t < 3; t++) {
+								const float *nor = lnors[mlt->tri[t]];
+								*((GPUPackedNormal *)GPU_vertbuf_raw_step(&nor_step)) = GPU_normal_convert_i10_v3(nor);
+							}
+						}
+						else if (mp->flag & ME_SMOOTH) {
+							for (uint t = 0; t < 3; t++) {
+								const MVert *mv = &mvert[vtri[t]];
+								*((GPUPackedNormal *)GPU_vertbuf_raw_step(&nor_step)) = GPU_normal_convert_i10_s3(mv->no);
+							}
+						}
+						else {
+							/* we don't have cached 'rdata->poly_normals_pack'. */
+							const GPUPackedNormal pnor = GPU_normal_convert_i10_v3(polynors[mlt->poly]);
+							for (uint t = 0; t < 3; t++) {
+								*((GPUPackedNormal *)GPU_vertbuf_raw_step(&nor_step)) = pnor;
+							}
+						}
 
-				const uint vtri[3] = {
-					rdata->mloop[mlt->tri[0]].v,
-					rdata->mloop[mlt->tri[1]].v,
-					rdata->mloop[mlt->tri[2]].v,
-				};
-
-				if (lnors) {
-					for (uint t = 0; t < 3; t++) {
-						const float *nor = lnors[mlt->tri[t]];
-						*((GPUPackedNormal *)GPU_vertbuf_raw_step(&nor_step)) = GPU_normal_convert_i10_v3(nor);
+						for (uint t = 0; t < 3; t++) {
+							const MVert *mv = &mvert[vtri[t]];
+							copy_v3_v3(GPU_vertbuf_raw_step(&pos_step), mv->co);
+						}
 					}
-				}
-				else if (mp->flag & ME_SMOOTH) {
-					for (uint t = 0; t < 3; t++) {
-						const MVert *mv = &rdata->mvert[vtri[t]];
-						*((GPUPackedNormal *)GPU_vertbuf_raw_step(&nor_step)) = GPU_normal_convert_i10_s3(mv->no);
-					}
-				}
-				else {
-					const GPUPackedNormal *pnors_pack = &rdata->poly_normals_pack[mlt->poly];
-					for (uint t = 0; t < 3; t++) {
-						*((GPUPackedNormal *)GPU_vertbuf_raw_step(&nor_step)) = *pnors_pack;
-					}
-				}
-
-				for (uint t = 0; t < 3; t++) {
-					const MVert *mv = &rdata->mvert[vtri[t]];
-					copy_v3_v3(GPU_vertbuf_raw_step(&pos_step), mv->co);
 				}
 			}
 		}
@@ -2507,26 +2933,43 @@ static GPUVertBuf *mesh_batch_cache_get_facedot_pos_with_normals_and_flag(
 			attr_id.pos = GPU_vertformat_attr_add(&format, "pos", GPU_COMP_F32, 3, GPU_FETCH_FLOAT);
 			attr_id.data = GPU_vertformat_attr_add(&format, "norAndFlag", GPU_COMP_I10, 4, GPU_FETCH_INT_TO_FLOAT_UNIT);
 		}
-
-		const int vbo_len_capacity = mesh_render_data_polys_len_get(rdata);
+		const int vbo_len_capacity = mesh_render_data_polys_len_get_maybe_mapped(rdata);
 		int vidx = 0;
 
 		GPUVertBuf *vbo = cache->ed_fcenter_pos_with_nor_and_sel = GPU_vertbuf_create_with_format(&format);
 		GPU_vertbuf_data_alloc(vbo, vbo_len_capacity);
-		for (int i = 0; i < vbo_len_capacity; ++i) {
-			float pcenter[3], pnor[3];
-			bool selected = false;
 
-			if (mesh_render_data_pnors_pcenter_select_get(rdata, i, pnor, pcenter, &selected)) {
+		if (rdata->edit_bmesh) {
+			if (rdata->edit_data && rdata->edit_data->vertexCos != NULL) {
+				BKE_editmesh_cache_ensure_poly_normals(rdata->edit_bmesh, rdata->edit_data);
+				BKE_editmesh_cache_ensure_poly_centers(rdata->edit_bmesh, rdata->edit_data);
+			}
+		}
 
-				GPUPackedNormal nor = { .x = 0, .y = 0, .z = -511 };
-				nor = GPU_normal_convert_i10_v3(pnor);
-				nor.w = selected ? 1 : 0;
-				GPU_vertbuf_attr_set(vbo, attr_id.data, vidx, &nor);
-
-				GPU_vertbuf_attr_set(vbo, attr_id.pos, vidx, pcenter);
-
-				vidx += 1;
+		if (rdata->mapped.use == false) {
+			for (int i = 0; i < vbo_len_capacity; i++) {
+				float pcenter[3], pnor[3];
+				bool selected = false;
+				if (mesh_render_data_pnors_pcenter_select_get(rdata, i, pnor, pcenter, &selected)) {
+					GPUPackedNormal nor = GPU_normal_convert_i10_v3(pnor);
+					nor.w = selected ? 1 : 0;
+					GPU_vertbuf_attr_set(vbo, attr_id.data, vidx, &nor);
+					GPU_vertbuf_attr_set(vbo, attr_id.pos, vidx, pcenter);
+					vidx += 1;
+				}
+			}
+		}
+		else {
+			for (int i = 0; i < vbo_len_capacity; i++) {
+				float pcenter[3], pnor[3];
+				bool selected = false;
+				if (mesh_render_data_pnors_pcenter_select_get_mapped(rdata, i, pnor, pcenter, &selected)) {
+					GPUPackedNormal nor = GPU_normal_convert_i10_v3(pnor);
+					nor.w = selected ? 1 : 0;
+					GPU_vertbuf_attr_set(vbo, attr_id.data, vidx, &nor);
+					GPU_vertbuf_attr_set(vbo, attr_id.pos, vidx, pcenter);
+					vidx += 1;
+				}
 			}
 		}
 		const int vbo_len_used = vidx;
@@ -2551,28 +2994,50 @@ static GPUVertBuf *mesh_batch_cache_get_edges_visible(
 			attr_id.pos = GPU_vertformat_attr_add(&format, "pos", GPU_COMP_F32, 3, GPU_FETCH_FLOAT);
 		}
 
-		const int vbo_len_capacity = mesh_render_data_edges_len_get(rdata) * 2;
+		const int vbo_len_capacity = mesh_render_data_edges_len_get_maybe_mapped(rdata) * 2;
 		int vidx = 0;
 
 		GPUVertBuf *vbo = cache->ed_edge_pos = GPU_vertbuf_create_with_format(&format);
 		GPU_vertbuf_data_alloc(vbo, vbo_len_capacity);
-		if (rdata->edit_bmesh) {
-			BMesh *bm = rdata->edit_bmesh->bm;
-			BMIter iter;
-			BMEdge *eed;
 
-			BM_ITER_MESH (eed, &iter, bm, BM_EDGES_OF_MESH) {
-				if (!BM_elem_flag_test(eed, BM_ELEM_HIDDEN)) {
-					GPU_vertbuf_attr_set(vbo, attr_id.pos, vidx, eed->v1->co);
-					vidx += 1;
-					GPU_vertbuf_attr_set(vbo, attr_id.pos, vidx, eed->v2->co);
-					vidx += 1;
+		if (rdata->mapped.use == false) {
+			if (rdata->edit_bmesh) {
+				BMesh *bm = rdata->edit_bmesh->bm;
+				BMIter iter;
+				BMEdge *eed;
+
+				BM_ITER_MESH (eed, &iter, bm, BM_EDGES_OF_MESH) {
+					if (!BM_elem_flag_test(eed, BM_ELEM_HIDDEN)) {
+						GPU_vertbuf_attr_set(vbo, attr_id.pos, vidx, eed->v1->co);
+						vidx += 1;
+						GPU_vertbuf_attr_set(vbo, attr_id.pos, vidx, eed->v2->co);
+						vidx += 1;
+					}
 				}
+			}
+			else {
+				/* not yet done! */
+				BLI_assert(0);
 			}
 		}
 		else {
-			/* not yet done! */
-			BLI_assert(0);
+			BMesh *bm = rdata->edit_bmesh->bm;
+			const MVert *mvert = rdata->mapped.me_cage->mvert;
+			const MEdge *medge = rdata->mapped.me_cage->medge;
+			const int *e_origindex = rdata->mapped.e_origindex;
+			for (int i = 0; i < rdata->mapped.edge_len; i++) {
+				const int e_orig = e_origindex[i];
+				if (e_orig != ORIGINDEX_NONE) {
+					BMEdge *eed = BM_edge_at_index(bm, e_orig);
+					if (!BM_elem_flag_test(eed, BM_ELEM_HIDDEN)) {
+						const MEdge *ed = &medge[i];
+						GPU_vertbuf_attr_set(vbo, attr_id.pos, vidx, mvert[ed->v1].co);
+						vidx += 1;
+						GPU_vertbuf_attr_set(vbo, attr_id.pos, vidx, mvert[ed->v2].co);
+						vidx += 1;
+					}
+				}
+			}
 		}
 		const int vbo_len_used = vidx;
 		if (vbo_len_used != vbo_len_capacity) {
@@ -2596,29 +3061,47 @@ static GPUVertBuf *mesh_batch_cache_get_verts_visible(
 			attr_id.pos = GPU_vertformat_attr_add(&format, "pos", GPU_COMP_F32, 3, GPU_FETCH_FLOAT);
 		}
 
-		const int vbo_len_capacity = mesh_render_data_verts_len_get(rdata);
+		const int vbo_len_capacity = mesh_render_data_verts_len_get_maybe_mapped(rdata);
 		uint vidx = 0;
 
 		GPUVertBuf *vbo = cache->ed_vert_pos = GPU_vertbuf_create_with_format(&format);
 		GPU_vertbuf_data_alloc(vbo, vbo_len_capacity);
-		if (rdata->edit_bmesh) {
-			BMesh *bm = rdata->edit_bmesh->bm;
-			BMIter iter;
-			BMVert *eve;
+		if (rdata->mapped.use == false) {
+			if (rdata->edit_bmesh) {
+				BMesh *bm = rdata->edit_bmesh->bm;
+				BMIter iter;
+				BMVert *eve;
 
-			BM_ITER_MESH (eve, &iter, bm, BM_VERTS_OF_MESH) {
-				if (!BM_elem_flag_test(eve, BM_ELEM_HIDDEN)) {
-					GPU_vertbuf_attr_set(vbo, attr_id.pos, vidx, eve->co);
-					vidx += 1;
+				BM_ITER_MESH (eve, &iter, bm, BM_VERTS_OF_MESH) {
+					if (!BM_elem_flag_test(eve, BM_ELEM_HIDDEN)) {
+						GPU_vertbuf_attr_set(vbo, attr_id.pos, vidx, eve->co);
+						vidx += 1;
+					}
+				}
+			}
+			else {
+				for (int i = 0; i < vbo_len_capacity; i++) {
+					const MVert *mv = &rdata->mvert[i];
+					if (!(mv->flag & ME_HIDE)) {
+						GPU_vertbuf_attr_set(vbo, attr_id.pos, vidx, mv->co);
+						vidx += 1;
+					}
 				}
 			}
 		}
 		else {
+			BMesh *bm = rdata->edit_bmesh->bm;
+			const MVert *mvert = rdata->mapped.me_cage->mvert;
+			const int *v_origindex = rdata->mapped.v_origindex;
 			for (int i = 0; i < vbo_len_capacity; i++) {
-				const MVert *mv = &rdata->mvert[i];
-				if (!(mv->flag & ME_HIDE)) {
-					GPU_vertbuf_attr_set(vbo, attr_id.pos, vidx, mv->co);
-					vidx += 1;
+				const int v_orig = v_origindex[i];
+				if (v_orig != ORIGINDEX_NONE) {
+					BMVert *eve = BM_vert_at_index(bm, v_orig);
+					if (!BM_elem_flag_test(eve, BM_ELEM_HIDDEN)) {
+						const MVert *mv = &mvert[i];
+						GPU_vertbuf_attr_set(vbo, attr_id.pos, vidx, mv->co);
+						vidx += 1;
+					}
 				}
 			}
 		}
@@ -2694,33 +3177,54 @@ static GPUVertBuf *mesh_create_edges_select_id(
 			attr_id.col = GPU_vertformat_attr_add(&format, "color", GPU_COMP_I32, 1, GPU_FETCH_INT);
 		}
 
-		const int vbo_len_capacity = mesh_render_data_edges_len_get(rdata) * 2;
+		const int vbo_len_capacity = mesh_render_data_edges_len_get_maybe_mapped(rdata) * 2;
 		int vidx = 0;
 
 		vbo = GPU_vertbuf_create_with_format(&format);
 		GPU_vertbuf_data_alloc(vbo, vbo_len_capacity);
-		uint select_index = select_id_offset;
 
-		if (rdata->edit_bmesh) {
-			BMesh *bm = rdata->edit_bmesh->bm;
-			BMIter iter;
-			BMEdge *eed;
+		if (rdata->mapped.use == false) {
+			uint select_index = select_id_offset;
+			if (rdata->edit_bmesh) {
+				BMesh *bm = rdata->edit_bmesh->bm;
+				BMIter iter;
+				BMEdge *eed;
 
-			BM_ITER_MESH (eed, &iter, bm, BM_EDGES_OF_MESH) {
-				if (!BM_elem_flag_test(eed, BM_ELEM_HIDDEN)) {
-					int select_id;
-					GPU_select_index_get(select_index, &select_id);
-					GPU_vertbuf_attr_set(vbo, attr_id.col, vidx, &select_id);
-					vidx += 1;
-					GPU_vertbuf_attr_set(vbo, attr_id.col, vidx, &select_id);
-					vidx += 1;
+				BM_ITER_MESH (eed, &iter, bm, BM_EDGES_OF_MESH) {
+					if (!BM_elem_flag_test(eed, BM_ELEM_HIDDEN)) {
+						int select_id;
+						GPU_select_index_get(select_index, &select_id);
+						GPU_vertbuf_attr_set(vbo, attr_id.col, vidx, &select_id);
+						vidx += 1;
+						GPU_vertbuf_attr_set(vbo, attr_id.col, vidx, &select_id);
+						vidx += 1;
+					}
+					select_index += 1;
 				}
-				select_index += 1;
+			}
+			else {
+				/* not yet done! */
+				BLI_assert(0);
 			}
 		}
 		else {
-			/* not yet done! */
-			BLI_assert(0);
+			BMesh *bm = rdata->edit_bmesh->bm;
+			const int *e_origindex = rdata->mapped.e_origindex;
+			for (int i = 0; i < rdata->mapped.edge_len; i++) {
+				const int e_orig = e_origindex[i];
+				if (e_orig != ORIGINDEX_NONE) {
+					BMEdge *eed = BM_edge_at_index(bm, e_orig);
+					if (!BM_elem_flag_test(eed, BM_ELEM_HIDDEN)) {
+						uint select_index = select_id_offset + e_orig;
+						int select_id;
+						GPU_select_index_get(select_index, &select_id);
+						GPU_vertbuf_attr_set(vbo, attr_id.col, vidx, &select_id);
+						vidx += 1;
+						GPU_vertbuf_attr_set(vbo, attr_id.col, vidx, &select_id);
+						vidx += 1;
+					}
+				}
+			}
 		}
 		const int vbo_len_used = vidx;
 		if (vbo_len_used != vbo_len_capacity) {
@@ -2744,38 +3248,57 @@ static GPUVertBuf *mesh_create_verts_select_id(
 			attr_id.col = GPU_vertformat_attr_add(&format, "color", GPU_COMP_I32, 1, GPU_FETCH_INT);
 		}
 
-		const int vbo_len_capacity = mesh_render_data_verts_len_get(rdata);
+		const int vbo_len_capacity = mesh_render_data_verts_len_get_maybe_mapped(rdata);
 		int vidx = 0;
 
 		vbo = GPU_vertbuf_create_with_format(&format);
 		GPU_vertbuf_data_alloc(vbo, vbo_len_capacity);
-		uint select_index = select_id_offset;
 
-		if (rdata->edit_bmesh) {
-			BMesh *bm = rdata->edit_bmesh->bm;
-			BMIter iter;
-			BMVert *eve;
+		if (rdata->mapped.use == false) {
+			uint select_index = select_id_offset;
+			if (rdata->edit_bmesh) {
+				BMesh *bm = rdata->edit_bmesh->bm;
+				BMIter iter;
+				BMVert *eve;
 
-			BM_ITER_MESH (eve, &iter, bm, BM_VERTS_OF_MESH) {
-				if (!BM_elem_flag_test(eve, BM_ELEM_HIDDEN)) {
-					int select_id;
-					GPU_select_index_get(select_index, &select_id);
-					GPU_vertbuf_attr_set(vbo, attr_id.col, vidx, &select_id);
-					vidx += 1;
+				BM_ITER_MESH (eve, &iter, bm, BM_VERTS_OF_MESH) {
+					if (!BM_elem_flag_test(eve, BM_ELEM_HIDDEN)) {
+						int select_id;
+						GPU_select_index_get(select_index, &select_id);
+						GPU_vertbuf_attr_set(vbo, attr_id.col, vidx, &select_id);
+						vidx += 1;
+					}
+					select_index += 1;
 				}
-				select_index += 1;
+			}
+			else {
+				for (int i = 0; i < vbo_len_capacity; i++) {
+					const MVert *mv = &rdata->mvert[i];
+					if (!(mv->flag & ME_HIDE)) {
+						int select_id;
+						GPU_select_index_get(select_index, &select_id);
+						GPU_vertbuf_attr_set(vbo, attr_id.col, vidx, &select_id);
+						vidx += 1;
+					}
+					select_index += 1;
+				}
 			}
 		}
 		else {
+			BMesh *bm = rdata->edit_bmesh->bm;
+			const int *v_origindex = rdata->mapped.v_origindex;
 			for (int i = 0; i < vbo_len_capacity; i++) {
-				const MVert *mv = &rdata->mvert[i];
-				if (!(mv->flag & ME_HIDE)) {
-					int select_id;
-					GPU_select_index_get(select_index, &select_id);
-					GPU_vertbuf_attr_set(vbo, attr_id.col, vidx, &select_id);
-					vidx += 1;
+				const int v_orig = v_origindex[i];
+				if (v_orig != ORIGINDEX_NONE) {
+					BMVert *eve = BM_vert_at_index(bm, v_orig);
+					if (!BM_elem_flag_test(eve, BM_ELEM_HIDDEN)) {
+						uint select_index = select_id_offset + v_orig;
+						int select_id;
+						GPU_select_index_get(select_index, &select_id);
+						GPU_vertbuf_attr_set(vbo, attr_id.col, vidx, &select_id);
+						vidx += 1;
+					}
 				}
-				select_index += 1;
 			}
 		}
 		const int vbo_len_used = vidx;
@@ -2924,7 +3447,7 @@ static GPUVertBuf *mesh_create_tri_select_id(
 			attr_id.col = GPU_vertformat_attr_add(&format, "color", GPU_COMP_I32, 1, GPU_FETCH_INT);
 		}
 
-		const int tri_len = mesh_render_data_looptri_len_get(rdata);
+		const int tri_len = mesh_render_data_looptri_len_get_maybe_mapped(rdata);
 
 		vbo = GPU_vertbuf_create_with_format(&format);
 
@@ -2932,29 +3455,52 @@ static GPUVertBuf *mesh_create_tri_select_id(
 		int vbo_len_used = 0;
 		GPU_vertbuf_data_alloc(vbo, vbo_len_capacity);
 
-		if (rdata->edit_bmesh) {
-			for (int i = 0; i < tri_len; i++) {
-				const BMLoop **ltri = (const BMLoop **)rdata->edit_bmesh->looptris[i];
-				/* Assume 'use_hide' */
-				if (!BM_elem_flag_test(ltri[0]->f, BM_ELEM_HIDDEN)) {
-					const int poly_index = BM_elem_index_get(ltri[0]->f);
-					int select_id;
-					GPU_select_index_get(poly_index + select_id_offset, &select_id);
-					for (uint tri_corner = 0; tri_corner < 3; tri_corner++) {
-						GPU_vertbuf_attr_set(vbo, attr_id.col, cidx++, &select_id);
+
+		if (rdata->mapped.use == false) {
+			if (rdata->edit_bmesh) {
+				for (int i = 0; i < tri_len; i++) {
+					const BMLoop **ltri = (const BMLoop **)rdata->edit_bmesh->looptris[i];
+					/* Assume 'use_hide' */
+					if (!BM_elem_flag_test(ltri[0]->f, BM_ELEM_HIDDEN)) {
+						const int poly_index = BM_elem_index_get(ltri[0]->f);
+						int select_id;
+						GPU_select_index_get(poly_index + select_id_offset, &select_id);
+						for (uint tri_corner = 0; tri_corner < 3; tri_corner++) {
+							GPU_vertbuf_attr_set(vbo, attr_id.col, cidx++, &select_id);
+						}
+					}
+				}
+			}
+			else {
+				for (int i = 0; i < tri_len; i++) {
+					const MLoopTri *mlt = &rdata->mlooptri[i];
+					const int poly_index = mlt->poly;
+					if (!(use_hide && (rdata->mpoly[poly_index].flag & ME_HIDE))) {
+						int select_id;
+						GPU_select_index_get(poly_index + select_id_offset, &select_id);
+						for (uint tri_corner = 0; tri_corner < 3; tri_corner++) {
+							GPU_vertbuf_attr_set(vbo, attr_id.col, cidx++, &select_id);
+						}
 					}
 				}
 			}
 		}
 		else {
+			BMesh *bm = rdata->edit_bmesh->bm;
+			Mesh *me_cage = rdata->mapped.me_cage;
+			const MLoopTri *mlooptri = BKE_mesh_runtime_looptri_ensure(me_cage);
 			for (int i = 0; i < tri_len; i++) {
-				const MLoopTri *mlt = &rdata->mlooptri[i];
-				const int poly_index = mlt->poly;
-				if (!(use_hide && (rdata->mpoly[poly_index].flag & ME_HIDE))) {
-					int select_id;
-					GPU_select_index_get(poly_index + select_id_offset, &select_id);
-					for (uint tri_corner = 0; tri_corner < 3; tri_corner++) {
-						GPU_vertbuf_attr_set(vbo, attr_id.col, cidx++, &select_id);
+				const MLoopTri *mlt = &mlooptri[i];
+				const int p_orig = rdata->mapped.p_origindex[mlt->poly];
+				if (p_orig != ORIGINDEX_NONE) {
+					/* Assume 'use_hide' */
+					BMFace *efa = BM_face_at_index(bm, p_orig);
+					if (!BM_elem_flag_test(efa, BM_ELEM_HIDDEN)) {
+						int select_id;
+						GPU_select_index_get(select_id_offset + p_orig, &select_id);
+						for (uint tri_corner = 0; tri_corner < 3; tri_corner++) {
+							GPU_vertbuf_attr_set(vbo, attr_id.col, cidx++, &select_id);
+						}
 					}
 				}
 			}
@@ -2983,28 +3529,42 @@ static GPUVertBuf *mesh_batch_cache_get_vert_pos_and_nor_in_order(
 		}
 
 		GPUVertBuf *vbo = cache->pos_in_order = GPU_vertbuf_create_with_format(&format);
-		const int vbo_len_capacity = mesh_render_data_verts_len_get(rdata);
+		const int vbo_len_capacity = mesh_render_data_verts_len_get_maybe_mapped(rdata);
 		GPU_vertbuf_data_alloc(vbo, vbo_len_capacity);
 
-		if (rdata->edit_bmesh) {
-			BMesh *bm = rdata->edit_bmesh->bm;
-			BMIter iter;
-			BMVert *eve;
-			uint i;
+		if (rdata->mapped.use == false) {
+			if (rdata->edit_bmesh) {
+				BMesh *bm = rdata->edit_bmesh->bm;
+				BMIter iter;
+				BMVert *eve;
+				uint i;
 
-			BM_ITER_MESH_INDEX (eve, &iter, bm, BM_VERTS_OF_MESH, i) {
-				static short no_short[4];
-				normal_float_to_short_v3(no_short, eve->no);
+				BM_ITER_MESH_INDEX (eve, &iter, bm, BM_VERTS_OF_MESH, i) {
+					static short no_short[4];
+					normal_float_to_short_v3(no_short, eve->no);
 
-				GPU_vertbuf_attr_set(vbo, attr_id.pos, i, eve->co);
-				GPU_vertbuf_attr_set(vbo, attr_id.nor, i, no_short);
+					GPU_vertbuf_attr_set(vbo, attr_id.pos, i, eve->co);
+					GPU_vertbuf_attr_set(vbo, attr_id.nor, i, no_short);
+				}
+				BLI_assert(i == vbo_len_capacity);
 			}
-			BLI_assert(i == vbo_len_capacity);
+			else {
+				for (int i = 0; i < vbo_len_capacity; i++) {
+					GPU_vertbuf_attr_set(vbo, attr_id.pos, i, rdata->mvert[i].co);
+					GPU_vertbuf_attr_set(vbo, attr_id.nor, i, rdata->mvert[i].no); /* XXX actually reading 4 shorts */
+				}
+			}
 		}
 		else {
-			for (int i = 0; i < vbo_len_capacity; ++i) {
-				GPU_vertbuf_attr_set(vbo, attr_id.pos, i, rdata->mvert[i].co);
-				GPU_vertbuf_attr_set(vbo, attr_id.nor, i, rdata->mvert[i].no); /* XXX actually reading 4 shorts */
+			const MVert *mvert = rdata->mapped.me_cage->mvert;
+			const int *v_origindex = rdata->mapped.v_origindex;
+			for (int i = 0; i < vbo_len_capacity; i++) {
+				const int v_orig = v_origindex[i];
+				if (v_orig != ORIGINDEX_NONE) {
+					const MVert *mv = &mvert[i];
+					GPU_vertbuf_attr_set(vbo, attr_id.pos, i, mv->co);
+					GPU_vertbuf_attr_set(vbo, attr_id.nor, i, mv->no); /* XXX actually reading 4 shorts */
+				}
 			}
 		}
 	}
@@ -3059,11 +3619,14 @@ static void mesh_batch_cache_create_overlay_tri_buffers(
         MeshRenderData *rdata, MeshBatchCache *cache)
 {
 	BLI_assert(rdata->types & (MR_DATATYPE_VERT | MR_DATATYPE_LOOPTRI));
-
-	const int tri_len = mesh_render_data_looptri_len_get(rdata);
+	BMesh *bm = rdata->edit_bmesh->bm;
+	BMIter iter;
+	BMVert *ev;
+	const int tri_len = mesh_render_data_looptri_len_get_maybe_mapped(rdata);
 
 	const int vbo_len_capacity = tri_len * 3;
 	int vbo_len_used = 0;
+	int points_len = bm->totvert;
 
 	/* Positions */
 	GPUVertBuf *vbo_pos = NULL;
@@ -3090,16 +3653,57 @@ static void mesh_batch_cache_create_overlay_tri_buffers(
 		GPU_vertbuf_data_alloc(vbo_data, vbo_len_capacity);
 	}
 
-	for (int i = 0; i < tri_len; i++) {
-		const BMLoop **bm_looptri = (const BMLoop **)rdata->edit_bmesh->looptris[i];
-		if (!BM_elem_flag_test(bm_looptri[0]->f, BM_ELEM_HIDDEN)) {
-			add_overlay_tri(
-			        rdata, vbo_pos, vbo_nor, vbo_data,
-			        attr_id.pos, attr_id.vnor, attr_id.lnor, attr_id.data,
-			        bm_looptri, vbo_len_used);
+	/* Verts IBO */
+	GPUIndexBufBuilder elb, *elbp = NULL;
+	if (cache->ed_tri_verts == NULL) {
+		elbp = &elb;
+		GPU_indexbuf_init(elbp, GPU_PRIM_POINTS, points_len, vbo_len_capacity);
+	}
 
-			vbo_len_used += 3;
+	/* Clear tag */
+	BM_ITER_MESH(ev, &iter, bm, BM_VERTS_OF_MESH) {
+		BM_elem_flag_disable(ev, BM_ELEM_TAG);
+	}
+
+	if (rdata->mapped.use == false) {
+		for (int i = 0; i < tri_len; i++) {
+			const BMLoop **bm_looptri = (const BMLoop **)rdata->edit_bmesh->looptris[i];
+			if (!BM_elem_flag_test(bm_looptri[0]->f, BM_ELEM_HIDDEN)) {
+				add_overlay_tri(
+				        rdata, vbo_pos, vbo_nor, vbo_data, elbp,
+				        attr_id.pos, attr_id.vnor, attr_id.lnor, attr_id.data,
+				        bm_looptri, vbo_len_used);
+				vbo_len_used += 3;
+			}
 		}
+	}
+	else {
+		Mesh *me_cage = rdata->mapped.me_cage;
+		const MLoopTri *mlooptri = BKE_mesh_runtime_looptri_ensure(me_cage);
+		if (!CustomData_has_layer(&me_cage->pdata, CD_NORMAL)) {
+			/* TODO(campbell): this is quite an expensive operation for something
+			 * that's not used unless 'normal' display option is enabled. */
+			BKE_mesh_ensure_normals_for_display(me_cage);
+		}
+		const float (*polynors)[3] = CustomData_get_layer(&me_cage->pdata, CD_NORMAL);
+		for (int i = 0; i < tri_len; i++) {
+			const MLoopTri *mlt = &mlooptri[i];
+			const int p_orig = rdata->mapped.p_origindex[mlt->poly];
+			if (p_orig != ORIGINDEX_NONE) {
+				BMFace *efa = BM_face_at_index(bm, p_orig);
+				if (!BM_elem_flag_test(efa, BM_ELEM_HIDDEN)) {
+					add_overlay_tri_mapped(
+					        rdata, vbo_pos, vbo_nor, vbo_data, elbp,
+					        attr_id.pos, attr_id.vnor, attr_id.lnor, attr_id.data,
+					        efa, mlt, polynors[mlt->poly], vbo_len_used);
+					vbo_len_used += 3;
+				}
+			}
+		}
+	}
+
+	if (elbp != NULL) {
+		cache->ed_tri_verts = GPU_indexbuf_build(elbp);
 	}
 
 	/* Finish */
@@ -3114,6 +3718,10 @@ static void mesh_batch_cache_create_overlay_tri_buffers(
 			GPU_vertbuf_data_resize(vbo_data, vbo_len_used);
 		}
 	}
+
+	/* Upload data early because we need to create the texture for it. */
+	GPU_vertbuf_use(vbo_data);
+	cache->ed_tri_data_tx = GPU_texture_create_from_vertbuf(vbo_data);
 }
 
 static void mesh_batch_cache_create_overlay_ledge_buffers(
@@ -3121,7 +3729,7 @@ static void mesh_batch_cache_create_overlay_ledge_buffers(
 {
 	BLI_assert(rdata->types & (MR_DATATYPE_VERT | MR_DATATYPE_LOOPTRI));
 
-	const int ledge_len = mesh_render_data_loose_edges_len_get(rdata);
+	const int ledge_len = mesh_render_data_loose_edges_len_get_maybe_mapped(rdata);
 
 	const int vbo_len_capacity = ledge_len * 2;
 	int vbo_len_used = 0;
@@ -3151,17 +3759,35 @@ static void mesh_batch_cache_create_overlay_ledge_buffers(
 		GPU_vertbuf_data_alloc(vbo_data, vbo_len_capacity);
 	}
 
-	if (rdata->edit_bmesh) {
-		BMesh *bm = rdata->edit_bmesh->bm;
-		for (uint i = 0; i < ledge_len; i++) {
-			const BMEdge *eed = BM_edge_at_index(bm, rdata->loose_edges[i]);
-			if (!BM_elem_flag_test(eed, BM_ELEM_HIDDEN)) {
+	if (rdata->mapped.use == false) {
+		if (rdata->edit_bmesh) {
+			BMesh *bm = rdata->edit_bmesh->bm;
+			for (uint i = 0; i < ledge_len; i++) {
+				const BMEdge *eed = BM_edge_at_index(bm, rdata->loose_edges[i]);
 				add_overlay_loose_edge(
 				        rdata, vbo_pos, vbo_nor, vbo_data,
 				        attr_id.pos, attr_id.vnor, attr_id.data,
 				        eed, vbo_len_used);
 				vbo_len_used += 2;
 			}
+		}
+	}
+	else {
+		BMesh *bm = rdata->edit_bmesh->bm;
+		Mesh *me_cage = rdata->mapped.me_cage;
+		const MVert *mvert = me_cage->mvert;
+		const MEdge *medge = me_cage->medge;
+		const int *e_origindex = rdata->mapped.e_origindex;
+		for (uint i_iter = 0; i_iter < ledge_len; i_iter++) {
+			const int i = rdata->mapped.loose_edges[i_iter];
+			const int e_orig = e_origindex[i];
+			const MEdge *ed = &medge[i];
+			BMEdge *eed = BM_edge_at_index(bm, e_orig);
+			add_overlay_loose_edge_mapped(
+			        rdata, vbo_pos, vbo_nor, vbo_data,
+			        attr_id.pos, attr_id.vnor, attr_id.data,
+			        eed, mvert, ed, vbo_len_used);
+			vbo_len_used += 2;
 		}
 	}
 
@@ -3185,7 +3811,7 @@ static void mesh_batch_cache_create_overlay_lvert_buffers(
 	BLI_assert(rdata->types & (MR_DATATYPE_VERT | MR_DATATYPE_LOOPTRI));
 
 	BMesh *bm = rdata->edit_bmesh->bm;
-	const int lvert_len = mesh_render_data_loose_verts_len_get(rdata);
+	const int lvert_len = mesh_render_data_loose_verts_len_get_maybe_mapped(rdata);
 
 	const int vbo_len_capacity = lvert_len;
 	int vbo_len_used = 0;
@@ -3216,13 +3842,31 @@ static void mesh_batch_cache_create_overlay_lvert_buffers(
 		GPU_vertbuf_data_alloc(vbo_data, vbo_len_capacity);
 	}
 
-	for (uint i = 0; i < lvert_len; i++) {
-		BMVert *eve = BM_vert_at_index(bm, rdata->loose_verts[i]);
-		add_overlay_loose_vert(
-		        rdata, vbo_pos, vbo_nor, vbo_data,
-		        attr_id.pos, attr_id.vnor, attr_id.data,
-		        eve, vbo_len_used);
-		vbo_len_used += 1;
+	if (rdata->mapped.use == false) {
+		for (uint i = 0; i < lvert_len; i++) {
+			BMVert *eve = BM_vert_at_index(bm, rdata->loose_verts[i]);
+			add_overlay_loose_vert(
+			        rdata, vbo_pos, vbo_nor, vbo_data,
+			        attr_id.pos, attr_id.vnor, attr_id.data,
+			        eve, vbo_len_used);
+			vbo_len_used += 1;
+		}
+	}
+	else {
+		Mesh *me_cage = rdata->mapped.me_cage;
+		const MVert *mvert = me_cage->mvert;
+		const int *v_origindex = rdata->mapped.v_origindex;
+		for (uint i_iter = 0; i_iter < lvert_len; i_iter++) {
+			const int i = rdata->mapped.loose_verts[i_iter];
+			const int v_orig = v_origindex[i];
+			const MVert *mv = &mvert[i];
+			BMVert *eve = BM_vert_at_index(bm, v_orig);
+			add_overlay_loose_vert_mapped(
+			        rdata, vbo_pos, vbo_nor, vbo_data,
+			        attr_id.pos, attr_id.vnor, attr_id.data,
+			        eve, mv, vbo_len_used);
+			vbo_len_used += 1;
+		}
 	}
 
 	/* Finish */
@@ -3258,6 +3902,9 @@ static GPUVertBuf *mesh_batch_cache_get_edit_ledge_pos(
 	BLI_assert(rdata->types & MR_DATATYPE_VERT);
 
 	if (cache->ed_ledge_pos == NULL) {
+		if (rdata->mapped.supported) {
+			rdata->mapped.use = true;
+		}
 		mesh_batch_cache_create_overlay_ledge_buffers(rdata, cache);
 	}
 
@@ -3270,10 +3917,26 @@ static GPUVertBuf *mesh_batch_cache_get_edit_lvert_pos(
 	BLI_assert(rdata->types & MR_DATATYPE_VERT);
 
 	if (cache->ed_lvert_pos == NULL) {
+		if (rdata->mapped.supported) {
+			rdata->mapped.use = true;
+		}
 		mesh_batch_cache_create_overlay_lvert_buffers(rdata, cache);
 	}
 
 	return cache->ed_lvert_pos;
+}
+
+/* Indices */
+static GPUIndexBuf *mesh_batch_cache_get_edit_tri_indices(
+        MeshRenderData *rdata, MeshBatchCache *cache)
+{
+	BLI_assert(rdata->types & MR_DATATYPE_VERT);
+
+	if (cache->ed_tri_verts == NULL) {
+		mesh_batch_cache_create_overlay_tri_buffers(rdata, cache);
+	}
+
+	return cache->ed_tri_verts;
 }
 
 /* Normal */
@@ -3283,6 +3946,9 @@ static GPUVertBuf *mesh_batch_cache_get_edit_tri_nor(
 	BLI_assert(rdata->types & MR_DATATYPE_VERT);
 
 	if (cache->ed_tri_nor == NULL) {
+		if (rdata->mapped.supported) {
+			rdata->mapped.use = true;
+		}
 		mesh_batch_cache_create_overlay_tri_buffers(rdata, cache);
 	}
 
@@ -3295,6 +3961,9 @@ static GPUVertBuf *mesh_batch_cache_get_edit_ledge_nor(
 	BLI_assert(rdata->types & MR_DATATYPE_VERT);
 
 	if (cache->ed_ledge_nor == NULL) {
+		if (rdata->mapped.supported) {
+			rdata->mapped.use = true;
+		}
 		mesh_batch_cache_create_overlay_ledge_buffers(rdata, cache);
 	}
 
@@ -3307,6 +3976,9 @@ static GPUVertBuf *mesh_batch_cache_get_edit_lvert_nor(
 	BLI_assert(rdata->types & MR_DATATYPE_VERT);
 
 	if (cache->ed_lvert_nor == NULL) {
+		if (rdata->mapped.supported) {
+			rdata->mapped.use = true;
+		}
 		mesh_batch_cache_create_overlay_lvert_buffers(rdata, cache);
 	}
 
@@ -3332,6 +4004,9 @@ static GPUVertBuf *mesh_batch_cache_get_edit_ledge_data(
 	BLI_assert(rdata->types & MR_DATATYPE_VERT);
 
 	if (cache->ed_ledge_data == NULL) {
+		if (rdata->mapped.supported) {
+			rdata->mapped.use = true;
+		}
 		mesh_batch_cache_create_overlay_ledge_buffers(rdata, cache);
 	}
 
@@ -3344,6 +4019,9 @@ static GPUVertBuf *mesh_batch_cache_get_edit_lvert_data(
 	BLI_assert(rdata->types & MR_DATATYPE_VERT);
 
 	if (cache->ed_lvert_data == NULL) {
+		if (rdata->mapped.supported) {
+			rdata->mapped.use = true;
+		}
 		mesh_batch_cache_create_overlay_lvert_buffers(rdata, cache);
 	}
 
@@ -3403,7 +4081,7 @@ static GPUIndexBuf *mesh_batch_cache_get_edges_adjacency(MeshRenderData *rdata, 
 		EdgeHash *eh = BLI_edgehash_new_ex(__func__, tri_len * 3);
 		/* Create edges for each pair of triangles sharing an edge. */
 		for (int i = 0; i < tri_len; i++) {
-			for (int e = 0; e < 3; ++e) {
+			for (int e = 0; e < 3; e++) {
 				uint v0, v1, v2;
 				if (rdata->edit_bmesh) {
 					const BMLoop **bm_looptri = (const BMLoop **)rdata->edit_bmesh->looptris[i];
@@ -3415,8 +4093,8 @@ static GPUIndexBuf *mesh_batch_cache_get_edges_adjacency(MeshRenderData *rdata, 
 					v2 = BM_elem_index_get(bm_looptri[(e + 2) % 3]->v);
 				}
 				else {
-					MLoop *mloop = rdata->mloop;
-					MLoopTri *mlt = rdata->mlooptri + i;
+					const MLoop *mloop = rdata->mloop;
+					const MLoopTri *mlt = rdata->mlooptri + i;
 					v0 = mloop[mlt->tri[e]].v;
 					v1 = mloop[mlt->tri[(e + 1) % 3]].v;
 					v2 = mloop[mlt->tri[(e + 2) % 3]].v;
@@ -3485,7 +4163,7 @@ static EdgeHash *create_looptri_edge_adjacency_hash(MeshRenderData *rdata)
 	EdgeHash *eh = BLI_edgehash_new_ex(__func__, tri_len * 3);
 	/* Create edges for each pair of triangles sharing an edge. */
 	for (int i = 0; i < tri_len; i++) {
-		for (int e = 0; e < 3; ++e) {
+		for (int e = 0; e < 3; e++) {
 			uint v0, v1, v2;
 			if (rdata->edit_bmesh) {
 				const BMLoop **bm_looptri = (const BMLoop **)rdata->edit_bmesh->looptris[i];
@@ -3497,8 +4175,8 @@ static EdgeHash *create_looptri_edge_adjacency_hash(MeshRenderData *rdata)
 				v2 = BM_elem_index_get(bm_looptri[(e + 2) % 3]->v);
 			}
 			else {
-				MLoop *mloop = rdata->mloop;
-				MLoopTri *mlt = rdata->mlooptri + i;
+				const MLoop *mloop = rdata->mloop;
+				const MLoopTri *mlt = rdata->mlooptri + i;
 				v0 = mloop[mlt->tri[e]].v;
 				v1 = mloop[mlt->tri[(e + 1) % 3]].v;
 				v2 = mloop[mlt->tri[(e + 2) % 3]].v;
@@ -3540,25 +4218,23 @@ static GPUVertBuf *mesh_batch_cache_create_edges_overlay_texture_buf(MeshRenderD
 	eh = create_looptri_edge_adjacency_hash(rdata);
 
 	for (int i = 0; i < tri_len; i++) {
-		bool edge_is_real[3] = {false, false, false};
+		bool edge_is_real[3];
 
-		MEdge *medge = rdata->medge;
-		MLoop *mloop = rdata->mloop;
-		MLoopTri *mlt = rdata->mlooptri + i;
+		const MEdge *medge = rdata->medge;
+		const MLoop *mloop = rdata->mloop;
+		const MLoopTri *mlt = rdata->mlooptri + i;
 
 		int j, j_next;
 		for (j = 2, j_next = 0; j_next < 3; j = j_next++) {
-			MEdge *ed = &medge[mloop[mlt->tri[j]].e];
-			uint tri_edge[2]  = {mloop[mlt->tri[j]].v, mloop[mlt->tri[j_next]].v};
-
-			if (((ed->v1 == tri_edge[0]) && (ed->v2 == tri_edge[1])) ||
-			    ((ed->v1 == tri_edge[1]) && (ed->v2 == tri_edge[0])))
-			{
-				edge_is_real[j] = true;
-			}
+			const MEdge *ed = &medge[mloop[mlt->tri[j]].e];
+			const uint tri_edge[2]  = {mloop[mlt->tri[j]].v, mloop[mlt->tri[j_next]].v};
+			const bool is_edge_real = (
+			        ((ed->v1 == tri_edge[0]) && (ed->v2 == tri_edge[1])) ||
+			        ((ed->v1 == tri_edge[1]) && (ed->v2 == tri_edge[0])));
+			edge_is_real[j] = is_edge_real;
 		}
 
-		for (int e = 0; e < 3; ++e) {
+		for (int e = 0; e < 3; e++) {
 			int v0 = mloop[mlt->tri[e]].v;
 			int v1 = mloop[mlt->tri[(e + 1) % 3]].v;
 			EdgeAdjacentVerts *eav = BLI_edgehash_lookup(eh, v0, v1);
@@ -3569,7 +4245,7 @@ static GPUVertBuf *mesh_batch_cache_create_edges_overlay_texture_buf(MeshRenderD
 			}
 			/* Non-manifold edge */
 			if (eav->vert_index[1] == -1) {
-				value |= (1 << 31);
+				value |= (1u << 31);
 			}
 			GPU_vertbuf_attr_set(vbo, index_id, vidx++, &value);
 		}
@@ -3631,7 +4307,7 @@ static GPUIndexBuf *mesh_batch_cache_get_triangles_in_order(MeshRenderData *rdat
 		GPU_indexbuf_init(&elb, GPU_PRIM_TRIS, tri_len, vert_len);
 
 		if (rdata->edit_bmesh) {
-			for (int i = 0; i < tri_len; ++i) {
+			for (int i = 0; i < tri_len; i++) {
 				const BMLoop **ltri = (const BMLoop **)rdata->edit_bmesh->looptris[i];
 				if (!BM_elem_flag_test(ltri[0]->f, BM_ELEM_HIDDEN)) {
 					for (uint tri_corner = 0; tri_corner < 3; tri_corner++) {
@@ -3641,7 +4317,7 @@ static GPUIndexBuf *mesh_batch_cache_get_triangles_in_order(MeshRenderData *rdat
 			}
 		}
 		else {
-			for (int i = 0; i < tri_len; ++i) {
+			for (int i = 0; i < tri_len; i++) {
 				const MLoopTri *mlt = &rdata->mlooptri[i];
 				for (uint tri_corner = 0; tri_corner < 3; tri_corner++) {
 					GPU_indexbuf_add_generic_vert(&elb, mlt->tri[tri_corner]);
@@ -3660,31 +4336,44 @@ static GPUIndexBuf *mesh_batch_cache_get_loose_edges(MeshRenderData *rdata, Mesh
 	BLI_assert(rdata->types & (MR_DATATYPE_VERT | MR_DATATYPE_LOOPTRI));
 
 	if (cache->ledges_in_order == NULL) {
-		const int vert_len = mesh_render_data_verts_len_get(rdata);
-		const int edge_len = mesh_render_data_edges_len_get(rdata);
+		const int vert_len = mesh_render_data_verts_len_get_maybe_mapped(rdata);
+		const int edge_len = mesh_render_data_edges_len_get_maybe_mapped(rdata);
 
 		/* Alloc max (edge_len) and upload only needed range. */
 		GPUIndexBufBuilder elb;
 		GPU_indexbuf_init(&elb, GPU_PRIM_LINES, edge_len, vert_len);
 
-		if (rdata->edit_bmesh) {
-			/* No need to support since edit mesh already draw them.
-			 * But some engines may want them ... */
-			BMesh *bm = rdata->edit_bmesh->bm;
-			BMIter eiter;
-			BMEdge *eed;
-			BM_ITER_MESH(eed, &eiter, bm, BM_EDGES_OF_MESH) {
-				if (!BM_elem_flag_test(eed, BM_ELEM_HIDDEN) && BM_edge_is_wire(eed)) {
-					GPU_indexbuf_add_line_verts(&elb, BM_elem_index_get(eed->v1),  BM_elem_index_get(eed->v2));
+		if (rdata->mapped.use == false) {
+			if (rdata->edit_bmesh) {
+				/* No need to support since edit mesh already draw them.
+				 * But some engines may want them ... */
+				BMesh *bm = rdata->edit_bmesh->bm;
+				BMIter eiter;
+				BMEdge *eed;
+				BM_ITER_MESH(eed, &eiter, bm, BM_EDGES_OF_MESH) {
+					if (!BM_elem_flag_test(eed, BM_ELEM_HIDDEN) &&
+					    (eed->l == NULL || !bm_edge_has_visible_face(eed)))
+					{
+						GPU_indexbuf_add_line_verts(&elb, BM_elem_index_get(eed->v1),  BM_elem_index_get(eed->v2));
+					}
+				}
+			}
+			else {
+				for (int i = 0; i < edge_len; i++) {
+					const MEdge *medge = &rdata->medge[i];
+					if (medge->flag & ME_LOOSEEDGE) {
+						GPU_indexbuf_add_line_verts(&elb, medge->v1, medge->v2);
+					}
 				}
 			}
 		}
 		else {
-			for (int i = 0; i < edge_len; ++i) {
-				const MEdge *medge = &rdata->medge[i];
-				if (medge->flag & ME_LOOSEEDGE) {
-					GPU_indexbuf_add_line_verts(&elb, medge->v1, medge->v2);
-				}
+			/* Hidden checks are already done when creating the loose edge list. */
+			Mesh *me_cage = rdata->mapped.me_cage;
+			for (int i_iter = 0; i_iter < rdata->mapped.loose_edge_len; i_iter++) {
+				const int i = rdata->mapped.loose_edges[i_iter];
+				const MEdge *medge = &me_cage->medge[i];
+				GPU_indexbuf_add_line_verts(&elb, medge->v1, medge->v2);
 			}
 		}
 		cache->ledges_in_order = GPU_indexbuf_build(&elb);
@@ -3694,7 +4383,9 @@ static GPUIndexBuf *mesh_batch_cache_get_loose_edges(MeshRenderData *rdata, Mesh
 }
 
 static GPUIndexBuf **mesh_batch_cache_get_triangles_in_order_split_by_material(
-        MeshRenderData *rdata, MeshBatchCache *cache)
+        MeshRenderData *rdata, MeshBatchCache *cache,
+        /* Special case when drawing final evaluated mesh in editmode, so hidden faces are ignored. */
+        BMesh *bm_mapped, const int *p_origindex_mapped)
 {
 	BLI_assert(rdata->types & (MR_DATATYPE_VERT | MR_DATATYPE_POLY));
 
@@ -3721,16 +4412,30 @@ static GPUIndexBuf **mesh_batch_cache_get_triangles_in_order_split_by_material(
 				}
 			}
 		}
-		else {
+		else if (bm_mapped == NULL) {
 			for (uint i = 0; i < poly_len; i++) {
 				const MPoly *mp = &rdata->mpoly[i]; ;
 				const short ma_id = mp->mat_nr < mat_len ? mp->mat_nr : 0;
 				mat_tri_len[ma_id] += (mp->totloop - 2);
 			}
 		}
+		else {
+			BM_mesh_elem_table_ensure(bm_mapped, BM_FACE);
+			for (uint i = 0; i < poly_len; i++) {
+				const int p_orig = p_origindex_mapped[i];
+				if ((p_orig == ORIGINDEX_NONE) ||
+				    !BM_elem_flag_test(BM_face_at_index(bm_mapped, p_orig), BM_ELEM_HIDDEN))
+				{
+					const MPoly *mp = &rdata->mpoly[i]; ;
+					const short ma_id = mp->mat_nr < mat_len ? mp->mat_nr : 0;
+					mat_tri_len[ma_id] += (mp->totloop - 2);
+				}
+			}
+
+		}
 
 		/* Init ELBs. */
-		for (int i = 0; i < mat_len; ++i) {
+		for (int i = 0; i < mat_len; i++) {
 			GPU_indexbuf_init(&elb[i], GPU_PRIM_TRIS, mat_tri_len[i], tri_len * 3);
 		}
 
@@ -3751,7 +4456,7 @@ static GPUIndexBuf **mesh_batch_cache_get_triangles_in_order_split_by_material(
 				}
 			}
 		}
-		else {
+		else if (bm_mapped == NULL) {
 			for (uint i = 0; i < poly_len; i++) {
 				const MPoly *mp = &rdata->mpoly[i]; ;
 				const short ma_id = mp->mat_nr < mat_len ? mp->mat_nr : 0;
@@ -3761,9 +4466,27 @@ static GPUIndexBuf **mesh_batch_cache_get_triangles_in_order_split_by_material(
 				}
 			}
 		}
+		else {
+			for (uint i = 0; i < poly_len; i++) {
+				const int p_orig = p_origindex_mapped[i];
+				const MPoly *mp = &rdata->mpoly[i];
+				if ((p_orig == ORIGINDEX_NONE) ||
+				    !BM_elem_flag_test(BM_face_at_index(bm_mapped, p_orig), BM_ELEM_HIDDEN))
+				{
+					const short ma_id = mp->mat_nr < mat_len ? mp->mat_nr : 0;
+					for (int j = 2; j < mp->totloop; j++) {
+						GPU_indexbuf_add_tri_verts(&elb[ma_id], nidx + 0, nidx + 1, nidx + 2);
+						nidx += 3;
+					}
+				}
+				else {
+					nidx += (mp->totloop - 2) * 3;
+				}
+			}
+		}
 
 		/* Build ELBs. */
-		for (int i = 0; i < mat_len; ++i) {
+		for (int i = 0; i < mat_len; i++) {
 			cache->shaded_triangles_in_order[i] = GPU_indexbuf_build(&elb[i]);
 		}
 
@@ -3846,7 +4569,7 @@ static GPUIndexBuf *mesh_create_tri_overlay_weight_faces(
 		GPUIndexBufBuilder elb;
 		GPU_indexbuf_init(&elb, GPU_PRIM_TRIS, tri_len, vert_len);
 
-		for (int i = 0; i < tri_len; ++i) {
+		for (int i = 0; i < tri_len; i++) {
 			const MLoopTri *mlt = &rdata->mlooptri[i];
 			if (!(rdata->mpoly[mlt->poly].flag & (ME_FACE_SEL | ME_HIDE))) {
 				for (uint tri_corner = 0; tri_corner < 3; tri_corner++) {
@@ -3969,6 +4692,9 @@ GPUBatch *DRW_mesh_batch_cache_get_loose_edges_with_normals(Mesh *me)
 	if (cache->ledges_with_normals == NULL) {
 		const int datatype = MR_DATATYPE_VERT | MR_DATATYPE_EDGE | MR_DATATYPE_LOOPTRI | MR_DATATYPE_LOOP | MR_DATATYPE_POLY;
 		MeshRenderData *rdata = mesh_render_data_create(me, datatype);
+		if (rdata->mapped.supported) {
+			rdata->mapped.use = true;
+		}
 
 		cache->ledges_with_normals = GPU_batch_create(
 		        GPU_PRIM_LINES, mesh_batch_cache_get_vert_pos_and_nor_in_order(rdata, cache),
@@ -4049,6 +4775,9 @@ struct GPUBatch *DRW_mesh_batch_cache_get_triangles_with_select_id(
 		const int datatype =
 		        MR_DATATYPE_VERT | MR_DATATYPE_LOOPTRI | MR_DATATYPE_LOOP | MR_DATATYPE_POLY;
 		MeshRenderData *rdata = mesh_render_data_create(me, datatype);
+		if (rdata->mapped.supported) {
+			rdata->mapped.use = true;
+		}
 
 		cache->triangles_with_select_id = GPU_batch_create_ex(
 		        GPU_PRIM_TRIS, mesh_create_tri_select_id(rdata, use_hide, select_id_offset), NULL, GPU_BATCH_OWNS_VBO);
@@ -4075,6 +4804,9 @@ struct GPUBatch *DRW_mesh_batch_cache_get_triangles_with_select_mask(struct Mesh
 		const int datatype =
 		        MR_DATATYPE_VERT | MR_DATATYPE_LOOPTRI | MR_DATATYPE_LOOP | MR_DATATYPE_POLY;
 		MeshRenderData *rdata = mesh_render_data_create(me, datatype);
+		if (rdata->mapped.supported) {
+			rdata->mapped.use = true;
+		}
 
 		GPUVertBuf *vbo_tris = use_hide ?
 		        mesh_create_tri_pos_and_normals_visible_only(rdata) :
@@ -4147,7 +4879,7 @@ GPUBatch *DRW_mesh_batch_cache_get_fancy_edges(Mesh *me)
 		const int vbo_len_capacity = edge_len * 2; /* these are PRIM_LINE verts, not mesh verts */
 		int vbo_len_used = 0;
 		GPU_vertbuf_data_alloc(vbo, vbo_len_capacity);
-		for (int i = 0; i < edge_len; ++i) {
+		for (int i = 0; i < edge_len; i++) {
 			float *vcos1, *vcos2;
 			float *pnor1 = NULL, *pnor2 = NULL;
 			bool is_manifold;
@@ -4244,6 +4976,10 @@ static void mesh_batch_cache_create_overlay_batches(Mesh *me)
 	MeshBatchCache *cache = mesh_batch_cache_get(me);
 	MeshRenderData *rdata = mesh_render_data_create(me, options);
 
+	if (rdata->mapped.supported) {
+		rdata->mapped.use = true;
+	}
+
 	if (cache->overlay_triangles == NULL) {
 		cache->overlay_triangles = GPU_batch_create(
 		        GPU_PRIM_TRIS, mesh_batch_cache_get_edit_tri_pos(rdata, cache), NULL);
@@ -4265,16 +5001,27 @@ static void mesh_batch_cache_create_overlay_batches(Mesh *me)
 		GPU_batch_vertbuf_add(cache->overlay_loose_verts, mesh_batch_cache_get_edit_lvert_data(rdata, cache));
 	}
 
+	/* Also used for vertices display */
 	if (cache->overlay_triangles_nor == NULL) {
 		cache->overlay_triangles_nor = GPU_batch_create(
-		        GPU_PRIM_POINTS, mesh_batch_cache_get_edit_tri_pos(rdata, cache), NULL);
+		        GPU_PRIM_POINTS, mesh_batch_cache_get_edit_tri_pos(rdata, cache),
+		                         mesh_batch_cache_get_edit_tri_indices(rdata, cache));
 		GPU_batch_vertbuf_add(cache->overlay_triangles_nor, mesh_batch_cache_get_edit_tri_nor(rdata, cache));
+		GPU_batch_vertbuf_add(cache->overlay_triangles_nor, mesh_batch_cache_get_edit_tri_data(rdata, cache));
+	}
+
+	if (cache->overlay_triangles_lnor == NULL) {
+		cache->overlay_triangles_lnor = GPU_batch_create(
+		        GPU_PRIM_POINTS, mesh_batch_cache_get_edit_tri_pos(rdata, cache), NULL);
+		GPU_batch_vertbuf_add(cache->overlay_triangles_lnor, mesh_batch_cache_get_edit_tri_nor(rdata, cache));
+		GPU_batch_vertbuf_add(cache->overlay_triangles_lnor, mesh_batch_cache_get_edit_tri_data(rdata, cache));
 	}
 
 	if (cache->overlay_loose_edges_nor == NULL) {
 		cache->overlay_loose_edges_nor = GPU_batch_create(
 		        GPU_PRIM_POINTS, mesh_batch_cache_get_edit_ledge_pos(rdata, cache), NULL);
 		GPU_batch_vertbuf_add(cache->overlay_loose_edges_nor, mesh_batch_cache_get_edit_ledge_nor(rdata, cache));
+		GPU_batch_vertbuf_add(cache->overlay_loose_edges_nor, mesh_batch_cache_get_edit_ledge_data(rdata, cache));
 	}
 
 	mesh_render_data_free(rdata);
@@ -4289,6 +5036,17 @@ GPUBatch *DRW_mesh_batch_cache_get_overlay_triangles(Mesh *me)
 	}
 
 	return cache->overlay_triangles;
+}
+
+GPUTexture *DRW_mesh_batch_cache_get_overlay_data_tex(Mesh *me)
+{
+	MeshBatchCache *cache = mesh_batch_cache_get(me);
+
+	if (cache->ed_tri_data_tx == NULL) {
+		mesh_batch_cache_create_overlay_batches(me);
+	}
+
+	return cache->ed_tri_data_tx;
 }
 
 GPUBatch *DRW_mesh_batch_cache_get_overlay_loose_edges(Mesh *me)
@@ -4322,6 +5080,17 @@ GPUBatch *DRW_mesh_batch_cache_get_overlay_triangles_nor(Mesh *me)
 	}
 
 	return cache->overlay_triangles_nor;
+}
+
+GPUBatch *DRW_mesh_batch_cache_get_overlay_triangles_lnor(Mesh *me)
+{
+	MeshBatchCache *cache = mesh_batch_cache_get(me);
+
+	if (cache->overlay_triangles_lnor == NULL) {
+		mesh_batch_cache_create_overlay_batches(me);
+	}
+
+	return cache->overlay_triangles_lnor;
 }
 
 GPUBatch *DRW_mesh_batch_cache_get_overlay_loose_edges_nor(Mesh *me)
@@ -4389,6 +5158,9 @@ GPUBatch *DRW_mesh_batch_cache_get_edges_with_select_id(Mesh *me, uint select_id
 
 	if (cache->edges_with_select_id == NULL) {
 		MeshRenderData *rdata = mesh_render_data_create(me, MR_DATATYPE_VERT | MR_DATATYPE_EDGE);
+		if (rdata->mapped.supported) {
+			rdata->mapped.use = true;
+		}
 
 		cache->edges_with_select_id = GPU_batch_create(
 		        GPU_PRIM_LINES, mesh_batch_cache_get_edges_visible(rdata, cache), NULL);
@@ -4414,6 +5186,9 @@ GPUBatch *DRW_mesh_batch_cache_get_verts_with_select_id(Mesh *me, uint select_id
 
 	if (cache->verts_with_select_id == NULL) {
 		MeshRenderData *rdata = mesh_render_data_create(me, MR_DATATYPE_VERT);
+		if (rdata->mapped.supported) {
+			rdata->mapped.use = true;
+		}
 
 		cache->verts_with_select_id = GPU_batch_create(
 		        GPU_PRIM_POINTS, mesh_batch_cache_get_verts_visible(rdata, cache), NULL);
@@ -4435,6 +5210,29 @@ GPUBatch **DRW_mesh_batch_cache_get_surface_shaded(
 	MeshBatchCache *cache = mesh_batch_cache_get(me);
 
 	if (cache->shaded_triangles == NULL) {
+
+		/* Hack to show the final result. */
+		BMesh *bm_mapped = NULL;
+		const int *p_origindex = NULL;
+		const bool use_em_final = (
+		        me->edit_btmesh &&
+		        me->edit_btmesh->mesh_eval_final &&
+		        (me->edit_btmesh->mesh_eval_final->runtime.is_original == false));
+		Mesh me_fake;
+		if (use_em_final) {
+			/* Pass in mapped args. */
+			bm_mapped = me->edit_btmesh->bm;
+			p_origindex = CustomData_get_layer(&me->edit_btmesh->mesh_eval_final->pdata, CD_ORIGINDEX);
+			if (p_origindex == NULL) {
+				bm_mapped = NULL;
+			}
+
+			me_fake = *me->edit_btmesh->mesh_eval_final;
+			me_fake.mat = me->mat;
+			me_fake.totcol = me->totcol;
+			me = &me_fake;
+		}
+
 		/* create batch from DM */
 		const int datatype =
 		        MR_DATATYPE_VERT | MR_DATATYPE_LOOP | MR_DATATYPE_LOOPTRI |
@@ -4445,12 +5243,14 @@ GPUBatch **DRW_mesh_batch_cache_get_surface_shaded(
 
 		cache->shaded_triangles = MEM_callocN(sizeof(*cache->shaded_triangles) * mat_len, __func__);
 
-		GPUIndexBuf **el = mesh_batch_cache_get_triangles_in_order_split_by_material(rdata, cache);
+		GPUIndexBuf **el = mesh_batch_cache_get_triangles_in_order_split_by_material(
+		        rdata, cache,
+		        bm_mapped, p_origindex);
 
 		GPUVertBuf *vbo = mesh_batch_cache_get_tri_pos_and_normals(rdata, cache);
 		GPUVertBuf *vbo_shading = mesh_batch_cache_get_tri_shading_data(rdata, cache);
 
-		for (int i = 0; i < mat_len; ++i) {
+		for (int i = 0; i < mat_len; i++) {
 			cache->shaded_triangles[i] = GPU_batch_create(
 			        GPU_PRIM_TRIS, vbo, el[i]);
 			if (vbo_shading) {
@@ -4484,10 +5284,10 @@ GPUBatch **DRW_mesh_batch_cache_get_surface_texpaint(Mesh *me)
 
 		cache->texpaint_triangles = MEM_callocN(sizeof(*cache->texpaint_triangles) * mat_len, __func__);
 
-		GPUIndexBuf **el = mesh_batch_cache_get_triangles_in_order_split_by_material(rdata, cache);
+		GPUIndexBuf **el = mesh_batch_cache_get_triangles_in_order_split_by_material(rdata, cache, NULL, NULL);
 
 		GPUVertBuf *vbo = mesh_batch_cache_get_tri_pos_and_normals(rdata, cache);
-		for (int i = 0; i < mat_len; ++i) {
+		for (int i = 0; i < mat_len; i++) {
 			cache->texpaint_triangles[i] = GPU_batch_create(
 			        GPU_PRIM_TRIS, vbo, el[i]);
 			GPUVertBuf *vbo_uv = mesh_batch_cache_get_tri_uv_active(rdata, cache);
@@ -4556,7 +5356,7 @@ GPUBatch *DRW_mesh_batch_cache_get_texpaint_loop_wire(Mesh *me)
 		GPUVertBuf *vbo = GPU_vertbuf_create_with_format(&format);
 		GPU_vertbuf_data_alloc(vbo, vert_len);
 
-		MPoly *mpoly = rdata->mpoly;
+		const MPoly *mpoly = rdata->mpoly;
 		for (int a = 0; a < poly_len; a++, mpoly++) {
 			const MLoopUV *mloopuv = mloopuv_base + mpoly->loopstart;
 			for (int b = 0; b < mpoly->totloop; b++, mloopuv++) {

@@ -399,7 +399,7 @@ class IV_OT_icons_show(bpy.types.Operator):
         header = header.split(factor=0.75) if self.selected_icon else \
             header.row()
         row = header.row(align=True)
-        row.prop(pr, "show_matcap_icons", text="", icon='SMOOTH')
+        row.prop(pr, "show_matcap_icons", text="", icon='SHADING_RENDERED')
         row.prop(pr, "show_brush_icons", text="", icon='BRUSH_DATA')
         row.prop(pr, "show_colorset_icons", text="", icon='COLOR')
         row.prop(pr, "show_event_icons", text="", icon='HAND')
@@ -487,14 +487,14 @@ class IV_OT_icons_show(bpy.types.Operator):
             self, width=self.width)
 
 
-classes = [
+classes = (
     IV_PT_icons,
     IV_HT_icons,
     IV_OT_panel_menu_call,
     IV_OT_icon_select,
     IV_OT_icons_show,
     IV_Preferences,
-]
+)
 
 
 def register():

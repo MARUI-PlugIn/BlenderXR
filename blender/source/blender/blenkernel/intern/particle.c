@@ -232,23 +232,6 @@ void psys_set_current_num(Object *ob, int index)
 	}
 }
 
-#if 0 /* UNUSED */
-Object *psys_find_object(Scene *scene, ParticleSystem *psys)
-{
-	Base *base;
-	ParticleSystem *tpsys;
-
-	for (base = scene->base.first; base; base = base->next) {
-		for (tpsys = base->object->particlesystem.first; psys; psys = psys->next) {
-			if (tpsys == psys)
-				return base->object;
-		}
-	}
-
-	return NULL;
-}
-#endif
-
 struct LatticeDeformData *psys_create_lattice_deform_data(ParticleSimulationData *sim)
 {
 	struct LatticeDeformData *lattice_deform_data = NULL;
@@ -307,7 +290,7 @@ static PTCacheEdit *psys_orig_edit_get(ParticleSystem *psys)
 	return psys->orig_psys->edit;
 }
 
-bool psys_in_edit_mode(Depsgraph *depsgraph, ParticleSystem *psys)
+bool psys_in_edit_mode(Depsgraph *depsgraph, const ParticleSystem *psys)
 {
 	const ViewLayer *view_layer = DEG_get_input_view_layer(depsgraph);
 	if (view_layer->basact == NULL) {
@@ -319,7 +302,7 @@ bool psys_in_edit_mode(Depsgraph *depsgraph, ParticleSystem *psys)
 	if (object->mode != OB_MODE_PARTICLE_EDIT) {
 		return false;
 	}
-	ParticleSystem *psys_orig = psys_orig_get(psys);
+	const ParticleSystem *psys_orig = psys_orig_get((ParticleSystem *)psys);
 	return (psys_orig->edit || psys->pointcache->edit) &&
 	       (use_render_params == false);
 }
@@ -2927,22 +2910,6 @@ void psys_get_from_key(ParticleKey *key, float loc[3], float vel[3], float rot[4
 	if (rot) copy_qt_qt(rot, key->rot);
 	if (time) *time = key->time;
 }
-/*-------changing particle keys from space to another-------*/
-#if 0
-static void key_from_object(Object *ob, ParticleKey *key)
-{
-	float q[4];
-
-	add_v3_v3(key->vel, key->co);
-
-	mul_m4_v3(ob->obmat, key->co);
-	mul_m4_v3(ob->obmat, key->vel);
-	mat4_to_quat(q, ob->obmat);
-
-	sub_v3_v3v3(key->vel, key->vel, key->co);
-	mul_qt_qtqt(key->rot, q, key->rot);
-}
-#endif
 
 static void triatomat(float *v1, float *v2, float *v3, float (*uv)[2], float mat[4][4])
 {
@@ -3849,14 +3816,6 @@ void psys_get_particle_on_path(ParticleSimulationData *sim, int p, ParticleKey *
 					unit_m4(hairmat);
 				}
 			}
-
-			/* correct child ipo timing */
-#if 0 // XXX old animation system
-			if ((part->flag & PART_ABS_TIME) == 0 && part->ipo) {
-				calc_ipo(part->ipo, 100.0f * t);
-				execute_ipo((ID *)part, part->ipo);
-			}
-#endif // XXX old animation system
 
 			/* get different child parameters from textures & vgroups */
 			memset(&ctx, 0, sizeof(ParticleThreadContext));

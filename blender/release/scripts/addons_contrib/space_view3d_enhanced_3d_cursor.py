@@ -3408,7 +3408,7 @@ class PseudoIDBlockBase(bpy.types.PropertyGroup):
         row.prop_menu_enum(self, "enum", text="", icon=self.icon)
         row.prop(self, "active", text="")
         if self.op_new:
-            row.operator(self.op_new, text="", icon='ZOOMIN')
+            row.operator(self.op_new, text="", icon='ADD')
         if self.op_delete:
             row.operator(self.op_delete, text="", icon='X')
 # end class

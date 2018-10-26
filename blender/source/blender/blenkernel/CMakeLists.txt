@@ -82,7 +82,6 @@ set(SRC
 	intern/blender_undo.c
 	intern/blender_user_menu.c
 	intern/blendfile.c
-	intern/bmfont.c
 	intern/boids.c
 	intern/bpath.c
 	intern/brush.c
@@ -110,6 +109,7 @@ set(SRC
 	intern/editlattice.c
 	intern/editmesh.c
 	intern/editmesh_bvh.c
+	intern/editmesh_cache.c
 	intern/editmesh_tangent.c
 	intern/effect.c
 	intern/fcurve.c
@@ -236,8 +236,6 @@ set(SRC
 	BKE_blender_user_menu.h
 	BKE_blender_version.h
 	BKE_blendfile.h
-	BKE_bmfont.h
-	BKE_bmfont_types.h
 	BKE_boids.h
 	BKE_bpath.h
 	BKE_brush.h
@@ -264,6 +262,7 @@ set(SRC
 	BKE_editlattice.h
 	BKE_editmesh.h
 	BKE_editmesh_bvh.h
+	BKE_editmesh_cache.h
 	BKE_editmesh_tangent.h
 	BKE_effect.h
 	BKE_fcurve.h

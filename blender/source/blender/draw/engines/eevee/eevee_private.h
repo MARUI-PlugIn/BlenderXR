@@ -578,6 +578,7 @@ typedef struct EEVEE_EffectsInfo {
 	struct GPUTexture *dof_down_far;
 	struct GPUTexture *dof_coc;
 	struct GPUTexture *dof_blur;
+	struct GPUTexture *dof_blur_alpha;
 	/* Other */
 	float prev_persmat[4][4];
 	/* Bloom */
@@ -956,7 +957,7 @@ void EEVEE_volumes_free_smoke_textures(void);
 void EEVEE_volumes_free(void);
 
 /* eevee_effects.c */
-void EEVEE_effects_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata, Object *camera);
+void EEVEE_effects_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata, Object *camera, const bool minimal);
 void EEVEE_effects_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata);
 void EEVEE_create_minmax_buffer(EEVEE_Data *vedata, struct GPUTexture *depth_src, int layer);
 void EEVEE_downsample_buffer(EEVEE_Data *vedata, struct GPUTexture *texture_src, int level);

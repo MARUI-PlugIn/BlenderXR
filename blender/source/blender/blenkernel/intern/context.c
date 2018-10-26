@@ -94,13 +94,6 @@ struct bContext {
 		int py_init; /* true if python is initialized */
 		void *py_context;
 	} data;
-
-	/* data evaluation */
-#if 0
-	struct {
-		int render;
-	} eval;
-#endif
 };
 
 /* context */
@@ -1203,6 +1196,11 @@ struct bPoseChannel *CTX_data_active_pose_bone(const bContext *C)
 int CTX_data_selected_pose_bones(const bContext *C, ListBase *list)
 {
 	return ctx_data_collection_get(C, "selected_pose_bones", list);
+}
+
+int CTX_data_selected_pose_bones_from_active_object(const bContext *C, ListBase *list)
+{
+	return ctx_data_collection_get(C, "selected_pose_bones_from_active_object", list);
 }
 
 int CTX_data_visible_pose_bones(const bContext *C, ListBase *list)

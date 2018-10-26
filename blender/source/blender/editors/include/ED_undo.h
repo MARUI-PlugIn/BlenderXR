@@ -27,6 +27,14 @@
 
 #include "BLI_compiler_attrs.h"
 
+#include "../vr/vr_build.h"
+#if WITH_VR
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+#endif
+
 struct bContext;
 struct CLG_LogRef;
 struct wmOperator;
@@ -66,5 +74,11 @@ void ED_undosys_type_free(void);
 
 /* memfile_undo.c */
 struct MemFile *ED_undosys_stack_memfile_get_active(struct UndoStack *ustack);
+
+#if WITH_VR
+#ifdef __cplusplus
+}
+#endif
+#endif
 
 #endif /* __ED_UNDO_H__ */

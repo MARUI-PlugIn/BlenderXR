@@ -15,10 +15,10 @@
 * along with this program; if not, write to the Free Software Foundation,
 * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 *
-* The Original Code is Copyright (C) 2016 by Mike Erwin.
+* The Original Code is Copyright (C) 2018 by Blender Foundation.
 * All rights reserved.
 *
-* Contributor(s): Blender Foundation
+* Contributor(s): MARUI-PlugIn
 *
 * ***** END GPL LICENSE BLOCK *****
 */
@@ -151,14 +151,31 @@ public:
 	static int create_controller_models(VR_UI_Type type);	/* Create the controller models for a specified UI type. */
 	
 	/* Image textures. */
-	static Texture*	ascii_tex;	/* Texture for the ascii characters. */
-	static Texture* zoom_tex;	/* Texture for the "zoom" icon. */
-	static Texture* close_tex;	/* Texture for the "close" icon. */
-	static Texture* nav_tex;	/* Texture for the "nav" icon. */
-	static Texture* nav_joystick_tex;	/* Texture for the "nav joystick" icon. */
-	static Texture* shift_tex;	/* Texture for the "shift" icon. */
-	static Texture* alt_tex;	/* Texture for the "alt" icon. */
-	static Texture* cursor_offset_tex;	/* Texture for the "cursor offset" icon. */
+	static Texture *ascii_tex;	/* Texture for the ascii characters. */
+	static Texture *zoom_tex;	/* Texture for the "zoom" icon. */
+	static Texture *close_tex;	/* Texture for the "close" icon. */
+	static Texture *nav_tex;	/* Texture for the "nav" icon. */
+	static Texture *nav_joystick_tex;	/* Texture for the "nav joystick" icon. */
+	static Texture *nav_teleport_tex;	/* Texture for the "nav teleport" icon. */
+	static Texture *ctrl_tex;	/* Texture for the "ctrl" icon. */
+	static Texture *shift_tex;	/* Texture for the "shift" icon. */
+	static Texture *alt_tex;	/* Texture for the "alt" icon. */
+	static Texture *cursoroffset_tex;	/* Texture for the "cursor offset" icon. */
+	static Texture *delete_tex;	/* Texture for the "delete" icon. */
+	static Texture *duplicate_tex;	/* Texture for the "duplicate" icon. */
+	static Texture *undo_tex;	/* Texture for the "undo" icon. */
+	static Texture *redo_tex;	/* Texture for the "redo" icon. */
+	static Texture *colorwheel_menu_tex;	/* Texture for the "color wheel" menu. */
+	static Texture *colorwheel_menu_triangle_tex;	/* Texture for the "triangle" icon for the "color wheel" menu . */
+	static Texture *colorwheel_menu_trianglecancel_tex;	/* Texture for the "triangle cancel" icon for the "color wheel" menu. */
+
+	/* String textures. */
+	static Texture *select_str_tex;	/* Texture for the "SELECT" string. */
+	static Texture *quickgrab_str_tex;	/* Texture for the "QUICKGRAB" string. */
+	static Texture *annotate_str_tex;	/* Texture for the "ANNOTATE" string. */
+	static Texture *measure_str_tex;	/* Texture for the "MEASURE" string. */
+	static Texture *raycast_str_tex;	/* Texture for the "RAYCAST" string. */
+	static Texture *proximity_str_tex;	/* Texture for the "PROXIMITY" string. */
 protected:
 	static Mat44f	model_matrix;	/* OpenGL model matrix. */ 
 	static Mat44f	view_matrix;	/* OpenGL view matrix. */
@@ -176,6 +193,7 @@ public:
 	static void update_view_matrix(const float _view[4][4]);	/* Set the current view matrix. */
 	static void update_projection_matrix(const float _projection[4][4]);	/* Set the current projection matrix. */
 	static void update_modelview_matrix(const Mat44f* _model, const Mat44f* _view);	/* Set the current modelview matrix. */
+	static void set_color(const float color[4]);	/* Set the current object / render color. */
 	static void set_color(const float& r, const float& g, const float& b, const float& a);	/* Set the current object / render color. */
 	static void set_blend(bool on_off);	/* Enable/disable alpha blending. */
 	static void set_depth_test(bool on_off, bool write_depth);	/* Enable / disable depth testing. */
@@ -183,8 +201,8 @@ public:
 	static void render_rect(float left, float right, float top, float bottom, float z, float u=1.0f, float v=1.0f, Texture* tex=0);	/* Render a rectangle with currently set transformation. */
 	static void render_frame(float left, float right, float top, float bottom, float b, float z = 0);	/* Render a flat frame. */
 	static void render_box(const Coord3Df& p0, const Coord3Df& p1);	/* Render an axis-aligned box. */
-	static void render_ball(float r);	/* Render a ball with currently set transformation. */
-	static void render_arrow(const Coord3Df& from, const Coord3Df& to, float width);	/* Render an arrow. */
+	static void render_ball(float r, bool golf=false);	/* Render a ball with currently set transformation. */
+	static void render_arrow(const Coord3Df& from, const Coord3Df& to, float width, float u, float v, Texture* tex);	/* Render an arrow. */
 	static void render_string(const char* str, float character_width, float character_height, VR_HAlign h_align, VR_VAlign v_align, float x_offset = 0.0f, float y_offset = 0.0f, float z_offset = 0.0f);	/* Render a string. */
 };
 

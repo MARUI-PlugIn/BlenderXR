@@ -232,7 +232,7 @@ static void deformVertsEM(
 	Mesh *mesh_src = mesh;
 
 	if (mesh_src == NULL) {
-		mesh_src = BKE_bmesh_to_mesh_nomain(editData->bm, &(struct BMeshToMeshParams){0});
+		mesh_src = BKE_mesh_from_bmesh_for_eval_nomain(editData->bm, 0);
 	}
 
 	BLI_assert(mesh_src->totvert == numVerts);
@@ -262,14 +262,12 @@ ModifierTypeInfo modifierType_Smooth = {
 	/* deformVertsEM_DM */  NULL,
 	/* deformMatricesEM_DM*/NULL,
 	/* applyModifier_DM */  NULL,
-	/* applyModifierEM_DM */NULL,
 
 	/* deformVerts */       deformVerts,
 	/* deformMatrices */    NULL,
 	/* deformVertsEM */     deformVertsEM,
 	/* deformMatricesEM */  NULL,
 	/* applyModifier */     NULL,
-	/* applyModifierEM */   NULL,
 
 	/* initData */          initData,
 	/* requiredDataMask */  requiredDataMask,

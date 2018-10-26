@@ -338,7 +338,7 @@ static int gp_layer_move_exec(bContext *C, wmOperator *op)
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
 	bGPDlayer *gpl = BKE_gpencil_layer_getactive(gpd);
 
-	int direction = RNA_enum_get(op->ptr, "type");
+	const int direction = RNA_enum_get(op->ptr, "type") * -1;
 
 	/* sanity checks */
 	if (ELEM(NULL, gpd, gpl))
@@ -479,7 +479,8 @@ static int gp_layer_duplicate_object_exec(bContext *C, wmOperator *op)
 	/* make copy of layer */
 	bGPDlayer *gpl_dst = MEM_dupallocN(gpl_src);
 	gpl_dst->prev = gpl_dst->next = NULL;
-	gpl_dst->runtime.derived_data = NULL;
+	gpl_dst->runtime.derived_array = NULL;
+	gpl_dst->runtime.len_derived = 0;
 	BLI_addtail(&gpd_dst->layers, gpl_dst);
 	BLI_uniquename(&gpd_dst->layers, gpl_dst, DATA_("GP_Layer"), '.', offsetof(bGPDlayer, info), sizeof(gpl_dst->info));
 
@@ -1083,8 +1084,8 @@ void GPENCIL_OT_layer_isolate(wmOperatorType *ot)
 static int gp_merge_layer_exec(bContext *C, wmOperator *op)
 {
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
-	bGPDlayer *gpl_current = BKE_gpencil_layer_getactive(gpd);
-	bGPDlayer *gpl_next = gpl_current->next;
+	bGPDlayer *gpl_next = BKE_gpencil_layer_getactive(gpd);
+	bGPDlayer *gpl_current = gpl_next->prev;
 
 	if (ELEM(NULL, gpd, gpl_current, gpl_next)) {
 		BKE_report(op->reports, RPT_ERROR, "No layers to merge");
@@ -1983,8 +1984,9 @@ static void joined_gpencil_fix_animdata_cb(ID *id, FCurve *fcu, void *user_data)
 
 			/* only remap if changed; this still means there will be some waste if there aren't many drivers/keys */
 			if (!STREQ(old_name, new_name) && strstr(fcu->rna_path, old_name)) {
-				fcu->rna_path = BKE_animsys_fix_rna_path_rename(id, fcu->rna_path, "layers",
-				                                                old_name, new_name, 0, 0, false);
+				fcu->rna_path = BKE_animsys_fix_rna_path_rename(
+				        id, fcu->rna_path, "layers",
+				        old_name, new_name, 0, 0, false);
 
 				/* we don't want to apply a second remapping on this F-Curve now,
 				 * so stop trying to fix names names
@@ -2018,8 +2020,9 @@ static void joined_gpencil_fix_animdata_cb(ID *id, FCurve *fcu, void *user_data)
 							if (!STREQ(old_name, new_name)) {
 								if ((dtar->rna_path) && strstr(dtar->rna_path, old_name)) {
 									/* Fix up path */
-									dtar->rna_path = BKE_animsys_fix_rna_path_rename(id, dtar->rna_path, "layers",
-									                                                 old_name, new_name, 0, 0, false);
+									dtar->rna_path = BKE_animsys_fix_rna_path_rename(
+									        id, dtar->rna_path, "layers",
+									        old_name, new_name, 0, 0, false);
 									break; /* no need to try any more names for layer path */
 								}
 							}

@@ -15,10 +15,10 @@
 * along with this program; if not, write to the Free Software Foundation,
 * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 *
-* The Original Code is Copyright (C) 2016 by Mike Erwin.
+* The Original Code is Copyright (C) 2018 by Blender Foundation.
 * All rights reserved.
 *
-* Contributor(s): Blender Foundation
+* Contributor(s): MARUI-PlugIn
 *
 * ***** END GPL LICENSE BLOCK *****
 */
@@ -70,9 +70,26 @@
 #include "icon_close.png.h"
 #include "icon_nav.png.h"
 #include "icon_nav_joystick.png.h"
+#include "icon_nav_teleport.png.h"
+#include "icon_ctrl.png.h"
 #include "icon_shift.png.h"
 #include "icon_alt.png.h"
-#include "icon_cursor_offset.png.h"
+#include "icon_cursoroffset.png.h"
+#include "icon_delete.png.h"
+#include "icon_duplicate.png.h"
+#include "icon_undo.png.h"
+#include "icon_redo.png.h"
+#include "menu_colorwheel.png.h"
+#include "menu_colorwheel_triangle.png.h"
+#include "menu_colorwheel_trianglecancel.png.h"
+
+/* String textures */
+#include "str_select.png.h"
+#include "str_quickgrab.png.h"
+#include "str_annotate.png.h"
+#include "str_measure.png.h"
+#include "str_raycast.png.h"
+#include "str_proximity.png.h"
 
 bool VR_Draw::initialized(false);
 
@@ -93,20 +110,36 @@ void* VR_Draw::context(0);
 //GLXContext VR_Draw::context;
 #endif
 
-VR_Draw::Model* VR_Draw::controller_model[VR_SIDES]{ 0 };
-VR_Draw::Texture* VR_Draw::controller_tex(0);
-VR_Draw::Model* VR_Draw::cursor_model(0);
-VR_Draw::Texture* VR_Draw::cursor_tex(0);
-VR_Draw::Texture* VR_Draw::crosshair_cursor_tex(0);
+VR_Draw::Model *VR_Draw::controller_model[VR_SIDES]{ 0 };
+VR_Draw::Texture *VR_Draw::controller_tex(0);
+VR_Draw::Model *VR_Draw::cursor_model(0);
+VR_Draw::Texture *VR_Draw::cursor_tex(0);
+VR_Draw::Texture *VR_Draw::crosshair_cursor_tex(0);
 
-VR_Draw::Texture* VR_Draw::ascii_tex(0);
-VR_Draw::Texture* VR_Draw::zoom_tex(0);
-VR_Draw::Texture* VR_Draw::close_tex(0);
-VR_Draw::Texture* VR_Draw::nav_tex(0);
-VR_Draw::Texture* VR_Draw::nav_joystick_tex(0);
-VR_Draw::Texture* VR_Draw::shift_tex(0);
-VR_Draw::Texture* VR_Draw::alt_tex(0);
-VR_Draw::Texture* VR_Draw::cursor_offset_tex(0);
+VR_Draw::Texture *VR_Draw::ascii_tex(0);
+VR_Draw::Texture *VR_Draw::zoom_tex(0);
+VR_Draw::Texture *VR_Draw::close_tex(0);
+VR_Draw::Texture *VR_Draw::nav_tex(0);
+VR_Draw::Texture *VR_Draw::nav_joystick_tex(0);
+VR_Draw::Texture *VR_Draw::nav_teleport_tex(0);
+VR_Draw::Texture *VR_Draw::ctrl_tex(0);
+VR_Draw::Texture *VR_Draw::shift_tex(0);
+VR_Draw::Texture *VR_Draw::alt_tex(0);
+VR_Draw::Texture *VR_Draw::cursoroffset_tex(0);
+VR_Draw::Texture *VR_Draw::delete_tex(0);
+VR_Draw::Texture *VR_Draw::duplicate_tex(0);
+VR_Draw::Texture *VR_Draw::undo_tex(0);
+VR_Draw::Texture *VR_Draw::redo_tex(0);
+VR_Draw::Texture *VR_Draw::colorwheel_menu_tex(0);
+VR_Draw::Texture *VR_Draw::colorwheel_menu_triangle_tex(0);
+VR_Draw::Texture *VR_Draw::colorwheel_menu_trianglecancel_tex(0);
+
+VR_Draw::Texture *VR_Draw::select_str_tex(0);
+VR_Draw::Texture *VR_Draw::quickgrab_str_tex(0);
+VR_Draw::Texture *VR_Draw::annotate_str_tex(0);
+VR_Draw::Texture *VR_Draw::measure_str_tex(0);
+VR_Draw::Texture *VR_Draw::raycast_str_tex(0);
+VR_Draw::Texture *VR_Draw::proximity_str_tex(0);
 
 Mat44f VR_Draw::model_matrix;
 Mat44f VR_Draw::view_matrix;
@@ -166,9 +199,25 @@ int VR_Draw::init(void* display, void* drawable, void* context)
 	close_tex = new Texture(icon_close_png);
 	nav_tex = new Texture(icon_nav_png);
 	nav_joystick_tex = new Texture(icon_nav_joystick_png);
+	nav_teleport_tex = new Texture(icon_nav_teleport_png);
+	ctrl_tex = new Texture(icon_ctrl_png);
 	shift_tex = new Texture(icon_shift_png);
 	alt_tex = new Texture(icon_alt_png);
-	cursor_offset_tex = new Texture(icon_cursor_offset_png);
+	cursoroffset_tex = new Texture(icon_cursoroffset_png);
+	delete_tex = new Texture(icon_delete_png);
+	duplicate_tex = new Texture(icon_duplicate_png);
+	undo_tex = new Texture(icon_undo_png);
+	redo_tex = new Texture(icon_redo_png);
+	colorwheel_menu_tex = new Texture(menu_colorwheel_png);
+	colorwheel_menu_triangle_tex = new Texture(menu_colorwheel_triangle_png);
+	colorwheel_menu_trianglecancel_tex = new Texture(menu_colorwheel_trianglecancel_png);
+
+	select_str_tex = new Texture(str_select_png);
+	quickgrab_str_tex = new Texture(str_quickgrab_png);
+	annotate_str_tex = new Texture(str_annotate_png);
+	measure_str_tex = new Texture(str_measure_png);
+	raycast_str_tex = new Texture(str_raycast_png);
+	proximity_str_tex = new Texture(str_proximity_png);
 
 	model_matrix.set_to_identity();
 	view_matrix.set_to_identity();
@@ -228,6 +277,14 @@ void VR_Draw::uninit()
 		delete nav_joystick_tex;
 		nav_joystick_tex = NULL;
 	}
+	if (nav_teleport_tex) {
+		delete nav_teleport_tex;
+		nav_teleport_tex = NULL;
+	}
+	if (ctrl_tex) {
+		delete ctrl_tex;
+		ctrl_tex = NULL;
+	}
 	if (shift_tex) {
 		delete shift_tex;
 		shift_tex = NULL;
@@ -236,9 +293,62 @@ void VR_Draw::uninit()
 		delete alt_tex;
 		alt_tex = NULL;
 	}
-	if (cursor_offset_tex) {
-		delete cursor_offset_tex;
-		cursor_offset_tex = NULL;
+	if (cursoroffset_tex) {
+		delete cursoroffset_tex;
+		cursoroffset_tex = NULL;
+	}
+	if (delete_tex) {
+		delete delete_tex;
+		delete_tex = NULL;
+	}
+	if (duplicate_tex) {
+		delete duplicate_tex;
+		duplicate_tex = NULL;
+	}
+	if (undo_tex) {
+		delete undo_tex;
+		undo_tex = NULL;
+	}
+	if (redo_tex) {
+		delete redo_tex;
+		redo_tex = NULL;
+	}
+	if (colorwheel_menu_tex) {
+		delete colorwheel_menu_tex;
+		colorwheel_menu_tex = NULL;
+	}
+	if (colorwheel_menu_triangle_tex) {
+		delete colorwheel_menu_triangle_tex;
+		colorwheel_menu_triangle_tex = NULL;
+	}
+	if (colorwheel_menu_trianglecancel_tex) {
+		delete colorwheel_menu_trianglecancel_tex;
+		colorwheel_menu_trianglecancel_tex = NULL;
+	}
+
+	if (select_str_tex) {
+		delete select_str_tex;
+		select_str_tex = NULL;
+	}
+	if (quickgrab_str_tex) {
+		delete quickgrab_str_tex;
+		quickgrab_str_tex = NULL;
+	}
+	if (annotate_str_tex) {
+		delete annotate_str_tex;
+		annotate_str_tex = NULL;
+	}
+	if (measure_str_tex) {
+		delete measure_str_tex;
+		measure_str_tex = NULL;
+	}
+	if (raycast_str_tex) {
+		delete raycast_str_tex;
+		raycast_str_tex = NULL;
+	}
+	if (proximity_str_tex) {
+		delete proximity_str_tex;
+		proximity_str_tex = NULL;
 	}
 }
 
@@ -345,6 +455,11 @@ void VR_Draw::update_modelview_matrix(const Mat44f* _model, const Mat44f* _view)
 		return;
 	}
 	VR_Draw::modelview_matrix_inv = VR_Draw::modelview_matrix.inverse();
+}
+
+void VR_Draw::set_color(const float color[4])
+{
+	memcpy(VR_Draw::color_vector, color, sizeof(float) * 4);
 }
 
 void VR_Draw::set_color(const float& r, const float& g, const float& b, const float& a)
@@ -1214,7 +1329,7 @@ void VR_Draw::render_box(const Coord3Df& p0, const Coord3Df& p1)
 	prior_texture_enabled ? glEnable(GL_TEXTURE_2D) : glDisable(GL_TEXTURE_2D);
 }
 
-void VR_Draw::render_ball(float r)
+void VR_Draw::render_ball(float r, bool golf)
 {
 	/* Save previous OpenGL state */
 	GLint prior_program;
@@ -1291,7 +1406,12 @@ void VR_Draw::render_ball(float r)
 	glVertexAttribPointer(VR_Draw::Shader::shader_col.position_location, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 3, (void*)0);
 	glEnableVertexAttribArray(VR_Draw::Shader::shader_col.position_location);
 
-	glDrawArrays(GL_TRIANGLES, 0, num_verts);
+	if (golf) {
+		glDrawArrays(GL_TRIANGLE_STRIP, 0, num_verts);
+	}
+	else {
+		glDrawArrays(GL_TRIANGLES, 0, num_verts);
+	}
 
 	glDisableVertexAttribArray(VR_Draw::Shader::shader_col.position_location);
 
@@ -1306,11 +1426,8 @@ void VR_Draw::render_ball(float r)
 	prior_texture_enabled ? glEnable(GL_TEXTURE_2D) : glDisable(GL_TEXTURE_2D);
 }
 
-void VR_Draw::render_arrow(const Coord3Df& from, const Coord3Df& to, float width)
+void VR_Draw::render_arrow(const Coord3Df& p0, const Coord3Df& p1, float width, float u, float v, Texture* tex)
 {
-	Coord3Df vd(to.x - from.x, to.y - from.y, to.z - from.z);
-	Coord3Df nv = vd.normalize() * width;
-
 	/* Save previous OpenGL state */
 	GLint prior_program;
 	glGetIntegerv(GL_CURRENT_PROGRAM, &prior_program);
@@ -1323,12 +1440,40 @@ void VR_Draw::render_arrow(const Coord3Df& from, const Coord3Df& to, float width
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-	glUseProgram(VR_Draw::Shader::color_shader());
+	if (tex) {
+		glUseProgram(VR_Draw::Shader::texture_shader());
+	}
+	else {
+		glUseProgram(VR_Draw::Shader::color_shader());
+	}
 
 	GLint prior_vertex_array_binding;
 	glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &prior_vertex_array_binding);
 	GLint prior_array_buffer;
 	glGetIntegerv(GL_ARRAY_BUFFER, &prior_array_buffer);
+	GLint prior_texture_binding_2d;
+	glGetIntegerv(GL_TEXTURE_BINDING_2D, &prior_texture_binding_2d);
+	GLint prior_texture_unit;
+	glGetIntegerv(GL_ACTIVE_TEXTURE, (GLint*)&prior_texture_unit);
+
+	if (tex) {
+		glEnable(GL_TEXTURE_2D);
+		glActiveTexture(GL_TEXTURE0);
+		tex->bind();
+	}
+
+	/* Load uniforms */
+	if (tex) {
+		glUniformMatrix4fv(VR_Draw::Shader::shader_tex.modelview_location, 1, false, (float*)VR_Draw::modelview_matrix.m);
+		glUniformMatrix4fv(VR_Draw::Shader::shader_tex.projection_location, 1, false, (float*)VR_Draw::projection_matrix.m);
+		glUniformMatrix4fv(VR_Draw::Shader::shader_tex.normal_matrix_location, 1, true, (float*)VR_Draw::modelview_matrix_inv.m);
+		glUniform4fv(VR_Draw::Shader::shader_tex.color_location, 1, (float*)VR_Draw::color_vector);
+	}
+	else {
+		glUniformMatrix4fv(VR_Draw::Shader::shader_col.modelview_location, 1, false, (float*)VR_Draw::modelview_matrix.m);
+		glUniformMatrix4fv(VR_Draw::Shader::shader_col.projection_location, 1, false, (float*)VR_Draw::projection_matrix.m);
+		glUniform4fv(VR_Draw::Shader::shader_col.color_location, 1, (float*)VR_Draw::color_vector);
+	}
 
 	/* Load uniforms */
 	glUniformMatrix4fv(VR_Draw::Shader::shader_col.modelview_location, 1, false, (float*)VR_Draw::modelview_matrix.m);
@@ -1342,30 +1487,113 @@ void VR_Draw::render_arrow(const Coord3Df& from, const Coord3Df& to, float width
 	}
 	glBindVertexArray(vertex_array);
 
-	/* Create vertex buffer */
-	static GLfloat vertex_data[4][3];
-	vertex_data[0][0] = vd.x + from.x;  vertex_data[0][1] = vd.y + from.y;	vertex_data[0][2] = to.z;
-	vertex_data[1][0] = nv.y + from.x;	vertex_data[1][1] = -nv.x + from.y; vertex_data[1][2] = from.z;
-	vertex_data[2][0] = -nv.y + from.x; vertex_data[2][1] = nv.x + from.y;  vertex_data[2][2] = from.z;
-	vertex_data[3][0] = -nv.x + from.x;	vertex_data[3][1] = -nv.y + from.y; vertex_data[3][2] = from.z;
+	//float radAngle = (45.0f / 180.f)*3.1415f;
+	//static Mat44f rotationMatrix;
+
+	//rotationMatrix.m[0][0] = 1.0f; rotationMatrix.m[0][1] = 0.0f; rotationMatrix.m[0][2] = 0.0f; rotationMatrix.m[0][3] = 0.0f;
+	//rotationMatrix.m[1][0] = 0.0f; rotationMatrix.m[1][1] = cos(radAngle); rotationMatrix.m[1][2] = -sin(radAngle); rotationMatrix.m[1][3] = 0.0f;
+	//rotationMatrix.m[2][0] = 0.0f; rotationMatrix.m[2][1] = sin(radAngle); rotationMatrix.m[2][2] = cos(radAngle); rotationMatrix.m[2][3] = 0.0f;
+	//rotationMatrix.m[3][0] = 0.0f; rotationMatrix.m[3][1] = 0.0f; rotationMatrix.m[3][2] = 0.0f; rotationMatrix.m[3][3] = 1.0f;
+
+	static GLfloat vertex_data[12][3];
+
+	vertex_data[0][0] = p0.x; vertex_data[0][1] = p1.y; vertex_data[0][2] = p0.z;
+	vertex_data[1][0] = p0.x; vertex_data[1][1] = p1.y; vertex_data[1][2] = p1.z;
+	vertex_data[2][0] = p1.x; vertex_data[2][1] = p1.y; vertex_data[2][2] = p0.z;
+	vertex_data[3][0] = p1.x; vertex_data[3][1] = p1.y; vertex_data[3][2] = p1.z;
+	vertex_data[4][0] = (p1.x - p0.x); vertex_data[4][1] = p0.y; vertex_data[4][2] = (p1.z - p0.z);
+	vertex_data[5][0] = p0.x; vertex_data[5][1] = p1.y; vertex_data[5][2] = p1.z;
+	vertex_data[6][0] = (p1.x - p0.x); vertex_data[6][1] = p0.y; vertex_data[6][2] = (p1.z - p0.z);
+	vertex_data[7][0] = p0.x; vertex_data[7][1] = p1.y; vertex_data[7][2] = p0.z;
+	vertex_data[8][0] = (p1.x - p0.x); vertex_data[8][1] = p0.y; vertex_data[8][2] = (p1.z - p0.z);
+	vertex_data[9][0] = p1.x; vertex_data[9][1] = p1.y; vertex_data[9][2] = p0.z;
+	vertex_data[10][0] = (p1.x - p0.x); vertex_data[10][1] = p0.y; vertex_data[10][2] = (p1.z - p0.z);
+	vertex_data[11][0] = p1.x; vertex_data[11][1] = p1.y; vertex_data[11][2] = p1.z;
 
 	static GLuint verts = 0;
 	if (!verts) {
 		glGenBuffers(1, &verts);
 	}
 	glBindBuffer(GL_ARRAY_BUFFER, verts);
-	glBufferData(GL_ARRAY_BUFFER, 3 * 4 * sizeof(float), vertex_data, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, 3 * 12 * sizeof(float), vertex_data, GL_STATIC_DRAW);
+	if (tex) {
+		glVertexAttribPointer(VR_Draw::Shader::shader_tex.position_location, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 3, (void*)0);
+		glEnableVertexAttribArray(VR_Draw::Shader::shader_tex.position_location);
+	}
+	else {
+		glVertexAttribPointer(VR_Draw::Shader::shader_col.position_location, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 3, (void*)0);
+		glEnableVertexAttribArray(VR_Draw::Shader::shader_col.position_location);
+	}
 
-	glVertexAttribPointer(VR_Draw::Shader::shader_col.position_location, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 3, (void*)0);
-	glEnableVertexAttribArray(VR_Draw::Shader::shader_col.position_location);
+	static GLuint nrmls = 0;
+	static GLuint uvs = 0;
+	if (tex) {
+		/* Create normal buffer */
+		static const GLfloat normal_data[] = {
+			0.0f, 0.0f, 1.0f,
+			0.0f, 0.0f, 1.0f,
+			0.0f, 0.0f, 1.0f,
+			0.0f, 0.0f, 1.0f,
+			0.0f, 0.0f, 1.0f,
+			0.0f, 0.0f, 1.0f,
+			0.0f, 0.0f, 1.0f,
+			0.0f, 0.0f, 1.0f,
+			0.0f, 0.0f, 1.0f,
+			0.0f, 0.0f, 1.0f,
+			0.0f, 0.0f, 1.0f,
+			0.0f, 0.0f, 1.0f
+		};
+		if (!nrmls) {
+			glGenBuffers(1, &nrmls);
+			glBindBuffer(GL_ARRAY_BUFFER, nrmls);
+			glBufferData(GL_ARRAY_BUFFER, 3 * 12 * sizeof(float), normal_data, GL_STATIC_DRAW);
+		}
+		else {
+			glBindBuffer(GL_ARRAY_BUFFER, nrmls);
+		}
+		glVertexAttribPointer(VR_Draw::Shader::shader_tex.normal_location, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 3, (void*)0);
+		glEnableVertexAttribArray(VR_Draw::Shader::shader_tex.normal_location);
 
-	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+		/* Create uv buffer */
+		static GLfloat uv_data[3][2];
+		uv_data[0][0] = 0.0f; uv_data[0][1] = v;
+		uv_data[1][0] = u;    uv_data[1][1] = v;
+		uv_data[2][0] = 0.0f; uv_data[2][1] = 0.0f;
+		uv_data[3][0] = u;    uv_data[3][1] = 0.0f;
+		uv_data[4][0] = 0.0f; uv_data[4][1] = v;
+		uv_data[5][0] = u;    uv_data[5][1] = v;
+		uv_data[6][0] = 0.0f; uv_data[6][1] = 0.0f;
+		uv_data[7][0] = u;    uv_data[7][1] = 0.0f;
+		uv_data[8][0] = 0.0f; uv_data[8][1] = v;
+		uv_data[9][0] = u;    uv_data[9][1] = v;
+		uv_data[10][0] = 0.0f; uv_data[10][1] = 0.0f;
+		uv_data[11][0] = u;    uv_data[11][1] = 0.0f;
 
-	glDisableVertexAttribArray(VR_Draw::Shader::shader_col.position_location);
+		if (!uvs) {
+			glGenBuffers(1, &uvs);
+		}
+		glBindBuffer(GL_ARRAY_BUFFER, uvs);
+		glBufferData(GL_ARRAY_BUFFER, 2 * 12 * sizeof(float), uv_data, GL_STATIC_DRAW);
+		glVertexAttribPointer(VR_Draw::Shader::shader_tex.uv_location, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 2, (void*)0);
+		glEnableVertexAttribArray(VR_Draw::Shader::shader_tex.uv_location);
+	}
+
+	glDrawArrays(GL_TRIANGLE_STRIP, 0, 12);
+
+	if (tex) {
+		glDisableVertexAttribArray(VR_Draw::Shader::shader_tex.position_location);
+		glDisableVertexAttribArray(VR_Draw::Shader::shader_tex.normal_location);
+		glDisableVertexAttribArray(VR_Draw::Shader::shader_tex.uv_location);
+	}
+	else {
+		glDisableVertexAttribArray(VR_Draw::Shader::shader_col.position_location);
+	}
 
 	/* Restore previous OpenGL state */
 	glBindVertexArray(prior_vertex_array_binding);
 	glBindBuffer(GL_ARRAY_BUFFER, prior_array_buffer);
+	glBindTexture(GL_TEXTURE_2D, prior_texture_binding_2d);
+	glActiveTexture(prior_texture_unit);
 
 	glUseProgram(prior_program);
 	prior_backface_culling ? glEnable(GL_CULL_FACE) : glDisable(GL_CULL_FACE);

@@ -15,20 +15,19 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * The Original Code is Copyright (C) 2007 Blender Foundation but based
- * on ghostwinlay.c (C) 2001-2002 by NaN Holding BV
+ * The Original Code is Copyright (C) 2018 by Blender Foundation.
  * All rights reserved.
  *
- * Contributor(s): Blender Foundation, 2008
+ * Contributor(s): MARUI-PlugIn
  *
  * ***** END GPL LICENSE BLOCK *****
  */
 
- /** \file blender/vr/intern/vr_main.c
-  *  \ingroup vr
-  *
-  * Main VR module. Also handles loading/unloading of VR device shared libraries.
-  */
+/** \file blender/vr/intern/vr_main.c
+ *  \ingroup vr
+ *
+ * Main VR module. Also handles loading/unloading of VR device shared libraries.
+ */
 
 #include "vr_build.h"
 
@@ -601,6 +600,13 @@ void vr_do_interaction(void)
 	BLI_assert(vr.ui_initialized);
 
 	vr_api_execute_operations();
+}
+
+void vr_do_post_render_interaction(void)
+{
+	BLI_assert(vr.ui_initialized);
+
+	vr_api_execute_post_render_operations();
 }
 
 void vr_update_view_matrix(int side, const float view[4][4])

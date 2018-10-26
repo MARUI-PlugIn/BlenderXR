@@ -163,14 +163,14 @@ class PARTICLE_PT_context_particles(ParticleButtonsPanel, Panel):
                               ob.particle_systems, "active_index", rows=2)
 
             col = row.column(align=True)
-            col.operator("object.particle_system_add", icon='ZOOMIN', text="")
-            col.operator("object.particle_system_remove", icon='ZOOMOUT', text="")
+            col.operator("object.particle_system_add", icon='ADD', text="")
+            col.operator("object.particle_system_remove", icon='REMOVE', text="")
             col.menu("PARTICLE_MT_specials", icon='DOWNARROW_HLT', text="")
 
         if psys is None:
             part = particle_get_settings(context)
 
-            layout.operator("object.particle_system_add", icon='ZOOMIN', text="New")
+            layout.operator("object.particle_system_add", icon='ADD', text="New")
 
             if part is None:
                 return
@@ -958,8 +958,8 @@ class PARTICLE_PT_physics_relations(ParticleButtonsPanel, Panel):
         col = row.column()
         sub = col.row()
         subsub = sub.column(align=True)
-        subsub.operator("particle.new_target", icon='ZOOMIN', text="")
-        subsub.operator("particle.target_remove", icon='ZOOMOUT', text="")
+        subsub.operator("particle.new_target", icon='ADD', text="")
+        subsub.operator("particle.target_remove", icon='REMOVE', text="")
         sub = col.row()
         subsub = sub.column(align=True)
         subsub.operator("particle.target_move_up", icon='TRIA_UP', text="")
@@ -1112,8 +1112,8 @@ class PARTICLE_PT_boidbrain(ParticleButtonsPanel, Panel):
         #                  boids, "active_boid_state_index", compact="True")
         #col = row.row()
         #sub = col.row(align=True)
-        #sub.operator("boid.state_add", icon='ZOOMIN', text="")
-        #sub.operator("boid.state_del", icon='ZOOMOUT', text="")
+        #sub.operator("boid.state_add", icon='ADD', text="")
+        #sub.operator("boid.state_del", icon='REMOVE', text="")
         #sub = row.row(align=True)
         #sub.operator("boid.state_move_up", icon='TRIA_UP', text="")
         #sub.operator("boid.state_move_down", icon='TRIA_DOWN', text="")
@@ -1136,8 +1136,8 @@ class PARTICLE_PT_boidbrain(ParticleButtonsPanel, Panel):
         col = row.column()
         sub = col.row()
         subsub = sub.column(align=True)
-        subsub.operator_menu_enum("boid.rule_add", "type", icon='ZOOMIN', text="")
-        subsub.operator("boid.rule_del", icon='ZOOMOUT', text="")
+        subsub.operator_menu_enum("boid.rule_add", "type", icon='ADD', text="")
+        subsub.operator("boid.rule_del", icon='REMOVE', text="")
         sub = col.row()
         subsub = sub.column(align=True)
         subsub.operator("boid.rule_move_up", icon='TRIA_UP', text="")
@@ -1209,8 +1209,10 @@ class PARTICLE_PT_render(ParticleButtonsPanel, Panel):
 
         layout.prop(part, "render_type", text="Render As")
 
-        if part.type == 'EMITTER' or \
-           (part.render_type in {'OBJECT', 'COLLECTION'} and part.type == 'HAIR'):
+        if (
+                part.type == 'EMITTER' or
+                (part.render_type in {'OBJECT', 'COLLECTION'} and part.type == 'HAIR')
+        ):
             if part.render_type not in {'NONE'}:
 
                 col = layout.column(align=True)
@@ -1223,6 +1225,10 @@ class PARTICLE_PT_render(ParticleButtonsPanel, Panel):
                 # col.enabled = False
                 col.prop(part, "material_slot", text="Material")
                 col.prop(psys, "parent", text="Coordinate System")
+
+        if context.object:
+            layout.separator()
+            layout.prop(context.object, "show_duplicator_for_render", text="Show Emitter")
 
 
 class PARTICLE_PT_render_extra(ParticleButtonsPanel, Panel):
@@ -1432,8 +1438,8 @@ class PARTICLE_PT_render_collection_use_count(ParticleButtonsPanel, Panel):
         col = row.column()
         sub = col.row()
         subsub = sub.column(align=True)
-        subsub.operator("particle.dupliob_copy", icon='ZOOMIN', text="")
-        subsub.operator("particle.dupliob_remove", icon='ZOOMOUT', text="")
+        subsub.operator("particle.dupliob_copy", icon='ADD', text="")
+        subsub.operator("particle.dupliob_remove", icon='REMOVE', text="")
         subsub.operator("particle.dupliob_move_up", icon='TRIA_UP', text="")
         subsub.operator("particle.dupliob_move_down", icon='TRIA_DOWN', text="")
         subsub.separator()
@@ -1616,7 +1622,7 @@ class PARTICLE_PT_draw(ParticleButtonsPanel, Panel):
                 if phystype != 'NO' and phystype != 'KEYED' and psys.point_cache.is_baked is False:
                     layout.row().label(text="Display percentage makes dynamics inaccurate without baking")
         else:
-            layout.row().label(text="")
+            layout.separator()
 
         col = layout.column()
         col.prop(part, "show_guide_hairs", text="Guide Hairs")
@@ -1625,6 +1631,10 @@ class PARTICLE_PT_draw(ParticleButtonsPanel, Panel):
         col.prop(part, "show_number")
         if part.physics_type == 'BOIDS':
             col.prop(part, "show_health")
+
+        if context.object:
+            layout.separator()
+            layout.prop(context.object, "show_duplicator_for_viewport", text="Show Emitter")
 
 
 class PARTICLE_PT_children(ParticleButtonsPanel, Panel):

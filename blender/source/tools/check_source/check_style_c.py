@@ -87,6 +87,7 @@ class TokStore:
         self.line = line
         self.flag = 0
 
+
 # flags
 IS_CAST = (1 << 0)
 
@@ -277,7 +278,7 @@ def extract_cast(index):
     # to detect a cast is quite involved... sigh
     # assert(tokens[index].text == "(")
 
-    # TODO, comment within cast, but thats rare
+    # TODO, comment within cast, but that's rare
     i_start = index
     i_end = tk_match_backet(index)
 
@@ -428,7 +429,7 @@ def blender_check_kw_if(index_kw_start, index_kw, index_kw_end):
             # if (a &&
             #     b); <--
             #
-            # While possible but not common for 'if' statements, its used in this example:
+            # While possible but not common for 'if' statements, it's used in this example:
             #
             # do {
             #     foo;
@@ -495,7 +496,7 @@ def blender_check_kw_if(index_kw_start, index_kw, index_kw_end):
                         tokens[index_kw].text, index_kw, index_kw_end)
 
         # Note: this could be split into its own function
-        # since its not specific to if-statements,
+        # since it's not specific to if-statements,
         # can also work for function calls.
         #
         # check indentation on a multi-line statement:
@@ -721,7 +722,7 @@ def blender_check_cast(index_kw_start, index_kw_end):
             elif tokens[i - 1].text.isspace():
                 pass
             else:
-                warning("E124", "cast has no preceeding whitespace '(type*)'", index_kw_start, index_kw_end)
+                warning("E124", "cast has no preceding whitespace '(type*)'", index_kw_start, index_kw_end)
 
 
 def blender_check_comma(index_kw):
@@ -815,7 +816,7 @@ def blender_check_operator(index_start, index_end, op_text, is_cpp):
             if tokens[index_prev].flag & IS_CAST:
                 index_prev = tk_advance_flag(index_prev, -1, IS_CAST)
 
-            # This check could be improved, its a bit fuzzy
+            # This check could be improved, it's a bit fuzzy
             if ((tokens[index_start - 1].flag & IS_CAST) or
                     (tokens[index_start + 1].flag & IS_CAST)):
                 # allow:
@@ -955,10 +956,10 @@ def blender_check_function_definition(i):
     while tokens[i_prev].text == "":
         i_prev -= 1
 
-    # ensure this isnt '{' in its own line
+    # ensure this isn't '{' in its own line
     if tokens[i_prev].line == tokens[i].line:
 
-        # check we '}' isnt on same line...
+        # check we '}' isn't on same line...
         i_next = i + 1
         found = False
         while tokens[i_next].line == tokens[i].line:
@@ -970,7 +971,7 @@ def blender_check_function_definition(i):
 
         if found is False:
 
-            # First check this isnt an assignment
+            # First check this isn't an assignment
             i_prev = tk_advance_no_ws(i, -1)
             # avoid '= {'
             # if tokens(index_prev).text != "="
@@ -1057,6 +1058,8 @@ def quick_check_includes(lines):
             inc.add(l_header)
             if len(inc) == len_inc:
                 warning_lineonly("E171", "duplicate includes %r" % l_header, i + 1)
+
+
 quick_check_includes.re_inc_match = re.compile(r"\s*#\s*include\s+\"([a-zA-Z0-9_\-\.\/]+)\"").match
 
 
@@ -1123,7 +1126,7 @@ def quick_check_indentation(lines):
             tabs = l[:len(l) - len(ls)]
             t = len(tabs)
             if (t > t_prev + 1) and (t_prev != -1):
-                warning_lineonly("E146", "indentation mis-match (indent of %d) '%s'" %
+                warning_lineonly("E146", "indentation mismatch (indent of %d) '%s'" %
                                  (t - t_prev, tabs), i + 1)
             t_prev = t
 
@@ -1139,8 +1142,8 @@ def quick_check_indentation(lines):
 
 
 import re
-re_ifndef = re.compile("^\s*#\s*ifndef\s+([A-z0-9_]+).*$")
-re_define = re.compile("^\s*#\s*define\s+([A-z0-9_]+).*$")
+re_ifndef = re.compile(r"^\s*#\s*ifndef\s+([A-z0-9_]+).*$")
+re_define = re.compile(r"^\s*#\s*define\s+([A-z0-9_]+).*$")
 
 
 def quick_check_include_guard(lines):
@@ -1270,10 +1273,10 @@ def scan_source(fp, code, args):
 
                 # check previous character is either a '{' or whitespace.
                 if ((tokens[i - 1].line == tok.line) and
-                        not (tokens[i - 1].text.isspace() or
-                             tokens[i - 1].text == "{" or
-                             tokens[i - 1].flag & IS_CAST)
-                ):
+                            not (tokens[i - 1].text.isspace() or
+                                 tokens[i - 1].text == "{" or
+                                 tokens[i - 1].flag & IS_CAST)
+                        ):
                     warning("E150", "no space before '{'", i, i)
 
                 blender_check_function_definition(i)

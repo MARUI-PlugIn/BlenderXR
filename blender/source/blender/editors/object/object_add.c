@@ -67,7 +67,6 @@
 #include "BKE_context.h"
 #include "BKE_constraint.h"
 #include "BKE_curve.h"
-#include "BKE_DerivedMesh.h"
 #include "BKE_displist.h"
 #include "BKE_effect.h"
 #include "BKE_font.h"
@@ -869,9 +868,7 @@ static int empty_drop_named_image_invoke(bContext *C, wmOperator *op, const wmEv
 {
 	Scene *scene = CTX_data_scene(C);
 
-	Base *base = NULL;
 	Image *ima = NULL;
-	Object *ob = NULL;
 
 	ima = (Image *)WM_operator_drop_load_path(C, op, ID_IM);
 	if (!ima) {
@@ -880,26 +877,22 @@ static int empty_drop_named_image_invoke(bContext *C, wmOperator *op, const wmEv
 	/* handled below */
 	id_us_min((ID *)ima);
 
-	base = ED_view3d_give_base_under_cursor(C, event->mval);
+	Object *ob = NULL;
+	Object *ob_cursor = ED_view3d_give_object_under_cursor(C, event->mval);
 
-	/* if empty under cursor, then set object */
-	if (base && base->object->type == OB_EMPTY) {
-		ob = base->object;
-		DEG_id_tag_update(&scene->id, DEG_TAG_SELECT_UPDATE);
+	/* either change empty under cursor or create a new empty */
+	if (ob_cursor && ob_cursor->type == OB_EMPTY) {
 		WM_event_add_notifier(C, NC_SCENE | ND_OB_ACTIVE, scene);
+		DEG_id_tag_update((ID *)ob_cursor, DEG_TAG_TRANSFORM);
+		ob = ob_cursor;
 	}
 	else {
-		/* add new empty */
-		float rot[3];
+		ob = ED_object_add_type(C, OB_EMPTY, NULL, NULL, NULL, false);
 
-		if (!ED_object_add_generic_get_opts(C, op, 'Z', NULL, rot, NULL, NULL))
-			return OPERATOR_CANCELLED;
-
-		ob = ED_object_add_type(C, OB_EMPTY, NULL, NULL, rot, false);
-
-		/* add under the mouse */
 		ED_object_location_from_view(C, ob->loc);
 		ED_view3d_cursor3d_position(C, event->mval, false, ob->loc);
+		ED_object_rotation_from_view(C, ob->rot, 'Z');
+		ob->empty_drawsize = 5.0f;
 	}
 
 	BKE_object_empty_draw_type_set(ob, OB_EMPTY_IMAGE);
@@ -1774,7 +1767,6 @@ static int convert_exec(bContext *C, wmOperator *op)
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	Base *basen = NULL, *basact = NULL;
 	Object *ob1, *obact = CTX_data_active_object(C);
-	DerivedMesh *dm;
 	Curve *cu;
 	Nurb *nu;
 	MetaBall *mb;
@@ -1911,12 +1903,11 @@ static int convert_exec(bContext *C, wmOperator *op)
 			/* note: get the mesh from the original, not from the copy in some
 			 * cases this doesn't give correct results (when MDEF is used for eg)
 			 */
-			dm = mesh_get_derived_final(depsgraph, scene, newob, CD_MASK_MESH);
-
-			DM_to_mesh(dm, newob->data, newob, CD_MASK_MESH, true);
-
-			/* re-tessellation is called by DM_to_mesh */
-
+			Mesh *me_eval = mesh_get_eval_final(depsgraph, scene, newob, CD_MASK_MESH);
+			if (newob->runtime.mesh_eval == me_eval) {
+				newob->runtime.mesh_eval = NULL;
+			}
+			BKE_mesh_nomain_to_mesh(me_eval, newob->data, newob, CD_MASK_MESH, true);
 			BKE_object_free_modifiers(newob, 0);   /* after derivedmesh calls! */
 		}
 		else if (ob->type == OB_FONT) {

@@ -1162,6 +1162,7 @@ void BKE_movieclip_get_size(MovieClip *clip, MovieClipUser *user, int *width, in
 	 * cache lookups and even unwanted non-proxied files loading when doing mask parenting,
 	 * so let's disable this for now and assume image sequence consists of images with
 	 * equal sizes (sergey)
+	 * TODO(sergey): Support reading sequences of different resolution.
 	 */
 	if (user->framenr == clip->lastframe) {
 #endif

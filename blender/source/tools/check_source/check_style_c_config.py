@@ -9,7 +9,6 @@ IGNORE = (
     "source/blender/blenkernel/intern/boids.c",
     "source/blender/blenkernel/intern/cloth.c",
     "source/blender/blenkernel/intern/collision.c",
-    "source/blender/blenkernel/intern/effect.c",
     "source/blender/blenkernel/intern/implicit.c",
     "source/blender/blenkernel/intern/particle.c",
     "source/blender/blenkernel/intern/particle_system.c",

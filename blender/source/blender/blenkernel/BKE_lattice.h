@@ -36,6 +36,14 @@
 
 #include "BLI_compiler_attrs.h"
 
+#include "../vr/vr_build.h"
+#if WITH_VR
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+#endif
+
 struct Lattice;
 struct Main;
 struct Mesh;
@@ -119,5 +127,11 @@ enum {
 };
 void BKE_lattice_batch_cache_dirty_tag(struct Lattice *lt, int mode);
 void BKE_lattice_batch_cache_free(struct Lattice *lt);
+
+#if WITH_VR
+#ifdef __cplusplus
+}
+#endif
+#endif
 
 #endif  /* __BKE_LATTICE_H__ */

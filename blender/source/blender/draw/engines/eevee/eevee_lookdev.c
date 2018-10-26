@@ -133,22 +133,22 @@ void EEVEE_lookdev_cache_init(
 			}
 			DRW_shgroup_uniform_texture(*grp, "image", tex);
 
-#if WITH_VR
-			/* If VR, need to recalculate lightprobes for each eye. */
-			if (pinfo && (v3d->stereo3d_flag & V3D_S3D_DISPVR)) {
-				static bool update_other = false;
-				if (update_other ||
-					((pinfo->studiolight_index != sl->index) ||
-					 (pinfo->studiolight_rot_z != v3d->shading.studiolight_rot_z)))
-				{
-					stl->lookdev_lightcache->flag |= LIGHTCACHE_UPDATE_WORLD;
-					pinfo->studiolight_index = sl->index;
-					pinfo->studiolight_rot_z = v3d->shading.studiolight_rot_z;
-					update_other = !update_other;
+	#if WITH_VR
+				/* If VR, need to recalculate lightprobes for each eye. */
+				if (pinfo && (v3d->stereo3d_flag & V3D_S3D_DISPVR)) {
+					static bool update_other = false;
+					if (update_other ||
+					    ((pinfo->studiolight_index != sl->index) ||
+					     (pinfo->studiolight_rot_z != v3d->shading.studiolight_rot_z)))
+					{
+						stl->lookdev_lightcache->flag |= LIGHTCACHE_UPDATE_WORLD;
+						pinfo->studiolight_index = sl->index;
+						pinfo->studiolight_rot_z = v3d->shading.studiolight_rot_z;
+						update_other = !update_other;
+					}
+					return;
 				}
-				return;
-			}
-#endif
+	#endif
 			/* Do we need to recalc the lightprobes? */
 			if (pinfo &&
 			    ((pinfo->studiolight_index != sl->index) ||

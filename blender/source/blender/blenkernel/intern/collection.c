@@ -231,6 +231,7 @@ Collection *BKE_collection_copy(Main *bmain, Collection *parent, Collection *col
 
 	Collection *collection_new;
 	BKE_id_copy_ex(bmain, &collection->id, (ID **)&collection_new, 0, false);
+	id_us_min(&collection_new->id);  /* Copying add one user by default, need to get rid of that one. */
 
 	/* Optionally add to parent. */
 	if (parent) {
@@ -465,6 +466,11 @@ Collection *BKE_collection_object_find(Main *bmain, Collection *collection, Obje
 		collection = collection->id.next;
 	}
 	return NULL;
+}
+
+bool BKE_collection_is_empty(Collection *collection)
+{
+	return BLI_listbase_is_empty(&collection->gobject) && BLI_listbase_is_empty(&collection->children);
 }
 
 /********************** Collection Objects *********************/

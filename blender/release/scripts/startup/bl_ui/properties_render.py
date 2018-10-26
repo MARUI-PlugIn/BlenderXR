@@ -287,6 +287,7 @@ class RENDER_PT_stamp_burn(RenderButtonsPanel, Panel):
 
 class RENDER_PT_output(RenderButtonsPanel, Panel):
     bl_label = "Output"
+    bl_options = {'DEFAULT_CLOSED'}
     COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE', 'BLENDER_OPENGL'}
 
     def draw(self, context):
@@ -502,8 +503,8 @@ class RENDER_PT_stereoscopy(RenderButtonsPanel, Panel):
             row.template_list("RENDER_UL_renderviews", "name", rd, "views", rd.views, "active_index", rows=2)
 
             col = row.column(align=True)
-            col.operator("scene.render_view_add", icon='ZOOMIN', text="")
-            col.operator("scene.render_view_remove", icon='ZOOMOUT', text="")
+            col.operator("scene.render_view_add", icon='ADD', text="")
+            col.operator("scene.render_view_remove", icon='REMOVE', text="")
 
             row = layout.row()
             row.label(text="Camera Suffix:")

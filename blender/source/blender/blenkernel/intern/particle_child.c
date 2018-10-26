@@ -299,11 +299,8 @@ void psys_apply_child_modifiers(ParticleThreadContext *ctx, struct ListBase *mod
 	int totkeys, k;
 	float max_length;
 
-#if 0 /* TODO for the future: use true particle modifiers that work on the whole curve */
-	for (mod = modifiers->first; mod; mod = mod->next) {
-		mod->apply(keys, totkeys, parent_keys);
-	}
-#else
+	/* TODO for the future: use true particle modifiers that work on the whole curve */
+
 	(void)modifiers;
 	(void)mod;
 
@@ -379,7 +376,6 @@ void psys_apply_child_modifiers(ParticleThreadContext *ctx, struct ListBase *mod
 			}
 		}
 	}
-#endif
 }
 
 /* ------------------------------------------------------------------------- */

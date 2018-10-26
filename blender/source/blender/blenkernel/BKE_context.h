@@ -224,11 +224,6 @@ short CTX_data_type_get(struct bContextDataResult *result);
 bool CTX_data_equals(const char *member, const char *str);
 bool CTX_data_dir(const char *member);
 
-#if 0
-void CTX_data_pointer_set(bContextDataResult *result, void *data);
-void CTX_data_list_add(bContextDataResult *result, void *data);
-#endif
-
 #define CTX_DATA_BEGIN(C, Type, instance, member)                             \
 	{                                                                         \
 		ListBase ctx_data_list;                                               \
@@ -310,6 +305,7 @@ int CTX_data_editable_bones(const bContext *C, ListBase *list);
 
 struct bPoseChannel *CTX_data_active_pose_bone(const bContext *C);
 int CTX_data_selected_pose_bones(const bContext *C, ListBase *list);
+int CTX_data_selected_pose_bones_from_active_object(const bContext *C, ListBase *list);
 int CTX_data_visible_pose_bones(const bContext *C, ListBase *list);
 
 struct bGPdata *CTX_data_gpencil_data(const bContext *C);

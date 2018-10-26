@@ -15,10 +15,10 @@
 * along with this program; if not, write to the Free Software Foundation,
 * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 *
-* The Original Code is Copyright (C) 2016 by Mike Erwin.
+* The Original Code is Copyright (C) 2018 by Blender Foundation.
 * All rights reserved.
 *
-* Contributor(s): Blender Foundation
+* Contributor(s): MARUI-PlugIn
 *
 * ***** END GPL LICENSE BLOCK *****
 */
@@ -65,7 +65,7 @@ template <typename T = float> struct Quat {
 	Quat() : x(0), y(0), z(0), w(1) {};
 	Quat(T x, T y, T z, T w) : x(x), y(y), z(z), w(w) {};
 	/* "Two vectors" constructor */
-	Quat(const Coord3Df& from, const Coord3Df& to) { /* TODO_MARUI: Use a generic Coord3D */
+	Quat(const Coord3Df& from, const Coord3Df& to) { /* TODO_XR: Use a generic Coord3D */
 		Coord3Df v = from ^ to;
 		x = v.x; y = v.y; z = v.z;
 		w = std::sqrt((from.x*from.x + from.y*from.y + from.z*from.z)
@@ -73,7 +73,7 @@ template <typename T = float> struct Quat {
 			+ (from*to);
 	};
 	/* "Rotation matrix" constructor */
-	Quat(const Mat44f& m) { /* TODO_MARUI: Use a generic Mat44 */
+	Quat(const Mat44f& m) { /* TODO_XR: Use a generic Mat44 */
 		T trace = m.m[0][0] + m.m[1][1] + m.m[2][2];
 		if (trace > 0) {
 			T s = (T)0.5 / std::sqrt(trace + (T)1.0);
@@ -107,7 +107,7 @@ template <typename T = float> struct Quat {
 		}
 	};
 	/* "Axis,angle" constructor */
-	Quat(const Coord3Df& axis, const T& angle) { /* TODO_MARUI: Use a generic Coord3D */
+	Quat(const Coord3Df& axis, const T& angle) { /* TODO_XR: Use a generic Coord3D */
 		T s = sin(angle / (T)2);
 		T c = cos(angle / (T)2);
 		x = axis.x*s;
@@ -116,7 +116,7 @@ template <typename T = float> struct Quat {
 		w = c;
 	}
 	/* "Matrix" function */
-	Mat44f to_matrix() { /* TODO_MARUI: Use a generic Mat44 */
+	Mat44f to_matrix() { /* TODO_XR: Use a generic Mat44 */
 		Mat44f out;
 		out.m[0][0] = 1 - 2 * y*y - 2 * z*z;
 		out.m[0][1] = 2 * x*y - 2 * z*w;
@@ -137,7 +137,7 @@ template <typename T = float> struct Quat {
 		return out;
 	};
 	/* "Axis,angle" function */
-	void to_axis_angle(Coord3Df& axis, T& angle) { /* TODO_MARUI: Use a generic Coord3D */
+	void to_axis_angle(Coord3Df& axis, T& angle) { /* TODO_XR: Use a generic Coord3D */
 		if (w > (T)1) {
 			Quat q = this->normalize();
 			angle = (T)2 * std::acos(q.w);
@@ -178,13 +178,13 @@ template <typename T = float> struct Quat {
 					-x * other.x - y * other.y - z * other.z + w * other.w);
 	};
 	/* Vector multiplication operator (NOTE: This drops the w component of the vector) */
-	Coord3Df operator*(const Coord3Df& c) const {  /* TODO_MARUI: Use a generic Coord3D */
+	Coord3Df operator*(const Coord3Df& c) const {  /* TODO_XR: Use a generic Coord3D */
 		T n0 = x * (T)2; T n1 = y * (T)2; T n2 = z * (T)2;
 		T n3 = x * n0; T n4 = y * n1; T n5 = z * n2;
 		T n6 = x * n1; T n7 = x * n2; T n8 = y * n2;
 		T n9 = w * n0; T n10 = w * n1; T n11 = w * n2;
 		Coord3Df out;
-		out.x((T)1 - (n4 + n5))*x + (n7 - n11)*y + (n7 + n10)*z;
+		out.x = ((T)1 - (n4 + n5))*x + (n7 - n11)*y + (n7 + n10)*z;
 		out.y = (n6 + n11)*x + ((T)1 - (n3 + n5))*y + (n8 - n9)*z;
 		out.z = (n7 - n10)*x + (n8 + n9)*y + ((T)1 - (n3 + n4))*z;
 		//out.w = (T)1;

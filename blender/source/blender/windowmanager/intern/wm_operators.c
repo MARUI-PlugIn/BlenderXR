@@ -1780,10 +1780,10 @@ static void WM_OT_window_new_main(wmOperatorType *ot)
 
 static void WM_OT_window_new_vr(wmOperatorType *ot)
 {
-	ot->name = "New VR Window";
-	ot->idname = "WM_OT_window_new_vr";
-	ot->description = "Start a VR instance";
-	
+ 	ot->name = "New VR Window";
+ 	ot->idname = "WM_OT_window_new_vr";
+ 	ot->description = "Start a VR instance";
+
  	ot->exec = wm_window_new_vr_exec;
 }
 
@@ -1853,8 +1853,10 @@ static void WM_OT_console_toggle(wmOperatorType *ot)
  * - draw(bContext): drawing callback for paint cursor
  */
 
-void *WM_paint_cursor_activate(
-        wmWindowManager *wm, bool (*poll)(bContext *C),
+wmPaintCursor *WM_paint_cursor_activate(
+        wmWindowManager *wm,
+        short space_type, short region_type,
+        bool (*poll)(bContext *C),
         wmPaintCursorDraw draw, void *customdata)
 {
 	wmPaintCursor *pc = MEM_callocN(sizeof(wmPaintCursor), "paint cursor");
@@ -1865,10 +1867,13 @@ void *WM_paint_cursor_activate(
 	pc->poll = poll;
 	pc->draw = draw;
 
+	pc->space_type = space_type;
+	pc->region_type = region_type;
+
 	return pc;
 }
 
-void WM_paint_cursor_end(wmWindowManager *wm, void *handle)
+bool WM_paint_cursor_end(wmWindowManager *wm, wmPaintCursor *handle)
 {
 	wmPaintCursor *pc;
 
@@ -1876,9 +1881,15 @@ void WM_paint_cursor_end(wmWindowManager *wm, void *handle)
 		if (pc == (wmPaintCursor *)handle) {
 			BLI_remlink(&wm->paintcursors, pc);
 			MEM_freeN(pc);
-			return;
+			return true;
 		}
 	}
+	return false;
+}
+
+void *WM_paint_cursor_customdata_get(wmPaintCursor *pc)
+{
+	return pc->customdata;
 }
 
 /* *********************** radial control ****************** */
@@ -2062,16 +2073,16 @@ static void radial_control_paint_tex(RadialControl *rc, float radius, float alph
 		/* draw textured quad */
 		immBegin(GPU_PRIM_TRI_FAN, 4);
 
-		immAttrib2f(texCoord, 0, 0);
+		immAttr2f(texCoord, 0, 0);
 		immVertex2f(pos, -radius, -radius);
 
-		immAttrib2f(texCoord, 1, 0);
+		immAttr2f(texCoord, 1, 0);
 		immVertex2f(pos, radius, -radius);
 
-		immAttrib2f(texCoord, 1, 1);
+		immAttr2f(texCoord, 1, 1);
 		immVertex2f(pos, radius, radius);
 
-		immAttrib2f(texCoord, 0, 1);
+		immAttr2f(texCoord, 0, 1);
 		immVertex2f(pos, -radius, radius);
 
 		immEnd();
@@ -2446,8 +2457,11 @@ static int radial_control_invoke(bContext *C, wmOperator *op, const wmEvent *eve
 	BLI_listbase_clear(&wm->paintcursors);
 
 	/* add radial control paint cursor */
-	rc->cursor = WM_paint_cursor_activate(wm, op->type->poll,
-	                                      radial_control_paint_cursor, rc);
+	rc->cursor = WM_paint_cursor_activate(
+	        wm,
+	        SPACE_TYPE_ANY, RGN_TYPE_ANY,
+	        op->type->poll,
+	        radial_control_paint_cursor, rc);
 
 	WM_event_add_modal_handler(C, op);
 

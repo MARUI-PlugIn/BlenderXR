@@ -53,6 +53,8 @@ struct ViewLayer;
 extern "C" {
 #endif
 
+#include "BLI_sys_types.h"
+
 /* Graph Building -------------------------------- */
 
 /* Build depsgraph for the given scene, and dump results in given
@@ -139,6 +141,11 @@ void DEG_add_object_relation(struct DepsNodeHandle *node,
                              struct Object *object,
                              eDepsObjectComponentType component,
                              const char *description);
+void DEG_add_object_relation_with_customdata(struct DepsNodeHandle *node,
+                                             struct Object *object,
+                                             eDepsObjectComponentType component,
+                                             uint64_t customdata_mask,
+                                             const char *description);
 void DEG_add_bone_relation(struct DepsNodeHandle *handle,
                            struct Object *object,
                            const char *bone_name,
@@ -149,9 +156,9 @@ void DEG_add_object_cache_relation(struct DepsNodeHandle *handle,
                                    eDepsObjectComponentType component,
                                    const char *description);
 
+void DEG_add_special_eval_flag(struct DepsNodeHandle *handle, struct ID *id, uint32_t flag);
 
 struct Depsgraph *DEG_get_graph_from_handle(struct DepsNodeHandle *handle);
-void DEG_add_special_eval_flag(struct Depsgraph *graph, struct ID *id, short flag);
 
 /* ************************************************ */
 

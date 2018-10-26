@@ -634,7 +634,7 @@ static void OBJECT_engine_init(void *vedata)
 		}
 
 		float dist;
-		if (rv3d->persp == RV3D_CAMOB && v3d->camera) {
+		if (rv3d->persp == RV3D_CAMOB && v3d->camera && v3d->camera->type == OB_CAMERA) {
 			Object *camera_object = DEG_get_evaluated_object(draw_ctx->depsgraph, v3d->camera);
 			dist = ((Camera *)(camera_object->data))->clipend;
 		}
@@ -2040,7 +2040,7 @@ static void volumes_free_smoke_textures(void)
 	 * all viewport in a redraw at least. */
 	for (LinkData *link = e_data.smoke_domains.first; link; link = link->next) {
 		SmokeModifierData *smd = (SmokeModifierData *)link->data;
-		GPU_free_smoke(smd);
+		GPU_free_smoke_velocity(smd);
 	}
 	BLI_freelistN(&e_data.smoke_domains);
 }
@@ -2281,7 +2281,7 @@ static void DRW_shgroup_relationship_lines(
         Scene *scene,
         Object *ob)
 {
-	if (ob->parent && DRW_check_object_visible_within_active_context(ob->parent)) {
+	if (ob->parent && DRW_object_is_visible_in_active_context(ob->parent)) {
 		DRW_shgroup_call_dynamic_add(sgl->relationship_lines, ob->parent->obmat[3]);
 		DRW_shgroup_call_dynamic_add(sgl->relationship_lines, ob->obmat[3]);
 	}
@@ -2289,11 +2289,11 @@ static void DRW_shgroup_relationship_lines(
 	if (ob->rigidbody_constraint) {
 		Object *rbc_ob1 = ob->rigidbody_constraint->ob1;
 		Object *rbc_ob2 = ob->rigidbody_constraint->ob2;
-		if (rbc_ob1 && DRW_check_object_visible_within_active_context(rbc_ob1)) {
+		if (rbc_ob1 && DRW_object_is_visible_in_active_context(rbc_ob1)) {
 			DRW_shgroup_call_dynamic_add(sgl->relationship_lines, rbc_ob1->obmat[3]);
 			DRW_shgroup_call_dynamic_add(sgl->relationship_lines, ob->obmat[3]);
 		}
-		if (rbc_ob2 && DRW_check_object_visible_within_active_context(rbc_ob2)) {
+		if (rbc_ob2 && DRW_object_is_visible_in_active_context(rbc_ob2)) {
 			DRW_shgroup_call_dynamic_add(sgl->relationship_lines, rbc_ob2->obmat[3]);
 			DRW_shgroup_call_dynamic_add(sgl->relationship_lines, ob->obmat[3]);
 		}
@@ -2538,7 +2538,7 @@ static void OBJECT_cache_populate_particles(Object *ob,
 		if (!psys_check_enabled(ob, psys, false)) {
 			continue;
 		}
-		if (!DRW_check_psys_visible_within_active_context(ob, psys)) {
+		if (!DRW_object_is_visible_psys_in_active_context(ob, psys)) {
 			continue;
 		}
 
@@ -2624,12 +2624,12 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 		OBJECT_cache_populate_particles(ob, psl);
 	}
 
-	if (DRW_check_object_visible_within_active_context(ob) == false) {
+	if (DRW_object_is_visible_in_active_context(ob) == false) {
 		return;
 	}
 
 	const bool do_outlines = (draw_ctx->v3d->flag & V3D_SELECT_OUTLINE) && ((ob->base_flag & BASE_SELECTED) != 0) &&
-	                         (DRW_object_is_renderable(ob) || (ob->dt == OB_WIRE));
+	                         ((DRW_object_is_renderable(ob) && (ob->dt > OB_WIRE)) || (ob->dt == OB_WIRE));
 	const bool show_relations = ((draw_ctx->v3d->flag & V3D_HIDE_HELPLINES) == 0);
 	const bool hide_object_extra = (v3d->overlay.flag & V3D_OVERLAY_HIDE_OBJECT_XTRAS) != 0;
 
@@ -2802,6 +2802,13 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 		DRW_shgroup_forcefield(sgl, ob, view_layer);
 	}
 
+	if (ob->dt == OB_BOUNDBOX) {
+		if (theme_id == TH_UNDEFINED) {
+			theme_id = DRW_object_wire_theme_get(ob, view_layer, NULL);
+		}
+		DRW_shgroup_bounds(sgl, ob, theme_id);
+	}
+
 	/* don't show object extras in set's */
 	if ((ob->base_flag & (BASE_FROM_SET | BASE_FROMDUPLI)) == 0) {
 		if ((draw_ctx->object_mode & (OB_MODE_ALL_PAINT | OB_MODE_ALL_PAINT_GPENCIL)) == 0) {
@@ -2812,7 +2819,8 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 			DRW_shgroup_relationship_lines(sgl, draw_ctx->depsgraph, scene, ob);
 		}
 
-		if ((ob->dtx != 0) && theme_id == TH_UNDEFINED) {
+		const bool draw_extra = (ob->dtx != 0);
+		if (draw_extra && (theme_id == TH_UNDEFINED)) {
 			theme_id = DRW_object_wire_theme_get(ob, view_layer, NULL);
 		}
 
@@ -2832,7 +2840,8 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 			DRW_shgroup_texture_space(sgl, ob, theme_id);
 		}
 
-		if (ob->dtx & OB_DRAWBOUNDOX || ob->dt == OB_BOUNDBOX) {
+		/* Don't draw bounding box again if draw type is bound box. */
+		if (ob->dtx & OB_DRAWBOUNDOX && ob->dt != OB_BOUNDBOX) {
 			DRW_shgroup_bounds(sgl, ob, theme_id);
 		}
 

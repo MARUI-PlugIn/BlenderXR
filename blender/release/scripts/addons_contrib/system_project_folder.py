@@ -68,7 +68,7 @@ def menu_func(self, context):
     self.layout.operator(
         ProjectFolder.bl_idname,
         text="Project Folder",
-        icon="FILESEL")
+        icon='FILEBROWSER')
 
 def register():
     bpy.utils.register_class(ProjectFolder)

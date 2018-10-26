@@ -355,6 +355,7 @@ typedef struct ProjPaintState {
 	SpinLock *tile_lock;
 
 	Mesh *me_eval;
+	bool  me_eval_free;
 	int  totlooptri_eval;
 	int  totpoly_eval;
 	int  totedge_eval;
@@ -3397,29 +3398,26 @@ static void project_paint_bleed_add_face_user(
 static bool proj_paint_state_mesh_eval_init(const bContext *C, ProjPaintState *ps)
 {
 	Depsgraph *depsgraph = CTX_data_depsgraph(C);
-	Scene *sce = ps->scene;
 	Object *ob = ps->ob;
 
 	/* Workaround for subsurf selection, try the display mesh first */
-	/* XXX Don't think this is easily doable with new system, and not sure why that was needed in the first place :/ */
-#if 0
 	if (ps->source == PROJ_SRC_IMAGE_CAM) {
 		/* using render mesh, assume only camera was rendered from */
-		ps->dm = mesh_create_derived_render(
+		ps->me_eval = mesh_create_eval_final_render(
 		             depsgraph, ps->scene, ps->ob, ps->scene->customdata_mask | CD_MASK_MLOOPUV | CD_MASK_MTFACE);
-		ps->dm_release = true;
+		ps->me_eval_free = true;
 	}
 	else {
-		ps->dm = mesh_get_derived_final(
+		ps->me_eval = mesh_get_eval_final(
 		        depsgraph, ps->scene, ps->ob,
 		        ps->scene->customdata_mask | CD_MASK_MLOOPUV | CD_MASK_MTFACE | (ps->do_face_sel ? CD_MASK_ORIGINDEX : 0));
-		ps->dm_release = false;
+		ps->me_eval_free = false;
 	}
-#endif
-	ps->me_eval = mesh_get_eval_final(
-	                  depsgraph, sce, ob,
-	                  sce->customdata_mask | CD_MASK_MLOOPUV | CD_MASK_MTFACE | (ps->do_face_sel ? CD_MASK_ORIGINDEX : 0));
+
 	if (!CustomData_has_layer(&ps->me_eval->ldata, CD_MLOOPUV)) {
+		if (ps->me_eval_free) {
+			BKE_id_free(NULL, ps->me_eval);
+		}
 		ps->me_eval = NULL;
 		return false;
 	}
@@ -3965,6 +3963,11 @@ static void project_paint_end(ProjPaintState *ps)
 		if (ps->do_mask_cavity) {
 			MEM_freeN(ps->cavities);
 		}
+
+		if (ps->me_eval_free) {
+			BKE_id_free(NULL, ps->me_eval);
+		}
+		ps->me_eval = NULL;
 	}
 
 	if (ps->blurkernel) {
@@ -5660,6 +5663,57 @@ static Image *proj_paint_image_create(wmOperator *op, Main *bmain)
 	return ima;
 }
 
+static void proj_paint_default_color(wmOperator *op, int type, Material *ma)
+{
+	if (RNA_struct_property_is_set(op->ptr, "color")) {
+		return;
+	}
+
+	bNode *in_node = ntreeFindType(ma->nodetree, SH_NODE_BSDF_PRINCIPLED);
+	if (in_node == NULL) {
+		return;
+	}
+
+	float color[4];
+
+	if (type >= LAYER_BASE_COLOR && type < LAYER_NORMAL) {
+		/* Copy color from node, so result is unchanged after assigning textures. */
+		bNodeSocket *in_sock = nodeFindSocket(in_node, SOCK_IN, layer_type_items[type].name);
+
+		switch (in_sock->type) {
+			case SOCK_FLOAT: {
+				bNodeSocketValueFloat *socket_data = in_sock->default_value;
+				copy_v3_fl(color, socket_data->value);
+				color[3] = 1.0f;
+				break;
+			}
+			case SOCK_VECTOR:
+			case SOCK_RGBA: {
+				bNodeSocketValueRGBA *socket_data = in_sock->default_value;
+				copy_v3_v3(color, socket_data->value);
+				color[3] = 1.0f;
+				break;
+			}
+			default: {
+				return;
+			}
+		}
+	}
+	else if (type == LAYER_NORMAL) {
+		/* Neutral tangent space normal map. */
+		rgba_float_args_set(color, 0.5f, 0.5f, 1.0f, 1.0f);
+	}
+	else if (ELEM(type, LAYER_BUMP, LAYER_DISPLACEMENT)) {
+		/* Neutral displacement and bump map. */
+		rgba_float_args_set(color, 0.5f, 0.5f, 0.5f, 1.0f);
+	}
+	else {
+		return;
+	}
+
+	RNA_float_set_array(op->ptr, "color", color);
+}
+
 static bool proj_paint_add_slot(bContext *C, wmOperator *op)
 {
 	Object *ob = ED_object_active_context(C);
@@ -5695,9 +5749,8 @@ static bool proj_paint_add_slot(bContext *C, wmOperator *op)
 		nodeSetActive(ntree, imanode);
 
 		/* Connect to first available principled bsdf node. */
-		bNode *in_node;
+		bNode *in_node = ntreeFindType(ntree, SH_NODE_BSDF_PRINCIPLED);
 		bNode *out_node = imanode;
-		in_node = ntreeFindType(ntree, SH_NODE_BSDF_PRINCIPLED);
 
 		if (in_node != NULL) {
 			bNodeSocket *out_sock = nodeFindSocket(out_node, SOCK_OUT, "Color");
@@ -5777,8 +5830,33 @@ static bool proj_paint_add_slot(bContext *C, wmOperator *op)
 	return false;
 }
 
+static int get_texture_layer_type(wmOperator *op, const char *prop_name)
+{
+	int type_value = RNA_enum_get(op->ptr, prop_name);
+	int type = RNA_enum_from_value(layer_type_items, type_value);
+	BLI_assert(type != -1);
+	return type;
+}
+
+static Material *get_or_create_current_material(bContext *C, Object *ob)
+{
+	Material *ma = give_current_material(ob, ob->actcol);
+	if (!ma) {
+		Main *bmain = CTX_data_main(C);
+		ma = BKE_material_add(bmain, "Material");
+		assign_material(bmain, ob, ma, ob->actcol, BKE_MAT_ASSIGN_USERPREF);
+	}
+	return ma;
+}
+
 static int texture_paint_add_texture_paint_slot_exec(bContext *C, wmOperator *op)
 {
+	Object *ob = ED_object_active_context(C);
+	Material *ma = get_or_create_current_material(C, ob);
+
+	int type = get_texture_layer_type(op, "type");
+	proj_paint_default_color(op, type, ma);
+
 	if (proj_paint_add_slot(C, op)) {
 		return OPERATOR_FINISHED;
 	}
@@ -5787,30 +5865,22 @@ static int texture_paint_add_texture_paint_slot_exec(bContext *C, wmOperator *op
 	}
 }
 
+static void get_default_texture_layer_name_for_object(Object *ob, int texture_type, char *dst, int dst_length)
+{
+	Material *ma = give_current_material(ob, ob->actcol);
+	const char *base_name = ma ? &ma->id.name[2] : &ob->id.name[2];
+	BLI_snprintf(dst, dst_length, "%s %s", base_name, layer_type_items[texture_type].name);
+}
 
 static int texture_paint_add_texture_paint_slot_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
 {
-	char imagename[MAX_ID_NAME - 2];
-	Main *bmain = CTX_data_main(C);
 	Object *ob = ED_object_active_context(C);
-	Material *ma = give_current_material(ob, ob->actcol);
-	int type = RNA_enum_get(op->ptr, "type");
+	int type = get_texture_layer_type(op, "type");
 
-	if (!ma) {
-		ma = BKE_material_add(bmain, "Material");
-		/* no material found, just assign to first slot */
-		assign_material(bmain, ob, ma, ob->actcol, BKE_MAT_ASSIGN_USERPREF);
-	}
-
-	type = RNA_enum_from_value(layer_type_items, type);
-
-	/* get the name of the texture layer type */
-	BLI_assert(type != -1);
-
-	/* take the second letter to avoid the ID identifier */
-	BLI_snprintf(imagename, sizeof(imagename), "%s %s", &ma->id.name[2], layer_type_items[type].name);
-
+	char imagename[MAX_ID_NAME - 2];
+	get_default_texture_layer_name_for_object(ob, type, (char *)&imagename, sizeof(imagename));
 	RNA_string_set(op->ptr, "name", imagename);
+
 	return WM_operator_props_dialog_popup(C, op, 15 * UI_UNIT_X, 5 * UI_UNIT_Y);
 }
 

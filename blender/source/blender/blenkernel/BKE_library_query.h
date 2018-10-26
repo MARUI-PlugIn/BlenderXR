@@ -31,6 +31,14 @@
  *  \author sergey
  */
 
+#include "../vr/vr_build.h"
+#if WITH_VR
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+#endif
+
 struct ID;
 struct Main;
 
@@ -105,5 +113,11 @@ void BKE_library_ID_test_usages(struct Main *bmain, void *idv, bool *is_used_loc
 
 void BKE_library_unused_linked_data_set_tag(struct Main *bmain, const bool do_init_tag);
 void BKE_library_indirectly_used_data_tag_clear(struct Main *bmain);
+
+#if WITH_VR
+#ifdef __cplusplus
+}
+#endif
+#endif
 
 #endif  /* __BKE_LIBRARY_QUERY_H__ */

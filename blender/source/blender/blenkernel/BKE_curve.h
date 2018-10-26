@@ -33,6 +33,14 @@
  *  \author nzc
  */
 
+ #include "../vr/vr_build.h"
+ #if WITH_VR
+ #ifdef __cplusplus
+ extern "C"
+ {
+ #endif
+ #endif
+
 struct BezTriple;
 struct Curve;
 struct EditNurb;
@@ -243,5 +251,11 @@ unsigned int BKE_curve_decimate_bezt_array(
 void BKE_curve_decimate_nurb(
         struct Nurb *nu, const unsigned int resolu,
         const float error_sq_max, const unsigned int error_target_len);
+
+#if WITH_VR
+#ifdef __cplusplus
+}
+#endif
+#endif
 
 #endif  /* __BKE_CURVE_H__ */

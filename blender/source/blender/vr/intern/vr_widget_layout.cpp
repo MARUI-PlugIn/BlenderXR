@@ -15,10 +15,10 @@
 * along with this program; if not, write to the Free Software Foundation,
 * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 *
-* The Original Code is Copyright (C) 2016 by Mike Erwin.
+* The Original Code is Copyright (C) 2018 by Blender Foundation.
 * All rights reserved.
 *
-* Contributor(s): Blender Foundation
+* Contributor(s): MARUI-PlugIn
 *
 * ***** END GPL LICENSE BLOCK *****
 */
@@ -222,7 +222,7 @@ Coord3Df VR_Widget_Layout::button_positions[VR_UI_TYPES][VR_SIDES][BUTTONIDS] =
 			,
 			Coord3Df(0, -0.122f, 0.006f)// BUTTONID_DPADDOWN
 			,
-			Coord3Df(0, 0, 0)//BUTTONID_DPAD
+			Coord3Df(0, -0.109f, 0.008f)//BUTTONID_DPAD
 			,
 			Coord3Df(0, 0, 0)//BUTTONID_STICKLEFT
 			,
@@ -259,7 +259,7 @@ Coord3Df VR_Widget_Layout::button_positions[VR_UI_TYPES][VR_SIDES][BUTTONIDS] =
 			,
 			Coord3Df(0, -0.122f, 0.006f)// BUTTONID_DPADDOWN
 			,
-			Coord3Df(0, 0, 0)//BUTTONID_DPAD
+			Coord3Df(0, -0.109f, 0.008f)//BUTTONID_DPAD
 			,
 			Coord3Df(0, 0, 0)//BUTTONID_STICKLEFT
 			,
@@ -301,7 +301,7 @@ Coord3Df VR_Widget_Layout::button_positions[VR_UI_TYPES][VR_SIDES][BUTTONIDS] =
 			,
 			Coord3Df(0, -0.085f, 0.0015f)// BUTTONID_DPADDOWN
 			,
-			Coord3Df(0, 0, 0)// BUTTONID_DPAD
+			Coord3Df(0, -0.0775f, -0.0065f)// BUTTONID_DPAD
 			,
 			Coord3Df(0.024f, -0.007f, 0.0065f)// BUTTONID_STICKLEFT
 			,
@@ -311,7 +311,7 @@ Coord3Df VR_Widget_Layout::button_positions[VR_UI_TYPES][VR_SIDES][BUTTONIDS] =
 			,
 			Coord3Df(0.029f, -0.0855f, 0.0105f)// BUTTONID_STICKDOWN
 			,
-			Coord3Df(0, 0, 0)// BUTTONID_STICK
+			Coord3Df(0, -0.077f, 0.0065f)// BUTTONID_STICK
 			,
 			Coord3Df(0, 0, 0)// BUTTONID_THUMBREST
 			,
@@ -338,7 +338,7 @@ Coord3Df VR_Widget_Layout::button_positions[VR_UI_TYPES][VR_SIDES][BUTTONIDS] =
 			,
 			Coord3Df(0, -0.085f, 0.0015f)// BUTTONID_DPADDOWN
 			,
-			Coord3Df(0, 0, 0)// BUTTONID_DPAD
+			Coord3Df(0, -0.0775f, -0.0065f)// BUTTONID_DPAD
 			,
 			Coord3Df(-0.038f, -0.077f, 0.0065f)// BUTTONID_STICKLEFT
 			,
@@ -348,7 +348,7 @@ Coord3Df VR_Widget_Layout::button_positions[VR_UI_TYPES][VR_SIDES][BUTTONIDS] =
 			,
 			Coord3Df(-0.029f, -0.0855f, 0.0105f)// BUTTONID_STICKDOWN
 			,
-			Coord3Df(0, 0, 0)// BUTTONID_STICK
+			Coord3Df(0, -0.0775f, -0.0065f)// BUTTONID_STICK
 			,
 			Coord3Df(0, 0, 0)// BUTTONID_THUMBREST
 			,
@@ -782,9 +782,9 @@ const VR_Widget_Layout::Layout VR_Widget_Layout::default_layouts[VR_UI_TYPES][DE
 			//BUTTONID_TRIGGER
 			{
 				// Alt_Off
-				VR_Widget::get_widget(VR_Widget::TYPE_TRIGGER)
+				VR_Widget::get_widget(VR_Widget::TYPE_SELECT)
 				, // Alt_On
-				VR_Widget::get_widget(VR_Widget::TYPE_SELECT_PROXIMITY)
+				VR_Widget::get_widget(VR_Widget::TYPE_MEASURE)
 			}
 			,
 			//BUTTONID_GRIP
@@ -838,7 +838,7 @@ const VR_Widget_Layout::Layout VR_Widget_Layout::default_layouts[VR_UI_TYPES][DE
 			//BUTTONID_STICKLEFT
 			{
 				// Alt_Off
-				(VR_Widget*)0
+				VR_Widget::get_widget(VR_Widget::TYPE_DELETE)
 				, // Alt_On
 				(VR_Widget*)0
 			}
@@ -846,7 +846,7 @@ const VR_Widget_Layout::Layout VR_Widget_Layout::default_layouts[VR_UI_TYPES][DE
 			//BUTTONID_STICKRIGHT
 			{
 				// Alt_Off
-				(VR_Widget*)0
+				VR_Widget::get_widget(VR_Widget::TYPE_DUPLICATE)
 				, // Alt_On
 				(VR_Widget*)0
 			}
@@ -854,26 +854,26 @@ const VR_Widget_Layout::Layout VR_Widget_Layout::default_layouts[VR_UI_TYPES][DE
 			//BUTTONID_STICKUP
 			{
 				// Alt_Off
-				(VR_Widget*)0
+				VR_Widget::get_widget(VR_Widget::TYPE_SWITCHTOOL)
 				, // Alt_On
-				(VR_Widget*)0
+				VR_Widget::get_widget(VR_Widget::TYPE_SWITCHTOOL)
 			}
 			,
 			//BUTTONID_STICKDOWN
 			{
 				// Alt_Off
-				(VR_Widget*)0
+				VR_Widget::get_widget(VR_Widget::TYPE_SWITCHTOOLMODE)
 				, // Alt_On
-				(VR_Widget*)0
+				VR_Widget::get_widget(VR_Widget::TYPE_SWITCHTOOLMODE)
 			}
 			,
 			//BUTTONID_STICK
 			{
-				// Alt_Off
-				VR_Widget::get_widget(VR_Widget::TYPE_CURSOR_OFFSET)
+				// Alt_Offa
+				(VR_Widget*)0
 				, // Alt_On
 				(VR_Widget*)0
-				}
+			}
 			,
 			//BUTTONID_THUMBREST
 			{
@@ -896,7 +896,7 @@ const VR_Widget_Layout::Layout VR_Widget_Layout::default_layouts[VR_UI_TYPES][DE
 				// Alt_Off
 				VR_Widget::get_widget(VR_Widget::TYPE_NAVI_JOYSTICK)
 				, // Alt_On
-				VR_Widget::get_widget(VR_Widget::TYPE_NAVI_TELEPORT)
+				VR_Widget::get_widget(VR_Widget::TYPE_NAVI_JOYSTICK)
 			}
 			,
 			//BUTTONID_MENU
@@ -921,9 +921,9 @@ const VR_Widget_Layout::Layout VR_Widget_Layout::default_layouts[VR_UI_TYPES][DE
 			//BUTTONID_TRIGGER
 			{
 				// Alt_Off
-				VR_Widget::get_widget(VR_Widget::TYPE_ANNOTATE)
+				VR_Widget::get_widget(VR_Widget::TYPE_QUICKGRAB)
 				, // Alt_On
-				VR_Widget::get_widget(VR_Widget::TYPE_TRIGGER)
+				VR_Widget::get_widget(VR_Widget::TYPE_ANNOTATE)
 			}
 			,
 			//BUTTONID_GRIP
@@ -977,7 +977,7 @@ const VR_Widget_Layout::Layout VR_Widget_Layout::default_layouts[VR_UI_TYPES][DE
 			//BUTTONID_STICKLEFT
 			{
 				// Alt_Off
-				(VR_Widget*)0
+				VR_Widget::get_widget(VR_Widget::TYPE_UNDO)
 				, // Alt_On
 				(VR_Widget*)0
 			}
@@ -985,7 +985,7 @@ const VR_Widget_Layout::Layout VR_Widget_Layout::default_layouts[VR_UI_TYPES][DE
 			//BUTTONID_STICKRIGHT
 			{
 				// Alt_Off
-				(VR_Widget*)0
+				VR_Widget::get_widget(VR_Widget::TYPE_REDO)
 				, // Alt_On
 				(VR_Widget*)0
 			}
@@ -993,23 +993,23 @@ const VR_Widget_Layout::Layout VR_Widget_Layout::default_layouts[VR_UI_TYPES][DE
 			//BUTTONID_STICKUP
 			{
 				// Alt_Off
-				(VR_Widget*)0
+				VR_Widget::get_widget(VR_Widget::TYPE_SWITCHTOOL)
 				, // Alt_On
-				(VR_Widget*)0
+				VR_Widget::get_widget(VR_Widget::TYPE_SWITCHTOOL)
 			}
 			,
 			//BUTTONID_STICKDOWN
 			{
 				// Alt_Off
-				(VR_Widget*)0
+				VR_Widget::get_widget(VR_Widget::TYPE_SWITCHTOOLMODE)
 				, // Alt_On
-				(VR_Widget*)0
+				VR_Widget::get_widget(VR_Widget::TYPE_SWITCHTOOLMODE)
 			}
 			,
 			//BUTTONID_STICK
 			{
-				// Alt_Off
-				VR_Widget::get_widget(VR_Widget::TYPE_CURSOR_OFFSET)
+				// Alt_Offa
+				(VR_Widget*)0
 				, // Alt_On
 				(VR_Widget*)0
 			}
@@ -1033,7 +1033,7 @@ const VR_Widget_Layout::Layout VR_Widget_Layout::default_layouts[VR_UI_TYPES][DE
 			//BUTTONID_YB
 			{
 				// Alt_Off
-				VR_Widget::get_widget(VR_Widget::TYPE_NAVI_JOYSTICK)
+				VR_Widget::get_widget(VR_Widget::TYPE_NAVI_TELEPORT)
 				, // Alt_On
 				VR_Widget::get_widget(VR_Widget::TYPE_NAVI_TELEPORT)
 			}
@@ -1103,9 +1103,9 @@ const VR_Widget_Layout::Layout VR_Widget_Layout::default_layouts[VR_UI_TYPES][DE
 			// BUTTONID_TRIGGER
 			{
 				// Alt_Off
-				VR_Widget::get_widget(VR_Widget::TYPE_TRIGGER)
+				VR_Widget::get_widget(VR_Widget::TYPE_SELECT)
 				, // Alt_On
-				VR_Widget::get_widget(VR_Widget::TYPE_SELECT_PROXIMITY)
+				VR_Widget::get_widget(VR_Widget::TYPE_MEASURE)
 			}
 			,
 			// BUTTONID_GRIP
@@ -1119,41 +1119,41 @@ const VR_Widget_Layout::Layout VR_Widget_Layout::default_layouts[VR_UI_TYPES][DE
 			// BUTTONID_DPADLEFT
 			{
 				// Alt_Off
-				(VR_Widget*)0
+				VR_Widget::get_widget(VR_Widget::TYPE_DELETE)
 				, // Alt_On
-				(VR_Widget*)0
+				VR_Widget::get_widget(VR_Widget::TYPE_UNDO)
 			}
 			,
 			// BUTTONID_DPADRIGHT
 			{
 				// Alt_Off
-				(VR_Widget*)0
+				VR_Widget::get_widget(VR_Widget::TYPE_SWITCHTOOLMODE)
 				, // Alt_On
-				(VR_Widget*)0
+				VR_Widget::get_widget(VR_Widget::TYPE_SWITCHTOOLMODE)
 			}
 			,
 			// BUTTONID_DPADUP
 			{
 				// Alt_Off
-				VR_Widget::get_widget(VR_Widget::TYPE_CURSOR_OFFSET)
+				VR_Widget::get_widget(VR_Widget::TYPE_ALT)
 				, // Alt_On
-				(VR_Widget*)0
+				VR_Widget::get_widget(VR_Widget::TYPE_ALT)
 			}
 			,
 			// BUTTONID_DPADDOWN
 			{
 				// Alt_Off
-				VR_Widget::get_widget(VR_Widget::TYPE_ALT)
+				VR_Widget::get_widget(VR_Widget::TYPE_SWITCHTOOL)
 				, // Alt_On
-				VR_Widget::get_widget(VR_Widget::TYPE_ALT)
+				VR_Widget::get_widget(VR_Widget::TYPE_SWITCHTOOL)
 			}
 			,
 			//BUTTONID_DPAD
 			{
 				// Alt_Off
-				0
+				(VR_Widget*)0
 				, // Alt_On
-				0
+				(VR_Widget*)0
 			}
 			,
 			//BUTTONID_STICKLEFT
@@ -1225,7 +1225,7 @@ const VR_Widget_Layout::Layout VR_Widget_Layout::default_layouts[VR_UI_TYPES][DE
 				// Alt_Off
 				VR_Widget::get_widget(VR_Widget::TYPE_NAVI_JOYSTICK)
 				, // Alt_On
-				VR_Widget::get_widget(VR_Widget::TYPE_NAVI_TELEPORT)
+				VR_Widget::get_widget(VR_Widget::TYPE_NAVI_JOYSTICK)
 			}
 			,
 			// BUTTONID_SYSTEM
@@ -1242,9 +1242,9 @@ const VR_Widget_Layout::Layout VR_Widget_Layout::default_layouts[VR_UI_TYPES][DE
 			// BUTTONID_TRIGGER
 			{
 				// Alt_Off
-				VR_Widget::get_widget(VR_Widget::TYPE_ANNOTATE)
+				VR_Widget::get_widget(VR_Widget::TYPE_QUICKGRAB)
 				, // Alt_On
-				VR_Widget::get_widget(VR_Widget::TYPE_TRIGGER)
+				VR_Widget::get_widget(VR_Widget::TYPE_ANNOTATE)
 			}
 			,
 			// BUTTONID_GRIP
@@ -1258,33 +1258,33 @@ const VR_Widget_Layout::Layout VR_Widget_Layout::default_layouts[VR_UI_TYPES][DE
 			// BUTTONID_DPADLEFT
 			{
 				// Alt_Off
-				(VR_Widget*)0
+				VR_Widget::get_widget(VR_Widget::TYPE_SWITCHTOOLMODE)
 				, // Alt_On
-				(VR_Widget*)0
+				VR_Widget::get_widget(VR_Widget::TYPE_SWITCHTOOLMODE)
 			}
 			,
 			// BUTTONID_DPADRIGHT
 			{
 				// Alt_Off
-				(VR_Widget*)0
+				VR_Widget::get_widget(VR_Widget::TYPE_DUPLICATE)
 				, // Alt_On
-				(VR_Widget*)0
+				VR_Widget::get_widget(VR_Widget::TYPE_REDO)
 			}
 			,
 			// BUTTONID_DPADUP
 			{
 				// Alt_Off
-				VR_Widget::get_widget(VR_Widget::TYPE_CURSOR_OFFSET)
+				VR_Widget::get_widget(VR_Widget::TYPE_SHIFT)
 				, // Alt_On
-				(VR_Widget*)0
+				VR_Widget::get_widget(VR_Widget::TYPE_SHIFT)
 			}
 			,
 			// BUTTONID_DPADDOWN
 			{
 				// Alt_Off
-				VR_Widget::get_widget(VR_Widget::TYPE_SHIFT)
+				VR_Widget::get_widget(VR_Widget::TYPE_SWITCHTOOL)
 				, // Alt_On
-				VR_Widget::get_widget(VR_Widget::TYPE_SHIFT)
+				VR_Widget::get_widget(VR_Widget::TYPE_SWITCHTOOL)
 			}
 			,
 			//BUTTONID_DPAD
@@ -1362,7 +1362,7 @@ const VR_Widget_Layout::Layout VR_Widget_Layout::default_layouts[VR_UI_TYPES][DE
 			// BUTTONID_MENU
 			{
 				// Alt_Off
-				VR_Widget::get_widget(VR_Widget::TYPE_NAVI_JOYSTICK)
+				VR_Widget::get_widget(VR_Widget::TYPE_NAVI_TELEPORT)
 				, // Alt_On
 				VR_Widget::get_widget(VR_Widget::TYPE_NAVI_TELEPORT)
 			}
@@ -1390,16 +1390,16 @@ const VR_Widget_Layout::Layout VR_Widget_Layout::default_layouts[VR_UI_TYPES][DE
 			/* VR_SIDE_RIGHT */
 			{
 				// Alt_Off
-				BUTTONBIT_DPADDOWN
+				BUTTONBIT_DPADUP
 				, // Alt_On
-				BUTTONBIT_DPADDOWN
+				BUTTONBIT_DPADUP
 			}
 		}
 		,
 		/* ButtonBit alt_button_bits[VR_SIDES] */
 		{
 			// VR_SIDE_LEFT
-			BUTTONBIT_DPADDOWN
+			BUTTONBIT_DPADUP
 			,
 			// VR_SIDE_RIGHT
 			BUTTONBIT_NONE
@@ -1424,9 +1424,9 @@ const VR_Widget_Layout::Layout VR_Widget_Layout::default_layouts[VR_UI_TYPES][DE
 			// BUTTONID_TRIGGER
 			{
 				// Alt_Off
-				VR_Widget::get_widget(VR_Widget::TYPE_TRIGGER)
+				VR_Widget::get_widget(VR_Widget::TYPE_SELECT)
 				, // Alt_On
-				VR_Widget::get_widget(VR_Widget::TYPE_SELECT_PROXIMITY)
+				VR_Widget::get_widget(VR_Widget::TYPE_MEASURE)
 			}
 			,
 			// BUTTONID_GRIP
@@ -1440,7 +1440,7 @@ const VR_Widget_Layout::Layout VR_Widget_Layout::default_layouts[VR_UI_TYPES][DE
 			// BUTTONID_DPADLEFT
 			{
 				// Alt_Off
-				(VR_Widget*)0
+				VR_Widget::get_widget(VR_Widget::TYPE_DELETE)
 				, // Alt_On
 				(VR_Widget*)0
 			}
@@ -1448,7 +1448,7 @@ const VR_Widget_Layout::Layout VR_Widget_Layout::default_layouts[VR_UI_TYPES][DE
 			// BUTTONID_DPADRIGHT
 			{
 				// Alt_Off
-				(VR_Widget*)0
+				VR_Widget::get_widget(VR_Widget::TYPE_DUPLICATE)
 				, // Alt_On
 				(VR_Widget*)0
 			}
@@ -1456,17 +1456,17 @@ const VR_Widget_Layout::Layout VR_Widget_Layout::default_layouts[VR_UI_TYPES][DE
 			// BUTTONID_DPADUP
 			{
 				// Alt_Off
-				VR_Widget::get_widget(VR_Widget::TYPE_CURSOR_OFFSET)
+				VR_Widget::get_widget(VR_Widget::TYPE_NAVI_JOYSTICK)
 				, // Alt_On
-				(VR_Widget*)0
+				VR_Widget::get_widget(VR_Widget::TYPE_NAVI_JOYSTICK)
 			}
 			,
 			// BUTTONID_DPADDOWN
 			{
 				// Alt_Off
-				VR_Widget::get_widget(VR_Widget::TYPE_ALT)
+				VR_Widget::get_widget(VR_Widget::TYPE_SHIFT)
 				, // Alt_On
-				VR_Widget::get_widget(VR_Widget::TYPE_ALT)
+				VR_Widget::get_widget(VR_Widget::TYPE_SHIFT)
 			}
 			,
 			// BUTTONID_DPAD
@@ -1488,25 +1488,25 @@ const VR_Widget_Layout::Layout VR_Widget_Layout::default_layouts[VR_UI_TYPES][DE
 			// BUTTONID_STICKRIGHT
 			{
 				// Alt_Off
-				(VR_Widget*)0
+				VR_Widget::get_widget(VR_Widget::TYPE_ALT)
 				, // Alt_On
-				(VR_Widget*)0
+				VR_Widget::get_widget(VR_Widget::TYPE_ALT)
 			}
 			,
 			// BUTTONID_STICKUP
 			{
 				// Alt_Off
-				VR_Widget::get_widget(VR_Widget::TYPE_NAVI_JOYSTICK)
+				VR_Widget::get_widget(VR_Widget::TYPE_SWITCHTOOL)
 				, // Alt_On
-				VR_Widget::get_widget(VR_Widget::TYPE_NAVI_TELEPORT)
+				VR_Widget::get_widget(VR_Widget::TYPE_SWITCHTOOL)
 			}
 			,
 			// BUTTONID_STICKDOWN
 			{
 				// Alt_Off
-				(VR_Widget*)0
+				VR_Widget::get_widget(VR_Widget::TYPE_SWITCHTOOLMODE)
 				, // Alt_On
-				(VR_Widget*)0
+				VR_Widget::get_widget(VR_Widget::TYPE_SWITCHTOOLMODE)
 			}
 			,
 			// BUTTONID_STICK
@@ -1563,9 +1563,9 @@ const VR_Widget_Layout::Layout VR_Widget_Layout::default_layouts[VR_UI_TYPES][DE
 			// BUTTONID_TRIGGER
 			{
 				// Alt_Off
-				VR_Widget::get_widget(VR_Widget::TYPE_ANNOTATE)
+				VR_Widget::get_widget(VR_Widget::TYPE_QUICKGRAB)
 				, // Alt_On
-				VR_Widget::get_widget(VR_Widget::TYPE_TRIGGER)
+				VR_Widget::get_widget(VR_Widget::TYPE_ANNOTATE)
 			}
 			,
 			// BUTTONID_GRIP
@@ -1579,7 +1579,7 @@ const VR_Widget_Layout::Layout VR_Widget_Layout::default_layouts[VR_UI_TYPES][DE
 			// BUTTONID_DPADLEFT
 			{
 				// Alt_Off
-				(VR_Widget*)0
+				VR_Widget::get_widget(VR_Widget::TYPE_UNDO)
 				, // Alt_On
 				(VR_Widget*)0
 			}
@@ -1587,7 +1587,7 @@ const VR_Widget_Layout::Layout VR_Widget_Layout::default_layouts[VR_UI_TYPES][DE
 			// BUTTONID_DPADRIGHT
 			{
 				// Alt_Off
-				(VR_Widget*)0
+				VR_Widget::get_widget(VR_Widget::TYPE_REDO)
 				, // Alt_On
 				(VR_Widget*)0
 			}
@@ -1595,9 +1595,9 @@ const VR_Widget_Layout::Layout VR_Widget_Layout::default_layouts[VR_UI_TYPES][DE
 			// BUTTONID_DPADUP
 			{
 				// Alt_Off
-				VR_Widget::get_widget(VR_Widget::TYPE_CURSOR_OFFSET)
+				VR_Widget::get_widget(VR_Widget::TYPE_NAVI_TELEPORT)
 				, // Alt_On
-				(VR_Widget*)0
+				VR_Widget::get_widget(VR_Widget::TYPE_NAVI_TELEPORT)
 			}
 			,
 			// BUTTONID_DPADDOWN
@@ -1635,17 +1635,17 @@ const VR_Widget_Layout::Layout VR_Widget_Layout::default_layouts[VR_UI_TYPES][DE
 			// BUTTONID_STICKUP
 			{
 				// Alt_Off
-				VR_Widget::get_widget(VR_Widget::TYPE_NAVI_JOYSTICK)
+				VR_Widget::get_widget(VR_Widget::TYPE_SWITCHTOOL)
 				, // Alt_On
-				VR_Widget::get_widget(VR_Widget::TYPE_NAVI_TELEPORT)
+				VR_Widget::get_widget(VR_Widget::TYPE_SWITCHTOOL)
 			}
 			,
 			// BUTTONID_STICKDOWN
 			{
 				// Alt_Off
-				(VR_Widget*)0
+				VR_Widget::get_widget(VR_Widget::TYPE_SWITCHTOOLMODE)
 				, // Alt_On
-				(VR_Widget*)0
+				VR_Widget::get_widget(VR_Widget::TYPE_SWITCHTOOLMODE)
 			}
 			,
 			// BUTTONID_STICK
@@ -1703,9 +1703,9 @@ const VR_Widget_Layout::Layout VR_Widget_Layout::default_layouts[VR_UI_TYPES][DE
 			/* VR_SIDE_LEFT */
 			{
 				// Alt_Off
-				BUTTONBIT_NONE
+				BUTTONBIT_DPADDOWN
 				, // Alt_On
-				BUTTONBIT_NONE
+				BUTTONBIT_DPADDOWN
 			}
 			,
 			/* VR_SIDE_RIGHT */
@@ -1720,7 +1720,7 @@ const VR_Widget_Layout::Layout VR_Widget_Layout::default_layouts[VR_UI_TYPES][DE
 		/* ButtonBit alt_button_bits[VR_SIDES]; */
 		{
 			/* VR_SIDE_LEFT */
-			BUTTONBIT_DPADDOWN
+			BUTTONBIT_STICKRIGHT
 			,
 			/* VR_SIDE_RIGHT */
 			BUTTONBIT_NONE
@@ -1745,9 +1745,9 @@ const VR_Widget_Layout::Layout VR_Widget_Layout::default_layouts[VR_UI_TYPES][DE
 			//BUTTONID_TRIGGER
 			{
 				// Alt_Off
-				VR_Widget::get_widget(VR_Widget::TYPE_ANNOTATE)
+				VR_Widget::get_widget(VR_Widget::TYPE_QUICKGRAB)
 				, // Alt_On
-				VR_Widget::get_widget(VR_Widget::TYPE_TRIGGER)
+				VR_Widget::get_widget(VR_Widget::TYPE_ANNOTATE)
 			}
 			,
 			//BUTTONID_GRIP
@@ -1785,9 +1785,9 @@ const VR_Widget_Layout::Layout VR_Widget_Layout::default_layouts[VR_UI_TYPES][DE
 			//BUTTONID_DPADDOWN
 			{
 				// Alt_Off
-				VR_Widget::get_widget(VR_Widget::TYPE_SELECT_PROXIMITY)
+				(VR_Widget*)0
 				, // Alt_On
-				VR_Widget::get_widget(VR_Widget::TYPE_NAVI_TELEPORT)
+				(VR_Widget*)0
 			}
 			,
 			//BUTTONID_DPAD
@@ -1801,9 +1801,9 @@ const VR_Widget_Layout::Layout VR_Widget_Layout::default_layouts[VR_UI_TYPES][DE
 			//BUTTONID_STICKLEFT
 			{
 				// Alt_Off
-				VR_Widget::get_widget(VR_Widget::TYPE_NAVI_GRABAIR)
+				VR_Widget::get_widget(VR_Widget::TYPE_SWITCHTOOL)
 				, // Alt_On
-				VR_Widget::get_widget(VR_Widget::TYPE_CURSOR_OFFSET)
+				VR_Widget::get_widget(VR_Widget::TYPE_SWITCHTOOL)
 			}
 			,
 			//BUTTONID_STICKRIGHT
@@ -2308,7 +2308,7 @@ VR_UI::Error VR_Widget_Layout::reset_to_default_layouts()
 VR_UI::Error VR_Widget_Layout::get_current_layout(std::string& layout)
 {
 	if (!current_layout) {
-		return VR_UI::ERROR_INVALIDPARAMETER;
+		return VR_UI::ERROR_INTERNALFAILURE;
 	}
 
 	layout = current_layout->name;
@@ -2344,6 +2344,52 @@ VR_UI::Error VR_Widget_Layout::set_current_layout(const std::string& layout_name
 		layouts[type].push_back(layout);
 	}
 	current_layout = layout;
+	return VR_UI::ERROR_NONE;
+}
+
+const VR_Widget* VR_Widget_Layout::get_current_tool(VR_Side side)
+{
+	if (!current_layout) {
+		return NULL;
+	}
+
+	VR_UI* ui = VR_UI::i();
+	if (!ui) {
+		return NULL;
+	}
+	uint type = ui->type();
+	VR_UI::AltState alt = VR_UI::alt_key_get();
+
+	for (int i = 0; i < layouts[type].size(); ++i) {
+		if (layouts[type][i]->name == current_layout->name) {
+			/* The currently active tool is the one mapped to the controller trigger. */
+			return layouts[type][i]->m[side][ButtonID::BUTTONID_TRIGGER][alt];
+		}
+	}
+
+	return NULL;
+}
+
+VR_UI::Error VR_Widget_Layout::set_current_tool(const VR_Widget *tool, VR_Side side)
+{
+	if (!current_layout) {
+		return VR_UI::ERROR_INTERNALFAILURE;
+	}
+
+	VR_UI* ui = VR_UI::i();
+	if (!ui) {
+		return VR_UI::ERROR_INTERNALFAILURE;
+	}
+	uint type = ui->type();
+	VR_UI::AltState alt = VR_UI::alt_key_get();
+
+	for (int i = 0; i < layouts[type].size(); ++i) {
+		if (layouts[type][i]->name == current_layout->name) {
+			/* The currently active tool is the one mapped to the controller trigger. */
+			layouts[type][i]->m[side][ButtonID::BUTTONID_TRIGGER][alt] = (VR_Widget*)tool;
+			break;
+		}
+	}
 	return VR_UI::ERROR_NONE;
 }
 

@@ -15,10 +15,10 @@
 * along with this program; if not, write to the Free Software Foundation,
 * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 *
-* The Original Code is Copyright (C) 2016 by Mike Erwin.
+* The Original Code is Copyright (C) 2018 by Blender Foundation.
 * All rights reserved.
 *
-* Contributor(s): Blender Foundation
+* Contributor(s): MARUI-PlugIn
 *
 * ***** END GPL LICENSE BLOCK *****
 */
@@ -42,6 +42,7 @@ int vr_api_init_ui(void* display, void* drawable, void* context);	/* Initialize 
 #endif
 int vr_api_update_tracking_ui();	/* Update VR tracking including UI button states. */
 int vr_api_execute_operations();	/* Execute UI operations. */
+int vr_api_execute_post_render_operations();	/* Execute post-render UI operations. */
 const float *vr_api_get_navigation_matrix(int inverse);	/* Get the navigation matrix (or inverse navigation matrix) from the UI module. */
 int vr_api_update_view_matrix(const float _view[4][4]);	/* Update the OpenGL view matrix for the UI module. */
 int vr_api_update_projection_matrix(const float _projection[4][4]);	/* Update the OpenGL projection matrix for the UI module. */

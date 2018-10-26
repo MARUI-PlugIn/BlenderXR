@@ -169,8 +169,6 @@ bool BKE_gpencil_free_frame_runtime_data(bGPDframe *derived_gpf)
 	}
 	BLI_listbase_clear(&derived_gpf->strokes);
 
-	MEM_SAFE_FREE(derived_gpf);
-
 	return true;
 }
 
@@ -216,18 +214,17 @@ void BKE_gpencil_free_layers(ListBase *list)
 /* clear all runtime derived data */
 static void BKE_gpencil_clear_derived(bGPDlayer *gpl)
 {
-	GHashIterator gh_iter;
-
-	if (gpl->runtime.derived_data == NULL) {
+	if (gpl->runtime.derived_array == NULL) {
 		return;
 	}
 
-	GHASH_ITER(gh_iter, gpl->runtime.derived_data) {
-		bGPDframe *gpf = (bGPDframe *)BLI_ghashIterator_getValue(&gh_iter);
-		if (gpf) {
-			BKE_gpencil_free_frame_runtime_data(gpf);
-		}
+	for (int i = 0; i < gpl->runtime.len_derived; i++) {
+		bGPDframe *derived_gpf = &gpl->runtime.derived_array[i];
+		BKE_gpencil_free_frame_runtime_data(derived_gpf);
+		derived_gpf = NULL;
 	}
+	gpl->runtime.len_derived = 0;
+	MEM_SAFE_FREE(gpl->runtime.derived_array);
 }
 
 /* Free all of the gp-layers temp data*/
@@ -241,11 +238,6 @@ static void BKE_gpencil_free_layers_temp_data(ListBase *list)
 	for (bGPDlayer *gpl = list->first; gpl; gpl = gpl_next) {
 		gpl_next = gpl->next;
 		BKE_gpencil_clear_derived(gpl);
-
-		if (gpl->runtime.derived_data) {
-			BLI_ghash_free(gpl->runtime.derived_data, NULL, NULL);
-			gpl->runtime.derived_data = NULL;
-		}
 	}
 }
 
@@ -256,11 +248,6 @@ void BKE_gpencil_free_derived_frames(bGPdata *gpd)
 	if (gpd == NULL) return;
 	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
 		BKE_gpencil_clear_derived(gpl);
-
-		if (gpl->runtime.derived_data) {
-			BLI_ghash_free(gpl->runtime.derived_data, NULL, NULL);
-			gpl->runtime.derived_data = NULL;
-		}
 	}
 }
 
@@ -464,7 +451,6 @@ bGPdata *BKE_gpencil_data_addnew(Main *bmain, const char name[])
 	ARRAY_SET_ITEMS(gpd->line_color, 0.6f, 0.6f, 0.6f, 0.5f);
 
 	gpd->xray_mode = GP_XRAY_3DSPACE;
-	gpd->runtime.batch_cache_data = NULL;
 	gpd->pixfactor = GP_DEFAULT_PIX_FACTOR;
 
 	/* grid settings */
@@ -645,7 +631,8 @@ bGPDlayer *BKE_gpencil_layer_duplicate(const bGPDlayer *gpl_src)
 	/* make a copy of source layer */
 	gpl_dst = MEM_dupallocN(gpl_src);
 	gpl_dst->prev = gpl_dst->next = NULL;
-	gpl_dst->runtime.derived_data = NULL;
+	gpl_dst->runtime.derived_array = NULL;
+	gpl_dst->runtime.len_derived = 0;
 
 	/* copy frames */
 	BLI_listbase_clear(&gpl_dst->frames);
@@ -673,9 +660,6 @@ bGPDlayer *BKE_gpencil_layer_duplicate(const bGPDlayer *gpl_src)
  */
 void BKE_gpencil_copy_data(bGPdata *gpd_dst, const bGPdata *gpd_src, const int UNUSED(flag))
 {
-	/* cache data is not duplicated */
-	gpd_dst->runtime.batch_cache_data = NULL;
-
 	/* duplicate material array */
 	if (gpd_src->mat) {
 		gpd_dst->mat = MEM_dupallocN(gpd_src->mat);
@@ -721,7 +705,6 @@ bGPdata *BKE_gpencil_data_duplicate(Main *bmain, const bGPdata *gpd_src, bool in
 	else {
 		BLI_assert(bmain != NULL);
 		BKE_id_copy_ex(bmain, &gpd_src->id, (ID **)&gpd_dst, 0, false);
-		gpd_dst->runtime.batch_cache_data = NULL;
 	}
 
 	/* Copy internal data (layers, etc.) */
@@ -1035,10 +1018,6 @@ void BKE_gpencil_layer_delete(bGPdata *gpd, bGPDlayer *gpl)
 
 	/* free derived data */
 	BKE_gpencil_clear_derived(gpl);
-	if (gpl->runtime.derived_data) {
-		BLI_ghash_free(gpl->runtime.derived_data, NULL, NULL);
-		gpl->runtime.derived_data = NULL;
-	}
 
 	BLI_freelinkN(&gpd->layers, gpl);
 }
@@ -1108,22 +1087,35 @@ bool BKE_gpencil_stroke_minmax(
 }
 
 /* get min/max bounds of all strokes in GP datablock */
-static void gpencil_minmax(bGPdata *gpd, float r_min[3], float r_max[3])
+bool BKE_gpencil_data_minmax(Object *ob, const bGPdata *gpd, float r_min[3], float r_max[3])
 {
+	float bmat[3][3];
+	bool changed = false;
+
 	INIT_MINMAX(r_min, r_max);
 
 	if (gpd == NULL)
-		return;
+		return changed;
 
 	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
 		bGPDframe *gpf = gpl->actframe;
 
 		if (gpf != NULL) {
 			for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
-				BKE_gpencil_stroke_minmax(gps, false, r_min, r_max);
+				changed = BKE_gpencil_stroke_minmax(gps, false, r_min, r_max);
 			}
 		}
 	}
+
+	if ((changed) && (ob)) {
+		copy_m3_m4(bmat, ob->obmat);
+		mul_m3_v3(bmat, r_min);
+		add_v3_v3(r_min, ob->obmat[3]);
+		mul_m3_v3(bmat, r_max);
+		add_v3_v3(r_max, ob->obmat[3]);
+	}
+
+	return changed;
 }
 
 /* compute center of bounding box */
@@ -1131,7 +1123,7 @@ void BKE_gpencil_centroid_3D(bGPdata *gpd, float r_centroid[3])
 {
 	float min[3], max[3], tot[3];
 
-	gpencil_minmax(gpd, min, max);
+	BKE_gpencil_data_minmax(NULL, gpd, min, max);
 
 	add_v3_v3v3(tot, min, max);
 	mul_v3_v3fl(r_centroid, tot, 0.5f);
@@ -1152,7 +1144,7 @@ static void boundbox_gpencil(Object *ob)
 	bb  = ob->bb;
 	gpd = ob->data;
 
-	gpencil_minmax(gpd, min, max);
+	BKE_gpencil_data_minmax(NULL, gpd, min, max);
 	BKE_boundbox_init_from_minmax(bb, min, max);
 
 	bb->flag &= ~BOUNDBOX_DIRTY;

@@ -614,7 +614,7 @@ static void initData(ModifierData *md)
 static CustomDataMask requiredDataMask(Object *UNUSED(ob), ModifierData *md)
 {
 	WeightedNormalModifierData *wnmd = (WeightedNormalModifierData *)md;
-	CustomDataMask dataMask = CD_CUSTOMLOOPNORMAL;
+	CustomDataMask dataMask = CD_MASK_CUSTOMLOOPNORMAL;
 
 	if (wnmd->defgrp_name[0]) {
 		dataMask |= CD_MASK_MDEFORMVERT;
@@ -649,14 +649,12 @@ ModifierTypeInfo modifierType_WeightedNormal = {
 	/* deformVertsEM_DM */  NULL,
 	/* deformMatricesEM_DM*/NULL,
 	/* applyModifier_DM */  NULL,
-	/* applyModifierEM_DM */NULL,
 
 	/* deformVerts */       NULL,
 	/* deformMatrices */    NULL,
 	/* deformVertsEM */     NULL,
 	/* deformMatricesEM */  NULL,
 	/* applyModifier */     applyModifier,
-	/* applyModifierEM */   NULL,
 
 	/* initData */          initData,
 	/* requiredDataMask */  requiredDataMask,

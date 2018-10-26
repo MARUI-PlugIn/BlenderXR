@@ -22,9 +22,9 @@ bl_info = {
     "name": "Stanford PLY format",
     "author": "Bruce Merry, Campbell Barton",
     "version": (1, 0, 0),
-    "blender": (2, 74, 0),
+    "blender": (2, 80, 0),
     "location": "File > Import-Export",
-    "description": "Import-Export PLY mesh data withs UV's and vertex colors",
+    "description": "Import-Export PLY mesh data with UV's and vertex colors",
     "warning": "",
     "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/"
                 "Scripts/Import-Export/Stanford_PLY",
@@ -56,12 +56,9 @@ from bpy.props import (
 from bpy_extras.io_utils import (
         ImportHelper,
         ExportHelper,
-        orientation_helper_factory,
         axis_conversion,
+        orientation_helper
         )
-
-
-IOPLYOrientationHelper = orientation_helper_factory("IOPLYOrientationHelper", axis_forward='Y', axis_up='Z')
 
 
 class ImportPLY(bpy.types.Operator, ImportHelper):
@@ -70,15 +67,15 @@ class ImportPLY(bpy.types.Operator, ImportHelper):
     bl_label = "Import PLY"
     bl_options = {'UNDO'}
 
-    files = CollectionProperty(name="File Path",
+    files: CollectionProperty(name="File Path",
                           description="File path used for importing "
                                       "the PLY file",
                           type=bpy.types.OperatorFileListElement)
 
-    directory = StringProperty()
+    directory: StringProperty()
 
     filename_ext = ".ply"
-    filter_glob = StringProperty(default="*.ply", options={'HIDDEN'})
+    filter_glob: StringProperty(default="*.ply", options={'HIDDEN'})
 
     def execute(self, context):
         paths = [os.path.join(self.directory, name.name)
@@ -94,21 +91,22 @@ class ImportPLY(bpy.types.Operator, ImportHelper):
         return {'FINISHED'}
 
 
-class ExportPLY(bpy.types.Operator, ExportHelper, IOPLYOrientationHelper):
+@orientation_helper(axis_forward='Y', axis_up='Z')
+class ExportPLY(bpy.types.Operator, ExportHelper):
     """Export a single object as a Stanford PLY with normals, """ \
     """colors and texture coordinates"""
     bl_idname = "export_mesh.ply"
     bl_label = "Export PLY"
 
     filename_ext = ".ply"
-    filter_glob = StringProperty(default="*.ply", options={'HIDDEN'})
+    filter_glob: StringProperty(default="*.ply", options={'HIDDEN'})
 
-    use_mesh_modifiers = BoolProperty(
+    use_mesh_modifiers: BoolProperty(
             name="Apply Modifiers",
             description="Apply Modifiers to the exported mesh",
             default=True,
             )
-    use_normals = BoolProperty(
+    use_normals: BoolProperty(
             name="Normals",
             description="Export Normals for smooth and "
                         "hard shaded faces "
@@ -116,18 +114,18 @@ class ExportPLY(bpy.types.Operator, ExportHelper, IOPLYOrientationHelper):
                         "as individual faces)",
             default=True,
             )
-    use_uv_coords = BoolProperty(
+    use_uv_coords: BoolProperty(
             name="UVs",
             description="Export the active UV layer",
             default=True,
             )
-    use_colors = BoolProperty(
+    use_colors: BoolProperty(
             name="Vertex Colors",
             description="Export the active vertex color layer",
             default=True,
             )
 
-    global_scale = FloatProperty(
+    global_scale: FloatProperty(
             name="Scale",
             min=0.01, max=1000.0,
             default=1.0,
@@ -150,7 +148,7 @@ class ExportPLY(bpy.types.Operator, ExportHelper, IOPLYOrientationHelper):
                                             ))
         global_matrix = axis_conversion(to_forward=self.axis_forward,
                                         to_up=self.axis_up,
-                                        ).to_4x4() * Matrix.Scale(self.global_scale, 4)
+                                        ).to_4x4() @ Matrix.Scale(self.global_scale, 4)
         keywords["global_matrix"] = global_matrix
 
         filepath = self.filepath

@@ -502,7 +502,7 @@ static void initData(ModifierData *md)
 static CustomDataMask requiredDataMask(Object *UNUSED(ob), ModifierData *md)
 {
 	NormalEditModifierData *enmd = (NormalEditModifierData *)md;
-	CustomDataMask dataMask = CD_CUSTOMLOOPNORMAL;
+	CustomDataMask dataMask = CD_MASK_CUSTOMLOOPNORMAL;
 
 	/* Ask for vertexgroups if we need them. */
 	if (enmd->defgrp_name[0]) {
@@ -561,14 +561,12 @@ ModifierTypeInfo modifierType_NormalEdit = {
 	/* deformVertsEM_DM */  NULL,
 	/* deformMatricesEM_DM*/NULL,
 	/* applyModifier_DM */  NULL,
-	/* applyModifierEM_DM */NULL,
 
 	/* deformVerts */       NULL,
 	/* deformMatrices */    NULL,
 	/* deformVertsEM */     NULL,
 	/* deformMatricesEM */  NULL,
 	/* applyModifier */     applyModifier,
-	/* applyModifierEM */   NULL,
 
 	/* initData */          initData,
 	/* requiredDataMask */  requiredDataMask,

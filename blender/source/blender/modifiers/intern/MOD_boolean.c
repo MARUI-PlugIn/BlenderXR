@@ -317,7 +317,7 @@ static Mesh *applyModifier(ModifierData *md, const ModifierEvalContext *ctx, Mes
 				MEM_freeN(looptris);
 			}
 
-			result = BKE_bmesh_to_mesh_nomain(bm, &((struct BMeshToMeshParams){0}));
+			result = BKE_mesh_from_bmesh_for_eval_nomain(bm, 0);
 
 			BM_mesh_free(bm);
 
@@ -365,14 +365,12 @@ ModifierTypeInfo modifierType_Boolean = {
 	/* deformVertsEM_DM */  NULL,
 	/* deformMatricesEM_DM*/NULL,
 	/* applyModifier_DM */  NULL,
-	/* applyModifierEM_DM */NULL,
 
 	/* deformVerts */       NULL,
 	/* deformMatrices */    NULL,
 	/* deformVertsEM */     NULL,
 	/* deformMatricesEM */  NULL,
 	/* applyModifier */     applyModifier,
-	/* applyModifierEM */   NULL,
 
 	/* initData */          initData,
 	/* requiredDataMask */  requiredDataMask,

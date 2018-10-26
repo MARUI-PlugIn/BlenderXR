@@ -1786,7 +1786,7 @@ static void node_composit_buts_file_output_ex(uiLayout *layout, bContext *C, Poi
 
 	uiItemS(layout);
 
-	uiItemO(layout, IFACE_("Add Input"), ICON_ZOOMIN, "NODE_OT_output_file_add_socket");
+	uiItemO(layout, IFACE_("Add Input"), ICON_ADD, "NODE_OT_output_file_add_socket");
 
 	row = uiLayoutRow(layout, false);
 	col = uiLayoutColumn(row, true);
@@ -1795,13 +1795,13 @@ static void node_composit_buts_file_output_ex(uiLayout *layout, bContext *C, Poi
 	/* using different collection properties if multilayer format is enabled */
 	if (multilayer) {
 		uiTemplateList(col, C, "UI_UL_list", "file_output_node", ptr, "layer_slots", ptr, "active_input_index",
-		               NULL, 0, 0, 0, 0);
+		               NULL, 0, 0, 0, 0, false);
 		RNA_property_collection_lookup_int(ptr, RNA_struct_find_property(ptr, "layer_slots"),
 		                                   active_index, &active_input_ptr);
 	}
 	else {
 		uiTemplateList(col, C, "UI_UL_list", "file_output_node", ptr, "file_slots", ptr, "active_input_index",
-		               NULL, 0, 0, 0, 0);
+		               NULL, 0, 0, 0, 0, false);
 		RNA_property_collection_lookup_int(ptr, RNA_struct_find_property(ptr, "file_slots"),
 		                                   active_index, &active_input_ptr);
 	}
@@ -2495,8 +2495,8 @@ static void node_composit_buts_cryptomatte(uiLayout *layout, bContext *UNUSED(C)
 
 static void node_composit_buts_cryptomatte_ex(uiLayout *layout, bContext *UNUSED(C), PointerRNA *UNUSED(ptr))
 {
-	uiItemO(layout, IFACE_("Add Crypto Layer"), ICON_ZOOMIN, "NODE_OT_cryptomatte_layer_add");
-	uiItemO(layout, IFACE_("Remove Crypto Layer"), ICON_ZOOMOUT, "NODE_OT_cryptomatte_layer_remove");
+	uiItemO(layout, IFACE_("Add Crypto Layer"), ICON_ADD, "NODE_OT_cryptomatte_layer_add");
+	uiItemO(layout, IFACE_("Remove Crypto Layer"), ICON_REMOVE, "NODE_OT_cryptomatte_layer_remove");
 }
 
 static void node_composit_buts_brightcontrast(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
@@ -3007,9 +3007,9 @@ void ED_node_init_butfuncs(void)
 	NODE_TYPES_END
 
 	/* tree type icons */
-	ntreeType_Composite->ui_icon = ICON_RENDERLAYERS;
-	ntreeType_Shader->ui_icon = ICON_MATERIAL;
-	ntreeType_Texture->ui_icon = ICON_TEXTURE;
+	ntreeType_Composite->ui_icon = ICON_NODE_COMPOSITING;
+	ntreeType_Shader->ui_icon = ICON_NODE_MATERIAL;
+	ntreeType_Texture->ui_icon = ICON_NODE_TEXTURE;
 }
 
 void ED_init_custom_node_type(bNodeType *ntype)

@@ -39,6 +39,7 @@
 
 #include "BKE_editmesh.h"
 #include "BKE_cdderivedmesh.h"
+#include "BKE_library.h"
 
 
 BMEditMesh *BKE_editmesh_create(BMesh *bm, const bool do_tessellate)
@@ -58,7 +59,7 @@ BMEditMesh *BKE_editmesh_copy(BMEditMesh *em)
 	BMEditMesh *em_copy = MEM_callocN(sizeof(BMEditMesh), __func__);
 	*em_copy = *em;
 
-	em_copy->derivedCage = em_copy->derivedFinal = NULL;
+	em_copy->mesh_eval_cage = em_copy->mesh_eval_final = NULL;
 
 	em_copy->derivedVertColor = NULL;
 	em_copy->derivedVertColorLen = 0;
@@ -114,18 +115,6 @@ static void editmesh_tessface_calc_intern(BMEditMesh *em)
 
 	BMLoop *(*looptris)[3];
 
-#if 0
-	/* note, we could be clever and re-use this array but would need to ensure
-	 * its realloced at some point, for now just free it */
-	if (em->looptris) MEM_freeN(em->looptris);
-
-	/* Use em->tottri when set, this means no reallocs while transforming,
-	 * (unless scanfill fails), otherwise... */
-	/* allocate the length of totfaces, avoid many small reallocs,
-	 * if all faces are tri's it will be correct, quads == 2x allocs */
-	BLI_array_reserve(looptris, (em->tottri && em->tottri < bm->totface * 3) ? em->tottri : bm->totface);
-#else
-
 	/* this means no reallocs for quad dominant models, for */
 	if ((em->looptris != NULL) &&
 	    /* (*em->tottri >= looptris_tot)) */
@@ -138,8 +127,6 @@ static void editmesh_tessface_calc_intern(BMEditMesh *em)
 		if (em->looptris) MEM_freeN(em->looptris);
 		looptris = MEM_mallocN(sizeof(*looptris) * looptris_tot, __func__);
 	}
-
-#endif
 
 	em->looptris = looptris;
 
@@ -154,31 +141,25 @@ void BKE_editmesh_tessface_calc(BMEditMesh *em)
 
 	/* commented because editbmesh_build_data() ensures we get tessfaces */
 #if 0
-	if (em->derivedFinal && em->derivedFinal == em->derivedCage) {
-		if (em->derivedFinal->recalcTessellation)
-			em->derivedFinal->recalcTessellation(em->derivedFinal);
+	if (em->mesh_eval_final && em->mesh_eval_final == em->mesh_eval_cage) {
+		BKE_mesh_runtime_looptri_ensure(em->mesh_eval_final);
 	}
-	else if (em->derivedFinal) {
-		if (em->derivedCage->recalcTessellation)
-			em->derivedCage->recalcTessellation(em->derivedCage);
-		if (em->derivedFinal->recalcTessellation)
-			em->derivedFinal->recalcTessellation(em->derivedFinal);
+	else if (em->mesh_eval_final) {
+		BKE_mesh_runtime_looptri_ensure(em->mesh_eval_final);
+		BKE_mesh_runtime_looptri_ensure(em->mesh_eval_cage);
 	}
 #endif
 }
 
 void BKE_editmesh_free_derivedmesh(BMEditMesh *em)
 {
-	if (em->derivedCage) {
-		em->derivedCage->needsFree = 1;
-		em->derivedCage->release(em->derivedCage);
+	if (em->mesh_eval_cage) {
+		BKE_id_free(NULL, em->mesh_eval_cage);
 	}
-	if (em->derivedFinal && em->derivedFinal != em->derivedCage) {
-		em->derivedFinal->needsFree = 1;
-		em->derivedFinal->release(em->derivedFinal);
+	if (em->mesh_eval_final && em->mesh_eval_final != em->mesh_eval_cage) {
+		BKE_id_free(NULL, em->mesh_eval_final);
 	}
-
-	em->derivedCage = em->derivedFinal = NULL;
+	em->mesh_eval_cage = em->mesh_eval_final = NULL;
 }
 
 /*does not free the BMEditMesh struct itself*/
