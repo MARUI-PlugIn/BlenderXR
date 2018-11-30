@@ -765,7 +765,7 @@ void VR_Steam::interpretControllerState(const vr::VRControllerState_t& s, const 
 	// override the button with our own trigger pressure threshold
 	c.trigger_pressure = 0;
 	if (s.rAxis[1].x > 0) {
-		c.side == Side_Left ? c.buttons_touched |= VR_STEAM_BTNBIT_LEFTTRIGGER:
+		c.side == Side_Left ? c.buttons_touched |= VR_STEAM_BTNBIT_LEFTTRIGGER :
 							  c.buttons_touched |= VR_STEAM_BTNBIT_RIGHTTRIGGER;
 		if (s.rAxis[1].x >= VR_STEAM_TRIGGERPRESSURETHRESHOLD) {
 			c.side == Side_Left ? c.buttons |= VR_STEAM_BTNBIT_LEFTTRIGGER :
@@ -791,7 +791,11 @@ void VR_Steam::interpretControllerState(const vr::VRControllerState_t& s, const 
 		}
 		else if (c.dpad[0] < -VR_STEAM_TRACKPADDIRECTIONTHRESHOLD) { // LEFT
 			touchpad_btn[c.side] = VR_STEAM_BTNBIT_DPADLEFT;
-		} // else: center
+		}
+		else if (c.dpad[0] != 0 || c.dpad[1] != 0) { // CENTER
+			c.side == Side_Left ? touchpad_btn[c.side] = VR_STEAM_BTNBIT_LEFTDPAD :
+								  touchpad_btn[c.side] = VR_STEAM_BTNBIT_RIGHTDPAD;
+		}
 	}
 	else { // UP or DOWN
 		if (c.dpad[1] > 0.05f) { // UP (reduced threshold, because it's hard to hit)
@@ -799,7 +803,11 @@ void VR_Steam::interpretControllerState(const vr::VRControllerState_t& s, const 
 		}
 		else if (c.dpad[1] < -VR_STEAM_TRACKPADDIRECTIONTHRESHOLD) { // DOWN
 			touchpad_btn[c.side] = VR_STEAM_BTNBIT_DPADDOWN;
-		} // else: center
+		}
+		else if (c.dpad[0] != 0 || c.dpad[1] != 0) { // CENTER
+			c.side == Side_Left ? touchpad_btn[c.side] = VR_STEAM_BTNBIT_LEFTDPAD :
+								  touchpad_btn[c.side] = VR_STEAM_BTNBIT_RIGHTDPAD;
+		}
 	}
 
 	// Touchpad touch:
