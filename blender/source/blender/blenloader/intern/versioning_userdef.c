@@ -36,9 +36,13 @@
 
 #include "BKE_addon.h"
 #include "BKE_colorband.h"
+#include "BKE_idprop.h"
 #include "BKE_main.h"
+#include "BKE_keyconfig.h"
 
 #include "BLO_readfile.h"  /* Own include. */
+
+#include "wm_event_types.h"
 
 /* Disallow access to global userdef. */
 #define U (_error_)
@@ -77,8 +81,46 @@ static void do_versions_theme(UserDef *userdef, bTheme *btheme)
 		copy_v4_v4_char(btheme->tact.keytype_movehold, U_theme_default.tact.keytype_movehold);
 		copy_v4_v4_char(btheme->tact.keytype_movehold_select, U_theme_default.tact.keytype_movehold_select);
 	}
-#undef USER_VERSION_ATLEAST
 
+	if (!USER_VERSION_ATLEAST(280, 28)) {
+		copy_v4_v4_char(btheme->tact.ds_ipoline, U_theme_default.tact.ds_ipoline);
+	}
+
+	if (!USER_VERSION_ATLEAST(280, 29)) {
+		copy_v4_v4_char(btheme->tbuts.navigation_bar, U_theme_default.ttopbar.header);
+	}
+	if (!USER_VERSION_ATLEAST(280, 31)) {
+		copy_v4_v4_char(btheme->tclip.list_text, U_theme_default.tclip.list_text);
+	}
+
+	if (!USER_VERSION_ATLEAST(280, 33)) {
+		copy_v4_v4_char(btheme->tuserpref.navigation_bar, U_theme_default.tuserpref.navigation_bar);
+	}
+
+#undef USER_VERSION_ATLEAST
+}
+
+/* UserDef.flag */
+#define USER_LMOUSESELECT (1 << 14)  /* deprecated */
+
+static void do_version_select_mouse(UserDef *userdef, wmKeyMapItem *kmi)
+{
+	/* Remove select/action mouse from user defined keymaps. */
+	enum {
+		ACTIONMOUSE = 0x0005,
+		SELECTMOUSE = 0x0006,
+		EVT_TWEAK_A = 0x5005,
+		EVT_TWEAK_S = 0x5006,
+	};
+	const bool left = (userdef->flag & USER_LMOUSESELECT) != 0;
+
+	switch (kmi->type) {
+		case SELECTMOUSE: kmi->type = (left) ? LEFTMOUSE : RIGHTMOUSE; break;
+		case ACTIONMOUSE: kmi->type = (left) ? RIGHTMOUSE : LEFTMOUSE; break;
+		case EVT_TWEAK_S: kmi->type = (left) ? EVT_TWEAK_L : EVT_TWEAK_R; break;
+		case EVT_TWEAK_A: kmi->type = (left) ? EVT_TWEAK_R : EVT_TWEAK_L; break;
+		default: break;
+	}
 }
 
 /* patching UserDef struct and Themes */
@@ -342,11 +384,59 @@ void BLO_version_defaults_userpref_blend(Main *bmain, UserDef *userdef)
 		}
 	}
 
+	if (!USER_VERSION_ATLEAST(280, 31)) {
+		/* Remove select/action mouse from user defined keymaps. */
+		for (wmKeyMap *keymap = userdef->user_keymaps.first; keymap; keymap = keymap->next) {
+			for (wmKeyMapDiffItem *kmdi = keymap->diff_items.first; kmdi; kmdi = kmdi->next) {
+				if (kmdi->remove_item) {
+					do_version_select_mouse(userdef, kmdi->remove_item);
+				}
+				if (kmdi->add_item) {
+					do_version_select_mouse(userdef, kmdi->add_item);
+				}
+			}
+
+			for (wmKeyMapItem *kmi = keymap->items.first; kmi; kmi = kmi->next) {
+				do_version_select_mouse(userdef, kmi);
+			}
+		}
+	}
+
+	if (!USER_VERSION_ATLEAST(280, 33)) {
+		/* Enable GLTF addon by default. */
+		BKE_addon_ensure(&userdef->addons, "io_scene_gltf2");
+	}
+
+	if (!USER_VERSION_ATLEAST(280, 35)) {
+		/* Preserve RMB select setting after moving to Python and changing default value. */
+		if (USER_VERSION_ATLEAST(280, 32) || !(userdef->flag & USER_LMOUSESELECT)) {
+			BKE_keyconfig_pref_set_select_mouse(userdef, 1, false);
+		}
+
+		userdef->flag &= ~USER_LMOUSESELECT;
+	}
+
 	/**
 	 * Include next version bump.
 	 */
 	{
 		/* (keep this block even if it becomes empty). */
+		copy_v4_fl4(userdef->light[0].vec, -0.580952, 0.228571, 0.781185, 0.0);
+		copy_v4_fl4(userdef->light[0].col, 0.900000, 0.900000, 0.900000, 1.000000);
+		copy_v4_fl4(userdef->light[0].spec, 0.318547, 0.318547, 0.318547, 1.000000);
+		userdef->light[0].smooth = 0.1;
+
+		copy_v4_fl4(userdef->light[1].vec, 0.788218, 0.593482, -0.162765, 0.0);
+		copy_v4_fl4(userdef->light[1].col, 0.267115, 0.269928, 0.358840, 1.000000);
+		copy_v4_fl4(userdef->light[1].spec, 0.090838, 0.090838, 0.090838, 1.000000);
+		userdef->light[1].smooth = 0.25;
+
+		copy_v4_fl4(userdef->light[2].vec, 0.696472, -0.696472, -0.172785, 0.0);
+		copy_v4_fl4(userdef->light[2].col, 0.293216, 0.304662, 0.401968, 1.000000);
+		copy_v4_fl4(userdef->light[2].spec, 0.069399, 0.020331, 0.020331, 1.000000);
+		userdef->light[2].smooth = 0.5;
+
+		copy_v4_fl4(userdef->light_ambient, 0.025000, 0.025000, 0.025000, 1.000000);
 	}
 
 	if (userdef->pixelsize == 0.0f)
@@ -364,3 +454,5 @@ void BLO_version_defaults_userpref_blend(Main *bmain, UserDef *userdef)
 #undef USER_VERSION_ATLEAST
 
 }
+
+#undef USER_LMOUSESELECT

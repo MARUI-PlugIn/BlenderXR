@@ -37,7 +37,7 @@ extern "C" {
 typedef struct Base {
 	struct Base *next, *prev;
 	short flag;
-	short pad;
+	unsigned short local_view_bits;
 	short sx, sy;
 	struct Object *object;
 	unsigned int lay DNA_DEPRECATED;
@@ -123,7 +123,8 @@ enum {
 enum {
 	LAYER_COLLECTION_HAS_OBJECTS = (1 << 0),
 	LAYER_COLLECTION_HAS_VISIBLE_OBJECTS = (1 << 1),
-	LAYER_COLLECTION_HAS_ENABLED_OBJECTS = (1 << 2),
+	LAYER_COLLECTION_HAS_HIDDEN_OBJECTS = (1 << 2),
+	LAYER_COLLECTION_HAS_ENABLED_OBJECTS = (1 << 3),
 };
 
 /* ViewLayer->flag */

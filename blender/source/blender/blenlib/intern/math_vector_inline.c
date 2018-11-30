@@ -1025,6 +1025,15 @@ MINLINE void normal_float_to_short_v3(short out[3], const float in[3])
 	out[2] = (short) (in[2] * 32767.0f);
 }
 
+MINLINE void normal_float_to_short_v4(short out[4], const float in[4])
+{
+	out[0] = (short) (in[0] * 32767.0f);
+	out[1] = (short) (in[1] * 32767.0f);
+	out[2] = (short) (in[2] * 32767.0f);
+	out[3] = (short) (in[3] * 32767.0f);
+}
+
+
 /********************************* Comparison ********************************/
 
 
@@ -1114,24 +1123,23 @@ MINLINE bool compare_v4v4_relative(const float v1[4], const float v2[4], const f
 
 MINLINE bool compare_len_v3v3(const float v1[3], const float v2[3], const float limit)
 {
-	float x, y, z;
-
-	x = v1[0] - v2[0];
-	y = v1[1] - v2[1];
-	z = v1[2] - v2[2];
-
-	return ((x * x + y * y + z * z) <= (limit * limit));
+	float d[3];
+	sub_v3_v3v3(d, v1, v2);
+	return (dot_v3v3(d, d) <= (limit * limit));
 }
 
 MINLINE bool compare_len_squared_v3v3(const float v1[3], const float v2[3], const float limit_sq)
 {
-	float x, y, z;
+	float d[3];
+	sub_v3_v3v3(d, v1, v2);
+	return (dot_v3v3(d, d) <= limit_sq);
+}
 
-	x = v1[0] - v2[0];
-	y = v1[1] - v2[1];
-	z = v1[2] - v2[2];
-
-	return ((x * x + y * y + z * z) <= limit_sq);
+MINLINE bool compare_len_squared_v4v4(const float v1[4], const float v2[4], const float limit_sq)
+{
+	float d[4];
+	sub_v4_v4v4(d, v1, v2);
+	return (dot_v4v4(d, d) <= limit_sq);
 }
 
 /**

@@ -792,7 +792,7 @@ bool BM_vert_edge_pair(BMVert *v, BMEdge **r_e_a, BMEdge **r_e_b)
 }
 
 /**
- *	Returns the number of edges around this vertex.
+ * Returns the number of edges around this vertex.
  */
 int BM_vert_edge_count(const BMVert *v)
 {
@@ -817,7 +817,7 @@ int BM_vert_edge_count_nonwire(const BMVert *v)
 	return count;
 }
 /**
- *	Returns the number of faces around this edge
+ * Returns the number of faces around this edge
  */
 int BM_edge_face_count(const BMEdge *e)
 {
@@ -1311,7 +1311,7 @@ bool BM_edge_share_face_check(BMEdge *e1, BMEdge *e2)
 }
 
 /**
- *	Test if e1 shares any quad faces with e2
+ * Test if e1 shares any quad faces with e2
  */
 bool BM_edge_share_quad_check(BMEdge *e1, BMEdge *e2)
 {
@@ -1334,7 +1334,7 @@ bool BM_edge_share_quad_check(BMEdge *e1, BMEdge *e2)
 }
 
 /**
- *	Tests to see if e1 shares a vertex with e2
+ * Tests to see if e1 shares a vertex with e2
  */
 bool BM_edge_share_vert_check(BMEdge *e1, BMEdge *e2)
 {
@@ -1345,7 +1345,7 @@ bool BM_edge_share_vert_check(BMEdge *e1, BMEdge *e2)
 }
 
 /**
- *	Return the shared vertex between the two edges or NULL
+ * Return the shared vertex between the two edges or NULL
  */
 BMVert *BM_edge_share_vert(BMEdge *e1, BMEdge *e2)
 {
@@ -1675,6 +1675,40 @@ float BM_edge_calc_face_angle_ex(const BMEdge *e, const float fallback)
 float BM_edge_calc_face_angle(const BMEdge *e)
 {
 	return BM_edge_calc_face_angle_ex(e, DEG2RADF(90.0f));
+}
+
+/**
+* \brief BMESH EDGE/FACE ANGLE
+*
+* Calculates the angle between two faces in world space.
+* Assumes the face normals are correct.
+*
+* \return angle in radians
+*/
+float BM_edge_calc_face_angle_with_imat3_ex(const BMEdge *e, const float imat3[3][3], const float fallback)
+{
+	if (BM_edge_is_manifold(e)) {
+		const BMLoop *l1 = e->l;
+		const BMLoop *l2 = e->l->radial_next;
+		float no1[3], no2[3];
+		copy_v3_v3(no1, l1->f->no);
+		copy_v3_v3(no2, l2->f->no);
+
+		mul_transposed_m3_v3(imat3, no1);
+		mul_transposed_m3_v3(imat3, no2);
+
+		normalize_v3(no1);
+		normalize_v3(no2);
+
+		return angle_normalized_v3v3(no1, no2);
+	}
+	else {
+		return fallback;
+	}
+}
+float BM_edge_calc_face_angle_with_imat3(const BMEdge *e, const float imat3[3][3])
+{
+	return BM_edge_calc_face_angle_with_imat3_ex(e, imat3, DEG2RADF(90.0f));
 }
 
 /**

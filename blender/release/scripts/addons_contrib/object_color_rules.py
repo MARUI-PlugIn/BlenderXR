@@ -62,7 +62,7 @@ class rule_test:
     def GROUP(obj, rule, cache):
         if not cache:
             match_name = rule.match_name
-            objects = {o for g in bpy.data.groups if test_name(rule, match_name, g.name) for o in g.objects}
+            objects = {o for g in bpy.data.collections if test_name(rule, match_name, g.name) for o in g.objects}
             cache["objects"] = objects
         else:
             objects = cache["objects"]

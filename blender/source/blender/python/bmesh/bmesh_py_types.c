@@ -903,7 +903,7 @@ static PyObject *bpy_bmesh_to_mesh(BPy_BMesh *self, PyObject *args)
 
 	bm = self->bm;
 
-	BLI_assert(BKE_id_is_in_gobal_main(&me->id));
+	BLI_assert(BKE_id_is_in_global_main(&me->id));
 	BM_mesh_bm_to_me(
 	        G_MAIN,  /* XXX UGLY! */
 	        bm, me,
@@ -3275,10 +3275,10 @@ PyDoc_STRVAR(bpy_bmloop_doc,
 "This is normally accessed from :class:`BMFace.loops` where each face loop represents a corner of the face.\n"
 );
 PyDoc_STRVAR(bpy_bmelemseq_doc,
-"General sequence type used for accessing any sequence of \n"
+"General sequence type used for accessing any sequence of\n"
 ":class:`BMVert`, :class:`BMEdge`, :class:`BMFace`, :class:`BMLoop`.\n"
 "\n"
-"When accessed via :class:`BMesh.verts`, :class:`BMesh.edges`, :class:`BMesh.faces` \n"
+"When accessed via :class:`BMesh.verts`, :class:`BMesh.edges`, :class:`BMesh.faces`\n"
 "there are also functions to create/remomove items.\n"
 );
 PyDoc_STRVAR(bpy_bmiter_doc,

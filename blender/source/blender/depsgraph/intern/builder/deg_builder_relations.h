@@ -44,6 +44,7 @@
 #include "BLI_string.h"
 
 #include "intern/builder/deg_builder_map.h"
+#include "intern/depsgraph.h"
 #include "intern/nodes/deg_node.h"
 #include "intern/nodes/deg_node_component.h"
 #include "intern/nodes/deg_node_operation.h"
@@ -186,19 +187,28 @@ struct DepsgraphRelationBuilder
 	DepsRelation *add_relation(const KeyFrom& key_from,
 	                           const KeyTo& key_to,
 	                           const char *description,
-	                           bool check_unique = false);
+	                           bool check_unique = false,
+	                           int flags = 0);
+
+	template <typename KeyFrom, typename KeyTo>
+	DepsRelation *add_relation(const KeyFrom& key_from,
+	                           const KeyTo& key_to,
+	                           const char *description,
+	                           eDepsRelation_Flag flag);
 
 	template <typename KeyTo>
 	DepsRelation *add_relation(const TimeSourceKey& key_from,
 	                           const KeyTo& key_to,
 	                           const char *description,
-	                           bool check_unique = false);
+	                           bool check_unique = false,
+	                           int flags = 0);
 
 	template <typename KeyType>
 	DepsRelation *add_node_handle_relation(const KeyType& key_from,
 	                                       const DepsNodeHandle *handle,
 	                                       const char *description,
-	                                       bool check_unique = false);
+	                                       bool check_unique = false,
+	                                       int flags = 0);
 
 	void add_customdata_mask(const ComponentKey &key, uint64_t mask);
 	void add_special_eval_flag(ID *object, uint32_t flag);
@@ -206,7 +216,9 @@ struct DepsgraphRelationBuilder
 	void build_id(ID *id);
 	void build_layer_collections(ListBase *lb);
 	void build_view_layer(Scene *scene, ViewLayer *view_layer);
-	void build_collection(Object *object, Collection *collection);
+	void build_collection(LayerCollection *from_layer_collection,
+	                      Object *object,
+	                      Collection *collection);
 	void build_object(Base *base, Object *object);
 	void build_object_flags(Base *base, Object *object);
 	void build_object_data(Object *object);
@@ -217,6 +229,7 @@ struct DepsgraphRelationBuilder
 	void build_object_data_lightprobe(Object *object);
 	void build_object_data_speaker(Object *object);
 	void build_object_parent(Object *object);
+	void build_object_pointcache(Object *object);
 	void build_constraints(ID *id,
 	                       eDepsNode_Type component_type,
 	                       const char *component_subdata,
@@ -244,7 +257,6 @@ struct DepsgraphRelationBuilder
 	void build_particles_visualization_object(Object *object,
 	                                          ParticleSystem *psys,
 	                                          Object *draw_object);
-	void build_cloth(Object *object, ModifierData *md);
 	void build_ik_pose(Object *object,
 	                   bPoseChannel *pchan,
 	                   bConstraint *con,
@@ -304,11 +316,13 @@ protected:
 	DepsRelation *add_time_relation(TimeSourceDepsNode *timesrc,
 	                                DepsNode *node_to,
 	                                const char *description,
-	                                bool check_unique = false);
+	                                bool check_unique = false,
+	                                int flags = 0);
 	DepsRelation *add_operation_relation(OperationDepsNode *node_from,
 	                                     OperationDepsNode *node_to,
 	                                     const char *description,
-	                                     bool check_unique = false);
+	                                     bool check_unique = false,
+	                                     int flags = 0);
 
 	template <typename KeyType>
 	DepsNodeHandle create_node_handle(const KeyType& key,

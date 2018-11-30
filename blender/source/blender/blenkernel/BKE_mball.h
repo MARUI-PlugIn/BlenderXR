@@ -27,20 +27,19 @@
 #ifndef __BKE_MBALL_H__
 #define __BKE_MBALL_H__
 
+#include "../vr/vr_build.h"
+#if WITH_VR
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+#endif
+
 /** \file BKE_mball.h
  *  \ingroup bke
  *  \since March 2001
  *  \author nzc
  */
-
- #include "../vr/vr_build.h"
- #if WITH_VR
- #ifdef __cplusplus
- extern "C"
- {
- #endif
- #endif
-
 struct BoundBox;
 struct Depsgraph;
 struct Main;
@@ -58,6 +57,7 @@ struct MetaBall *BKE_mball_copy(struct Main *bmain, const struct MetaBall *mb);
 void BKE_mball_make_local(struct Main *bmain, struct MetaBall *mb, const bool lib_local);
 
 bool BKE_mball_is_any_selected(const struct MetaBall *mb);
+bool BKE_mball_is_any_selected_multi(struct Object **objects, int objects_len);
 bool BKE_mball_is_any_unselected(const struct MetaBall *mb);
 bool BKE_mball_is_basis_for(struct Object *ob1, struct Object *ob2);
 bool BKE_mball_is_basis(struct Object *ob);
@@ -69,19 +69,25 @@ float *BKE_mball_make_orco(struct Object *ob, struct ListBase *dispbase);
 
 void BKE_mball_properties_copy(struct Scene *scene, struct Object *active_object);
 
-bool BKE_mball_minmax(struct MetaBall *mb, float min[3], float max[3]);
-bool BKE_mball_minmax_ex(struct MetaBall *mb, float min[3], float max[3],
-                         float obmat[4][4], const short flag);
-bool BKE_mball_center_median(struct MetaBall *mb, float r_cent[3]);
-bool BKE_mball_center_bounds(struct MetaBall *mb, float r_cent[3]);
+bool BKE_mball_minmax_ex(
+        const struct MetaBall *mb, float min[3], float max[3],
+        const float obmat[4][4], const short flag);
+bool BKE_mball_minmax(const struct MetaBall *mb, float min[3], float max[3]);
+bool BKE_mball_center_median(const struct MetaBall *mb, float r_cent[3]);
+bool BKE_mball_center_bounds(const struct MetaBall *mb, float r_cent[3]);
 void BKE_mball_transform(struct MetaBall *mb, float mat[4][4], const bool do_props);
 void BKE_mball_translate(struct MetaBall *mb, const float offset[3]);
 
 struct MetaElem *BKE_mball_element_add(struct MetaBall *mb, const int type);
 
+int BKE_mball_select_count(const struct MetaBall *mb);
+int BKE_mball_select_count_multi(struct Object **objects, int objects_len);
 void BKE_mball_select_all(struct MetaBall *mb);
+void BKE_mball_select_all_multi(struct Object **objects, int objects_len);
 void BKE_mball_deselect_all(struct MetaBall *mb);
+void BKE_mball_deselect_all_multi(struct Object **objects, int objects_len);
 void BKE_mball_select_swap(struct MetaBall *mb);
+void BKE_mball_select_swap_multi(struct Object **objects, int objects_len);
 
 /* **** Depsgraph evaluation **** */
 

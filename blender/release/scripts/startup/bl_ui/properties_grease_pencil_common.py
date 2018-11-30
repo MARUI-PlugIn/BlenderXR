@@ -112,7 +112,7 @@ class AnnotationDrawingToolsPanel:
         sub.operator("gpencil.active_frames_delete_all", icon='X', text="Delete Frame(s)")
 
         #sub = col.column(align=True)
-        #sub.prop(context.tool_settings, "use_gpencil_additive_drawing", text="Additive Drawing")
+        #sub.prop(context.tool_settings, "use_gpencil_draw_additive", text="Additive Drawing")
         #sub.prop(context.tool_settings, "use_gpencil_continuous_drawing", text="Continuous Drawing")
         #sub.prop(context.tool_settings, "use_gpencil_draw_onback", text="Draw on Back")
 
@@ -140,7 +140,7 @@ class AnnotationDrawingToolsPanel:
             layout.separator()
 
             col = layout.column(align=True)
-            col.prop(gpd, "use_stroke_edit_mode", text="Enable Editing", icon='EDIT', toggle=True)
+            col.prop(gpd, "use_stroke_edit_mode", text="Enable Editing", toggle=True)  # was: icon='EDIT'
 
 
 class GreasePencilStrokeEditPanel:
@@ -247,10 +247,10 @@ class GreasePencilStrokeSculptPanel:
         layout.use_property_decorate = False
 
         settings = context.tool_settings.gpencil_sculpt
-        tool = settings.tool
+        tool = settings.sculpt_tool
         brush = settings.brush
 
-        layout.template_icon_view(settings, "tool", show_labels=True)
+        layout.template_icon_view(settings, "sculpt_tool", show_labels=True)
 
         row = layout.row(align=True)
         row.prop(brush, "size", slider=True)
@@ -271,7 +271,7 @@ class GreasePencilStrokeSculptPanel:
             row = layout.row(align=True)
             row.prop_enum(brush, "direction", value='ADD', text="Pinch")
             row.prop_enum(brush, "direction", value='SUBTRACT', text="Inflate")
-        elif settings.tool == 'TWIST':
+        elif tool == 'TWIST':
             row = layout.row(align=True)
             row.prop_enum(brush, "direction", value='ADD', text="CCW")
             row.prop_enum(brush, "direction", value='SUBTRACT', text="CW")
@@ -283,7 +283,7 @@ class GreasePencilSculptOptionsPanel:
     @classmethod
     def poll(cls, context):
         settings = context.tool_settings.gpencil_sculpt
-        tool = settings.tool
+        tool = settings.sculpt_tool
 
         return bool(tool in {'SMOOTH', 'RANDOMIZE', 'SMOOTH'})
 
@@ -294,7 +294,7 @@ class GreasePencilSculptOptionsPanel:
         layout.use_property_decorate = False
 
         settings = context.tool_settings.gpencil_sculpt
-        tool = settings.tool
+        tool = settings.sculpt_tool
         brush = settings.brush
 
         if tool in {'SMOOTH', 'RANDOMIZE'}:
@@ -341,16 +341,16 @@ class GreasePencilAppearancePanel:
 
             layout.prop(gp_settings, "use_cursor", text="Show Brush")
 
-            if gp_settings.gpencil_brush_type == 'DRAW':
-                layout.prop(gp_settings, "disable_lasso", text="Hide fill color while drawing")
+            if brush.gpencil_tool == 'DRAW':
+                layout.prop(gp_settings, "show_lasso", text="Show fill color while drawing")
 
-            if gp_settings.gpencil_brush_type == 'FILL':
+            if brush.gpencil_tool == 'FILL':
                 layout.prop(brush, "cursor_color_add", text="Color")
 
         elif ob.mode in {'GPENCIL_SCULPT', 'GPENCIL_WEIGHT'}:
             settings = context.tool_settings.gpencil_sculpt
             brush = settings.brush
-            tool = settings.tool
+            tool = settings.sculpt_tool
 
             col = layout.column(align=True)
             col.prop(brush, "use_cursor", text="Show Brush")
@@ -361,7 +361,7 @@ class GreasePencilAppearancePanel:
             elif tool == 'PINCH':
                 col.prop(brush, "cursor_color_add", text="Pinch")
                 col.prop(brush, "cursor_color_sub", text="Inflate")
-            elif settings.tool == 'TWIST':
+            elif tool == 'TWIST':
                 col.prop(brush, "cursor_color_add", text="CCW")
                 col.prop(brush, "cursor_color_sub", text="CW")
             else:
@@ -572,8 +572,8 @@ class GPENCIL_MT_pie_sculpt(Menu):
         # W - Launch Sculpt Mode
         col = pie.column()
         # col.label(text="Tool:")
-        col.prop(settings, "tool", text="")
-        col.operator("gpencil.brush_paint", text="Sculpt", icon='SCULPTMODE_HLT')
+        col.prop(settings, "sculpt_tool", text="")
+        col.operator("gpencil.sculpt_paint", text="Sculpt", icon='SCULPTMODE_HLT')
 
         # E - Common Settings
         col = pie.column(align=True)
@@ -582,7 +582,7 @@ class GPENCIL_MT_pie_sculpt(Menu):
         row.prop(brush, "strength", slider=True)
         # row.prop(brush, "use_pressure_strength", text="", icon_only=True)
         col.prop(brush, "use_falloff")
-        if settings.tool in {'SMOOTH', 'RANDOMIZE'}:
+        if settings.sculpt_tool in {'SMOOTH', 'RANDOMIZE'}:
             row = col.row(align=True)
             row.prop(settings, "use_edit_position", text="Position", icon='MESH_DATA', toggle=True)
             row.prop(settings, "use_edit_strength", text="Strength", icon='COLOR', toggle=True)
@@ -615,7 +615,7 @@ class GPENCIL_MT_snap(Menu):
         layout.separator()
 
         layout.operator("gpencil.snap_cursor_to_selected", text="Cursor to Selected")
-        layout.operator("view3d.snap_cursor_to_center", text="Cursor to Center")
+        layout.operator("view3d.snap_cursor_to_center", text="Cursor to World Origin")
         layout.operator("view3d.snap_cursor_to_grid", text="Cursor to Grid")
 
 
@@ -766,7 +766,6 @@ class AnnotationDataPanel:
             layout.prop(tool_settings, "annotation_thickness", text="Thickness")
 
         if gpl:
-            # layout.prop(gpl, "opacity", text="Opacity", slider=True)
             # Full-Row - Frame Locking (and Delete Frame)
             row = layout.row(align=True)
             row.active = not gpl.lock
@@ -778,6 +777,54 @@ class AnnotationDataPanel:
                 lock_label = iface_("Lock Frame")
             row.prop(gpl, "lock_frame", text=lock_label, icon='UNLOCKED')
             row.operator("gpencil.active_frame_delete", text="", icon='X')
+
+
+class AnnotationOnionSkin:
+    bl_label = "Onion Skin"
+    bl_region_type = 'UI'
+    bl_options = {'DEFAULT_CLOSED'}
+
+    @classmethod
+    def poll(cls, context):
+        # Show this panel as long as someone that might own this exists
+        # AND the owner isn't an object (e.g. GP Object)
+        if context.gpencil_data_owner is None:
+            return False
+        elif type(context.gpencil_data_owner) is bpy.types.Object:
+            return False
+        else:
+            gpl = context.active_gpencil_layer
+            if gpl is None:
+                return False
+
+            return True
+
+    @staticmethod
+    def draw_header(self, context):
+        gpl = context.active_gpencil_layer
+        self.layout.prop(gpl, "use_annotation_onion_skinning", text="")
+
+    @staticmethod
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_decorate = False
+
+        gpl = context.active_gpencil_layer
+        col = layout.column()
+        split = col.split(factor=0.5)
+        split.active = gpl.use_annotation_onion_skinning
+
+        # - Before Frames
+        sub = split.column(align=True)
+        row = sub.row(align=True)
+        row.prop(gpl, "annotation_onion_before_color", text="")
+        sub.prop(gpl, "annotation_onion_before_range", text="Before")
+
+        # - After Frames
+        sub = split.column(align=True)
+        row = sub.row(align=True)
+        row.prop(gpl, "annotation_onion_after_color", text="")
+        sub.prop(gpl, "annotation_onion_after_range", text="After")
 
 
 class GreasePencilOnionPanel:
@@ -873,6 +920,10 @@ class GPENCIL_UL_layer(UIList):
             row.prop(gpl, "info", text="", emboss=False)
 
             row = layout.row(align=True)
+            row.prop(gpl, "clamp_layer", text="",
+                        icon='MOD_MASK' if gpl.clamp_layer else 'ONIONSKIN_OFF',
+                        emboss=False)
+
             row.prop(gpl, "lock", text="", emboss=False)
             row.prop(gpl, "hide", text="", emboss=False)
             subrow = row.row(align=True)

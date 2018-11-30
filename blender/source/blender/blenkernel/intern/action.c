@@ -19,7 +19,7 @@
  * All rights reserved.
  *
  * Contributor(s): Full recode, Ton Roosendaal, Crete 2005
- *				 Full recode, Joshua Leung, 2009
+ *                 Full recode, Joshua Leung, 2009
  *
  * ***** END GPL LICENSE BLOCK *****
  */
@@ -264,8 +264,8 @@ bActionGroup *action_groups_add_new(bAction *act, const char name[])
 }
 
 /* Add given channel into (active) group
- *	- assumes that channel is not linked to anything anymore
- *	- always adds at the end of the group
+ * - assumes that channel is not linked to anything anymore
+ * - always adds at the end of the group
  */
 void action_groups_add_channel(bAction *act, bActionGroup *agrp, FCurve *fcurve)
 {
@@ -310,8 +310,8 @@ void action_groups_add_channel(bAction *act, bActionGroup *agrp, FCurve *fcurve)
 		for (grp = agrp->prev; grp; grp = grp->prev) {
 			/* if this group has F-Curves, we want weave the given one in right after the last channel there,
 			 * but via the Action's list not this group's list
-			 *	- this is so that the F-Curve is in the right place in the Action,
-			 *	  but won't be included in the previous group
+			 * - this is so that the F-Curve is in the right place in the Action,
+			 *   but won't be included in the previous group
 			 */
 			if (grp->channels.last) {
 				/* once we've added, break here since we don't need to search any further... */
@@ -594,6 +594,9 @@ void BKE_pose_copy_data_ex(bPose **dst, const bPose *src, const int flag, const 
 		}
 
 		pchan->draw_data = NULL;  /* Drawing cache, no need to copy. */
+
+		/* Runtime data, no need to copy. */
+		memset(&pchan->runtime, 0, sizeof(pchan->runtime));
 	}
 
 	/* for now, duplicate Bone Groups too when doing this */
@@ -790,6 +793,21 @@ void BKE_pose_channel_free_ex(bPoseChannel *pchan, bool do_id_user)
 
 	/* Cached data, for new draw manager rendering code. */
 	MEM_SAFE_FREE(pchan->draw_data);
+
+	/* Cached B-Bone shape data. */
+	BKE_pose_channel_free_bbone_cache(pchan);
+}
+
+/** Deallocates runtime cache of a pose channel's B-Bone shape. */
+void BKE_pose_channel_free_bbone_cache(bPoseChannel *pchan)
+{
+	bPoseChannelRuntime *runtime = &pchan->runtime;
+
+	runtime->bbone_segments = 0;
+	MEM_SAFE_FREE(runtime->bbone_rest_mats);
+	MEM_SAFE_FREE(runtime->bbone_pose_mats);
+	MEM_SAFE_FREE(runtime->bbone_deform_mats);
+	MEM_SAFE_FREE(runtime->bbone_dual_quats);
 }
 
 void BKE_pose_channel_free(bPoseChannel *pchan)
@@ -1039,8 +1057,8 @@ void BKE_pose_remove_group(bPose *pose, bActionGroup *grp, const int index)
 	BLI_assert(idx > 0);
 
 	/* adjust group references (the trouble of using indices!):
-	 *  - firstly, make sure nothing references it
-	 *  - also, make sure that those after this item get corrected
+	 * - firstly, make sure nothing references it
+	 * - also, make sure that those after this item get corrected
 	 */
 	for (pchan = pose->chanbase.first; pchan; pchan = pchan->next) {
 		if (pchan->agrp_index == idx)
@@ -1123,7 +1141,7 @@ void calc_action_range(const bAction *act, float *start, float *end, short incl_
 			}
 
 			/* if incl_modifiers is enabled, need to consider modifiers too
-			 *	- only really care about the last modifier
+			 * - only really care about the last modifier
 			 */
 			if ((incl_modifiers) && (fcu->modifiers.last)) {
 				FModifier *fcm = fcu->modifiers.last;
@@ -1179,7 +1197,7 @@ void calc_action_range(const bAction *act, float *start, float *end, short incl_
 }
 
 /* Return flags indicating which transforms the given object/posechannel has
- *	- if 'curves' is provided, a list of links to these curves are also returned
+ * - if 'curves' is provided, a list of links to these curves are also returned
  */
 short action_get_item_transforms(bAction *act, Object *ob, bPoseChannel *pchan, ListBase *curves)
 {
@@ -1202,7 +1220,7 @@ short action_get_item_transforms(bAction *act, Object *ob, bPoseChannel *pchan, 
 		return 0;
 
 	/* search F-Curves for the given properties
-	 *	- we cannot use the groups, since they may not be grouped in that way...
+	 * - we cannot use the groups, since they may not be grouped in that way...
 	 */
 	for (fcu = act->curves.first; fcu; fcu = fcu->next) {
 		const char *bPtr = NULL, *pPtr = NULL;
@@ -1225,11 +1243,11 @@ short action_get_item_transforms(bAction *act, Object *ob, bPoseChannel *pchan, 
 			bPtr += strlen(basePath);
 
 			/* step 2: check for some property with transforms
-			 *	- to speed things up, only check for the ones not yet found
-			 *    unless we're getting the curves too
-			 *	- if we're getting the curves, the BLI_genericNodeN() creates a LinkData
-			 *	  node wrapping the F-Curve, which then gets added to the list
-			 *	- once a match has been found, the curve cannot possibly be any other one
+			 * - to speed things up, only check for the ones not yet found
+			 *   unless we're getting the curves too
+			 * - if we're getting the curves, the BLI_genericNodeN() creates a LinkData
+			 *   node wrapping the F-Curve, which then gets added to the list
+			 * - once a match has been found, the curve cannot possibly be any other one
 			 */
 			if ((curves) || (flags & ACT_TRANS_LOC) == 0) {
 				pPtr = strstr(bPtr, "location");
@@ -1447,7 +1465,7 @@ void what_does_obaction(Object *ob, Object *workob, bPose *pose, bAction *act, c
 		RNA_id_pointer_create(&workob->id, &id_ptr);
 
 		/* execute action for this group only */
-		animsys_evaluate_action_group(&id_ptr, act, agrp, NULL, cframe);
+		animsys_evaluate_action_group(&id_ptr, act, agrp, cframe);
 	}
 	else {
 		AnimData adt = {NULL};

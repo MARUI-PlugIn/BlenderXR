@@ -82,6 +82,7 @@ set(SRC_BVH_HEADERS
 	bvh/obvh_traversal.h
 	bvh/obvh_volume.h
 	bvh/obvh_volume_all.h
+	bvh/bvh_embree.h
 )
 
 set(SRC_HEADERS
@@ -96,6 +97,7 @@ set(SRC_HEADERS
 	kernel_emission.h
 	kernel_film.h
 	kernel_globals.h
+	kernel_id_passes.h
 	kernel_jitter.h
 	kernel_light.h
 	kernel_math.h
@@ -108,6 +110,7 @@ set(SRC_HEADERS
 	kernel_path_surface.h
 	kernel_path_subsurface.h
 	kernel_path_volume.h
+	kernel_profiling.h
 	kernel_projection.h
 	kernel_queues.h
 	kernel_random.h

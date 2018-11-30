@@ -53,13 +53,12 @@
 #include "DNA_space_types.h"
 #include "DNA_view3d_types.h"
 
-#include "BKE_main.h"
 #include "BKE_brush.h"
 #include "BKE_context.h"
 #include "BKE_deform.h"
 #include "BKE_global.h"
 #include "BKE_gpencil.h"
-#include "BKE_library.h"
+#include "BKE_main.h"
 #include "BKE_material.h"
 #include "BKE_paint.h"
 #include "BKE_report.h"
@@ -141,21 +140,15 @@ static void gp_primitive_set_initdata(bContext *C, tGPDprimitive *tgpi)
 	int cfra_eval = (int)DEG_get_ctime(depsgraph);
 
 	bGPDlayer *gpl = CTX_data_active_gpencil_layer(C);
-	Brush *brush;
 
 	/* if brush doesn't exist, create a new one */
-	Paint *paint = BKE_brush_get_gpencil_paint(ts);
+	Paint *paint = &ts->gp_paint->paint;
 	/* if not exist, create a new one */
 	if (paint->brush == NULL) {
 		/* create new brushes */
 		BKE_brush_gpencil_presets(C);
-		brush = BKE_brush_getactive_gpencil(ts);
 	}
-	else {
-		/* Use the current */
-		brush = BKE_brush_getactive_gpencil(ts);
-	}
-	tgpi->brush = brush;
+	tgpi->brush = paint->brush;
 
 	/* if layer doesn't exist, create a new one */
 	if (gpl == NULL) {
@@ -217,13 +210,13 @@ static void gpencil_primitive_status_indicators(bContext *C, tGPDprimitive *tgpi
 	char msg_str[UI_MAX_DRAW_STR];
 
 	if (tgpi->type == GP_STROKE_BOX) {
-		BLI_strncpy(msg_str, IFACE_("Rectangle: ESC/RMB to cancel, LMB set origin, Enter/LMB to confirm, Shift to square"), UI_MAX_DRAW_STR);
+		BLI_strncpy(msg_str, IFACE_("Rectangle: ESC/RMB to cancel, LMB set origin, Enter/LMB to confirm, Shift to square, Alt to center"), UI_MAX_DRAW_STR);
 	}
 	else if (tgpi->type == GP_STROKE_LINE) {
-		BLI_strncpy(msg_str, IFACE_("Line: ESC/RMB to cancel, LMB set origin, Enter/LMB to confirm"), UI_MAX_DRAW_STR);
+		BLI_strncpy(msg_str, IFACE_("Line: ESC/RMB to cancel, LMB set origin, Enter/LMB to confirm, Alt to center"), UI_MAX_DRAW_STR);
 	}
 	else {
-		BLI_strncpy(msg_str, IFACE_("Circle: ESC/RMB to cancel, Enter/LMB to confirm, WHEEL to adjust edge number, Shift to square"), UI_MAX_DRAW_STR);
+		BLI_strncpy(msg_str, IFACE_("Circle: ESC/RMB to cancel, Enter/LMB to confirm, WHEEL to adjust edge number, Shift to square, Alt to center"), UI_MAX_DRAW_STR);
 	}
 
 	if (tgpi->type == GP_STROKE_CIRCLE) {
@@ -355,7 +348,7 @@ static void gp_primitive_update_strokes(bContext *C, tGPDprimitive *tgpi)
 
 
 		/* convert screen-coordinates to 3D coordinates */
-		gp_stroke_convertcoords_tpoint(tgpi->scene, tgpi->ar, tgpi->v3d, tgpi->ob, tgpi->gpl, p2d, NULL, &pt->x);
+		gp_stroke_convertcoords_tpoint(tgpi->scene, tgpi->ar, tgpi->ob, tgpi->gpl, p2d, NULL, &pt->x);
 
 		pt->pressure = 1.0f;
 		pt->strength = tgpi->brush->gpencil_settings->draw_strength;
@@ -369,10 +362,10 @@ static void gp_primitive_update_strokes(bContext *C, tGPDprimitive *tgpi)
 	}
 
 	/* if axis locked, reproject to plane locked */
-	if (tgpi->lock_axis > GP_LOCKAXIS_NONE) {
+	if (tgpi->lock_axis > GP_LOCKAXIS_VIEW) {
 		bGPDspoint *tpt = gps->points;
 		float origin[3];
-		ED_gp_get_drawing_reference(tgpi->v3d, tgpi->scene, tgpi->ob, tgpi->gpl,
+		ED_gp_get_drawing_reference(tgpi->scene, tgpi->ob, tgpi->gpl,
 			ts->gpencil_v3d_align, origin);
 
 		for (int i = 0; i < gps->totpoints; i++, tpt++) {
@@ -394,6 +387,7 @@ static void gp_primitive_update_strokes(bContext *C, tGPDprimitive *tgpi)
 	/* free temp data */
 	MEM_SAFE_FREE(points2D);
 
+	DEG_id_tag_update(&gpd->id, DEG_TAG_COPY_ON_WRITE);
 	DEG_id_tag_update(&gpd->id, OB_RECALC_OB | OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_GPENCIL | NA_EDITED, NULL);
 }
@@ -411,6 +405,18 @@ static void gpencil_primitive_update(bContext *C, wmOperator *op, tGPDprimitive 
 }
 
 /* ----------------------- */
+
+static void gpencil_primitive_interaction_begin(tGPDprimitive *tgpi, const wmEvent *event)
+{
+	tgpi->origin[0] = event->mval[0];
+	tgpi->origin[1] = event->mval[1];
+
+	tgpi->top[0] = event->mval[0];
+	tgpi->top[1] = event->mval[1];
+
+	tgpi->bottom[0] = event->mval[0];
+	tgpi->bottom[1] = event->mval[1];
+}
 
 /* Exit and free memory */
 static void gpencil_primitive_exit(bContext *C, wmOperator *op)
@@ -499,7 +505,7 @@ static void gpencil_primitive_init(bContext *C, wmOperator *op)
 /* ----------------------- */
 
 /* Invoke handler: Initialize the operator */
-static int gpencil_primitive_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
+static int gpencil_primitive_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
 	wmWindow *win = CTX_wm_window(C);
 	bGPdata *gpd = CTX_data_gpencil_data(C);
@@ -508,6 +514,12 @@ static int gpencil_primitive_invoke(bContext *C, wmOperator *op, const wmEvent *
 	/* initialize operator runtime data */
 	gpencil_primitive_init(C, op);
 	tgpi = op->customdata;
+
+	const bool is_modal = RNA_boolean_get(op->ptr, "wait_for_input");
+	if (!is_modal) {
+		tgpi->flag = IN_PROGRESS;
+		gpencil_primitive_interaction_begin(tgpi, event);
+	}
 
 	/* if in tools region, wait till we get to the main (3d-space)
 	 * region before allowing drawing to take place.
@@ -532,7 +544,7 @@ static int gpencil_primitive_invoke(bContext *C, wmOperator *op, const wmEvent *
 }
 
 /* Helper to complete a primitive */
-static void gpencil_primitive_done(bContext *C, wmOperator *op, wmWindow *win, tGPDprimitive *tgpi)
+static void gpencil_primitive_interaction_end(bContext *C, wmOperator *op, wmWindow *win, tGPDprimitive *tgpi)
 {
 	bGPDframe *gpf;
 	bGPDstroke *gps;
@@ -554,6 +566,7 @@ static void gpencil_primitive_done(bContext *C, wmOperator *op, wmWindow *win, t
 	if (gps) {
 		gps->thickness = tgpi->brush->size;
 		gps->flag |= GP_STROKE_RECALC_CACHES;
+		gps->tot_triangles = 0;
 	}
 
 	/* transfer stroke from temporary buffer to the actual frame */
@@ -573,6 +586,9 @@ static void gpencil_primitive_done(bContext *C, wmOperator *op, wmWindow *win, t
 		}
 	}
 
+	DEG_id_tag_update(&tgpi->gpd->id, DEG_TAG_COPY_ON_WRITE);
+	DEG_id_tag_update(&tgpi->gpd->id, OB_RECALC_OB | OB_RECALC_DATA);
+
 	/* clean up temp data */
 	gpencil_primitive_exit(C, op);
 }
@@ -590,17 +606,12 @@ static int gpencil_primitive_modal(bContext *C, wmOperator *op, const wmEvent *e
 				/* start drawing primitive */
 				/* TODO: Ignore if not in main region yet */
 				tgpi->flag = IN_PROGRESS;
-
-				tgpi->top[0] = event->mval[0];
-				tgpi->top[1] = event->mval[1];
-
-				tgpi->bottom[0] = event->mval[0];
-				tgpi->bottom[1] = event->mval[1];
+				gpencil_primitive_interaction_begin(tgpi, event);
 			}
 			else if ((event->val == KM_RELEASE) && (tgpi->flag == IN_PROGRESS)) {
 				/* stop drawing primitive */
 				tgpi->flag = IDLE;
-				gpencil_primitive_done(C, op, win, tgpi);
+				gpencil_primitive_interaction_end(C, op, win, tgpi);
 				/* done! */
 				return OPERATOR_FINISHED;
 			}
@@ -613,7 +624,7 @@ static int gpencil_primitive_modal(bContext *C, wmOperator *op, const wmEvent *e
 		case RETKEY:  /* confirm */
 		{
 			tgpi->flag = IDLE;
-			gpencil_primitive_done(C, op, win, tgpi);
+			gpencil_primitive_interaction_end(C, op, win, tgpi);
 			/* done! */
 			return OPERATOR_FINISHED;
 		}
@@ -663,13 +674,35 @@ static int gpencil_primitive_modal(bContext *C, wmOperator *op, const wmEvent *e
 				/* update position of mouse */
 				tgpi->bottom[0] = event->mval[0];
 				tgpi->bottom[1] = event->mval[1];
+				tgpi->top[0] = tgpi->origin[0];
+				tgpi->top[1] = tgpi->origin[1];
 				if (tgpi->flag == IDLE) {
-					tgpi->top[0] = event->mval[0];
-					tgpi->top[1] = event->mval[1];
+					tgpi->origin[0] = event->mval[0];
+					tgpi->origin[1] = event->mval[1];
 				}
 				/* Keep square if shift key */
 				if (event->shift) {
-					tgpi->bottom[1] = tgpi->top[1] - (tgpi->bottom[0] - tgpi->top[0]);
+					int x = tgpi->bottom[0] - tgpi->origin[0];
+					int y = tgpi->bottom[1] - tgpi->origin[1];
+					int w = abs(x);
+					int h = abs(y);
+					if ((x > 0 && y > 0) || (x < 0 && y < 0)) {
+						if (w > h)
+							tgpi->bottom[1] = tgpi->origin[1] + x;
+						else
+							tgpi->bottom[0] = tgpi->origin[0] + y;
+					}
+					else {
+						if (w > h)
+							tgpi->bottom[1] = tgpi->origin[1] - x;
+						else
+							tgpi->bottom[0] = tgpi->origin[0] - y;
+					}
+				}
+				/* Center primitive if alt key */
+				if (event->alt) {
+					tgpi->top[0] = tgpi->origin[0] - (tgpi->bottom[0] - tgpi->origin[0]);
+					tgpi->top[1] = tgpi->origin[1] - (tgpi->bottom[1] - tgpi->origin[1]);
 				}
 				/* update screen */
 				gpencil_primitive_update(C, op, tgpi);
@@ -715,10 +748,10 @@ static void gpencil_primitive_cancel(bContext *C, wmOperator *op)
 void GPENCIL_OT_primitive(wmOperatorType *ot)
 {
 	static EnumPropertyItem primitive_type[] = {
-		{ GP_STROKE_BOX, "BOX", 0, "Box", "" },
-		{ GP_STROKE_LINE, "LINE", 0, "Line", "" },
-		{ GP_STROKE_CIRCLE, "CIRCLE", 0, "Circle", "" },
-		{ 0, NULL, 0, NULL, NULL }
+		{GP_STROKE_BOX, "BOX", 0, "Box", ""},
+		{GP_STROKE_LINE, "LINE", 0, "Line", ""},
+		{GP_STROKE_CIRCLE, "CIRCLE", 0, "Circle", ""},
+		{0, NULL, 0, NULL, NULL}
 	};
 
 	/* identifiers */
@@ -736,8 +769,13 @@ void GPENCIL_OT_primitive(wmOperatorType *ot)
 	ot->flag = OPTYPE_UNDO | OPTYPE_BLOCKING;
 
 	/* properties */
+	PropertyRNA *prop;
+
 	RNA_def_int(ot->srna, "edges", 4, MIN_EDGES, MAX_EDGES, "Edges", "Number of polygon edges", MIN_EDGES, MAX_EDGES);
 	RNA_def_enum(ot->srna, "type", primitive_type, GP_STROKE_BOX, "Type", "Type of shape");
+
+	prop = RNA_def_boolean(ot->srna, "wait_for_input", true, "Wait for Input", "");
+	RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
 }
 
 /* *************************************************************** */

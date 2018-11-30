@@ -72,6 +72,7 @@ class GPENCIL_MT_layer_specials(Menu):
 
     def draw(self, context):
         layout = self.layout
+        gpd = context.gpencil_data
 
         layout.operator("gpencil.layer_duplicate", icon='ADD')  # XXX: needs a dedicated icon
 
@@ -84,6 +85,7 @@ class GPENCIL_MT_layer_specials(Menu):
 
         layout.operator("gpencil.lock_all", icon='LOCKED', text="Lock All")
         layout.operator("gpencil.unlock_all", icon='UNLOCKED', text="UnLock All")
+        layout.prop(gpd, "use_autolock_layers", text="Autolock Inactive Layers")
 
         layout.separator()
 
@@ -133,13 +135,22 @@ class DATA_PT_gpencil_datapanel(Panel):
         col.template_list("GPENCIL_UL_layer", "", gpd, "layers", gpd.layers, "active_index",
                           rows=layer_rows, reverse=True)
 
+        gpl = context.active_gpencil_layer
+        if gpl:
+            srow = col.row(align=True)
+            srow.prop(gpl, "blend_mode", text="Blend")
+
+            srow = col.row(align=True)
+            srow.prop(gpl, "opacity", text="Opacity", slider=True)
+            srow.prop(gpl, "clamp_layer", text="",
+                     icon='MOD_MASK' if gpl.clamp_layer else 'ONIONSKIN_OFF')
+
         col = row.column()
 
         sub = col.column(align=True)
         sub.operator("gpencil.layer_add", icon='ADD', text="")
         sub.operator("gpencil.layer_remove", icon='REMOVE', text="")
 
-        gpl = context.active_gpencil_layer
         if gpl:
             sub.menu("GPENCIL_MT_layer_specials", icon='DOWNARROW_HLT', text="")
 
@@ -156,10 +167,6 @@ class DATA_PT_gpencil_datapanel(Panel):
                 sub.operator("gpencil.layer_isolate", icon='LOCKED', text="").affect_visibility = False
                 sub.operator("gpencil.layer_isolate", icon='RESTRICT_VIEW_ON', text="").affect_visibility = True
 
-        row = layout.row(align=True)
-        if gpl:
-            row.prop(gpl, "opacity", text="Opacity", slider=True)
-
 
 class DATA_PT_gpencil_layer_optionpanel(LayerDataButtonsPanel, Panel):
     bl_space_type = 'PROPERTIES'
@@ -172,6 +179,7 @@ class DATA_PT_gpencil_layer_optionpanel(LayerDataButtonsPanel, Panel):
     def draw(self, context):
         layout = self.layout
         layout.use_property_split = True
+        scene = context.scene
 
         gpl = context.active_gpencil_layer
         layout.active = not gpl.lock
@@ -189,6 +197,9 @@ class DATA_PT_gpencil_layer_optionpanel(LayerDataButtonsPanel, Panel):
 
         col = layout.row(align=True)
         col.prop(gpl, "pass_index")
+
+        col = layout.row(align=True)
+        col.prop_search(gpl, "viewlayer_render", scene, "view_layers", text="View Layer")
 
         col = layout.row(align=True)
         col.prop(gpl, "lock_material")
@@ -351,7 +362,6 @@ class DATA_PT_gpencil_display(DataButtonsPanel, Panel):
 
         layout.prop(gpd, "use_force_fill_recalc", text="Force Fill Update")
         layout.prop(gpd, "use_adaptative_uv", text="Adaptative UVs")
-        layout.prop(gpd, "zdepth_offset", text="Surface Offset")
 
 
 class DATA_PT_gpencil_canvas(DataButtonsPanel, Panel):
@@ -374,7 +384,6 @@ class DATA_PT_gpencil_canvas(DataButtonsPanel, Panel):
         row = layout.row(align=True)
         col = row.column()
         col.prop(grid, "lines", text="Subdivisions")
-        col.prop(grid, "axis", text="Plane")
 
 
 class DATA_PT_custom_props_gpencil(DataButtonsPanel, PropertyPanel, Panel):

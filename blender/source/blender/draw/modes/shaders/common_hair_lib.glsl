@@ -26,6 +26,8 @@ uniform float hairRadTip = 0.0;
 uniform float hairRadShape = 0.5;
 uniform bool hairCloseTip = true;
 
+uniform mat4 hairDupliMatrix;
+
 /* -- Per control points -- */
 uniform samplerBuffer hairPointBuffer; /* RGBA32F */
 #define point_position     xyz
@@ -135,7 +137,7 @@ float hair_shaperadius(float shape, float root, float tip, float time)
 }
 
 void hair_get_pos_tan_binor_time(
-        bool is_persp, vec3 camera_pos, vec3 camera_z,
+        bool is_persp, mat4 invmodel_mat, vec3 camera_pos, vec3 camera_z,
         out vec3 wpos, out vec3 wtan, out vec3 wbinor, out float time, out float thickness, out float thick_time)
 {
 	int id = hair_get_base_id();
@@ -150,6 +152,9 @@ void hair_get_pos_tan_binor_time(
 		wtan = wpos - texelFetch(hairPointBuffer, id - 1).point_position;
 	}
 
+	wpos = (hairDupliMatrix * vec4(wpos, 1.0)).xyz;
+	wtan = mat3(hairDupliMatrix) * wtan;
+
 	vec3 camera_vec = (is_persp) ? wpos - camera_pos : -camera_z;
 	wbinor = normalize(cross(camera_vec, wtan));
 
@@ -159,7 +164,11 @@ void hair_get_pos_tan_binor_time(
 		thick_time = float(gl_VertexID % hairThicknessRes) / float(hairThicknessRes - 1);
 		thick_time = thickness * (thick_time * 2.0 - 1.0);
 
-		wpos += wbinor * thick_time;
+		/* Take object scale into account.
+		 * NOTE: This only works fine with uniform scaling. */
+		float scale = 1.0 / length(mat3(invmodel_mat) * wbinor);
+
+		wpos += wbinor * thick_time * scale;
 	}
 }
 

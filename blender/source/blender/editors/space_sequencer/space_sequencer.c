@@ -42,10 +42,10 @@
 #include "BLI_utildefines.h"
 
 #include "BKE_context.h"
+#include "BKE_global.h"
 #include "BKE_library.h"
 #include "BKE_screen.h"
 #include "BKE_sequencer.h"
-#include "BKE_global.h"
 
 #include "ED_space_api.h"
 #include "ED_screen.h"
@@ -537,12 +537,9 @@ static void sequencer_main_region_listener(
 static void sequencer_main_region_message_subscribe(
         const struct bContext *UNUSED(C),
         struct WorkSpace *UNUSED(workspace), struct Scene *scene,
-        struct bScreen *screen, struct ScrArea *sa, struct ARegion *ar,
+        struct bScreen *UNUSED(screen), struct ScrArea *UNUSED(sa), struct ARegion *ar,
         struct wmMsgBus *mbus)
 {
-	PointerRNA ptr;
-	RNA_pointer_create(&screen->id, &RNA_SpaceSequenceEditor, sa->spacedata.first, &ptr);
-
 	wmMsgSubscribeValue msg_sub_value_region_tag_redraw = {
 		.owner = ar,
 		.user_data = ar,
@@ -570,6 +567,24 @@ static void sequencer_main_region_message_subscribe(
 
 		for (int i = 0; i < ARRAY_SIZE(props); i++) {
 			WM_msg_subscribe_rna(mbus, &idptr, props[i], &msg_sub_value_region_tag_redraw, __func__);
+		}
+	}
+
+	{
+		StructRNA *type_array[] = {
+			&RNA_SequenceEditor,
+
+			&RNA_Sequence,
+			/* Members of 'Sequence'. */
+			&RNA_SequenceCrop,
+			&RNA_SequenceTransform,
+			&RNA_SequenceModifier,
+			&RNA_SequenceColorBalanceData,
+		};
+		wmMsgParams_RNA msg_key_params = {{{0}}};
+		for (int i = 0; i < ARRAY_SIZE(type_array); i++) {
+			msg_key_params.ptr.type = type_array[i];
+			WM_msg_subscribe_rna_params(mbus, &msg_key_params, &msg_sub_value_region_tag_redraw, __func__);
 		}
 	}
 }
@@ -638,7 +653,9 @@ static void sequencer_preview_region_draw(const bContext *C, ARegion *ar)
 	if ((U.uiflag & USER_SHOW_FPS) && ED_screen_animation_no_scrub(wm)) {
 		rcti rect;
 		ED_region_visible_rect(ar, &rect);
-		ED_scene_draw_fps(scene, &rect);
+		int xoffset = rect.xmin + U.widget_unit;
+		int yoffset = rect.xmax;
+		ED_scene_draw_fps(scene, xoffset, &yoffset);
 	}
 }
 

@@ -71,8 +71,8 @@ public:
 		ERROR_NOTAVAILABLE		/* The requested functionality is not available in this implementation. */
 	} Error;
 
-	/* Possible states of a button in interaction, for a building state machine.
-	 * Used to destinguish dragging, clicking, doubleclicking. */
+	/* Possible states of a button in interaction, for building a state machine.
+	 * Used to distinguish dragging, clicking, etc. */
 	typedef enum ButtonState
 	{
 		BUTTONSTATE_IDLE		/* No button in interaction (initial state). */
@@ -85,6 +85,16 @@ public:
 		,
 		BUTTONSTATE_DRAGRELEASE /* Button was released from hold (hold hasn't finished yet though). */
 	} ButtonState;
+
+	/* Possible states of the "Ctrl"-key in interaction. */
+	typedef enum CtrlState
+	{
+		CTRLSTATE_OFF = 0	/* "Ctrl"-key not active. */
+		,
+		CTRLSTATE_ON = 1	/* "Ctrl"-key active. */
+		,
+		CTRLSTATES = 2	/* Number of distinct "Ctrl"-key states. */
+	} CtrlState;
 
 	/* Possible states of the "Shift"-key in interaction. */
 	typedef enum ShiftState
@@ -106,39 +116,75 @@ public:
 		ALTSTATES		= 2	/* Number of distinct "Alt"-key states. */
 	} AltState;
 
-	/* Possible states of the "Snapping" setting. */
-	struct Snapping {
-		typedef enum SnappingState
-		{
-			SNAPPINGSTATE_OFF		= 0	/* Snapping turned off. */
-			,
-			SNAPPINGSTATE_TOUNITS	= 1	/* Snapping to Blender scene units. */
-			,
-			SNAPPINGSTATE_TOPOINTS	= 2	/* Snapping to Polygon vertices and NURBS CVs. */
-			,
-			SNAPPINGSTATE_TOCURVES	= 3	/* Snapping to NURBS curves. */
-			,
-			SNAPPINGSTATE_TOMESH	= 4	/* Snapping to Polygon meshes (faces). */
-			,
-			SNAPPING_STATES			= 5	/* Number of distinct snapping states. */
-		} State;
-		static State	state;			/* Whether snapping is enabled, and if so to what objects to snap to. */
-		static float    snap_distance;  /* Distance how far to snap (in real-world meters). */
-		static bool     snap_result;	/* Result of the last snap test (result of snap()). */
-		static bool     snap(const Coord3Df& p, Coord3Df& snap_point, bool exclude_selection = true); /* Apply snapping based on current state. */
-	};
-
-	/* Different modes of navigation offered by the system. */
+	/* Possible modes of navigation. */
 	typedef enum NavigationMode
 	{
 		NAVIGATIONMODE_NONE		/* No navigation / disable locomotion. */
 		,
 		NAVIGATIONMODE_GRABAIR	/* Grabbing-the-air navigation (default). */
 		,
-		NAVIGATIONMODE_TELEPORT	/* Teleport navigation. */
-		,
 		NAVIGATIONMODE_JOYSTICK	/* Joystick-style navigation (alyways keeping z-up). */
+		,
+		NAVIGATIONMODE_TELEPORT	/* Teleport navigation. */
 	} NavMode;
+
+	/* Possible constraint modes. */
+	typedef enum ConstraintMode
+	{
+		CONSTRAINTMODE_NONE = 0	/* No constraints. */
+		,
+		CONSTRAINTMODE_TRANS_X = 1	/* X translation. */
+		,
+		CONSTRAINTMODE_TRANS_Y = 2	/* Y translation. */
+		,
+		CONSTRAINTMODE_TRANS_Z = 3	/* Z translation. */
+		,
+		CONSTRAINTMODE_TRANS_XY = 4	/* XY translation. */
+		,
+		CONSTRAINTMODE_TRANS_YZ = 5	/* YZ translation. */
+		,
+		CONSTRAINTMODE_TRANS_ZX = 6	/* ZX translation. */
+		,
+		CONSTRAINTMODE_ROT_X = 7	/* X rotation. */
+		,
+		CONSTRAINTMODE_ROT_Y = 8	/* Y rotation. */
+		,
+		CONSTRAINTMODE_ROT_Z = 9	/* Z rotation. */
+		,
+		CONSTRAINTMODE_SCALE_X = 10	/* X scaling. */
+		,
+		CONSTRAINTMODE_SCALE_Y = 11	/* Y scaling. */
+		,
+		CONSTRAINTMODE_SCALE_Z = 12	/* Z scaling. */
+		,
+		CONSTRAINTMODE_SCALE_XY = 13	/* XY scaling. */
+		,
+		CONSTRAINTMODE_SCALE_YZ = 14	/* YZ scaling. */
+		,
+		CONSTRAINTMODE_SCALE_ZX = 15	/* ZX scaling. */
+		,
+		CONSTRAINTMODES = 16	/* Number of distinct constraint modes. */
+	} ConstraintMode;
+
+	/* Possible snapping modes. */
+	typedef enum SnapMode
+	{
+		SNAPMODE_NONE = 0	/* No snapping. */
+		,
+		SNAPMODE_TRANSLATION = 1	/* Translation snapping to Blender scene units. */
+		,
+		SNAPMODE_ROTATION = 2	/* Rotation snapping to Blender scene units. */
+		,
+		SNAPMODE_SCALE = 3	/* Scale snapping to Blender scene units. */
+		,
+		SNAPMODE_POINTS = 4	/* Snapping to Polygon vertices and NURBS CVs. */
+		,
+		SNAPMODE_CURVES = 5	/* Snapping to NURBS curves. */
+		,
+		SNAPMODE_MESH = 6	/* Snapping to Polygon meshes (faces). */
+		,
+		SNAPMODES = 7	/* Number of distinct snapping modes. */
+	} SnapMode;
 
 	/* Transformation matrix extended to allow lazy evaluation. */
 	typedef struct LMatrix
@@ -172,12 +218,14 @@ public:
 		LMatrix2    last_position;		/* Last registered position (prior to the current one). */
 		ui64        last_buttons;		/* Currently depressed buttons associated with this cursor (flagword). */
 		bool        trigger;			/* Whether the Trigger button is currently pressed on this cursor. */
-		ShiftState  shift;				/* Whether SHIFT key is currently pressed on this cursor (0 or 1). */
-		AltState    alt;				/* Whether ALT key is currently pressed on this cursor (0 or 1). */
+		CtrlState	ctrl;				/* Whether the CTRL key is currently pressed on this cursor (0 or 1). */
+		ShiftState  shift;				/* Whether the SHIFT key is currently pressed on this cursor (0 or 1). */
+		AltState    alt;				/* Whether the ALT key is currently pressed on this cursor (0 or 1). */
 		ButtonState	interaction_state;	/* The state of the button state machine. */
 		ui64        interaction_button;	/* The button that caused the current interaction (or 0 if idle). */
 		LMatrix2    interaction_position;/* The position of the cursor when the button was pressed. */
 		ui64		interaction_time;	/* Timestamp of when the interaction was started. */
+		CtrlState	interaction_ctrl;	/* Whether the CTRL key was pressed when the interaction was started (0 or 1). */
 		ShiftState  interaction_shift;	/* Whether the SHIFT key was pressed when the interaction was started (0 or 1). */
 		AltState    interaction_alt;	/* Whether the ALT key was pressed when the interaction was started (0 or 1). */
 		VR_Widget*	interaction_widget;	/* Currently active widget (or 0 if none is mapped). */
@@ -223,11 +271,12 @@ protected:
 	static bool controller_position_current[VR_SPACES][VR_MAX_CONTROLLERS][2]; /* Whether the controller transformation is current for [VR_SPACE][VR_SIDE][inverse] */
 
 	static Cursor		cursor[VR_MAX_CONTROLLERS];	/* Cursors for both hands plus auxilliary controllers if available. */
-	static ShiftState	shift_key;			/* Whether the UI is in "shift-key" mode (0 or 1), i.e: selections will be added. */
-	static AltState     alt_key;			/* Whether the UI is in "alt-key" mode (0 or 1), i.e: buttons will have alternate options. */
+	static CtrlState	ctrl_key;			/* Whether the UI is in "ctrl-key" mode (0 or 1) */
+	static ShiftState	shift_key;			/* Whether the UI is in "shift-key" mode (0 or 1) */
+	static AltState     alt_key;			/* Whether the UI is in "alt-key" mode (0 or 1) */
 	static VR_Side      hand_dominance;		/* Which hand is the main (dominant) hand ("handedness"). */
 	
-	static bool			updating;			/* Whether the UI is currently in it's update() process. */
+	static bool			updating;			/* Whether the UI is currently in its update() process. */
 public:
 	static ui64			fps_render;			/* Current framerate of(real) rendering(excluding empty re - posts). */
 public:
@@ -276,10 +325,15 @@ public:
 	static VR_Side		hand_dominance_get();	/* Get dominant hand side (right-handed or left-handed). */
 	static void			hand_dominance_set(VR_Side side);	/* Set dominant hand side (right-handed or left-handed). */
 
+	static CtrlState	ctrl_key_get();		/* Get Whether the CTRL key is currently held down (on either controller). */
 	static ShiftState	shift_key_get();	/* Get whether the SHIFT key is currently held down (on either controller). */
 	static AltState		alt_key_get();		/* Get whether the ALT key is currently held down (on either controller). */
+	static void			ctrl_key_set(CtrlState state);	/* Manually set the VR_UI ctrl key state. */
 	static void			shift_key_set(ShiftState state);	/* Manually set the VR_UI shift key state. */
 	static void			alt_key_set(AltState state);	/* Manually set the VR_UI alt key state; */
+
+	static VR_Widget* get_current_tool(VR_Side side);	/* Get the currently active tool for the controller. */
+	static VR_UI::Error   set_current_tool(const VR_Widget* tool, VR_Side side);	/* Set the currently active tool for the controller. */
 
 	static Mat44f		convert_space(const Mat44f& m, VR_Space m_space, VR_Space target_space); //!< Convert a matrix into target space. */
 	static Coord3Df		convert_space(const Coord3Df& v, VR_Space v_space, VR_Space target_space); //!< Convert vector/position into target space. */
@@ -292,7 +346,6 @@ public:
 	static float		drag_threshold_rotation;	/* Rotation threshold (deg) to detect "dragging" (if the cursor rotates more than this with a button held down, it's dragging). */
 	static uint			drag_threshold_time;		/* Time threshold (ms) to distinguish between "clicking" and "dragging". */
 
-	static bool			trigger_pressure_dynamics; /* Whether the controller trigger pressure should be used to attenuate/affect tool effect/magnitude. */
 
 	static int			undo_count;	/* Number of pending VR_UI undo operations to be executed post-scene render. */
 	static int			redo_count; /* Number of pending VR_UI redo operations to be executed post-scene render. */
@@ -306,22 +359,10 @@ public:
 		SELECTIONMODES			= 2 /* Number of existing selection modes. */
 	};
 	static SelectionMode selection_mode;	/* The current selection mode. */
-	static bool         selection_mode_click_switched; /* Whether to invert selection mode for drag/rectangle/volume selection. */
 	static float        selection_tolerance;	/* The current selection tolerance (meters). */
 
-	/*  Selection volume alignment (head/hmd, Blender scene, or real-world-up). */
-	enum SelectionVolumeAlignment {
-		SELECTIONVOLUMEALIGNMENT_HEAD		= 0	/* The selection volume will be aligned to the users' head / HMD. */
-		,
-		SELECTIONVOLUMEALIGNMENT_BLENDER	= 1	/* The selection volume will be aligned to the Blender scene. */
-		,
-		SELECTIONVOLUMEALIGNMENT_REAL		= 2	/* The selection volume will be aligned to the real world (VR device coordinate system). */
-		,
-		SELECTIONVOLUMEALIGNMENTS			= 3/* Number of existing selection volume alignment modes. */
-	};
-	static SelectionVolumeAlignment selection_volume_alignment;	/* The current selection volume alignment mode. */
-
-	static bool stick_menu_active[VR_SIDES];	/* Whether a stick menu is active for the controller. */
+	static bool pie_menu_active[VR_SIDES];	/* Whether a VR pie menu is active for the controller. */
+	static const VR_Widget *pie_menu[VR_SIDES];	/* The current VR pie menu for the controller (if any). */
 
 // ============================================================================================== //
 // ===========================    DYNAMIC UI OBJECT IMPLEMENTATION    =========================== //
@@ -351,10 +392,7 @@ public:
 	static Error	render_widget_icons(VR_Side controller_side, const Mat44f& t_controller);	/* Helper function to render the widget icons on the controller. */
 	
 	static Error	execute_widget_renders(VR_Side side);	/* Helper function to execute widget render functions. */
-	static Error	render_menus(const Mat44f* _model, const Mat44f* _view);	/* Helper function to render the VR floating menus. */
-
-	static Error	get_parameter(const std::string& param, std::string& value);	/* Get UI parameter by string (used by Commands). */
-	static Error	set_parameter(const std::string& param, const std::string& value);	/* Set UI parameter by string (used by Commands). */
+	static Error	render_menus(const Mat44f* _model, const Mat44f* _view);	/* Helper function to render VR floating menus. */
 };
 
 #endif /* __VR_UI_H__ */

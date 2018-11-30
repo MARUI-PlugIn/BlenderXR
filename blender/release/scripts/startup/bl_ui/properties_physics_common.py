@@ -60,7 +60,7 @@ def physics_add_special(self, layout, data, name, addop, removeop, typeicon):
 class PHYSICS_PT_add(PhysicButtonsPanel, Panel):
     bl_label = ""
     bl_options = {'HIDE_HEADER'}
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE', 'BLENDER_OPENGL'}
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE', 'BLENDER_WORKBENCH'}
 
     def draw(self, context):
         layout = self.layout
@@ -242,7 +242,7 @@ def effector_weights_ui(self, context, weights, weight_type):
     # NOTE: TODO temporarly used until the animate properties are properly skipped.
     layout.use_property_decorate = False  # No animation (remove this later on).
 
-    layout.prop(weights, "group")
+    layout.prop(weights, "collection")
 
     flow = layout.grid_flow(row_major=True, columns=0, even_columns=True, even_rows=False, align=True)
 

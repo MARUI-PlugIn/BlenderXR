@@ -94,11 +94,11 @@ static uiStyle *ui_style_new(ListBase *styles, const char *name, short uifont_id
 	style->paneltitle.uifont_id = uifont_id;
 	style->paneltitle.points = 12;
 	style->paneltitle.kerning = 1;
-	style->paneltitle.shadow = 1;
+	style->paneltitle.shadow = 3;
 	style->paneltitle.shadx = 0;
 	style->paneltitle.shady = -1;
-	style->paneltitle.shadowalpha = 0.15f;
-	style->paneltitle.shadowcolor = 1.0f;
+	style->paneltitle.shadowalpha = 0.5f;
+	style->paneltitle.shadowcolor = 0.0f;
 
 	style->grouplabel.uifont_id = uifont_id;
 	style->grouplabel.points = 12;
@@ -106,7 +106,8 @@ static uiStyle *ui_style_new(ListBase *styles, const char *name, short uifont_id
 	style->grouplabel.shadow = 3;
 	style->grouplabel.shadx = 0;
 	style->grouplabel.shady = -1;
-	style->grouplabel.shadowalpha = 0.25f;
+	style->grouplabel.shadowalpha = 0.5f;
+	style->grouplabel.shadowcolor = 0.0f;
 
 	style->widgetlabel.uifont_id = uifont_id;
 	style->widgetlabel.points = 11;
@@ -114,13 +115,16 @@ static uiStyle *ui_style_new(ListBase *styles, const char *name, short uifont_id
 	style->widgetlabel.shadow = 3;
 	style->widgetlabel.shadx = 0;
 	style->widgetlabel.shady = -1;
-	style->widgetlabel.shadowalpha = 0.15f;
-	style->widgetlabel.shadowcolor = 1.0f;
+	style->widgetlabel.shadowalpha = 0.5f;
+	style->widgetlabel.shadowcolor = 0.0f;
 
 	style->widget.uifont_id = uifont_id;
 	style->widget.points = 11;
 	style->widget.kerning = 1;
-	style->widget.shadowalpha = 0.25f;
+	style->widget.shadow = 1;
+	style->widget.shady = -1;
+	style->widget.shadowalpha = 0.5f;
+	style->widget.shadowcolor = 0.0f;
 
 	style->columnspace = 8;
 	style->templatespace = 5;
@@ -314,7 +318,8 @@ void UI_fontstyle_draw_simple_backdrop(
 		float color[4] = { col_bg[0], col_bg[1], col_bg[2], 0.5f };
 
 		UI_draw_roundbox_corner_set(UI_CNR_ALL);
-		UI_draw_roundbox_aa(true,
+		UI_draw_roundbox_aa(
+		        true,
 		        x - margin,
 		        (y + decent) - margin,
 		        x + width + margin,
@@ -525,10 +530,11 @@ void uiStyleInit(void)
 
 	/* Set default flags based on UI preferences (not render fonts) */
 	{
-		int flag_disable = BLF_MONOCHROME |
-		                   BLF_HINTING_NONE |
-		                   BLF_HINTING_SLIGHT |
-		                   BLF_HINTING_FULL;
+		int flag_disable = (
+		        BLF_MONOCHROME |
+		        BLF_HINTING_NONE |
+		        BLF_HINTING_SLIGHT |
+		        BLF_HINTING_FULL);
 		int flag_enable = 0;
 
 		if (U.text_render & USER_TEXT_HINTING_NONE) {

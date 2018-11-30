@@ -68,7 +68,7 @@ typedef enum eMotionPathVert_Flag {
 /* ........ */
 
 /* Motion Path data cache (mpath)
- *  - for elements providing transforms (i.e. Objects or PoseChannels)
+ * - for elements providing transforms (i.e. Objects or PoseChannels)
  */
 typedef struct bMotionPath {
 	bMotionPathVert *points;    /* path samples */
@@ -199,6 +199,22 @@ typedef struct bPoseChannelDrawData {
 	float bbone_matrix[0][4][4];
 } bPoseChannelDrawData;
 
+struct Mat4;
+struct DualQuat;
+
+typedef struct bPoseChannelRuntime {
+	int bbone_segments;
+	char pad[4];
+
+	/* Rest and posed matrices for segments. */
+	struct Mat4 *bbone_rest_mats;
+	struct Mat4 *bbone_pose_mats;
+
+	/* Delta from rest to pose in matrix and DualQuat form. */
+	struct Mat4 *bbone_deform_mats;
+	struct DualQuat *bbone_dual_quats;
+} bPoseChannelRuntime;
+
 /* ************************************************ */
 /* Poses */
 
@@ -287,6 +303,9 @@ typedef struct bPoseChannel {
 
 	/* Points to an original pose channel. */
 	struct bPoseChannel *orig_pchan;
+
+	/* Runtime data. */
+	struct bPoseChannelRuntime runtime;
 } bPoseChannel;
 
 
@@ -724,7 +743,11 @@ typedef enum eSAction_Flag {
 	/* don't perform realtime updates */
 	SACTION_NOREALTIMEUPDATES = (1 << 10),
 	/* move markers as well as keyframes */
-	SACTION_MARKERS_MOVE = (1 << 11)
+	SACTION_MARKERS_MOVE = (1 << 11),
+	/* show interpolation type */
+	SACTION_SHOW_INTERPOLATION = (1 << 12),
+	/* show extremes */
+	SACTION_SHOW_EXTREMES = (1 << 13),
 } eSAction_Flag;
 
 /* SpaceAction Mode Settings */

@@ -49,9 +49,9 @@ struct MDeformVert;
 /* GP Stroke Points */
 
 /* Grease-Pencil Annotations - 'Stroke Point'
- *	-> Coordinates may either be 2d or 3d depending on settings at the time
- * 	-> Coordinates of point on stroke, in proportions of window size
- *	   This assumes that the bottom-left corner is (0,0)
+ * -> Coordinates may either be 2d or 3d depending on settings at the time
+ * -> Coordinates of point on stroke, in proportions of window size
+ *    This assumes that the bottom-left corner is (0,0)
  */
 typedef struct bGPDspoint {
 	float x, y, z;			/* co-ordinates of point (usually 2d, but can be 3d as well) */
@@ -79,8 +79,8 @@ typedef enum eGPDspoint_Flag {
 /* GP Fill - Triangle Tessellation Data */
 
 /* Grease-Pencil Annotations - 'Triangle'
- * 	-> A triangle contains the index of three vertices for filling the stroke
- *	   This is only used if high quality fill is enabled
+ * -> A triangle contains the index of three vertices for filling the stroke
+ *    This is only used if high quality fill is enabled
  */
 typedef struct bGPDtriangle {
 	/* indices for tessellated triangle used for GP Fill */
@@ -152,8 +152,8 @@ typedef struct bGPDstroke_Runtime {
 } bGPDstroke_Runtime;
 
 /* Grease-Pencil Annotations - 'Stroke'
- * 	-> A stroke represents a (simplified version) of the curve
- *	   drawn by the user in one 'mousedown'->'mouseup' operation
+ * -> A stroke represents a (simplified version) of the curve
+ *    drawn by the user in one 'mousedown'->'mouseup' operation
  */
 typedef struct bGPDstroke {
 	struct bGPDstroke *next, *prev;
@@ -208,7 +208,7 @@ typedef struct bGPDframe_Runtime {
 } bGPDframe_Runtime;
 
 /* Grease-Pencil Annotations - 'Frame'
- *	-> Acts as storage for the 'image' formed by strokes
+ * -> Acts as storage for the 'image' formed by strokes
  */
 typedef struct bGPDframe {
 	struct bGPDframe *next, *prev;
@@ -236,10 +236,7 @@ typedef enum eGPDframe_Flag {
 
 /* Runtime temp data for bGPDlayer */
 typedef struct bGPDlayer_Runtime {
-	struct bGPDframe *derived_array;/* runtime data created by modifiers */
 	int icon_id;                    /* id for dynamic icon used to show annotation color preview for layer */
-	int batch_index;                /* batch used for dupli instances */
-	int len_derived;                /* len of the derived array */
 	char pad_[4];
 } bGPDlayer_Runtime;
 
@@ -270,6 +267,18 @@ typedef struct bGPDlayer {
 	short line_change;      /* Thickness adjustment */
 	float tintcolor[4];     /* Color used to tint layer, alpha value is used as factor */
 	float opacity;          /* Opacity of the layer */
+	char viewlayername[64]; /* Name of the layer used to filter render output */
+
+	int blend_mode;         /* blend modes */
+	char pad_[4];
+
+	/* annotation onion skin */
+	short gstep;			/* Ghosts Before: max number of ghost frames to show between active frame and the one before it (0 = only the ghost itself) */
+	short gstep_next;		/* Ghosts After:  max number of ghost frames to show after active frame and the following it    (0 = only the ghost itself) */
+
+	float gcolor_prev[3];	/* color for ghosts before the active frame */
+	float gcolor_next[3];	/* color for ghosts after the active frame */
+	char pad_1[4];
 
 	bGPDlayer_Runtime runtime;
 } bGPDlayer;
@@ -294,6 +303,8 @@ typedef enum eGPDlayer_Flag {
 	GP_LAYER_VOLUMETRIC		= (1 << 10),
 	/* Unlock color */
 	GP_LAYER_UNLOCK_COLOR 	= (1 << 12),
+	/* Mask Layer */
+	GP_LAYER_USE_MASK = (1 << 13),
 } eGPDlayer_Flag;
 
 /* bGPDlayer->onion_flag */
@@ -301,6 +312,16 @@ typedef enum eGPDlayer_OnionFlag {
 	/* do onion skinning */
 	GP_LAYER_ONIONSKIN = (1 << 0),
 } eGPDlayer_OnionFlag;
+
+/* layer blend_mode */
+typedef enum eGPLayerBlendModes {
+	eGplBlendMode_Normal = 0,
+	eGplBlendMode_Overlay = 1,
+	eGplBlendMode_Add = 2,
+	eGplBlendMode_Subtract = 3,
+	eGplBlendMode_Multiply = 4,
+	eGplBlendMode_Divide = 5,
+} eGPLayerBlendModes;
 
 /* ***************************************** */
 /* GP Datablock */
@@ -334,7 +355,7 @@ typedef struct bGPgrid {
 	char _pad1[4];
 
 	int   lines;
-	int   axis;
+	char pad_[4];
 } bGPgrid;
 
 /* Grease-Pencil Annotations - 'DataBlock' */
@@ -447,6 +468,8 @@ typedef enum eGPdata_Flag {
 	GP_DATA_STROKE_POLYGON = (1 << 18),
 	/* Use adaptative UV scales */
 	GP_DATA_UV_ADAPTATIVE = (1 << 19),
+	/* Autolock not active layers */
+	GP_DATA_AUTOLOCK_LAYERS = (1 << 20),
 } eGPdata_Flag;
 
 /* gpd->onion_flag */
@@ -476,14 +499,6 @@ typedef enum eGP_DepthOrdering {
 	GP_XRAY_3DSPACE = 1,
 	GP_XRAY_BACK  = 2
 } eGP_DepthOrdering;
-
-/* gpencil_grid_axis */
-enum {
-	GP_GRID_AXIS_LOCK = (1 << 0),
-	GP_GRID_AXIS_X    = (1 << 1),
-	GP_GRID_AXIS_Y    = (1 << 2),
-	GP_GRID_AXIS_Z    = (1 << 3),
-};
 
 /* ***************************************** */
 /* Mode Checking Macros */

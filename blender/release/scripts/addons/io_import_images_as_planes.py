@@ -21,7 +21,7 @@
 bl_info = {
     "name": "Import Images as Planes",
     "author": "Florian Meyer (tstscr), mont29, matali, Ted Schundler (SpkyElctrc)",
-    "version": (3, 2, 0),
+    "version": (3, 2, 1),
     "blender": (2, 80, 0),
     "location": "File > Import > Images as Planes or Add > Mesh > Images as Planes",
     "description": "Imports images and creates planes with the appropriate aspect ratio. "
@@ -29,6 +29,7 @@ bl_info = {
     "warning": "",
     "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/"
                 "Scripts/Add_Mesh/Planes_from_Images",
+    "support": 'OFFICIAL',
     "category": "Import-Export",
 }
 
@@ -831,7 +832,7 @@ class IMPORT_IMAGE_OT_to_plane(Operator, AddObjectHelper):
         else:
             box.prop(self, "factor")
 
-        box.label(text="Orientation:", icon='MANIPUL')
+        box.label(text="Orientation:")
         row = box.row()
         row.enabled = 'CAM' not in self.size_mode
         row.prop(self, "align_axis")
@@ -908,7 +909,7 @@ class IMPORT_IMAGE_OT_to_plane(Operator, AddObjectHelper):
 
         # setup new selection
         for plane in planes:
-            plane.select_set('SELECT')
+            plane.select_set(True)
 
         # all done!
         self.report({'INFO'}, "Added {} Image Plane(s)".format(len(planes)))
@@ -1160,7 +1161,7 @@ def register():
         bpy.utils.register_class(cls)
 
     bpy.types.TOPBAR_MT_file_import.append(import_images_button)
-    bpy.types.VIEW3D_MT_mesh_add.append(import_images_button)
+    bpy.types.VIEW3D_MT_image_add.append(import_images_button)
 
     bpy.app.handlers.load_post.append(register_driver)
     register_driver()
@@ -1168,7 +1169,7 @@ def register():
 
 def unregister():
     bpy.types.TOPBAR_MT_file_import.remove(import_images_button)
-    bpy.types.VIEW3D_MT_mesh_add.remove(import_images_button)
+    bpy.types.VIEW3D_MT_image_add.remove(import_images_button)
 
     # This will only exist if drivers are active
     if check_drivers in bpy.app.handlers.scene_update_post:

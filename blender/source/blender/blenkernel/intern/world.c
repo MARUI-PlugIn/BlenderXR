@@ -142,12 +142,15 @@ World *BKE_world_copy(Main *bmain, const World *wrld)
 
 World *BKE_world_localize(World *wrld)
 {
-	/* TODO replace with something like
-	 * 	World *wrld_copy;
-	 * 	BKE_id_copy_ex(bmain, &wrld->id, (ID **)&wrld_copy, LIB_ID_COPY_NO_MAIN | LIB_ID_COPY_NO_PREVIEW | LIB_ID_COPY_NO_USER_REFCOUNT, false);
-	 * 	return wrld_copy;
+	/* TODO(bastien): Replace with something like:
 	 *
-	 * ... Once f*** nodes are fully converted to that too :( */
+	 *   World *wrld_copy;
+	 *   BKE_id_copy_ex(bmain, &wrld->id, (ID **)&wrld_copy,
+	 *                  LIB_ID_COPY_NO_MAIN | LIB_ID_COPY_NO_PREVIEW | LIB_ID_COPY_NO_USER_REFCOUNT,
+	 *                  false);
+	 *   return wrld_copy;
+	 *
+	 * NOTE: Only possible once nested node trees are fully converted to that too. */
 
 	World *wrldn;
 
@@ -161,10 +164,18 @@ World *BKE_world_localize(World *wrld)
 	BLI_listbase_clear(&wrldn->gpumaterial);
 	BLI_listbase_clear((ListBase *)&wrldn->drawdata);
 
+	wrldn->id.tag |= LIB_TAG_LOCALIZED;
+
 	return wrldn;
 }
 
 void BKE_world_make_local(Main *bmain, World *wrld, const bool lib_local)
 {
 	BKE_id_make_local_generic(bmain, &wrld->id, true, lib_local);
+}
+
+void BKE_world_eval(struct Depsgraph *depsgraph, World *world)
+{
+	DEG_debug_print_eval(depsgraph, __func__, world->id.name, world);
+	GPU_material_free(&world->gpumaterial);
 }

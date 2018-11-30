@@ -25,7 +25,7 @@ set(INC
 	.
 	./intern
 	./img
-	./models
+	./obj
 	./extern/inc/libpng_1.6.35
 	./extern/inc/zlib_1.2.11
 	../../../extern/Eigen3
@@ -33,16 +33,21 @@ set(INC
 	../blenkernel
 	../blenlib
 	../blentranslation
+	../bmesh
+	../bmesh/intern
 	../depsgraph
 	../draw
 	../draw/intern
 	../editors/include
+	../editors/gizmo_library
 	../editors/gpencil
+	../editors/transform
 	../gpu
 	../makesdna
 	../makesrna
 	../render/extern/include
 	../windowmanager
+	../windowmanager/gizmo
 	../../../intern/glew-mx
 	../../../intern/guardedalloc
 )

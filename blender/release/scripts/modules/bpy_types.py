@@ -104,7 +104,7 @@ class Collection(bpy_types.ID):
         """The collection instance objects this collection is used in"""
         import bpy
         return tuple(obj for obj in bpy.data.objects
-                     if self == obj.dupli_group)
+                     if self == obj.instance_collection)
 
 
 class Object(bpy_types.ID):
@@ -112,21 +112,21 @@ class Object(bpy_types.ID):
 
     @property
     def children(self):
-        """All the children of this object"""
+        """All the children of this object. Warning: takes O(len(bpy.data.objects)) time."""
         import bpy
         return tuple(child for child in bpy.data.objects
                      if child.parent == self)
 
     @property
     def users_collection(self):
-        """The collections this object is in"""
+        """The collections this object is in. Warning: takes O(len(bpy.data.collections)) time."""
         import bpy
         return tuple(collection for collection in bpy.data.collections
                      if self in collection.objects[:])
 
     @property
     def users_scene(self):
-        """The scenes this object is in"""
+        """The scenes this object is in. Warning: takes O(len(bpy.data.scenes) * len(bpy.data.objects)) time."""
         import bpy
         return tuple(scene for scene in bpy.data.scenes
                      if self in scene.objects[:])
@@ -268,12 +268,12 @@ class _GenericBone:
 
     @property
     def children(self):
-        """A list of all the bones children."""
+        """A list of all the bones children. Warning: takes O(len(bones)) time."""
         return [child for child in self._other_bones if child.parent == self]
 
     @property
     def children_recursive(self):
-        """A list of all children from this bone."""
+        """A list of all children from this bone. Warning: takes O(len(bones)**2) time."""
         bones_children = []
         for bone in self._other_bones:
             index = bone.parent_index(self)
@@ -290,7 +290,7 @@ class _GenericBone:
         Returns a chain of children with the same base name as this bone.
         Only direct chains are supported, forks caused by multiple children
         with matching base names will terminate the function
-        and not be returned.
+        and not be returned. Warning: takes O(len(bones)**2) time.
         """
         basename = self.basename
         chain = []
@@ -594,10 +594,8 @@ class Gizmo(StructRNA):
         if matrix is None:
             matrix = self.matrix_world
 
-        batch, dims = shape
-
-        # XXX, can we avoid setting the shader every time?
-        batch.program_set_builtin('3D_UNIFORM_COLOR' if dims == 3 else '2D_UNIFORM_COLOR')
+        batch, shader = shape
+        shader.bind()
 
         if select_id is not None:
             gpu.select.load_id(select_id)
@@ -606,7 +604,7 @@ class Gizmo(StructRNA):
                 color = (*self.color_highlight, self.alpha_highlight)
             else:
                 color = (*self.color, self.alpha)
-            batch.uniform_f32("color", *color)
+            shader.uniform_float("color", color)
 
         with gpu.matrix.push_pop():
             gpu.matrix.multiply_matrix(matrix)
@@ -626,6 +624,7 @@ class Gizmo(StructRNA):
         :return: The newly created shape.
         :rtype: Undefined (it may change).
         """
+        import gpu
         from gpu.types import (
             GPUBatch,
             GPUVertBuf,
@@ -637,9 +636,11 @@ class Gizmo(StructRNA):
         fmt = GPUVertFormat()
         pos_id = fmt.attr_add(id="pos", comp_type='F32', len=dims, fetch_mode='FLOAT')
         vbo = GPUVertBuf(len=len(verts), format=fmt)
-        vbo.fill(id=pos_id, data=verts)
+        vbo.attr_fill(id=pos_id, data=verts)
         batch = GPUBatch(type=type, buf=vbo)
-        return (batch, dims)
+        shader = gpu.shader.from_builtin('3D_UNIFORM_COLOR' if dims == 3 else '2D_UNIFORM_COLOR')
+        batch.program_set(shader)
+        return (batch, shader)
 
 
 # Only defined so operators members can be used by accessing self.order
@@ -945,7 +946,7 @@ class NodeSocket(StructRNA, metaclass=RNAMetaPropGroup):
 
     @property
     def links(self):
-        """List of node links from or to this socket"""
+        """List of node links from or to this socket. Warning: takes O(len(nodetree.links)) time."""
         return tuple(link for link in self.id_data.links
                      if (link.from_socket == self or
                          link.to_socket == self))

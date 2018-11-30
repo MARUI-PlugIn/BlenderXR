@@ -25,8 +25,11 @@
  *
  */
 
+#include "DNA_userdef_types.h"
+
 #include "GPU_glew.h"
 #include "GPU_state.h"
+#include "GPU_extensions.h"
 
 static GLenum gpu_get_gl_blendfunction(GPUBlendFunction blend)
 {
@@ -73,6 +76,12 @@ void GPU_blend_set_func_separate(
 	        gpu_get_gl_blendfunction(dst_alpha));
 }
 
+void GPU_depth_range(float near, float far)
+{
+	/* glDepthRangef is only for OpenGL 4.1 or higher */
+	glDepthRange(near, far);
+}
+
 void GPU_depth_test(bool enable)
 {
 	if (enable) {
@@ -110,12 +119,18 @@ void GPU_line_stipple(bool enable)
 
 void GPU_line_width(float width)
 {
-	glLineWidth(width);
+	float max_size = GPU_max_line_width();
+	float final_size = width * U.pixelsize;
+	/* Fix opengl errors on certain platform / drivers. */
+	if (max_size < final_size) {
+		final_size = max_size;
+	}
+	glLineWidth(final_size);
 }
 
 void GPU_point_size(float size)
 {
-	glPointSize(size);
+	glPointSize(size * U.pixelsize);
 }
 
 void GPU_polygon_smooth(bool enable)
@@ -151,4 +166,14 @@ void GPU_viewport_size_get_f(float coords[4])
 void GPU_viewport_size_get_i(int coords[4])
 {
 	glGetIntegerv(GL_VIEWPORT, coords);
+}
+
+void GPU_flush(void)
+{
+	glFlush();
+}
+
+void GPU_finish(void)
+{
+	glFinish();
 }

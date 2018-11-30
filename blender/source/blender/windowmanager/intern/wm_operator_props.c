@@ -44,6 +44,15 @@
 #include "WM_api.h"
 #include "WM_types.h"
 
+
+void WM_operator_properties_confirm_or_exec(wmOperatorType *ot)
+{
+	PropertyRNA *prop;
+
+	prop = RNA_def_boolean(ot->srna, "confirm", true, "Confirm", "Prompt for confirmation");
+	RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
+}
+
 /* default properties for fileselect */
 void WM_operator_properties_filesel(
         wmOperatorType *ot, int filter, short type, short action,
@@ -259,14 +268,27 @@ void WM_operator_properties_gesture_box(wmOperatorType *ot)
 void WM_operator_properties_select_operation(wmOperatorType *ot)
 {
 	static const EnumPropertyItem select_mode_items[] = {
+		{SEL_OP_SET, "SET", 0, "New", ""},
 		{SEL_OP_ADD, "ADD", 0, "Add", ""},
 		{SEL_OP_SUB, "SUB", 0, "Subtract", ""},
-		{SEL_OP_SET, "SET", 0, "New", ""},
 		{SEL_OP_XOR, "XOR", 0, "Difference", ""},
 		{SEL_OP_AND, "AND", 0, "Intersect", ""},
 		{0, NULL, 0, NULL, NULL}
 	};
-	PropertyRNA *prop = RNA_def_enum(ot->srna, "mode", select_mode_items, SEL_OP_ADD, "Mode", "");
+	PropertyRNA *prop = RNA_def_enum(ot->srna, "mode", select_mode_items, SEL_OP_SET, "Mode", "");
+	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
+}
+
+/* Some tools don't support XOR/AND. */
+void WM_operator_properties_select_operation_simple(wmOperatorType *ot)
+{
+	static const EnumPropertyItem select_mode_items[] = {
+		{SEL_OP_SET, "SET", 0, "New", ""},
+		{SEL_OP_ADD, "ADD", 0, "Add", ""},
+		{SEL_OP_SUB, "SUB", 0, "Subtract", ""},
+		{0, NULL, 0, NULL, NULL}
+	};
+	PropertyRNA *prop = RNA_def_enum(ot->srna, "mode", select_mode_items, SEL_OP_SET, "Mode", "");
 	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 }
 

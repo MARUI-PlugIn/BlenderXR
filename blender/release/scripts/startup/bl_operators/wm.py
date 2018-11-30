@@ -35,6 +35,10 @@ from bpy.props import (
 
 from bpy.app.translations import pgettext_tip as tip_
 
+# FIXME, we need a way to detect key repeat events.
+# unfortunately checking event previous values isn't reliable.
+use_toolbar_release_hack = True
+
 
 rna_path_prop = StringProperty(
     name="Context Attributes",
@@ -837,12 +841,12 @@ class WM_OT_context_modal_mouse(Operator):
         elif 'LEFTMOUSE' == event_type:
             item = next(iter(self._values.keys()))
             self._values_clear()
-            context.area.header_text_set("")
+            context.area.header_text_set(None)
             return operator_value_undo_return(item)
 
         elif event_type in {'RIGHTMOUSE', 'ESC'}:
             self._values_restore()
-            context.area.header_text_set("")
+            context.area.header_text_set(None)
             return {'CANCELLED'}
 
         return {'RUNNING_MODAL'}
@@ -1415,49 +1419,6 @@ class WM_OT_keyconfig_activate(Operator):
             return {'CANCELLED'}
 
 
-class WM_OT_appconfig_default(Operator):
-    bl_idname = "wm.appconfig_default"
-    bl_label = "Default Application Configuration"
-
-    def execute(self, context):
-        import os
-
-        context.window_manager.keyconfigs.active = context.window_manager.keyconfigs.default
-
-        filepath = os.path.join(bpy.utils.preset_paths("interaction")[0], "blender.py")
-
-        if os.path.exists(filepath):
-            bpy.ops.script.execute_preset(
-                filepath=filepath,
-                menu_idname="USERPREF_MT_interaction_presets",
-            )
-
-        return {'FINISHED'}
-
-
-class WM_OT_appconfig_activate(Operator):
-    bl_idname = "wm.appconfig_activate"
-    bl_label = "Activate Application Configuration"
-
-    filepath: StringProperty(
-        subtype='FILE_PATH',
-    )
-
-    def execute(self, context):
-        import os
-        bpy.utils.keyconfig_set(self.filepath)
-
-        filepath = self.filepath.replace("keyconfig", "interaction")
-
-        if os.path.exists(filepath):
-            bpy.ops.script.execute_preset(
-                filepath=filepath,
-                menu_idname="USERPREF_MT_interaction_presets",
-            )
-
-        return {'FINISHED'}
-
-
 class WM_OT_sysinfo(Operator):
     """Generate system information, saved into a text file"""
 
@@ -1652,7 +1613,7 @@ class WM_OT_keyconfig_export(Operator):
     )
 
     def execute(self, context):
-        from bpy_extras import keyconfig_utils
+        from bl_keymap_utils.io import keyconfig_export_as_data
 
         if not self.filepath:
             raise Exception("Filepath not set")
@@ -1662,7 +1623,7 @@ class WM_OT_keyconfig_export(Operator):
 
         wm = context.window_manager
 
-        keyconfig_utils.keyconfig_export_as_data(
+        keyconfig_export_as_data(
             wm,
             wm.keyconfigs.active,
             self.filepath,
@@ -2251,7 +2212,7 @@ class WM_OT_addon_userpref_show(Operator):
 
         module_name = self.module
 
-        modules = addon_utils.modules(refresh=False)
+        _modules = addon_utils.modules(refresh=False)
         mod = addon_utils.addons_fake_modules.get(module_name)
         if mod is not None:
             info = addon_utils.module_bl_info(mod)
@@ -2383,6 +2344,18 @@ class WM_OT_tool_set_by_name(Operator):
 
     space_type: rna_space_type_prop
 
+    if use_toolbar_release_hack:
+        def invoke(self, context, event):
+            # Hack :S
+            if not self.properties.is_property_set("name"):
+                WM_OT_toolbar._key_held = False
+                return {'PASS_THROUGH'}
+            elif (WM_OT_toolbar._key_held == event.type) and (event.value != 'RELEASE'):
+                return {'PASS_THROUGH'}
+            WM_OT_toolbar._key_held = None
+
+            return self.execute(context)
+
     def execute(self, context):
         from bl_ui.space_toolsystem_common import (
             activate_by_name,
@@ -2398,7 +2371,7 @@ class WM_OT_tool_set_by_name(Operator):
         if fn(context, space_type, self.name):
             return {'FINISHED'}
         else:
-            self.report({'WARNING'}, f"Tool {self.name!r} not found.")
+            self.report({'WARNING'}, f"Tool {self.name!r:s} not found for space {space_type!r:s}.")
             return {'CANCELLED'}
 
 
@@ -2410,27 +2383,27 @@ class WM_OT_toolbar(Operator):
     def poll(cls, context):
         return context.space_data is not None
 
-    def execute(self, context):
-        from bl_ui.space_toolsystem_common import (
-            ToolSelectPanelHelper,
-            keymap_from_context,
-        )
-        space_type = context.space_data.type
+    if use_toolbar_release_hack:
+        _key_held = None
+        def invoke(self, context, event):
+            WM_OT_toolbar._key_held = event.type
+            return self.execute(context)
 
+    def execute(self, context):
+        from bl_ui.space_toolsystem_common import ToolSelectPanelHelper
+        from bl_keymap_utils import keymap_from_toolbar
+
+        space_type = context.space_data.type
         cls = ToolSelectPanelHelper._tool_class_from_space_type(space_type)
         if cls is None:
-            self.report({'WARNING'}, f"Toolbar not found for {space_type!r}")
             return {'CANCELLED'}
 
         wm = context.window_manager
-        keymap = keymap_from_context(context, space_type)
+        keymap = keymap_from_toolbar.generate(context, space_type)
 
         def draw_menu(popover, context):
             layout = popover.layout
-
             layout.operator_context = 'INVOKE_REGION_WIN'
-            layout.operator("wm.search_menu", text="Search Commands...", icon='VIEWZOOM')
-
             cls.draw_cls(layout, context, detect_layout=False, scale_y=1.0)
 
         wm.popover(draw_menu, ui_units_x=8, keymap=keymap)
@@ -2459,11 +2432,11 @@ class WM_OT_studiolight_install(Operator):
         default="*.png;*.jpg;*.hdr;*.exr",
         options={'HIDDEN'},
     )
-    orientation: EnumProperty(
+    type: EnumProperty(
         items=(
             ('MATCAP', "MatCap", ""),
             ('WORLD', "World", ""),
-            ('CAMERA', "Camera", ""),
+            ('STUDIO', "Studio", ""),
         )
     )
 
@@ -2480,7 +2453,7 @@ class WM_OT_studiolight_install(Operator):
             self.report({'ERROR'}, "Failed to get Studio Light path")
             return {'CANCELLED'}
 
-        path_studiolights = pathlib.Path(path_studiolights, "studiolights", self.orientation.lower())
+        path_studiolights = pathlib.Path(path_studiolights, "studiolights", self.type.lower())
         if not path_studiolights.exists():
             try:
                 path_studiolights.mkdir(parents=True, exist_ok=True)
@@ -2489,7 +2462,7 @@ class WM_OT_studiolight_install(Operator):
 
         for filepath in filepaths:
             shutil.copy(str(filepath), str(path_studiolights))
-            userpref.studio_lights.new(str(path_studiolights.joinpath(filepath.name)), self.orientation)
+            userpref.studio_lights.load(str(path_studiolights.joinpath(filepath.name)), self.type)
 
         # print message
         msg = (
@@ -2504,6 +2477,58 @@ class WM_OT_studiolight_install(Operator):
         wm = context.window_manager
         wm.fileselect_add(self)
         return {'RUNNING_MODAL'}
+
+
+class WM_OT_studiolight_new(Operator):
+    """Create custom studio light from the studio light editor settings"""
+    bl_idname = 'wm.studiolight_new'
+    bl_label = "Create custom Studio light"
+
+    filename: StringProperty(
+        name="Name",
+        default="StudioLight",
+    )
+
+    def execute(self, context):
+        import pathlib
+        userpref = context.user_preferences
+
+        path_studiolights = bpy.utils.user_resource('DATAFILES')
+
+        if not path_studiolights:
+            self.report({'ERROR'}, "Failed to get Studio Light path")
+            return {'CANCELLED'}
+
+        path_studiolights = pathlib.Path(path_studiolights, "studiolights", "studio")
+        if not path_studiolights.exists():
+            try:
+                path_studiolights.mkdir(parents=True, exist_ok=True)
+            except:
+                traceback.print_exc()
+
+        finalpath = str(path_studiolights.joinpath(self.filename));
+        if pathlib.Path(finalpath + ".sl").is_file():
+            self.report({'ERROR'}, "File already exists")
+            return {'CANCELLED'}
+
+        userpref.studio_lights.new(path=finalpath)
+
+        # print message
+        msg = (
+            tip_("StudioLight Installed %r into %r") %
+            (self.filename, str(path_studiolights))
+        )
+        print(msg)
+        self.report({'INFO'}, msg)
+        return {'FINISHED'}
+
+    def draw(self, context):
+        layout = self.layout
+        layout.prop(self, "filename")
+
+    def invoke(self, context, event):
+        wm = context.window_manager
+        return wm.invoke_props_dialog(self, width=600)
 
 
 class WM_OT_studiolight_uninstall(Operator):
@@ -2547,7 +2572,11 @@ class WM_MT_splash(Menu):
     bl_label = "Splash"
 
     def draw_setup(self, context):
+        wm = context.window_manager
+        # userpref = context.user_preferences
+
         layout = self.layout
+
         layout.operator_context = 'EXEC_DEFAULT'
 
         layout.label(text="Quick Setup")
@@ -2558,29 +2587,61 @@ class WM_MT_splash(Menu):
 
         col = split.column()
 
-        sub = col.column(align=True)
-        sub.label(text="Input and Shortcuts:")
-        text = bpy.path.display_name(context.window_manager.keyconfigs.active.name)
+        col.label()
+
+        sub = col.split(factor=0.35)
+        row = sub.row()
+        row.alignment = 'RIGHT'
+        row.label(text="Shortcuts")
+        text = bpy.path.display_name(wm.keyconfigs.active.name)
         if not text:
-            text = "Blender (default)"
-        sub.menu("USERPREF_MT_appconfigs", text=text)
+            text = "Blender"
+        sub.menu("USERPREF_MT_keyconfigs", text=text)
+
+        kc = wm.keyconfigs.active
+        kc_prefs = kc.preferences
+        has_select_mouse = hasattr(kc_prefs, "select_mouse")
+        if has_select_mouse:
+            sub = col.split(factor=0.35)
+            row = sub.row()
+            row.alignment = 'RIGHT'
+            row.label(text="Select With")
+            sub.row().prop(kc_prefs, "select_mouse", expand=True)
+            has_select_mouse = True
+
+        has_spacebar_action = hasattr(kc_prefs, "spacebar_action")
+        if has_spacebar_action:
+            sub = col.split(factor=0.35)
+            row = sub.row()
+            row.alignment = 'RIGHT'
+            row.label(text="Spacebar")
+            sub.row().prop(kc_prefs, "spacebar_action", expand=True)
+            has_select_mouse = True
 
         col.separator()
 
-        sub = col.column(align=True)
-        sub.label(text="Theme:")
+        sub = col.split(factor=0.35)
+        row = sub.row()
+        row.alignment = 'RIGHT'
+        row.label(text="Theme")
         label = bpy.types.USERPREF_MT_interface_theme_presets.bl_label
         if label == "Presets":
             label = "Blender Dark"
         sub.menu("USERPREF_MT_interface_theme_presets", text=label)
 
         # We need to make switching to a language easier first
-        #sub = col.column(align=False)
-        # sub.label(text="Language:")
+        #sub = col.split(factor=0.35)
+        #row = sub.row()
+        #row.alignment = 'RIGHT'
+        #row.label(text="Language:")
         #userpref = context.user_preferences
         #sub.prop(userpref.system, "language", text="")
 
-        col.label()
+        # Keep height constant
+        if not has_select_mouse:
+            col.label()
+        if not has_spacebar_action:
+            col.label()
 
         layout.label()
 
@@ -2596,6 +2657,7 @@ class WM_MT_splash(Menu):
             sub.label()
             sub.operator("wm.save_userpref", text="Next")
 
+        layout.separator()
         layout.separator()
 
     def draw(self, context):
@@ -2674,6 +2736,7 @@ class WM_MT_splash(Menu):
             ).url = "https://www.blender.org/foundation/donation-payment/"
 
         layout.separator()
+        layout.separator()
 
 
 class WM_OT_drop_blend_file(Operator):
@@ -2710,8 +2773,6 @@ classes = (
     WM_OT_addon_remove,
     WM_OT_addon_userpref_show,
     WM_OT_app_template_install,
-    WM_OT_appconfig_activate,
-    WM_OT_appconfig_default,
     WM_OT_context_collection_boolean_set,
     WM_OT_context_cycle_array,
     WM_OT_context_cycle_enum,
@@ -2756,6 +2817,7 @@ classes = (
     WM_OT_owner_enable,
     WM_OT_url_open,
     WM_OT_studiolight_install,
+    WM_OT_studiolight_new,
     WM_OT_studiolight_uninstall,
     WM_OT_studiolight_userpref_show,
     WM_OT_tool_set_by_name,

@@ -163,25 +163,24 @@
 #include "BKE_action.h"
 #include "BKE_blender_version.h"
 #include "BKE_bpath.h"
-#include "BKE_curve.h"
 #include "BKE_collection.h"
 #include "BKE_constraint.h"
+#include "BKE_curve.h"
+#include "BKE_fcurve.h"
 #include "BKE_global.h" // for G
 #include "BKE_gpencil_modifier.h"
 #include "BKE_idcode.h"
 #include "BKE_layer.h"
-#include "BKE_library.h" // for  set_listbasepointers
 #include "BKE_library_override.h"
 #include "BKE_main.h"
+#include "BKE_mesh.h"
+#include "BKE_modifier.h"
 #include "BKE_node.h"
+#include "BKE_pointcache.h"
 #include "BKE_report.h"
 #include "BKE_sequencer.h"
 #include "BKE_shader_fx.h"
 #include "BKE_subsurf.h"
-#include "BKE_modifier.h"
-#include "BKE_fcurve.h"
-#include "BKE_pointcache.h"
-#include "BKE_mesh.h"
 #include "BKE_workspace.h"
 
 #ifdef USE_NODE_COMPAT_CUSTOMNODES
@@ -1249,6 +1248,13 @@ static void write_userdef(WriteData *wd, const UserDef *userdef)
 		}
 	}
 
+	for (const wmKeyConfigPref *kpt = userdef->user_keyconfig_prefs.first; kpt; kpt = kpt->next) {
+		writestruct(wd, DATA, wmKeyConfigPref, 1, kpt);
+		if (kpt->prop) {
+			IDP_WriteProperty(kpt->prop, wd);
+		}
+	}
+
 	for (const bUserMenu *um = userdef->user_menus.first; um; um = um->next) {
 		writestruct(wd, DATA, bUserMenu, 1, um);
 		for (const bUserMenuItem *umi = um->items.first; umi; umi = umi->next) {
@@ -1533,6 +1539,18 @@ static void write_constraints(WriteData *wd, ListBase *conlist)
 					/* Write ID Properties -- and copy this comment EXACTLY for easy finding
 					 * of library blocks that implement this.*/
 					IDP_WriteProperty(data->prop, wd);
+
+					break;
+				}
+				case CONSTRAINT_TYPE_ARMATURE:
+				{
+					bArmatureConstraint *data = con->data;
+					bConstraintTarget *ct;
+
+					/* write targets */
+					for (ct = data->targets.first; ct; ct = ct->next) {
+						writestruct(wd, DATA, bConstraintTarget, 1, ct);
+					}
 
 					break;
 				}
@@ -2434,6 +2452,7 @@ static void write_paint(WriteData *wd, Paint *p)
 	if (p->cavity_curve) {
 		write_curvemapping(wd, p->cavity_curve);
 	}
+	writedata(wd, DATA, sizeof(PaintToolSlot) * p->tool_slots_len, p->tool_slots);
 }
 
 static void write_layer_collections(WriteData *wd, ListBase *lb)

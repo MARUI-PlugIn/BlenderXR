@@ -53,7 +53,7 @@ static void initData(GpencilModifierData *md)
 {
 	ThickGpencilModifierData *gpmd = (ThickGpencilModifierData *)md;
 	gpmd->pass_index = 0;
-	gpmd->thickness = 0;
+	gpmd->thickness = 2;
 	gpmd->layername[0] = '\0';
 	gpmd->vgname[0] = '\0';
 	gpmd->curve_thickness = curvemapping_add(1, 0.0f, 0.0f, 1.0f, 1.0f);
@@ -94,10 +94,11 @@ static void deformStroke(
 	ThickGpencilModifierData *mmd = (ThickGpencilModifierData *)md;
 	const int def_nr = defgroup_name_index(ob, mmd->vgname);
 
-	if (!is_stroke_affected_by_modifier(ob,
-	        mmd->layername, mmd->pass_index, mmd->layer_pass, 1, gpl, gps,
-	        mmd->flag & GP_THICK_INVERT_LAYER, mmd->flag & GP_THICK_INVERT_PASS,
-			mmd->flag & GP_THICK_INVERT_LAYERPASS))
+	if (!is_stroke_affected_by_modifier(
+	            ob,
+	            mmd->layername, mmd->pass_index, mmd->layer_pass, 1, gpl, gps,
+	            mmd->flag & GP_THICK_INVERT_LAYER, mmd->flag & GP_THICK_INVERT_PASS,
+	            mmd->flag & GP_THICK_INVERT_LAYERPASS))
 	{
 		return;
 	}
@@ -170,4 +171,5 @@ GpencilModifierTypeInfo modifierType_Gpencil_Thick = {
 	/* foreachObjectLink */ NULL,
 	/* foreachIDLink */     NULL,
 	/* foreachTexLink */    NULL,
+	/* getDuplicationFactor */ NULL,
 };

@@ -67,7 +67,7 @@ class VIEW3D_MT_Space_Dynamic_Menu(Menu):
             layout.menu("VIEW3D_MT_View_Navigation", icon='PIVOT_BOUNDBOX')
             layout.menu("VIEW3D_MT_View_Toggle", icon='WORKSPACE')
             layout.operator("view3d.snap_cursor_to_center",
-                            text="Cursor to Center")
+                            text="Cursor to World Origin")
             layout.operator("view3d.snap_cursor_to_grid",
                             text="Cursor to Grid")
             layout.menu("VIEW3D_MT_UndoS", icon='ARROW_LEFTRIGHT')
@@ -850,18 +850,18 @@ class VIEW3D_MT_AddMenu(Menu):
         layout.menu("VIEW3D_MT_object_quick_effects", text="Quick Effects", icon='PARTICLES')
         UseSeparator(self, context)
 
-        has_groups = (len(bpy.data.groups) > 0)
+        has_groups = (len(bpy.data.collections) > 0)
         col_group = layout.column()
         col_group.enabled = has_groups
 
-        if not has_groups or len(bpy.data.groups) > 10:
+        if not has_groups or len(bpy.data.collections) > 10:
             col_group.operator_context = 'INVOKE_REGION_WIN'
-            col_group.operator("object.group_instance_add",
-                                text="Group Instance..." if has_groups else "No Groups in Data",
+            col_group.operator("object.collection_instance_add",
+                                text="Collection Instance..." if has_groups else "No Groups in Data",
                                 icon='GROUP_VERTEX')
         else:
-            col_group.operator_menu_enum("object.group_instance_add", "group",
-                                text="Group Instance", icon='GROUP_VERTEX')
+            col_group.operator_menu_enum("object.collection_instance_add", "collection",
+                                text="Collection Instance", icon='GROUP_VERTEX')
 
 
 # ********** Object Manipulator **********
@@ -974,7 +974,7 @@ class VIEW3D_MT_CursorMenu(Menu):
         layout.operator("view3d.snap_cursor_to_selected",
                         text="Cursor to Selected")
         layout.operator("view3d.snap_cursor_to_center",
-                        text="Cursor to Center")
+                        text="Cursor to World Origin")
         layout.operator("view3d.snap_cursor_to_grid",
                         text="Cursor to Grid")
         layout.operator("view3d.snap_cursor_to_active",
@@ -987,7 +987,7 @@ class VIEW3D_MT_CursorMenu(Menu):
         layout.operator("view3d.snap_selected_to_grid",
                         text="Selection to Grid")
         layout.operator("view3d.snap_cursor_selected_to_center",
-                        text="Selection and Cursor to Center")
+                        text="Selection and Cursor to World Origin")
         UseSeparator(self, context)
         layout.menu("VIEW3D_MT_Pivot")
         layout.operator("view3d.pivot_cursor",
@@ -1007,7 +1007,7 @@ class VIEW3D_MT_CursorMenuLite(Menu):
         layout.operator("view3d.snap_cursor_to_selected",
                         text="Cursor to Selected")
         layout.operator("view3d.snap_cursor_to_center",
-                        text="Cursor to Center")
+                        text="Cursor to World Origin")
         layout.operator("view3d.snap_cursor_to_grid",
                         text="Cursor to Grid")
         layout.operator("view3d.snap_cursor_to_active",
@@ -1020,7 +1020,7 @@ class VIEW3D_MT_CursorMenuLite(Menu):
         layout.operator("view3d.snap_selected_to_grid",
                         text="Selection to Grid")
         layout.operator("view3d.snap_cursor_selected_to_center",
-                        text="Selection and Cursor to Center")
+                        text="Selection and Cursor to World Origin")
         UseSeparator(self, context)
         layout.menu("VIEW3D_MT_Pivot")
         layout.operator("view3d.pivot_cursor",
@@ -1178,12 +1178,12 @@ class VIEW3D_MT_GroupMenu(Menu):
 
     def draw(self, context):
         layout = self.layout
-        layout.operator("group.create")
-        layout.operator("group.objects_add_active")
+        layout.operator("collection.create")
+        layout.operator("collection.objects_add_active")
         UseSeparator(self, context)
-        layout.operator("group.objects_remove")
-        layout.operator("group.objects_remove_all")
-        layout.operator("group.objects_remove_active")
+        layout.operator("collection.objects_remove")
+        layout.operator("collection.objects_remove_all")
+        layout.operator("collection.objects_remove_active")
 
 
 # ********** Object Camera Options **********
@@ -1415,7 +1415,7 @@ class VIEW3D_MT_EditCursorMenu(Menu):
         layout.operator("view3d.snap_cursor_to_selected",
                         text="Cursor to Selected")
         layout.operator("view3d.snap_cursor_to_center",
-                        text="Cursor to Center")
+                        text="Cursor to World Origin")
         layout.operator("view3d.snap_cursor_to_grid",
                         text="Cursor to Grid")
         layout.operator("view3d.snap_cursor_to_active",
@@ -2926,7 +2926,7 @@ class SetOriginToSelected(Operator):
 # Code thanks to Isaac Weaver (wisaac) D1963
 class SnapCursSelToCenter(Operator):
     bl_idname = "view3d.snap_cursor_selected_to_center"
-    bl_label = "Snap Cursor & Selection to Center"
+    bl_label = "Snap Cursor & Selection to World Origin"
     bl_description = ("Snap 3D cursor and selected objects to the center \n"
                       "Works only in Object Mode")
 

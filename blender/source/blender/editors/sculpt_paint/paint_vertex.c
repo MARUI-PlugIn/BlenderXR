@@ -58,6 +58,7 @@
 #include "BKE_main.h"
 #include "BKE_mesh.h"
 #include "BKE_mesh_mapping.h"
+#include "BKE_modifier.h"
 #include "BKE_object.h"
 #include "BKE_object_deform.h"
 #include "BKE_paint.h"
@@ -71,10 +72,14 @@
 #include "WM_message.h"
 #include "WM_toolsystem.h"
 
+#include "ED_armature.h"
 #include "ED_object.h"
 #include "ED_mesh.h"
 #include "ED_screen.h"
 #include "ED_view3d.h"
+
+/* For IMB_BlendMode only. */
+#include "IMB_imbuf.h"
 
 #include "bmesh.h"
 #include "BKE_ccg.h"
@@ -153,9 +158,17 @@ static bool vwpaint_use_normal(const VPaint *vp)
 	       ((vp->paint.brush->flag & BRUSH_FRONTFACE_FALLOFF) != 0);
 }
 
-static bool brush_use_accumulate(const Brush *brush)
+static bool brush_use_accumulate_ex(const Brush *brush, const int ob_mode)
 {
-	return (brush->flag & BRUSH_ACCUMULATE) != 0 || brush->vertexpaint_tool == PAINT_BLEND_SMEAR;
+	return ((brush->flag & BRUSH_ACCUMULATE) != 0 ||
+	        (ob_mode == OB_MODE_VERTEX_PAINT ?
+	         (brush->vertexpaint_tool == VPAINT_TOOL_SMEAR) :
+	         (brush->weightpaint_tool == WPAINT_TOOL_SMEAR)));
+}
+
+static bool brush_use_accumulate(const VPaint *vp)
+{
+	return brush_use_accumulate_ex(vp->paint.brush, vp->paint.runtime.ob_mode);
 }
 
 static MDeformVert *defweight_prev_init(MDeformVert *dvert_prev, MDeformVert *dvert_curr, int index)
@@ -274,15 +287,6 @@ bool weight_paint_poll_ignore_tool(bContext *C)
 	return weight_paint_poll_ex(C, false);
 }
 
-static VPaint *new_vpaint(void)
-{
-	VPaint *vp = MEM_callocN(sizeof(VPaint), "VPaint");
-
-	vp->paint.flags |= PAINT_SHOW_BRUSH;
-
-	return vp;
-}
-
 uint vpaint_get_current_col(Scene *scene, VPaint *vp, bool secondary)
 {
 	Brush *brush = BKE_paint_brush(&vp->paint);
@@ -300,16 +304,16 @@ static uint vpaint_blend(
         const int brush_alpha_value_i)
 {
 	const Brush *brush = vp->paint.brush;
-	const int tool = brush->vertexpaint_tool;
+	const IMB_BlendMode blend = brush->blend;
 
-	uint color_blend = ED_vpaint_blend_tool(tool, color_curr, color_paint, alpha_i);
+	uint color_blend = ED_vpaint_blend_tool(blend, color_curr, color_paint, alpha_i);
 
 	/* if no accumulate, clip color adding with colorig & orig alpha */
-	if (!brush_use_accumulate(brush)) {
+	if (!brush_use_accumulate(vp)) {
 		uint color_test, a;
 		char *cp, *ct, *co;
 
-		color_test = ED_vpaint_blend_tool(tool, color_orig, color_paint, brush_alpha_value_i);
+		color_test = ED_vpaint_blend_tool(blend, color_orig, color_paint, brush_alpha_value_i);
 
 		cp = (char *)&color_blend;
 		ct = (char *)&color_test;
@@ -328,7 +332,7 @@ static uint vpaint_blend(
 	}
 
 	if ((brush->flag & BRUSH_LOCK_ALPHA) &&
-	    !ELEM(tool, PAINT_BLEND_ALPHA_SUB, PAINT_BLEND_ALPHA_ADD))
+	    !ELEM(blend, IMB_BLEND_ERASE_ALPHA, IMB_BLEND_ADD_ALPHA))
 	{
 		char *cp, *cc;
 		cp = (char *)&color_blend;
@@ -346,7 +350,7 @@ static void tex_color_alpha(
 	const Brush *brush = BKE_paint_brush(&vp->paint);
 	BLI_assert(brush->mtex.tex != NULL);
 	if (brush->mtex.brush_map_mode == MTEX_MAP_MODE_3D) {
-		BKE_brush_sample_tex_3D(vc->scene, brush, co, r_rgba, 0, NULL);
+		BKE_brush_sample_tex_3d(vc->scene, brush, co, r_rgba, 0, NULL);
 	}
 	else {
 		float co_ss[2];  /* screenspace */
@@ -356,7 +360,7 @@ static void tex_color_alpha(
 		        V3D_PROJ_TEST_CLIP_BB | V3D_PROJ_TEST_CLIP_NEAR) == V3D_PROJ_RET_OK)
 		{
 			const float co_ss_3d[3] = {co_ss[0], co_ss[1], 0.0f};  /* we need a 3rd empty value */
-			BKE_brush_sample_tex_3D(vc->scene, brush, co_ss_3d, r_rgba, 0, NULL);
+			BKE_brush_sample_tex_3d(vc->scene, brush, co_ss_3d, r_rgba, 0, NULL);
 		}
 		else {
 			zero_v4(r_rgba);
@@ -372,24 +376,25 @@ static float wpaint_blend(
         const short do_flip)
 {
 	const Brush *brush = wp->paint.brush;
-	int tool = brush->vertexpaint_tool;
+	IMB_BlendMode blend = brush->blend;
 
 	if (do_flip) {
-		switch (tool) {
-			case PAINT_BLEND_MIX:
+		switch (blend) {
+			case IMB_BLEND_MIX:
 				paintval = 1.f - paintval; break;
-			case PAINT_BLEND_ADD:
-				tool = PAINT_BLEND_SUB; break;
-			case PAINT_BLEND_SUB:
-				tool = PAINT_BLEND_ADD; break;
-			case PAINT_BLEND_LIGHTEN:
-				tool = PAINT_BLEND_DARKEN; break;
-			case PAINT_BLEND_DARKEN:
-				tool = PAINT_BLEND_LIGHTEN; break;
+			case IMB_BLEND_ADD:
+				blend = IMB_BLEND_SUB; break;
+			case IMB_BLEND_SUB:
+				blend = IMB_BLEND_ADD; break;
+			case IMB_BLEND_LIGHTEN:
+				blend = IMB_BLEND_DARKEN; break;
+			case IMB_BLEND_DARKEN:
+				blend = IMB_BLEND_LIGHTEN; break;
+			default: break;
 		}
 	}
 
-	weight = ED_wpaint_blend_tool(tool, weight, paintval, alpha);
+	weight = ED_wpaint_blend_tool(blend, weight, paintval, alpha);
 
 	CLAMP(weight, 0.0f, 1.0f);
 
@@ -768,7 +773,7 @@ static void do_weight_paint_vertex_single(
 		dw_mirr = NULL;
 	}
 
-	if (!brush_use_accumulate(wp->paint.brush)) {
+	if (!brush_use_accumulate(wp)) {
 		MDeformVert *dvert_prev = ob->sculpt->mode.wpaint.dvert_prev;
 		MDeformVert *dv_prev = defweight_prev_init(dvert_prev, me->dvert, index);
 		if (index_mirr != -1) {
@@ -884,7 +889,7 @@ static void do_weight_paint_vertex_multi(
 		return;
 	}
 
-	if (!brush_use_accumulate(wp->paint.brush)) {
+	if (!brush_use_accumulate(wp)) {
 		MDeformVert *dvert_prev = ob->sculpt->mode.wpaint.dvert_prev;
 		MDeformVert *dv_prev = defweight_prev_init(dvert_prev, me->dvert, index);
 		if (index_mirr != -1) {
@@ -987,15 +992,12 @@ static void vertex_paint_init_session_data(const ToolSettings *ts, Object *ob)
 {
 	/* Create maps */
 	struct SculptVertexPaintGeomMap *gmap = NULL;
-	const Brush *brush = NULL;
 	if (ob->mode == OB_MODE_VERTEX_PAINT) {
 		gmap = &ob->sculpt->mode.vpaint.gmap;
-		brush = BKE_paint_brush(&ts->vpaint->paint);
 		BLI_assert(ob->sculpt->mode_type == OB_MODE_VERTEX_PAINT);
 	}
 	else if (ob->mode == OB_MODE_WEIGHT_PAINT) {
 		gmap = &ob->sculpt->mode.wpaint.gmap;
-		brush = BKE_paint_brush(&ts->wpaint->paint);
 		BLI_assert(ob->sculpt->mode_type == OB_MODE_WEIGHT_PAINT);
 	}
 	else {
@@ -1023,7 +1025,7 @@ static void vertex_paint_init_session_data(const ToolSettings *ts, Object *ob)
 
 	/* Create average brush arrays */
 	if (ob->mode == OB_MODE_VERTEX_PAINT) {
-		if (!brush_use_accumulate(brush)) {
+		if (!brush_use_accumulate(ts->vpaint)) {
 			if (ob->sculpt->mode.vpaint.previous_color == NULL) {
 				ob->sculpt->mode.vpaint.previous_color =
 				        MEM_callocN(me->totloop * sizeof(uint), __func__);
@@ -1034,7 +1036,7 @@ static void vertex_paint_init_session_data(const ToolSettings *ts, Object *ob)
 		}
 	}
 	else if (ob->mode == OB_MODE_WEIGHT_PAINT) {
-		if (!brush_use_accumulate(brush)) {
+		if (!brush_use_accumulate(ts->wpaint)) {
 			if (ob->sculpt->mode.wpaint.alpha_weight == NULL) {
 				ob->sculpt->mode.wpaint.alpha_weight =
 				        MEM_callocN(me->totvert * sizeof(float), __func__);
@@ -1079,24 +1081,18 @@ static void ed_vwpaintmode_enter_generic(
 	BKE_object_free_derived_caches(ob);
 
 	if (mode_flag == OB_MODE_VERTEX_PAINT) {
-		const ePaintMode paint_mode = ePaintVertex;
+		const ePaintMode paint_mode = PAINT_MODE_VERTEX;
 		ED_mesh_color_ensure(me, NULL);
 
-		if (scene->toolsettings->vpaint == NULL) {
-			scene->toolsettings->vpaint = new_vpaint();
-		}
-
+		BKE_paint_ensure(scene->toolsettings, (Paint **)&scene->toolsettings->vpaint);
 		Paint *paint = BKE_paint_get_active_from_paintmode(scene, paint_mode);
 		paint_cursor_start_explicit(paint, wm, vertex_paint_poll);
 		BKE_paint_init(bmain, scene, paint_mode, PAINT_CURSOR_VERTEX_PAINT);
 	}
 	else if (mode_flag == OB_MODE_WEIGHT_PAINT) {
-		const  ePaintMode paint_mode = ePaintWeight;
+		const  ePaintMode paint_mode = PAINT_MODE_WEIGHT;
 
-		if (scene->toolsettings->wpaint == NULL) {
-			scene->toolsettings->wpaint = new_vpaint();
-		}
-
+		BKE_paint_ensure(scene->toolsettings, (Paint **)&scene->toolsettings->wpaint);
 		Paint *paint = BKE_paint_get_active_from_paintmode(scene, paint_mode);
 		paint_cursor_start_explicit(paint, wm, weight_paint_poll);
 		BKE_paint_init(bmain, scene, paint_mode, PAINT_CURSOR_WEIGHT_PAINT);
@@ -1247,6 +1243,7 @@ static int wpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 	const int mode_flag = OB_MODE_WEIGHT_PAINT;
 	const bool is_mode_set = (ob->mode & mode_flag) != 0;
 	Scene *scene = CTX_data_scene(C);
+	ToolSettings *ts = scene->toolsettings;
 
 	if (!is_mode_set) {
 		if (!ED_object_mode_compat_set(C, ob, mode_flag, op->reports)) {
@@ -1263,6 +1260,22 @@ static int wpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 		Depsgraph *depsgraph = CTX_data_depsgraph_on_load(C);
 		wmWindowManager *wm = CTX_wm_manager(C);
 		ED_object_wpaintmode_enter_ex(bmain, depsgraph, wm, scene, ob);
+		BKE_paint_toolslots_brush_validate(bmain, &ts->wpaint->paint);
+	}
+
+	/* When locked, it's almost impossible to select the pose then the object to enter weight paint mode.
+	 * In this case move our pose object in/out of pose mode.
+	 * This is in fits with the convention of selecting multiple objects and entering a mode. */
+	if (scene->toolsettings->object_flag & SCE_OBJECT_MODE_LOCK) {
+		Object *ob_arm = modifiers_isDeformedByArmature(ob);
+		if (ob_arm && (ob_arm->base_flag & BASE_SELECTED)) {
+			if (ob_arm->mode & OB_MODE_POSE) {
+				ED_object_posemode_exit_ex(bmain, ob_arm);
+			}
+			else {
+				ED_object_posemode_enter_ex(bmain, ob_arm);
+			}
+		}
 	}
 
 	/* Weightpaint works by overriding colors in mesh,
@@ -1307,7 +1320,7 @@ void PAINT_OT_weight_paint_toggle(wmOperatorType *ot)
 	ot->poll = paint_poll_test;
 
 	/* flags */
-	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_USE_EVAL_DATA;
 }
 
 /* ************ weight paint operator ********** */
@@ -1413,7 +1426,7 @@ static void vwpaint_update_cache_variants(bContext *C, VPaint *vp, Object *ob, P
 	 * brush coord/pressure/etc.
 	 * It's more an events design issue, which doesn't split coordinate/pressure/angle
 	 * changing events. We should avoid this after events system re-design */
-	if (paint_supports_dynamic_size(brush, ePaintSculpt) || cache->first_time) {
+	if (paint_supports_dynamic_size(brush, PAINT_MODE_SCULPT) || cache->first_time) {
 		cache->pressure = RNA_float_get(ptr, "pressure");
 	}
 
@@ -1429,7 +1442,7 @@ static void vwpaint_update_cache_variants(bContext *C, VPaint *vp, Object *ob, P
 		}
 	}
 
-	if (BKE_brush_use_size_pressure(scene, brush) && paint_supports_dynamic_size(brush, ePaintSculpt)) {
+	if (BKE_brush_use_size_pressure(scene, brush) && paint_supports_dynamic_size(brush, PAINT_MODE_SCULPT)) {
 		cache->radius = cache->initial_radius * cache->pressure;
 	}
 	else {
@@ -1557,7 +1570,7 @@ static bool wpaint_stroke_test_start(bContext *C, wmOperator *op, const float mo
 		wpd->mirror.lock = tmpflags;
 	}
 
-	if (ELEM(vp->paint.brush->vertexpaint_tool, PAINT_BLEND_SMEAR, PAINT_BLEND_BLUR)) {
+	if (ELEM(vp->paint.brush->weightpaint_tool, WPAINT_TOOL_SMEAR, WPAINT_TOOL_BLUR)) {
 		wpd->precomputed_weight = MEM_mallocN(sizeof(float) * me->totvert, __func__);
 	}
 
@@ -1625,7 +1638,7 @@ static void do_wpaint_precompute_weight_cb_ex(
 static void precompute_weight_values(
         bContext *C, Object *ob, Brush *brush, struct WPaintData *wpd, WeightPaintInfo *wpi, Mesh *me)
 {
-	if (wpd->precomputed_weight_ready && !brush_use_accumulate(brush))
+	if (wpd->precomputed_weight_ready && !brush_use_accumulate_ex(brush, ob->mode))
 		return;
 
 	/* threaded loop over vertices */
@@ -2019,8 +2032,8 @@ static void wpaint_paint_leaves(
 	/* NOTE: current mirroring code cannot be run in parallel */
 	settings.use_threading = !(me->editflag & ME_EDIT_MIRROR_X);
 
-	switch (brush->vertexpaint_tool) {
-		case PAINT_BLEND_AVERAGE:
+	switch ((eBrushWeightPaintTool)brush->weightpaint_tool) {
+		case WPAINT_TOOL_AVERAGE:
 			calculate_average_weight(&data, nodes, totnode);
 			BLI_task_parallel_range(
 			        0, totnode,
@@ -2028,21 +2041,21 @@ static void wpaint_paint_leaves(
 			        do_wpaint_brush_draw_task_cb_ex,
 			        &settings);
 			break;
-		case PAINT_BLEND_SMEAR:
+		case WPAINT_TOOL_SMEAR:
 			BLI_task_parallel_range(
 			        0, totnode,
 			        &data,
 			        do_wpaint_brush_smear_task_cb_ex,
 			        &settings);
 			break;
-		case PAINT_BLEND_BLUR:
+		case WPAINT_TOOL_BLUR:
 			BLI_task_parallel_range(
 			        0, totnode,
 			        &data,
 			        do_wpaint_brush_blur_task_cb_ex,
 			        &settings);
 			break;
-		default:
+		case WPAINT_TOOL_DRAW:
 			BLI_task_parallel_range(
 			        0, totnode,
 			        &data,
@@ -2390,6 +2403,7 @@ static int vpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 	const int mode_flag = OB_MODE_VERTEX_PAINT;
 	const bool is_mode_set = (ob->mode & mode_flag) != 0;
 	Scene *scene = CTX_data_scene(C);
+	ToolSettings *ts = scene->toolsettings;
 
 	if (!is_mode_set) {
 		if (!ED_object_mode_compat_set(C, ob, mode_flag, op->reports)) {
@@ -2407,6 +2421,7 @@ static int vpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 		Depsgraph *depsgraph = CTX_data_depsgraph_on_load(C);
 		wmWindowManager *wm = CTX_wm_manager(C);
 		ED_object_vpaintmode_enter_ex(bmain, depsgraph, wm, scene, ob);
+		BKE_paint_toolslots_brush_validate(bmain, &ts->vpaint->paint);
 	}
 
 	BKE_mesh_batch_cache_dirty_tag(ob->data, BKE_MESH_BATCH_DIRTY_ALL);
@@ -2435,7 +2450,7 @@ void PAINT_OT_vertex_paint_toggle(wmOperatorType *ot)
 	ot->poll = paint_poll_test;
 
 	/* flags */
-	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_USE_EVAL_DATA;
 }
 
 
@@ -2523,7 +2538,7 @@ static bool vpaint_stroke_test_start(bContext *C, struct wmOperator *op, const f
 
 	vpd->paintcol = vpaint_get_current_col(scene, vp, (RNA_enum_get(op->ptr, "mode") == BRUSH_STROKE_INVERT));
 
-	vpd->is_texbrush = !(brush->vertexpaint_tool == PAINT_BLEND_BLUR) && brush->mtex.tex;
+	vpd->is_texbrush = !(brush->vertexpaint_tool == VPAINT_TOOL_BLUR) && brush->mtex.tex;
 
 	/* are we painting onto a modified mesh?,
 	 * if not we can skip face map trickiness */
@@ -2537,11 +2552,11 @@ static bool vpaint_stroke_test_start(bContext *C, struct wmOperator *op, const f
 	}
 
 	/* to keep tracked of modified loops for shared vertex color blending */
-	if (brush->vertexpaint_tool == PAINT_BLEND_BLUR) {
+	if (brush->vertexpaint_tool == VPAINT_TOOL_BLUR) {
 		vpd->mlooptag = MEM_mallocN(sizeof(bool) * me->totloop, "VPaintData mlooptag");
 	}
 
-	if (brush->vertexpaint_tool == PAINT_BLEND_SMEAR) {
+	if (brush->vertexpaint_tool == VPAINT_TOOL_SMEAR) {
 		vpd->smear.color_prev = MEM_mallocN(sizeof(uint) * me->totloop, __func__);
 		memcpy(vpd->smear.color_prev, me->mloopcol, sizeof(uint) * me->totloop);
 		vpd->smear.color_curr = MEM_dupallocN(vpd->smear.color_prev);
@@ -3020,8 +3035,8 @@ static void vpaint_paint_leaves(
 	};
 	ParallelRangeSettings settings;
 	BLI_parallel_range_settings_defaults(&settings);
-	switch (brush->vertexpaint_tool) {
-		case PAINT_BLEND_AVERAGE:
+	switch ((eBrushVertexPaintTool)brush->vertexpaint_tool) {
+		case VPAINT_TOOL_AVERAGE:
 			calculate_average_color(&data, nodes, totnode);
 			BLI_task_parallel_range(
 			    0, totnode,
@@ -3029,21 +3044,21 @@ static void vpaint_paint_leaves(
 			    do_vpaint_brush_draw_task_cb_ex,
 			    &settings);
 			break;
-		case PAINT_BLEND_BLUR:
+		case VPAINT_TOOL_BLUR:
 			BLI_task_parallel_range(
 			    0, totnode,
 			    &data,
 			    do_vpaint_brush_blur_task_cb_ex,
 			    &settings);
 			break;
-		case PAINT_BLEND_SMEAR:
+		case VPAINT_TOOL_SMEAR:
 			BLI_task_parallel_range(
 			    0, totnode,
 			    &data,
 			    do_vpaint_brush_smear_task_cb_ex,
 			    &settings);
 			break;
-		default:
+		case VPAINT_TOOL_DRAW:
 			BLI_task_parallel_range(
 			    0, totnode,
 			    &data,
@@ -3155,7 +3170,7 @@ static void vpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 
 	BKE_mesh_batch_cache_dirty_tag(ob->data, BKE_MESH_BATCH_DIRTY_ALL);
 
-	if (vp->paint.brush->vertexpaint_tool == PAINT_BLEND_SMEAR) {
+	if (vp->paint.brush->vertexpaint_tool == VPAINT_TOOL_SMEAR) {
 		memcpy(vpd->smear.color_prev, vpd->smear.color_curr, sizeof(uint) * ((Mesh *)ob->data)->totloop);
 	}
 

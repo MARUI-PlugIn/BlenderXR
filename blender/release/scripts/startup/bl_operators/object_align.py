@@ -66,13 +66,13 @@ def worldspace_bounds_from_object_bounds(bb_world):
     return (Vector((left, front, up)), Vector((right, back, down)))
 
 
-def worldspace_bounds_from_object_data(scene, obj):
+def worldspace_bounds_from_object_data(depsgraph, obj):
 
     matrix_world = obj.matrix_world.copy()
 
     # Initialize the variables with the last vertex
 
-    me = obj.to_mesh(scene=scene, apply_modifiers=True, settings='PREVIEW')
+    me = obj.to_mesh(depsgraph=depsgraph, apply_modifiers=True)
     verts = me.vertices
 
     val = matrix_world @ (verts[-1].co if verts else Vector((0.0, 0.0, 0.0)))
@@ -127,10 +127,10 @@ def align_objects(context,
                   relative_to,
                   bb_quality):
 
+    depsgraph = context.depsgraph
     scene = context.scene
-    space = context.space_data
 
-    cursor = (space if space and space.type == 'VIEW_3D' else scene).cursor_location
+    cursor = scene.cursor_location
 
     # We are accessing runtime data such as evaluated bounding box, so we need to
     # be sure it is properly updated and valid (bounding box might be lost on operator
@@ -155,7 +155,7 @@ def align_objects(context,
     for obj, bb_world in objects:
 
         if bb_quality and obj.type == 'MESH':
-            GBB = worldspace_bounds_from_object_data(scene, obj)
+            GBB = worldspace_bounds_from_object_data(depsgraph, obj)
         else:
             GBB = worldspace_bounds_from_object_bounds(bb_world)
 
@@ -219,7 +219,7 @@ def align_objects(context,
         bb_world = [matrix_world @ Vector(v[:]) for v in obj.bound_box]
 
         if bb_quality and obj.type == 'MESH':
-            GBB = worldspace_bounds_from_object_data(scene, obj)
+            GBB = worldspace_bounds_from_object_data(depsgraph, obj)
         else:
             GBB = worldspace_bounds_from_object_bounds(bb_world)
 

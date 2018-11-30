@@ -69,6 +69,7 @@
 #include "BKE_curve.h"
 #include "BKE_DerivedMesh.h"
 #include "BKE_displist.h"
+#include "BKE_editmesh.h"
 #include "BKE_global.h"
 #include "BKE_gpencil.h"
 #include "BKE_fcurve.h"
@@ -92,7 +93,6 @@
 #include "BKE_scene.h"
 #include "BKE_speaker.h"
 #include "BKE_texture.h"
-#include "BKE_editmesh.h"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_build.h"
@@ -631,7 +631,7 @@ bool ED_object_parent_set(ReportList *reports, const bContext *C, Scene *scene, 
 
 			if ((cu->flag & CU_PATH) == 0) {
 				cu->flag |= CU_PATH | CU_FOLLOW;
-				BKE_displist_make_curveTypes(depsgraph, scene, par, 0);  /* force creation of path data */
+				BKE_displist_make_curveTypes(depsgraph, scene, par, false, false);  /* force creation of path data */
 			}
 			else {
 				cu->flag |= CU_FOLLOW;
@@ -1473,13 +1473,13 @@ static int make_links_data_exec(bContext *C, wmOperator *op)
 						DEG_id_tag_update(&ob_dst->id, OB_RECALC_DATA);
 						break;
 					case MAKE_LINKS_ANIMDATA:
-						BKE_animdata_copy_id(bmain, (ID *)ob_dst, (ID *)ob_src, false, true);
+						BKE_animdata_copy_id(bmain, (ID *)ob_dst, (ID *)ob_src, 0);
 						if (ob_dst->data && ob_src->data) {
 							if (ID_IS_LINKED(obdata_id)) {
 								is_lib = true;
 								break;
 							}
-							BKE_animdata_copy_id(bmain, (ID *)ob_dst->data, (ID *)ob_src->data, false, true);
+							BKE_animdata_copy_id(bmain, (ID *)ob_dst->data, (ID *)ob_src->data, 0);
 						}
 						DEG_id_tag_update(&ob_dst->id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
 						break;
@@ -1629,6 +1629,10 @@ void OBJECT_OT_make_links_data(wmOperatorType *ot)
 static void libblock_relink_collection(Collection *collection)
 {
 	BKE_libblock_relink_to_newid(&collection->id);
+
+	for (CollectionObject *cob = collection->gobject.first; cob != NULL; cob = cob->next) {
+		BKE_libblock_relink_to_newid(&cob->ob->id);
+	}
 
 	for (CollectionChild *child = collection->children.first; child; child = child->next) {
 		libblock_relink_collection(child->collection);
@@ -2059,9 +2063,6 @@ static void make_local_animdata_tag_strips(ListBase *strips)
 		if (strip->act) {
 			strip->act->id.tag &= ~LIB_TAG_PRE_EXISTING;
 		}
-		if (strip->remap && strip->remap->target) {
-			strip->remap->target->id.tag &= ~LIB_TAG_PRE_EXISTING;
-		}
 
 		make_local_animdata_tag_strips(&strip->strips);
 	}
@@ -2077,10 +2078,6 @@ static void make_local_animdata_tag(AnimData *adt)
 		}
 		if (adt->tmpact) {
 			adt->tmpact->id.tag &= ~LIB_TAG_PRE_EXISTING;
-		}
-		/* Remaps */
-		if (adt->remap && adt->remap->target) {
-			adt->remap->target->id.tag &= ~LIB_TAG_PRE_EXISTING;
 		}
 
 		/* Drivers */
@@ -2343,7 +2340,8 @@ static int make_override_static_exec(bContext *C, wmOperator *op)
 					new_ob->parent = obcollection;
 				}
 				if (new_ob == (Object *)obact->id.newid) {
-					BKE_view_layer_base_select(view_layer, base);
+					/* TODO: is setting active needed? */
+					BKE_view_layer_base_select_and_set_active(view_layer, base);
 				}
 				else {
 					/* Disable auto-override tags for non-active objects, will help with performaces... */
@@ -2538,7 +2536,6 @@ void OBJECT_OT_drop_named_material(wmOperatorType *ot)
 {
 	/* identifiers */
 	ot->name = "Drop Named Material on Object";
-	ot->description = "";
 	ot->idname = "OBJECT_OT_drop_named_material";
 
 	/* api callbacks */
@@ -2595,7 +2592,6 @@ void OBJECT_OT_unlink_data(wmOperatorType *ot)
 	/* identifiers */
 	ot->name = "Unlink";
 	ot->idname = "OBJECT_OT_unlink_data";
-	ot->description = "";
 
 	/* api callbacks */
 	ot->exec = object_unlink_data_exec;

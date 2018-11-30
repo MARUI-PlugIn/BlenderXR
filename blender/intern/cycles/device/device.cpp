@@ -203,7 +203,7 @@ bool Device::bind_fallback_display_space_shader(const float width, const float h
 		fallback_shader_program = bind_fallback_shader();
 		fallback_status = FALLBACK_SHADER_STATUS_ERROR;
 
-		if (fallback_shader_program == 0) {
+		if(fallback_shader_program == 0) {
 			return false;
 		}
 
@@ -266,7 +266,7 @@ void Device::draw_pixels(
 
 	GLint shader_program;
 	if(use_fallback_shader) {
-		if (!bind_fallback_display_space_shader(dw, dh)) {
+		if(!bind_fallback_display_space_shader(dw, dh)) {
 			return;
 		}
 		shader_program = fallback_shader_program;
@@ -349,36 +349,36 @@ void Device::draw_pixels(
 	}
 }
 
-Device *Device::create(DeviceInfo& info, Stats &stats, bool background)
+Device *Device::create(DeviceInfo& info, Stats &stats, Profiler &profiler, bool background)
 {
 	Device *device;
 
 	switch(info.type) {
 		case DEVICE_CPU:
-			device = device_cpu_create(info, stats, background);
+			device = device_cpu_create(info, stats, profiler, background);
 			break;
 #ifdef WITH_CUDA
 		case DEVICE_CUDA:
 			if(device_cuda_init())
-				device = device_cuda_create(info, stats, background);
+				device = device_cuda_create(info, stats, profiler, background);
 			else
 				device = NULL;
 			break;
 #endif
 #ifdef WITH_MULTI
 		case DEVICE_MULTI:
-			device = device_multi_create(info, stats, background);
+			device = device_multi_create(info, stats, profiler, background);
 			break;
 #endif
 #ifdef WITH_NETWORK
 		case DEVICE_NETWORK:
-			device = device_network_create(info, stats, "127.0.0.1");
+			device = device_network_create(info, stats, profiler, "127.0.0.1");
 			break;
 #endif
 #ifdef WITH_OPENCL
 		case DEVICE_OPENCL:
 			if(device_opencl_init())
-				device = device_opencl_create(info, stats, background);
+				device = device_opencl_create(info, stats, profiler, background);
 			else
 				device = NULL;
 			break;
@@ -504,8 +504,8 @@ DeviceInfo Device::get_multi_device(const vector<DeviceInfo>& subdevices, int th
 
 	info.has_half_images = true;
 	info.has_volume_decoupled = true;
-	info.bvh_layout_mask = BVH_LAYOUT_ALL;
 	info.has_osl = true;
+	info.has_profiling = true;
 
 	foreach(const DeviceInfo &device, subdevices) {
 		/* Ensure CPU device does not slow down GPU. */
@@ -539,8 +539,8 @@ DeviceInfo Device::get_multi_device(const vector<DeviceInfo>& subdevices, int th
 		/* Accumulate device info. */
 		info.has_half_images &= device.has_half_images;
 		info.has_volume_decoupled &= device.has_volume_decoupled;
-		info.bvh_layout_mask = device.bvh_layout_mask & info.bvh_layout_mask;
 		info.has_osl &= device.has_osl;
+		info.has_profiling &= device.has_profiling;
 	}
 
 	return info;

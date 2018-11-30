@@ -232,9 +232,12 @@ typedef struct GpencilModifierTypeInfo {
 	 */
 	void (*foreachTexLink)(struct GpencilModifierData *md, struct Object *ob,
 	                       GreasePencilTexWalkFunc walk, void *userData);
-} GpencilModifierTypeInfo;
 
-void BKE_gpencil_instance_modifier_instance_tfm(struct InstanceGpencilModifierData *mmd, const int elem_idx[3], float r_mat[4][4]);
+	/* get the number of times the strokes are duplicated in this modifier.
+	 * This is used to calculate the size of the GPU VBOs
+	 */
+	int (*getDuplicationFactor)(struct GpencilModifierData *md);
+} GpencilModifierTypeInfo;
 
 /* Initialize modifier's global data (type info and some common global storages). */
 void BKE_gpencil_modifier_init(void);

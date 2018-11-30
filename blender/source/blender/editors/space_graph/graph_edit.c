@@ -375,7 +375,7 @@ static void create_ghost_curves(bAnimContext *ac, int start, int end)
 		unitFac = ANIM_unit_mapping_get_factor(ac->scene, ale->id, fcu, mapping_flag, &offset);
 
 		/* create samples, but store them in a new curve
-		 *	- we cannot use fcurve_store_samples() as that will only overwrite the original curve
+		 * - we cannot use fcurve_store_samples() as that will only overwrite the original curve
 		 */
 		gcu->fpt = fpt = MEM_callocN(sizeof(FPoint) * (end - start + 1), "Ghost FPoint Samples");
 		gcu->totvert = end - start + 1;
@@ -389,7 +389,7 @@ static void create_ghost_curves(bAnimContext *ac, int start, int end)
 		}
 
 		/* set color of ghost curve
-		 *	- make the color slightly darker
+		 * - make the color slightly darker
 		 */
 		gcu->color[0] = fcu->color[0] - 0.07f;
 		gcu->color[1] = fcu->color[1] - 0.07f;
@@ -589,17 +589,8 @@ static void insert_graph_keys(bAnimContext *ac, eGraphKeys_InsertKey_Types mode)
 	}
 	else {
 		for (ale = anim_data.first; ale; ale = ale->next) {
-			AnimData *adt = ANIM_nla_mapping_get(ac, ale);
 			FCurve *fcu = (FCurve *)ale->key_data;
-			float cfra;
-
-			/* adjust current frame for NLA-mapping */
-			if ((sipo) && (sipo->mode == SIPO_MODE_DRIVERS))
-				cfra = sipo->cursorTime;
-			else if (adt)
-				cfra = BKE_nla_tweakedit_remap(adt, (float)CFRA, NLATIME_CONVERT_UNMAP);
-			else
-				cfra = (float)CFRA;
+			float cfra = (float)CFRA;
 
 			/* read value from property the F-Curve represents, or from the curve only?
 			 * - ale->id != NULL:    Typically, this means that we have enough info to try resolving the path
@@ -614,6 +605,14 @@ static void insert_graph_keys(bAnimContext *ac, eGraphKeys_InsertKey_Types mode)
 				                fcu->rna_path, fcu->array_index, cfra, ts->keyframe_type, flag);
 			}
 			else {
+				AnimData *adt = ANIM_nla_mapping_get(ac, ale);
+
+				/* adjust current frame for NLA-mapping */
+				if ((sipo) && (sipo->mode == SIPO_MODE_DRIVERS))
+					cfra = sipo->cursorTime;
+				else if (adt)
+					cfra = BKE_nla_tweakedit_remap(adt, (float)CFRA, NLATIME_CONVERT_UNMAP);
+
 				const float curval = evaluate_fcurve(fcu, cfra);
 				insert_vert_fcurve(fcu, cfra, curval, ts->keyframe_type, 0);
 			}
@@ -1820,10 +1819,10 @@ static int graphkeys_euler_filter_exec(bContext *C, wmOperator *op)
 		return OPERATOR_CANCELLED;
 
 	/* The process is done in two passes:
-	 *   1) Sets of three related rotation curves are identified from the selected channels,
-	 *		and are stored as a single 'operation unit' for the next step
-	 *	 2) Each set of three F-Curves is processed for each keyframe, with the values being
-	 *      processed as necessary
+	 * 1) Sets of three related rotation curves are identified from the selected channels,
+	 *    and are stored as a single 'operation unit' for the next step
+	 * 2) Each set of three F-Curves is processed for each keyframe, with the values being
+	 *    processed as necessary
 	 */
 
 	/* step 1: extract only the rotation f-curves */
@@ -1834,8 +1833,8 @@ static int graphkeys_euler_filter_exec(bContext *C, wmOperator *op)
 		FCurve *fcu = (FCurve *)ale->data;
 
 		/* check if this is an appropriate F-Curve
-		 *	- only rotation curves
-		 *	- for pchan curves, make sure we're only using the euler curves
+		 * - only rotation curves
+		 * - for pchan curves, make sure we're only using the euler curves
 		 */
 		if (strstr(fcu->rna_path, "rotation_euler") == NULL)
 			continue;
@@ -1875,7 +1874,7 @@ static int graphkeys_euler_filter_exec(bContext *C, wmOperator *op)
 	}
 
 	/* step 2: go through each set of curves, processing the values at each keyframe
-	 *	- it is assumed that there must be a full set of keyframes at each keyframe position
+	 * - it is assumed that there must be a full set of keyframes at each keyframe position
 	 */
 	for (euf = eulers.first; euf; euf = euf->next) {
 		int f;

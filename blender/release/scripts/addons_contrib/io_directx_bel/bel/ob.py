@@ -56,8 +56,8 @@ def remove(ob,with_data=True) :
 
             # odd (pre 2.60) :
             # ob=bpy.data.objects[ob.name]
-            # if the ob (board) argument comes from bpy.data.groups['aGroup'].objects,
-            #  bpy.data.groups['board'].objects['board'].users_scene
+            # if the ob (board) argument comes from bpy.data.collections['aGroup'].objects,
+            #  bpy.data.collections['board'].objects['board'].users_scene
             ob.name = '_dead'
             for sc in ob.users_scene :
                 sc.objects.unlink(ob)

@@ -557,7 +557,6 @@ def nice_hotkey_name(punc):
         ('LEFTMOUSE', "LMB"),
         ('MIDDLEMOUSE', "MMB"),
         ('RIGHTMOUSE', "RMB"),
-        ('SELECTMOUSE', "Select"),
         ('WHEELUPMOUSE', "Wheel Up"),
         ('WHEELDOWNMOUSE', "Wheel Down"),
         ('WHEELINMOUSE', "Wheel In"),
@@ -3762,7 +3761,7 @@ class NodeWranglerPanel(Panel, NWBase):
     bl_idname = "NODE_PT_nw_node_wrangler"
     bl_space_type = 'NODE_EDITOR'
     bl_label = "Node Wrangler"
-    bl_region_type = "TOOLS"
+    bl_region_type = "UI"
     bl_category = "Node Wrangler"
 
     prepend: StringProperty(
@@ -4806,13 +4805,10 @@ def register():
     # menu items
     bpy.types.NODE_MT_select.append(select_parent_children_buttons)
     bpy.types.NODE_MT_category_SH_NEW_INPUT.prepend(attr_nodes_menu_func)
-    bpy.types.NODE_PT_category_SH_NEW_INPUT.prepend(attr_nodes_menu_func)
     bpy.types.NODE_PT_backdrop.append(bgreset_menu_func)
     bpy.types.NODE_PT_active_node_generic.append(save_viewer_menu_func)
     bpy.types.NODE_MT_category_SH_NEW_TEXTURE.prepend(multipleimages_menu_func)
-    bpy.types.NODE_PT_category_SH_NEW_TEXTURE.prepend(multipleimages_menu_func)
     bpy.types.NODE_MT_category_CMP_INPUT.prepend(multipleimages_menu_func)
-    bpy.types.NODE_PT_category_CMP_INPUT.prepend(multipleimages_menu_func)
     bpy.types.NODE_PT_active_node_generic.prepend(reset_nodes_button)
     bpy.types.NODE_MT_node.prepend(reset_nodes_button)
 
@@ -4834,13 +4830,10 @@ def unregister():
     # menuitems
     bpy.types.NODE_MT_select.remove(select_parent_children_buttons)
     bpy.types.NODE_MT_category_SH_NEW_INPUT.remove(attr_nodes_menu_func)
-    bpy.types.NODE_PT_category_SH_NEW_INPUT.remove(attr_nodes_menu_func)
     bpy.types.NODE_PT_backdrop.remove(bgreset_menu_func)
     bpy.types.NODE_PT_active_node_generic.remove(save_viewer_menu_func)
     bpy.types.NODE_MT_category_SH_NEW_TEXTURE.remove(multipleimages_menu_func)
-    bpy.types.NODE_PT_category_SH_NEW_TEXTURE.remove(multipleimages_menu_func)
     bpy.types.NODE_MT_category_CMP_INPUT.remove(multipleimages_menu_func)
-    bpy.types.NODE_PT_category_CMP_INPUT.remove(multipleimages_menu_func)
     bpy.types.NODE_PT_active_node_generic.remove(reset_nodes_button)
     bpy.types.NODE_MT_node.remove(reset_nodes_button)
 

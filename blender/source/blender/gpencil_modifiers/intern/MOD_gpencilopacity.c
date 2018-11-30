@@ -81,7 +81,7 @@ static void deformStroke(
 	            ob,
 	            mmd->layername, mmd->pass_index, mmd->layer_pass, 1, gpl, gps,
 	            mmd->flag & GP_OPACITY_INVERT_LAYER, mmd->flag & GP_OPACITY_INVERT_PASS,
-				mmd->flag & GP_OPACITY_INVERT_LAYERPASS))
+	            mmd->flag & GP_OPACITY_INVERT_LAYERPASS))
 	{
 		return;
 	}
@@ -183,4 +183,5 @@ GpencilModifierTypeInfo modifierType_Gpencil_Opacity = {
 	/* foreachObjectLink */ NULL,
 	/* foreachIDLink */     NULL,
 	/* foreachTexLink */    NULL,
+	/* getDuplicationFactor */ NULL,
 };

@@ -52,19 +52,18 @@
 #include "BLI_task.h"
 #include "BLI_utildefines.h"
 
+#include "BKE_bvhutils.h"
 #include "BKE_context.h"
 #include "BKE_global.h"
-#include "BKE_object.h"
-#include "BKE_library.h"
 #include "BKE_main.h"
 #include "BKE_mesh.h"
 #include "BKE_mesh_runtime.h"
 #include "BKE_modifier.h"
+#include "BKE_object.h"
 #include "BKE_particle.h"
+#include "BKE_pointcache.h"
 #include "BKE_report.h"
 #include "BKE_scene.h"
-#include "BKE_bvhutils.h"
-#include "BKE_pointcache.h"
 
 #include "DEG_depsgraph.h"
 
@@ -4830,10 +4829,18 @@ static int particle_edit_toggle_exec(bContext *C, wmOperator *op)
 
 		edit = PE_create_current(depsgraph, scene, ob);
 
-		/* mesh may have changed since last entering editmode.
-		 * note, this may have run before if the edit data was just created, so could avoid this and speed up a little */
-		if (edit && edit->psys)
+		/* Mesh may have changed since last entering editmode.
+		 * note, this may have run before if the edit data was just created,
+		 * so could avoid this and speed up a little. */
+		if (edit && edit->psys) {
+			/* Make sure pointer to the evaluated modifier data is up to date,
+			 * with possible changes applied when object was outside of the
+			 * edit mode. */
+			Object *object_eval = DEG_get_evaluated_object(depsgraph, ob);
+			edit->psmd_eval = (ParticleSystemModifierData *)modifiers_findByName(
+			        object_eval, edit->psmd->modifier.name);
 			recalc_emitter_field(depsgraph, ob, edit->psys);
+		}
 
 		toggle_particle_cursor(C, 1);
 		WM_event_add_notifier(C, NC_SCENE | ND_MODE | NS_MODE_PARTICLE, NULL);

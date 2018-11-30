@@ -58,19 +58,19 @@ static struct GPUTextureGlobal {
 
 #if !WITH_VR
 /* Maximum number of FBOs a texture can be attached to. */
-#define GPU_TEX_MAX_FBO_ATTACHED 9
+#define GPU_TEX_MAX_FBO_ATTACHED 10
 
 typedef enum GPUTextureFormatFlag {
-	GPU_FORMAT_DEPTH = (1 << 0),
-	GPU_FORMAT_STENCIL = (1 << 1),
-	GPU_FORMAT_INTEGER = (1 << 2),
-	GPU_FORMAT_FLOAT = (1 << 3),
+	GPU_FORMAT_DEPTH     = (1 << 0),
+	GPU_FORMAT_STENCIL   = (1 << 1),
+	GPU_FORMAT_INTEGER   = (1 << 2),
+	GPU_FORMAT_FLOAT     = (1 << 3),
 
-	GPU_FORMAT_1D = (1 << 10),
-	GPU_FORMAT_2D = (1 << 11),
-	GPU_FORMAT_3D = (1 << 12),
-	GPU_FORMAT_CUBE = (1 << 13),
-	GPU_FORMAT_ARRAY = (1 << 14),
+	GPU_FORMAT_1D        = (1 << 10),
+	GPU_FORMAT_2D        = (1 << 11),
+	GPU_FORMAT_3D        = (1 << 12),
+	GPU_FORMAT_CUBE      = (1 << 13),
+	GPU_FORMAT_ARRAY     = (1 << 14),
 } GPUTextureFormatFlag;
 
 /* GPUTexture */
@@ -80,13 +80,13 @@ struct GPUTexture {
 	int refcount;       /* reference count */
 	GLenum target;      /* GL_TEXTURE_* */
 	GLenum target_base; /* same as target, (but no multisample)
-						 * use it for unbinding */
+	                     * use it for unbinding */
 	GLuint bindcode;    /* opengl identifier for texture */
 
 	GPUTextureFormat format;
 	GPUTextureFormatFlag format_flag;
 
-	unsigned int bytesize; /* number of byte for one pixel */
+	uint bytesize;      /* number of byte for one pixel */
 	int components;     /* number of color/alpha channels */
 	int samples;        /* number of samples for multisamples textures. 0 if not multisample target */
 
@@ -174,7 +174,10 @@ static void gpu_validate_data_format(GPUTextureFormat tex_format, GPUDataFormat 
 	{
 		BLI_assert(data_format == GPU_DATA_FLOAT);
 	}
-	else if (tex_format == GPU_DEPTH24_STENCIL8) {
+	else if (ELEM(tex_format,
+	              GPU_DEPTH24_STENCIL8,
+	              GPU_DEPTH32F_STENCIL8))
+	{
 		BLI_assert(data_format == GPU_DATA_UNSIGNED_INT_24_8);
 	}
 	else {
@@ -211,7 +214,10 @@ static GPUDataFormat gpu_get_data_format_from_tex_format(GPUTextureFormat tex_fo
 	{
 		return GPU_DATA_FLOAT;
 	}
-	else if (tex_format == GPU_DEPTH24_STENCIL8) {
+	else if (ELEM(tex_format,
+	              GPU_DEPTH24_STENCIL8,
+	              GPU_DEPTH32F_STENCIL8))
+	{
 		return GPU_DATA_UNSIGNED_INT_24_8;
 	}
 	else {
@@ -249,7 +255,10 @@ static GLenum gpu_get_gl_dataformat(GPUTextureFormat data_type, GPUTextureFormat
 		*format_flag |= GPU_FORMAT_DEPTH;
 		return GL_DEPTH_COMPONENT;
 	}
-	else if (data_type == GPU_DEPTH24_STENCIL8) {
+	else if (ELEM(data_type,
+	              GPU_DEPTH24_STENCIL8,
+	              GPU_DEPTH32F_STENCIL8))
+	{
 		*format_flag |= GPU_FORMAT_DEPTH | GPU_FORMAT_STENCIL;
 		return GL_DEPTH_STENCIL;
 	}
@@ -297,6 +306,8 @@ static uint gpu_get_bytesize(GPUTextureFormat data_type)
 			return 16;
 		case GPU_RGB16F:
 			return 12;
+		case GPU_DEPTH32F_STENCIL8:
+			return 8;
 		case GPU_RG16F:
 		case GPU_RG16I:
 		case GPU_RG16UI:
@@ -317,6 +328,7 @@ static uint gpu_get_bytesize(GPUTextureFormat data_type)
 		case GPU_R16UI:
 		case GPU_R16I:
 		case GPU_RG8:
+		case GPU_R16:
 			return 2;
 		case GPU_R8:
 			return 1;
@@ -350,10 +362,12 @@ static GLenum gpu_get_gl_internalformat(GPUTextureFormat format)
 		case GPU_R16UI: return GL_R16UI;
 		case GPU_RG8: return GL_RG8;
 		case GPU_RG16UI: return GL_RG16UI;
+		case GPU_R16: return GL_R16;
 		case GPU_R8: return GL_R8;
 		/* Special formats texture & renderbuffer */
 		case GPU_R11F_G11F_B10F: return GL_R11F_G11F_B10F;
 		case GPU_DEPTH24_STENCIL8: return GL_DEPTH24_STENCIL8;
+		case GPU_DEPTH32F_STENCIL8: return GL_DEPTH32F_STENCIL8;
 		/* Texture only format */
 		/* ** Add Format here **/
 		/* Special formats texture only */
@@ -502,6 +516,12 @@ GPUTexture *GPU_texture_create_nD(
 {
 	if (samples) {
 		CLAMP_MAX(samples, GPU_max_color_texture_samples());
+	}
+
+	if ((tex_format == GPU_DEPTH24_STENCIL8) && GPU_depth_blitting_workaround()) {
+		/* MacOS + Radeon Pro fails to blit depth on GPU_DEPTH24_STENCIL8
+		 * but works on GPU_DEPTH32F_STENCIL8. */
+		tex_format = GPU_DEPTH32F_STENCIL8;
 	}
 
 	GPUTexture *tex = MEM_callocN(sizeof(GPUTexture), "GPUTexture");

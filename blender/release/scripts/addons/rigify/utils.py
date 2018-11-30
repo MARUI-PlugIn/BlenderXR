@@ -800,8 +800,8 @@ def align_bone_roll(obj, bone1, bone2):
     rot_mat = Matrix.Rotation(angle, 3, axis)
 
     # Roll factor
-    x3 = rot_mat * x1
-    dot = x2 * x3
+    x3 = rot_mat @ x1
+    dot = x2 @ x3
     if dot > 1.0:
         dot = 1.0
     elif dot < -1.0:
@@ -1262,13 +1262,13 @@ def overwrite_prop_animation(rig, bone, prop_name, value, frames):
             kp.co[1] = value
 
 
-def get_layer_collection_from_collection(children, collection):
-    for layer_collection in children:
-        if collection == layer_collection.collection:
-            return layer_collection
+def find_layer_collection_by_collection(layer_collection, collection):
+    if collection == layer_collection.collection:
+        return layer_collection
 
-        # go recursive
-        layer_collection = get_layer_collection_from_collection(layer_collection.children, collection)
+    # go recursive
+    for child in layer_collection.children:
+        layer_collection = find_layer_collection_by_collection(child, collection)
         if layer_collection:
             return layer_collection
 
@@ -1288,11 +1288,15 @@ def ensure_widget_collection(context):
         widget_collection.hide_viewport = True
         widget_collection.hide_render = True
 
+        widget_layer_collection = None
+    else:
+        widget_layer_collection = find_layer_collection_by_collection(view_layer.layer_collection, widget_collection)
+
+    if not widget_layer_collection:
+        # Add the widget collection to the tree
         collection.children.link(widget_collection)
         widget_layer_collection = [c for c in layer_collection.children if c.collection == widget_collection][0]
-    else:
-        widget_layer_collection = get_layer_collection_from_collection(view_layer.collections, widget_collection)
 
     # Make the widget the active collection for the upcoming added (widget) objects
-    view_layer.collections.active = widget_layer_collection
+    view_layer.active_layer_collection = widget_layer_collection
     return widget_collection

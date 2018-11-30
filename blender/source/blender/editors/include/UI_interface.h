@@ -200,6 +200,7 @@ enum {
 
 #define UI_PANEL_WIDTH          340
 #define UI_COMPACT_PANEL_WIDTH  160
+#define UI_NAVIGATION_REGION_WIDTH UI_COMPACT_PANEL_WIDTH
 
 #define UI_PANEL_CATEGORY_MARGIN_WIDTH (U.widget_unit * 1.0f)
 
@@ -235,7 +236,10 @@ enum {
 	UI_BUT_ACTIVE_LEFT       = (1 << 21), /* Active left part of number button */
 	UI_BUT_ACTIVE_RIGHT      = (1 << 22), /* Active right part of number button */
 
-	UI_BUT_HAS_SHORTCUT      = (1 << 23), /* Button has shortcut text */
+	/* (also used by search buttons to enforce shortcut display for their items). */
+	UI_BUT_HAS_SHORTCUT      = (1 << 23), /* Button has shortcut text. */
+
+	UI_BUT_ICON_REVERSE      = (1 << 24), /* Reverse order of consecutive off/on icons */
 };
 
 /* scale fixed button widths by this to account for DPI */
@@ -913,6 +917,7 @@ void UI_exit(void);
 #define UI_LAYOUT_MENU          2
 #define UI_LAYOUT_TOOLBAR       3
 #define UI_LAYOUT_PIEMENU       4
+#define UI_LAYOUT_VERT_BAR      5
 
 #define UI_UNIT_X               ((void)0, U.widget_unit)
 #define UI_UNIT_Y               ((void)0, U.widget_unit)
@@ -934,7 +939,7 @@ void UI_exit(void);
 #define UI_ITEM_O_DEPRESS       (1 << 9)
 #define UI_ITEM_R_COMPACT       (1 << 10)
 
-#define UI_HEADER_OFFSET ((void)0, 0.2f * UI_UNIT_X)
+#define UI_HEADER_OFFSET ((void)0, 0.4f * UI_UNIT_X)
 
 /* uiLayoutOperatorButs flags */
 enum {
@@ -1039,7 +1044,8 @@ void uiTemplateIDBrowse(
         const char *newop, const char *openop, const char *unlinkop, int filter);
 void uiTemplateIDPreview(
         uiLayout *layout, struct bContext *C, struct PointerRNA *ptr, const char *propname,
-        const char *newop, const char *openop, const char *unlinkop, int rows, int cols, int filter);
+        const char *newop, const char *openop, const char *unlinkop, int rows, int cols,
+        int filter, const bool hide_buttons);
 void uiTemplateIDTabs(
         uiLayout *layout, struct bContext *C,
         PointerRNA *ptr, const char *propname,
@@ -1065,8 +1071,8 @@ void uiTemplatePathBuilder(
 uiLayout *uiTemplateModifier(uiLayout *layout, struct bContext *C, struct PointerRNA *ptr);
 uiLayout *uiTemplateGpencilModifier(uiLayout *layout, struct bContext *C, struct PointerRNA *ptr);
 void uiTemplateGpencilColorPreview(
-	uiLayout *layout, struct bContext *C, struct PointerRNA *ptr, const char *propname,
-	int rows, int cols, float scale, int filter);
+        uiLayout *layout, struct bContext *C, struct PointerRNA *ptr, const char *propname,
+        int rows, int cols, float scale, int filter);
 
 uiLayout *uiTemplateShaderFx(uiLayout *layout, struct bContext *C, struct PointerRNA *ptr);
 
@@ -1184,6 +1190,7 @@ void uiItemLDrag(uiLayout *layout, struct PointerRNA *ptr, const char *name, int
 void uiItemM(uiLayout *layout, const char *menuname, const char *name, int icon); /* menu */
 void uiItemV(uiLayout *layout, const char *name, int icon, int argval); /* value */
 void uiItemS(uiLayout *layout); /* separator */
+void uiItemS_ex(uiLayout *layout, float factor);
 void uiItemSpacer(uiLayout *layout); /* Special separator. */
 
 void uiItemPopoverPanel_ptr(
@@ -1200,10 +1207,12 @@ void uiItemPopoverPanelFromGroup(
         const char *context, const char *category);
 
 void uiItemMenuF(uiLayout *layout, const char *name, int icon, uiMenuCreateFunc func, void *arg);
+void uiItemMenuFN(uiLayout *layout, const char *name, int icon, uiMenuCreateFunc func, void *argN);
 void uiItemMenuEnumO_ptr(uiLayout *layout, struct bContext *C, struct wmOperatorType *ot, const char *propname, const char *name, int icon);
 void uiItemMenuEnumO(uiLayout *layout, struct bContext *C, const char *opname, const char *propname, const char *name, int icon);
 void uiItemMenuEnumR_prop(uiLayout *layout, struct PointerRNA *ptr, PropertyRNA *prop, const char *name, int icon);
 void uiItemMenuEnumR(uiLayout *layout, struct PointerRNA *ptr, const char *propname, const char *name, int icon);
+void uiItemTabsEnumR_prop(uiLayout *layout, struct bContext *C, struct PointerRNA *ptr, PropertyRNA *prop, bool icon_only);
 
 /* UI Operators */
 typedef struct uiDragColorHandle {

@@ -336,7 +336,7 @@ static void EDIT_MESH_engine_init(void *vedata)
 }
 
 static DRWPass *edit_mesh_create_overlay_pass(
-        float *face_alpha, float *edge_width_scale, int *data_mask, bool do_edges,
+        float *face_alpha, float *edge_width_scale, int *data_mask, bool do_edges, bool xray,
         DRWState statemod,
         DRWShadingGroup **r_face_shgrp, DRWShadingGroup **r_verts_shgrp, DRWShadingGroup **r_ledges_shgrp,
         DRWShadingGroup **r_lverts_shgrp, DRWShadingGroup **r_facedot_shgrp)
@@ -346,6 +346,7 @@ static DRWPass *edit_mesh_create_overlay_pass(
 	RegionView3D *rv3d = draw_ctx->rv3d;
 	Scene *scene = draw_ctx->scene;
 	ToolSettings *tsettings = scene->toolsettings;
+	const int fast_mode = rv3d->rflag & RV3D_NAVIGATING;
 
 	ledge_sh = EDIT_MESH_ensure_shader(tsettings, rv3d, false, true);
 	tri_sh = EDIT_MESH_ensure_shader(tsettings, rv3d, true, false);
@@ -354,6 +355,27 @@ static DRWPass *edit_mesh_create_overlay_pass(
 	        "Edit Mesh Face Overlay Pass",
 	        DRW_STATE_WRITE_COLOR | DRW_STATE_POINT | statemod);
 
+	if ((tsettings->selectmode & SCE_SELECT_VERTEX) != 0) {
+		*r_lverts_shgrp = DRW_shgroup_create(e_data.overlay_lvert_sh, pass);
+		DRW_shgroup_uniform_block(*r_lverts_shgrp, "globalsBlock", globals_ubo);
+		DRW_shgroup_uniform_vec2(*r_lverts_shgrp, "viewportSize", DRW_viewport_size_get(), 1);
+		DRW_shgroup_uniform_float(*r_lverts_shgrp, "edgeScale", edge_width_scale, 1);
+		DRW_shgroup_state_enable(*r_lverts_shgrp, DRW_STATE_WRITE_DEPTH);
+
+		*r_verts_shgrp = DRW_shgroup_create(e_data.overlay_vert_sh, pass);
+		DRW_shgroup_uniform_block(*r_verts_shgrp, "globalsBlock", globals_ubo);
+		DRW_shgroup_uniform_vec2(*r_verts_shgrp, "viewportSize", DRW_viewport_size_get(), 1);
+		DRW_shgroup_uniform_float(*r_verts_shgrp, "edgeScale", edge_width_scale, 1);
+		DRW_shgroup_state_enable(*r_verts_shgrp, DRW_STATE_WRITE_DEPTH);
+	}
+
+	if ((tsettings->selectmode & SCE_SELECT_FACE) != 0) {
+		*r_facedot_shgrp = DRW_shgroup_create(e_data.overlay_facedot_sh, pass);
+		DRW_shgroup_uniform_block(*r_facedot_shgrp, "globalsBlock", globals_ubo);
+		DRW_shgroup_uniform_float(*r_facedot_shgrp, "edgeScale", edge_width_scale, 1);
+		DRW_shgroup_state_enable(*r_facedot_shgrp, DRW_STATE_WRITE_DEPTH);
+	}
+
 	*r_face_shgrp = DRW_shgroup_create(tri_sh, pass);
 	DRW_shgroup_uniform_block(*r_face_shgrp, "globalsBlock", globals_ubo);
 	DRW_shgroup_uniform_vec2(*r_face_shgrp, "viewportSize", DRW_viewport_size_get(), 1);
@@ -361,6 +383,9 @@ static DRWPass *edit_mesh_create_overlay_pass(
 	DRW_shgroup_uniform_float(*r_face_shgrp, "edgeScale", edge_width_scale, 1);
 	DRW_shgroup_uniform_ivec4(*r_face_shgrp, "dataMask", data_mask, 1);
 	DRW_shgroup_uniform_bool_copy(*r_face_shgrp, "doEdges", do_edges);
+	if (!fast_mode) {
+		DRW_shgroup_uniform_bool_copy(*r_face_shgrp, "isXray", xray);
+	}
 
 	*r_ledges_shgrp = DRW_shgroup_create(ledge_sh, pass);
 	DRW_shgroup_uniform_block(*r_ledges_shgrp, "globalsBlock", globals_ubo);
@@ -368,24 +393,6 @@ static DRWPass *edit_mesh_create_overlay_pass(
 	DRW_shgroup_uniform_float(*r_ledges_shgrp, "edgeScale", edge_width_scale, 1);
 	DRW_shgroup_uniform_ivec4(*r_ledges_shgrp, "dataMask", data_mask, 1);
 	DRW_shgroup_uniform_bool_copy(*r_ledges_shgrp, "doEdges", do_edges);
-
-	if ((tsettings->selectmode & SCE_SELECT_VERTEX) != 0) {
-		*r_lverts_shgrp = DRW_shgroup_create(e_data.overlay_lvert_sh, pass);
-		DRW_shgroup_uniform_block(*r_lverts_shgrp, "globalsBlock", globals_ubo);
-		DRW_shgroup_uniform_vec2(*r_lverts_shgrp, "viewportSize", DRW_viewport_size_get(), 1);
-		DRW_shgroup_uniform_float(*r_lverts_shgrp, "edgeScale", edge_width_scale, 1);
-
-		*r_verts_shgrp = DRW_shgroup_create(e_data.overlay_vert_sh, pass);
-		DRW_shgroup_uniform_block(*r_verts_shgrp, "globalsBlock", globals_ubo);
-		DRW_shgroup_uniform_vec2(*r_verts_shgrp, "viewportSize", DRW_viewport_size_get(), 1);
-		DRW_shgroup_uniform_float(*r_verts_shgrp, "edgeScale", edge_width_scale, 1);
-	}
-
-	if ((tsettings->selectmode & SCE_SELECT_FACE) != 0) {
-		*r_facedot_shgrp = DRW_shgroup_create(e_data.overlay_facedot_sh, pass);
-		DRW_shgroup_uniform_block(*r_facedot_shgrp, "globalsBlock", globals_ubo);
-		DRW_shgroup_uniform_float(*r_facedot_shgrp, "edgeScale", edge_width_scale, 1);
-	}
 
 	return pass;
 }
@@ -512,7 +519,7 @@ static void EDIT_MESH_cache_init(void *vedata)
 
 	if (!stl->g_data->do_zbufclip) {
 		psl->edit_face_overlay = edit_mesh_create_overlay_pass(
-		        &face_mod, &stl->g_data->edge_width_scale, stl->g_data->data_mask, stl->g_data->do_edges,
+		        &face_mod, &stl->g_data->edge_width_scale, stl->g_data->data_mask, stl->g_data->do_edges, false,
 		        DRW_STATE_DEPTH_LESS_EQUAL | DRW_STATE_BLEND,
 		        &stl->g_data->face_overlay_shgrp,
 		        &stl->g_data->verts_overlay_shgrp,
@@ -523,7 +530,7 @@ static void EDIT_MESH_cache_init(void *vedata)
 	else {
 		/* We render all wires with depth and opaque to a new fbo and blend the result based on depth values */
 		psl->edit_face_occluded = edit_mesh_create_overlay_pass(
-		        &zero, &stl->g_data->edge_width_scale, stl->g_data->data_mask, stl->g_data->do_edges,
+		        &zero, &stl->g_data->edge_width_scale, stl->g_data->data_mask, stl->g_data->do_edges, true,
 		        DRW_STATE_DEPTH_LESS_EQUAL | DRW_STATE_WRITE_DEPTH,
 		        &stl->g_data->face_occluded_shgrp,
 		        &stl->g_data->verts_occluded_shgrp,
@@ -638,7 +645,7 @@ static void EDIT_MESH_cache_populate(void *vedata, Object *ob)
 			}
 
 			if (do_occlude_wire) {
-				geom = DRW_cache_mesh_surface_get(ob);
+				geom = DRW_cache_mesh_surface_get(ob, false);
 				DRW_shgroup_call_add(stl->g_data->depth_shgrp_hidden_wire, geom, ob->obmat);
 			}
 

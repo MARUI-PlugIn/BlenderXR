@@ -370,6 +370,11 @@ function(setup_liblinks
 	set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} ${PLATFORM_LINKFLAGS}" PARENT_SCOPE)
 	set(CMAKE_MODULE_LINKER_FLAGS_DEBUG "${CMAKE_MODULE_LINKER_FLAGS_DEBUG} ${PLATFORM_LINKFLAGS_DEBUG}" PARENT_SCOPE)
 
+	# jemalloc must be early in the list, to be before pthread (see T57998)
+	if(WITH_MEM_JEMALLOC)
+		target_link_libraries(${target} ${JEMALLOC_LIBRARIES})
+	endif()
+
 	target_link_libraries(
 		${target}
 		${PNG_LIBRARIES}
@@ -426,7 +431,7 @@ function(setup_liblinks
 	if(WITH_OPENCOLORIO)
 		target_link_libraries(${target} ${OPENCOLORIO_LIBRARIES})
 	endif()
-	if(WITH_OPENSUBDIV OR WITH_CYCLES_OPENSUBDIV)
+	if(WITH_OPENSUBDIV)
 			target_link_libraries(${target} ${OPENSUBDIV_LIBRARIES})
 	endif()
 	if(WITH_OPENVDB)
@@ -434,6 +439,9 @@ function(setup_liblinks
 	endif()
 	if(WITH_CYCLES_OSL)
 		target_link_libraries(${target} ${OSL_LIBRARIES})
+	endif()
+	if(WITH_CYCLES_EMBREE)
+		target_link_libraries(${target} ${EMBREE_LIBRARIES})
 	endif()
 	if(WITH_BOOST)
 		target_link_libraries(${target} ${BOOST_LIBRARIES})
@@ -481,9 +489,6 @@ function(setup_liblinks
 				${EXPAT_LIB}
 			)
 		endif()
-	endif()
-	if(WITH_MEM_JEMALLOC)
-		target_link_libraries(${target} ${JEMALLOC_LIBRARIES})
 	endif()
 	if(WITH_MOD_CLOTH_ELTOPO)
 		target_link_libraries(${target} ${LAPACK_LIBRARIES})
@@ -571,7 +576,7 @@ function(SETUP_BLENDER_SORTED_LIBS)
 	set(BLENDER_SORTED_LIBS
 		bf_windowmanager
 		bf_vr
-		
+
 		bf_editor_undo
 
 		bf_editor_space_api
@@ -674,10 +679,10 @@ function(SETUP_BLENDER_SORTED_LIBS)
 		bf_intern_mikktspace
 		bf_intern_dualcon
 		bf_intern_cycles
+		cycles_device
 		cycles_render
 		cycles_graph
 		cycles_bvh
-		cycles_device
 		cycles_kernel
 		cycles_util
 		cycles_subd
@@ -692,6 +697,7 @@ function(SETUP_BLENDER_SORTED_LIBS)
 		bf_intern_glew_mx
 		bf_intern_clog
 		bf_intern_opensubdiv
+		bf_intern_numaapi
 	)
 
 	if(NOT WITH_SYSTEM_GLOG)

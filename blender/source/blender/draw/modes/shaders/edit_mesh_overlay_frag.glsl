@@ -4,6 +4,7 @@
 
 uniform float faceAlphaMod;
 uniform float edgeScale;
+uniform bool isXray = false;
 
 flat in vec3 edgesCrease;
 flat in vec3 edgesBweight;
@@ -28,9 +29,10 @@ out vec4 FragColor;
 /* Vertex flag is shifted and combined with the edge flag */
 #define FACE_ACTIVE_   (FACE_ACTIVE << 8)
 
-#define LARGE_EDGE_SIZE 3.0
+#define LARGE_EDGE_SIZE 2.15
 
-/* Style Parameters in pixel */
+/* Enough to visually fill gaps and not enough to mess the AA gradient too much. */
+#define EDGE_FIX_ALPHA 0.67
 
 void distToEdgesAndPoints(out vec3 edges, out vec3 points)
 {
@@ -103,7 +105,9 @@ void main()
 			float largeEdge = e[v] - sizeEdgeFinal * LARGE_EDGE_SIZE;
 
 			vec4 large_edge_color = EDIT_MESH_edge_color_outer(flag[v], (flag[0] & FACE_ACTIVE_) != 0, edgesCrease[v], edgesBweight[v]);
-
+#ifdef EDGE_FIX
+			large_edge_color *= isXray ? 1.0 : EDGE_FIX_ALPHA;
+#endif
 			if (large_edge_color.a != 0.0) {
 				colorDistEdge(large_edge_color, largeEdge);
 			}
@@ -115,27 +119,25 @@ void main()
 #endif
 
 #ifdef VERTEX_SELECTION
-			colorDistEdge(vec4(vertexColor, 1.0), innerEdge);
+			vec4 inner_edge_color = vec4(vertexColor, 1.0);
 #else
 			vec4 inner_edge_color = EDIT_MESH_edge_color_inner(flag[v], (flag[0] & FACE_ACTIVE_) != 0);
-			colorDistEdge(inner_edge_color, innerEdge);
 #endif
+#ifdef EDGE_FIX
+			inner_edge_color *= isXray ? 1.0 : EDGE_FIX_ALPHA;
+#endif
+			colorDistEdge(inner_edge_color, innerEdge);
 		}
 	}
 
 #if defined(VERTEX_SELECTION) && defined(EDGE_FIX)
 	/* Points */
 	for (int v = 0; v < 3; ++v) {
-		if ((flag[v] & EDGE_VERTEX_EXISTS) == 0) {
-			/* Leave as-is, no vertex. */
-		}
-		else {
+		if ((flag[v] & EDGE_VERTEX_EXISTS) != 0) {
 			float size = p[v] - sizeVertex;
-
 			vec4 point_color = colorVertex;
 			point_color = ((flag[v] & EDGE_VERTEX_SELECTED) != 0) ? colorVertexSelect : point_color;
 			point_color = ((flag[v] & EDGE_VERTEX_ACTIVE) != 0) ? vec4(colorEditMeshActive.xyz, 1.0) : point_color;
-
 			colorDist(point_color, size);
 		}
 	}
@@ -144,6 +146,7 @@ void main()
 #ifdef VERTEX_FACING
 	FragColor.a *= 1.0 - abs(facing) * 0.4;
 #endif
+
 	/* don't write depth if not opaque */
 	if (FragColor.a == 0.0) discard;
 }

@@ -54,25 +54,26 @@
 #include "BKE_animsys.h"
 #include "BKE_curve.h"
 #include "BKE_context.h"
-#include "BKE_displist.h"
 #include "BKE_DerivedMesh.h"
+#include "BKE_displist.h"
 #include "BKE_editmesh.h"
 #include "BKE_effect.h"
 #include "BKE_global.h"
 #include "BKE_key.h"
 #include "BKE_lattice.h"
+#include "BKE_library.h"
 #include "BKE_main.h"
 #include "BKE_mesh.h"
 #include "BKE_mesh_mapping.h"
 #include "BKE_mesh_runtime.h"
 #include "BKE_modifier.h"
 #include "BKE_multires.h"
-#include "BKE_report.h"
 #include "BKE_object.h"
 #include "BKE_object_deform.h"
 #include "BKE_ocean.h"
 #include "BKE_paint.h"
 #include "BKE_particle.h"
+#include "BKE_report.h"
 #include "BKE_scene.h"
 #include "BKE_softbody.h"
 
@@ -111,7 +112,7 @@ static void object_force_modifier_update_for_bind(Depsgraph *depsgraph, Scene *s
 		BKE_displist_make_mball(depsgraph, scene, ob);
 	}
 	else if (ELEM(ob->type, OB_CURVE, OB_SURF, OB_FONT)) {
-		BKE_displist_make_curveTypes(depsgraph, scene, ob, 0);
+		BKE_displist_make_curveTypes(depsgraph, scene, ob, false, false);
 	}
 }
 

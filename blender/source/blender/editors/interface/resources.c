@@ -181,6 +181,8 @@ const unsigned char *UI_ThemeGetColorPtr(bTheme *btheme, int spacetype, int colo
 						cp = ts->list;
 					else if (theme_regionid == RGN_TYPE_HEADER)
 						cp = ts->header;
+					else if (theme_regionid == RGN_TYPE_NAV_BAR)
+						cp = ts->navigation_bar;
 					else
 						cp = ts->button;
 
@@ -547,6 +549,9 @@ const unsigned char *UI_ThemeGetColorPtr(bTheme *btheme, int spacetype, int colo
 					break;
 				case TH_DOPESHEET_CHANNELSUBOB:
 					cp = ts->ds_subchannel;
+					break;
+				case TH_DOPESHEET_IPOLINE:
+					cp = ts->ds_ipoline;
 					break;
 
 				case TH_PREVIEW_BACK:

@@ -98,6 +98,7 @@ typedef bool (*DRW_ObjectFilterFn)(
         struct Object *ob, void *user_data);
 
 void DRW_draw_view(const struct bContext *C);
+void DRW_draw_region_engine_info(int xoffset, int yoffset);
 
 void DRW_draw_render_loop_ex(
         struct Depsgraph *depsgraph,
@@ -127,6 +128,7 @@ void DRW_draw_depth_loop(
         struct ARegion *ar, struct View3D *v3d);
 
 /* grease pencil render */
+bool DRW_render_check_grease_pencil(struct Depsgraph *depsgraph);
 void DRW_render_gpencil(struct RenderEngine *engine, struct Depsgraph *depsgraph);
 void DRW_gpencil_freecache(struct Object *ob);
 

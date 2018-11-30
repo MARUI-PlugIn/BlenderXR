@@ -80,6 +80,14 @@
 #include "BKE_customdata.h"
 #include "BKE_bvhutils.h"
 
+#include "../vr/vr_build.h"
+#if WITH_VR
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+#endif
+
 struct CCGElem;
 struct CCGKey;
 struct MVert;
@@ -546,6 +554,12 @@ void DM_debug_print(DerivedMesh *dm);
 void DM_debug_print_cdlayers(CustomData *cdata);
 
 bool DM_is_valid(DerivedMesh *dm);
+#endif
+
+#if WITH_VR
+#ifdef __cplusplus
+}
+#endif
 #endif
 
 #endif  /* __BKE_DERIVEDMESH_H__ */

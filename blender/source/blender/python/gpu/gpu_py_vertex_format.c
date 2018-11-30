@@ -144,14 +144,6 @@ static int bpygpu_ParseVertFetchMode(PyObject *o, void *p)
 	return 1;
 }
 
-static int get_default_fetch_mode(GPUVertCompType type)
-{
-	switch (type) {
-		case GPU_COMP_F32: return GPU_FETCH_FLOAT;
-		default: return -1;
-	}
-}
-
 /** \} */
 
 
@@ -160,65 +152,32 @@ static int get_default_fetch_mode(GPUVertCompType type)
 /** \name VertFormat Type
  * \{ */
 
-static bool bpygpu_vertformat_attr_add_simple(
-        GPUVertFormat *format, const char *name, GPUVertCompType comp_type, int length)
-{
-	if (length <= 0) {
-		PyErr_SetString(PyExc_ValueError,
-		                "length of an attribute must greater than 0");
-		return false;
-	}
-
-	int fetch_mode = get_default_fetch_mode(comp_type);
-	if (fetch_mode == -1) {
-		PyErr_SetString(PyExc_ValueError,
-		                "no default fetch mode found");
-		return false;
-	}
-
-	GPU_vertformat_attr_add(format, name, comp_type, length, fetch_mode);
-	return true;
-}
-
-static bool bpygpu_vertformat_attr_add_from_tuple(
-        GPUVertFormat *format, PyObject *data)
-{
-	const char *name;
-	GPUVertCompType comp_type;
-	int length;
-
-	if (!PyArg_ParseTuple(data, "sO&i", &name, bpygpu_ParseVertCompType, &comp_type, &length)) {
-		return false;
-	}
-
-	return bpygpu_vertformat_attr_add_simple(format, name, comp_type, length);
-}
-
 static PyObject *bpygpu_VertFormat_new(PyTypeObject *UNUSED(type), PyObject *args, PyObject *kwds)
 {
-	PyListObject *format_list;
-
-	static const char *_keywords[] = {"format", NULL};
-	static _PyArg_Parser _parser = {"O!:VertFormat.__new__", _keywords, 0};
-	if (!_PyArg_ParseTupleAndKeywordsFast(
-	        args, kwds, &_parser,
-	        &PyList_Type, &format_list))
-	{
+	if (PyTuple_GET_SIZE(args) || (kwds && PyDict_Size(kwds))) {
+		PyErr_SetString(PyExc_ValueError, "This function takes no arguments");
 		return NULL;
 	}
-
-	BPyGPUVertFormat *ret = (BPyGPUVertFormat *)BPyGPUVertFormat_CreatePyObject(NULL);
-
-	if (!bpygpu_vertformat_from_PyList(format_list, "VertFormat.__new__", &ret->fmt)) {
-		Py_DECREF(ret);
-		return NULL;
-	}
-
-	return (PyObject *)ret;
+	return BPyGPUVertFormat_CreatePyObject(NULL);
 }
 
 PyDoc_STRVAR(bpygpu_VertFormat_attr_add_doc,
-"TODO"
+".. method:: attr_add(id, comp_type, len, fetch_mode)\n"
+"\n"
+"   Add a new attribute to the format.\n"
+"\n"
+"   :param id: Name the attribute. Often `position`, `normal`, ...\n"
+"   :type id: str\n"
+"   :param comp_type: The data type that will be used store the value in memory.\n"
+"      Possible values are `I8`, `U8`, `I16`, `U16`, `I32`, `U32`, `F32` and `I10`.\n"
+"   :type comp_type: `str`\n"
+"   :param len: How many individual values the attribute consists of (e.g. 2 for uv coordinates).\n"
+"   :type len: int\n"
+"   :param fetch_mode: How values from memory will be converted when used in the shader.\n"
+"      This is mainly useful for memory optimizations when you want to store values with reduced precision.\n"
+"      E.g. you can store a float in only 1 byte but it will be converted to a normal 4 byte float when used.\n"
+"      Possible values are `FLOAT`, `INT`, `INT_TO_FLOAT_UNIT` and `INT_TO_FLOAT`.\n"
+"   :type fetch_mode: `str`\n"
 );
 static PyObject *bpygpu_VertFormat_attr_add(BPyGPUVertFormat *self, PyObject *args, PyObject *kwds)
 {
@@ -262,12 +221,18 @@ static void bpygpu_VertFormat_dealloc(BPyGPUVertFormat *self)
 	Py_TYPE(self)->tp_free(self);
 }
 
+PyDoc_STRVAR(bpygpu_VertFormat_doc,
+".. class:: GPUVertFormat()\n"
+"\n"
+"   This object contains information about the structure of a vertex buffer.\n"
+);
 PyTypeObject BPyGPUVertFormat_Type = {
 	PyVarObject_HEAD_INIT(NULL, 0)
 	.tp_name = "GPUVertFormat",
 	.tp_basicsize = sizeof(BPyGPUVertFormat),
 	.tp_dealloc = (destructor)bpygpu_VertFormat_dealloc,
 	.tp_flags = Py_TPFLAGS_DEFAULT,
+	.tp_doc = bpygpu_VertFormat_doc,
 	.tp_methods = bpygpu_VertFormat_methods,
 	.tp_new = bpygpu_VertFormat_new,
 };
@@ -293,29 +258,6 @@ PyObject *BPyGPUVertFormat_CreatePyObject(GPUVertFormat *fmt)
 	}
 
 	return (PyObject *)self;
-}
-
-bool bpygpu_vertformat_from_PyList(
-        const PyListObject *list, const char *error_prefix, GPUVertFormat *r_fmt)
-{
-	BLI_assert(PyList_Check(list));
-
-	Py_ssize_t amount = Py_SIZE(list);
-
-	for (Py_ssize_t i = 0; i < amount; i++) {
-		PyObject *element = PyList_GET_ITEM(list, i);
-		if (!PyTuple_Check(element)) {
-			PyErr_Format(PyExc_TypeError,
-			             "%.200s expected a list of tuples", error_prefix);
-
-			return false;
-		}
-		if (!bpygpu_vertformat_attr_add_from_tuple(r_fmt, element)) {
-			return false;
-		}
-	}
-
-	return true;
 }
 
 /** \} */

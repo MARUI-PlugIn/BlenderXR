@@ -43,9 +43,9 @@
 #include "BLI_utildefines.h"
 
 #include "BKE_context.h"
+#include "BKE_global.h"
 #include "BKE_icons.h"
 #include "BKE_image.h"
-#include "BKE_global.h"
 #include "BKE_layer.h"
 #include "BKE_library.h"
 #include "BKE_library_remap.h"
@@ -1251,7 +1251,7 @@ ScrArea *ED_screen_state_toggle(bContext *C, wmWindow *win, ScrArea *sa, const s
 			for (ar = newa->regionbase.first; ar; ar = ar->next) {
 				ar->flagfullscreen = ar->flag;
 
-				if (ELEM(ar->regiontype, RGN_TYPE_UI, RGN_TYPE_HEADER, RGN_TYPE_TOOLS)) {
+				if (ELEM(ar->regiontype, RGN_TYPE_UI, RGN_TYPE_HEADER, RGN_TYPE_TOOLS, RGN_TYPE_NAV_BAR)) {
 					ar->flag |= RGN_FLAG_HIDDEN;
 				}
 			}

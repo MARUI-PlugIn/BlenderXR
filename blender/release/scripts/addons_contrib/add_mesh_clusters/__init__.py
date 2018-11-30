@@ -356,7 +356,7 @@ def DEF_atom_draw_atoms(prop_element,
 
     ball.active_material = material
     ball.parent = new_atom_mesh
-    new_atom_mesh.dupli_type = 'VERTS'
+    new_atom_mesh.instance_type = 'VERTS'
 
     # ------------------------------------------------------------------------
     # SELECT ALL LOADED OBJECTS

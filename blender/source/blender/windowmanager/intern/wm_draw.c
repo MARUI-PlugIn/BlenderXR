@@ -73,6 +73,7 @@
 
 #include "WM_api.h"
 #include "WM_types.h"
+#include "WM_toolsystem.h"
 #include "wm.h"
 #include "wm_draw.h"
 #include "wm_window.h"
@@ -149,29 +150,37 @@ static bool wm_draw_region_stereo_set(Main *bmain, ScrArea *sa, ARegion *ar, eSt
 		case SPACE_VIEW3D:
 		{
 			View3D *v3d = sa->spacedata.first;
+#if WITH_VR
+			RegionView3D *rv3d = ar->regiondata;
+			if (rv3d->rflag & RV3D_IS_VR) {
+				if (v3d->camera && v3d->camera->type == OB_CAMERA) {
+					Camera *cam = v3d->camera->data;
+					CameraBGImage *bgpic = cam->bg_images.first;
+					if (bgpic) bgpic->iuser.multiview_eye = sview;
+				}
+				v3d->multiview_eye = sview;
+
+				v3d->stereo3d_flag |= V3D_S3D_DISPVR;
+				/* Hide text and cursor overlays. */
+				v3d->overlay.flag |= (V3D_OVERLAY_HIDE_TEXT | V3D_OVERLAY_HIDE_CURSOR);
+				/* Hide navigation gizmo. */
+				v3d->gizmo_flag |= V3D_GIZMO_HIDE_NAVIGATE;
+
+				/* Enable scene annotations by default. */
+				static Main	*prev_main;
+				if (prev_main != bmain) {
+					v3d->flag2 &= (~V3D_RENDER_OVERRIDE);
+					v3d->flag2 |= V3D_SHOW_ANNOTATION;
+					prev_main = bmain;
+				}
+				return true;
+			}
+#endif
 			if (v3d->camera && v3d->camera->type == OB_CAMERA) {
 				Camera *cam = v3d->camera->data;
 				CameraBGImage *bgpic = cam->bg_images.first;
 				v3d->multiview_eye = sview;
 				if (bgpic) bgpic->iuser.multiview_eye = sview;
-#if WITH_VR
-				RegionView3D *rv3d = ar->regiondata;
-				if (rv3d && (rv3d->rflag & RV3D_IS_VR)) {
-					v3d->stereo3d_flag |= V3D_S3D_DISPVR;
-					/* Hide text and cursor overlays. */
-					v3d->overlay.flag |= (V3D_OVERLAY_HIDE_TEXT | V3D_OVERLAY_HIDE_CURSOR);
-					/* Hide navigation gizmo. */
-					v3d->gizmo_flag |= V3D_GIZMO_HIDE_NAVIGATE;
-
-					/* Enable scene annotations by default. */
-					static Main	*prev_main;
-					if (prev_main != bmain) {
-						v3d->flag2 &= (~V3D_RENDER_OVERRIDE);
-						v3d->flag2 |= V3D_SHOW_ANNOTATION;
-						prev_main = bmain;
-					}
-				}
-#endif
 				return true;
 			}
 			return false;
@@ -499,9 +508,35 @@ void wm_draw_region_blend(ARegion *ar, int view, bool blend)
 	GPUShader *shader = GPU_shader_get_builtin_shader(GPU_SHADER_2D_IMAGE_RECT_COLOR);
 	GPU_shader_bind(shader);
 
+	rcti rect_geo = ar->winrct;
+	rect_geo.xmax += 1;
+	rect_geo.ymax += 1;
+
+	rctf rect_tex;
+	rect_tex.xmin = halfx;
+	rect_tex.ymin = halfy;
+	rect_tex.xmax = 1.0f + halfx;
+	rect_tex.ymax = 1.0f + halfy;
+
+	float alpha_easing = 1.0f - alpha;
+	alpha_easing = 1.0f - alpha_easing * alpha_easing;
+
+	/* Slide vertical panels */
+	float ofs_x = BLI_rcti_size_x(&ar->winrct) * (1.0f - alpha_easing);
+	if (ar->alignment == RGN_ALIGN_RIGHT) {
+		rect_geo.xmin += ofs_x;
+		rect_tex.xmax *= alpha_easing;
+		alpha = 1.0f;
+	}
+	else if (ar->alignment == RGN_ALIGN_LEFT) {
+		rect_geo.xmax -= ofs_x;
+		rect_tex.xmin += 1.0f - alpha_easing;
+		alpha = 1.0f;
+	}
+
 	glUniform1i(GPU_shader_get_uniform(shader, "image"), 0);
-	glUniform4f(GPU_shader_get_uniform(shader, "rect_icon"), halfx, halfy, 1.0f + halfx, 1.0f + halfy);
-	glUniform4f(GPU_shader_get_uniform(shader, "rect_geom"), ar->winrct.xmin, ar->winrct.ymin, ar->winrct.xmax + 1, ar->winrct.ymax + 1);
+	glUniform4f(GPU_shader_get_uniform(shader, "rect_icon"), rect_tex.xmin, rect_tex.ymin, rect_tex.xmax, rect_tex.ymax);
+	glUniform4f(GPU_shader_get_uniform(shader, "rect_geom"), rect_geo.xmin, rect_geo.ymin, rect_geo.xmax, rect_geo.ymax);
 	glUniform4f(GPU_shader_get_builtin_uniform(shader, GPU_UNIFORM_COLOR), alpha, alpha, alpha, alpha);
 
 	GPU_draw_primitive(GPU_PRIM_TRI_STRIP, 4);
@@ -545,17 +580,6 @@ static void wm_draw_window_offscreen(bContext *C, wmWindow *win, bool stereo)
 
 		/* Compute UI layouts for dynamically size regions. */
 		for (ARegion *ar = sa->regionbase.first; ar; ar = ar->next) {
-			if (ar->visible && ar->do_draw && ar->type && ar->type->layout) {
-				CTX_wm_region_set(C, ar);
-				ED_region_do_layout(C, ar);
-				CTX_wm_region_set(C, NULL);
-			}
-		}
-
-		ED_area_update_region_sizes(wm, win, sa);
-
-		/* Then do actual drawing of regions. */
-		for (ARegion *ar = sa->regionbase.first; ar; ar = ar->next) {
 #if WITH_VR
 			if (win && win == vr_get_obj()->window && wm_region_use_viewport(sa, ar)) {
 				CTX_wm_region_set(C, ar);
@@ -583,6 +607,24 @@ static void wm_draw_window_offscreen(bContext *C, wmWindow *win, bool stereo)
 				continue;
 			}
 #endif
+			if (ar->visible && ar->do_draw && ar->type && ar->type->layout) {
+				CTX_wm_region_set(C, ar);
+				ED_region_do_layout(C, ar);
+				CTX_wm_region_set(C, NULL);
+			}
+		}
+
+		ED_area_update_region_sizes(wm, win, sa);
+
+		if (sa->flag & AREA_FLAG_ACTIVE_TOOL_UPDATE) {
+			if ((1 << sa->spacetype) & WM_TOOLSYSTEM_SPACE_MASK) {
+				WM_toolsystem_update_from_context(C, CTX_wm_workspace(C), CTX_data_view_layer(C), sa);
+			}
+			sa->flag &= ~AREA_FLAG_ACTIVE_TOOL_UPDATE;
+		}
+
+		/* Then do actual drawing of regions. */
+		for (ARegion *ar = sa->regionbase.first; ar; ar = ar->next) {
 			if (ar->visible && ar->do_draw) {
 				CTX_wm_region_set(C, ar);
 				bool use_viewport = wm_region_use_viewport(sa, ar);

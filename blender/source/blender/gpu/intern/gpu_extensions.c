@@ -80,6 +80,7 @@ static struct GPUGlobal {
 	GPUDeviceType device;
 	GPUOSType os;
 	GPUDriverType driver;
+	float line_width_range[2];
 	/* workaround for different calculation of dfdy factors on GPUs. Some GPUs/drivers
 	 * calculate dfdy in shader differently when drawing to an offscreen buffer. First
 	 * number is factor on screen and second is off-screen */
@@ -89,6 +90,11 @@ static struct GPUGlobal {
 	 * GL_TEXTURE_MAX_LEVEL is higher than the target mip.
 	 * We need a workaround in this cases. */
 	bool mip_render_workaround;
+	/* There is an issue with the glBlitFramebuffer on MacOS with radeon pro graphics.
+	 * Blitting depth with GL_DEPTH24_STENCIL8 is buggy so the workaround is to use
+	 * GPU_DEPTH32F_STENCIL8. Then Blitting depth will work but blitting stencil will
+	 * still be broken. */
+	bool depth_blitting_workaround;
 } GG = {1, 0};
 
 
@@ -185,6 +191,11 @@ int GPU_max_ubo_size(void)
 	return GG.maxubosize;
 }
 
+float GPU_max_line_width(void)
+{
+	return GG.line_width_range[1];
+}
+
 void GPU_get_dfdy_factors(float fac[2])
 {
 	copy_v2_v2(fac, GG.dfdyfactors);
@@ -193,6 +204,11 @@ void GPU_get_dfdy_factors(float fac[2])
 bool GPU_mip_render_workaround(void)
 {
 	return GG.mip_render_workaround;
+}
+
+bool GPU_depth_blitting_workaround(void)
+{
+	return GG.depth_blitting_workaround;
 }
 
 void gpu_extensions_init(void)
@@ -220,6 +236,8 @@ void gpu_extensions_init(void)
 	glGetIntegerv(GL_MAX_FRAGMENT_UNIFORM_BLOCKS, &GG.maxubobinds);
 	glGetIntegerv(GL_MAX_UNIFORM_BLOCK_SIZE, &GG.maxubosize);
 
+	glGetFloatv(GL_ALIASED_LINE_WIDTH_RANGE, GG.line_width_range);
+
 #ifndef NDEBUG
 	GLint ret;
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -243,6 +261,15 @@ void gpu_extensions_init(void)
 	if (strstr(vendor, "ATI") || strstr(vendor, "AMD")) {
 		GG.device = GPU_DEVICE_ATI;
 		GG.driver = GPU_DRIVER_OFFICIAL;
+
+#if defined(__APPLE__)
+		if (strstr(renderer, "AMD Radeon Pro") ||
+		    strstr(renderer, "AMD Radeon R9") ||
+		    strstr(renderer, "AMD Radeon RX"))
+		{
+			GG.depth_blitting_workaround = true;
+		}
+#endif
 	}
 	else if (strstr(vendor, "NVIDIA")) {
 		GG.device = GPU_DEVICE_NVIDIA;

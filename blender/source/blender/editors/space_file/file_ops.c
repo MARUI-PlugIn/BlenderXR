@@ -37,10 +37,10 @@
 
 #include "BKE_appdir.h"
 #include "BKE_context.h"
-#include "BKE_screen.h"
 #include "BKE_global.h"
-#include "BKE_report.h"
 #include "BKE_main.h"
+#include "BKE_report.h"
+#include "BKE_screen.h"
 
 #ifdef WIN32
 #  include "BLI_winstuff.h"
@@ -1147,11 +1147,11 @@ static int file_highlight_invoke(bContext *C, wmOperator *UNUSED(op), const wmEv
 	SpaceFile *sfile = CTX_wm_space_file(C);
 
 	if (!file_highlight_set(sfile, ar, event->x, event->y))
-		return OPERATOR_CANCELLED;
+		return OPERATOR_PASS_THROUGH;
 
 	ED_area_tag_redraw(CTX_wm_area(C));
 
-	return OPERATOR_FINISHED;
+	return OPERATOR_PASS_THROUGH;
 }
 
 void FILE_OT_highlight(struct wmOperatorType *ot)
@@ -1714,7 +1714,6 @@ static int filepath_drop_exec(bContext *C, wmOperator *op)
 void FILE_OT_filepath_drop(wmOperatorType *ot)
 {
 	ot->name = "File Selector Drop";
-	ot->description = "";
 	ot->idname = "FILE_OT_filepath_drop";
 
 	ot->exec = filepath_drop_exec;

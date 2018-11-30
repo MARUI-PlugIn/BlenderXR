@@ -25,6 +25,16 @@
 #ifndef __ED_SELECT_UTILS_H__
 #define __ED_SELECT_UTILS_H__
 
+#include "../vr/vr_build.h"
+#if WITH_VR
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+#endif
+
+struct KDTree;
+
 enum {
 	SEL_TOGGLE		 = 0,
 	SEL_SELECT		 = 1,
@@ -41,6 +51,13 @@ typedef enum {
 	SEL_OP_XOR,
 } eSelectOp;
 
+/* Select Similar */
+enum {
+	SIM_CMP_EQ = 0,
+	SIM_CMP_GT,
+	SIM_CMP_LT
+};
+
 #define SEL_OP_USE_OUTSIDE(sel_op) (ELEM(sel_op, SEL_OP_AND))
 #define SEL_OP_USE_PRE_DESELECT(sel_op) (ELEM(sel_op, SEL_OP_SET))
 #define SEL_OP_CAN_DESELECT(sel_op) (!ELEM(sel_op, SEL_OP_ADD))
@@ -48,5 +65,14 @@ typedef enum {
 /* Use when we've de-selected all first for 'SEL_OP_SET' */
 int ED_select_op_action(const eSelectOp sel_op, const bool is_select, const bool is_inside);
 int ED_select_op_action_deselected(const eSelectOp sel_op, const bool is_select, const bool is_inside);
+
+int ED_select_similar_compare_float(const float delta, const float thresh, const int compare);
+bool ED_select_similar_compare_float_tree(const struct KDTree *tree, const float length, const float thresh, const int compare);
+
+#if WITH_VR
+#ifdef __cplusplus
+}
+#endif
+#endif
 
 #endif  /* __ED_SELECT_UTILS_H__ */

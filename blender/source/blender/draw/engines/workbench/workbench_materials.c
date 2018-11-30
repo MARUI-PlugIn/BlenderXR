@@ -5,19 +5,18 @@
 #include "BIF_gl.h"
 
 #include "BLI_dynstr.h"
+#include "BLI_hash.h"
 
 #define HSV_SATURATION 0.5
-#define HSV_VALUE 0.9
+#define HSV_VALUE 0.8
 
 void workbench_material_update_data(WORKBENCH_PrivateData *wpd, Object *ob, Material *mat, WORKBENCH_MaterialData *data)
 {
 	/* When V3D_SHADING_TEXTURE_COLOR is active, use V3D_SHADING_MATERIAL_COLOR as fallback when no texture could be determined */
 	int color_type = wpd->shading.color_type == V3D_SHADING_TEXTURE_COLOR ? V3D_SHADING_MATERIAL_COLOR : wpd->shading.color_type;
-	static float default_diffuse_color[] = {0.8f, 0.8f, 0.8f, 1.0f};
-	static float default_specular_color[] = {0.5f, 0.5f, 0.5f, 0.5f};
-	copy_v4_v4(data->diffuse_color, default_diffuse_color);
-	copy_v4_v4(data->specular_color, default_specular_color);
-	data->roughness = 0.5f;
+	copy_v4_fl4(data->diffuse_color, 0.8f, 0.8f, 0.8f, 1.0f);
+	copy_v4_fl4(data->specular_color, 0.05f, 0.05f, 0.05f, 1.0f); /* Dielectric: 5% reflective. */
+	data->roughness = 0.5; /* sqrtf(0.25f); */
 
 	if (color_type == V3D_SHADING_SINGLE_COLOR) {
 		copy_v3_v3(data->diffuse_color, wpd->shading.single_color);
@@ -27,17 +26,23 @@ void workbench_material_update_data(WORKBENCH_PrivateData *wpd, Object *ob, Mate
 		if (ob->id.lib) {
 			hash = (hash * 13) ^ BLI_ghashutil_strhash_p_murmur(ob->id.lib->name);
 		}
-		float offset = fmodf((hash / 100000.0) * M_GOLDEN_RATION_CONJUGATE, 1.0);
 
-		float hsv[3] = {offset, HSV_SATURATION, HSV_VALUE};
+		float hue = BLI_hash_int_01(hash);
+		float hsv[3] = {hue, HSV_SATURATION, HSV_VALUE};
 		hsv_to_rgb_v(hsv, data->diffuse_color);
 	}
 	else {
 		/* V3D_SHADING_MATERIAL_COLOR */
 		if (mat) {
-			copy_v3_v3(data->diffuse_color, &mat->r);
-			copy_v3_v3(data->specular_color, &mat->specr);
-			data->roughness = mat->roughness;
+			if (SPECULAR_HIGHLIGHT_ENABLED(wpd)) {
+				mul_v3_v3fl(data->diffuse_color, &mat->r, 1.0f - mat->metallic);
+				mul_v3_v3fl(data->specular_color, &mat->r, mat->metallic);
+				add_v3_fl(data->specular_color, 0.05f * (1.0f - mat->metallic));
+				data->roughness = sqrtf(mat->roughness); /* Remap to disney roughness. */
+			}
+			else {
+				copy_v3_v3(data->diffuse_color, &mat->r);
+			}
 		}
 	}
 }
@@ -54,8 +59,8 @@ char *workbench_material_build_defines(WORKBENCH_PrivateData *wpd, bool use_text
 	if (wpd->shading.flag & V3D_SHADING_SHADOW) {
 		BLI_dynstr_appendf(ds, "#define V3D_SHADING_SHADOW\n");
 	}
-	if (CAVITY_ENABLED(wpd)) {
-		BLI_dynstr_appendf(ds, "#define V3D_SHADING_CAVITY\n");
+	if (SSAO_ENABLED(wpd) || CURVATURE_ENABLED(wpd)) {
+		BLI_dynstr_appendf(ds, "#define WB_CAVITY\n");
 	}
 	if (SPECULAR_HIGHLIGHT_ENABLED(wpd)) {
 		BLI_dynstr_appendf(ds, "#define V3D_SHADING_SPECULAR_HIGHLIGHT\n");
@@ -68,15 +73,6 @@ char *workbench_material_build_defines(WORKBENCH_PrivateData *wpd, bool use_text
 	}
 	if (MATCAP_ENABLED(wpd)) {
 		BLI_dynstr_appendf(ds, "#define V3D_LIGHTING_MATCAP\n");
-	}
-	if (STUDIOLIGHT_ORIENTATION_WORLD_ENABLED(wpd)) {
-		BLI_dynstr_appendf(ds, "#define STUDIOLIGHT_ORIENTATION_WORLD\n");
-	}
-	if (STUDIOLIGHT_ORIENTATION_CAMERA_ENABLED(wpd)) {
-		BLI_dynstr_appendf(ds, "#define STUDIOLIGHT_ORIENTATION_CAMERA\n");
-	}
-	if (STUDIOLIGHT_ORIENTATION_VIEWNORMAL_ENABLED(wpd)) {
-		BLI_dynstr_appendf(ds, "#define STUDIOLIGHT_ORIENTATION_VIEWNORMAL\n");
 	}
 	if (NORMAL_VIEWPORT_PASS_ENABLED(wpd)) {
 		BLI_dynstr_appendf(ds, "#define NORMAL_VIEWPORT_PASS_ENABLED\n");
@@ -91,19 +87,8 @@ char *workbench_material_build_defines(WORKBENCH_PrivateData *wpd, bool use_text
 		BLI_dynstr_appendf(ds, "#define HAIR_SHADER\n");
 	}
 
-#if STUDIOLIGHT_SPHERICAL_HARMONICS_LEVEL == 0
-	BLI_dynstr_appendf(ds, "#define STUDIOLIGHT_SPHERICAL_HARMONICS_LEVEL 0\n");
-#endif
-#if STUDIOLIGHT_SPHERICAL_HARMONICS_LEVEL == 1
-	BLI_dynstr_appendf(ds, "#define STUDIOLIGHT_SPHERICAL_HARMONICS_LEVEL 1\n");
-#endif
-#if STUDIOLIGHT_SPHERICAL_HARMONICS_LEVEL == 2
-	BLI_dynstr_appendf(ds, "#define STUDIOLIGHT_SPHERICAL_HARMONICS_LEVEL 2\n");
-#endif
-#if STUDIOLIGHT_SPHERICAL_HARMONICS_LEVEL == 4
-	BLI_dynstr_appendf(ds, "#define STUDIOLIGHT_SPHERICAL_HARMONICS_LEVEL 4\n");
-#endif
-	BLI_dynstr_appendf(ds, "#define STUDIOLIGHT_SPHERICAL_HARMONICS_MAX_COMPONENTS 18\n");
+	BLI_dynstr_appendf(ds, "#define STUDIOLIGHT_SH_BANDS %d\n", STUDIOLIGHT_SH_BANDS);
+	BLI_dynstr_appendf(ds, "#define STUDIOLIGHT_SH_MAX_COMPONENTS %d\n", WORKBENCH_SH_DATA_LEN);
 
 	str = BLI_dynstr_get_cstring(ds);
 	BLI_dynstr_free(ds);
@@ -144,34 +129,16 @@ int workbench_material_get_shader_index(WORKBENCH_PrivateData *wpd, bool use_tex
 	int index = 0;
 	/* 1 bit V3D_SHADING_TEXTURE_COLOR */
 	SET_FLAG_FROM_TEST(index, use_textures, 1 << 0);
-	/* 2 bits FLAT/STUDIO/MATCAP/SCENE */
-	SET_FLAG_FROM_TEST(index, wpd->shading.light, wpd->shading.light << 1);
-	/* 1 bit V3D_SHADING_SPECULAR_HIGHLIGHT */
-	SET_FLAG_FROM_TEST(index, wpd->shading.flag & V3D_SHADING_SPECULAR_HIGHLIGHT, 1 << 3);
-	SET_FLAG_FROM_TEST(index, wpd->shading.flag & V3D_SHADING_SHADOW, 1 << 4);
-	SET_FLAG_FROM_TEST(index, wpd->shading.flag & V3D_SHADING_CAVITY, 1 << 5);
-	SET_FLAG_FROM_TEST(index, wpd->shading.flag & V3D_SHADING_OBJECT_OUTLINE, 1 << 6);
-	/* 2 bits STUDIOLIGHT_ORIENTATION */
-	SET_FLAG_FROM_TEST(index, wpd->studio_light->flag & STUDIOLIGHT_ORIENTATION_WORLD, 1 << 7);
-	SET_FLAG_FROM_TEST(index, wpd->studio_light->flag & STUDIOLIGHT_ORIENTATION_VIEWNORMAL, 1 << 8);
+	/* 2 bits FLAT/STUDIO/MATCAP + Specular highlight */
+	int ligh_flag = SPECULAR_HIGHLIGHT_ENABLED(wpd) ? 3 : wpd->shading.light;
+	SET_FLAG_FROM_TEST(index, wpd->shading.light, ligh_flag << 1);
+	/* 3 bits for flags */
+	SET_FLAG_FROM_TEST(index, wpd->shading.flag & V3D_SHADING_SHADOW, 1 << 3);
+	SET_FLAG_FROM_TEST(index, wpd->shading.flag & V3D_SHADING_CAVITY, 1 << 4);
+	SET_FLAG_FROM_TEST(index, wpd->shading.flag & V3D_SHADING_OBJECT_OUTLINE, 1 << 5);
 	/* 1 bit for hair */
-	SET_FLAG_FROM_TEST(index, is_hair, 1 << 9);
+	SET_FLAG_FROM_TEST(index, is_hair, 1 << 6);
 	return index;
-}
-
-void workbench_material_set_normal_world_matrix(
-        DRWShadingGroup *grp, WORKBENCH_PrivateData *wpd, float persistent_matrix[3][3])
-{
-	if (STUDIOLIGHT_ORIENTATION_WORLD_ENABLED(wpd)) {
-		float view_matrix_inverse[4][4];
-		float rot_matrix[4][4];
-		float matrix[4][4];
-		axis_angle_to_mat4_single(rot_matrix, 'Z', -wpd->shading.studiolight_rot_z);
-		DRW_viewport_matrix_get(view_matrix_inverse, DRW_MAT_VIEWINV);
-		mul_m4_m4m4(matrix, rot_matrix, view_matrix_inverse);
-		copy_m3_m4(persistent_matrix, matrix);
-		DRW_shgroup_uniform_mat3(grp, "normalWorldMatrix", persistent_matrix);
-	}
 }
 
 int workbench_material_determine_color_type(WORKBENCH_PrivateData *wpd, Image *ima, Object *ob)

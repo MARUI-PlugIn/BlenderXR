@@ -51,6 +51,7 @@
 #include "BLI_dynstr.h"
 #include "BLI_utildefines.h"
 #include "BLI_math.h"
+#include "BLI_timer.h"
 
 #include "BKE_context.h"
 #include "BKE_idprop.h"
@@ -91,8 +92,9 @@
 
 #include "DEG_depsgraph.h"
 
-/* Motion in pixels allowed before we don't consider single/double click. */
-#define WM_EVENT_CLICK_WIGGLE_ROOM 2
+/* Motion in pixels allowed before we don't consider single/double click,
+ * or detect the start of a tweak event. */
+#define WM_EVENT_CLICK_TWEAK_THRESHOLD (U.tweak_threshold * U.dpi_fac)
 
 static void wm_notifier_clear(wmNotifier *note);
 static void update_tablet_data(wmWindow *win, wmEvent *event);
@@ -299,42 +301,39 @@ static void wm_notifier_clear(wmNotifier *note)
 void wm_event_do_depsgraph(bContext *C)
 {
 	wmWindowManager *wm = CTX_wm_manager(C);
+	/* The whole idea of locked interface is to prevent viewport and whatever
+	 * thread to modify the same data. Because of this, we can not perform
+	 * dependency graph update.
+	 */
+	if (wm->is_interface_locked) {
+		return;
+	}
+	/* Combine datamasks so 1 win doesn't disable UV's in another [#26448]. */
 	uint64_t win_combine_v3d_datamask = 0;
-
-	/* combine datamasks so 1 win doesn't disable UV's in another [#26448] */
 	for (wmWindow *win = wm->windows.first; win; win = win->next) {
 		const Scene *scene = WM_window_get_active_scene(win);
 		const bScreen *screen = WM_window_get_active_screen(win);
 
 		win_combine_v3d_datamask |= ED_view3d_screen_datamask(scene, screen);
 	}
-
-	/* cached: editor refresh callbacks now, they get context */
+	/* Update all the dependency graphs of visible vew layers. */
 	for (wmWindow *win = wm->windows.first; win; win = win->next) {
 		Scene *scene = WM_window_get_active_scene(win);
 		ViewLayer *view_layer = WM_window_get_active_view_layer(win);
-
-		/* XXX make lock in future, or separated derivedmesh users in scene */
-		if (G.is_rendering == false) {
-			/* depsgraph & animation: update tagged datablocks */
-			Main *bmain = CTX_data_main(C);
-
-			/* copied to set's in scene_update_tagged_recursive() */
-			scene->customdata_mask = win_combine_v3d_datamask;
-
-			/* XXX, hack so operators can enforce datamasks [#26482], gl render */
-			scene->customdata_mask |= scene->customdata_mask_modal;
-
-			/* TODO(sergey): For now all dependency graphs which are evaluated from
-			 * workspace are considered active. This will work all fine with "locked"
-			 * view layer and time across windows. This is to be granted separately,
-			 * and for until then we have to accept ambiguities when object is shared
-			 * across visible view layers and has overrides on it.
-			 */
-			Depsgraph *depsgraph = BKE_scene_get_depsgraph(scene, view_layer, true);
-			DEG_make_active(depsgraph);
-			BKE_scene_graph_update_tagged(depsgraph, bmain);
-		}
+		Main *bmain = CTX_data_main(C);
+		/* Copied to set's in scene_update_tagged_recursive() */
+		scene->customdata_mask = win_combine_v3d_datamask;
+		/* XXX, hack so operators can enforce datamasks [#26482], gl render */
+		scene->customdata_mask |= scene->customdata_mask_modal;
+		/* TODO(sergey): For now all dependency graphs which are evaluated from
+		 * workspace are considered active. This will work all fine with "locked"
+		 * view layer and time across windows. This is to be granted separately,
+		 * and for until then we have to accept ambiguities when object is shared
+		 * across visible view layers and has overrides on it.
+		 */
+		Depsgraph *depsgraph = BKE_scene_get_depsgraph(scene, view_layer, true);
+		DEG_make_active(depsgraph);
+		BKE_scene_graph_update_tagged(depsgraph, bmain);
 	}
 }
 
@@ -373,6 +372,8 @@ void wm_event_do_notifiers(bContext *C)
 
 	if (wm == NULL)
 		return;
+
+	BLI_timer_execute();
 
 	/* disable? - keep for now since its used for window level notifiers. */
 #if 1
@@ -524,6 +525,9 @@ void wm_event_do_notifiers(bContext *C)
 		WM_window_cursor_keymap_status_refresh(C, win);
 		CTX_wm_window_set(C, NULL);
 	}
+
+	/* Autorun warning */
+	wm_test_autorun_warning(C);
 }
 
 static int wm_event_always_pass(const wmEvent *event)
@@ -1769,14 +1773,6 @@ void WM_event_remove_handlers(bContext *C, ListBase *handlers)
 int WM_userdef_event_map(int kmitype)
 {
 	switch (kmitype) {
-		case SELECTMOUSE:
-			return (U.flag & USER_LMOUSESELECT) ? LEFTMOUSE : RIGHTMOUSE;
-		case ACTIONMOUSE:
-			return (U.flag & USER_LMOUSESELECT) ? RIGHTMOUSE : LEFTMOUSE;
-		case EVT_TWEAK_A:
-			return (U.flag & USER_LMOUSESELECT) ? EVT_TWEAK_R : EVT_TWEAK_L;
-		case EVT_TWEAK_S:
-			return (U.flag & USER_LMOUSESELECT) ? EVT_TWEAK_L : EVT_TWEAK_R;
 		case WHEELOUTMOUSE:
 			return (U.uiflag & USER_WHEELZOOMDIR) ? WHEELUPMOUSE : WHEELDOWNMOUSE;
 		case WHEELINMOUSE:
@@ -1794,14 +1790,6 @@ int WM_userdef_event_map(int kmitype)
 int WM_userdef_event_type_from_keymap_type(int kmitype)
 {
 	switch (kmitype) {
-		case SELECTMOUSE:
-			return (U.flag & USER_LMOUSESELECT) ? LEFTMOUSE : RIGHTMOUSE;
-		case ACTIONMOUSE:
-			return (U.flag & USER_LMOUSESELECT) ? RIGHTMOUSE : LEFTMOUSE;
-		case EVT_TWEAK_S:
-			return (U.flag & USER_LMOUSESELECT) ? LEFTMOUSE : RIGHTMOUSE;
-		case EVT_TWEAK_A:
-			return (U.flag & USER_LMOUSESELECT) ? RIGHTMOUSE : LEFTMOUSE;
 		case EVT_TWEAK_L:
 			return LEFTMOUSE;
 		case EVT_TWEAK_M:
@@ -2628,11 +2616,16 @@ static int wm_handlers_do(bContext *C, wmEvent *event, ListBase *handlers)
 		if (wm_action_not_handled(action)) {
 			if (event->check_drag) {
 				wmWindow *win = CTX_wm_window(C);
-				if ((abs(event->x - win->eventstate->prevclickx)) >= U.tweak_threshold ||
-				    (abs(event->y - win->eventstate->prevclicky)) >= U.tweak_threshold)
+				if ((abs(event->x - win->eventstate->prevclickx)) >= WM_EVENT_CLICK_TWEAK_THRESHOLD ||
+				    (abs(event->y - win->eventstate->prevclicky)) >= WM_EVENT_CLICK_TWEAK_THRESHOLD)
 				{
+					int x = event->x;
+					int y = event->y;
 					short val = event->val;
 					short type = event->type;
+
+					event->x = win->eventstate->prevclickx;
+					event->y = win->eventstate->prevclicky;
 					event->val = KM_CLICK_DRAG;
 					event->type = win->eventstate->type;
 
@@ -2642,16 +2635,18 @@ static int wm_handlers_do(bContext *C, wmEvent *event, ListBase *handlers)
 
 					event->val = val;
 					event->type = type;
+					event->x = x;
+					event->y = y;
 
-					win->eventstate->check_click = 0;
-					win->eventstate->check_drag = 0;
+					win->eventstate->check_click = false;
+					win->eventstate->check_drag = false;
 				}
 			}
 		}
 		else {
 			wmWindow *win = CTX_wm_window(C);
 			if (win) {
-				win->eventstate->check_drag = 0;
+				win->eventstate->check_drag = false;
 			}
 		}
 	}
@@ -2681,9 +2676,16 @@ static int wm_handlers_do(bContext *C, wmEvent *event, ListBase *handlers)
 				    (win->eventstate->prevval == KM_PRESS) &&
 				    (win->eventstate->check_click == true))
 				{
-					if ((abs(event->x - win->eventstate->prevclickx)) <= WM_EVENT_CLICK_WIGGLE_ROOM &&
-					    (abs(event->y - win->eventstate->prevclicky)) <= WM_EVENT_CLICK_WIGGLE_ROOM)
+					if ((abs(event->x - win->eventstate->prevclickx)) < WM_EVENT_CLICK_TWEAK_THRESHOLD &&
+					    (abs(event->y - win->eventstate->prevclicky)) < WM_EVENT_CLICK_TWEAK_THRESHOLD)
 					{
+						/* Position is where the actual click happens, for more
+						 * accurate selecting in case the mouse drifts a little. */
+						int x = event->x;
+						int y = event->y;
+
+						event->x = win->eventstate->prevclickx;
+						event->y = win->eventstate->prevclicky;
 						event->val = KM_CLICK;
 
 						CLOG_INFO(WM_LOG_HANDLERS, 1, "handling CLICK");
@@ -2691,6 +2693,8 @@ static int wm_handlers_do(bContext *C, wmEvent *event, ListBase *handlers)
 						action |= wm_handlers_do_intern(C, event, handlers);
 
 						event->val = KM_RELEASE;
+						event->x = x;
+						event->y = y;
 					}
 					else {
 						win->eventstate->check_click = 0;
@@ -2850,15 +2854,17 @@ static bool wm_event_pie_filter(wmWindow *win, const wmEvent *event)
 }
 
 #ifdef USE_WORKSPACE_TOOL
-static void wm_event_gizmo_temp_handler_apply(
+static void wm_event_temp_tool_handler_apply(
         bContext *C, ScrArea *sa, ARegion *ar, wmEventHandler *sneaky_handler)
 {
 	if (ar->regiontype == RGN_TYPE_WINDOW) {
 		bToolRef_Runtime *tref_rt = sa->runtime.tool ? sa->runtime.tool->runtime : NULL;
 		if (tref_rt && tref_rt->keymap[0]) {
-			wmKeyMap *km = WM_keymap_find_all(
+			wmKeyMap *km = WM_keymap_find_all_spaceid_or_empty(
 			        C, tref_rt->keymap, sa->spacetype, RGN_TYPE_WINDOW);
+			/* We shouldn't use keymaps from unrelated spaces. */
 			if (km != NULL) {
+				// printf("Keymap: '%s' -> '%s'\n", tref_rt->keymap, sa->runtime.tool->idname);
 				sneaky_handler->keymap = km;
 				sneaky_handler->keymap_tool = sa->runtime.tool;
 
@@ -2870,11 +2876,14 @@ static void wm_event_gizmo_temp_handler_apply(
 				/* Head of list or after last gizmo. */
 				BLI_insertlinkafter(&ar->handlers, handler_last, sneaky_handler);
 			}
+			else {
+				printf("Keymap: '%s' not found for tool '%s'\n", tref_rt->keymap, sa->runtime.tool->idname);
+			}
 		}
 	}
 }
 
-static void wm_event_gizmo_temp_handler_clear(
+static void wm_event_temp_tool_handler_clear(
         bContext *UNUSED(C), ScrArea *UNUSED(sa), ARegion *ar, wmEventHandler *sneaky_handler)
 {
 	if (sneaky_handler->keymap) {
@@ -3067,13 +3076,13 @@ void wm_event_do_handlers(bContext *C)
 									 * to fetch its current keymap.
 									 */
 									wmEventHandler sneaky_handler = {NULL};
-									wm_event_gizmo_temp_handler_apply(C, sa, ar, &sneaky_handler);
+									wm_event_temp_tool_handler_apply(C, sa, ar, &sneaky_handler);
 #endif /* USE_WORKSPACE_TOOL */
 
 									action |= wm_handlers_do(C, event, &ar->handlers);
 
 #ifdef USE_WORKSPACE_TOOL
-									wm_event_gizmo_temp_handler_clear(C, sa, ar, &sneaky_handler);
+									wm_event_temp_tool_handler_clear(C, sa, ar, &sneaky_handler);
 #endif /* USE_WORKSPACE_TOOL */
 
 									/* fileread case (python), [#29489] */
@@ -3112,6 +3121,12 @@ void wm_event_do_handlers(bContext *C)
 						return;
 				}
 
+			}
+
+			/* If press was handled, we don't want to do click. This way
+			 * press in tool keymap can override click in editor keymap.*/
+			if (event->val == KM_PRESS && !wm_action_not_handled(action)) {
+				win->eventstate->check_click = false;
 			}
 
 			/* update previous mouse position for following events to use */
@@ -3662,6 +3677,22 @@ static void wm_eventemulation(wmEvent *event)
 	}
 }
 
+/* applies the global tablet pressure correction curve */
+float wm_pressure_curve(float pressure)
+{
+	if (U.pressure_threshold_max != 0.0f) {
+		pressure /= U.pressure_threshold_max;
+	}
+
+	CLAMP(pressure, 0.0f, 1.0f);
+
+	if (U.pressure_softness != 0.0f) {
+		pressure = powf(pressure, powf(4.0f, -U.pressure_softness));
+	}
+
+	return pressure;
+}
+
 /* adds customdata to event */
 static void update_tablet_data(wmWindow *win, wmEvent *event)
 {
@@ -3672,7 +3703,7 @@ static void update_tablet_data(wmWindow *win, wmEvent *event)
 		struct wmTabletData *wmtab = MEM_mallocN(sizeof(wmTabletData), "customdata tablet");
 
 		wmtab->Active = (int)td->Active;
-		wmtab->Pressure = td->Pressure;
+		wmtab->Pressure = wm_pressure_curve(td->Pressure);
 		wmtab->Xtilt = td->Xtilt;
 		wmtab->Ytilt = td->Ytilt;
 
@@ -3767,8 +3798,8 @@ static bool wm_event_is_double_click(wmEvent *event, const wmEvent *event_state)
 	    (event->val == KM_PRESS))
 	{
 		if ((ISMOUSE(event->type) == false) ||
-		    ((abs(event->x - event_state->prevclickx)) <= WM_EVENT_CLICK_WIGGLE_ROOM &&
-		     (abs(event->y - event_state->prevclicky)) <= WM_EVENT_CLICK_WIGGLE_ROOM))
+		    ((abs(event->x - event_state->prevclickx)) < WM_EVENT_CLICK_TWEAK_THRESHOLD &&
+		     (abs(event->y - event_state->prevclicky)) < WM_EVENT_CLICK_TWEAK_THRESHOLD))
 		{
 			if ((PIL_check_seconds_timer() - event_state->prevclicktime) * 1000 < U.dbl_click_time) {
 				return true;
@@ -4474,7 +4505,9 @@ void WM_window_cursor_keymap_status_refresh(bContext *C, wmWindow *win)
 	/* Detect changes to the state. */
 	{
 		bToolRef *tref = NULL;
-		if (ar->regiontype == RGN_TYPE_WINDOW) {
+		if ((ar->regiontype == RGN_TYPE_WINDOW) &&
+		    ((1 << sa->spacetype) & WM_TOOLSYSTEM_SPACE_MASK))
+		{
 			ViewLayer *view_layer = WM_window_get_active_view_layer(win);
 			WorkSpace *workspace = WM_window_get_active_workspace(win);
 			const bToolKey tkey = {
@@ -4520,7 +4553,7 @@ void WM_window_cursor_keymap_status_refresh(bContext *C, wmWindow *win)
 
 #ifdef USE_WORKSPACE_TOOL
 	wmEventHandler sneaky_handler = {NULL};
-	wm_event_gizmo_temp_handler_apply(C, sa, ar, &sneaky_handler);
+	wm_event_temp_tool_handler_apply(C, sa, ar, &sneaky_handler);
 #endif
 
 	ListBase *handlers[] = {
@@ -4553,7 +4586,7 @@ void WM_window_cursor_keymap_status_refresh(bContext *C, wmWindow *win)
 	}
 
 #ifdef USE_WORKSPACE_TOOL
-	wm_event_gizmo_temp_handler_clear(C, sa, ar, &sneaky_handler);
+	wm_event_temp_tool_handler_clear(C, sa, ar, &sneaky_handler);
 #endif
 
 	if (memcmp(&cd_prev.text, &cd->text, sizeof(cd_prev.text)) != 0) {
@@ -4587,7 +4620,7 @@ bool WM_window_modal_keymap_status_draw(
 			}
 		}
 	}
-	if (keymap == NULL) {
+	if (keymap == NULL || keymap->modal_items == NULL) {
 		return false;
 	}
 	const EnumPropertyItem *items = keymap->modal_items;

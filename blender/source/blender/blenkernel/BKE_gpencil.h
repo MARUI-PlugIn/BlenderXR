@@ -30,7 +30,7 @@
   *  \ingroup bke
   *  \author Joshua Leung
   */
-
+  
 #include "../vr/vr_build.h"
 #if WITH_VR
 #ifdef __cplusplus
@@ -58,7 +58,7 @@ struct Brush;
 struct Object;
 struct bDeformGroup;
 struct SimplifyGpencilModifierData;
-struct InstanceGpencilModifierData;
+struct ArrayGpencilModifierData;
 struct LatticeGpencilModifierData;
 
 struct MDeformVert;
@@ -73,7 +73,6 @@ bool BKE_gpencil_free_strokes(struct bGPDframe *gpf);
 void BKE_gpencil_free_frames(struct bGPDlayer *gpl);
 void BKE_gpencil_free_layers(struct ListBase *list);
 bool BKE_gpencil_free_frame_runtime_data(struct bGPDframe *derived_gpf);
-void BKE_gpencil_free_derived_frames(struct bGPdata *gpd);
 void BKE_gpencil_free(struct bGPdata *gpd, bool free_all);
 
 void BKE_gpencil_batch_cache_dirty_tag(struct bGPdata *gpd);
@@ -157,9 +156,11 @@ bool BKE_gpencil_data_minmax(
 bool BKE_gpencil_stroke_minmax(
 	const struct bGPDstroke *gps, const bool use_select,
 	float r_min[3], float r_max[3]);
+bool BKE_gpencil_stroke_select_check(
+	const struct bGPDstroke *gps);
 
 struct BoundBox *BKE_gpencil_boundbox_get(struct Object *ob);
-void BKE_gpencil_centroid_3D(struct bGPdata *gpd, float r_centroid[3]);
+void BKE_gpencil_centroid_3d(struct bGPdata *gpd, float r_centroid[3]);
 
 /* vertex groups */
 void BKE_gpencil_dvert_ensure(struct bGPDstroke *gps);

@@ -30,7 +30,7 @@
  *  \since March 2014
  *  \author sergey
  */
-
+ 
 #include "../vr/vr_build.h"
 #if WITH_VR
 #ifdef __cplusplus

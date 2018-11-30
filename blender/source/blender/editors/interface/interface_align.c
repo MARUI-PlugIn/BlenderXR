@@ -115,6 +115,22 @@ bool ui_but_can_align(const uiBut *but)
 	return (btype_can_align && (BLI_rctf_size_x(&but->rect) > 0.0f) && (BLI_rctf_size_y(&but->rect) > 0.0f));
 }
 
+int ui_but_align_opposite_to_area_align_get(const ARegion *ar)
+{
+	switch (ar->alignment) {
+		case RGN_ALIGN_TOP:
+			return UI_BUT_ALIGN_DOWN;
+		case RGN_ALIGN_BOTTOM:
+			return UI_BUT_ALIGN_TOP;
+		case RGN_ALIGN_LEFT:
+			return UI_BUT_ALIGN_RIGHT;
+		case RGN_ALIGN_RIGHT:
+			return UI_BUT_ALIGN_LEFT;
+	}
+
+	return 0;
+}
+
 /**
  * This function checks a pair of buttons (assumed in a same align group), and if they are neighbors,
  * set needed data accordingly.
@@ -325,23 +341,23 @@ static void ui_block_align_but_to_region(uiBut *but, const ARegion *region)
 	rctf *rect = &but->rect;
 	const float but_width = BLI_rctf_size_x(rect);
 	const float but_height = BLI_rctf_size_y(rect);
-	const float px = U.pixelsize;
+	const float outline_px = U.pixelsize; /* This may have to be made more variable. */
 
 	switch (but->drawflag & UI_BUT_ALIGN) {
 		case UI_BUT_ALIGN_TOP:
-			rect->ymax = region->winy + px;
+			rect->ymax = region->winy + outline_px;
 			rect->ymin = but->rect.ymax - but_height;
 			break;
 		case UI_BUT_ALIGN_DOWN:
-			rect->ymin = -px;
+			rect->ymin = -outline_px;
 			rect->ymax = rect->ymin + but_height;
 			break;
 		case UI_BUT_ALIGN_LEFT:
-			rect->xmin = -px;
+			rect->xmin = -outline_px;
 			rect->xmax = rect->xmin + but_width;
 			break;
 		case UI_BUT_ALIGN_RIGHT:
-			rect->xmax = region->winx + px;
+			rect->xmax = region->winx + outline_px;
 			rect->xmin = rect->xmax - but_width;
 			break;
 		default:

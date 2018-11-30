@@ -118,7 +118,6 @@ typedef struct EEVEE_LightBake {
 	int grid_sample_len;             /* Total number of samples for the current grid. */
 	int grid_curr;                   /* Nth grid in the cache being rendered. */
 	int bounce_curr, bounce_len;     /* The current light bounce being evaluated. */
-	float vis_range, vis_blur;       /* Sample Visibility compression and bluring. */
 	float vis_res;                   /* Resolution of the Visibility shadowmap. */
 	GPUTexture *grid_prev;           /* Result of previous light bounce. */
 	LightProbe **grid_prb;           /* Pointer to the id.data of the probe object. */
@@ -127,9 +126,6 @@ typedef struct EEVEE_LightBake {
 	EEVEE_LightProbe *cube;          /* Current probe being rendered (UBO data). */
 	int ref_cube_res;                /* Target cubemap at MIP 0. */
 	int cube_offset;                 /* Index of the current cube. */
-	float probemat[6][4][4];         /* ViewProjection matrix for each cube face. */
-	float texel_size, padding_size;  /* Texel and padding size for the final octahedral map. */
-	float roughness;                 /* Roughness level of the current mipmap. */
 	LightProbe **cube_prb;           /* Pointer to the id.data of the probe object. */
 
 	/* Dummy Textures */
@@ -187,6 +183,11 @@ void EEVEE_lightcache_info_update(SceneEEVEE *eevee)
 	LightCache *lcache = eevee->light_cache;
 
 	if (lcache != NULL) {
+		if (lcache->flag & LIGHTCACHE_BAKING) {
+			BLI_strncpy(eevee->light_cache_info, IFACE_("Baking light cache."), sizeof(eevee->light_cache_info));
+			return;
+		}
+
 		char formatted_mem[15];
 		BLI_str_format_byte_unit(formatted_mem, eevee_lightcache_memsize_get(lcache), true);
 
@@ -472,17 +473,19 @@ static void eevee_lightbake_create_resources(EEVEE_LightBake *lbake)
 	lbake->lcache = eevee->light_cache;
 
 	/* TODO validate irradiance and reflection cache independently... */
-	if (!EEVEE_lightcache_validate(lbake->lcache, lbake->cube_len, lbake->ref_cube_res, lbake->grid_len, lbake->irr_size))
+	if (!EEVEE_lightcache_validate(
+	            lbake->lcache, lbake->cube_len, lbake->ref_cube_res, lbake->grid_len, lbake->irr_size))
 	{
 		eevee->light_cache = lbake->lcache = NULL;
 	}
 
 	if (lbake->lcache == NULL) {
-		lbake->lcache = EEVEE_lightcache_create(lbake->grid_len,
-		                                        lbake->cube_len,
-		                                        lbake->ref_cube_res,
-		                                        lbake->vis_res,
-		                                        lbake->irr_size);
+		lbake->lcache = EEVEE_lightcache_create(
+		        lbake->grid_len,
+		        lbake->cube_len,
+		        lbake->ref_cube_res,
+		        lbake->vis_res,
+		        lbake->irr_size);
 		lbake->lcache->flag = LIGHTCACHE_UPDATE_WORLD | LIGHTCACHE_UPDATE_CUBE | LIGHTCACHE_UPDATE_GRID;
 		lbake->lcache->vis_res = lbake->vis_res;
 		lbake->own_light_cache = true;
@@ -664,6 +667,7 @@ static void eevee_lightbake_cache_create(EEVEE_Data *vedata, EEVEE_LightBake *lb
 	/* Disable all effects BUT high bitdepth shadows. */
 	scene_eval->eevee.flag &= SCE_EEVEE_SHADOW_HIGH_BITDEPTH;
 	scene_eval->eevee.taa_samples = 1;
+	scene_eval->eevee.gi_irradiance_smoothing = 0.0f;
 
 	stl->g_data = MEM_callocN(sizeof(*stl->g_data), __func__);
 	stl->g_data->background_alpha = 1.0f;
@@ -709,7 +713,7 @@ static void eevee_lightbake_cache_create(EEVEE_Data *vedata, EEVEE_LightBake *lb
 	DRW_render_object_iter(vedata, NULL, lbake->depsgraph, EEVEE_render_cache);
 
 	EEVEE_materials_cache_finish(vedata);
-	EEVEE_lights_cache_finish(sldata);
+	EEVEE_lights_cache_finish(sldata, vedata);
 	EEVEE_lightprobes_cache_finish(sldata, vedata);
 
 	txl->color = NULL;
@@ -737,12 +741,22 @@ static void eevee_lightbake_render_world_sample(void *ved, void *user_data)
 	EEVEE_LightBake *lbake = (EEVEE_LightBake *)user_data;
 	Scene *scene_eval = DEG_get_evaluated_scene(lbake->depsgraph);
 	LightCache *lcache = scene_eval->eevee.light_cache;
+	float clamp = scene_eval->eevee.gi_glossy_clamp;
+	float filter_quality = scene_eval->eevee.gi_filter_quality;
 
 	/* TODO do this once for the whole bake when we have independent DRWManagers. */
 	eevee_lightbake_cache_create(vedata, lbake);
 
+	sldata->common_data.ray_type = EEVEE_RAY_GLOSSY;
+	sldata->common_data.ray_depth = 1;
+	DRW_uniformbuffer_update(sldata->common_ubo, &sldata->common_data);
 	EEVEE_lightbake_render_world(sldata, vedata, lbake->rt_fb);
-	EEVEE_lightbake_filter_glossy(sldata, vedata, lbake->rt_color, lbake->store_fb, 0, 1.0f, lcache->mips_len);
+	EEVEE_lightbake_filter_glossy(sldata, vedata, lbake->rt_color, lbake->store_fb, 0, 1.0f, lcache->mips_len, filter_quality, clamp);
+
+	sldata->common_data.ray_type = EEVEE_RAY_DIFFUSE;
+	sldata->common_data.ray_depth = 1;
+	DRW_uniformbuffer_update(sldata->common_ubo, &sldata->common_data);
+	EEVEE_lightbake_render_world(sldata, vedata, lbake->rt_fb);
 	EEVEE_lightbake_filter_diffuse(sldata, vedata, lbake->rt_color, lbake->store_fb, 0, 1.0f);
 
 	/* Clear the cache to avoid white values in the grid. */
@@ -858,6 +872,8 @@ static void eevee_lightbake_render_grid_sample(void *ved, void *user_data)
 	common_data->spec_toggle = false;
 	common_data->prb_num_planar = 0;
 	common_data->prb_num_render_cube = 0;
+	common_data->ray_type = EEVEE_RAY_DIFFUSE;
+	common_data->ray_depth = lbake->bounce_curr + 1;
 	if (lbake->bounce_curr == 0) {
 		common_data->prb_num_render_grid = 0;
 	}
@@ -909,6 +925,8 @@ static void eevee_lightbake_render_probe_sample(void *ved, void *user_data)
 	LightCache *lcache = scene_eval->eevee.light_cache;
 	EEVEE_LightProbe *eprobe = lbake->cube;
 	LightProbe *prb = *lbake->probe;
+	float clamp = scene_eval->eevee.gi_glossy_clamp;
+	float filter_quality = scene_eval->eevee.gi_filter_quality;
 
 	/* TODO do this once for the whole bake when we have independent DRWManagers. */
 	eevee_lightbake_cache_create(vedata, lbake);
@@ -917,10 +935,14 @@ static void eevee_lightbake_render_probe_sample(void *ved, void *user_data)
 	common_data->spec_toggle = false;
 	common_data->prb_num_planar = 0;
 	common_data->prb_num_render_cube = 0;
+	common_data->ray_type = EEVEE_RAY_GLOSSY;
+	common_data->ray_depth = 1;
 	DRW_uniformbuffer_update(sldata->common_ubo, &sldata->common_data);
 
 	EEVEE_lightbake_render_scene(sldata, vedata, lbake->rt_fb, eprobe->position, prb->clipsta, prb->clipend);
-	EEVEE_lightbake_filter_glossy(sldata, vedata, lbake->rt_color, lbake->store_fb, lbake->cube_offset, prb->intensity, lcache->mips_len);
+	EEVEE_lightbake_filter_glossy(
+	        sldata, vedata, lbake->rt_color, lbake->store_fb, lbake->cube_offset, prb->intensity,
+	        lcache->mips_len, filter_quality, clamp);
 
 	lcache->cube_len += 1;
 
@@ -1155,6 +1177,8 @@ void EEVEE_lightbake_job(void *custom_data, short *stop, short *do_update, float
 void EEVEE_lightbake_update_world_quick(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata, const Scene *scene)
 {
 	LightCache *lcache = vedata->stl->g_data->light_cache;
+	float clamp = scene->eevee.gi_glossy_clamp;
+	float filter_quality = scene->eevee.gi_filter_quality;
 
 	EEVEE_LightBake lbake = {
 		.resource_only = true
@@ -1165,8 +1189,17 @@ void EEVEE_lightbake_update_world_quick(EEVEE_ViewLayerData *sldata, EEVEE_Data 
 
 	EEVEE_lightbake_cache_init(sldata, vedata, lbake.rt_color, lbake.rt_depth);
 
+	sldata->common_data.ray_type = EEVEE_RAY_GLOSSY;
+	sldata->common_data.ray_depth = 1;
+	DRW_uniformbuffer_update(sldata->common_ubo, &sldata->common_data);
 	EEVEE_lightbake_render_world(sldata, vedata, lbake.rt_fb);
-	EEVEE_lightbake_filter_glossy(sldata, vedata, lbake.rt_color, lbake.store_fb, 0, 1.0f, lcache->mips_len);
+	EEVEE_lightbake_filter_glossy(sldata, vedata, lbake.rt_color, lbake.store_fb, 0, 1.0f, lcache->mips_len,
+	                              filter_quality, clamp);
+
+	sldata->common_data.ray_type = EEVEE_RAY_DIFFUSE;
+	sldata->common_data.ray_depth = 1;
+	DRW_uniformbuffer_update(sldata->common_ubo, &sldata->common_data);
+	EEVEE_lightbake_render_world(sldata, vedata, lbake.rt_fb);
 	EEVEE_lightbake_filter_diffuse(sldata, vedata, lbake.rt_color, lbake.store_fb, 0, 1.0f);
 
 	/* Don't hide grids if they are already rendered. */

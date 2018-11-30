@@ -165,28 +165,7 @@ bool new_id(struct ListBase *lb, struct ID *id, const char *name) ATTR_NONNULL(1
 void id_clear_lib_data(struct Main *bmain, struct ID *id);
 void id_clear_lib_data_ex(struct Main *bmain, struct ID *id, const bool id_in_mainlist);
 
-struct ListBase *which_libbase(struct Main *mainlib, short type);
-
-#define MAX_LIBARRAY    37
-int set_listbasepointers(struct Main *main, struct ListBase *lb[MAX_LIBARRAY]);
-
-/* Main API */
-struct Main *BKE_main_new(void);
-void BKE_main_free(struct Main *mainvar);
-
-void BKE_main_lock(struct Main *bmain);
-void BKE_main_unlock(struct Main *bmain);
-
-void BKE_main_relations_create(struct Main *bmain);
-void BKE_main_relations_free(struct Main *bmain);
-
-struct BlendThumbnail *BKE_main_thumbnail_from_imbuf(struct Main *bmain, struct ImBuf *img);
-struct ImBuf *BKE_main_thumbnail_to_imbuf(struct Main *bmain, struct BlendThumbnail *data);
-void BKE_main_thumbnail_create(struct Main *bmain);
-
-const char *BKE_main_blendfile_path(const struct Main *bmain) ATTR_NONNULL();
-const char *BKE_main_blendfile_path_from_global(void);
-
+/* Affect whole Main database. */
 void BKE_main_id_tag_idcode(struct Main *mainvar, const short type, const int tag, const bool value);
 void BKE_main_id_tag_listbase(struct ListBase *lb, const int tag, const bool value);
 void BKE_main_id_tag_all(struct Main *mainvar, const int tag, const bool value);
@@ -198,8 +177,10 @@ void BKE_main_id_clear_newpoins(struct Main *bmain);
 
 void BKE_main_lib_objects_recalc_all(struct Main *bmain);
 
-/* (MAX_ID_NAME - 2) + 3 */
-void BKE_id_ui_prefix(char name[66 + 1], const struct ID *id);
+#define MAX_ID_FULL_NAME (64 + 64 + 3 + 1)  /* 64 is MAX_ID_NAME - 2 */
+#define MAX_ID_FULL_NAME_UI (MAX_ID_FULL_NAME + 3)  /* Adds 'keycode' two letters at begining. */
+void BKE_id_full_name_get(char name[MAX_ID_FULL_NAME], const struct ID *id);
+void BKE_id_full_name_ui_prefix_get(char name[MAX_ID_FULL_NAME_UI], const struct ID *id);
 
 char *BKE_id_to_unique_string_key(const struct ID *id);
 
@@ -212,7 +193,7 @@ void BKE_library_make_local(
 void BKE_id_tag_set_atomic(struct ID *id, int tag);
 void BKE_id_tag_clear_atomic(struct ID *id, int tag);
 
-bool BKE_id_is_in_gobal_main(struct ID *id);
+bool BKE_id_is_in_global_main(struct ID *id);
 
 void BKE_id_ordered_list(struct ListBase *ordered_lb, const struct ListBase *lb);
 void BKE_id_reorder(const struct ListBase *lb, struct ID *id, struct ID *relative, bool after);

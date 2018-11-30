@@ -125,7 +125,7 @@ typedef enum eFMod_Generator_Modes {
 
 
 /* generator flags
- *	- shared by Generator and Function Generator
+ * - shared by Generator and Function Generator
  */
 typedef enum eFMod_Generator_Flags {
 		/* generator works in conjunction with other modifiers (i.e. doesn't replace those before it) */
@@ -136,7 +136,7 @@ typedef enum eFMod_Generator_Flags {
 /* 'Built-In Function' Generator modifier data
  *
  * This uses the general equation for equations:
- * 		y = amplitude * fn(phase_multiplier*x + phase_offset) + y_offset
+ * y = amplitude * fn(phase_multiplier*x + phase_offset) + y_offset
  *
  * where amplitude, phase_multiplier/offset, y_offset are user-defined coefficients,
  * x is the evaluation 'time', and 'y' is the resultant value
@@ -353,7 +353,7 @@ typedef enum eDriverVar_Types {
 
 	/* maximum number of variable types
 	 * NOTE: this must always be th last item in this list,
-	 * 		so add new types above this line
+	 *       so add new types above this line.
 	 */
 	MAX_DVAR_TYPES
 } eDriverVar_Types;
@@ -566,42 +566,6 @@ typedef enum eFCurve_Smoothing {
 
 
 /* ************************************************ */
-/* Animation Reuse - i.e. users of Actions */
-
-/* Retargetting ----------------------------------- */
-
-/* Retargetting Pair
- *
- * Defines what parts of the paths should be remapped from 'abc' to 'xyz'.
- * TODO:
- *	- Regrex (possibly provided through PY, though having our own module might be faster)
- *	  would be important to have at some point. Current replacements are just simple
- *	  string matches...
- */
-typedef struct AnimMapPair {
-	char from[128];		/* part of path to bed replaced */
-	char to[128];		/* part of path to replace with */
-} AnimMapPair;
-
-/* Retargetting Information for Actions
- *
- * This should only be used if it is strictly necessary (i.e. user will need to explicitly
- * add this when they find that some channels do not match, or motion is not going to right
- * places). When executing an action, this will be checked to see if it provides any useful
- * remaps for the given paths.
- *
- * NOTE: we currently don't store this in the Action itself, as that causes too many problems.
- */
-// FIXME: will this be too clumsy or slow? If we're using RNA paths anyway, we'll have to accept
-// such consequences...
-typedef struct AnimMapper {
-	struct AnimMapper *next, *prev;
-
-	bAction *target;		/* target action */
-	ListBase mappings;		/* remapping table (bAnimMapPair) */
-} AnimMapper;
-
-/* ************************************************ */
 /* NLA - Non-Linear Animation */
 
 /* NLA Strips ------------------------------------- */
@@ -616,7 +580,6 @@ typedef struct NlaStrip {
 
 	ListBase strips;            /* 'Child' strips (used for 'meta' strips) */
 	bAction *act;               /* Action that is referenced by this strip (strip is 'user' of the action) */
-	AnimMapper *remap;          /* Remapping info this strip (for tweaking correspondence of action with context) */
 
 	ListBase fcurves;           /* F-Curves for controlling this strip's influence and timing */    // TODO: move out?
 	ListBase modifiers;         /* F-Curve modifiers to be applied to the entire strip's referenced F-Curves */
@@ -796,7 +759,7 @@ typedef enum eKSP_Grouping {
 		/* path should be grouped using KeyingSet's name */
 	KSP_GROUP_KSNAME,
 		/* path should be grouped using name of inner-most context item from templates
-		 * 	- this is most useful for relative KeyingSets only
+		 * - this is most useful for relative KeyingSets only
 		 */
 	KSP_GROUP_TEMPLATE_ITEM
 } eKSP_Grouping;
@@ -855,6 +818,7 @@ typedef enum eInsertKeyFlags {
 	 * Used by copy/paste code. */
 	INSERTKEY_OVERWRITE_FULL = (1<<7),
 	INSERTKEY_DRIVER         = (1<<8),	/* for driver FCurves, use driver's "input" value - for easier corrective driver setup */
+	INSERTKEY_CYCLE_AWARE    = (1<<9),	/* for cyclic FCurves, adjust key timing to preserve the cycle period and flow */
 } eInsertKeyFlags;
 
 /* ************************************************ */
@@ -901,10 +865,6 @@ typedef struct AnimData {
 		 * took over to be edited in the Animation Editors)
 		 */
 	bAction     *tmpact;
-		/* remapping-info for active action - should only be used if needed
-		 * (for 'foreign' actions that aren't working correctly)
-		 */
-	AnimMapper  *remap;
 
 		/* nla-tracks */
 	ListBase    nla_tracks;

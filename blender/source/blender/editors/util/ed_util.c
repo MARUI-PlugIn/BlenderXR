@@ -53,15 +53,15 @@
 
 #include "BKE_context.h"
 #include "BKE_global.h"
+#include "BKE_layer.h"
 #include "BKE_main.h"
 #include "BKE_multires.h"
 #include "BKE_object.h"
 #include "BKE_packedFile.h"
 #include "BKE_paint.h"
 #include "BKE_screen.h"
-#include "BKE_workspace.h"
-#include "BKE_layer.h"
 #include "BKE_undo_system.h"
+#include "BKE_workspace.h"
 
 #include "ED_armature.h"
 #include "ED_buttons.h"
@@ -347,7 +347,7 @@ void ED_region_draw_mouse_line_cb(const bContext *C, ARegion *ar, void *arg_info
 
 	const uint shdr_pos = GPU_vertformat_attr_add(immVertexFormat(), "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
 
-	GPU_line_width(1.0f * U.pixelsize);
+	GPU_line_width(1.0f);
 
 	immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_UNIFORM_COLOR);
 

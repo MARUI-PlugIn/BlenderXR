@@ -412,7 +412,8 @@ static int buttons_context_path_brush(const bContext *C, ButsContextPath *path)
 		scene = path->ptr[path->len - 1].data;
 
 		if (scene) {
-			ViewLayer *view_layer = CTX_data_view_layer(C);
+			wmWindow *window = CTX_wm_window(C);
+			ViewLayer *view_layer = WM_window_get_active_view_layer(window);
 			br = BKE_paint_brush(BKE_paint_get_active(scene, view_layer));
 		}
 
@@ -467,7 +468,8 @@ static int buttons_context_path_texture(const bContext *C, ButsContextPath *path
 #ifdef WITH_FREESTYLE
 static bool buttons_context_linestyle_pinnable(const bContext *C, ViewLayer *view_layer)
 {
-	Scene *scene = CTX_data_scene(C);
+	wmWindow *window = CTX_wm_window(C);
+	Scene *scene = WM_window_get_active_scene(window);
 	FreestyleConfig *config;
 	SpaceButs *sbuts;
 
@@ -491,13 +493,15 @@ static bool buttons_context_linestyle_pinnable(const bContext *C, ViewLayer *vie
 
 static int buttons_context_path(const bContext *C, ButsContextPath *path, int mainb, int flag)
 {
+	/* Note we don't use CTX_data here, instead we get it from the window.
+	 * Otherwise there is a loop reading the context that we are setting. */
 	SpaceButs *sbuts = CTX_wm_space_buts(C);
-	Scene *scene = CTX_data_scene(C);
-	ViewLayer *view_layer = CTX_data_view_layer(C);
 	wmWindow *window = CTX_wm_window(C);
+	Scene *scene = WM_window_get_active_scene(window);
+	ViewLayer *view_layer = WM_window_get_active_view_layer(window);
+	Object *ob = OBACT(view_layer);
 	ID *id;
 	int found;
-	Object *ob = CTX_data_active_object(C);
 
 	memset(path, 0, sizeof(*path));
 	path->flag = flag;
@@ -514,7 +518,7 @@ static int buttons_context_path(const bContext *C, ButsContextPath *path, int ma
 		RNA_id_pointer_create(&scene->id, &path->ptr[0]);
 		path->len++;
 
-		if (!ELEM(mainb, BCONTEXT_SCENE, BCONTEXT_RENDER, BCONTEXT_VIEW_LAYER, BCONTEXT_WORLD)) {
+		if (!ELEM(mainb, BCONTEXT_SCENE, BCONTEXT_RENDER, BCONTEXT_OUTPUT, BCONTEXT_VIEW_LAYER, BCONTEXT_WORLD)) {
 			RNA_pointer_create(NULL, &RNA_ViewLayer, view_layer, &path->ptr[path->len]);
 			path->len++;
 		}
@@ -525,6 +529,7 @@ static int buttons_context_path(const bContext *C, ButsContextPath *path, int ma
 	switch (mainb) {
 		case BCONTEXT_SCENE:
 		case BCONTEXT_RENDER:
+		case BCONTEXT_OUTPUT:
 			found = buttons_context_path_scene(path);
 			break;
 		case BCONTEXT_VIEW_LAYER:
@@ -592,7 +597,9 @@ static int buttons_context_path(const bContext *C, ButsContextPath *path, int ma
 
 static int buttons_shading_context(const bContext *C, int mainb)
 {
-	Object *ob = CTX_data_active_object(C);
+	wmWindow *window = CTX_wm_window(C);
+	ViewLayer *view_layer = WM_window_get_active_view_layer(window);
+	Object *ob = OBACT(view_layer);
 
 	if (ELEM(mainb, BCONTEXT_MATERIAL, BCONTEXT_WORLD, BCONTEXT_TEXTURE))
 		return 1;
@@ -604,7 +611,9 @@ static int buttons_shading_context(const bContext *C, int mainb)
 
 static int buttons_shading_new_context(const bContext *C, int flag)
 {
-	Object *ob = CTX_data_active_object(C);
+	wmWindow *window = CTX_wm_window(C);
+	ViewLayer *view_layer = WM_window_get_active_view_layer(window);
+	Object *ob = OBACT(view_layer);
 
 	if (flag & (1 << BCONTEXT_MATERIAL))
 		return BCONTEXT_MATERIAL;
@@ -646,13 +655,7 @@ void buttons_context_compute(const bContext *C, SpaceButs *sbuts)
 					sbuts->dataicon = RNA_struct_ui_icon(ptr->type);
 				}
 				else {
-					Object *ob = CTX_data_active_object(C);
-					if (ob->type == OB_GPENCIL) {
-						sbuts->dataicon = ICON_GREASEPENCIL;
-					}
-					else {
-						sbuts->dataicon = ICON_EMPTY_DATA;
-					}
+					sbuts->dataicon = ICON_EMPTY_DATA;
 				}
 			}
 		}
@@ -1011,6 +1014,7 @@ void buttons_context_draw(const bContext *C, uiLayout *layout)
 	PointerRNA *ptr;
 	char namebuf[128], *name;
 	int a, icon;
+	bool first = true;
 
 	if (!path)
 		return;
@@ -1018,56 +1022,84 @@ void buttons_context_draw(const bContext *C, uiLayout *layout)
 	row = uiLayoutRow(layout, true);
 	uiLayoutSetAlignment(row, UI_LAYOUT_ALIGN_LEFT);
 
+	for (a = 0; a < path->len; a++) {
+		ptr = &path->ptr[a];
+
+		/* Skip scene and view layer to save space. */
+		if ((!ELEM(sbuts->mainb, BCONTEXT_RENDER, BCONTEXT_OUTPUT, BCONTEXT_SCENE, BCONTEXT_VIEW_LAYER, BCONTEXT_WORLD) && ptr->type == &RNA_Scene)) {
+			continue;
+		}
+		else if ((!ELEM(sbuts->mainb, BCONTEXT_RENDER, BCONTEXT_OUTPUT, BCONTEXT_SCENE, BCONTEXT_VIEW_LAYER, BCONTEXT_WORLD) && ptr->type == &RNA_ViewLayer)) {
+			continue;
+		}
+
+		/* Add > triangle. */
+		if (!first) {
+			uiItemL(row, "", ICON_SMALL_TRI_RIGHT_VEC);
+		}
+		else {
+			first = false;
+		}
+
+		/* Add icon + name .*/
+		if (ptr->data) {
+			icon = RNA_struct_ui_icon(ptr->type);
+			name = RNA_struct_name_get_alloc(ptr, namebuf, sizeof(namebuf), NULL);
+
+			if (name) {
+				uiItemLDrag(row, ptr, name, icon);
+
+				if (name != namebuf)
+					MEM_freeN(name);
+			}
+			else {
+				uiItemL(row, "", icon);
+			}
+		}
+	}
+
+	uiItemSpacer(row);
+
 	block = uiLayoutGetBlock(row);
 	UI_block_emboss_set(block, UI_EMBOSS_NONE);
 	but = uiDefIconButBitC(block, UI_BTYPE_ICON_TOGGLE, SB_PIN_CONTEXT, 0, ICON_UNPINNED, 0, 0, UI_UNIT_X, UI_UNIT_Y, &sbuts->flag,
 	                       0, 0, 0, 0, TIP_("Follow context or keep fixed data-block displayed"));
 	UI_but_flag_disable(but, UI_BUT_UNDO); /* skip undo on screen buttons */
 	UI_but_func_set(but, pin_cb, NULL, NULL);
-
-	for (a = 0; a < path->len; a++) {
-		ptr = &path->ptr[a];
-
-		if (a != 0)
-			uiItemL(row, "", ICON_SMALL_TRI_RIGHT_VEC);
-
-		if (ptr->data) {
-			icon = RNA_struct_ui_icon(ptr->type);
-			name = RNA_struct_name_get_alloc(ptr, namebuf, sizeof(namebuf), NULL);
-
-			if (name) {
-				if ((!ELEM(sbuts->mainb, BCONTEXT_RENDER, BCONTEXT_SCENE, BCONTEXT_VIEW_LAYER, BCONTEXT_WORLD) && ptr->type == &RNA_Scene)) {
-					uiItemLDrag(row, ptr, "", icon);  /* save some space */
-				}
-				else if ((!ELEM(sbuts->mainb, BCONTEXT_RENDER, BCONTEXT_SCENE, BCONTEXT_VIEW_LAYER, BCONTEXT_WORLD) && ptr->type == &RNA_ViewLayer)) {
-					uiItemLDrag(row, ptr, "", icon);  /* save some space */
-				}
-				else {
-					uiItemLDrag(row, ptr, name, icon);
-				}
-
-				if (name != namebuf)
-					MEM_freeN(name);
-			}
-			else
-				uiItemL(row, "", icon);
-		}
-	}
 }
 
+#ifdef USE_HEADER_CONTEXT_PATH
+static bool buttons_header_context_poll(const bContext *C, HeaderType *UNUSED(ht))
+#else
 static bool buttons_panel_context_poll(const bContext *C, PanelType *UNUSED(pt))
+#endif
 {
 	SpaceButs *sbuts = CTX_wm_space_buts(C);
 	return (sbuts->mainb != BCONTEXT_TOOL);
 }
 
-static void buttons_panel_context_draw(const bContext *C, Panel *pa)
+#ifdef USE_HEADER_CONTEXT_PATH
+static void buttons_header_context_draw(const bContext *C, Header *ptr)
+#else
+static void buttons_panel_context_draw(const bContext *C, Panel *ptr)
+#endif
 {
-	buttons_context_draw(C, pa->layout);
+	buttons_context_draw(C, ptr->layout);
 }
 
 void buttons_context_register(ARegionType *art)
 {
+#ifdef USE_HEADER_CONTEXT_PATH
+	HeaderType *ht;
+
+	ht = MEM_callocN(sizeof(HeaderType), "spacetype buttons context header");
+	strcpy(ht->idname, "BUTTONS_HT_context");
+	ht->space_type = SPACE_BUTS;
+	ht->region_type = art->regionid;
+	ht->poll = buttons_header_context_poll;
+	ht->draw = buttons_header_context_draw;
+	BLI_addtail(&art->headertypes, ht);
+#else
 	PanelType *pt;
 
 	pt = MEM_callocN(sizeof(PanelType), "spacetype buttons panel context");
@@ -1078,6 +1110,7 @@ void buttons_context_register(ARegionType *art)
 	pt->draw = buttons_panel_context_draw;
 	pt->flag = PNL_NO_HEADER;
 	BLI_addtail(&art->paneltypes, pt);
+#endif
 }
 
 ID *buttons_context_id_path(const bContext *C)

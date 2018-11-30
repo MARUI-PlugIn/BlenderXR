@@ -243,6 +243,10 @@ typedef struct ThemeSpace {
 	char list_text[4];
 	char list_text_hi[4];
 
+	/* navigation bar regions */
+	char navigation_bar[4];			/* region background */
+	int pad2;
+
 	/* float panel */
 /*	char panel[4];			unused */
 /*	char panel_title[4];	unused */
@@ -286,10 +290,11 @@ typedef struct ThemeSpace {
 	char handle_free[4], handle_auto[4], handle_vect[4], handle_align[4], handle_auto_clamped[4];
 	char handle_sel_free[4], handle_sel_auto[4], handle_sel_vect[4], handle_sel_align[4], handle_sel_auto_clamped[4];
 
-	char ds_channel[4], ds_subchannel[4]; /* dopesheet */
+	char ds_channel[4], ds_subchannel[4], ds_ipoline[4]; /* dopesheet */
 	char keytype_keyframe[4], keytype_extreme[4], keytype_breakdown[4], keytype_jitter[4], keytype_movehold[4]; /* keytypes */
 	char keytype_keyframe_select[4], keytype_extreme_select[4], keytype_breakdown_select[4], keytype_jitter_select[4], keytype_movehold_select[4]; /* keytypes */
 	char keyborder[4], keyborder_select[4];
+	char pad[4];
 
 	char console_output[4], console_input[4], console_info[4], console_error[4];
 	char console_cursor[4], console_select[4];
@@ -487,7 +492,8 @@ enum {
 };
 
 typedef struct SolidLight {
-	int flag, pad;
+	int flag;
+	float smooth;
 	float col[4], spec[4], vec[4];
 } SolidLight;
 
@@ -536,7 +542,9 @@ typedef struct UserDef {
 	 * which are outside the scope of typical preferences. */
 	short app_flag;
 	short language;
-	short userpref, viewzoom;
+	short userpref;
+	char  userpref_flag;
+	char viewzoom;
 
 	int mixbufsize;
 	int audiodevice;
@@ -563,8 +571,8 @@ typedef struct UserDef {
 	struct ListBase themes;
 	struct ListBase uifonts;
 	struct ListBase uistyles;
-	struct ListBase keymaps  DNA_DEPRECATED; /* deprecated in favor of user_keymaps */
 	struct ListBase user_keymaps;
+	struct ListBase user_keyconfig_prefs; /* wmKeyConfigPref. */
 	struct ListBase addons;
 	struct ListBase autoexec_paths;
 	struct ListBase user_menus; /* bUserMenu */
@@ -579,8 +587,10 @@ typedef struct UserDef {
 	short gp_settings;  /* eGP_UserdefSettings */
 	short tb_leftmouse, tb_rightmouse;
 	struct SolidLight light[3];
+	float light_ambient[3], pad7;
 	short gizmo_flag, gizmo_size;
-	short pad6[3];
+	short edit_solid_light;
+	short pad6[2];
 	short textimeout, texcollectrate;
 	short dragthreshold;
 	int memcachelimit;
@@ -610,6 +620,9 @@ typedef struct UserDef {
 	short widget_unit;		/* private, defaults to 20 for 72 DPI setting */
 	short anisotropic_filter;
 	short use_16bit_textures, use_gpu_mipmap;
+
+	float pressure_threshold_max; /* raw tablet pressure that maps to 100% */
+	float pressure_softness;      /* curve non-linearity parameter */
 
 	float ndof_sensitivity;	/* overall sensitivity of 3D mouse */
 	float ndof_orbit_sensitivity;
@@ -667,17 +680,36 @@ extern UserDef U; /* from blenkernel blender.c */
 
 /* ***************** USERDEF ****************** */
 
+/* Toggles for unfinished 2.8 UserPref design. */
+//#define WITH_USERDEF_WORKSPACES
+//#define WITH_USERDEF_SYSTEM_SPLIT
+
 /* UserDef.userpref (UI active_section) */
 typedef enum eUserPref_Section {
-	USER_SECTION_INTERFACE	= 0,
-	USER_SECTION_EDIT		= 1,
-	USER_SECTION_FILE		= 2,
-	USER_SECTION_SYSTEM		= 3,
-	USER_SECTION_THEME		= 4,
-	USER_SECTION_INPUT		= 5,
-	USER_SECTION_ADDONS 	= 6,
-	USER_SECTION_LIGHT 	= 7,
+	USER_SECTION_INTERFACE         = 0,
+	USER_SECTION_EDIT              = 1,
+	USER_SECTION_SYSTEM_FILES      = 2,
+	USER_SECTION_SYSTEM_GENERAL    = 3,
+	USER_SECTION_THEME             = 4,
+	USER_SECTION_INPUT             = 5,
+	USER_SECTION_ADDONS            = 6,
+	USER_SECTION_LIGHT             = 7,
+#ifdef WITH_USERDEF_WORKSPACES
+	USER_SECTION_WORKSPACE_CONFIG  = 8,
+	USER_SECTION_WORKSPACE_ADDONS  = 9,
+	USER_SECTION_WORKSPACE_KEYMAPS = 10,
+#endif
+#ifdef WITH_USERDEF_SYSTEM_SPLIT
+	USER_SECTION_SYSTEM_DISPLAY    = 11,
+	USER_SECTION_SYSTEM_DEVICES    = 12,
+#endif
 } eUserPref_Section;
+
+/* UserDef.userpref_flag (State of the user preferences UI). */
+typedef enum eUserPref_SectionFlag {
+	/* Hide/expand keymap preferences. */
+	USER_SECTION_INPUT_HIDE_UI_KEYCONFIG        = (1 << 0),
+} eUserPref_SectionFlag;
 
 /* UserDef.flag */
 typedef enum eUserPref_Flag {
@@ -695,7 +727,7 @@ typedef enum eUserPref_Flag {
 	USER_TOOLTIPS			= (1 << 11),
 	USER_TWOBUTTONMOUSE		= (1 << 12),
 	USER_NONUMPAD			= (1 << 13),
-	USER_LMOUSESELECT		= (1 << 14),
+	USER_FLAG_DEPRECATED_14	= (1 << 14),  /* cleared */
 	USER_FILECOMPRESS		= (1 << 15),
 	USER_SAVE_PREVIEWS		= (1 << 16),
 	USER_CUSTOM_RANGE		= (1 << 17),
@@ -787,7 +819,6 @@ typedef enum eUserpref_UI_Flag2 {
 /* UserDef.app_flag */
 typedef enum eUserpref_APP_Flag {
 	USER_APP_LOCK_UI_LAYOUT = (1 << 0),
-	USER_APP_VIEW3D_HIDE_CURSOR = (1 << 1),
 } eUserpref_APP_Flag;
 
 /* Auto-Keying mode.
@@ -822,6 +853,7 @@ typedef enum eAutokey_Flag {
 	/* toolsettings->autokey_flag */
 	AUTOKEY_FLAG_ONLYKEYINGSET	= (1 << 6),
 	AUTOKEY_FLAG_NOWARNING		= (1 << 7),
+	AUTOKEY_FLAG_CYCLEAWARE		= (1 << 8),
 	ANIMRECORD_FLAG_WITHNLA		= (1 << 10),
 } eAutokey_Flag;
 

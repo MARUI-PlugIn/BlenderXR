@@ -9,17 +9,17 @@ naming_method = 3   create new, replace existing
 '''
 
 def new(name,naming_method):
-    if name in bpy.data.groups and naming_method :
-        grp = bpy.data.groups[name]
+    if name in bpy.data.collections and naming_method :
+        grp = bpy.data.collections[name]
         # if naming_method == 1 return existing
         if naming_method == 2 :
-            grp = bpy.data.groups.new(name)
+            grp = bpy.data.collections.new(name)
             grp.name = name
         elif naming_method == 3 :
-            bpy.data.groups.remove(grp)
-            grp = bpy.data.groups.new(name)
+            bpy.data.collections.remove(grp)
+            grp = bpy.data.collections.new(name)
     else :
-        grp = bpy.data.groups.new(name)
+        grp = bpy.data.collections.new(name)
     return grp
 
 ##  TODO
@@ -56,8 +56,8 @@ def remove(ob,with_data=True) :
 
             # odd (pre 2.60) :
             # ob=bpy.data.objects[ob.name]
-            # if the ob (board) argument comes from bpy.data.groups['aGroup'].objects,
-            #  bpy.data.groups['board'].objects['board'].users_scene
+            # if the ob (board) argument comes from bpy.data.collections['aGroup'].objects,
+            #  bpy.data.collections['board'].objects['board'].users_scene
             ob.name = '_dead'
             for sc in ob.users_scene :
                 sc.objects.unlink(ob)

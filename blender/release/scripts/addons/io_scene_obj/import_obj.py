@@ -36,10 +36,10 @@ import os
 import time
 import bpy
 import mathutils
+
 from bpy_extras.io_utils import unpack_list
 from bpy_extras.image_utils import load_image
-
-from progress_report import ProgressReport, ProgressReportSubstep
+from bpy_extras.wm_utils.progress_report import ProgressReport
 
 
 def line_value(line_split):
@@ -94,6 +94,7 @@ def create_materials(filepath, relpath,
     assign colors and images to the materials from all referenced material libs
     """
     from math import sqrt
+    from bpy_extras import node_shader_utils
 
     DIR = os.path.dirname(filepath)
     context_material_vars = set()
@@ -176,21 +177,19 @@ def create_materials(filepath, relpath,
         else:
             raise Exception("invalid type %r" % type)
 
-    # Add an MTL with the same name as the obj if no MTLs are spesified.
+    # Try to find a MTL with the same name as the OBJ if no MTLs are specified.
     temp_mtl = os.path.splitext((os.path.basename(filepath)))[0] + ".mtl"
-
     if os.path.exists(os.path.join(DIR, temp_mtl)):
         material_libs.add(temp_mtl)
     del temp_mtl
 
     # Create new materials
     for name in unique_materials:  # .keys()
-        if name is not None:
-            ma = unique_materials[name] = bpy.data.materials.new(name.decode('utf-8', "replace"))
-            from bpy_extras import node_shader_utils
-            ma_wrap = node_shader_utils.PrincipledBSDFWrapper(ma, is_readonly=False)
-            nodal_material_wrap_map[ma] = ma_wrap
-            ma_wrap.use_nodes = True
+        ma_name = "Default OBJ" if name is None else name.decode('utf-8', "replace")
+        ma = unique_materials[name] = bpy.data.materials.new(ma_name)
+        ma_wrap = node_shader_utils.PrincipledBSDFWrapper(ma, is_readonly=False)
+        nodal_material_wrap_map[ma] = ma_wrap
+        ma_wrap.use_nodes = True
 
     for libname in sorted(material_libs):
         # print(libname)
@@ -227,7 +226,7 @@ def create_materials(filepath, relpath,
                             # TODO: Find a way to guesstimate best value from diffuse color...
                             # IDEA: Use standard deviation of both spec and diff colors (i.e. how far away they are
                             #       from some grey), and apply the the proportion between those two as tint factor?
-                            spec = sum(spec_color) / 3.0
+                            spec = sum(spec_colors) / 3.0
                             # ~ spec_var = math.sqrt(sum((c - spec) ** 2 for c in spec_color) / 3.0)
                             # ~ diff = sum(context_mat_wrap.base_color) / 3.0
                             # ~ diff_var = math.sqrt(sum((c - diff) ** 2 for c in context_mat_wrap.base_color) / 3.0)
@@ -297,7 +296,8 @@ def create_materials(filepath, relpath,
                         col = (float_func(line_split[1]), float_func(line_split[2]), float_func(line_split[3]))
                         context_mat_wrap.base_color = col
                     elif line_id == b'ks':
-                        spec_color = (float_func(line_split[1]) + float_func(line_split[2]) + float_func(line_split[3]))
+                        spec_colors[:] = [
+                            float_func(line_split[1]), float_func(line_split[2]), float_func(line_split[3])]
                         context_material_vars.add("specular")
                     elif line_id == b'ke':
                         # We cannot set context_material.emit right now, we need final diffuse color as well for this.
@@ -427,8 +427,8 @@ def split_mesh(verts_loc, faces, unique_materials, filepath, SPLIT_OB_OR_GROUP):
     filename = os.path.splitext((os.path.basename(filepath)))[0]
 
     if not SPLIT_OB_OR_GROUP or not faces:
-        use_verts_nor = any((False if f[1] is ... else True) for f in faces)
-        use_verts_tex = any((False if f[2] is ... else True) for f in faces)
+        use_verts_nor = any(f[1] for f in faces)
+        use_verts_tex = any(f[2] for f in faces)
         # use the filename for the object name since we aren't chopping up the mesh.
         return [(verts_loc, faces, unique_materials, filename, use_verts_nor, use_verts_tex)]
 
@@ -445,7 +445,15 @@ def split_mesh(verts_loc, faces, unique_materials, filepath, SPLIT_OB_OR_GROUP):
     oldkey = -1  # initialize to a value that will never match the key
 
     for face in faces:
-        key = face[5]
+        (face_vert_loc_indices,
+         face_vert_nor_indices,
+         face_vert_tex_indices,
+         context_material,
+         context_smooth_group,
+         context_object,
+         face_invalid_blenpoly,
+         ) = face
+        key = context_object
 
         if oldkey != key:
             # Check the key has changed.
@@ -453,27 +461,25 @@ def split_mesh(verts_loc, faces, unique_materials, filepath, SPLIT_OB_OR_GROUP):
              use_verts_nor, use_verts_tex) = face_split_dict.setdefault(key, ([], [], {}, {}, [], []))
             oldkey = key
 
-        face_vert_loc_indices = face[0]
 
-        if not use_verts_nor and face[1] is not ...:
+        if not use_verts_nor and face_vert_nor_indices:
             use_verts_nor.append(True)
 
-        if not use_verts_tex and face[2] is not ...:
+        if not use_verts_tex and face_vert_tex_indices:
             use_verts_tex.append(True)
 
         # Remap verts to new vert list and add where needed
-        for enum, i in enumerate(face_vert_loc_indices):
-            map_index = vert_remap.get(i)
+        for loop_idx, vert_idx in enumerate(face_vert_loc_indices):
+            map_index = vert_remap.get(vert_idx)
             if map_index is None:
                 map_index = len(verts_split)
-                vert_remap[i] = map_index  # set the new remapped index so we only add once and can reference next time.
-                verts_split.append(verts_loc[i])  # add the vert to the local verts
+                vert_remap[vert_idx] = map_index  # set the new remapped index so we only add once and can reference next time.
+                verts_split.append(verts_loc[vert_idx])  # add the vert to the local verts
 
-            face_vert_loc_indices[enum] = map_index  # remap to the local index
+            face_vert_loc_indices[loop_idx] = map_index  # remap to the local index
 
-            matname = face[3]
-            if matname and matname not in unique_materials_split:
-                unique_materials_split[matname] = unique_materials[matname]
+            if context_material not in unique_materials_split:
+                unique_materials_split[context_material] = unique_materials[context_material]
 
         faces_split.append(face)
 
@@ -552,7 +558,7 @@ def create_mesh(new_objects,
                 # ignore triangles with invalid indices
                 if len(face_vert_loc_indices) > 3:
                     from bpy_extras.mesh_utils import ngon_tessellate
-                    ngon_face_indices = ngon_tessellate(verts_loc, face_vert_loc_indices)
+                    ngon_face_indices = ngon_tessellate(verts_loc, face_vert_loc_indices, debug_print=bpy.app.debug)
                     faces.extend([([face_vert_loc_indices[ngon[0]],
                                     face_vert_loc_indices[ngon[1]],
                                     face_vert_loc_indices[ngon[2]],
@@ -622,63 +628,37 @@ def create_mesh(new_objects,
     # verts_loc is a list of (x, y, z) tuples
     me.vertices.foreach_set("co", unpack_list(verts_loc))
 
-    loops_vert_idx = []
+    loops_vert_idx = tuple(vidx for (face_vert_loc_indices, _, _, _, _, _, _) in faces for vidx in face_vert_loc_indices)
     faces_loop_start = []
-    faces_loop_total = []
     lidx = 0
     for f in faces:
-        vidx = f[0]
-        nbr_vidx = len(vidx)
-        loops_vert_idx.extend(vidx)
+        face_vert_loc_indices = f[0]
+        nbr_vidx = len(face_vert_loc_indices)
         faces_loop_start.append(lidx)
-        faces_loop_total.append(nbr_vidx)
         lidx += nbr_vidx
+    faces_loop_total = tuple(len(face_vert_loc_indices) for (face_vert_loc_indices, _, _, _, _, _, _) in faces)
 
     me.loops.foreach_set("vertex_index", loops_vert_idx)
     me.polygons.foreach_set("loop_start", faces_loop_start)
     me.polygons.foreach_set("loop_total", faces_loop_total)
 
+    faces_ma_index = tuple(material_mapping[context_material] for (_, _, _, context_material, _, _, _) in faces)
+    me.polygons.foreach_set("material_index", faces_ma_index)
+
+    faces_use_smooth = tuple(bool(context_smooth_group) for (_, _, _, _, context_smooth_group, _, _) in faces)
+    me.polygons.foreach_set("use_smooth", faces_use_smooth)
+
     if verts_nor and me.loops:
         # Note: we store 'temp' normals in loops, since validate() may alter final mesh,
         #       we can only set custom lnors *after* calling it.
         me.create_normals_split()
+        loops_nor = tuple(no for (_, face_vert_nor_indices, _, _, _, _, _) in faces for face_noidx in face_vert_nor_indices for no in verts_nor[face_noidx])
+        me.loops.foreach_set("normal", loops_nor)
 
     if verts_tex and me.polygons:
         me.uv_layers.new()
-
-    context_material_old = -1  # avoid a dict lookup
-    mat = 0  # rare case it may be un-initialized.
-
-    for i, (face, blen_poly) in enumerate(zip(faces, me.polygons)):
-        if len(face[0]) < 3:
-            raise Exception("bad face")  # Shall not happen, we got rid of those earlier!
-
-        (face_vert_loc_indices,
-         face_vert_nor_indices,
-         face_vert_tex_indices,
-         context_material,
-         context_smooth_group,
-         context_object,
-         face_invalid_blenpoly,
-         ) = face
-
-        if context_smooth_group:
-            blen_poly.use_smooth = True
-
-        if context_material:
-            if context_material_old is not context_material:
-                mat = material_mapping[context_material]
-                context_material_old = context_material
-            blen_poly.material_index = mat
-
-        if verts_nor and face_vert_nor_indices:
-            for face_noidx, lidx in zip(face_vert_nor_indices, blen_poly.loop_indices):
-                me.loops[lidx].normal[:] = verts_nor[0 if (face_noidx is ...) else face_noidx]
-
-        if verts_tex and face_vert_tex_indices:
-            blen_uvs = me.uv_layers[0]
-            for face_uvidx, lidx in zip(face_vert_tex_indices, blen_poly.loop_indices):
-                blen_uvs.data[lidx].uv = verts_tex[0 if (face_uvidx is ...) else face_uvidx]
+        loops_uv = tuple(uv for (_, _, face_vert_tex_indices, _, _, _, _) in faces for face_uvidx in face_vert_tex_indices for uv in verts_tex[face_uvidx])
+        me.uv_layers[0].data.foreach_set("uv", loops_uv)
 
     use_edges = use_edges and bool(edges)
     if use_edges:
@@ -921,6 +901,7 @@ def load(context,
         context_parm = b''  # used by nurbs too but could be used elsewhere
 
         # Until we can use sets
+        use_default_material = False
         unique_materials = {}
         unique_smooth_groups = {}
         # unique_obects= {} - no use for this variable since the objects are stored in the face.
@@ -936,15 +917,19 @@ def load(context,
         face_vert_nor_indices = None
         face_vert_tex_indices = None
         face_vert_nor_valid = face_vert_tex_valid = False
+        verts_loc_len = verts_nor_len = verts_tex_len = 0
         face_items_usage = set()
         face_invalid_blenpoly = None
         prev_vidx = None
         face = None
         vec = []
 
+        quick_vert_failures = 0
+        skip_quick_vert = False
+
         progress.enter_substeps(3, "Parsing OBJ file...")
         with open(filepath, 'rb') as f:
-            for line in f:  # .readlines():
+            for line in f:
                 line_split = line.split()
 
                 if not line_split:
@@ -952,17 +937,39 @@ def load(context,
 
                 line_start = line_split[0]  # we compare with this a _lot_
 
-                if line_start == b'v' or context_multi_line == b'v':
-                    context_multi_line = handle_vec(line_start, context_multi_line, line_split, b'v', verts_loc, vec, 3)
+                # Handling vertex data are pretty similar, factorize that.
+                # Also, most OBJ files store all those on a single line, so try fast parsing for that first,
+                # and only fallback to full multi-line parsing when needed, this gives significant speed-up
+                # (~40% on affected code).
+                if line_start == b'v':
+                    vdata, vdata_len, do_quick_vert = (verts_loc, 3, not skip_quick_vert)
+                elif line_start == b'vn':
+                    vdata, vdata_len, do_quick_vert = (verts_nor, 3, not skip_quick_vert)
+                elif line_start == b'vt':
+                    vdata, vdata_len, do_quick_vert = verts_tex, 2, not skip_quick_vert
+                elif context_multi_line == b'v':
+                    vdata, vdata_len, do_quick_vert = verts_loc, 3, False
+                elif context_multi_line == b'vn':
+                    vdata, vdata_len, do_quick_vert = verts_nor, 3, False
+                elif context_multi_line == b'vt':
+                    vdata, vdata_len, do_quick_vert = verts_tex, 2, False
+                else:
+                    vdata_len = 0
 
-                elif line_start == b'vn' or context_multi_line == b'vn':
-                    context_multi_line = handle_vec(line_start, context_multi_line, line_split, b'vn', verts_nor, vec, 3)
+                if vdata_len:
+                    if do_quick_vert:
+                        try:
+                            vdata.append(tuple(map(float_func, line_split[1:vdata_len + 1])))
+                        except:
+                            do_quick_vert = False
+                            # In case we get too many failures on quick parsing, force fallback to full multi-line one.
+                            # Exception handling can become costly...
+                            quick_vert_failures += 1
+                            if quick_vert_failures > 10000:
+                                skip_quick_vert = True
+                    if not do_quick_vert:
+                        context_multi_line = handle_vec(line_start, context_multi_line, line_split, b'v', vdata, vec, vdata_len)
 
-                elif line_start == b'vt' or context_multi_line == b'vt':
-                    context_multi_line = handle_vec(line_start, context_multi_line, line_split, b'vt', verts_tex, vec, 2)
-
-                # Handle faces lines (as faces) and the second+ lines of fa multiline face here
-                # use 'f' not 'f ' because some objs (very rare have 'fo ' for faces)
                 elif line_start == b'f' or context_multi_line == b'f':
                     if not context_multi_line:
                         line_split = line_split[1:]
@@ -972,14 +979,19 @@ def load(context,
                          _1, _2, _3, face_invalid_blenpoly) = face
                         faces.append(face)
                         face_items_usage.clear()
+                        verts_loc_len = len(verts_loc)
+                        verts_nor_len = len(verts_nor)
+                        verts_tex_len = len(verts_tex)
+                        if context_material is None:
+                            use_default_material = True
                     # Else, use face_vert_loc_indices and face_vert_tex_indices previously defined and used the obj_face
 
                     context_multi_line = b'f' if strip_slash(line_split) else b''
 
                     for v in line_split:
                         obj_vert = v.split(b'/')
-                        idx = int(obj_vert[0]) - 1
-                        vert_loc_index = (idx + len(verts_loc) + 1) if (idx < 0) else idx
+                        idx = int(obj_vert[0])  # Note that we assume here we cannot get OBJ invalid 0 index...
+                        vert_loc_index = (idx + verts_loc_len) if (idx < 1) else idx - 1
                         # Add the vertex to the current group
                         # *warning*, this wont work for files that have groups defined around verts
                         if use_groups_as_vgroups and context_vgroup:
@@ -997,18 +1009,18 @@ def load(context,
                         # formatting for faces with normals and textures is
                         # loc_index/tex_index/nor_index
                         if len(obj_vert) > 1 and obj_vert[1] and obj_vert[1] != b'0':
-                            idx = int(obj_vert[1]) - 1
-                            face_vert_tex_indices.append((idx + len(verts_tex) + 1) if (idx < 0) else idx)
+                            idx = int(obj_vert[1])
+                            face_vert_tex_indices.append((idx + verts_tex_len) if (idx < 1) else idx - 1)
                             face_vert_tex_valid = True
                         else:
-                            face_vert_tex_indices.append(...)
+                            face_vert_tex_indices.append(0)
 
                         if len(obj_vert) > 2 and obj_vert[2] and obj_vert[2] != b'0':
-                            idx = int(obj_vert[2]) - 1
-                            face_vert_nor_indices.append((idx + len(verts_nor) + 1) if (idx < 0) else idx)
+                            idx = int(obj_vert[2])
+                            face_vert_nor_indices.append((idx + verts_nor_len) if (idx < 1) else idx - 1)
                             face_vert_nor_valid = True
                         else:
-                            face_vert_nor_indices.append(...)
+                            face_vert_nor_indices.append(0)
 
                     if not context_multi_line:
                         # Clear nor/tex indices in case we had none defined for this face.
@@ -1142,6 +1154,8 @@ def load(context,
 
         progress.step("Done, loading materials and images...")
 
+        if use_default_material:
+            unique_materials[None] = None
         create_materials(filepath, relpath, material_libs, unique_materials,
                          use_image_search, float_func)
 
@@ -1179,16 +1193,12 @@ def load(context,
             create_nurbs(context_nurbs, verts_loc, new_objects)
 
         view_layer = context.view_layer
-        if view_layer.collections.active:
-            collection = view_layer.collections.active.collection
-        else:
-            collection = scene.master_collection.new()
-            view_layer.collections.link(collection)
+        collection = view_layer.active_layer_collection.collection
 
         # Create new obj
         for obj in new_objects:
             collection.objects.link(obj)
-            obj.select_set('SELECT')
+            obj.select_set(True)
 
             # we could apply this anywhere before scaling.
             obj.matrix_world = global_matrix

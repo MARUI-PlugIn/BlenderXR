@@ -58,6 +58,7 @@
 #include "BKE_image.h"
 #include "BKE_layer.h"
 #include "BKE_library.h"
+#include "BKE_main.h"
 #include "BKE_node.h"
 #include "BKE_report.h"
 #include "BKE_scene.h"
@@ -207,6 +208,17 @@ static void userdef_free_keymaps(UserDef *userdef)
 	BLI_listbase_clear(&userdef->user_keymaps);
 }
 
+static void userdef_free_keyconfig_prefs(UserDef *userdef)
+{
+	for (wmKeyConfigPref *kpt = userdef->user_keyconfig_prefs.first, *kpt_next; kpt; kpt = kpt_next) {
+		kpt_next = kpt->next;
+		IDP_FreeProperty(kpt->prop);
+		MEM_freeN(kpt->prop);
+		MEM_freeN(kpt);
+	}
+	BLI_listbase_clear(&userdef->user_keyconfig_prefs);
+}
+
 static void userdef_free_user_menus(UserDef *userdef)
 {
 	for (bUserMenu *um = userdef->user_menus.first, *um_next; um; um = um_next) {
@@ -236,6 +248,7 @@ void BKE_blender_userdef_data_free(UserDef *userdef, bool clear_fonts)
 #endif
 
 	userdef_free_keymaps(userdef);
+	userdef_free_keyconfig_prefs(userdef);
 	userdef_free_user_menus(userdef);
 	userdef_free_addons(userdef);
 

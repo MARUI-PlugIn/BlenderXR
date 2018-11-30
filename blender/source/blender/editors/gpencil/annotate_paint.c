@@ -49,6 +49,7 @@
 #include "BKE_context.h"
 #include "BKE_global.h"
 #include "BKE_gpencil.h"
+#include "BKE_layer.h"
 #include "BKE_main.h"
 #include "BKE_report.h"
 #include "BKE_screen.h"
@@ -232,8 +233,7 @@ static bool gpencil_project_check(tGPsdata *p)
 /* get the reference point for stroke-point conversions */
 static void gp_get_3d_reference(tGPsdata *p, float vec[3])
 {
-	View3D *v3d = p->sa->spacedata.first;
-	const float *fp = ED_view3d_cursor3d_get(p->scene, v3d)->location;
+	const float *fp = p->scene->cursor.location;
 
 	/* use 3D-cursor */
 	copy_v3_v3(vec, fp);
@@ -252,14 +252,14 @@ static bool gp_stroke_filtermval(tGPsdata *p, const int mval[2], int pmval[2])
 		return true;
 
 	/* check if mouse moved at least certain distance on both axes (best case)
-	 *	- aims to eliminate some jitter-noise from input when trying to draw straight lines freehand
+	 * - aims to eliminate some jitter-noise from input when trying to draw straight lines freehand
 	 */
 	else if ((dx > MIN_MANHATTEN_PX) && (dy > MIN_MANHATTEN_PX))
 		return true;
 
 	/* check if the distance since the last point is significant enough
-	 *	- prevents points being added too densely
-	 *	- distance here doesn't use sqrt to prevent slowness... we should still be safe from overflows though
+	 * - prevents points being added too densely
+	 * - distance here doesn't use sqrt to prevent slowness... we should still be safe from overflows though
 	 */
 	else if ((dx * dx + dy * dy) > MIN_EUCLIDEAN_PX * MIN_EUCLIDEAN_PX)
 		return true;
@@ -278,7 +278,7 @@ static void gp_stroke_convertcoords(tGPsdata *p, const int mval[2], float out[3]
 	if (gpd->runtime.sbuffer_sflag & GP_STROKE_3DSPACE) {
 		if (gpencil_project_check(p) && (ED_view3d_autodist_simple(p->ar, mval, out, 0, depth))) {
 			/* projecting onto 3D-Geometry
-			 *	- nothing more needs to be done here, since view_autodist_simple() has already done it
+			 * - nothing more needs to be done here, since view_autodist_simple() has already done it
 			 */
 		}
 		else {
@@ -292,8 +292,8 @@ static void gp_stroke_convertcoords(tGPsdata *p, const int mval[2], float out[3]
 			 * works OK, but it could of course be improved.
 			 *
 			 * TODO:
-			 *	- investigate using nearest point(s) on a previous stroke as
-			 *	  reference point instead or as offset, for easier stroke matching
+			 * - investigate using nearest point(s) on a previous stroke as
+			 *   reference point instead or as offset, for easier stroke matching
 			 */
 
 			gp_get_3d_reference(p, rvec);
@@ -355,7 +355,7 @@ static short gp_stroke_addpoint(
 		}
 		else {
 			/* just reset the endpoint to the latest value
-			 *	- assume that pointers for this are always valid...
+			 * - assume that pointers for this are always valid...
 			 */
 			pt = ((tGPspoint *)(gpd->runtime.sbuffer) + 1);
 
@@ -460,8 +460,8 @@ static short gp_stroke_addpoint(
 }
 
 /* simplify a stroke (in buffer) before storing it
- *	- applies a reverse Chaikin filter
- *	- code adapted from etch-a-ton branch
+ * - applies a reverse Chaikin filter
+ * - code adapted from etch-a-ton branch
  */
 static void gp_stroke_simplify(tGPsdata *p)
 {
@@ -480,15 +480,15 @@ static void gp_stroke_simplify(tGPsdata *p)
 		return;
 
 	/* clear buffer (but don't free mem yet) so that we can write to it
-	 *	- firstly set sbuffer to NULL, so a new one is allocated
-	 *	- secondly, reset flag after, as it gets cleared auto
+	 * - firstly set sbuffer to NULL, so a new one is allocated
+	 * - secondly, reset flag after, as it gets cleared auto
 	 */
 	gpd->runtime.sbuffer = NULL;
 	gp_session_validatebuffer(p);
 	gpd->runtime.sbuffer_sflag = flag;
 
 /* macro used in loop to get position of new point
- *	- used due to the mixture of datatypes in use here
+ * - used due to the mixture of datatypes in use here
  */
 #define GP_SIMPLIFY_AVPOINT(offs, sfac) \
 	{ \
@@ -550,7 +550,7 @@ static void gp_stroke_newfrombuffer(tGPsdata *p)
 	int depth_margin = (ts->annotate_v3d_align & GP_PROJECT_DEPTH_STROKE) ? 4 : 0;
 
 	/* get total number of points to allocate space for
-	 *	- drawing straight-lines only requires the endpoints
+	 * - drawing straight-lines only requires the endpoints
 	 */
 	if (p->paintmode == GP_PAINTMODE_DRAW_STRAIGHT)
 		totelem = (gpd->runtime.sbuffer_size >= 2) ? 2 : gpd->runtime.sbuffer_size;
@@ -973,7 +973,7 @@ static bool gp_session_initdata(bContext *C, tGPsdata *p)
 			/* RegionView3D *rv3d = ar->regiondata; */
 
 			/* set current area
-			 *	- must verify that region data is 3D-view (and not something else)
+			 * - must verify that region data is 3D-view (and not something else)
 			 */
 			/* CAUTION: If this is the "toolbar", then this will change on the first stroke */
 			p->sa = curarea;
@@ -1221,7 +1221,7 @@ static void gp_paint_initstroke(tGPsdata *p, eGPencil_PaintModes paintmode, Deps
 		 * (though this is only available in editmode)
 		 */
 		if (p->gpd->flag & GP_DATA_STROKE_EDITMODE) {
-			if (ts->gp_sculpt.flag & GP_BRUSHEDIT_FLAG_SELECT_MASK) {
+			if (ts->gp_sculpt.flag & GP_SCULPT_SETT_FLAG_SELECT_MASK) {
 				p->flags |= GP_PAINTFLAG_SELECTMASK;
 			}
 		}
@@ -1868,15 +1868,24 @@ static int gpencil_draw_invoke(bContext *C, wmOperator *op, const wmEvent *event
 {
 	Object *ob = CTX_data_active_object(C);
 	ScrArea *sa = CTX_wm_area(C);
+	Scene *scene = CTX_data_scene(C);
 	tGPsdata *p = NULL;
 
-	/* GPXX Need a better solution */
+	/* if try to do annotations with a gp object selected, first
+	 * unselect the object to avoid conflicts.
+	 * The solution is not perfect but we can keep running the annotations while
+	 * found a better solution.
+	 */
 	if (sa && sa->spacetype == SPACE_VIEW3D) {
 		if ((ob != NULL) && (ob->type == OB_GPENCIL)) {
-			BKE_report(op->reports, RPT_ERROR, "Cannot draw annotation with a Grease Pencil object active");
-			return OPERATOR_CANCELLED;
+			ViewLayer *view_layer = CTX_data_view_layer(C);
+			BKE_view_layer_base_deselect_all(view_layer);
+			view_layer->basact = NULL;
+			DEG_id_tag_update(&scene->id, DEG_TAG_SELECT_UPDATE);
+			WM_event_add_notifier(C, NC_SCENE | ND_OB_SELECT, scene);
 		}
 	}
+
 	if (G.debug & G_DEBUG)
 		printf("GPencil - Starting Drawing\n");
 

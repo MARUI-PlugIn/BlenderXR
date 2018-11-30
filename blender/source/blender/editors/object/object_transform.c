@@ -828,7 +828,7 @@ static int object_origin_set_exec(bContext *C, wmOperator *op)
 	else {
 		/* get the view settings if 'around' isn't set and the view is available */
 		View3D *v3d = CTX_wm_view3d(C);
-		copy_v3_v3(cursor, ED_view3d_cursor3d_get(scene, v3d)->location);
+		copy_v3_v3(cursor, scene->cursor.location);
 		if (v3d && !RNA_struct_property_is_set(op->ptr, "center"))
 			around = scene->toolsettings->transform_pivot_point;
 	}
@@ -1100,7 +1100,7 @@ static int object_origin_set_exec(bContext *C, wmOperator *op)
 				if (gpd) {
 					if (centermode == ORIGIN_TO_GEOMETRY) {
 						zero_v3(gpcenter);
-						BKE_gpencil_centroid_3D(gpd, gpcenter);
+						BKE_gpencil_centroid_3d(gpd, gpcenter);
 						add_v3_v3(gpcenter, ob->obmat[3]);
 					}
 					if (centermode == ORIGIN_TO_CURSOR) {
@@ -1321,7 +1321,7 @@ static bool object_is_target_compat(const Object *ob)
 {
 	if (ob->type == OB_LAMP) {
 		const Lamp *la = ob->data;
-		if (ELEM(la->type, LA_SUN, LA_SPOT, LA_HEMI, LA_AREA)) {
+		if (ELEM(la->type, LA_SUN, LA_SPOT, LA_AREA)) {
 			return true;
 		}
 	}

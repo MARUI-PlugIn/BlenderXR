@@ -126,8 +126,8 @@ typedef struct GHash FModifierStackStorage;
  *  as some constraints don't define some of these.
  *
  *  Warning: it is not too advisable to reorder order of members of this struct,
- *			as you'll have to edit quite a few ($FMODIFIER_NUM_TYPES) of these
- *			structs.
+ *           as you'll have to edit quite a few ($FMODIFIER_NUM_TYPES) of these
+ *           structs.
  */
 typedef struct FModifierTypeInfo {
 	/* admin/ident */
@@ -234,7 +234,7 @@ struct FCurve *iter_step_fcurve(struct FCurve *fcu_iter, const char rna_path[]);
 struct FCurve *id_data_find_fcurve(ID *id, void *data, struct StructRNA *type, const char *prop_name, int index, bool *r_driven);
 
 /* Get list of LinkData's containing pointers to the F-Curves which control the types of data indicated
- *	e.g.  numMatches = list_find_data_fcurves(matches, &act->curves, "pose.bones[", "MyFancyBone");
+ * e.g.  numMatches = list_find_data_fcurves(matches, &act->curves, "pose.bones[", "MyFancyBone");
  */
 int list_find_data_fcurves(ListBase *dst, ListBase *src, const char *dataPrefix, const char *dataName);
 
@@ -273,6 +273,17 @@ bool BKE_fcurve_is_protected(struct FCurve *fcu);
 /* The curve is an infinite cycle via Cycles modifier */
 bool BKE_fcurve_is_cyclic(struct FCurve *fcu);
 
+/* Type of infinite cycle for a curve. */
+typedef enum eFCU_Cycle_Type {
+	FCU_CYCLE_NONE = 0,
+	/* The cycle repeats identically to the base range. */
+	FCU_CYCLE_PERFECT,
+	/* The cycle accumulates the change between start and end keys. */
+	FCU_CYCLE_OFFSET
+} eFCU_Cycle_Type;
+
+eFCU_Cycle_Type BKE_fcurve_get_cycle_type(struct FCurve *fcu);
+
 /* -------- Curve Sanity --------  */
 
 void calchandles_fcurve(struct FCurve *fcu);
@@ -296,8 +307,8 @@ float calculate_fcurve(struct PathResolvedRNA *anim_rna, struct FCurve *fcu, flo
 /* -------- Defines --------  */
 
 /* Basic signature for F-Curve sample-creation function
- *	- fcu: the F-Curve being operated on
- *	- data: pointer to some specific data that may be used by one of the callbacks
+ * - fcu: the F-Curve being operated on
+ * - data: pointer to some specific data that may be used by one of the callbacks
  */
 typedef float (*FcuSampleFunc)(struct FCurve *fcu, void *data, float evaltime);
 

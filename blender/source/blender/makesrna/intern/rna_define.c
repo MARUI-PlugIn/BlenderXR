@@ -425,7 +425,7 @@ static int rna_validate_identifier(const char *identifier, char *error, bool pro
 	 */
 	static const char *kwlist[] = {
 		/* "False", "None", "True", */
-		"and", "as", "assert", "break",
+		"and", "as", "assert", "async", "await", "break",
 		"class", "continue", "def", "del", "elif", "else", "except",
 		"finally", "for", "from", "global", "if", "import", "in",
 		"is", "lambda", "nonlocal", "not", "or", "pass", "raise",
@@ -1165,7 +1165,8 @@ PropertyRNA *RNA_def_property(StructOrFunctionRNA *cont_, const char *identifier
 		case PROP_STRING:
 		{
 			StringPropertyRNA *sprop = (StringPropertyRNA *)prop;
-
+			/* By default don't allow NULL string args, callers may clear. */
+			RNA_def_property_flag(prop, PROP_NEVER_NULL);
 			sprop->defaultvalue = "";
 			break;
 		}
@@ -1426,11 +1427,13 @@ void RNA_def_property_ui_text(PropertyRNA *prop, const char *name, const char *d
 	prop->description = description;
 }
 
-void RNA_def_property_ui_icon(PropertyRNA *prop, int icon, bool consecutive)
+void RNA_def_property_ui_icon(PropertyRNA *prop, int icon, int consecutive)
 {
 	prop->icon = icon;
-	if (consecutive)
+	if (consecutive != 0)
 		prop->flag |= PROP_ICONS_CONSECUTIVE;
+	if (consecutive < 0)
+		prop->flag |= PROP_ICONS_REVERSE;
 }
 
 /**

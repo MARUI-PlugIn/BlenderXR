@@ -47,14 +47,14 @@ class RENDER_PT_freestyle(RenderFreestyleButtonsPanel, Panel):
 
     def draw(self, context):
         layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False  # No animation.
 
         rd = context.scene.render
 
         layout.active = rd.use_freestyle
 
-        row = layout.row()
-        row.label(text="Line Thickness:")
-        row.prop(rd, "line_thickness_mode", expand=True)
+        layout.prop(rd, "line_thickness_mode", expand=True)
 
         if (rd.line_thickness_mode == 'ABSOLUTE'):
             layout.prop(rd, "line_thickness")
@@ -208,7 +208,7 @@ class VIEWLAYER_PT_freestyle_lineset(ViewLayerFreestyleEditorButtonsPanel, Panel
             row.prop(lineset, "select_by_visibility", text="Visibility", toggle=True)
             row.prop(lineset, "select_by_edge_types", text="Edge Types", toggle=True)
             row.prop(lineset, "select_by_face_marks", text="Face Marks", toggle=True)
-            row.prop(lineset, "select_by_group", text="Group", toggle=True)
+            row.prop(lineset, "select_by_collection", text="Collection", toggle=True)
             row.prop(lineset, "select_by_image_border", text="Image Border", toggle=True)
 
             if lineset.select_by_visibility:
@@ -247,11 +247,11 @@ class VIEWLAYER_PT_freestyle_lineset(ViewLayerFreestyleEditorButtonsPanel, Panel
                 row.prop(lineset, "face_mark_negation", expand=True)
                 row.prop(lineset, "face_mark_condition", expand=True)
 
-            if lineset.select_by_group:
-                col.label(text="Group:")
+            if lineset.select_by_collection:
+                col.label(text="Collection:")
                 row = col.row()
-                row.prop(lineset, "group", text="")
-                row.prop(lineset, "group_negation", expand=True)
+                row.prop(lineset, "collection", text="")
+                row.prop(lineset, "collection_negation", expand=True)
 
 
 class VIEWLAYER_PT_freestyle_linestyle(ViewLayerFreestyleEditorButtonsPanel, Panel):

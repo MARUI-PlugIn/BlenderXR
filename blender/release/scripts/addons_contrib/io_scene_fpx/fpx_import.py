@@ -2657,8 +2657,8 @@ class FptImporter():
 
             blender_empty_object_new.parent = blender_empty_object
 
-            #blender_empty_object_new.dupli_type = 'GROUP'
-            #blender_empty_object_new.dupli_group = blender_group
+            #blender_empty_object_new.instance_type = 'COLLECTION'
+            #blender_empty_object_new.instance_collection = blender_group
             blender_empty_object_new.layers = layers
             blender_empty_object_new.select = True
             """

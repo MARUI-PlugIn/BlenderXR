@@ -111,8 +111,10 @@ static StructRNA *rna_FModifierType_refine(struct PointerRNA *ptr)
 			return &RNA_FModifierCycles;
 		case FMODIFIER_TYPE_NOISE:
 			return &RNA_FModifierNoise;
-		/*case FMODIFIER_TYPE_FILTER: */
-		/*	return &RNA_FModifierFilter; */
+#if 0
+		case FMODIFIER_TYPE_FILTER:
+			return &RNA_FModifierFilter;
+#endif
 		case FMODIFIER_TYPE_PYTHON:
 			return &RNA_FModifierPython;
 		case FMODIFIER_TYPE_LIMITS:
@@ -1058,8 +1060,8 @@ static void rna_def_fmodifier_envelope_ctrl(BlenderRNA *brna)
 	RNA_def_struct_sdna(srna, "FCM_EnvelopeData");
 
 	/* min/max extents
-	 *	- for now, these are allowed to go past each other, so that we can have inverted action
-	 *	- technically, the range is limited by the settings in the envelope-modifier data, not here...
+	 * - for now, these are allowed to go past each other, so that we can have inverted action
+	 * - technically, the range is limited by the settings in the envelope-modifier data, not here...
 	 */
 	prop = RNA_def_property(srna, "min", PROP_FLOAT, PROP_NONE);
 	RNA_def_property_float_sdna(prop, NULL, "min");
@@ -1078,7 +1080,7 @@ static void rna_def_fmodifier_envelope_ctrl(BlenderRNA *brna)
 	RNA_def_property_update(prop, NC_ANIMATION | ND_KEYFRAME | NA_EDITED, "rna_FModifier_update");
 
 	/* TODO: */
-	/*	- selection flags (not implemented in UI yet though) */
+	/* - selection flags (not implemented in UI yet though) */
 }
 
 static void rna_def_fmodifier_envelope_control_points(BlenderRNA *brna, PropertyRNA *cprop)
@@ -1393,7 +1395,7 @@ static void rna_def_fmodifier(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "show_expanded", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", FMODIFIER_FLAG_EXPANDED);
 	RNA_def_property_ui_text(prop, "Expanded", "F-Curve Modifier's panel is expanded in UI");
-	RNA_def_property_ui_icon(prop, ICON_TRIA_RIGHT, 1);
+	RNA_def_property_ui_icon(prop, ICON_DISCLOSURE_TRI_RIGHT, 1);
 
 	prop = RNA_def_property(srna, "mute", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", FMODIFIER_FLAG_MUTED);
@@ -1422,7 +1424,7 @@ static void rna_def_fmodifier(BlenderRNA *brna)
 	                         "F-Curve Modifier is only applied for the specified frame range to help "
 	                         "mask off effects in order to chain them");
 	RNA_def_property_update(prop, NC_ANIMATION | ND_KEYFRAME_PROP, "rna_FModifier_update");
-	RNA_def_property_ui_icon(prop, ICON_TRIA_RIGHT, 1); /* XXX: depends on UI implementation */
+	RNA_def_property_ui_icon(prop, ICON_DISCLOSURE_TRI_RIGHT, 1); /* XXX: depends on UI implementation */
 
 	prop = RNA_def_property(srna, "frame_start", PROP_FLOAT, PROP_NONE);
 	RNA_def_property_float_sdna(prop, NULL, "sfra");
@@ -1455,7 +1457,7 @@ static void rna_def_fmodifier(BlenderRNA *brna)
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", FMODIFIER_FLAG_USEINFLUENCE);
 	RNA_def_property_ui_text(prop, "Use Influence", "F-Curve Modifier's effects will be tempered by a default factor");
 	RNA_def_property_update(prop, NC_ANIMATION | ND_KEYFRAME_PROP, "rna_FModifier_update");
-	RNA_def_property_ui_icon(prop, ICON_TRIA_RIGHT, 1); /* XXX: depends on UI implementation */
+	RNA_def_property_ui_icon(prop, ICON_DISCLOSURE_TRI_RIGHT, 1); /* XXX: depends on UI implementation */
 
 	prop = RNA_def_property(srna, "influence", PROP_FLOAT, PROP_FACTOR);
 	RNA_def_property_float_sdna(prop, NULL, "influence");
@@ -1554,10 +1556,10 @@ static void rna_def_drivervar(BlenderRNA *brna)
 
 	static const EnumPropertyItem prop_type_items[] = {
 		{DVAR_TYPE_SINGLE_PROP, "SINGLE_PROP", ICON_RNA, "Single Property", "Use the value from some RNA property (Default)"},
-		{DVAR_TYPE_TRANSFORM_CHAN, "TRANSFORMS", ICON_MANIPUL, "Transform Channel",
+		{DVAR_TYPE_TRANSFORM_CHAN, "TRANSFORMS", ICON_DRIVER_TRANSFORM, "Transform Channel",
 		                           "Final transformation value of object or bone"},
-		{DVAR_TYPE_ROT_DIFF, "ROTATION_DIFF", ICON_PARTICLE_TIP, "Rotational Difference", "Use the angle between two bones"},  /* XXX: Icon... */
-		{DVAR_TYPE_LOC_DIFF, "LOC_DIFF", ICON_FULLSCREEN_ENTER, "Distance", "Distance between two bones or objects"},          /* XXX: Icon... */
+		{DVAR_TYPE_ROT_DIFF, "ROTATION_DIFF", ICON_DRIVER_ROTATIONAL_DIFFERENCE, "Rotational Difference", "Use the angle between two bones"},
+		{DVAR_TYPE_LOC_DIFF, "LOC_DIFF", ICON_DRIVER_DISTANCE, "Distance", "Distance between two bones or objects"},
 		{0, NULL, 0, NULL, NULL}
 	};
 
@@ -1603,7 +1605,7 @@ static void rna_def_drivervar(BlenderRNA *brna)
 static void rna_def_channeldriver_variables(BlenderRNA *brna, PropertyRNA *cprop)
 {
 	StructRNA *srna;
-/*	PropertyRNA *prop; */
+	/* PropertyRNA *prop; */
 
 	FunctionRNA *func;
 	PropertyRNA *parm;

@@ -92,9 +92,13 @@ static const EnumPropertyItem space_items[] = {
 
 #include "MEM_guardedalloc.h"
 
-static void rna_Object_select_set(Object *ob, bContext *C, ReportList *reports, int action)
+static void rna_Object_select_set(
+        Object *ob, bContext *C, ReportList *reports,
+        bool select, ViewLayer *view_layer)
 {
-	ViewLayer *view_layer = CTX_data_view_layer(C);
+	if (view_layer == NULL) {
+		view_layer = CTX_data_view_layer(C);
+	}
 	Base *base = BKE_view_layer_base_find(view_layer, ob);
 
 	if (!base) {
@@ -102,24 +106,16 @@ static void rna_Object_select_set(Object *ob, bContext *C, ReportList *reports, 
 		return;
 	}
 
-	if (action == 2) { /* TOGGLE */
-		if ((base->flag & BASE_SELECTED) != 0) {
-			action = 1; /* DESELECT */
-		}
-		else {
-			action = 0; /* SELECT */
-		}
+	if (select) {
+		BKE_view_layer_base_select(base);
+	}
+	else {
+		base->flag &= ~BASE_SELECTED;
 	}
 
-	switch (action) {
-		case 1: /* DESELECT */
-			base->flag &= ~BASE_SELECTED;
-			break;
-		case 0: /* SELECT */
-		default:
-			BKE_view_layer_base_select(view_layer, base);
-			break;
-	}
+	Scene *scene = CTX_data_scene(C);
+	DEG_id_tag_update(&scene->id, DEG_TAG_SELECT_UPDATE);
+	WM_main_add_notifier(NC_SCENE | ND_OB_SELECT, scene);
 }
 
 static bool rna_Object_select_get(Object *ob, bContext *C, ReportList *reports)
@@ -138,10 +134,15 @@ static bool rna_Object_select_get(Object *ob, bContext *C, ReportList *reports)
 static bool rna_Object_visible_get(Object *ob, bContext *C, ReportList *reports)
 {
 	ViewLayer *view_layer = CTX_data_view_layer(C);
+	View3D *v3d = CTX_wm_view3d(C);
 	Base *base = BKE_view_layer_base_find(view_layer, ob);
 
 	if (!base) {
 		BKE_reportf(reports, RPT_ERROR, "Object '%s' not in View Layer '%s'!", ob->id.name + 2, view_layer->name);
+		return false;
+	}
+
+	if (v3d && v3d->localvd && ((base->local_view_bits & v3d->local_view_uuid) == 0)) {
 		return false;
 	}
 
@@ -492,19 +493,13 @@ void RNA_api_object(StructRNA *srna)
 	};
 #endif
 
-	static EnumPropertyItem object_select_items[] = {
-	    {0, "SELECT", 0, "Select", "Select object from the active view layer"},
-	    {1, "DESELECT", 0, "Deselect", "Deselect object from the active view layer"},
-	    {2, "TOGGLE", 0, "Toggle", "Toggle object selection from the active view layer"},
-	    {0, NULL, 0, NULL, NULL}
-	};
-
 	/* Special wrapper to access the base selection value */
 	func = RNA_def_function(srna, "select_set", "rna_Object_select_set");
 	RNA_def_function_ui_description(func, "Select the object (for the active view layer)");
 	RNA_def_function_flag(func, FUNC_USE_CONTEXT | FUNC_USE_REPORTS);
-	parm = RNA_def_enum(func, "action", object_select_items, 0, "Action", "Select mode");
+	parm = RNA_def_boolean(func, "state", 0, "", "Selection state to define");
 	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
+	parm = RNA_def_pointer(func, "view_layer", "ViewLayer", "", "Operate on this view layer instead of the context");
 
 	func = RNA_def_function(srna, "select_get", "rna_Object_select_get");
 	RNA_def_function_ui_description(func, "Get the object selection for the active view layer");
@@ -513,7 +508,7 @@ void RNA_api_object(StructRNA *srna)
 	RNA_def_function_return(func, parm);
 
 	func = RNA_def_function(srna, "visible_get", "rna_Object_visible_get");
-	RNA_def_function_ui_description(func, "Get the object visibility for the active view layer");
+	RNA_def_function_ui_description(func, "Get the object visibility for the active view layer and viewport");
 	RNA_def_function_flag(func, FUNC_USE_CONTEXT | FUNC_USE_REPORTS);
 	parm = RNA_def_boolean(func, "result", 0, "", "Object visible");
 	RNA_def_function_return(func, parm);
@@ -521,7 +516,7 @@ void RNA_api_object(StructRNA *srna)
 	func = RNA_def_function(srna, "holdout_get", "rna_Object_holdout_get");
 	RNA_def_function_ui_description(func, "Test if object is masked in the view layer");
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
-	parm = RNA_def_pointer(func, "view_layer", "ViewLayer", "", "");
+	parm = RNA_def_pointer(func, "view_layer", "ViewLayer", "", "View layer to check against");
 	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	parm = RNA_def_boolean(func, "result", 0, "", "Object holdout");
 	RNA_def_function_return(func, parm);
@@ -529,7 +524,7 @@ void RNA_api_object(StructRNA *srna)
 	func = RNA_def_function(srna, "indirect_only_get", "rna_Object_indirect_only_get");
 	RNA_def_function_ui_description(func, "Test if object is set to contribute only indirectly (through shadows and reflections) in the view layer");
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
-	parm = RNA_def_pointer(func, "view_layer", "ViewLayer", "", "");
+	parm = RNA_def_pointer(func, "view_layer", "ViewLayer", "", "View layer to check against");
 	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	parm = RNA_def_boolean(func, "result", 0, "", "Object indirect only");
 	RNA_def_function_return(func, parm);
@@ -557,8 +552,7 @@ void RNA_api_object(StructRNA *srna)
 	func = RNA_def_function(srna, "calc_matrix_camera", "rna_Object_calc_matrix_camera");
 	RNA_def_function_ui_description(func, "Generate the camera projection matrix of this object "
 	                                      "(mostly useful for Camera and Light types)");
-	parm = RNA_def_pointer(func, "depsgraph", "Depsgraph", "",
-	                       "Depsgraph to get evaluated data from");
+	parm = RNA_def_pointer(func, "depsgraph", "Depsgraph", "", "Depsgraph to get evaluated data from");
 	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	parm = RNA_def_property(func, "result", PROP_FLOAT, PROP_MATRIX);
 	RNA_def_property_multi_array(parm, 2, rna_matrix_dimsize_4x4);
@@ -567,13 +561,12 @@ void RNA_api_object(StructRNA *srna)
 	parm = RNA_def_int(func, "x", 1, 0, INT_MAX, "", "Width of the render area", 0, 10000);
 	parm = RNA_def_int(func, "y", 1, 0, INT_MAX, "", "Height of the render area", 0, 10000);
 	parm = RNA_def_float(func, "scale_x", 1.0f, 1.0e-6f, FLT_MAX, "", "Width scaling factor", 1.0e-2f, 100.0f);
-	parm = RNA_def_float(func, "scale_y", 1.0f, 1.0e-6f, FLT_MAX, "", "height scaling factor", 1.0e-2f, 100.0f);
+	parm = RNA_def_float(func, "scale_y", 1.0f, 1.0e-6f, FLT_MAX, "", "Height scaling factor", 1.0e-2f, 100.0f);
 
 	func = RNA_def_function(srna, "camera_fit_coords", "rna_Object_camera_fit_coords");
 	RNA_def_function_ui_description(func, "Compute the coordinate (and scale for ortho cameras) "
 	                                      "given object should be to 'see' all given coordinates");
-	parm = RNA_def_pointer(func, "depsgraph", "Depsgraph", "",
-	                       "Depsgraph to get evaluated data from");
+	parm = RNA_def_pointer(func, "depsgraph", "Depsgraph", "", "Depsgraph to get evaluated data from");
 	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	parm = RNA_def_float_array(func, "coordinates", 1, NULL, -FLT_MAX, FLT_MAX, "", "Coordinates to fit in",
 	                           -FLT_MAX, FLT_MAX);
@@ -622,21 +615,25 @@ void RNA_api_object(StructRNA *srna)
 	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
 	RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
 
+
+
 	/* Ray Cast */
 	func = RNA_def_function(srna, "ray_cast", "rna_Object_ray_cast");
 	RNA_def_function_ui_description(func, "Cast a ray onto in object space");
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 
 	/* ray start and end */
-	parm = RNA_def_float_vector(func, "origin", 3, NULL, -FLT_MAX, FLT_MAX, "", "", -1e4, 1e4);
+	parm = RNA_def_float_vector(func, "origin", 3, NULL, -FLT_MAX, FLT_MAX,
+	                            "", "Origin of the ray, in object space", -1e4, 1e4);
 	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
-	parm = RNA_def_float_vector(func, "direction", 3, NULL, -FLT_MAX, FLT_MAX, "", "", -1e4, 1e4);
+	parm = RNA_def_float_vector(func, "direction", 3, NULL, -FLT_MAX, FLT_MAX,
+	                            "", "Direction of the ray, in object space", -1e4, 1e4);
 	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	RNA_def_float(func, "distance", BVH_RAYCAST_DIST_MAX, 0.0, BVH_RAYCAST_DIST_MAX,
 	              "", "Maximum distance", 0.0, BVH_RAYCAST_DIST_MAX);
 
 	/* return location and normal */
-	parm = RNA_def_boolean(func, "result", 0, "", "");
+	parm = RNA_def_boolean(func, "result", 0, "", "Wheter the ray successfully hit the geometry");
 	RNA_def_function_output(func, parm);
 	parm = RNA_def_float_vector(func, "location", 3, NULL, -FLT_MAX, FLT_MAX, "Location",
 	                            "The hit location of this ray cast", -1e4, 1e4);
@@ -649,19 +646,22 @@ void RNA_api_object(StructRNA *srna)
 	parm = RNA_def_int(func, "index", 0, 0, 0, "", "The face index, -1 when original data isn't available", 0, 0);
 	RNA_def_function_output(func, parm);
 
+
+
 	/* Nearest Point */
 	func = RNA_def_function(srna, "closest_point_on_mesh", "rna_Object_closest_point_on_mesh");
 	RNA_def_function_ui_description(func, "Find the nearest point in object space");
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 
 	/* location of point for test and max distance */
-	parm = RNA_def_float_vector(func, "origin", 3, NULL, -FLT_MAX, FLT_MAX, "", "", -1e4, 1e4);
+	parm = RNA_def_float_vector(func, "origin", 3, NULL, -FLT_MAX, FLT_MAX,
+	                            "", "Point to find closest geometry from (in object space)", -1e4, 1e4);
 	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	/* default is sqrt(FLT_MAX) */
 	RNA_def_float(func, "distance", 1.844674352395373e+19, 0.0, FLT_MAX, "", "Maximum distance", 0.0, FLT_MAX);
 
 	/* return location and normal */
-	parm = RNA_def_boolean(func, "result", 0, "", "");
+	parm = RNA_def_boolean(func, "result", 0, "", "Wheter closest point on geometry was found");
 	RNA_def_function_output(func, parm);
 	parm = RNA_def_float_vector(func, "location", 3, NULL, -FLT_MAX, FLT_MAX, "Location",
 	                            "The location on the object closest to the point", -1e4, 1e4);
@@ -675,36 +675,38 @@ void RNA_api_object(StructRNA *srna)
 	parm = RNA_def_int(func, "index", 0, 0, 0, "", "The face index, -1 when original data isn't available", 0, 0);
 	RNA_def_function_output(func, parm);
 
+
+
 	/* View */
 
 	/* utility function for checking if the object is modified */
 	func = RNA_def_function(srna, "is_modified", "rna_Object_is_modified");
 	RNA_def_function_ui_description(func, "Determine if this object is modified from the base mesh data");
-	parm = RNA_def_pointer(func, "scene", "Scene", "", "");
+	parm = RNA_def_pointer(func, "scene", "Scene", "", "Scene in which to check the object");
 	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
 	parm = RNA_def_enum(func, "settings", mesh_type_items, 0, "", "Modifier settings to apply");
 	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
-	parm = RNA_def_boolean(func, "result", 0, "", "Object visibility");
+	parm = RNA_def_boolean(func, "result", 0, "", "Whether the object is modified");
 	RNA_def_function_return(func, parm);
 
 	func = RNA_def_function(srna, "is_deform_modified", "rna_Object_is_deform_modified");
 	RNA_def_function_ui_description(func, "Determine if this object is modified by a deformation from the base mesh data");
-	parm = RNA_def_pointer(func, "scene", "Scene", "", "");
+	parm = RNA_def_pointer(func, "scene", "Scene", "", "Scene in which to check the object");
 	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
 	parm = RNA_def_enum(func, "settings", mesh_type_items, 0, "", "Modifier settings to apply");
 	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
-	parm = RNA_def_boolean(func, "result", 0, "", "Object visibility");
+	parm = RNA_def_boolean(func, "result", 0, "", "Whether the object is deform-modified");
 	RNA_def_function_return(func, parm);
 
 #ifndef NDEBUG
 	/* mesh */
 	func = RNA_def_function(srna, "dm_info", "rna_Object_me_eval_info");
-	RNA_def_function_ui_description(func, "Returns a string for derived mesh data");
+	RNA_def_function_ui_description(func, "Returns a string for derived mesh data (debug builds only)");
 
 	parm = RNA_def_enum(func, "type", mesh_dm_info_items, 0, "", "Modifier settings to apply");
 	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	/* weak!, no way to return dynamic string type */
-	parm = RNA_def_string(func, "result", NULL, 16384, "result", "");
+	parm = RNA_def_string(func, "result", NULL, 16384, "", "Requested informations");
 	RNA_def_parameter_flags(parm, PROP_THICK_WRAP, 0); /* needed for string return value */
 	RNA_def_function_output(func, parm);
 #endif /* NDEBUG */

@@ -64,7 +64,6 @@
 #include "BKE_global.h"
 #include "BKE_gpencil.h"
 #include "BKE_layer.h"
-#include "BKE_library.h"
 #include "BKE_main.h"
 #include "BKE_object.h"
 #include "BKE_report.h"
@@ -147,7 +146,7 @@ static const EnumPropertyItem *rna_GPConvert_mode_items(
 /* --- */
 
 /* convert the coordinates from the given stroke point into 3d-coordinates
- *	- assumes that the active space is the 3D-View
+ * - assumes that the active space is the 3D-View
  */
 static void gp_strokepoint_convertcoords(
         bContext *C, bGPdata *gpd, bGPDlayer *gpl, bGPDstroke *gps, bGPDspoint *source_pt,
@@ -175,7 +174,7 @@ static void gp_strokepoint_convertcoords(
 		copy_v3_v3(p3d, &pt->x);
 	}
 	else {
-		const float *fp = ED_view3d_cursor3d_get(scene, v3d)->location;
+		const float *fp = scene->cursor.location;
 		float mvalf[2];
 
 		/* get screen coordinate */
@@ -1174,7 +1173,7 @@ static void gp_layer_to_curve(
 	}
 
 	/* init the curve object (remove rotation and get curve data from it)
-	 *	- must clear transforms set on object, as those skew our results
+	 * - must clear transforms set on object, as those skew our results
 	 */
 	ob = BKE_object_add_only_object(bmain, OB_CURVE, gpl->info);
 	cu = ob->data = BKE_curve_add(bmain, gpl->info, OB_CURVE);

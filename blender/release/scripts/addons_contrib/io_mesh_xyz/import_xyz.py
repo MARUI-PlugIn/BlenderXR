@@ -647,7 +647,7 @@ def import_xyz(Ball_type,
             ball.name = "Ball (NURBS)_"+atom.name
         ball.active_material = atom.material
         ball.parent = new_atom_mesh
-        new_atom_mesh.dupli_type = 'VERTS'
+        new_atom_mesh.instance_type = 'VERTS'
         # The object is back translated to 'object_center_vec'.
         new_atom_mesh.location = object_center_vec
         STRUCTURE.append(new_atom_mesh)

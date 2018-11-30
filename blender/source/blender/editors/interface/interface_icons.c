@@ -58,6 +58,7 @@
 
 #include "BKE_context.h"
 #include "BKE_global.h"
+#include "BKE_paint.h"
 #include "BKE_icons.h"
 #include "BKE_appdir.h"
 #include "BKE_studiolight.h"
@@ -161,6 +162,8 @@ typedef struct IconType {
 static struct ListBase iconfilelist = {NULL, NULL};
 static IconTexture icongltex = {0, 0, 0, 0.0f, 0.0f};
 
+#ifndef WITH_HEADLESS
+
 static const IconType icontypes[] = {
 #define DEF_ICON(name) {ICON_TYPE_MONO_TEXTURE, 0},
 #define DEF_ICON_COLLECTION(name) {ICON_TYPE_MONO_TEXTURE, TH_ICON_COLLECTION},
@@ -175,8 +178,6 @@ static const IconType icontypes[] = {
 };
 
 /* **************************************************** */
-
-#ifndef WITH_HEADLESS
 
 static DrawInfo *def_internal_icon(ImBuf *bbuf, int icon_id, int xofs, int yofs, int size, int type, int theme_color)
 {
@@ -286,7 +287,7 @@ static void vicon_small_tri_right_draw(int x, int y, int w, int UNUSED(h), float
 	immUnbindProgram();
 }
 
-static void vicon_keytype_draw_wrapper(int x, int y, int w, int h, float alpha, short key_type)
+static void vicon_keytype_draw_wrapper(int x, int y, int w, int h, float alpha, short key_type, short handle_type)
 {
 	/* init dummy theme state for Action Editor - where these colors are defined
 	 * (since we're doing this offscreen, free from any particular space_id)
@@ -300,25 +301,30 @@ static void vicon_keytype_draw_wrapper(int x, int y, int w, int h, float alpha, 
 	 * while the draw_keyframe_shape() function needs the midpoint for
 	 * the keyframe
 	 */
-	int xco = x + w / 2;
-	int yco = y + h / 2;
+	float xco = x + w / 2 + 0.5f;
+	float yco = y + h / 2 + 0.5f;
 
 	GPUVertFormat *format = immVertexFormat();
 	uint pos_id = GPU_vertformat_attr_add(format, "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
 	uint size_id = GPU_vertformat_attr_add(format, "size", GPU_COMP_F32, 1, GPU_FETCH_FLOAT);
 	uint color_id = GPU_vertformat_attr_add(format, "color", GPU_COMP_U8, 4, GPU_FETCH_INT_TO_FLOAT_UNIT);
 	uint outline_color_id = GPU_vertformat_attr_add(format, "outlineColor", GPU_COMP_U8, 4, GPU_FETCH_INT_TO_FLOAT_UNIT);
+	uint flags_id = GPU_vertformat_attr_add(format, "flags", GPU_COMP_U32, 1, GPU_FETCH_INT);
 
 	immBindBuiltinProgram(GPU_SHADER_KEYFRAME_DIAMOND);
 	GPU_enable_program_point_size();
+	immUniform2f("ViewportSize", -1.0f, -1.0f);
 	immBegin(GPU_PRIM_POINTS, 1);
 
 	/* draw keyframe
-	 * - size: 0.6 * h (found out experimentally... dunno why!)
-	 * - sel: true (so that "keyframe" state shows the iconic yellow icon)
+	 * - size: (default icon size == 16, default dopesheet icon size == 10)
+	 * - sel: true unless in handletype icons (so that "keyframe" state shows the iconic yellow icon)
 	 */
-	draw_keyframe_shape(xco, yco, 0.6f * h, true, key_type, KEYFRAME_SHAPE_BOTH, alpha,
-	                    pos_id, size_id, color_id, outline_color_id);
+	bool sel = (handle_type == KEYFRAME_HANDLE_NONE);
+
+	draw_keyframe_shape(xco, yco, (10.0f / 16.0f) * h, sel, key_type, KEYFRAME_SHAPE_BOTH, alpha,
+	                    pos_id, size_id, color_id, outline_color_id,
+	                    flags_id, handle_type, KEYFRAME_EXTREME_NONE);
 
 	immEnd();
 	GPU_disable_program_point_size();
@@ -329,27 +335,52 @@ static void vicon_keytype_draw_wrapper(int x, int y, int w, int h, float alpha, 
 
 static void vicon_keytype_keyframe_draw(int x, int y, int w, int h, float alpha)
 {
-	vicon_keytype_draw_wrapper(x, y, w, h, alpha, BEZT_KEYTYPE_KEYFRAME);
+	vicon_keytype_draw_wrapper(x, y, w, h, alpha, BEZT_KEYTYPE_KEYFRAME, KEYFRAME_HANDLE_NONE);
 }
 
 static void vicon_keytype_breakdown_draw(int x, int y, int w, int h, float alpha)
 {
-	vicon_keytype_draw_wrapper(x, y, w, h, alpha, BEZT_KEYTYPE_BREAKDOWN);
+	vicon_keytype_draw_wrapper(x, y, w, h, alpha, BEZT_KEYTYPE_BREAKDOWN, KEYFRAME_HANDLE_NONE);
 }
 
 static void vicon_keytype_extreme_draw(int x, int y, int w, int h, float alpha)
 {
-	vicon_keytype_draw_wrapper(x, y, w, h, alpha, BEZT_KEYTYPE_EXTREME);
+	vicon_keytype_draw_wrapper(x, y, w, h, alpha, BEZT_KEYTYPE_EXTREME, KEYFRAME_HANDLE_NONE);
 }
 
 static void vicon_keytype_jitter_draw(int x, int y, int w, int h, float alpha)
 {
-	vicon_keytype_draw_wrapper(x, y, w, h, alpha, BEZT_KEYTYPE_JITTER);
+	vicon_keytype_draw_wrapper(x, y, w, h, alpha, BEZT_KEYTYPE_JITTER, KEYFRAME_HANDLE_NONE);
 }
 
 static void vicon_keytype_moving_hold_draw(int x, int y, int w, int h, float alpha)
 {
-	vicon_keytype_draw_wrapper(x, y, w, h, alpha, BEZT_KEYTYPE_MOVEHOLD);
+	vicon_keytype_draw_wrapper(x, y, w, h, alpha, BEZT_KEYTYPE_MOVEHOLD, KEYFRAME_HANDLE_NONE);
+}
+
+static void vicon_handletype_free_draw(int x, int y, int w, int h, float alpha)
+{
+	vicon_keytype_draw_wrapper(x, y, w, h, alpha, BEZT_KEYTYPE_KEYFRAME, KEYFRAME_HANDLE_FREE);
+}
+
+static void vicon_handletype_aligned_draw(int x, int y, int w, int h, float alpha)
+{
+	vicon_keytype_draw_wrapper(x, y, w, h, alpha, BEZT_KEYTYPE_KEYFRAME, KEYFRAME_HANDLE_ALIGNED);
+}
+
+static void vicon_handletype_vector_draw(int x, int y, int w, int h, float alpha)
+{
+	vicon_keytype_draw_wrapper(x, y, w, h, alpha, BEZT_KEYTYPE_KEYFRAME, KEYFRAME_HANDLE_VECTOR);
+}
+
+static void vicon_handletype_auto_draw(int x, int y, int w, int h, float alpha)
+{
+	vicon_keytype_draw_wrapper(x, y, w, h, alpha, BEZT_KEYTYPE_KEYFRAME, KEYFRAME_HANDLE_AUTO);
+}
+
+static void vicon_handletype_auto_clamp_draw(int x, int y, int w, int h, float alpha)
+{
+	vicon_keytype_draw_wrapper(x, y, w, h, alpha, BEZT_KEYTYPE_KEYFRAME, KEYFRAME_HANDLE_AUTO_CLAMP);
 }
 
 static void vicon_colorset_draw(int index, int x, int y, int w, int h, float UNUSED(alpha))
@@ -455,24 +486,20 @@ static void init_brush_icons(void)
 
 	const int w = 96; /* warning, brush size hardcoded in C, but it gets scaled */
 
-	INIT_BRUSH_ICON(ICON_BRUSH_ADD, add);
 	INIT_BRUSH_ICON(ICON_BRUSH_BLOB, blob);
 	INIT_BRUSH_ICON(ICON_BRUSH_BLUR, blur);
 	INIT_BRUSH_ICON(ICON_BRUSH_CLAY, clay);
 	INIT_BRUSH_ICON(ICON_BRUSH_CLAY_STRIPS, claystrips);
 	INIT_BRUSH_ICON(ICON_BRUSH_CLONE, clone);
 	INIT_BRUSH_ICON(ICON_BRUSH_CREASE, crease);
-	INIT_BRUSH_ICON(ICON_BRUSH_DARKEN, darken);
 	INIT_BRUSH_ICON(ICON_BRUSH_SCULPT_DRAW, draw);
 	INIT_BRUSH_ICON(ICON_BRUSH_FILL, fill);
 	INIT_BRUSH_ICON(ICON_BRUSH_FLATTEN, flatten);
 	INIT_BRUSH_ICON(ICON_BRUSH_GRAB, grab);
 	INIT_BRUSH_ICON(ICON_BRUSH_INFLATE, inflate);
 	INIT_BRUSH_ICON(ICON_BRUSH_LAYER, layer);
-	INIT_BRUSH_ICON(ICON_BRUSH_LIGHTEN, lighten);
 	INIT_BRUSH_ICON(ICON_BRUSH_MASK, mask);
 	INIT_BRUSH_ICON(ICON_BRUSH_MIX, mix);
-	INIT_BRUSH_ICON(ICON_BRUSH_MULTIPLY, multiply);
 	INIT_BRUSH_ICON(ICON_BRUSH_NUDGE, nudge);
 	INIT_BRUSH_ICON(ICON_BRUSH_PINCH, pinch);
 	INIT_BRUSH_ICON(ICON_BRUSH_SCRAPE, scrape);
@@ -480,13 +507,11 @@ static void init_brush_icons(void)
 	INIT_BRUSH_ICON(ICON_BRUSH_SMOOTH, smooth);
 	INIT_BRUSH_ICON(ICON_BRUSH_SNAKE_HOOK, snake_hook);
 	INIT_BRUSH_ICON(ICON_BRUSH_SOFTEN, soften);
-	INIT_BRUSH_ICON(ICON_BRUSH_SUBTRACT, subtract);
 	INIT_BRUSH_ICON(ICON_BRUSH_TEXDRAW, texdraw);
 	INIT_BRUSH_ICON(ICON_BRUSH_TEXFILL, texfill);
 	INIT_BRUSH_ICON(ICON_BRUSH_TEXMASK, texmask);
 	INIT_BRUSH_ICON(ICON_BRUSH_THUMB, thumb);
 	INIT_BRUSH_ICON(ICON_BRUSH_ROTATE, twist);
-	INIT_BRUSH_ICON(ICON_BRUSH_VERTEXDRAW, vertexdraw);
 
 	/* grease pencil sculpt */
 	INIT_BRUSH_ICON(ICON_GPBRUSH_SMOOTH, gp_brush_smooth);
@@ -769,6 +794,12 @@ static void init_internal_icons(void)
 	def_internal_vicon(ICON_KEYTYPE_EXTREME_VEC, vicon_keytype_extreme_draw);
 	def_internal_vicon(ICON_KEYTYPE_JITTER_VEC, vicon_keytype_jitter_draw);
 	def_internal_vicon(ICON_KEYTYPE_MOVING_HOLD_VEC, vicon_keytype_moving_hold_draw);
+
+	def_internal_vicon(ICON_HANDLETYPE_FREE_VEC, vicon_handletype_free_draw);
+	def_internal_vicon(ICON_HANDLETYPE_ALIGNED_VEC, vicon_handletype_aligned_draw);
+	def_internal_vicon(ICON_HANDLETYPE_VECTOR_VEC, vicon_handletype_vector_draw);
+	def_internal_vicon(ICON_HANDLETYPE_AUTO_VEC, vicon_handletype_auto_draw);
+	def_internal_vicon(ICON_HANDLETYPE_AUTO_CLAMP_VEC, vicon_handletype_auto_clamp_draw);
 
 	def_internal_vicon(ICON_COLORSET_01_VEC, vicon_colorset_draw_01);
 	def_internal_vicon(ICON_COLORSET_02_VEC, vicon_colorset_draw_02);
@@ -1585,7 +1616,9 @@ static void icon_draw_size(
 		UI_widgetbase_draw_cache_flush();
 
 		/* Just draw a colored rect - Like for vicon_colorset_draw() */
+#ifndef WITH_HEADLESS
 		vicon_gplayer_color_draw(icon, (int)x, (int)y,  w, h);
+#endif
 	}
 }
 
@@ -1643,7 +1676,7 @@ static int ui_id_brush_get_icon(const bContext *C, ID *id)
 		WorkSpace *workspace = CTX_wm_workspace(C);
 		Object *ob = CTX_data_active_object(C);
 		const EnumPropertyItem *items = NULL;
-		int tool = PAINT_TOOL_DRAW, mode = 0;
+		ePaintMode paint_mode = PAINT_MODE_INVALID;
 		ScrArea *sa = CTX_wm_area(C);
 		char space_type = sa->spacetype;
 		/* When in an unsupported space. */
@@ -1656,12 +1689,18 @@ static int ui_id_brush_get_icon(const bContext *C, ID *id)
 		 * checking various context stuff here */
 
 		if ((space_type == SPACE_VIEW3D) && ob) {
-			if (ob->mode & OB_MODE_SCULPT)
-				mode = OB_MODE_SCULPT;
-			else if (ob->mode & (OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT))
-				mode = OB_MODE_VERTEX_PAINT;
-			else if (ob->mode & OB_MODE_TEXTURE_PAINT)
-				mode = OB_MODE_TEXTURE_PAINT;
+			if (ob->mode & OB_MODE_SCULPT) {
+				paint_mode = PAINT_MODE_SCULPT;
+			}
+			else if (ob->mode & OB_MODE_VERTEX_PAINT) {
+				paint_mode = PAINT_MODE_VERTEX;
+			}
+			else if (ob->mode & OB_MODE_WEIGHT_PAINT) {
+				paint_mode = PAINT_MODE_WEIGHT;
+			}
+			else if (ob->mode & OB_MODE_TEXTURE_PAINT) {
+				paint_mode = PAINT_MODE_TEXTURE_3D;
+			}
 		}
 		else if (space_type == SPACE_IMAGE) {
 			int sima_mode;
@@ -1674,7 +1713,7 @@ static int ui_id_brush_get_icon(const bContext *C, ID *id)
 			}
 
 			if (sima_mode == SI_MODE_PAINT) {
-				mode = OB_MODE_TEXTURE_PAINT;
+				paint_mode = PAINT_MODE_TEXTURE_2D;
 			}
 		}
 
@@ -1720,21 +1759,17 @@ static int ui_id_brush_get_icon(const bContext *C, ID *id)
 			}
 			return id->icon_id;
 		}
-		else if (mode == OB_MODE_SCULPT) {
-			items = rna_enum_brush_sculpt_tool_items;
-			tool = br->sculpt_tool;
+		else if (paint_mode != PAINT_MODE_INVALID) {
+			items = BKE_paint_get_tool_enum_from_paintmode(paint_mode);
+			const uint tool_offset = BKE_paint_get_brush_tool_offset_from_paintmode(paint_mode);
+			const int tool_type = *(char *)POINTER_OFFSET(br, tool_offset);
+			if (!items || !RNA_enum_icon_from_value(items, tool_type, &id->icon_id)) {
+				id->icon_id = 0;
+			}
 		}
-		else if (mode == OB_MODE_VERTEX_PAINT) {
-			items = rna_enum_brush_vertex_tool_items;
-			tool = br->vertexpaint_tool;
-		}
-		else if (mode == OB_MODE_TEXTURE_PAINT) {
-			items = rna_enum_brush_image_tool_items;
-			tool = br->imagepaint_tool;
-		}
-
-		if (!items || !RNA_enum_icon_from_value(items, tool, &id->icon_id))
+		else {
 			id->icon_id = 0;
+		}
 	}
 
 	return id->icon_id;
@@ -1798,7 +1833,7 @@ int UI_rnaptr_icon_get(bContext *C, PointerRNA *ptr, int rnaicon, const bool big
 		DynamicPaintSurface *surface = ptr->data;
 
 		if (surface->format == MOD_DPAINT_SURFACE_F_PTEX)
-			return ICON_TEXTURE_SHADED;
+			return ICON_SHADING_TEXTURE;
 		else if (surface->format == MOD_DPAINT_SURFACE_F_VERTEX)
 			return ICON_OUTLINER_DATA_MESH;
 		else if (surface->format == MOD_DPAINT_SURFACE_F_IMAGESEQ)
@@ -1807,12 +1842,12 @@ int UI_rnaptr_icon_get(bContext *C, PointerRNA *ptr, int rnaicon, const bool big
 	else if (RNA_struct_is_a(ptr->type, &RNA_StudioLight)) {
 		StudioLight *sl = ptr->data;
 		switch (sl->flag & STUDIOLIGHT_FLAG_ORIENTATIONS) {
-			case STUDIOLIGHT_ORIENTATION_CAMERA:
+			case STUDIOLIGHT_TYPE_STUDIO:
 				return sl->icon_id_irradiance;
-			case STUDIOLIGHT_ORIENTATION_WORLD:
+			case STUDIOLIGHT_TYPE_WORLD:
 			default:
 				return sl->icon_id_radiance;
-			case STUDIOLIGHT_ORIENTATION_VIEWNORMAL:
+			case STUDIOLIGHT_TYPE_MATCAP:
 				return sl->icon_id_matcap;
 		}
 	}

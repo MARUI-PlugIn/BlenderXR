@@ -57,11 +57,11 @@ static const EnumPropertyItem beztriple_handle_type_items[] = {
 #endif
 
 const EnumPropertyItem rna_enum_keyframe_handle_type_items[] = {
-	{HD_FREE, "FREE", 0, "Free", ""},
-	{HD_VECT, "VECTOR", 0, "Vector", ""},
-	{HD_ALIGN, "ALIGNED", 0, "Aligned", ""},
-	{HD_AUTO, "AUTO", 0, "Automatic", ""},
-	{HD_AUTO_ANIM, "AUTO_CLAMPED", 0, "Auto Clamped", "Auto handles clamped to not overshoot"},
+	{HD_FREE, "FREE", ICON_HANDLETYPE_FREE_VEC, "Free", "Completely independent manually set handle"},
+	{HD_ALIGN, "ALIGNED", ICON_HANDLETYPE_ALIGNED_VEC, "Aligned", "Manually set handle with rotation locked together with its pair"},
+	{HD_VECT, "VECTOR", ICON_HANDLETYPE_VECTOR_VEC, "Vector", "Automatic handles that create straight lines"},
+	{HD_AUTO, "AUTO", ICON_HANDLETYPE_AUTO_VEC, "Automatic", "Automatic handles that create smooth curves"},
+	{HD_AUTO_ANIM, "AUTO_CLAMPED", ICON_HANDLETYPE_AUTO_CLAMP_VEC, "Auto Clamped", "Automatic handles that create smooth curves which only change direction at keyframes"},
 	{0, NULL, 0, NULL, NULL}
 };
 
@@ -974,6 +974,13 @@ static void rna_def_font(BlenderRNA *UNUSED(brna), StructRNA *srna)
 		{0, NULL, 0, NULL, NULL}
 	};
 
+	static const EnumPropertyItem prop_overflow_items[] = {
+		{CU_OVERFLOW_NONE, "NONE", 0, "Overflow", "Let the text overflow outside the text boxes"},
+		{CU_OVERFLOW_SCALE, "SCALE", 0, "Scale to Fit", "Scale down the text to fit inside the text boxes"},
+		{CU_OVERFLOW_TRUNCATE, "TRUNCATE", 0, "Truncate", "Truncate the text that would go outside the text boxes"},
+		{0, NULL, 0, NULL, NULL}
+	};
+
 	/* Enums */
 	prop = RNA_def_property(srna, "align_x", PROP_ENUM, PROP_NONE);
 	RNA_def_property_enum_sdna(prop, NULL, "spacemode");
@@ -985,6 +992,14 @@ static void rna_def_font(BlenderRNA *UNUSED(brna), StructRNA *srna)
 	RNA_def_property_enum_sdna(prop, NULL, "align_y");
 	RNA_def_property_enum_items(prop, prop_align_y_items);
 	RNA_def_property_ui_text(prop, "Text Vertical Align", "Text vertical align from the object center");
+	RNA_def_property_update(prop, 0, "rna_Curve_update_data");
+
+	prop = RNA_def_property(srna, "overflow", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_sdna(prop, NULL, "overflow");
+	RNA_def_property_enum_items(prop, prop_overflow_items);
+	RNA_def_property_enum_default(prop, CU_OVERFLOW_NONE);
+	RNA_def_property_ui_text(prop, "Textbox Overflow",
+	                         "Handle the text behaviour when it doesn't fit in the text boxes");
 	RNA_def_property_update(prop, 0, "rna_Curve_update_data");
 
 	/* number values */

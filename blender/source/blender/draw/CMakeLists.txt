@@ -105,6 +105,7 @@ set(SRC
 	engines/eevee/eevee_occlusion.c
 	engines/eevee/eevee_render.c
 	engines/eevee/eevee_screen_raytrace.c
+	engines/eevee/eevee_shaders.c
 	engines/eevee/eevee_subsurface.c
 	engines/eevee/eevee_temporal_sampling.c
 	engines/eevee/eevee_volumes.c
@@ -230,6 +231,7 @@ data_to_c_simple(engines/workbench/shaders/workbench_forward_depth_frag.glsl SRC
 data_to_c_simple(engines/workbench/shaders/workbench_forward_transparent_accum_frag.glsl SRC)
 data_to_c_simple(engines/workbench/shaders/workbench_ghost_resolve_frag.glsl SRC)
 data_to_c_simple(engines/workbench/shaders/workbench_object_outline_lib.glsl SRC)
+data_to_c_simple(engines/workbench/shaders/workbench_curvature_lib.glsl SRC)
 data_to_c_simple(engines/workbench/shaders/workbench_prepass_vert.glsl SRC)
 data_to_c_simple(engines/workbench/shaders/workbench_prepass_frag.glsl SRC)
 data_to_c_simple(engines/workbench/shaders/workbench_shadow_vert.glsl SRC)
@@ -325,6 +327,7 @@ data_to_c_simple(engines/gpencil/shaders/gpencil_stroke_geom.glsl SRC)
 data_to_c_simple(engines/gpencil/shaders/gpencil_stroke_frag.glsl SRC)
 data_to_c_simple(engines/gpencil/shaders/gpencil_zdepth_mix_frag.glsl SRC)
 data_to_c_simple(engines/gpencil/shaders/gpencil_simple_mix_frag.glsl SRC)
+data_to_c_simple(engines/gpencil/shaders/gpencil_blend_frag.glsl SRC)
 data_to_c_simple(engines/gpencil/shaders/gpencil_point_vert.glsl SRC)
 data_to_c_simple(engines/gpencil/shaders/gpencil_point_geom.glsl SRC)
 data_to_c_simple(engines/gpencil/shaders/gpencil_point_frag.glsl SRC)

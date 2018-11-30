@@ -41,6 +41,7 @@
 #include "BIF_glutil.h"
 
 #include "BKE_camera.h"
+#include "BKE_collection.h"
 #include "BKE_context.h"
 #include "BKE_global.h"
 #include "BKE_key.h"
@@ -774,6 +775,36 @@ float ED_view3d_grid_scale(Scene *scene, View3D *v3d, const char **grid_unit)
 	return v3d->grid * ED_scene_grid_scale(scene, grid_unit);
 }
 
+/* Simulates the grid scale that is visualized by the shaders drawing functions.
+ * The actual code is seen in `object_grid_frag.glsl` when you get the `grid_res` value.
+ * Currently the simulation is done only when RV3D_VIEW_IS_AXIS. */
+float ED_view3d_grid_view_scale(
+        Scene *scene, View3D *v3d, RegionView3D *rv3d, const char **grid_unit)
+{
+	float grid_scale = ED_view3d_grid_scale(scene, v3d, grid_unit);
+	if (!rv3d->is_persp && RV3D_VIEW_IS_AXIS(rv3d->view)) {
+		/* Decrease the distance between grid snap points depending on zoom. */
+		float grid_subdiv = v3d->gridsubdiv;
+		if (grid_subdiv > 1) {
+			float grid_distance = rv3d->dist;
+			float lvl = (logf(grid_distance / grid_scale) / logf(grid_subdiv));
+			if (lvl < 0.0f) {
+				/* Negative values need an offset for correct casting.
+				 * By convention, the minimum lvl is limited to -2 (see `objec_mode.c`) */
+				if (lvl > -2.0f) {
+					lvl -= 1.0f;
+				}
+				else {
+					lvl = -2.0f;
+				}
+			}
+			grid_scale *= pow(grid_subdiv, (int)lvl - 1);
+		}
+	}
+
+	return v3d->grid * grid_scale;
+}
+
 static void draw_view_axis(RegionView3D *rv3d, const rcti *rect)
 {
 	const float k = U.rvisize * U.pixelsize;  /* axis size */
@@ -995,28 +1026,28 @@ static const char *view3d_get_name(View3D *v3d, RegionView3D *rv3d)
 
 	switch (rv3d->view) {
 		case RV3D_VIEW_FRONT:
-			if (rv3d->persp == RV3D_ORTHO) name = IFACE_("Front Ortho");
-			else name = IFACE_("Front Persp");
+			if (rv3d->persp == RV3D_ORTHO) name = IFACE_("Front Orthographic");
+			else name = IFACE_("Front Perspective");
 			break;
 		case RV3D_VIEW_BACK:
-			if (rv3d->persp == RV3D_ORTHO) name = IFACE_("Back Ortho");
-			else name = IFACE_("Back Persp");
+			if (rv3d->persp == RV3D_ORTHO) name = IFACE_("Back Orthographic");
+			else name = IFACE_("Back Perspective");
 			break;
 		case RV3D_VIEW_TOP:
-			if (rv3d->persp == RV3D_ORTHO) name = IFACE_("Top Ortho");
-			else name = IFACE_("Top Persp");
+			if (rv3d->persp == RV3D_ORTHO) name = IFACE_("Top Orthographic");
+			else name = IFACE_("Top Perspective");
 			break;
 		case RV3D_VIEW_BOTTOM:
-			if (rv3d->persp == RV3D_ORTHO) name = IFACE_("Bottom Ortho");
-			else name = IFACE_("Bottom Persp");
+			if (rv3d->persp == RV3D_ORTHO) name = IFACE_("Bottom Orthographic");
+			else name = IFACE_("Bottom Perspective");
 			break;
 		case RV3D_VIEW_RIGHT:
-			if (rv3d->persp == RV3D_ORTHO) name = IFACE_("Right Ortho");
-			else name = IFACE_("Right Persp");
+			if (rv3d->persp == RV3D_ORTHO) name = IFACE_("Right Orthographic");
+			else name = IFACE_("Right Perspective");
 			break;
 		case RV3D_VIEW_LEFT:
-			if (rv3d->persp == RV3D_ORTHO) name = IFACE_("Left Ortho");
-			else name = IFACE_("Left Persp");
+			if (rv3d->persp == RV3D_ORTHO) name = IFACE_("Left Orthographic");
+			else name = IFACE_("Left Perspective");
 			break;
 
 		default:
@@ -1025,14 +1056,14 @@ static const char *view3d_get_name(View3D *v3d, RegionView3D *rv3d)
 					Camera *cam;
 					cam = v3d->camera->data;
 					if (cam->type == CAM_PERSP) {
-						name = IFACE_("Camera Persp");
+						name = IFACE_("Camera Perspective");
 					}
 					else if (cam->type == CAM_ORTHO) {
-						name = IFACE_("Camera Ortho");
+						name = IFACE_("Camera Orthographic");
 					}
 					else {
 						BLI_assert(cam->type == CAM_PANO);
-						name = IFACE_("Camera Pano");
+						name = IFACE_("Camera Panoramic");
 					}
 				}
 				else {
@@ -1040,17 +1071,19 @@ static const char *view3d_get_name(View3D *v3d, RegionView3D *rv3d)
 				}
 			}
 			else {
-				name = (rv3d->persp == RV3D_ORTHO) ? IFACE_("User Ortho") : IFACE_("User Persp");
+				name = (rv3d->persp == RV3D_ORTHO) ? IFACE_("User Orthographic") : IFACE_("User Perspective");
 			}
 	}
 
 	return name;
 }
 
-static void draw_viewport_name(ARegion *ar, View3D *v3d, const rcti *rect)
+static void draw_viewport_name(ARegion *ar, View3D *v3d, int xoffset, int *yoffset)
 {
 	RegionView3D *rv3d = ar->regiondata;
 	const char *name = view3d_get_name(v3d, rv3d);
+	const int font_id = BLF_default();
+
 	/* increase size for unicode languages (Chinese in utf-8...) */
 #ifdef WITH_INTERNATIONAL
 	char tmpstr[96];
@@ -1058,25 +1091,34 @@ static void draw_viewport_name(ARegion *ar, View3D *v3d, const rcti *rect)
 	char tmpstr[32];
 #endif
 
+	BLF_enable(font_id, BLF_SHADOW);
+	BLF_shadow(font_id, 5, (const float[4]){0.0f, 0.0f, 0.0f, 1.0f});
+	BLF_shadow_offset(font_id, 1, -1);
+
 	if (v3d->localvd) {
 		BLI_snprintf(tmpstr, sizeof(tmpstr), IFACE_("%s (Local)"), name);
 		name = tmpstr;
 	}
 
 	UI_FontThemeColor(BLF_default(), TH_TEXT_HI);
+
+	*yoffset -= U.widget_unit;
+
 #ifdef WITH_INTERNATIONAL
-	BLF_draw_default(U.widget_unit + rect->xmin,  rect->ymax - U.widget_unit, 0.0f, name, sizeof(tmpstr));
+	BLF_draw_default(xoffset, *yoffset, 0.0f, name, sizeof(tmpstr));
 #else
-	BLF_draw_default_ascii(U.widget_unit + rect->xmin,  rect->ymax - U.widget_unit, 0.0f, name, sizeof(tmpstr));
+	BLF_draw_default_ascii(xoffset, *yoffset, 0.0f, name, sizeof(tmpstr));
 #endif
+
+	BLF_disable(font_id, BLF_SHADOW);
 }
 
 /**
  * draw info beside axes in bottom left-corner:
- * framenum, object name, bone name (if available), marker name (if available)
+ * framenum, collection, object name, bone name (if available), marker name (if available)
  */
 
-static void draw_selected_name(Scene *scene, Object *ob, rcti *rect)
+static void draw_selected_name(Scene *scene, ViewLayer *view_layer, Object *ob, int xoffset, int *yoffset)
 {
 	const int cfra = CFRA;
 	const char *msg_pin = " (Pinned)";
@@ -1089,9 +1131,15 @@ static void draw_selected_name(Scene *scene, Object *ob, rcti *rect)
 
 	s += sprintf(s, "(%d)", cfra);
 
+	if ((ob == NULL) || (ob->mode == OB_MODE_OBJECT)) {
+		LayerCollection *layer_collection = view_layer->active_collection;
+		s += sprintf(s, " %s%s", BKE_collection_ui_name_get(layer_collection->collection), (ob == NULL) ? "" : " |");
+	}
+
 	/*
 	 * info can contain:
 	 * - a frame (7 + 2)
+	 * - a collection name (MAX_NAME + 3)
 	 * - 3 object names (MAX_NAME)
 	 * - 2 BREAD_CRUMB_SEPARATORs (6)
 	 * - a SHAPE_KEY_PINNED marker and a trailing '\0' (9+1) - translated, so give some room!
@@ -1176,7 +1224,14 @@ static void draw_selected_name(Scene *scene, Object *ob, rcti *rect)
 		s += sprintf(s, " <%s>", markern);
 	}
 
-	BLF_draw_default(rect->xmin + UI_UNIT_X, rect->ymax - (2 * U.widget_unit), 0.0f, info, sizeof(info));
+	BLF_enable(font_id, BLF_SHADOW);
+	BLF_shadow(font_id, 5, (const float[4]){0.0f, 0.0f, 0.0f, 1.0f});
+	BLF_shadow_offset(font_id, 1, -1);
+
+	*yoffset -= U.widget_unit;
+	BLF_draw_default(xoffset, *yoffset, 0.0f, info, sizeof(info));
+
+	BLF_disable(font_id, BLF_SHADOW);
 }
 
 /* ******************** view loop ***************** */
@@ -1184,7 +1239,7 @@ static void draw_selected_name(Scene *scene, Object *ob, rcti *rect)
 /**
  * Information drawn on top of the solid plates and composed data
  */
-void view3d_draw_region_info(const bContext *C, ARegion *ar, const int UNUSED(offset))
+void view3d_draw_region_info(const bContext *C, ARegion *ar)
 {
 	RegionView3D *rv3d = ar->regiondata;
 	View3D *v3d = CTX_wm_view3d(C);
@@ -1215,20 +1270,23 @@ void view3d_draw_region_info(const bContext *C, ARegion *ar, const int UNUSED(of
 		draw_view_axis(rv3d, &rect);
 	}
 
+	int xoffset = rect.xmin + U.widget_unit;
+	int yoffset = rect.ymax;
+
 	if ((v3d->flag2 & V3D_RENDER_OVERRIDE) == 0 &&
 	    (v3d->overlay.flag & V3D_OVERLAY_HIDE_TEXT) == 0)
 	{
 		if ((U.uiflag & USER_SHOW_FPS) && ED_screen_animation_no_scrub(wm)) {
-			ED_scene_draw_fps(scene, &rect);
+			ED_scene_draw_fps(scene, xoffset, &yoffset);
 		}
 		else if (U.uiflag & USER_SHOW_VIEWPORTNAME) {
-			draw_viewport_name(ar, v3d, &rect);
+			draw_viewport_name(ar, v3d, xoffset, &yoffset);
 		}
 
 		if (U.uiflag & USER_DRAWVIEWINFO) {
 			ViewLayer *view_layer = CTX_data_view_layer(C);
 			Object *ob = OBACT(view_layer);
-			draw_selected_name(scene, ob, &rect);
+			draw_selected_name(scene, view_layer, ob, xoffset, &yoffset);
 		}
 
 #if 0 /* TODO */
@@ -1240,12 +1298,14 @@ void view3d_draw_region_info(const bContext *C, ARegion *ar, const int UNUSED(of
 				BLI_snprintf(numstr, sizeof(numstr), "%s x %.4g", grid_unit, v3d->grid);
 			}
 
-			BLF_draw_default_ascii(
-			        rect.xmin + U.widget_unit,
-			        rect.ymax - (USER_SHOW_VIEWPORTNAME ? 2 * U.widget_unit : U.widget_unit), 0.0f,
-			        numstr[0] ? numstr : grid_unit, sizeof(numstr));
+			*yoffset -= U.widget_unit;
+			BLF_draw_default_ascii(xoffset, *yoffset, numstr[0] ? numstr : grid_unit, sizeof(numstr));
 		}
 #endif
+	}
+
+	if ((v3d->overlay.flag & V3D_OVERLAY_HIDE_TEXT) == 0) {
+		DRW_draw_region_engine_info(xoffset, yoffset);
 	}
 
 	BLF_batch_draw_end();

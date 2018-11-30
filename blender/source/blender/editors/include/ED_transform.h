@@ -48,7 +48,7 @@ struct Main;
 struct SnapObjectContext;
 struct SnapObjectParams;
 
-void transform_keymap_for_space(struct wmKeyConfig *keyconf, struct wmKeyMap *keymap, int spaceid);
+void ED_keymap_transform(struct wmKeyConfig *keyconf);
 void transform_operatortypes(void);
 
 /* ******************** Macros & Prototypes *********************** */
@@ -166,6 +166,9 @@ void TRANSFORM_GGT_gizmo(struct wmGizmoGroupType *gzgt);
 void VIEW3D_GGT_xform_cage(struct wmGizmoGroupType *gzgt);
 void VIEW3D_GGT_xform_shear(struct wmGizmoGroupType *gzgt);
 
+/* *** transform_gizmo_extrude_3d.c *** */
+void VIEW3D_GGT_xform_extrude(struct wmGizmoGroupType *gzgt);
+
 bool ED_widgetgroup_gizmo2d_poll(const struct bContext *C, struct wmGizmoGroupType *gzgt);
 void ED_widgetgroup_gizmo2d_setup(const struct bContext *C, struct wmGizmoGroup *gzgroup);
 void ED_widgetgroup_gizmo2d_refresh(const struct bContext *C, struct wmGizmoGroup *gzgroup);
@@ -206,7 +209,7 @@ void ED_transform_calc_orientation_from_type(
  void ED_transform_calc_orientation_from_type_ex(
          const struct bContext *C, float r_mat[3][3],
          /* extra args */
-         struct Scene *scene, struct View3D *v3d, struct RegionView3D *rv3d, struct Object *ob, struct Object *obedit,
+         struct Scene *scene, struct RegionView3D *rv3d, struct Object *ob, struct Object *obedit,
          const short orientation_type, const int pivot_point);
 
 struct TransformBounds {

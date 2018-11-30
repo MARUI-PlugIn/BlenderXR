@@ -79,7 +79,7 @@ struct GPUViewport {
 	int flag;
 
 	ListBase data;  /* ViewportEngineData wrapped in LinkData */
-	unsigned int data_hash;  /* If hash mismatch we free all ViewportEngineData in this viewport */
+	uint data_hash;  /* If hash mismatch we free all ViewportEngineData in this viewport */
 
 	DefaultFramebufferList *fbl;
 	DefaultTextureList *txl;

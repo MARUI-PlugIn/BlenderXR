@@ -44,6 +44,7 @@
 #include "BKE_main.h"
 #include "BKE_material.h"
 #include "BKE_paint.h"
+#include "BKE_brush.h"
 
 #include "ED_image.h"
 
@@ -65,30 +66,30 @@ const EnumPropertyItem rna_enum_particle_edit_hair_brush_items[] = {
 };
 
 const EnumPropertyItem rna_enum_gpencil_sculpt_brush_items[] = {
-	{GP_EDITBRUSH_TYPE_SMOOTH, "SMOOTH", ICON_GPBRUSH_SMOOTH, "Smooth", "Smooth stroke points"},
-	{GP_EDITBRUSH_TYPE_THICKNESS, "THICKNESS", ICON_GPBRUSH_THICKNESS, "Thickness", "Adjust thickness of strokes"},
-	{GP_EDITBRUSH_TYPE_STRENGTH, "STRENGTH", ICON_GPBRUSH_STRENGTH, "Strength", "Adjust color strength of strokes" },
-	{GP_EDITBRUSH_TYPE_GRAB, "GRAB", ICON_GPBRUSH_GRAB, "Grab", "Translate the set of points initially within the brush circle" },
-	{GP_EDITBRUSH_TYPE_PUSH, "PUSH", ICON_GPBRUSH_PUSH, "Push", "Move points out of the way, as if combing them"},
-	{GP_EDITBRUSH_TYPE_TWIST, "TWIST", ICON_GPBRUSH_TWIST, "Twist", "Rotate points around the midpoint of the brush"},
-	{GP_EDITBRUSH_TYPE_PINCH, "PINCH", ICON_GPBRUSH_PINCH, "Pinch", "Pull points towards the midpoint of the brush"},
-	{GP_EDITBRUSH_TYPE_RANDOMIZE, "RANDOMIZE", ICON_GPBRUSH_RANDOMIZE, "Randomize", "Introduce jitter/randomness into strokes"},
-	{GP_EDITBRUSH_TYPE_CLONE, "CLONE", ICON_GPBRUSH_CLONE, "Clone", "Paste copies of the strokes stored on the clipboard"},
+	{GP_SCULPT_TYPE_SMOOTH, "SMOOTH", ICON_GPBRUSH_SMOOTH, "Smooth", "Smooth stroke points"},
+	{GP_SCULPT_TYPE_THICKNESS, "THICKNESS", ICON_GPBRUSH_THICKNESS, "Thickness", "Adjust thickness of strokes"},
+	{GP_SCULPT_TYPE_STRENGTH, "STRENGTH", ICON_GPBRUSH_STRENGTH, "Strength", "Adjust color strength of strokes" },
+	{GP_SCULPT_TYPE_GRAB, "GRAB", ICON_GPBRUSH_GRAB, "Grab", "Translate the set of points initially within the brush circle" },
+	{GP_SCULPT_TYPE_PUSH, "PUSH", ICON_GPBRUSH_PUSH, "Push", "Move points out of the way, as if combing them"},
+	{GP_SCULPT_TYPE_TWIST, "TWIST", ICON_GPBRUSH_TWIST, "Twist", "Rotate points around the midpoint of the brush"},
+	{GP_SCULPT_TYPE_PINCH, "PINCH", ICON_GPBRUSH_PINCH, "Pinch", "Pull points towards the midpoint of the brush"},
+	{GP_SCULPT_TYPE_RANDOMIZE, "RANDOMIZE", ICON_GPBRUSH_RANDOMIZE, "Randomize", "Introduce jitter/randomness into strokes"},
+	{GP_SCULPT_TYPE_CLONE, "CLONE", ICON_GPBRUSH_CLONE, "Clone", "Paste copies of the strokes stored on the clipboard"},
 	{ 0, NULL, 0, NULL, NULL }
+};
+
+const EnumPropertyItem rna_enum_gpencil_weight_brush_items[] = {
+	{GP_SCULPT_TYPE_WEIGHT, "WEIGHT", ICON_GPBRUSH_WEIGHT, "Weight", "Weight Paint for Vertex Groups"},
+	{0, NULL, 0, NULL, NULL}
 };
 
 #ifndef RNA_RUNTIME
-static EnumPropertyItem rna_enum_gpencil_weight_brush_items[] = {
-	{ GP_EDITBRUSH_TYPE_WEIGHT, "WEIGHT", ICON_GPBRUSH_WEIGHT, "Weight", "Weight Paint for Vertex Groups" },
-	{ 0, NULL, 0, NULL, NULL }
-};
-
 static const EnumPropertyItem rna_enum_gpencil_lock_axis_items[] = {
-	{ GP_LOCKAXIS_NONE, "GP_LOCKAXIS_NONE", ICON_UNLOCKED, "None", "" },
-	{ GP_LOCKAXIS_X, "GP_LOCKAXIS_X", ICON_AXIS_SIDE, "Y-Z Plane", "Project strokes to plane locked to X" },
-	{ GP_LOCKAXIS_Y, "GP_LOCKAXIS_Y", ICON_AXIS_FRONT, "X-Z Plane", "Project strokes to plane locked to Y" },
-	{ GP_LOCKAXIS_Z, "GP_LOCKAXIS_Z", ICON_AXIS_TOP, "X-Y Plane", "Project strokes to plane locked to Z" },
-	{ 0, NULL, 0, NULL, NULL }
+	{GP_LOCKAXIS_VIEW, "VIEW", ICON_RESTRICT_VIEW_ON, "View", "Align strokes to current view plane"},
+	{GP_LOCKAXIS_Y, "AXIS_Y", ICON_AXIS_FRONT, "Front (X-Z)", "Project strokes to plane locked to Y"},
+	{GP_LOCKAXIS_X, "AXIS_X", ICON_AXIS_SIDE, "Side (Y-Z)", "Project strokes to plane locked to X"},
+	{GP_LOCKAXIS_Z, "AXIS_Z", ICON_AXIS_TOP, "Top (X-Y)", "Project strokes to plane locked to Z"},
+	{0, NULL, 0, NULL, NULL}
 };
 #endif
 
@@ -272,24 +273,77 @@ static char *rna_ParticleEdit_path(PointerRNA *UNUSED(ptr))
 
 static bool rna_Brush_mode_poll(PointerRNA *ptr, PointerRNA value)
 {
+	const Paint *paint = ptr->data;
+	Brush *brush = value.id.data;
+	const uint tool_offset = paint->runtime.tool_offset;
+	const eObjectMode ob_mode = paint->runtime.ob_mode;
+	UNUSED_VARS_NDEBUG(tool_offset);
+	BLI_assert(tool_offset && ob_mode);
+
+	if (brush->ob_mode & ob_mode) {
+		if (paint->brush) {
+			if (BKE_brush_tool_get(paint->brush, paint) == BKE_brush_tool_get(brush, paint)) {
+				return true;
+			}
+		}
+		else {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+static bool paint_contains_brush_slot(const Paint *paint, const PaintToolSlot *tslot, int *r_index)
+{
+	if ((tslot >= paint->tool_slots) &&
+	    (tslot < (paint->tool_slots + paint->tool_slots_len)))
+	{
+		*r_index = (int)(tslot - paint->tool_slots);
+		return true;
+	}
+	return false;
+}
+
+static bool rna_Brush_mode_with_tool_poll(PointerRNA *ptr, PointerRNA value)
+{
 	Scene *scene = (Scene *)ptr->id.data;
+	const PaintToolSlot *tslot = ptr->data;
 	ToolSettings *ts = scene->toolsettings;
 	Brush *brush = value.id.data;
 	int mode = 0;
+	int slot_index = 0;
 
-	/* check the origin of the Paint struct to see which paint
-	 * mode to select from */
-
-	if (ptr->data == &ts->imapaint)
+	if (paint_contains_brush_slot(&ts->imapaint.paint, tslot, &slot_index)) {
+		if (slot_index != brush->imagepaint_tool) {
+			return false;
+		}
 		mode = OB_MODE_TEXTURE_PAINT;
-	else if (ptr->data == ts->sculpt)
+	}
+	else if (paint_contains_brush_slot(&ts->sculpt->paint, tslot, &slot_index)) {
+		if (slot_index != brush->sculpt_tool) {
+			return false;
+		}
 		mode = OB_MODE_SCULPT;
-	else if (ptr->data == ts->vpaint)
+	}
+	else if (paint_contains_brush_slot(&ts->vpaint->paint, tslot, &slot_index)) {
+		if (slot_index != brush->vertexpaint_tool) {
+			return false;
+		}
 		mode = OB_MODE_VERTEX_PAINT;
-	else if (ptr->data == ts->wpaint)
+	}
+	else if (paint_contains_brush_slot(&ts->wpaint->paint, tslot, &slot_index)) {
+		if (slot_index != brush->weightpaint_tool) {
+			return false;
+		}
 		mode = OB_MODE_WEIGHT_PAINT;
-	else if (ptr->data == ts->gp_paint)
+	}
+	else if (paint_contains_brush_slot(&ts->gp_paint->paint, tslot, &slot_index)) {
+		if (slot_index != brush->gpencil_tool) {
+			return false;
+		}
 		mode = OB_MODE_GPENCIL_PAINT;
+	}
 
 	return brush->ob_mode & mode;
 }
@@ -373,7 +427,7 @@ static char *rna_UvSculpt_path(PointerRNA *UNUSED(ptr))
 
 static char *rna_GpPaint_path(PointerRNA *UNUSED(ptr))
 {
-	return BLI_strdup("tool_settings.gp_paint");
+	return BLI_strdup("tool_settings.gpencil_paint");
 }
 
 static char *rna_ParticleBrush_path(PointerRNA *UNUSED(ptr))
@@ -386,6 +440,8 @@ static void rna_Paint_brush_update(Main *UNUSED(bmain), Scene *UNUSED(scene), Po
 	Paint *paint = ptr->data;
 	Brush *br = paint->brush;
 	BKE_paint_invalidate_overlay_all();
+	/* Needed because we're not calling 'BKE_paint_brush_set' which handles this. */
+	BKE_paint_toolslots_brush_update(paint);
 	WM_main_add_notifier(NC_BRUSH | NA_SELECTED, br);
 }
 
@@ -397,7 +453,7 @@ static void rna_ImaPaint_viewport_update(Main *UNUSED(bmain), Scene *UNUSED(scen
 
 static void rna_ImaPaint_mode_update(bContext *C, PointerRNA *UNUSED(ptr))
 {
-	Scene *scene = CTX_data_scene(C);\
+	Scene *scene = CTX_data_scene(C);
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	Object *ob = OBACT(view_layer);
 
@@ -462,15 +518,15 @@ static bool rna_ImaPaint_detect_data(ImagePaintSettings *imapaint)
 
 static PointerRNA rna_GPencilSculptSettings_brush_get(PointerRNA *ptr)
 {
-	GP_BrushEdit_Settings *gset = (GP_BrushEdit_Settings *)ptr->data;
-	GP_EditBrush_Data *brush = NULL;
+	GP_Sculpt_Settings *gset = (GP_Sculpt_Settings *)ptr->data;
+	GP_Sculpt_Data *brush = NULL;
 
-	if ((gset) && (gset->flag & GP_BRUSHEDIT_FLAG_WEIGHT_MODE)) {
-		if ((gset->weighttype >= GP_EDITBRUSH_TYPE_WEIGHT) && (gset->weighttype < TOT_GP_EDITBRUSH_TYPES))
+	if ((gset) && (gset->flag & GP_SCULPT_SETT_FLAG_WEIGHT_MODE)) {
+		if ((gset->weighttype >= GP_SCULPT_TYPE_WEIGHT) && (gset->weighttype < GP_SCULPT_TYPE_MAX))
 			brush = &gset->brush[gset->weighttype];
 	}
 	else {
-		if ((gset->brushtype >= 0) && (gset->brushtype < GP_EDITBRUSH_TYPE_WEIGHT))
+		if ((gset->brushtype >= 0) && (gset->brushtype < GP_SCULPT_TYPE_WEIGHT))
 			brush = &gset->brush[gset->brushtype];
 	}
 	return rna_pointer_inherit_refine(ptr, &RNA_GPencilSculptBrush, brush);
@@ -498,6 +554,19 @@ static void rna_def_paint_curve(BlenderRNA *brna)
 	RNA_def_struct_ui_icon(srna, ICON_CURVE_BEZCURVE);
 }
 
+static void rna_def_paint_tool_slot(BlenderRNA *brna)
+{
+	StructRNA *srna;
+	PropertyRNA *prop;
+
+	srna = RNA_def_struct(brna, "PaintToolSlot", NULL);
+	RNA_def_struct_ui_text(srna, "Paint Tool Slot", "");
+
+	prop = RNA_def_property(srna, "brush", PROP_POINTER, PROP_NONE);
+	RNA_def_property_flag(prop, PROP_EDITABLE);
+	RNA_def_property_pointer_funcs(prop, NULL, NULL, NULL, "rna_Brush_mode_with_tool_poll");
+	RNA_def_property_ui_text(prop, "Brush", "");
+}
 
 static void rna_def_paint(BlenderRNA *brna)
 {
@@ -513,6 +582,14 @@ static void rna_def_paint(BlenderRNA *brna)
 	RNA_def_property_pointer_funcs(prop, NULL, NULL, NULL, "rna_Brush_mode_poll");
 	RNA_def_property_ui_text(prop, "Brush", "Active Brush");
 	RNA_def_property_update(prop, 0, "rna_Paint_brush_update");
+
+	/* paint_tool_slots */
+	prop = RNA_def_property(srna, "tool_slots", PROP_COLLECTION, PROP_NONE);
+	RNA_def_property_collection_sdna(prop, NULL, "tool_slots", "tool_slots_len");
+	RNA_def_property_struct_type(prop, "PaintToolSlot");
+	/* don't dereference pointer! */
+	RNA_def_property_collection_funcs(prop, NULL, NULL, NULL, "rna_iterator_array_get", NULL, NULL, NULL, NULL);
+	RNA_def_property_ui_text(prop, "Paint Tool Slots", "");
 
 	prop = RNA_def_property(srna, "palette", PROP_POINTER, PROP_NONE);
 	RNA_def_property_flag(prop, PROP_EDITABLE);
@@ -1104,7 +1181,7 @@ static void rna_def_gpencil_sculpt(BlenderRNA *brna)
 {
 	static const EnumPropertyItem prop_direction_items[] = {
 		{0, "ADD", ICON_ADD, "Add", "Add effect of brush"},
-		{GP_EDITBRUSH_FLAG_INVERT, "SUBTRACT", ICON_REMOVE, "Subtract", "Subtract effect of brush"},
+		{GP_SCULPT_FLAG_INVERT, "SUBTRACT", ICON_REMOVE, "Subtract", "Subtract effect of brush"},
 		{0, NULL, 0, NULL, NULL}};
 
 	StructRNA *srna;
@@ -1112,11 +1189,11 @@ static void rna_def_gpencil_sculpt(BlenderRNA *brna)
 
 	/* == Settings == */
 	srna = RNA_def_struct(brna, "GPencilSculptSettings", NULL);
-	RNA_def_struct_sdna(srna, "GP_BrushEdit_Settings");
+	RNA_def_struct_sdna(srna, "GP_Sculpt_Settings");
 	RNA_def_struct_path_func(srna, "rna_GPencilSculptSettings_path");
 	RNA_def_struct_ui_text(srna, "GPencil Sculpt Settings", "Properties for Grease Pencil stroke sculpting tool");
 
-	prop = RNA_def_property(srna, "tool", PROP_ENUM, PROP_NONE);
+	prop = RNA_def_property(srna, "sculpt_tool", PROP_ENUM, PROP_NONE);
 	RNA_def_property_enum_sdna(prop, NULL, "brushtype");
 	RNA_def_property_enum_items(prop, rna_enum_gpencil_sculpt_brush_items);
 	RNA_def_property_ui_text(prop, "Tool", "");
@@ -1137,38 +1214,38 @@ static void rna_def_gpencil_sculpt(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Brush", "");
 
 	prop = RNA_def_property(srna, "use_select_mask", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_BRUSHEDIT_FLAG_SELECT_MASK);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_SCULPT_SETT_FLAG_SELECT_MASK);
 	RNA_def_property_ui_text(prop, "Selection Mask", "Only sculpt selected stroke points");
 	RNA_def_property_ui_icon(prop, ICON_GP_ONLY_SELECTED, 0);
 	RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, 0);
 	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
 
 	prop = RNA_def_property(srna, "use_edit_position", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_BRUSHEDIT_FLAG_APPLY_POSITION);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_SCULPT_SETT_FLAG_APPLY_POSITION);
 	RNA_def_property_ui_text(prop, "Affect Position", "The brush affects the position of the point");
 	RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, 0);
 	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
 
 	prop = RNA_def_property(srna, "use_edit_strength", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_BRUSHEDIT_FLAG_APPLY_STRENGTH);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_SCULPT_SETT_FLAG_APPLY_STRENGTH);
 	RNA_def_property_ui_text(prop, "Affect Strength", "The brush affects the color strength of the point");
 	RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, 0);
 	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
 
 	prop = RNA_def_property(srna, "use_edit_thickness", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_BRUSHEDIT_FLAG_APPLY_THICKNESS);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_SCULPT_SETT_FLAG_APPLY_THICKNESS);
 	RNA_def_property_ui_text(prop, "Affect Thickness", "The brush affects the thickness of the point");
 	RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, 0);
 	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
 
 	prop = RNA_def_property(srna, "use_edit_uv", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_BRUSHEDIT_FLAG_APPLY_UV);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_SCULPT_SETT_FLAG_APPLY_UV);
 	RNA_def_property_ui_text(prop, "Affect UV", "The brush affects the UV rotation of the point");
 	RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, 0);
 	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
 
 	prop = RNA_def_property(srna, "use_multiframe_falloff", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_BRUSHEDIT_FLAG_FRAME_FALLOFF);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_SCULPT_SETT_FLAG_FRAME_FALLOFF);
 	RNA_def_property_ui_text(prop, "Use Falloff", "Use falloff effect when edit in multiframe mode to compute brush effect by frame");
 	RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, 0);
 	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
@@ -1188,11 +1265,11 @@ static void rna_def_gpencil_sculpt(BlenderRNA *brna)
 	RNA_def_property_enum_items(prop, rna_enum_gpencil_lock_axis_items);
 	RNA_def_property_ui_text(prop, "Lock Axis", "");
 	RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, 0);
-	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, NULL);
+	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
 	/* brush */
 	srna = RNA_def_struct(brna, "GPencilSculptBrush", NULL);
-	RNA_def_struct_sdna(srna, "GP_EditBrush_Data");
+	RNA_def_struct_sdna(srna, "GP_Sculpt_Data");
 	RNA_def_struct_path_func(srna, "rna_GPencilSculptBrush_path");
 	RNA_def_struct_ui_text(srna, "GPencil Sculpt Brush", "Stroke editing brush");
 	RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, 0);
@@ -1210,28 +1287,34 @@ static void rna_def_gpencil_sculpt(BlenderRNA *brna)
 	RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, 0);
 	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
 
+	prop = RNA_def_property(srna, "target_weight", PROP_FLOAT, PROP_FACTOR);
+	RNA_def_property_range(prop, 0.0, 1.0);
+	RNA_def_property_ui_text(prop, "Weight", "Target weight");
+	RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, 0);
+	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
+
 	prop = RNA_def_property(srna, "use_pressure_strength", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_EDITBRUSH_FLAG_USE_PRESSURE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_SCULPT_FLAG_USE_PRESSURE);
 	RNA_def_property_ui_icon(prop, ICON_STYLUS_PRESSURE, 0);
 	RNA_def_property_ui_text(prop, "Strength Pressure", "Enable tablet pressure sensitivity for strength");
 	RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, 0);
 	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
 
 	prop = RNA_def_property(srna, "use_pressure_radius", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_EDITBRUSH_FLAG_PRESSURE_RADIUS);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_SCULPT_FLAG_PRESSURE_RADIUS);
 	RNA_def_property_ui_icon(prop, ICON_STYLUS_PRESSURE, 0);
 	RNA_def_property_ui_text(prop, "Radius Pressure", "Enable tablet pressure sensitivity for radius");
 	RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, 0);
 	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
 
 	prop = RNA_def_property(srna, "use_falloff", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_EDITBRUSH_FLAG_USE_FALLOFF);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_SCULPT_FLAG_USE_FALLOFF);
 	RNA_def_property_ui_text(prop, "Use Falloff", "Strength of brush decays with distance from cursor");
 	RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, 0);
 	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
 
 	prop = RNA_def_property(srna, "use_edit_pressure", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_EDITBRUSH_FLAG_SMOOTH_PRESSURE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_SCULPT_FLAG_SMOOTH_PRESSURE);
 	RNA_def_property_ui_text(prop, "Affect Pressure", "Affect pressure values as well when smoothing strokes");
 	RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, 0);
 	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
@@ -1264,7 +1347,7 @@ static void rna_def_gpencil_sculpt(BlenderRNA *brna)
 	RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, 0);
 
 	prop = RNA_def_property(srna, "use_cursor", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_EDITBRUSH_FLAG_ENABLE_CURSOR);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_SCULPT_FLAG_ENABLE_CURSOR);
 	RNA_def_property_boolean_default(prop, true);
 	RNA_def_property_ui_text(prop, "Enable Cursor", "Enable cursor on screen");
 	RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, 0);
@@ -1276,6 +1359,7 @@ void RNA_def_sculpt_paint(BlenderRNA *brna)
 	/* *** Non-Animated *** */
 	RNA_define_animate_sdna(false);
 	rna_def_paint_curve(brna);
+	rna_def_paint_tool_slot(brna);
 	rna_def_paint(brna);
 	rna_def_sculpt(brna);
 	rna_def_uv_sculpt(brna);

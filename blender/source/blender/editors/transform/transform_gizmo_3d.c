@@ -461,6 +461,18 @@ static void calc_tw_center(struct TransformBounds *tbounds, const float co[3])
 	}
 }
 
+static void calc_tw_center_with_matrix(
+        struct TransformBounds *tbounds, const float co[3],
+        const bool use_matrix, const float matrix[4][4])
+{
+	float co_world[3];
+	if (use_matrix) {
+		mul_v3_m4v3(co_world, matrix, co);
+		co = co_world;
+	}
+	calc_tw_center(tbounds, co);
+}
+
 static void protectflag_to_drawflags(short protectflag, short *drawflags)
 {
 	if (protectflag & OB_LOCK_LOCX)
@@ -603,12 +615,10 @@ bool gimbal_axis(Object *ob, float gmat[3][3])
 void ED_transform_calc_orientation_from_type(
         const bContext *C, float r_mat[3][3])
 {
-	ScrArea *sa = CTX_wm_area(C);
 	ARegion *ar = CTX_wm_region(C);
 	Scene *scene = CTX_data_scene(C);
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	Object *obedit = CTX_data_edit_object(C);
-	View3D *v3d = sa->spacedata.first;
 	RegionView3D *rv3d = ar->regiondata;
 	Object *ob = OBACT(view_layer);
 	const short orientation_type = scene->orientation_type;
@@ -616,13 +626,13 @@ void ED_transform_calc_orientation_from_type(
 
 	ED_transform_calc_orientation_from_type_ex(
 	        C, r_mat,
-	        scene, v3d, rv3d, ob, obedit, orientation_type, pivot_point);
+	        scene, rv3d, ob, obedit, orientation_type, pivot_point);
 }
 
 void ED_transform_calc_orientation_from_type_ex(
         const bContext *C, float r_mat[3][3],
         /* extra args (can be accessed from context) */
-        Scene *scene, View3D *v3d, RegionView3D *rv3d, Object *ob, Object *obedit,
+        Scene *scene, RegionView3D *rv3d, Object *ob, Object *obedit,
         const short orientation_type, const int pivot_point)
 {
 	bool ok = false;
@@ -678,7 +688,7 @@ void ED_transform_calc_orientation_from_type_ex(
 		}
 		case V3D_MANIP_CURSOR:
 		{
-			ED_view3d_cursor3d_calc_mat3(scene, v3d, r_mat);
+			ED_view3d_cursor3d_calc_mat3(scene, r_mat);
 			ok = true;
 			break;
 		}
@@ -710,8 +720,8 @@ int ED_transform_calc_gizmo_stats(
 	Scene *scene = CTX_data_scene(C);
 	Depsgraph *depsgraph = CTX_data_depsgraph(C);
 	ViewLayer *view_layer = CTX_data_view_layer(C);
-	Object *obedit = CTX_data_edit_object(C);
 	View3D *v3d = sa->spacedata.first;
+	Object *obedit = CTX_data_edit_object(C);
 	RegionView3D *rv3d = ar->regiondata;
 	Base *base;
 	Object *ob = OBACT(view_layer);
@@ -731,12 +741,12 @@ int ED_transform_calc_gizmo_stats(
 
 	/* global, local or normal orientation?
 	 * if we could check 'totsel' now, this should be skipped with no selection. */
-	if (ob && !is_gp_edit) {
+	if (ob) {
 		const short orientation_type = params->orientation_type ? (params->orientation_type - 1) : scene->orientation_type;
 		float mat[3][3];
 		ED_transform_calc_orientation_from_type_ex(
 		        C, mat,
-		        scene, v3d, rv3d, ob, obedit, orientation_type, pivot_point);
+		        scene, rv3d, ob, obedit, orientation_type, pivot_point);
 		copy_m4_m3(rv3d->twmat, mat);
 	}
 
@@ -761,10 +771,9 @@ int ED_transform_calc_gizmo_stats(
 
 	if (is_gp_edit) {
 		float diff_mat[4][4];
-		float fpt[3];
-
 		for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
 			/* only editable and visible layers are considered */
+			const bool use_mat_local = gpl->parent != NULL;
 			if (gpencil_layer_is_editable(gpl) && (gpl->actframe != NULL)) {
 
 				/* calculate difference matrix */
@@ -784,15 +793,8 @@ int ED_transform_calc_gizmo_stats(
 						/* Change selection status of all points, then make the stroke match */
 						for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
 							if (pt->flag & GP_SPOINT_SELECT) {
-								if (gpl->parent == NULL) {
-									calc_tw_center(tbounds, &pt->x);
-									totsel++;
-								}
-								else {
-									mul_v3_m4v3(fpt, diff_mat, &pt->x);
-									calc_tw_center(tbounds, fpt);
-									totsel++;
-								}
+								calc_tw_center_with_matrix(tbounds, &pt->x, use_mat_local, diff_mat);
+								totsel++;
 							}
 						}
 					}
@@ -807,6 +809,21 @@ int ED_transform_calc_gizmo_stats(
 		}
 	}
 	else if (obedit) {
+
+#define FOREACH_EDIT_OBJECT_BEGIN(ob_iter, use_mat_local) \
+		{ \
+			invert_m4_m4(obedit->imat, obedit->obmat); \
+			uint objects_len = 0; \
+			Object **objects = BKE_view_layer_array_from_objects_in_edit_mode(view_layer, CTX_wm_view3d(C), &objects_len); \
+			for (uint ob_index = 0; ob_index < objects_len; ob_index++) { \
+				Object *ob_iter = objects[ob_index]; \
+				const bool use_mat_local = (ob_iter != obedit);
+
+#define FOREACH_EDIT_OBJECT_END() \
+			} \
+			MEM_freeN(objects); \
+		} ((void)0)
+
 		ob = obedit;
 		if (obedit->type == OB_MESH) {
 			BMEditMesh *em = BKE_editmesh_from_object(obedit);
@@ -820,14 +837,7 @@ int ED_transform_calc_gizmo_stats(
 				totsel = 1;
 			}
 			else {
-				uint objects_len = 0;
-				Object **objects = BKE_view_layer_array_from_objects_in_edit_mode(view_layer, &objects_len);
-
-				float mat_local[4][4];
-				invert_m4_m4(obedit->imat, obedit->obmat);
-
-				for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
-					Object *ob_iter = objects[ob_index];
+				FOREACH_EDIT_OBJECT_BEGIN(ob_iter, use_mat_local) {
 					BMEditMesh *em_iter = BKE_editmesh_from_object(ob_iter);
 					BMesh *bm = em_iter->bm;
 
@@ -838,7 +848,7 @@ int ED_transform_calc_gizmo_stats(
 					BMVert *eve;
 					BMIter iter;
 
-					const bool use_mat_local = (ob_iter != obedit);
+					float mat_local[4][4];
 					if (use_mat_local) {
 						mul_m4_m4m4(mat_local, obedit->imat, ob_iter->obmat);
 					}
@@ -846,20 +856,12 @@ int ED_transform_calc_gizmo_stats(
 					BM_ITER_MESH (eve, &iter, bm, BM_VERTS_OF_MESH) {
 						if (!BM_elem_flag_test(eve, BM_ELEM_HIDDEN)) {
 							if (BM_elem_flag_test(eve, BM_ELEM_SELECT)) {
-								float co[3];
-								if (use_mat_local) {
-									mul_v3_m4v3(co, mat_local, eve->co);
-								}
-								else {
-									copy_v3_v3(co, eve->co);
-								}
-								calc_tw_center(tbounds, co);
+								calc_tw_center_with_matrix(tbounds, eve->co, use_mat_local, mat_local);
 								totsel++;
 							}
 						}
 					}
-				}
-				MEM_freeN(objects);
+				} FOREACH_EDIT_OBJECT_END();
 			}
 		} /* end editmesh */
 		else if (obedit->type == OB_ARMATURE) {
@@ -881,28 +883,35 @@ int ED_transform_calc_gizmo_stats(
 				protectflag_to_drawflags_ebone(rv3d, ebo);
 			}
 			else {
-				/* TODO: multi-object support. */
-				for (ebo = arm->edbo->first; ebo; ebo = ebo->next) {
-					if (EBONE_VISIBLE(arm, ebo)) {
-						if (ebo->flag & BONE_TIPSEL) {
-							calc_tw_center(tbounds, ebo->tail);
-							totsel++;
-						}
-						if ((ebo->flag & BONE_ROOTSEL) &&
-						    /* don't include same point multiple times */
-						    ((ebo->flag & BONE_CONNECTED) &&
-						     (ebo->parent != NULL) &&
-						     (ebo->parent->flag & BONE_TIPSEL) &&
-						     EBONE_VISIBLE(arm, ebo->parent)) == 0)
-						{
-							calc_tw_center(tbounds, ebo->head);
-							totsel++;
-						}
-						if (ebo->flag & BONE_SELECTED) {
-							protectflag_to_drawflags_ebone(rv3d, ebo);
+				FOREACH_EDIT_OBJECT_BEGIN(ob_iter, use_mat_local) {
+					arm = ob_iter->data;
+
+					float mat_local[4][4];
+					if (use_mat_local) {
+						mul_m4_m4m4(mat_local, obedit->imat, ob_iter->obmat);
+					}
+					for (ebo = arm->edbo->first; ebo; ebo = ebo->next) {
+						if (EBONE_VISIBLE(arm, ebo)) {
+							if (ebo->flag & BONE_TIPSEL) {
+								calc_tw_center_with_matrix(tbounds, ebo->tail, use_mat_local, mat_local);
+								totsel++;
+							}
+							if ((ebo->flag & BONE_ROOTSEL) &&
+							    /* don't include same point multiple times */
+							    ((ebo->flag & BONE_CONNECTED) &&
+							     (ebo->parent != NULL) &&
+							     (ebo->parent->flag & BONE_TIPSEL) &&
+							     EBONE_VISIBLE(arm, ebo->parent)) == 0)
+							{
+								calc_tw_center_with_matrix(tbounds, ebo->head, use_mat_local, mat_local);
+								totsel++;
+							}
+							if (ebo->flag & BONE_SELECTED) {
+								protectflag_to_drawflags_ebone(rv3d, ebo);
+							}
 						}
 					}
-				}
+				} FOREACH_EDIT_OBJECT_END();
 			}
 		}
 		else if (ELEM(obedit->type, OB_CURVE, OB_SURF)) {
@@ -914,60 +923,67 @@ int ED_transform_calc_gizmo_stats(
 				totsel++;
 			}
 			else {
-				/* TODO: multi-object support. */
-				Nurb *nu;
-				BezTriple *bezt;
-				BPoint *bp;
-				ListBase *nurbs = BKE_curve_editNurbs_get(cu);
+				FOREACH_EDIT_OBJECT_BEGIN(ob_iter, use_mat_local) {
+					cu = ob_iter->data;
+					Nurb *nu;
+					BezTriple *bezt;
+					BPoint *bp;
+					ListBase *nurbs = BKE_curve_editNurbs_get(cu);
 
-				nu = nurbs->first;
-				while (nu) {
-					if (nu->type == CU_BEZIER) {
-						bezt = nu->bezt;
-						a = nu->pntsu;
-						while (a--) {
-							/* exceptions
-							 * if handles are hidden then only check the center points.
-							 * If the center knot is selected then only use this as the center point.
-							 */
-							if ((v3d->overlay.edit_flag & V3D_OVERLAY_EDIT_CU_HANDLES) == 0) {
-								if (bezt->f2 & SELECT) {
-									calc_tw_center(tbounds, bezt->vec[1]);
-									totsel++;
-								}
-							}
-							else if (bezt->f2 & SELECT) {
-								calc_tw_center(tbounds, bezt->vec[1]);
-								totsel++;
-							}
-							else {
-								if (bezt->f1 & SELECT) {
-									calc_tw_center(
-									        tbounds, bezt->vec[(pivot_point == V3D_AROUND_LOCAL_ORIGINS) ? 1 : 0]);
-									totsel++;
-								}
-								if (bezt->f3 & SELECT) {
-									calc_tw_center(
-									        tbounds, bezt->vec[(pivot_point == V3D_AROUND_LOCAL_ORIGINS) ? 1 : 2]);
-									totsel++;
-								}
-							}
-							bezt++;
-						}
+					float mat_local[4][4];
+					if (use_mat_local) {
+						mul_m4_m4m4(mat_local, obedit->imat, ob_iter->obmat);
 					}
-					else {
-						bp = nu->bp;
-						a = nu->pntsu * nu->pntsv;
-						while (a--) {
-							if (bp->f1 & SELECT) {
-								calc_tw_center(tbounds, bp->vec);
-								totsel++;
+
+					nu = nurbs->first;
+					while (nu) {
+						if (nu->type == CU_BEZIER) {
+							bezt = nu->bezt;
+							a = nu->pntsu;
+							while (a--) {
+								/* exceptions
+								 * if handles are hidden then only check the center points.
+								 * If the center knot is selected then only use this as the center point.
+								 */
+								if ((v3d->overlay.edit_flag & V3D_OVERLAY_EDIT_CU_HANDLES) == 0) {
+									if (bezt->f2 & SELECT) {
+										calc_tw_center_with_matrix(tbounds, bezt->vec[1], use_mat_local, mat_local);
+										totsel++;
+									}
+								}
+								else if (bezt->f2 & SELECT) {
+									calc_tw_center_with_matrix(tbounds, bezt->vec[1], use_mat_local, mat_local);
+									totsel++;
+								}
+								else {
+									if (bezt->f1 & SELECT) {
+										const float *co = bezt->vec[(pivot_point == V3D_AROUND_LOCAL_ORIGINS) ? 1 : 0];
+										calc_tw_center_with_matrix(tbounds, co, use_mat_local, mat_local);
+										totsel++;
+									}
+									if (bezt->f3 & SELECT) {
+										const float *co = bezt->vec[(pivot_point == V3D_AROUND_LOCAL_ORIGINS) ? 1 : 2];
+										calc_tw_center_with_matrix(tbounds, co, use_mat_local, mat_local);
+										totsel++;
+									}
+								}
+								bezt++;
 							}
-							bp++;
 						}
+						else {
+							bp = nu->bp;
+							a = nu->pntsu * nu->pntsv;
+							while (a--) {
+								if (bp->f1 & SELECT) {
+									calc_tw_center_with_matrix(tbounds, bp->vec, use_mat_local, mat_local);
+									totsel++;
+								}
+								bp++;
+							}
+						}
+						nu = nu->next;
 					}
-					nu = nu->next;
-				}
+				} FOREACH_EDIT_OBJECT_END();
 			}
 		}
 		else if (obedit->type == OB_MBALL) {
@@ -979,13 +995,21 @@ int ED_transform_calc_gizmo_stats(
 				totsel++;
 			}
 			else {
-				/* TODO: multi-object support. */
-				for (ml = mb->editelems->first; ml; ml = ml->next) {
-					if (ml->flag & SELECT) {
-						calc_tw_center(tbounds, &ml->x);
-						totsel++;
+				FOREACH_EDIT_OBJECT_BEGIN(ob_iter, use_mat_local) {
+					mb = (MetaBall *)ob_iter->data;
+
+					float mat_local[4][4];
+					if (use_mat_local) {
+						mul_m4_m4m4(mat_local, obedit->imat, ob_iter->obmat);
 					}
-				}
+
+					for (ml = mb->editelems->first; ml; ml = ml->next) {
+						if (ml->flag & SELECT) {
+							calc_tw_center_with_matrix(tbounds, &ml->x, use_mat_local, mat_local);
+							totsel++;
+						}
+					}
+				} FOREACH_EDIT_OBJECT_END();
 			}
 		}
 		else if (obedit->type == OB_LATTICE) {
@@ -997,18 +1021,29 @@ int ED_transform_calc_gizmo_stats(
 				totsel++;
 			}
 			else {
-				/* TODO: multi-object support. */
-				bp = lt->def;
-				a = lt->pntsu * lt->pntsv * lt->pntsw;
-				while (a--) {
-					if (bp->f1 & SELECT) {
-						calc_tw_center(tbounds, bp->vec);
-						totsel++;
+				FOREACH_EDIT_OBJECT_BEGIN(ob_iter, use_mat_local) {
+					lt = ((Lattice *)ob_iter->data)->editlatt->latt;
+					bp = lt->def;
+					a = lt->pntsu * lt->pntsv * lt->pntsw;
+
+					float mat_local[4][4];
+					if (use_mat_local) {
+						mul_m4_m4m4(mat_local, obedit->imat, ob_iter->obmat);
 					}
-					bp++;
-				}
+
+					while (a--) {
+						if (bp->f1 & SELECT) {
+							calc_tw_center_with_matrix(tbounds, bp->vec, use_mat_local, mat_local);
+							totsel++;
+						}
+						bp++;
+					}
+				} FOREACH_EDIT_OBJECT_END();
 			}
 		}
+
+#undef FOREACH_EDIT_OBJECT_BEGIN
+#undef FOREACH_EDIT_OBJECT_END
 
 		/* selection center */
 		if (totsel) {
@@ -1091,7 +1126,7 @@ int ED_transform_calc_gizmo_stats(
 		if (base && ((base->flag & BASE_SELECTED) == 0)) ob = NULL;
 
 		for (base = view_layer->object_bases.first; base; base = base->next) {
-			if (!TESTBASELIB(base)) {
+			if (!TESTBASELIB(v3d, base)) {
 				continue;
 			}
 			if (ob == NULL) {
@@ -1147,7 +1182,7 @@ static void gizmo_get_idot(RegionView3D *rv3d, float r_idot[3])
 }
 
 static void gizmo_prepare_mat(
-        const bContext *C, View3D *v3d, RegionView3D *rv3d, const struct TransformBounds *tbounds)
+        const bContext *C, RegionView3D *rv3d, const struct TransformBounds *tbounds)
 {
 	Scene *scene = CTX_data_scene(C);
 	ViewLayer *view_layer = CTX_data_view_layer(C);
@@ -1176,7 +1211,7 @@ static void gizmo_prepare_mat(
 			copy_v3_v3(rv3d->twmat[3], tbounds->center);
 			break;
 		case V3D_AROUND_CURSOR:
-			copy_v3_v3(rv3d->twmat[3], ED_view3d_cursor3d_get(scene, v3d)->location);
+			copy_v3_v3(rv3d->twmat[3], scene->cursor.location);
 			break;
 	}
 }
@@ -1441,9 +1476,7 @@ static int gizmo_modal(
 		return OPERATOR_RUNNING_MODAL;
 	}
 
-	const ScrArea *sa = CTX_wm_area(C);
 	ARegion *ar = CTX_wm_region(C);
-	View3D *v3d = sa->spacedata.first;
 	RegionView3D *rv3d = ar->regiondata;
 	struct TransformBounds tbounds;
 
@@ -1453,7 +1486,7 @@ static int gizmo_modal(
 	                .use_only_center = true,
 	            }, &tbounds))
 	{
-		gizmo_prepare_mat(C, v3d, rv3d, &tbounds);
+		gizmo_prepare_mat(C, rv3d, &tbounds);
 		WM_gizmo_set_matrix_location(widget, rv3d->twmat[3]);
 	}
 
@@ -1621,9 +1654,7 @@ static void WIDGETGROUP_gizmo_setup(const bContext *C, wmGizmoGroup *gzgroup)
 static void WIDGETGROUP_gizmo_refresh(const bContext *C, wmGizmoGroup *gzgroup)
 {
 	GizmoGroup *ggd = gzgroup->customdata;
-	ScrArea *sa = CTX_wm_area(C);
 	ARegion *ar = CTX_wm_region(C);
-	View3D *v3d = sa->spacedata.first;
 	RegionView3D *rv3d = ar->regiondata;
 	struct TransformBounds tbounds;
 
@@ -1646,7 +1677,7 @@ static void WIDGETGROUP_gizmo_refresh(const bContext *C, wmGizmoGroup *gzgroup)
 		return;
 	}
 
-	gizmo_prepare_mat(C, v3d, rv3d, &tbounds);
+	gizmo_prepare_mat(C, rv3d, &tbounds);
 
 	/* *** set properties for axes *** */
 
@@ -1878,8 +1909,6 @@ static void WIDGETGROUP_xform_cage_setup(const bContext *UNUSED(C), wmGizmoGroup
 
 static void WIDGETGROUP_xform_cage_refresh(const bContext *C, wmGizmoGroup *gzgroup)
 {
-	ScrArea *sa = CTX_wm_area(C);
-	View3D *v3d = sa->spacedata.first;
 	ARegion *ar = CTX_wm_region(C);
 	RegionView3D *rv3d = ar->regiondata;
 
@@ -1897,7 +1926,7 @@ static void WIDGETGROUP_xform_cage_refresh(const bContext *C, wmGizmoGroup *gzgr
 		WM_gizmo_set_flag(gz, WM_GIZMO_HIDDEN, true);
 	}
 	else {
-		gizmo_prepare_mat(C, v3d, rv3d, &tbounds);
+		gizmo_prepare_mat(C, rv3d, &tbounds);
 
 		WM_gizmo_set_flag(gz, WM_GIZMO_HIDDEN, false);
 		WM_gizmo_set_flag(gz, WM_GIZMO_MOVE_CURSOR, true);
@@ -2056,8 +2085,6 @@ static void WIDGETGROUP_xform_shear_setup(const bContext *UNUSED(C), wmGizmoGrou
 
 static void WIDGETGROUP_xform_shear_refresh(const bContext *C, wmGizmoGroup *gzgroup)
 {
-	ScrArea *sa = CTX_wm_area(C);
-	View3D *v3d = sa->spacedata.first;
 	ARegion *ar = CTX_wm_region(C);
 	RegionView3D *rv3d = ar->regiondata;
 
@@ -2077,7 +2104,7 @@ static void WIDGETGROUP_xform_shear_refresh(const bContext *C, wmGizmoGroup *gzg
 		}
 	}
 	else {
-		gizmo_prepare_mat(C, v3d, rv3d, &tbounds);
+		gizmo_prepare_mat(C, rv3d, &tbounds);
 		for (int i = 0; i < 3; i++) {
 			for (int j = 0; j < 2; j++) {
 				wmGizmo *gz = xgzgroup->gizmo[i][j];

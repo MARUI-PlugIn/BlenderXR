@@ -112,15 +112,22 @@ static void deformVerts(
         int numVerts)
 {
 	CurveModifierData *cmd = (CurveModifierData *) md;
-	Mesh *mesh_src = MOD_get_mesh_eval(ctx->object, NULL, mesh, NULL, false, false);
+	Mesh *mesh_src = NULL;
 
-	BLI_assert(mesh_src->totvert == numVerts);
+	if (ctx->object->type == OB_MESH && cmd->name[0] != '\0') {
+		/* mesh_src is only needed for vgroups. */
+		mesh_src = MOD_deform_mesh_eval_get(ctx->object, NULL, mesh, NULL, numVerts, false, false);
+	}
+
+	struct MDeformVert *dvert = NULL;
+	int defgrp_index = -1;
+	MOD_get_vgroup(ctx->object, mesh_src, cmd->name, &dvert, &defgrp_index);
 
 	/* silly that defaxis and curve_deform_verts are off by 1
 	 * but leave for now to save having to call do_versions */
-	curve_deform_verts(cmd->object, ctx->object, mesh_src, vertexCos, numVerts, cmd->name, cmd->defaxis - 1);
+	curve_deform_verts(cmd->object, ctx->object, vertexCos, numVerts, dvert, defgrp_index, cmd->defaxis - 1);
 
-	if (mesh_src != mesh) {
+	if (!ELEM(mesh_src, NULL, mesh)) {
 		BKE_id_free(NULL, mesh_src);
 	}
 }
@@ -133,13 +140,11 @@ static void deformVertsEM(
         float (*vertexCos)[3],
         int numVerts)
 {
-	Mesh *mesh_src = MOD_get_mesh_eval(ctx->object, em, mesh, NULL, false, false);
-
-	BLI_assert(mesh_src->totvert == numVerts);
+	Mesh *mesh_src = MOD_deform_mesh_eval_get(ctx->object, em, mesh, NULL, numVerts, false, false);
 
 	deformVerts(md, ctx, mesh_src, vertexCos, numVerts);
 
-	if (mesh_src != mesh) {
+	if (!ELEM(mesh_src, NULL, mesh)) {
 		BKE_id_free(NULL, mesh_src);
 	}
 }

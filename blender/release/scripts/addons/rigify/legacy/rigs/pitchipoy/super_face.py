@@ -741,8 +741,10 @@ class Rig:
             'DEF-chin.R'            : 'lips.R',
             'DEF-jaw.R.001'         : 'chin.R',
             'DEF-brow.T.L.003'      : 'nose',
+            'DEF-ear.L'             : None,
             'DEF-ear.L.003'         : 'ear.L.004',
             'DEF-ear.L.004'         : 'ear.L',
+            'DEF-ear.R'             : None,
             'DEF-ear.R.003'         : 'ear.R.004',
             'DEF-ear.R.004'         : 'ear.R',
             'DEF-lip.B.L.001'       : 'lips.L',
@@ -769,8 +771,9 @@ class Rig:
         pattern = r'^DEF-(\w+\.?\w?\.?\w?)(\.?)(\d*?)(\d?)$'
 
         for bone in [ bone for bone in all_bones['deform']['all'] if 'lid' not in bone ]:
-            if bone in list( def_specials.keys() ):
-                self.make_constraits('def_tweak', bone, def_specials[bone] )
+            if bone in def_specials:
+                if def_specials[bone] is not None:
+                    self.make_constraits('def_tweak', bone, def_specials[bone] )
             else:
                 matches = re.match( pattern, bone ).groups()
                 if len( matches ) > 1 and matches[-1]:
@@ -1016,26 +1019,26 @@ def add_parameters(params):
     """
 
     #Setting up extra layers for the tweak bones
-    params.primary_layers_extra: bpy.props.BoolProperty(
+    params.primary_layers_extra = bpy.props.BoolProperty(
         name        = "primary_layers_extra",
         default     = True,
         description = ""
-    )
-    params.primary_layers: bpy.props.BoolVectorProperty(
+        )
+    params.primary_layers = bpy.props.BoolVectorProperty(
         size        = 32,
         description = "Layers for the 1st tweak controls to be on",
         default     = tuple( [ i == 1 for i in range(0, 32) ] )
-    )
-    params.secondary_layers_extra: bpy.props.BoolProperty(
+        )
+    params.secondary_layers_extra = bpy.props.BoolProperty(
         name        = "secondary_layers_extra",
         default     = True,
         description = ""
-    )
-    params.secondary_layers: bpy.props.BoolVectorProperty(
+        )
+    params.secondary_layers = bpy.props.BoolVectorProperty(
         size        = 32,
         description = "Layers for the 2nd tweak controls to be on",
         default     = tuple( [ i == 1 for i in range(0, 32) ] )
-    )
+        )
 
 
 def parameters_ui(layout, params):

@@ -35,9 +35,9 @@
 #include "BKE_blendfile.h"
 #include "BKE_context.h"
 #include "BKE_idcode.h"
-#include "BKE_main.h"
 #include "BKE_layer.h"
 #include "BKE_library.h"
+#include "BKE_main.h"
 #include "BKE_report.h"
 #include "BKE_scene.h"
 #include "BKE_screen.h"
@@ -187,7 +187,7 @@ bool ED_workspace_change(
 	BLI_assert(CTX_wm_workspace(C) == workspace_new);
 
 	WM_toolsystem_unlink_all(C, workspace_old);
-	WM_toolsystem_reinit_all(C, win);
+	/* Area initialization will initialize based on the new workspace. */
 
 	/* Automatic mode switching. */
 	if (workspace_new->object_mode != workspace_old->object_mode) {
@@ -502,7 +502,7 @@ static void workspace_add_menu(bContext *C, uiLayout *layout, void *template_v)
 
 static int workspace_add_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
 {
-	uiPopupMenu *pup = UI_popup_menu_begin(C, op->type->name, ICON_NONE);
+	uiPopupMenu *pup = UI_popup_menu_begin(C, op->type->name, ICON_ADD);
 	uiLayout *layout = UI_popup_menu_layout(pup);
 
 	uiItemMenuF(layout, IFACE_("General"), ICON_NONE, workspace_add_menu, NULL);
@@ -517,13 +517,13 @@ static int workspace_add_invoke(bContext *C, wmOperator *op, const wmEvent *UNUS
 		BLI_path_to_display_name(display_name, sizeof(display_name), template);
 
 		/* Steals ownership of link data string. */
-		uiItemMenuF(layout, display_name, ICON_NONE, workspace_add_menu, template);
+		uiItemMenuFN(layout, display_name, ICON_NONE, workspace_add_menu, template);
 	}
 
 	BLI_freelistN(&templates);
 
 	uiItemS(layout);
-	uiItemO(layout, "Duplicate Current", ICON_NONE, "WORKSPACE_OT_duplicate");
+	uiItemO(layout, "Duplicate Current", ICON_DUPLICATE, "WORKSPACE_OT_duplicate");
 
 	UI_popup_menu_end(C, pup);
 

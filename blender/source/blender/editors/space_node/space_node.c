@@ -646,14 +646,6 @@ static void node_main_region_init(wmWindowManager *wm, ARegion *ar)
 
 	UI_view2d_region_reinit(&ar->v2d, V2D_COMMONVIEW_CUSTOM, ar->winx, ar->winy);
 
-	/* gizmos stay in the background for now - quick patchjob to make sure nodes themselves work */
-	if (ar->gizmo_map == NULL) {
-		ar->gizmo_map = WM_gizmomap_new_from_type(
-		        &(const struct wmGizmoMapType_Params){SPACE_NODE, RGN_TYPE_WINDOW});
-	}
-
-	WM_gizmomap_add_handlers(ar, ar->gizmo_map);
-
 	/* own keymaps */
 	keymap = WM_keymap_ensure(wm->defaultconf, "Node Generic", SPACE_NODE, 0);
 	WM_event_add_keymap_handler(&ar->handlers, keymap);
@@ -989,10 +981,10 @@ void ED_spacetype_node(void)
 	art->regionid = RGN_TYPE_WINDOW;
 	art->init = node_main_region_init;
 	art->draw = node_main_region_draw;
+	art->keymapflag = ED_KEYMAP_UI | ED_KEYMAP_GIZMO | ED_KEYMAP_VIEW2D | ED_KEYMAP_FRAMES | ED_KEYMAP_GPENCIL;
 	art->listener = node_region_listener;
 	art->cursor = node_cursor;
 	art->event_cursor = true;
-	art->keymapflag = ED_KEYMAP_UI | ED_KEYMAP_VIEW2D | ED_KEYMAP_FRAMES | ED_KEYMAP_GPENCIL;
 
 	BLI_addhead(&st->regiontypes, art);
 
@@ -1022,10 +1014,12 @@ void ED_spacetype_node(void)
 	/* regions: toolbar */
 	art = MEM_callocN(sizeof(ARegionType), "spacetype view3d tools region");
 	art->regionid = RGN_TYPE_TOOLS;
-	art->prefsizex = 160; /* XXX */
+	art->prefsizex = 58; /* XXX */
 	art->prefsizey = 50; /* XXX */
 	art->keymapflag = ED_KEYMAP_UI | ED_KEYMAP_FRAMES;
 	art->listener = node_region_listener;
+	art->message_subscribe = ED_region_generic_tools_region_message_subscribe;
+	art->snap_size = ED_region_generic_tools_region_snap_size;
 	art->init = node_toolbar_region_init;
 	art->draw = node_toolbar_region_draw;
 	BLI_addhead(&st->regiontypes, art);

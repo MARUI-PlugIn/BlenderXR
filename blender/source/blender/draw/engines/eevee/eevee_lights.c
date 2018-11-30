@@ -26,6 +26,7 @@
 #include "DRW_render.h"
 
 #include "BLI_dynstr.h"
+#include "BLI_rand.h"
 #include "BLI_rect.h"
 
 #include "BKE_object.h"
@@ -38,6 +39,7 @@
 #define SHADOW_CASTER_ALLOC_CHUNK 16
 
 // #define DEBUG_CSM
+// #define DEBUG_SHADOW_DISTRIBUTION
 
 static struct {
 	struct GPUShader *shadow_sh;
@@ -55,8 +57,9 @@ extern char datatoc_shadow_store_frag_glsl[];
 extern char datatoc_shadow_copy_frag_glsl[];
 extern char datatoc_concentric_samples_lib_glsl[];
 
-/* Prototype */
+/* Prototypes */
 static void eevee_light_setup(Object *ob, EEVEE_Light *evli);
+static float light_attenuation_radius_get(Lamp *la, float light_threshold);
 
 /* *********** LIGHT BITS *********** */
 static void lightbits_set_single(EEVEE_LightBits *bitf, uint idx, bool val)
@@ -138,6 +141,7 @@ void EEVEE_lights_init(EEVEE_ViewLayerData *sldata)
 	int sh_cube_size = scene_eval->eevee.shadow_cube_size;
 	int sh_cascade_size = scene_eval->eevee.shadow_cascade_size;
 	const bool sh_high_bitdepth = (scene_eval->eevee.flag & SCE_EEVEE_SHADOW_HIGH_BITDEPTH) != 0;
+	sldata->lamps->soft_shadows = (scene_eval->eevee.flag & SCE_EEVEE_SHADOW_SOFT) != 0;
 
 	EEVEE_LampsInfo *linfo = sldata->lamps;
 	if ((linfo->shadow_cube_size != sh_cube_size) ||
@@ -334,6 +338,9 @@ void EEVEE_lights_cache_add(EEVEE_ViewLayerData *sldata, Object *ob)
 {
 	EEVEE_LampsInfo *linfo = sldata->lamps;
 
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	const float threshold = draw_ctx->scene->eevee.light_threshold;
+
 	/* Step 1 find all lamps in the scene and setup them */
 	if (linfo->num_light >= MAX_LIGHT) {
 		printf("Too many lights in the scene !!!\n");
@@ -360,10 +367,9 @@ void EEVEE_lights_cache_add(EEVEE_ViewLayerData *sldata, Object *ob)
 
 		if (la->mode & LA_SHADOW) {
 			if (la->type == LA_SUN) {
-				int sh_nbr = 1; /* TODO : MSM */
 				int cascade_nbr = la->cascade_count;
 
-				if ((linfo->gpu_cascade_len + sh_nbr) <= MAX_SHADOW_CASCADE) {
+				if ((linfo->gpu_cascade_len + 1) <= MAX_SHADOW_CASCADE) {
 					/* Save Light object. */
 					linfo->shadow_cascade_ref[linfo->cpu_cascade_len] = ob;
 
@@ -375,16 +381,14 @@ void EEVEE_lights_cache_add(EEVEE_ViewLayerData *sldata, Object *ob)
 
 					/* Increment indices. */
 					linfo->gpu_shadow_len += 1;
-					linfo->gpu_cascade_len += sh_nbr;
-					linfo->num_cascade_layer += sh_nbr * cascade_nbr;
+					linfo->gpu_cascade_len += 1;
+					linfo->num_cascade_layer += cascade_nbr;
 
 					linfo->cpu_cascade_len += 1;
 				}
 			}
 			else if (la->type == LA_SPOT || la->type == LA_LOCAL || la->type == LA_AREA) {
-				int sh_nbr = 1; /* TODO : MSM */
-
-				if ((linfo->gpu_cube_len + sh_nbr) <= MAX_SHADOW_CUBE) {
+				if ((linfo->gpu_cube_len + 1) <= MAX_SHADOW_CUBE) {
 					/* Save Light object. */
 					linfo->shadow_cube_ref[linfo->cpu_cube_len] = ob;
 
@@ -399,7 +403,7 @@ void EEVEE_lights_cache_add(EEVEE_ViewLayerData *sldata, Object *ob)
 					/* Saving lamp bounds for later. */
 					BLI_assert(linfo->cpu_cube_len >= 0 && linfo->cpu_cube_len < MAX_LIGHT);
 					copy_v3_v3(linfo->shadow_bounds[linfo->cpu_cube_len].center, ob->obmat[3]);
-					linfo->shadow_bounds[linfo->cpu_cube_len].radius = la->clipend;
+					linfo->shadow_bounds[linfo->cpu_cube_len].radius = light_attenuation_radius_get(la, threshold);
 
 					EEVEE_ShadowCubeData *data = &led->data.scd;
 					/* Store indices. */
@@ -409,8 +413,8 @@ void EEVEE_lights_cache_add(EEVEE_ViewLayerData *sldata, Object *ob)
 
 					/* Increment indices. */
 					linfo->gpu_shadow_len += 1;
-					linfo->gpu_cube_len += sh_nbr;
-					linfo->num_cube_layer += sh_nbr;
+					linfo->gpu_cube_len += 1;
+					linfo->num_cube_layer += 1;
 
 					linfo->cpu_cube_len += 1;
 				}
@@ -518,7 +522,7 @@ void EEVEE_lights_cache_shcaster_object_add(EEVEE_ViewLayerData *sldata, Object 
 	oedata->need_update = false;
 }
 
-void EEVEE_lights_cache_finish(EEVEE_ViewLayerData *sldata)
+void EEVEE_lights_cache_finish(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
 {
 	EEVEE_LampsInfo *linfo = sldata->lamps;
 	GPUTextureFormat shadow_pool_format = GPU_R32F;
@@ -587,40 +591,28 @@ void EEVEE_lights_cache_finish(EEVEE_ViewLayerData *sldata)
 	});
 
 	/* Update Lamps UBOs. */
-	EEVEE_lights_update(sldata);
+	EEVEE_lights_update(sldata, vedata);
 }
 
-/* Update buffer with lamp data */
-static void eevee_light_setup(Object *ob, EEVEE_Light *evli)
+float light_attenuation_radius_get(Lamp *la, float light_threshold)
 {
-	Lamp *la = (Lamp *)ob->data;
-	float mat[4][4], scale[3], power;
+	if (la->mode & LA_CUSTOM_ATTENUATION)
+		return la->att_dist;
 
-	/* Position */
-	copy_v3_v3(evli->position, ob->obmat[3]);
+	/* Compute max light power. */
+	float power = max_fff(la->r, la->g, la->b);
+	power *= fabsf(la->energy);
+	power *= max_ff(1.0f, la->spec_fac);
+	/* Compute the distance (using the inverse square law)
+	 * at which the light power reaches the light_threshold. */
+	float distance = sqrtf(max_ff(1e-16, power / max_ff(1e-16, light_threshold)));
+	return distance;
+}
 
-	/* Color */
-	copy_v3_v3(evli->color, &la->r);
-
-	evli->spec = la->spec_fac;
-
-	/* Influence Radius */
-	evli->dist = la->dist;
-
-	/* Vectors */
-	normalize_m4_m4_ex(mat, ob->obmat, scale);
-	copy_v3_v3(evli->forwardvec, mat[2]);
-	normalize_v3(evli->forwardvec);
-	negate_v3(evli->forwardvec);
-
-	copy_v3_v3(evli->rightvec, mat[0]);
-	normalize_v3(evli->rightvec);
-
-	copy_v3_v3(evli->upvec, mat[1]);
-	normalize_v3(evli->upvec);
-
-	/* Spot size & blend */
+static void light_shape_parameters_set(EEVEE_Light *evli, const Lamp *la, float scale[3])
+{
 	if (la->type == LA_SPOT) {
+		/* Spot size & blend */
 		evli->sizex = scale[0] / scale[2];
 		evli->sizey = scale[1] / scale[2];
 		evli->spotsize = cosf(la->spotsize * 0.5f);
@@ -639,16 +631,16 @@ static void eevee_light_setup(Object *ob, EEVEE_Light *evli)
 	else {
 		evli->radius = max_ff(0.001f, la->area_size);
 	}
+}
 
-	/* Lamp Type */
-	evli->lamptype = (float)la->type;
-
+static float light_shape_power_get(const Lamp *la, const EEVEE_Light *evli)
+{
+	float power;
 	/* Make illumination power constant */
 	if (la->type == LA_AREA) {
 		power = 1.0f / (evli->sizex * evli->sizey * 4.0f * M_PI) * /* 1/(w*h*Pi) */
 		        80.0f; /* XXX : Empirical, Fit cycles power */
 		if (ELEM(la->area_shape, LA_AREA_DISK, LA_AREA_ELLIPSE)) {
-			evli->lamptype = LAMPTYPE_AREA_ELLIPSE;
 			/* Scale power to account for the lower area of the ellipse compared to the surrounding rectangle. */
 			power *= 4.0f / M_PI;
 		}
@@ -661,16 +653,165 @@ static void eevee_light_setup(Object *ob, EEVEE_Light *evli)
 		// power = M_PI * M_PI * 0.78; /* XXX : Empirical, Fit cycles power */
 	}
 	else {
-		power = 1.0f / (4.0f * evli->radius * evli->radius * M_PI * M_PI) * /* 1/(r²*Pi) */
-		        12.5f; /* XXX : Empirical, Fit cycles power */
+		power = 1.0f / (evli->radius * evli->radius * M_PI); /* 1/(r²*Pi) */
+		/* Make illumation power closer to cycles for bigger radii. Cycles uses a cos^3 term that we cannot reproduce
+		 * so we account for that by scaling the light power. This function is the result of a rough manual fitting. */
+		power += 1.0f / (2.0f * M_PI); /* power *= 1 + r²/2 */
 	}
+	return power;
+}
+
+/* Update buffer with lamp data */
+static void eevee_light_setup(Object *ob, EEVEE_Light *evli)
+{
+	Lamp *la = (Lamp *)ob->data;
+	float mat[4][4], scale[3], power, att_radius;
+
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	const float light_threshold = draw_ctx->scene->eevee.light_threshold;
+
+	/* Position */
+	copy_v3_v3(evli->position, ob->obmat[3]);
+
+	/* Color */
+	copy_v3_v3(evli->color, &la->r);
+
+	evli->spec = la->spec_fac;
+
+	/* Influence Radius */
+	att_radius = light_attenuation_radius_get(la, light_threshold);
+	/* Take the inverse square of this distance. */
+	evli->invsqrdist = 1.0 / max_ff(1e-4f, att_radius * att_radius);
+
+	/* Vectors */
+	normalize_m4_m4_ex(mat, ob->obmat, scale);
+	copy_v3_v3(evli->forwardvec, mat[2]);
+	normalize_v3(evli->forwardvec);
+	negate_v3(evli->forwardvec);
+
+	copy_v3_v3(evli->rightvec, mat[0]);
+	normalize_v3(evli->rightvec);
+
+	copy_v3_v3(evli->upvec, mat[1]);
+	normalize_v3(evli->upvec);
+
+	light_shape_parameters_set(evli, la, scale);
+
+	/* Lamp Type */
+	evli->lamptype = (float)la->type;
+	if ((la->type == LA_AREA) && ELEM(la->area_shape, LA_AREA_DISK, LA_AREA_ELLIPSE)) {
+		evli->lamptype = LAMPTYPE_AREA_ELLIPSE;
+	}
+
+	power = light_shape_power_get(la, evli);
 	mul_v3_fl(evli->color, power * la->energy);
 
 	/* No shadow by default */
 	evli->shadowid = -1.0f;
 }
 
-static void eevee_shadow_cube_setup(Object *ob, EEVEE_LampsInfo *linfo, EEVEE_LampEngineData *led)
+/**
+ * Special ball distribution:
+ * Point are distributed in a way that when they are orthogonaly
+ * projected into any plane, the resulting distribution is (close to)
+ * a uniform disc distribution.
+ **/
+static void sample_ball(int sample_ofs, float radius, float rsample[3])
+{
+	double ht_point[3];
+	double ht_offset[3] = {0.0, 0.0, 0.0};
+	uint ht_primes[3] = {2, 3, 7};
+
+	BLI_halton_3D(ht_primes, ht_offset, sample_ofs, ht_point);
+
+	float omega = ht_point[1] * 2.0f * M_PI;
+
+	rsample[2] = ht_point[0] * 2.0f - 1.0f; /* cos theta */
+
+	float r = sqrtf(fmaxf(0.0f, 1.0f - rsample[2] * rsample[2])); /* sin theta */
+
+	rsample[0] = r * cosf(omega);
+	rsample[1] = r * sinf(omega);
+
+	radius *= sqrt(sqrt(ht_point[2]));
+	mul_v3_fl(rsample, radius);
+}
+
+static void sample_rectangle(
+        int sample_ofs, float x_axis[3], float y_axis[3], float size_x, float size_y,
+        float rsample[3])
+{
+	double ht_point[2];
+	double ht_offset[2] = {0.0, 0.0};
+	uint ht_primes[2] = {2, 3};
+
+	BLI_halton_2D(ht_primes, ht_offset, sample_ofs, ht_point);
+
+	/* Change ditribution center to be 0,0 */
+	ht_point[0] = (ht_point[0] > 0.5f) ? ht_point[0] - 1.0f : ht_point[0];
+	ht_point[1] = (ht_point[1] > 0.5f) ? ht_point[1] - 1.0f : ht_point[1];
+
+	zero_v3(rsample);
+	madd_v3_v3fl(rsample, x_axis, (ht_point[0] * 2.0f) * size_x);
+	madd_v3_v3fl(rsample, y_axis, (ht_point[1] * 2.0f) * size_y);
+}
+
+static void sample_ellipse(
+        int sample_ofs, float x_axis[3], float y_axis[3], float size_x, float size_y,
+        float rsample[3])
+{
+	double ht_point[2];
+	double ht_offset[2] = {0.0, 0.0};
+	uint ht_primes[2] = {2, 3};
+
+	BLI_halton_2D(ht_primes, ht_offset, sample_ofs, ht_point);
+
+	/* Uniform disc sampling. */
+	float omega = ht_point[1] * 2.0f * M_PI;
+	float r = sqrtf(ht_point[0]);
+	ht_point[0] = r * cosf(omega) * size_x;
+	ht_point[1] = r * sinf(omega) * size_y;
+
+	zero_v3(rsample);
+	madd_v3_v3fl(rsample, x_axis, ht_point[0]);
+	madd_v3_v3fl(rsample, y_axis, ht_point[1]);
+}
+
+
+static void shadow_cube_random_position_set(
+        EEVEE_Light *evli, Lamp *la,
+        int sample_ofs,
+        float ws_sample_pos[3])
+{
+	float jitter[3];
+
+#ifndef DEBUG_SHADOW_DISTRIBUTION
+	int i = sample_ofs;
+#else
+	for (int i = 0; i <= sample_ofs; ++i) {
+#endif
+		switch (la->type) {
+			case LA_AREA:
+				if (ELEM(la->area_shape, LA_AREA_RECT, LA_AREA_SQUARE)) {
+					sample_rectangle(i, evli->rightvec, evli->upvec, evli->sizex, evli->sizey, jitter);
+				}
+				else {
+					sample_ellipse(i, evli->rightvec, evli->upvec, evli->sizex, evli->sizey, jitter);
+				}
+				break;
+			default:
+				sample_ball(i, evli->radius, jitter);
+		}
+#ifdef DEBUG_SHADOW_DISTRIBUTION
+		float p[3];
+		add_v3_v3v3(p, jitter, ws_sample_pos);
+		DRW_debug_sphere(p, 0.01f, (float[4]){1.0f, (sample_ofs == i) ? 1.0f : 0.0f, 0.0f, 1.0f});
+	}
+#endif
+	add_v3_v3(ws_sample_pos, jitter);
+}
+
+static void eevee_shadow_cube_setup(Object *ob, EEVEE_LampsInfo *linfo, EEVEE_LampEngineData *led, int sample_ofs)
 {
 	EEVEE_ShadowCubeData *sh_data = &led->data.scd;
 	EEVEE_Light *evli = linfo->light_data + sh_data->light_id;
@@ -678,28 +819,47 @@ static void eevee_shadow_cube_setup(Object *ob, EEVEE_LampsInfo *linfo, EEVEE_La
 	EEVEE_ShadowCube *cube_data = linfo->shadow_cube_data + sh_data->cube_id;
 	Lamp *la = (Lamp *)ob->data;
 
-	int sh_nbr = 1; /* TODO: MSM */
+	copy_v3_v3(cube_data->position, ob->obmat[3]);
 
-	for (int i = 0; i < sh_nbr; ++i) {
-		/* TODO : choose MSM sample point here. */
-		copy_v3_v3(cube_data->position, ob->obmat[3]);
+	if (linfo->soft_shadows) {
+		shadow_cube_random_position_set(evli, la, sample_ofs, cube_data->position);
 	}
 
 	ubo_data->bias = 0.05f * la->bias;
 	ubo_data->near = la->clipsta;
-	ubo_data->far = la->clipend;
+	ubo_data->far = 1.0f / (evli->invsqrdist * evli->invsqrdist);
 	ubo_data->exp = (linfo->shadow_method == SHADOW_VSM) ? la->bleedbias : la->bleedexp;
 
 	evli->shadowid = (float)(sh_data->shadow_id);
 	ubo_data->shadow_start = (float)(sh_data->layer_id);
 	ubo_data->data_start = (float)(sh_data->cube_id);
-	ubo_data->multi_shadow_count = (float)(sh_nbr);
 	ubo_data->shadow_blur = la->soft * 0.02f; /* Used by translucence shadowmap blur */
 
 	ubo_data->contact_dist = (la->mode & LA_SHAD_CONTACT) ? la->contact_dist : 0.0f;
 	ubo_data->contact_bias = 0.05f * la->contact_bias;
 	ubo_data->contact_spread = la->contact_spread;
 	ubo_data->contact_thickness = la->contact_thickness;
+}
+
+static void shadow_cascade_random_matrix_set(float mat[4][4], float radius, int sample_ofs)
+{
+	float jitter[3];
+
+#ifndef DEBUG_SHADOW_DISTRIBUTION
+	int i = sample_ofs;
+#else
+	for (int i = 0; i <= sample_ofs; ++i) {
+#endif
+		sample_ellipse(i, mat[0], mat[1], radius, radius, jitter);
+#ifdef DEBUG_SHADOW_DISTRIBUTION
+		float p[3];
+		add_v3_v3v3(p, jitter, mat[2]);
+		DRW_debug_sphere(p, 0.01f, (float[4]){1.0f, (sample_ofs == i) ? 1.0f : 0.0f, 0.0f, 1.0f});
+	}
+#endif
+
+	add_v3_v3(mat[2], jitter);
+	orthogonalize_m4(mat, 2);
 }
 
 #define LERP(t, a, b) ((a) + (t) * ((b) - (a)))
@@ -752,7 +912,7 @@ static void frustum_min_bounding_sphere(const float corners[8][3], float r_cente
 
 static void eevee_shadow_cascade_setup(
         Object *ob, EEVEE_LampsInfo *linfo, EEVEE_LampEngineData *led,
-        DRWMatrixState *saved_mats, float view_near, float view_far)
+        DRWMatrixState *saved_mats, float view_near, float view_far, int sample_ofs)
 {
 	Lamp *la = (Lamp *)ob->data;
 
@@ -762,7 +922,6 @@ static void eevee_shadow_cascade_setup(
 	bool is_persp = DRW_viewport_is_persp_get();
 
 	/* Lamps Matrices */
-	int sh_nbr = 1; /* TODO : MSM */
 	int cascade_nbr = la->cascade_count;
 
 	EEVEE_ShadowCascadeData *sh_data = &led->data.scad;
@@ -776,8 +935,13 @@ static void eevee_shadow_cascade_setup(
 #if 0 /* done at culling time */
 	normalize_m4_m4(viewmat, ob->obmat);
 #endif
+
+	if (linfo->soft_shadows) {
+		shadow_cascade_random_matrix_set(viewmat, evli->radius, sample_ofs);
+	}
+
+	copy_m4_m4(sh_data->viewinv, viewmat);
 	invert_m4(viewmat);
-	invert_m4_m4(sh_data->viewinv, viewmat);
 
 	/* The technique consists into splitting
 	 * the view frustum into several sub-frustum
@@ -953,7 +1117,6 @@ static void eevee_shadow_cascade_setup(
 	evli->shadowid = (float)(sh_data->shadow_id);
 	ubo_data->shadow_start = (float)(sh_data->layer_id);
 	ubo_data->data_start = (float)(sh_data->cascade_id);
-	ubo_data->multi_shadow_count = (float)(sh_nbr);
 	ubo_data->shadow_blur = la->soft * 0.02f; /* Used by translucence shadowmap blur */
 
 	ubo_data->contact_dist = (la->mode & LA_SHAD_CONTACT) ? la->contact_dist : 0.0f;
@@ -974,8 +1137,10 @@ static bool sphere_bbox_intersect(const EEVEE_BoundSphere *bs, const EEVEE_Bound
 	return x && y && z;
 }
 
-void EEVEE_lights_update(EEVEE_ViewLayerData *sldata)
+void EEVEE_lights_update(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
 {
+	EEVEE_StorageList *stl = vedata->stl;
+	EEVEE_EffectsInfo *effects = stl->effects;
 	EEVEE_LampsInfo *linfo = sldata->lamps;
 	Object *ob;
 	int i;
@@ -1031,8 +1196,8 @@ void EEVEE_lights_update(EEVEE_ViewLayerData *sldata)
 	for (i = 0; (i < MAX_SHADOW_CUBE) && (ob = linfo->shadow_cube_ref[i]); i++) {
 		EEVEE_LampEngineData *led = EEVEE_lamp_data_ensure(ob);
 
-		eevee_shadow_cube_setup(ob, linfo, led);
-		if (lightbits_get(&update_bits, i) != 0) {
+		eevee_shadow_cube_setup(ob, linfo, led, effects->taa_current_sample - 1);
+		if (lightbits_get(&update_bits, i) != 0 || linfo->soft_shadows) {
 			led->need_update = true;
 		}
 	}
@@ -1047,13 +1212,23 @@ void EEVEE_lights_update(EEVEE_ViewLayerData *sldata)
 }
 
 /* this refresh lamps shadow buffers */
-void EEVEE_draw_shadows(EEVEE_ViewLayerData *sldata, EEVEE_PassList *psl)
+void EEVEE_draw_shadows(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
 {
+	EEVEE_PassList *psl = vedata->psl;
+	EEVEE_StorageList *stl = vedata->stl;
+	EEVEE_EffectsInfo *effects = stl->effects;
 	EEVEE_LampsInfo *linfo = sldata->lamps;
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	const float light_threshold = draw_ctx->scene->eevee.light_threshold;
 	Object *ob;
 	int i;
 
 	DRWMatrixState saved_mats;
+	int saved_ray_type = sldata->common_data.ray_type;
+
+	/* TODO: make it optionnal if we don't draw shadows. */
+	sldata->common_data.ray_type = EEVEE_RAY_SHADOW;
+	DRW_uniformbuffer_update(sldata->common_ubo, &sldata->common_data);
 
 	/* Precompute all shadow/view test before rendering and trashing the culling cache. */
 	bool cube_visible[MAX_SHADOW_CUBE];
@@ -1061,7 +1236,7 @@ void EEVEE_draw_shadows(EEVEE_ViewLayerData *sldata, EEVEE_PassList *psl)
 		Lamp *la = (Lamp *)ob->data;
 		BoundSphere bsphere = {
 			.center = {ob->obmat[3][0], ob->obmat[3][1], ob->obmat[3][2]},
-			.radius = la->dist
+			.radius = light_attenuation_radius_get(la, light_threshold)
 		};
 		cube_visible[i] = DRW_culling_sphere_test(&bsphere);
 	}
@@ -1071,6 +1246,7 @@ void EEVEE_draw_shadows(EEVEE_ViewLayerData *sldata, EEVEE_PassList *psl)
 		EEVEE_ShadowCascadeData *sh_data = &led->data.scad;
 		float plane[4];
 		normalize_m4_m4(sh_data->viewmat, ob->obmat);
+
 		plane_from_point_normal_v3(plane, sh_data->viewmat[3], sh_data->viewmat[2]);
 		/* TODO: check against near/far instead of "local Z = 0" plane.
 		 * Or even the cascades AABB. */
@@ -1098,14 +1274,15 @@ void EEVEE_draw_shadows(EEVEE_ViewLayerData *sldata, EEVEE_PassList *psl)
 
 		EEVEE_ShadowRender *srd = &linfo->shadow_render_data;
 		EEVEE_ShadowCubeData *evscd = &led->data.scd;
-
-		perspective_m4(winmat, -la->clipsta, la->clipsta, -la->clipsta, la->clipsta, la->clipsta, la->clipend);
+		EEVEE_ShadowCube *cube_data = linfo->shadow_cube_data + evscd->cube_id;
 
 		srd->clip_near = la->clipsta;
-		srd->clip_far = la->clipend;
-		copy_v3_v3(srd->position, ob->obmat[3]);
-
+		srd->clip_far = light_attenuation_radius_get(la, light_threshold);
 		srd->stored_texel_size = 1.0 / (float)linfo->shadow_cube_store_size;
+		srd->exponent = la->bleedexp;
+		copy_v3_v3(srd->position, cube_data->position);
+
+		perspective_m4(winmat, -srd->clip_near, srd->clip_near, -srd->clip_near, srd->clip_near, srd->clip_near, srd->clip_far);
 
 		DRW_uniformbuffer_update(sldata->shadow_render_ubo, srd);
 
@@ -1178,7 +1355,9 @@ void EEVEE_draw_shadows(EEVEE_ViewLayerData *sldata, EEVEE_PassList *psl)
 		DRWPass *store_pass = eevee_lights_cube_store_pass_get(psl, sldata, linfo->shadow_method, srd->shadow_samples_len);
 		DRW_draw_pass(store_pass);
 
-		led->need_update = false;
+		if (linfo->soft_shadows == false) {
+			led->need_update = false;
+		}
 	}
 	linfo->update_flag &= ~LIGHT_UPDATE_SHADOW_CUBE;
 	DRW_stats_group_end();
@@ -1205,7 +1384,7 @@ void EEVEE_draw_shadows(EEVEE_ViewLayerData *sldata, EEVEE_PassList *psl)
 		float (*viewmat)[4] = render_mats.mat[DRW_MAT_VIEW];
 		float (*persmat)[4] = render_mats.mat[DRW_MAT_PERS];
 
-		eevee_shadow_cascade_setup(ob, linfo, led, &saved_mats, near, far);
+		eevee_shadow_cascade_setup(ob, linfo, led, &saved_mats, near, far, effects->taa_current_sample - 1);
 
 		srd->clip_near = la->clipsta;
 		srd->clip_far = la->clipend;
@@ -1288,6 +1467,9 @@ void EEVEE_draw_shadows(EEVEE_ViewLayerData *sldata, EEVEE_PassList *psl)
 
 	DRW_uniformbuffer_update(sldata->light_ubo, &linfo->light_data);
 	DRW_uniformbuffer_update(sldata->shadow_ubo, &linfo->shadow_data); /* Update all data at once */
+
+	sldata->common_data.ray_type = saved_ray_type;
+	DRW_uniformbuffer_update(sldata->common_ubo, &sldata->common_data);
 }
 
 void EEVEE_lights_free(void)

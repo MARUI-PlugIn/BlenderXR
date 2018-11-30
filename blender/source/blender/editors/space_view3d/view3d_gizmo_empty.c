@@ -110,6 +110,7 @@ static void gizmo_empty_image_prop_matrix_set(
 static bool WIDGETGROUP_empty_image_poll(const bContext *C, wmGizmoGroupType *UNUSED(gzgt))
 {
 	View3D *v3d = CTX_wm_view3d(C);
+	RegionView3D *rv3d = CTX_wm_region_view3d(C);
 
 	if ((v3d->flag2 & V3D_RENDER_OVERRIDE) ||
 	    (v3d->gizmo_flag & (V3D_GIZMO_HIDE | V3D_GIZMO_HIDE_CONTEXT)))
@@ -120,7 +121,9 @@ static bool WIDGETGROUP_empty_image_poll(const bContext *C, wmGizmoGroupType *UN
 	Object *ob = CTX_data_active_object(C);
 
 	if (ob && ob->type == OB_EMPTY) {
-		return (ob->empty_drawtype == OB_EMPTY_IMAGE);
+		if (ob->empty_drawtype == OB_EMPTY_IMAGE) {
+			return BKE_image_empty_visible_in_view3d(ob, rv3d);
+		}
 	}
 	return false;
 }

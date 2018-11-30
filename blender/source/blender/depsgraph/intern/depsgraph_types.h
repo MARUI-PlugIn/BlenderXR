@@ -150,7 +150,10 @@ typedef enum eDepsNode_Type {
 	/* Material Shading Component */
 	DEG_NODE_TYPE_SHADING,
 	DEG_NODE_TYPE_SHADING_PARAMETERS,
+	/* Point cache Component */
+	DEG_NODE_TYPE_POINT_CACHE,
 	/* Cache Component */
+	/* TODO(sergey); Verify that we really need this. */
 	DEG_NODE_TYPE_CACHE,
 	/* Batch Cache Component - TODO (dfelinto/sergey) rename to make it more generic. */
 	DEG_NODE_TYPE_BATCH_CACHE,
@@ -163,7 +166,6 @@ typedef enum eDepsNode_Type {
 	/* Total number of meaningful node types. */
 	NUM_DEG_NODE_TYPES,
 } eDepsNode_Type;
-
 const char *nodeTypeAsString(eDepsNode_Type type);
 
 /* Identifiers for common operations (as an enum). */
@@ -209,9 +211,10 @@ typedef enum eDepsOperation_Code {
 	DEG_OPCODE_RIGIDBODY_TRANSFORM_COPY,
 
 	/* Geometry. ---------------------------------------- */
+
 	/* Evaluate the whole geometry, including modifiers. */
 	DEG_OPCODE_GEOMETRY_UBEREVAL,
-	DEG_OPCODE_GEOMETRY_CLOTH_MODIFIER,
+	/* Evaluation of a shape key. */
 	DEG_OPCODE_GEOMETRY_SHAPEKEY,
 
 	/* Object data. ------------------------------------- */
@@ -223,7 +226,9 @@ typedef enum eDepsOperation_Code {
 	DEG_OPCODE_POSE_INIT,
 	/* Initialize IK solver related pose stuff. */
 	DEG_OPCODE_POSE_INIT_IK,
-	/* Free IK Trees + Compute Deform Matrices */
+	/* Pose is evaluated, and runtime data can be freed. */
+	DEG_OPCODE_POSE_CLEANUP,
+	/* Pose has been fully evaluated and ready to be used by others. */
 	DEG_OPCODE_POSE_DONE,
 	/* IK/Spline Solvers */
 	DEG_OPCODE_POSE_IK_SOLVER,
@@ -249,6 +254,8 @@ typedef enum eDepsOperation_Code {
 	// TODO: deform mats could get calculated in the final_transform ops...
 	DEG_OPCODE_BONE_READY,
 	DEG_OPCODE_BONE_DONE,
+	/* B-Bone segment shape computation (after DONE) */
+	DEG_OPCODE_BONE_SEGMENTS,
 
 	/* Particles. --------------------------------------- */
 	/* Particle System evaluation. */
@@ -284,5 +291,20 @@ typedef enum eDepsOperation_Code {
 	DEG_NUM_OPCODES,
 } eDepsOperation_Code;
 const char *operationCodeAsString(eDepsOperation_Code opcode);
+
+/* Source of the dependency graph node update tag.
+ *
+ * NOTE: This is a bit mask, so accumulation of sources is possible.
+ */
+typedef enum eDepsTag_Source {
+	/* Update is caused by a time change. */
+	DEG_UPDATE_SOURCE_TIME       = (1 << 0),
+	/* Update caused by user directly or indirectly influencing the node. */
+	DEG_UPDATE_SOURCE_USER_EDIT  = (1 << 1),
+	/* Update is happening as a special response for the relations update. */
+	DEG_UPDATE_SOURCE_RELATIONS  = (1 << 2),
+	/* Update is happening due to visibility change. */
+	DEG_UPDATE_SOURCE_VISIBILITY = (1 << 3),
+} eDepsTag_Source;
 
 }  // namespace DEG

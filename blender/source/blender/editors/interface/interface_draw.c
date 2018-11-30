@@ -1765,54 +1765,82 @@ void ui_draw_but_CURVE(ARegion *ar, uiBut *but, uiWidgetColors *wcol, const rcti
 		}
 		immEnd();
 	}
+	immUnbindProgram();
 
-	/* the curve */
-	immUniformColor3ubv((unsigned char *)wcol->item);
-	GPU_line_smooth(true);
-	GPU_blend(true);
-	immBegin(GPU_PRIM_LINE_STRIP, (CM_TABLE + 1) + 2);
+
 
 	if (cuma->table == NULL)
 		curvemapping_changed(cumap, false);
 
 	CurveMapPoint *cmp = cuma->table;
+	rctf line_range;
 
-	/* first point */
+	/* First curve point. */
 	if ((cuma->flag & CUMA_EXTEND_EXTRAPOLATE) == 0) {
-		immVertex2f(pos, rect->xmin, rect->ymin + zoomy * (cmp[0].y - offsy));
+		line_range.xmin = rect->xmin;
+		line_range.ymin = rect->ymin + zoomy * (cmp[0].y - offsy);
 	}
 	else {
-		float fx = rect->xmin + zoomx * (cmp[0].x - offsx + cuma->ext_in[0]);
-		float fy = rect->ymin + zoomy * (cmp[0].y - offsy + cuma->ext_in[1]);
+		line_range.xmin = rect->xmin + zoomx * (cmp[0].x - offsx + cuma->ext_in[0]);
+		line_range.ymin = rect->ymin + zoomy * (cmp[0].y - offsy + cuma->ext_in[1]);
+	}
+	/* Last curve point. */
+	if ((cuma->flag & CUMA_EXTEND_EXTRAPOLATE) == 0) {
+		line_range.xmax = rect->xmax;
+		line_range.ymax = rect->ymin + zoomy * (cmp[CM_TABLE].y - offsy);
+	}
+	else {
+		line_range.xmax = rect->xmin + zoomx * (cmp[CM_TABLE].x - offsx - cuma->ext_out[0]);
+		line_range.ymax = rect->ymin + zoomy * (cmp[CM_TABLE].y - offsy - cuma->ext_out[1]);
+	}
+
+	immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+	GPU_blend(true);
+
+	/* Curve filled. */
+	immUniformColor3ubvAlpha((unsigned char *)wcol->item, 128);
+	GPU_polygon_smooth(true);
+	immBegin(GPU_PRIM_TRI_STRIP, (CM_TABLE * 2 + 2) + 4);
+	immVertex2f(pos, line_range.xmin, rect->ymin);
+	immVertex2f(pos, line_range.xmin, line_range.ymin);
+	for (int a = 0; a <= CM_TABLE; a++) {
+		float fx = rect->xmin + zoomx * (cmp[a].x - offsx);
+		float fy = rect->ymin + zoomy * (cmp[a].y - offsy);
+		immVertex2f(pos, fx, rect->ymin);
 		immVertex2f(pos, fx, fy);
 	}
+	immVertex2f(pos, line_range.xmax, rect->ymin);
+	immVertex2f(pos, line_range.xmax, rect->ymax);
+	immEnd();
+	GPU_polygon_smooth(false);
+
+	/* Curve line. */
+	GPU_line_width(1.0f);
+	immUniformColor3ubvAlpha((unsigned char *)wcol->item, 255);
+	GPU_line_smooth(true);
+	immBegin(GPU_PRIM_LINE_STRIP, (CM_TABLE + 1) + 2);
+	immVertex2f(pos, line_range.xmin, line_range.ymin);
 	for (int a = 0; a <= CM_TABLE; a++) {
 		float fx = rect->xmin + zoomx * (cmp[a].x - offsx);
 		float fy = rect->ymin + zoomy * (cmp[a].y - offsy);
 		immVertex2f(pos, fx, fy);
 	}
-	/* last point */
-	if ((cuma->flag & CUMA_EXTEND_EXTRAPOLATE) == 0) {
-		immVertex2f(pos, rect->xmax, rect->ymin + zoomy * (cmp[CM_TABLE].y - offsy));
-	}
-	else {
-		float fx = rect->xmin + zoomx * (cmp[CM_TABLE].x - offsx - cuma->ext_out[0]);
-		float fy = rect->ymin + zoomy * (cmp[CM_TABLE].y - offsy - cuma->ext_out[1]);
-		immVertex2f(pos, fx, fy);
-	}
+	immVertex2f(pos, line_range.xmax, line_range.ymax);
 	immEnd();
+
+	/* Reset state for fill & line. */
 	GPU_line_smooth(false);
 	GPU_blend(false);
 	immUnbindProgram();
 
-	/* the points, use aspect to make them visible on edges */
+	/* The points, use aspect to make them visible on edges. */
 	format = immVertexFormat();
 	pos = GPU_vertformat_attr_add(format, "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
 	uint col = GPU_vertformat_attr_add(format, "color", GPU_COMP_F32, 4, GPU_FETCH_FLOAT);
 	immBindBuiltinProgram(GPU_SHADER_2D_FLAT_COLOR);
 
 	cmp = cuma->curve;
-	GPU_point_size(3.0f);
+	GPU_point_size(max_ff(1.0f, min_ff(UI_DPI_FAC / but->block->aspect * 4.0f, 4.0f)));
 	immBegin(GPU_PRIM_POINTS, cuma->totpoint);
 	for (int a = 0; a < cuma->totpoint; a++) {
 		float color[4];

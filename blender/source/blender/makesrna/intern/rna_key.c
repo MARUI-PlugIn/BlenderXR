@@ -520,7 +520,7 @@ static KeyBlock *rna_ShapeKeyData_find_keyblock(Key *key, float *point)
 			}
 
 			/* determine where end of array is
-			 *	- elemsize is in bytes, so use (char *) cast to get array in terms of bytes
+			 * - elemsize is in bytes, so use (char *) cast to get array in terms of bytes
 			 */
 			end = (float *)((char *)start + (key->elemsize * kb->totelem));
 
@@ -722,7 +722,7 @@ static void rna_def_keyblock(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "mute", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", KEYBLOCK_MUTE);
 	RNA_def_property_ui_text(prop, "Mute", "Mute this shape key");
-	RNA_def_property_ui_icon(prop, ICON_RESTRICT_VIEW_OFF, 1);
+	RNA_def_property_ui_icon(prop, ICON_HIDE_OFF, -1);
 	RNA_def_property_update(prop, 0, "rna_Key_update_data");
 
 	prop = RNA_def_property(srna, "slider_min", PROP_FLOAT, PROP_NONE);

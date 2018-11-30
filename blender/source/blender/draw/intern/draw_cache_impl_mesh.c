@@ -247,6 +247,7 @@ typedef struct MeshRenderData {
 	GPUPackedNormal *poly_normals_pack;
 	GPUPackedNormal *vert_normals_pack;
 	bool *edge_select_bool;
+	bool *edge_visible_bool;
 } MeshRenderData;
 
 enum {
@@ -967,6 +968,7 @@ static void mesh_render_data_free(MeshRenderData *rdata)
 	MEM_SAFE_FREE(rdata->vert_normals_pack);
 	MEM_SAFE_FREE(rdata->vert_weight);
 	MEM_SAFE_FREE(rdata->edge_select_bool);
+	MEM_SAFE_FREE(rdata->edge_visible_bool);
 	MEM_SAFE_FREE(rdata->vert_color);
 
 	MEM_SAFE_FREE(rdata->mapped.loose_verts);
@@ -1350,6 +1352,27 @@ static void mesh_render_data_ensure_edge_select_bool(MeshRenderData *rdata, bool
 	}
 }
 
+/** Ensure #MeshRenderData.edge_visible_bool */
+static void mesh_render_data_ensure_edge_visible_bool(MeshRenderData *rdata)
+{
+	bool *edge_visible_bool = rdata->edge_visible_bool;
+	if (edge_visible_bool == NULL) {
+		edge_visible_bool = rdata->edge_visible_bool =
+		        MEM_callocN(sizeof(*edge_visible_bool) * rdata->edge_len, __func__);
+
+		for (int i = 0; i < rdata->poly_len; i++) {
+			const MPoly *poly = &rdata->mpoly[i];
+
+			if (!(poly->flag & ME_HIDE)) {
+				for (int j = 0; j < poly->totloop; j++) {
+					const MLoop *loop = &rdata->mloop[poly->loopstart + j];
+					edge_visible_bool[loop->e] = true;
+				}
+			}
+		}
+	}
+}
+
 /** \} */
 
 /* ---------------------------------------------------------------------- */
@@ -1646,12 +1669,13 @@ static void add_overlay_tri(
 	}
 
 	if (vbo_nor) {
-		/* TODO real loop normal */
-		GPUPackedNormal lnor = GPU_normal_convert_i10_v3(bm_looptri[0]->f->no);
+		float (*lnors)[3] = rdata->loop_normals;
 		for (uint i = 0; i < 3; i++) {
+			const float *nor = (lnors) ? lnors[BM_elem_index_get(bm_looptri[i])] : bm_looptri[0]->f->no;
+			GPUPackedNormal lnor = GPU_normal_convert_i10_v3(nor);
+			GPU_vertbuf_attr_set(vbo_nor, lnor_id, base_vert_idx + i, &lnor);
 			GPUPackedNormal vnor = GPU_normal_convert_i10_v3(bm_looptri[i]->v->no);
 			GPU_vertbuf_attr_set(vbo_nor, vnor_id, base_vert_idx + i, &vnor);
-			GPU_vertbuf_attr_set(vbo_nor, lnor_id, base_vert_idx + i, &lnor);
 		}
 	}
 
@@ -1720,12 +1744,13 @@ static void add_overlay_tri_mapped(
 	}
 
 	if (vbo_nor) {
-		/* TODO real loop normal */
-		GPUPackedNormal lnor = GPU_normal_convert_i10_v3(poly_normal);
+		float (*lnors)[3] = rdata->loop_normals;
 		for (uint i = 0; i < 3; i++) {
+			const float *nor = (lnors) ? lnors[mlt->tri[i]] : poly_normal;
+			GPUPackedNormal lnor = GPU_normal_convert_i10_v3(nor);
+			GPU_vertbuf_attr_set(vbo_nor, lnor_id, base_vert_idx + i, &lnor);
 			GPUPackedNormal vnor = GPU_normal_convert_i10_s3(mvert[mloop[mlt->tri[i]].v].no);
 			GPU_vertbuf_attr_set(vbo_nor, vnor_id, base_vert_idx + i, &vnor);
-			GPU_vertbuf_attr_set(vbo_nor, lnor_id, base_vert_idx + i, &lnor);
 		}
 	}
 
@@ -1947,6 +1972,7 @@ typedef struct MeshBatchCache {
 	GPUBatch *all_triangles;
 
 	GPUVertBuf *pos_with_normals;
+	GPUVertBuf *pos_with_normals_visible_only;
 	GPUVertBuf *tri_aligned_uv;  /* Active UV layer (mloopuv) */
 
 	/**
@@ -2195,12 +2221,24 @@ static void mesh_batch_cache_discard_uvedit(MeshBatchCache *cache)
 	GPU_INDEXBUF_DISCARD_SAFE(cache->edituv_visible_faces);
 	GPU_INDEXBUF_DISCARD_SAFE(cache->edituv_visible_edges);
 
-	gpu_batch_presets_unregister(cache->edituv_faces_strech_area);
-	gpu_batch_presets_unregister(cache->edituv_faces_strech_angle);
-	gpu_batch_presets_unregister(cache->edituv_faces);
-	gpu_batch_presets_unregister(cache->edituv_edges);
-	gpu_batch_presets_unregister(cache->edituv_verts);
-	gpu_batch_presets_unregister(cache->edituv_facedots);
+	if (cache->edituv_faces_strech_area) {
+		gpu_batch_presets_unregister(cache->edituv_faces_strech_area);
+	}
+	if (cache->edituv_faces_strech_angle) {
+		gpu_batch_presets_unregister(cache->edituv_faces_strech_angle);
+	}
+	if (cache->edituv_faces) {
+		gpu_batch_presets_unregister(cache->edituv_faces);
+	}
+	if (cache->edituv_edges) {
+		gpu_batch_presets_unregister(cache->edituv_edges);
+	}
+	if (cache->edituv_verts) {
+		gpu_batch_presets_unregister(cache->edituv_verts);
+	}
+	if (cache->edituv_facedots) {
+		gpu_batch_presets_unregister(cache->edituv_facedots);
+	}
 
 	GPU_BATCH_DISCARD_SAFE(cache->edituv_faces_strech_area);
 	GPU_BATCH_DISCARD_SAFE(cache->edituv_faces_strech_angle);
@@ -2284,7 +2322,7 @@ static void mesh_batch_cache_clear_selective(Mesh *me, GPUVertBuf *vert)
 
 	BLI_assert(vert != NULL);
 
-	if (cache->pos_with_normals == vert) {
+	if (ELEM(vert, cache->pos_with_normals, cache->pos_with_normals_visible_only)) {
 		GPU_BATCH_DISCARD_SAFE(cache->triangles_with_normals);
 		GPU_BATCH_DISCARD_SAFE(cache->triangles_with_weights);
 		GPU_BATCH_DISCARD_SAFE(cache->triangles_with_vert_colors);
@@ -2357,6 +2395,7 @@ static void mesh_batch_cache_clear(Mesh *me)
 	GPU_BATCH_DISCARD_SAFE(cache->points_with_normals);
 	GPU_BATCH_DISCARD_SAFE(cache->ledges_with_normals);
 	GPU_VERTBUF_DISCARD_SAFE(cache->pos_with_normals);
+	GPU_VERTBUF_DISCARD_SAFE(cache->pos_with_normals_visible_only);
 	GPU_BATCH_DISCARD_SAFE(cache->triangles_with_weights);
 	GPU_BATCH_DISCARD_SAFE(cache->triangles_with_vert_colors);
 	GPU_VERTBUF_DISCARD_SAFE(cache->tri_aligned_uv);
@@ -2404,7 +2443,6 @@ void DRW_mesh_batch_cache_free(Mesh *me)
 static GPUVertBuf *mesh_batch_cache_get_tri_shading_data(MeshRenderData *rdata, MeshBatchCache *cache)
 {
 	BLI_assert(rdata->types & (MR_DATATYPE_VERT | MR_DATATYPE_LOOPTRI | MR_DATATYPE_LOOP | MR_DATATYPE_POLY));
-#define USE_COMP_MESH_DATA
 
 	if (cache->shaded_triangles_data == NULL) {
 		const uint uv_len = rdata->cd.layers.uv_len;
@@ -2452,6 +2490,8 @@ static GPUVertBuf *mesh_batch_cache_get_tri_shading_data(MeshRenderData *rdata, 
 		cache->auto_layer_names = MEM_callocN(auto_names_len * sizeof(char), "Auto layer name buf");
 		cache->auto_layer_is_srgb = MEM_mallocN(cache->auto_layer_len * sizeof(int), "Auto layer value buf");
 
+#define USE_COMP_MESH_DATA
+
 		for (uint i = 0; i < uv_len; i++) {
 			/* UV */
 			const char *attrib_name = mesh_render_data_uv_layer_uuid_get(rdata, i);
@@ -2477,13 +2517,11 @@ static GPUVertBuf *mesh_batch_cache_get_tri_shading_data(MeshRenderData *rdata, 
 
 		for (uint i = 0; i < tangent_len; i++) {
 			const char *attrib_name = mesh_render_data_tangent_layer_uuid_get(rdata, i);
-			/* WATCH IT : only specifying 3 component instead of 4 (4th is sign).
-			 * That may cause some problem but I could not make it to fail (fclem) */
 #ifdef USE_COMP_MESH_DATA
 			/* Tangents need more precision than 10_10_10 */
-			tangent_id[i] = GPU_vertformat_attr_add(format, attrib_name, GPU_COMP_I16, 3, GPU_FETCH_INT_TO_FLOAT_UNIT);
+			tangent_id[i] = GPU_vertformat_attr_add(format, attrib_name, GPU_COMP_I16, 4, GPU_FETCH_INT_TO_FLOAT_UNIT);
 #else
-			tangent_id[i] = GPU_vertformat_attr_add(format, attrib_name, GPU_COMP_F32, 3, GPU_FETCH_FLOAT);
+			tangent_id[i] = GPU_vertformat_attr_add(format, attrib_name, GPU_COMP_F32, 4, GPU_FETCH_FLOAT);
 #endif
 
 			if (i == rdata->cd.layers.tangent_active) {
@@ -2562,7 +2600,11 @@ static GPUVertBuf *mesh_batch_cache_get_tri_shading_data(MeshRenderData *rdata, 
 					float (*layer_data)[4] = rdata->cd.layers.tangent[j];
 					for (uint t = 0; t < 3; t++) {
 						const float *elem = layer_data[BM_elem_index_get(bm_looptri[t])];
-						normal_float_to_short_v3(GPU_vertbuf_raw_step(&tangent_step[j]), elem);
+#ifdef USE_COMP_MESH_DATA
+						normal_float_to_short_v4(GPU_vertbuf_raw_step(&tangent_step[j]), elem);
+#else
+						copy_v4_v4(GPU_vertbuf_raw_step(&tangent_step[j]), elem);
+#endif
 					}
 				}
 				/* VCOLs */
@@ -2593,9 +2635,9 @@ static GPUVertBuf *mesh_batch_cache_get_tri_shading_data(MeshRenderData *rdata, 
 					for (uint t = 0; t < 3; t++) {
 						const float *elem = layer_data[mlt->tri[t]];
 #ifdef USE_COMP_MESH_DATA
-						normal_float_to_short_v3(GPU_vertbuf_raw_step(&tangent_step[j]), elem);
+						normal_float_to_short_v4(GPU_vertbuf_raw_step(&tangent_step[j]), elem);
 #else
-						copy_v3_v3(GPU_vertbuf_raw_step(&tangent_step[j]), elem);
+						copy_v4_v4(GPU_vertbuf_raw_step(&tangent_step[j]), elem);
 #endif
 					}
 				}
@@ -2906,19 +2948,11 @@ static GPUVertBuf *mesh_batch_cache_get_tri_pos_and_normals_ex(
 }
 
 static GPUVertBuf *mesh_batch_cache_get_tri_pos_and_normals(
-        MeshRenderData *rdata, MeshBatchCache *cache)
+        MeshRenderData *rdata, MeshBatchCache *cache, bool use_hide)
 {
 	return mesh_batch_cache_get_tri_pos_and_normals_ex(
-	        rdata, false,
-	        &cache->pos_with_normals);
-}
-static GPUVertBuf *mesh_create_tri_pos_and_normals_visible_only(
-        MeshRenderData *rdata)
-{
-	GPUVertBuf *vbo_dummy = NULL;
-	return mesh_batch_cache_get_tri_pos_and_normals_ex(
-	        rdata, true,
-	        &vbo_dummy);
+	        rdata, use_hide,
+	        use_hide ? &cache->pos_with_normals_visible_only : &cache->pos_with_normals);
 }
 
 static GPUVertBuf *mesh_batch_cache_get_facedot_pos_with_normals_and_flag(
@@ -4385,7 +4419,7 @@ static GPUIndexBuf *mesh_batch_cache_get_loose_edges(MeshRenderData *rdata, Mesh
 static GPUIndexBuf **mesh_batch_cache_get_triangles_in_order_split_by_material(
         MeshRenderData *rdata, MeshBatchCache *cache,
         /* Special case when drawing final evaluated mesh in editmode, so hidden faces are ignored. */
-        BMesh *bm_mapped, const int *p_origindex_mapped)
+        BMesh *bm_mapped, const int *p_origindex_mapped, bool use_hide)
 {
 	BLI_assert(rdata->types & (MR_DATATYPE_VERT | MR_DATATYPE_POLY));
 
@@ -4414,9 +4448,11 @@ static GPUIndexBuf **mesh_batch_cache_get_triangles_in_order_split_by_material(
 		}
 		else if (bm_mapped == NULL) {
 			for (uint i = 0; i < poly_len; i++) {
-				const MPoly *mp = &rdata->mpoly[i]; ;
-				const short ma_id = mp->mat_nr < mat_len ? mp->mat_nr : 0;
-				mat_tri_len[ma_id] += (mp->totloop - 2);
+				const MPoly *mp = &rdata->mpoly[i];
+				if (!use_hide || !(mp->flag & ME_HIDE)) {
+					const short ma_id = mp->mat_nr < mat_len ? mp->mat_nr : 0;
+					mat_tri_len[ma_id] += (mp->totloop - 2);
+				}
 			}
 		}
 		else {
@@ -4458,11 +4494,16 @@ static GPUIndexBuf **mesh_batch_cache_get_triangles_in_order_split_by_material(
 		}
 		else if (bm_mapped == NULL) {
 			for (uint i = 0; i < poly_len; i++) {
-				const MPoly *mp = &rdata->mpoly[i]; ;
-				const short ma_id = mp->mat_nr < mat_len ? mp->mat_nr : 0;
-				for (int j = 2; j < mp->totloop; j++) {
-					GPU_indexbuf_add_tri_verts(&elb[ma_id], nidx + 0, nidx + 1, nidx + 2);
-					nidx += 3;
+				const MPoly *mp = &rdata->mpoly[i];
+				if (!use_hide || !(mp->flag & ME_HIDE)) {
+					const short ma_id = mp->mat_nr < mat_len ? mp->mat_nr : 0;
+					for (int j = 2; j < mp->totloop; j++) {
+						GPU_indexbuf_add_tri_verts(&elb[ma_id], nidx + 0, nidx + 1, nidx + 2);
+						nidx += 3;
+					}
+				}
+				else {
+					nidx += 3 * (mp->totloop - 2);
 				}
 			}
 		}
@@ -4498,7 +4539,7 @@ static GPUIndexBuf **mesh_batch_cache_get_triangles_in_order_split_by_material(
 }
 
 static GPUVertBuf *mesh_create_edge_pos_with_sel(
-        MeshRenderData *rdata, bool use_wire, bool use_select_bool)
+        MeshRenderData *rdata, bool use_wire, bool use_select_bool, bool use_visible_bool)
 {
 	BLI_assert(rdata->types & (MR_DATATYPE_VERT | MR_DATATYPE_EDGE | MR_DATATYPE_POLY | MR_DATATYPE_LOOP));
 	BLI_assert(rdata->edit_bmesh == NULL);
@@ -4526,9 +4567,17 @@ static GPUVertBuf *mesh_create_edge_pos_with_sel(
 			mesh_render_data_ensure_edge_select_bool(rdata, use_wire);
 		}
 		bool *edge_select_bool = use_select_bool ? rdata->edge_select_bool : NULL;
+		if (use_visible_bool) {
+			mesh_render_data_ensure_edge_visible_bool(rdata);
+		}
+		bool *edge_visible_bool = use_visible_bool ? rdata->edge_visible_bool : NULL;
 
 		for (int i = 0; i < edge_len; i++) {
 			const MEdge *ed = &rdata->medge[i];
+
+			if (use_visible_bool && !edge_visible_bool[i]) {
+				continue;
+			}
 
 			uchar edge_vert_sel;
 			if (use_select_bool && edge_select_bool[i]) {
@@ -4668,7 +4717,7 @@ GPUBatch *DRW_mesh_batch_cache_get_all_triangles(Mesh *me)
 	return cache->all_triangles;
 }
 
-GPUBatch *DRW_mesh_batch_cache_get_triangles_with_normals(Mesh *me)
+GPUBatch *DRW_mesh_batch_cache_get_triangles_with_normals(Mesh *me, bool use_hide)
 {
 	MeshBatchCache *cache = mesh_batch_cache_get(me);
 
@@ -4677,7 +4726,7 @@ GPUBatch *DRW_mesh_batch_cache_get_triangles_with_normals(Mesh *me)
 		MeshRenderData *rdata = mesh_render_data_create(me, datatype);
 
 		cache->triangles_with_normals = GPU_batch_create(
-		        GPU_PRIM_TRIS, mesh_batch_cache_get_tri_pos_and_normals(rdata, cache), NULL);
+		        GPU_PRIM_TRIS, mesh_batch_cache_get_tri_pos_and_normals(rdata, cache, use_hide), NULL);
 
 		mesh_render_data_free(rdata);
 	}
@@ -4724,11 +4773,9 @@ GPUBatch *DRW_mesh_batch_cache_get_triangles_with_normals_and_weights(
 
 		DRW_mesh_weight_state_copy(&cache->weight_state, wstate);
 
-		GPUVertBuf *vbo_tris = use_hide ?
-		        mesh_create_tri_pos_and_normals_visible_only(rdata) :
-		        mesh_batch_cache_get_tri_pos_and_normals(rdata, cache);
+		GPUVertBuf *vbo_tris = mesh_batch_cache_get_tri_pos_and_normals(rdata, cache, use_hide);
 
-		GPU_batch_vertbuf_add_ex(cache->triangles_with_weights, vbo_tris, use_hide);
+		GPU_batch_vertbuf_add(cache->triangles_with_weights, vbo_tris);
 
 		mesh_render_data_free(rdata);
 	}
@@ -4749,10 +4796,8 @@ GPUBatch *DRW_mesh_batch_cache_get_triangles_with_normals_and_vert_colors(Mesh *
 		cache->triangles_with_vert_colors = GPU_batch_create_ex(
 		        GPU_PRIM_TRIS, mesh_create_tri_vert_colors(rdata, use_hide), NULL, GPU_BATCH_OWNS_VBO);
 
-		GPUVertBuf *vbo_tris = use_hide ?
-		        mesh_create_tri_pos_and_normals_visible_only(rdata) :
-		        mesh_batch_cache_get_tri_pos_and_normals(rdata, cache);
-		GPU_batch_vertbuf_add_ex(cache->triangles_with_vert_colors, vbo_tris, use_hide);
+		GPUVertBuf *vbo_tris = mesh_batch_cache_get_tri_pos_and_normals(rdata, cache, use_hide);
+		GPU_batch_vertbuf_add(cache->triangles_with_vert_colors, vbo_tris);
 
 		mesh_render_data_free(rdata);
 	}
@@ -4782,10 +4827,8 @@ struct GPUBatch *DRW_mesh_batch_cache_get_triangles_with_select_id(
 		cache->triangles_with_select_id = GPU_batch_create_ex(
 		        GPU_PRIM_TRIS, mesh_create_tri_select_id(rdata, use_hide, select_id_offset), NULL, GPU_BATCH_OWNS_VBO);
 
-		GPUVertBuf *vbo_tris = use_hide ?
-		        mesh_create_tri_pos_and_normals_visible_only(rdata) :
-		        mesh_batch_cache_get_tri_pos_and_normals(rdata, cache);
-		GPU_batch_vertbuf_add_ex(cache->triangles_with_select_id, vbo_tris, use_hide);
+		GPUVertBuf *vbo_tris = mesh_batch_cache_get_tri_pos_and_normals(rdata, cache, use_hide);
+		GPU_batch_vertbuf_add(cache->triangles_with_select_id, vbo_tris);
 
 		mesh_render_data_free(rdata);
 	}
@@ -4808,12 +4851,10 @@ struct GPUBatch *DRW_mesh_batch_cache_get_triangles_with_select_mask(struct Mesh
 			rdata->mapped.use = true;
 		}
 
-		GPUVertBuf *vbo_tris = use_hide ?
-		        mesh_create_tri_pos_and_normals_visible_only(rdata) :
-		        mesh_batch_cache_get_tri_pos_and_normals(rdata, cache);
+		GPUVertBuf *vbo_tris = mesh_batch_cache_get_tri_pos_and_normals(rdata, cache, use_hide);
 
-		cache->triangles_with_select_mask = GPU_batch_create_ex(
-		        GPU_PRIM_TRIS, vbo_tris, NULL, use_hide ? GPU_BATCH_OWNS_VBO : 0);
+		cache->triangles_with_select_mask = GPU_batch_create(
+		        GPU_PRIM_TRIS, vbo_tris, NULL);
 
 		mesh_render_data_free(rdata);
 	}
@@ -4830,7 +4871,7 @@ GPUBatch *DRW_mesh_batch_cache_get_points_with_normals(Mesh *me)
 		MeshRenderData *rdata = mesh_render_data_create(me, datatype);
 
 		cache->points_with_normals = GPU_batch_create(
-		        GPU_PRIM_POINTS, mesh_batch_cache_get_tri_pos_and_normals(rdata, cache), NULL);
+		        GPU_PRIM_POINTS, mesh_batch_cache_get_tri_pos_and_normals(rdata, cache, false), NULL);
 
 		mesh_render_data_free(rdata);
 	}
@@ -5204,7 +5245,7 @@ GPUBatch *DRW_mesh_batch_cache_get_verts_with_select_id(Mesh *me, uint select_id
 }
 
 GPUBatch **DRW_mesh_batch_cache_get_surface_shaded(
-        Mesh *me, struct GPUMaterial **gpumat_array, uint gpumat_array_len,
+        Mesh *me, struct GPUMaterial **gpumat_array, uint gpumat_array_len, bool use_hide,
         char **auto_layer_names, int **auto_layer_is_srgb, int *auto_layer_count)
 {
 	MeshBatchCache *cache = mesh_batch_cache_get(me);
@@ -5245,9 +5286,9 @@ GPUBatch **DRW_mesh_batch_cache_get_surface_shaded(
 
 		GPUIndexBuf **el = mesh_batch_cache_get_triangles_in_order_split_by_material(
 		        rdata, cache,
-		        bm_mapped, p_origindex);
+		        bm_mapped, p_origindex, use_hide);
 
-		GPUVertBuf *vbo = mesh_batch_cache_get_tri_pos_and_normals(rdata, cache);
+		GPUVertBuf *vbo = mesh_batch_cache_get_tri_pos_and_normals(rdata, cache, false);
 		GPUVertBuf *vbo_shading = mesh_batch_cache_get_tri_shading_data(rdata, cache);
 
 		for (int i = 0; i < mat_len; i++) {
@@ -5270,7 +5311,7 @@ GPUBatch **DRW_mesh_batch_cache_get_surface_shaded(
 	return cache->shaded_triangles;
 }
 
-GPUBatch **DRW_mesh_batch_cache_get_surface_texpaint(Mesh *me)
+GPUBatch **DRW_mesh_batch_cache_get_surface_texpaint(Mesh *me, bool use_hide)
 {
 	MeshBatchCache *cache = mesh_batch_cache_get(me);
 
@@ -5284,9 +5325,10 @@ GPUBatch **DRW_mesh_batch_cache_get_surface_texpaint(Mesh *me)
 
 		cache->texpaint_triangles = MEM_callocN(sizeof(*cache->texpaint_triangles) * mat_len, __func__);
 
-		GPUIndexBuf **el = mesh_batch_cache_get_triangles_in_order_split_by_material(rdata, cache, NULL, NULL);
+		GPUIndexBuf **el = mesh_batch_cache_get_triangles_in_order_split_by_material(rdata, cache, NULL, NULL, use_hide);
 
-		GPUVertBuf *vbo = mesh_batch_cache_get_tri_pos_and_normals(rdata, cache);
+		GPUVertBuf *vbo = mesh_batch_cache_get_tri_pos_and_normals(rdata, cache, false);
+
 		for (int i = 0; i < mat_len; i++) {
 			cache->texpaint_triangles[i] = GPU_batch_create(
 			        GPU_PRIM_TRIS, vbo, el[i]);
@@ -5311,7 +5353,7 @@ GPUBatch *DRW_mesh_batch_cache_get_surface_texpaint_single(Mesh *me)
 		        MR_DATATYPE_VERT | MR_DATATYPE_LOOP | MR_DATATYPE_POLY | MR_DATATYPE_LOOPTRI | MR_DATATYPE_LOOPUV;
 		MeshRenderData *rdata = mesh_render_data_create(me, datatype);
 
-		GPUVertBuf *vbo = mesh_batch_cache_get_tri_pos_and_normals(rdata, cache);
+		GPUVertBuf *vbo = mesh_batch_cache_get_tri_pos_and_normals(rdata, cache, false);
 
 		cache->texpaint_triangles_single = GPU_batch_create(
 		        GPU_PRIM_TRIS, vbo, NULL);
@@ -5375,7 +5417,7 @@ GPUBatch *DRW_mesh_batch_cache_get_texpaint_loop_wire(Mesh *me)
 	return cache->texpaint_uv_loops;
 }
 
-GPUBatch *DRW_mesh_batch_cache_get_weight_overlay_edges(Mesh *me, bool use_wire, bool use_sel)
+GPUBatch *DRW_mesh_batch_cache_get_weight_overlay_edges(Mesh *me, bool use_wire, bool use_sel, bool use_hide)
 {
 	MeshBatchCache *cache = mesh_batch_cache_get(me);
 
@@ -5385,7 +5427,7 @@ GPUBatch *DRW_mesh_batch_cache_get_weight_overlay_edges(Mesh *me, bool use_wire,
 		MeshRenderData *rdata = mesh_render_data_create(me, datatype);
 
 		cache->overlay_paint_edges = GPU_batch_create_ex(
-		        GPU_PRIM_LINES, mesh_create_edge_pos_with_sel(rdata, use_wire, use_sel), NULL, GPU_BATCH_OWNS_VBO);
+		        GPU_PRIM_LINES, mesh_create_edge_pos_with_sel(rdata, use_wire, use_sel, use_hide), NULL, GPU_BATCH_OWNS_VBO);
 
 		mesh_render_data_free(rdata);
 	}

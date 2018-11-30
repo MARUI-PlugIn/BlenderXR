@@ -55,15 +55,15 @@
 #include "DNA_view3d_types.h"
 #include "DNA_gpencil_types.h"
 
-#include "BKE_main.h"
+#include "BKE_brush.h"
 #include "BKE_context.h"
 #include "BKE_global.h"
-#include "BKE_brush.h"
 #include "BKE_gpencil.h"
-#include "BKE_paint.h"
 #include "BKE_library.h"
+#include "BKE_main.h"
 #include "BKE_material.h"
 #include "BKE_object.h"
+#include "BKE_paint.h"
 #include "BKE_report.h"
 #include "BKE_screen.h"
 #include "BKE_workspace.h"
@@ -281,6 +281,7 @@ static int gpencil_paintmode_toggle_exec(bContext *C, wmOperator *op)
 	const bool back = RNA_boolean_get(op->ptr, "back");
 
 	struct wmMsgBus *mbus = CTX_wm_message_bus(C);
+	Main *bmain = CTX_data_main(C);
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
 	ToolSettings *ts = CTX_data_tool_settings(C);
 
@@ -315,11 +316,15 @@ static int gpencil_paintmode_toggle_exec(bContext *C, wmOperator *op)
 		ob->mode = mode;
 	}
 
-	/* be sure we have brushes */
-	Paint *paint = BKE_brush_get_gpencil_paint(ts);
-	/* if not exist, create a new one */
-	if (paint->brush == NULL) {
-		BKE_brush_gpencil_presets(C);
+	if (mode == OB_MODE_GPENCIL_PAINT) {
+		/* be sure we have brushes */
+		BKE_paint_ensure(ts, (Paint **)&ts->gp_paint);
+		Paint *paint = &ts->gp_paint->paint;
+		/* if not exist, create a new one */
+		if (paint->brush == NULL) {
+			BKE_brush_gpencil_presets(C);
+		}
+		BKE_paint_toolslots_brush_validate(bmain, &ts->gp_paint->paint);
 	}
 
 	/* setup other modes */
@@ -2074,10 +2079,10 @@ static int gp_dissolve_exec(bContext *C, wmOperator *op)
 void GPENCIL_OT_dissolve(wmOperatorType *ot)
 {
 	static EnumPropertyItem prop_gpencil_dissolve_types[] = {
-		{ GP_DISSOLVE_POINTS, "POINTS", 0, "Dissolve", "Dissolve selected points" },
-		{ GP_DISSOLVE_BETWEEN, "BETWEEN", 0, "Dissolve Between", "Dissolve points between selected points" },
-		{ GP_DISSOLVE_UNSELECT, "UNSELECT", 0, "Dissolve Unselect", "Dissolve all unselected points" },
-		{ 0, NULL, 0, NULL, NULL }
+		{GP_DISSOLVE_POINTS, "POINTS", 0, "Dissolve", "Dissolve selected points"},
+		{GP_DISSOLVE_BETWEEN, "BETWEEN", 0, "Dissolve Between", "Dissolve points between selected points"},
+		{GP_DISSOLVE_UNSELECT, "UNSELECT", 0, "Dissolve Unselect", "Dissolve all unselected points"},
+		{0, NULL, 0, NULL, NULL}
 	};
 
 	/* identifiers */
@@ -2191,12 +2196,11 @@ static int gp_snap_to_cursor(bContext *C, wmOperator *op)
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
 
 	Scene *scene = CTX_data_scene(C);
-	View3D *v3d = CTX_wm_view3d(C);
 	Depsgraph *depsgraph = CTX_data_depsgraph(C);
 	Object *obact = CTX_data_active_object(C);
 
 	const bool use_offset = RNA_boolean_get(op->ptr, "use_offset");
-	const float *cursor_global = ED_view3d_cursor3d_get(scene, v3d)->location;
+	const float *cursor_global = scene->cursor.location;
 
 	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
 		/* only editable and visible layers are considered */
@@ -2283,7 +2287,7 @@ static int gp_snap_cursor_to_sel(bContext *C, wmOperator *UNUSED(op))
 	Depsgraph *depsgraph = CTX_data_depsgraph(C);
 	Object *obact = CTX_data_active_object(C);
 
-	float *cursor = ED_view3d_cursor3d_get(scene, v3d)->location;
+	float *cursor = scene->cursor.location;
 	float centroid[3] = {0.0f};
 	float min[3], max[3];
 	size_t count = 0;
@@ -2835,10 +2839,12 @@ void GPENCIL_OT_stroke_flip(wmOperatorType *ot)
 /* ***************** Reproject Strokes ********************** */
 
 typedef enum eGP_ReprojectModes {
-	/* Axis (equal to lock axis) */
-	GP_REPROJECT_AXIS = 0,
+	/* Axis */
+	GP_REPROJECT_FRONT = 0,
+	GP_REPROJECT_SIDE,
+	GP_REPROJECT_TOP,
 	/* On same plane, parallel to viewplane */
-	GP_REPROJECT_PLANAR,
+	GP_REPROJECT_VIEW,
 	/* Reprojected on to the scene geometry */
 	GP_REPROJECT_SURFACE,
 } eGP_ReprojectModes;
@@ -2850,21 +2856,13 @@ static int gp_strokes_reproject_exec(bContext *C, wmOperator *op)
 	ToolSettings *ts = CTX_data_tool_settings(C);
 	Depsgraph *depsgraph = CTX_data_depsgraph(C);
 	Object *ob = CTX_data_active_object(C);
-	ScrArea *sa = CTX_wm_area(C);
 	ARegion *ar = CTX_wm_region(C);
 	RegionView3D *rv3d = ar->regiondata;
-	View3D *v3d = sa->spacedata.first;
 
 	GP_SpaceConversion gsc = {NULL};
 	eGP_ReprojectModes mode = RNA_enum_get(op->ptr, "type");
 
-	int lock_axis = ts->gp_sculpt.lock_axis;
 	float origin[3];
-
-	if ((mode == GP_REPROJECT_AXIS) && (lock_axis == GP_LOCKAXIS_NONE)) {
-		BKE_report(op->reports, RPT_ERROR, "To reproject by axis, a lock axis must be set before");
-		return OPERATOR_CANCELLED;
-	}
 
 	/* init space conversion stuff */
 	gp_point_conversion_init(C, &gsc);
@@ -2878,7 +2876,7 @@ static int gp_strokes_reproject_exec(bContext *C, wmOperator *op)
 	// TODO: For deforming geometry workflow, create new frames?
 
 	/* Go through each editable + selected stroke, adjusting each of its points one by one... */
-	GP_EDITABLE_STROKES_BEGIN(C, gpl, gps)
+	GP_EDITABLE_STROKES_BEGIN(gpstroke_iter, C, gpl, gps)
 	{
 		if (gps->flag & GP_STROKE_SELECT) {
 			bGPDspoint *pt;
@@ -2887,7 +2885,7 @@ static int gp_strokes_reproject_exec(bContext *C, wmOperator *op)
 
 			/* Compute inverse matrix for unapplying parenting once instead of doing per-point */
 			/* TODO: add this bit to the iteration macro? */
-			invert_m4_m4(inverse_diff_mat, diff_mat);
+			invert_m4_m4(inverse_diff_mat, gpstroke_iter.diff_mat);
 
 			/* Adjust each point */
 			for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
@@ -2899,27 +2897,50 @@ static int gp_strokes_reproject_exec(bContext *C, wmOperator *op)
 				 *       artifacts in the final points.
 				 */
 				bGPDspoint pt2;
-				gp_point_to_parent_space(pt, diff_mat, &pt2);
+				gp_point_to_parent_space(pt, gpstroke_iter.diff_mat, &pt2);
 				gp_point_to_xy_fl(&gsc, gps, &pt2, &xy[0], &xy[1]);
 
-				/* Project stroke in the axis locked */
-				if (mode == GP_REPROJECT_AXIS) {
-					if (lock_axis > GP_LOCKAXIS_NONE) {
-						ED_gp_get_drawing_reference(v3d, scene, ob, gpl,
-							ts->gpencil_v3d_align, origin);
-						ED_gp_project_point_to_plane(ob, rv3d, origin,
-							lock_axis - 1, &pt2);
+				/* Project stroke in one axis */
+				if (ELEM(mode, GP_REPROJECT_FRONT, GP_REPROJECT_SIDE, GP_REPROJECT_TOP)) {
+					ED_gp_get_drawing_reference(scene, ob, gpl,
+						ts->gpencil_v3d_align, origin);
 
-						copy_v3_v3(&pt->x, &pt2.x);
-
-						/* apply parent again */
-						gp_apply_parent_point(depsgraph, ob, gpd, gpl, pt);
+					int axis = 0;
+					switch (mode) {
+						case GP_REPROJECT_FRONT:
+						{
+							axis = 1;
+							break;
+						}
+						case GP_REPROJECT_SIDE:
+						{
+							axis = 0;
+							break;
+						}
+						case GP_REPROJECT_TOP:
+						{
+							axis = 2;
+							break;
+						}
+						default:
+						{
+							axis = 1;
+							break;
+						}
 					}
+
+					ED_gp_project_point_to_plane(ob, rv3d, origin,
+						axis, &pt2);
+
+					copy_v3_v3(&pt->x, &pt2.x);
+
+					/* apply parent again */
+					gp_apply_parent_point(depsgraph, ob, gpd, gpl, pt);
 				}
 				/* Project screenspace back to 3D space (from current perspective)
 				 * so that all points have been treated the same way
 				 */
-				else if (mode == GP_REPROJECT_PLANAR) {
+				else if (mode == GP_REPROJECT_VIEW) {
 					/* Planar - All on same plane parallel to the viewplane */
 					gp_point_xy_to_3d(&gsc, scene, xy, &pt->x);
 				}
@@ -2942,13 +2963,13 @@ static int gp_strokes_reproject_exec(bContext *C, wmOperator *op)
 				}
 
 				/* Unapply parent corrections */
-				if (mode != GP_REPROJECT_AXIS) {
+				if (!ELEM(mode, GP_REPROJECT_FRONT, GP_REPROJECT_SIDE, GP_REPROJECT_TOP)) {
 					mul_m4_v3(inverse_diff_mat, &pt->x);
 				}
 			}
 		}
 	}
-	GP_EDITABLE_STROKES_END;
+	GP_EDITABLE_STROKES_END(gpstroke_iter);
 
 	DEG_id_tag_update(&gpd->id, OB_RECALC_OB | OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
@@ -2958,10 +2979,13 @@ static int gp_strokes_reproject_exec(bContext *C, wmOperator *op)
 void GPENCIL_OT_reproject(wmOperatorType *ot)
 {
 	static const EnumPropertyItem reproject_type[] = {
-		{ GP_REPROJECT_AXIS, "AXIS", 0, "Axis",
-		"Reproject the strokes using the current lock axis configuration. This is the same projection using while"
-		"drawing new strokes" },
-		{GP_REPROJECT_PLANAR, "PLANAR", 0, "Planar",
+		{GP_REPROJECT_FRONT, "FRONT", 0, "Front",
+		"Reproject the strokes using the X-Z plane"},
+		{GP_REPROJECT_SIDE, "SIDE", 0, "Side",
+		"Reproject the strokes using the Y-Z plane"},
+		{GP_REPROJECT_TOP, "TOP", 0, "Top",
+		"Reproject the strokes using the X-Y plane"},
+		{GP_REPROJECT_VIEW, "VIEW", 0, "View",
 		 "Reproject the strokes to end up on the same plane, as if drawn from the current viewpoint "
 		 "using 'Cursor' Stroke Placement"},
 		{GP_REPROJECT_SURFACE, "SURFACE", 0, "Surface",
@@ -2985,7 +3009,7 @@ void GPENCIL_OT_reproject(wmOperatorType *ot)
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_USE_EVAL_DATA;
 
 	/* properties */
-	ot->prop = RNA_def_enum(ot->srna, "type", reproject_type, GP_REPROJECT_PLANAR, "Projection Type", "");
+	ot->prop = RNA_def_enum(ot->srna, "type", reproject_type, GP_REPROJECT_VIEW, "Projection Type", "");
 }
 
 /* ******************* Stroke subdivide ************************** */
@@ -3023,7 +3047,7 @@ static int gp_stroke_subdivide_exec(bContext *C, wmOperator *op)
 		return OPERATOR_CANCELLED;
 
 	/* Go through each editable + selected stroke */
-	GP_EDITABLE_STROKES_BEGIN(C, gpl, gps)
+	GP_EDITABLE_STROKES_BEGIN(gpstroke_iter, C, gpl, gps)
 	{
 		if (gps->flag & GP_STROKE_SELECT) {
 			/* loop as many times as cuts */
@@ -3119,9 +3143,13 @@ static int gp_stroke_subdivide_exec(bContext *C, wmOperator *op)
 				MEM_SAFE_FREE(temp_points);
 				MEM_SAFE_FREE(temp_dverts);
 			}
+
+			/* triangles cache needs to be recalculated */
+			gps->flag |= GP_STROKE_RECALC_CACHES;
+			gps->tot_triangles = 0;
 		}
 	}
-	GP_EDITABLE_STROKES_END;
+	GP_EDITABLE_STROKES_END(gpstroke_iter);
 
 	/* notifiers */
 	DEG_id_tag_update(&gpd->id, OB_RECALC_OB | OB_RECALC_DATA);
@@ -3164,14 +3192,14 @@ static int gp_stroke_simplify_exec(bContext *C, wmOperator *op)
 		return OPERATOR_CANCELLED;
 
 	/* Go through each editable + selected stroke */
-	GP_EDITABLE_STROKES_BEGIN(C, gpl, gps)
+	GP_EDITABLE_STROKES_BEGIN(gpstroke_iter, C, gpl, gps)
 	{
 		if (gps->flag & GP_STROKE_SELECT) {
 			/* simplify stroke using Ramer-Douglas-Peucker algorithm */
 			BKE_gpencil_simplify_stroke(gps, factor);
 		}
 	}
-	GP_EDITABLE_STROKES_END;
+	GP_EDITABLE_STROKES_END(gpstroke_iter);
 
 	/* notifiers */
 	DEG_id_tag_update(&gpd->id, OB_RECALC_OB | OB_RECALC_DATA);
@@ -3213,7 +3241,7 @@ static int gp_stroke_simplify_fixed_exec(bContext *C, wmOperator *op)
 		return OPERATOR_CANCELLED;
 
 	/* Go through each editable + selected stroke */
-	GP_EDITABLE_STROKES_BEGIN(C, gpl, gps)
+	GP_EDITABLE_STROKES_BEGIN(gpstroke_iter, C, gpl, gps)
 	{
 		if (gps->flag & GP_STROKE_SELECT) {
 			for (int i = 0; i < steps; i++) {
@@ -3221,7 +3249,7 @@ static int gp_stroke_simplify_fixed_exec(bContext *C, wmOperator *op)
 			}
 		}
 	}
-	GP_EDITABLE_STROKES_END;
+	GP_EDITABLE_STROKES_END(gpstroke_iter);
 
 	/* notifiers */
 	DEG_id_tag_update(&gpd->id, OB_RECALC_OB | OB_RECALC_DATA);
@@ -3293,10 +3321,10 @@ static int gp_stroke_separate_exec(bContext *C, wmOperator *op)
 	/* create a new object */
 	base_new = ED_object_add_duplicate(bmain, scene, view_layer, base_old, 0);
 	ob_dst = base_new->object;
-
+	ob_dst->mode = OB_MODE_OBJECT;
 	/* create new grease pencil datablock */
 	// XXX: check usercounts
-	gpd_dst = BKE_gpencil_data_addnew(bmain, "GPencil");
+	gpd_dst = BKE_gpencil_data_addnew(bmain, gpd_src->id.name + 2);
 	ob_dst->data = (bGPdata *)gpd_dst;
 
 	int totslots = ob_dst->totcol;

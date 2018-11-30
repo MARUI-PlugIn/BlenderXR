@@ -180,8 +180,10 @@ class NODE_MT_add(bpy.types.Menu):
         layout = self.layout
 
         layout.operator_context = 'INVOKE_DEFAULT'
-        props = layout.operator("node.add_search", text="Search ...")
+        props = layout.operator("node.add_search", text="Search...", icon='VIEWZOOM')
         props.use_transform = True
+
+        layout.separator()
 
         # actual node submenus are defined by draw functions from node categories
         nodeitems_utils.draw_node_categories_menu(self, context)
@@ -218,7 +220,7 @@ class NODE_MT_view(Menu):
 
             layout.operator("node.backimage_move", text="Backdrop Move")
             layout.operator("node.backimage_zoom", text="Backdrop Zoom In").factor = 1.2
-            layout.operator("node.backimage_zoom", text="Backdrop Zoom Out").factor = 0.83333
+            layout.operator("node.backimage_zoom", text="Backdrop Zoom Out").factor = 1.0 / 1.2
             layout.operator("node.backimage_fit", text="Fit Backdrop to Available Space")
 
         layout.separator()
@@ -300,7 +302,6 @@ class NODE_MT_node(Menu):
         layout.separator()
 
         layout.operator("node.read_viewlayers")
-        layout.operator("node.read_fullsamplelayers")
 
 
 class NODE_PT_node_color_presets(PresetMenu):
@@ -358,6 +359,7 @@ class NODE_MT_specials(Menu):
 class NODE_PT_active_node_generic(Panel):
     bl_space_type = 'NODE_EDITOR'
     bl_region_type = 'UI'
+    bl_category = "Node"
     bl_label = "Node"
 
     @classmethod
@@ -375,6 +377,7 @@ class NODE_PT_active_node_generic(Panel):
 class NODE_PT_active_node_color(Panel):
     bl_space_type = 'NODE_EDITOR'
     bl_region_type = 'UI'
+    bl_category = "Node"
     bl_label = "Color"
     bl_options = {'DEFAULT_CLOSED'}
     bl_parent_id = 'NODE_PT_active_node_generic'
@@ -404,6 +407,7 @@ class NODE_PT_active_node_color(Panel):
 class NODE_PT_active_node_properties(Panel):
     bl_space_type = 'NODE_EDITOR'
     bl_region_type = 'UI'
+    bl_category = "Node"
     bl_label = "Properties"
     bl_options = {'DEFAULT_CLOSED'}
     bl_parent_id = 'NODE_PT_active_node_generic'
@@ -437,6 +441,7 @@ class NODE_PT_active_node_properties(Panel):
 class NODE_PT_backdrop(Panel):
     bl_space_type = 'NODE_EDITOR'
     bl_region_type = 'UI'
+    bl_category = "Node"
     bl_label = "Backdrop"
 
     @classmethod
@@ -471,6 +476,7 @@ class NODE_PT_backdrop(Panel):
 class NODE_PT_quality(bpy.types.Panel):
     bl_space_type = 'NODE_EDITOR'
     bl_region_type = 'UI'
+    bl_category = "Node"
     bl_label = "Performance"
 
     @classmethod
@@ -524,6 +530,7 @@ class NODE_UL_interface_sockets(bpy.types.UIList):
 class NODE_PT_grease_pencil(AnnotationDataPanel, Panel):
     bl_space_type = 'NODE_EDITOR'
     bl_region_type = 'UI'
+    bl_category = "Node"
     bl_options = {'DEFAULT_CLOSED'}
 
     # NOTE: this is just a wrapper around the generic GP Panel
@@ -537,23 +544,12 @@ class NODE_PT_grease_pencil(AnnotationDataPanel, Panel):
 class NODE_PT_grease_pencil_tools(GreasePencilToolsPanel, Panel):
     bl_space_type = 'NODE_EDITOR'
     bl_region_type = 'UI'
+    bl_category = "Node"
     bl_options = {'DEFAULT_CLOSED'}
 
     # NOTE: this is just a wrapper around the generic GP tools panel
     # It contains access to some essential tools usually found only in
     # toolbar, but which may not necessarily be open
-
-
-# Tool Shelf ------------------
-
-
-# Grease Pencil drawing tools
-class NODE_PT_tools_grease_pencil_draw(AnnotationDrawingToolsPanel, Panel):
-    bl_space_type = 'NODE_EDITOR'
-    bl_region_type = 'TOOLS'
-
-
-# -----------------------------
 
 
 def node_draw_tree_view(layout, context):
@@ -578,7 +574,6 @@ classes = (
     NODE_UL_interface_sockets,
     NODE_PT_grease_pencil,
     NODE_PT_grease_pencil_tools,
-    NODE_PT_tools_grease_pencil_draw,
 )
 
 

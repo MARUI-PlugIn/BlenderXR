@@ -42,7 +42,7 @@
 #include "DNA_scene_types.h"
 
 #include "BLI_bitmap.h"
-#include "BLI_heap.h"
+#include "BLI_heap_simple.h"
 #include "BLI_listbase.h"
 #include "BLI_linklist.h"
 #include "BLI_linklist_stack.h"
@@ -52,16 +52,17 @@
 #include "BLI_sort_utils.h"
 #include "BLI_string.h"
 
-#include "BKE_layer.h"
-#include "BKE_material.h"
+#include "BKE_editmesh.h"
 #include "BKE_context.h"
 #include "BKE_deform.h"
+#include "BKE_key.h"
+#include "BKE_layer.h"
+#include "BKE_library.h"
+#include "BKE_main.h"
+#include "BKE_material.h"
+#include "BKE_mesh.h"
 #include "BKE_report.h"
 #include "BKE_texture.h"
-#include "BKE_main.h"
-#include "BKE_mesh.h"
-#include "BKE_editmesh.h"
-#include "BKE_key.h"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_build.h"
@@ -116,7 +117,7 @@ static int edbm_subdivide_exec(bContext *C, wmOperator *op)
 
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
@@ -253,7 +254,7 @@ static int edbm_subdivide_edge_ring_exec(bContext *C, wmOperator *op)
 
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 	struct EdgeRingOpSubdProps op_props;
 
 	mesh_operator_edgering_props_get(op, &op_props);
@@ -287,7 +288,6 @@ void MESH_OT_subdivide_edgering(wmOperatorType *ot)
 {
 	/* identifiers */
 	ot->name = "Subdivide Edge-Ring";
-	ot->description = "";
 	ot->idname = "MESH_OT_subdivide_edgering";
 
 	/* api callbacks */
@@ -312,7 +312,7 @@ static int edbm_unsubdivide_exec(bContext *C, wmOperator *op)
 	const int iterations = RNA_int_get(op->ptr, "iterations");
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode(view_layer, CTX_wm_view3d(C), &objects_len);
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
 		BMEditMesh *em = BKE_editmesh_from_object(obedit);
@@ -428,7 +428,7 @@ static int edbm_delete_exec(bContext *C, wmOperator *op)
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 	bool changed_multi = false;
 
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
@@ -549,7 +549,7 @@ static int edbm_delete_loose_exec(bContext *C, wmOperator *op)
 	int totelem_old[3];
 
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 
 	EDBM_mesh_stats_multi(objects, objects_len, totelem_old, totelem_old_sel);
 
@@ -649,7 +649,7 @@ static int edbm_collapse_edge_exec(bContext *C, wmOperator *op)
 {
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
 		BMEditMesh *em = BKE_editmesh_from_object(obedit);
@@ -871,7 +871,7 @@ static int edbm_add_edge_face_exec(bContext *C, wmOperator *op)
 
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
 		BMEditMesh *em = BKE_editmesh_from_object(obedit);
@@ -978,7 +978,7 @@ static int edbm_mark_seam_exec(bContext *C, wmOperator *op)
 	const bool clear = RNA_boolean_get(op->ptr, "clear");
 
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
 		BMEditMesh *em = BKE_editmesh_from_object(obedit);
@@ -1051,7 +1051,7 @@ static int edbm_mark_sharp_exec(bContext *C, wmOperator *op)
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
 		BMEditMesh *em = BKE_editmesh_from_object(obedit);
@@ -1115,6 +1115,11 @@ static bool edbm_connect_vert_pair(BMEditMesh *em, wmOperator *op)
 
 	BMVert **verts;
 	bool checks_succeded = true;
+
+	/* sanity check */
+	if (verts_len < 2) {
+		return false;
+	}
 
 	verts = MEM_mallocN(sizeof(*verts) * verts_len, __func__);
 	{
@@ -1183,7 +1188,7 @@ static int edbm_vert_connect_exec(bContext *C, wmOperator *op)
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	uint objects_len = 0;
 	uint failed_objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
@@ -1437,7 +1442,7 @@ static int edbm_vert_connect_path_exec(bContext *C, wmOperator *op)
 	uint objects_len = 0;
 	uint failed_selection_order_len = 0;
 	uint failed_connect_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
@@ -1514,7 +1519,7 @@ static int edbm_vert_connect_concave_exec(bContext *C, wmOperator *op)
 {
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
 		BMEditMesh *em = BKE_editmesh_from_object(obedit);
@@ -1564,7 +1569,7 @@ static int edbm_vert_connect_nonplaner_exec(bContext *C, wmOperator *op)
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	const float angle_limit = RNA_float_get(op->ptr, "angle_limit");
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
@@ -1622,7 +1627,7 @@ static int edbm_face_make_planar_exec(bContext *C, wmOperator *op)
 {
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 
 	const int repeat = RNA_int_get(op->ptr, "repeat");
 	const float fac = RNA_float_get(op->ptr, "factor");
@@ -1677,7 +1682,7 @@ static int edbm_edge_split_exec(bContext *C, wmOperator *op)
 {
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
 		BMEditMesh *em = BKE_editmesh_from_object(obedit);
@@ -1730,7 +1735,7 @@ static int edbm_duplicate_exec(bContext *C, wmOperator *op)
 {
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
@@ -1804,7 +1809,7 @@ static int edbm_flip_normals_exec(bContext *C, wmOperator *op)
 {
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
@@ -1863,7 +1868,7 @@ static int edbm_edge_rotate_selected_exec(bContext *C, wmOperator *op)
 
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
 		BMEditMesh *em = BKE_editmesh_from_object(obedit);
@@ -1981,7 +1986,7 @@ static int edbm_hide_exec(bContext *C, wmOperator *op)
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
 		BMEditMesh *em = BKE_editmesh_from_object(obedit);
@@ -2032,7 +2037,7 @@ static int edbm_reveal_exec(bContext *C, wmOperator *op)
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
 		BMEditMesh *em = BKE_editmesh_from_object(obedit);
@@ -2073,7 +2078,7 @@ static int edbm_normals_make_consistent_exec(bContext *C, wmOperator *op)
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
 		BMEditMesh *em = BKE_editmesh_from_object(obedit);
@@ -2134,7 +2139,7 @@ static int edbm_do_smooth_vertex_exec(bContext *C, wmOperator *op)
 
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
 		Mesh *me = obedit->data;
@@ -2249,7 +2254,7 @@ static int edbm_do_smooth_laplacian_vertex_exec(bContext *C, wmOperator *op)
 	}
 
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
 		BMEditMesh *em = BKE_editmesh_from_object(obedit);
@@ -2372,7 +2377,7 @@ static int edbm_faces_shade_smooth_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
 		BMEditMesh *em = BKE_editmesh_from_object(obedit);
@@ -2414,7 +2419,7 @@ static int edbm_faces_shade_flat_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
 		BMEditMesh *em = BKE_editmesh_from_object(obedit);
@@ -2459,7 +2464,7 @@ static int edbm_rotate_uvs_exec(bContext *C, wmOperator *op)
 
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
 		BMEditMesh *em = BKE_editmesh_from_object(obedit);
@@ -2491,7 +2496,7 @@ static int edbm_reverse_uvs_exec(bContext *C, wmOperator *op)
 {
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
 		BMEditMesh *em = BKE_editmesh_from_object(obedit);
@@ -2526,7 +2531,7 @@ static int edbm_rotate_colors_exec(bContext *C, wmOperator *op)
 
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *ob = objects[ob_index];
@@ -2562,7 +2567,7 @@ static int edbm_reverse_colors_exec(bContext *C, wmOperator *op)
 {
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *ob = objects[ob_index];
@@ -2718,7 +2723,7 @@ static bool merge_firstlast(BMEditMesh *em, const bool use_first, const bool use
 }
 
 static bool merge_target(
-        BMEditMesh *em, Scene *scene, View3D *v3d, Object *ob,
+        BMEditMesh *em, Scene *scene, Object *ob,
         const bool use_cursor, const bool use_uvmerge, wmOperator *wmop)
 {
 	BMIter iter;
@@ -2727,7 +2732,7 @@ static bool merge_target(
 	const float *vco = NULL;
 
 	if (use_cursor) {
-		vco = ED_view3d_cursor3d_get(scene, v3d)->location;
+		vco = scene->cursor.location;
 		copy_v3_v3(co, vco);
 		invert_m4_m4(ob->imat, ob->obmat);
 		mul_m4_v3(ob->imat, co);
@@ -2768,10 +2773,9 @@ static bool merge_target(
 static int edbm_merge_exec(bContext *C, wmOperator *op)
 {
 	Scene *scene = CTX_data_scene(C);
-	View3D *v3d = CTX_wm_view3d(C);
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 	const int type = RNA_enum_get(op->ptr, "type");
 	const bool uvs = RNA_boolean_get(op->ptr, "uvs");
 
@@ -2786,10 +2790,10 @@ static int edbm_merge_exec(bContext *C, wmOperator *op)
 		bool ok = false;
 		switch (type) {
 			case MESH_MERGE_CENTER:
-				ok = merge_target(em, scene, v3d, obedit, false, uvs, op);
+				ok = merge_target(em, scene, obedit, false, uvs, op);
 				break;
 			case MESH_MERGE_CURSOR:
-				ok = merge_target(em, scene, v3d, obedit, true, uvs, op);
+				ok = merge_target(em, scene, obedit, true, uvs, op);
 				break;
 			case MESH_MERGE_LAST:
 				ok = merge_firstlast(em, false, uvs, op);
@@ -2919,7 +2923,7 @@ static int edbm_remove_doubles_exec(bContext *C, wmOperator *op)
 
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
@@ -3047,7 +3051,7 @@ static int edbm_shape_propagate_to_all_exec(bContext *C, wmOperator *op)
 	int tot_selected_verts_objects = 0;
 
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
 		Mesh *me = obedit->data;
@@ -3142,7 +3146,7 @@ static int edbm_blend_from_shape_exec(bContext *C, wmOperator *op)
 
 	int tot_selected_verts_objects = 0;
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
 		Mesh *me = obedit->data;
@@ -3287,7 +3291,7 @@ static int edbm_solidify_exec(bContext *C, wmOperator *op)
 
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
 		BMEditMesh *em = BKE_editmesh_from_object(obedit);
@@ -3363,9 +3367,9 @@ void MESH_OT_solidify(wmOperatorType *ot)
  * Contributed by Robert Wenzlaff (Det. Thorn).
  *
  * 2.5 Revamp:
- *  - non modal (no menu before cutting)
- *  - exit on mouse release
- *  - polygon/segment drawing can become handled by WM cb later
+ * - non modal (no menu before cutting)
+ * - exit on mouse release
+ * - polygon/segment drawing can become handled by WM cb later
  *
  * bmesh port version
  */
@@ -3973,7 +3977,7 @@ static int edbm_separate_exec(bContext *C, wmOperator *op)
 	if (ED_operator_editmesh(C)) {
 		uint bases_len = 0;
 		uint empty_selection_len = 0;
-		Base **bases = BKE_view_layer_array_from_bases_in_edit_mode_unique_data(view_layer, &bases_len);
+		Base **bases = BKE_view_layer_array_from_bases_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &bases_len);
 		for (uint bs_index = 0; bs_index < bases_len; bs_index++) {
 			Base *base = bases[bs_index];
 			BMEditMesh *em = BKE_editmesh_from_object(base->object);
@@ -4117,7 +4121,7 @@ static int edbm_fill_exec(bContext *C, wmOperator *op)
 
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
 		BMEditMesh *em = BKE_editmesh_from_object(obedit);
@@ -4347,7 +4351,7 @@ static int edbm_fill_grid_exec(bContext *C, wmOperator *op)
 
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 
 		Object *obedit = objects[ob_index];
@@ -4469,7 +4473,7 @@ static int edbm_fill_holes_exec(bContext *C, wmOperator *op)
 
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
@@ -4524,7 +4528,7 @@ static int edbm_beautify_fill_exec(bContext *C, wmOperator *op)
 {
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 
 	const float angle_max = M_PI;
 	const float angle_limit = RNA_float_get(op->ptr, "angle_limit");
@@ -4607,7 +4611,7 @@ static int edbm_poke_face_exec(bContext *C, wmOperator *op)
 
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
 		BMEditMesh *em = BKE_editmesh_from_object(obedit);
@@ -4680,7 +4684,7 @@ static int edbm_quads_convert_to_tris_exec(bContext *C, wmOperator *op)
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
 		BMEditMesh *em = BKE_editmesh_from_object(obedit);
@@ -4753,7 +4757,7 @@ static int edbm_tris_convert_to_quads_exec(bContext *C, wmOperator *op)
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 
 	bool is_face_pair;
 
@@ -4883,7 +4887,7 @@ static int edbm_decimate_exec(bContext *C, wmOperator *op)
 
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
@@ -5086,7 +5090,7 @@ static int edbm_dissolve_verts_exec(bContext *C, wmOperator *op)
 
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
@@ -5141,7 +5145,7 @@ static int edbm_dissolve_edges_exec(bContext *C, wmOperator *op)
 
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
 		BMEditMesh *em = BKE_editmesh_from_object(obedit);
@@ -5195,7 +5199,7 @@ static int edbm_dissolve_faces_exec(bContext *C, wmOperator *op)
 	const bool use_verts = RNA_boolean_get(op->ptr, "use_verts");
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
 		BMEditMesh *em = BKE_editmesh_from_object(obedit);
@@ -5302,7 +5306,7 @@ static int edbm_dissolve_limited_exec(bContext *C, wmOperator *op)
 
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
 		BMEditMesh *em = BKE_editmesh_from_object(obedit);
@@ -5396,7 +5400,7 @@ static int edbm_dissolve_degenerate_exec(bContext *C, wmOperator *op)
 	int totelem_new[3] = {0, 0, 0};
 
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
@@ -5469,7 +5473,7 @@ static int edbm_delete_edgeloop_exec(bContext *C, wmOperator *op)
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
 		BMEditMesh *em = BKE_editmesh_from_object(obedit);
@@ -5542,7 +5546,7 @@ static int edbm_split_exec(bContext *C, wmOperator *op)
 {
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
 		BMEditMesh *em = BKE_editmesh_from_object(obedit);
@@ -5623,7 +5627,7 @@ static int bmelemsort_comp(const void *v1, const void *v2)
 static void sort_bmelem_flag(
         bContext *C,
         Scene *scene, Object *ob,
-        View3D *v3d, RegionView3D *rv3d,
+        RegionView3D *rv3d,
         const int types, const int flag, const int action,
         const int reverse, const unsigned int seed)
 {
@@ -5725,10 +5729,8 @@ static void sort_bmelem_flag(
 		float mat[4][4];
 		float fact = reverse ? -1.0 : 1.0;
 
-		if (v3d && v3d->localvd)
-			copy_v3_v3(cur, v3d->cursor.location);
-		else
-			copy_v3_v3(cur, scene->cursor.location);
+		copy_v3_v3(cur, scene->cursor.location);
+
 		invert_m4_m4(mat, ob->obmat);
 		mul_m4_v3(mat, cur);
 
@@ -6062,7 +6064,6 @@ static int edbm_sort_elements_exec(bContext *C, wmOperator *op)
 	Object *ob_active = CTX_data_edit_object(C);
 
 	/* may be NULL */
-	View3D *v3d = CTX_wm_view3d(C);
 	RegionView3D *rv3d = ED_view3d_context_rv3d(C);
 
 	const int action = RNA_enum_get(op->ptr, "type");
@@ -6094,7 +6095,7 @@ static int edbm_sort_elements_exec(bContext *C, wmOperator *op)
 	}
 
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *ob = objects[ob_index];
@@ -6116,8 +6117,8 @@ static int edbm_sort_elements_exec(bContext *C, wmOperator *op)
 		}
 
 		sort_bmelem_flag(
-		            C, scene, ob, v3d, rv3d,
-		            elem_types, BM_ELEM_SELECT, action, use_reverse, seed_iter);
+		        C, scene, ob, rv3d,
+		        elem_types, BM_ELEM_SELECT, action, use_reverse, seed_iter);
 	}
 	MEM_freeN(objects);
 	return OPERATOR_FINISHED;
@@ -6357,7 +6358,7 @@ static int edbm_bridge_edge_loops_exec(bContext *C, wmOperator *op)
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
 		BMEditMesh *em = BKE_editmesh_from_object(obedit);
@@ -6428,7 +6429,7 @@ static int edbm_wireframe_exec(bContext *C, wmOperator *op)
 
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
 		BMEditMesh *em = BKE_editmesh_from_object(obedit);
@@ -6516,7 +6517,7 @@ static int edbm_offset_edgeloop_exec(bContext *C, wmOperator *op)
 
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
 		BMEditMesh *em = BKE_editmesh_from_object(obedit);
@@ -6597,7 +6598,7 @@ static int edbm_convex_hull_exec(bContext *C, wmOperator *op)
 
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
 		BMEditMesh *em = BKE_editmesh_from_object(obedit);
@@ -6718,7 +6719,7 @@ static int mesh_symmetrize_exec(bContext *C, wmOperator *op)
 	const float thresh = RNA_float_get(op->ptr, "threshold");
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++)	{
 		Object *obedit = objects[ob_index];
@@ -6800,7 +6801,7 @@ static int mesh_symmetry_snap_exec(bContext *C, wmOperator *op)
 
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
@@ -6937,7 +6938,7 @@ static int edbm_mark_freestyle_edge_exec(bContext *C, wmOperator *op)
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
 		BMEditMesh *em = BKE_editmesh_from_object(obedit);
@@ -7016,7 +7017,7 @@ static int edbm_mark_freestyle_face_exec(bContext *C, wmOperator *op)
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
 		BMEditMesh *em = BKE_editmesh_from_object(obedit);
@@ -7137,27 +7138,6 @@ wmKeyMap *point_normals_modal_keymap(wmKeyConfig *keyconf)
 		return NULL;
 
 	keymap = WM_modalkeymap_add(keyconf, keymap_name, modal_items);
-
-	/* Generic items for modal map. */
-	WM_modalkeymap_add_item(keymap, ESCKEY,     KM_PRESS, KM_ANY,     0, EDBM_CLNOR_MODAL_CANCEL);
-	WM_modalkeymap_add_item(keymap, RIGHTMOUSE, KM_PRESS, KM_NOTHING, 0, EDBM_CLNOR_MODAL_CANCEL);
-
-	WM_modalkeymap_add_item(keymap, RETKEY,     KM_PRESS, KM_ANY,     0, EDBM_CLNOR_MODAL_CONFIRM);
-	WM_modalkeymap_add_item(keymap, PADENTER,   KM_PRESS, KM_ANY,     0, EDBM_CLNOR_MODAL_CONFIRM);
-	WM_modalkeymap_add_item(keymap, LEFTMOUSE,  KM_PRESS, KM_NOTHING, 0, EDBM_CLNOR_MODAL_CONFIRM);
-
-	/* Point To items for modal map */
-	WM_modalkeymap_add_item(keymap, RKEY,       KM_PRESS, KM_NOTHING, 0, EDBM_CLNOR_MODAL_POINTTO_RESET);
-	WM_modalkeymap_add_item(keymap, IKEY,       KM_PRESS, KM_NOTHING, 0, EDBM_CLNOR_MODAL_POINTTO_INVERT);
-	WM_modalkeymap_add_item(keymap, SKEY,       KM_PRESS, KM_NOTHING, 0, EDBM_CLNOR_MODAL_POINTTO_SPHERIZE);
-	WM_modalkeymap_add_item(keymap, AKEY,       KM_PRESS, KM_NOTHING, 0, EDBM_CLNOR_MODAL_POINTTO_ALIGN);
-
-	WM_modalkeymap_add_item(keymap, MKEY,       KM_PRESS, KM_NOTHING, 0, EDBM_CLNOR_MODAL_POINTTO_USE_MOUSE);
-	WM_modalkeymap_add_item(keymap, LKEY,       KM_PRESS, KM_NOTHING, 0, EDBM_CLNOR_MODAL_POINTTO_USE_PIVOT);
-	WM_modalkeymap_add_item(keymap, OKEY,       KM_PRESS, KM_NOTHING, 0, EDBM_CLNOR_MODAL_POINTTO_USE_OBJECT);
-
-	WM_modalkeymap_add_item(keymap, LEFTMOUSE,  KM_CLICK, KM_CTRL,    0, EDBM_CLNOR_MODAL_POINTTO_SET_USE_3DCURSOR);
-	WM_modalkeymap_add_item(keymap, RIGHTMOUSE, KM_CLICK, KM_CTRL,    0, EDBM_CLNOR_MODAL_POINTTO_SET_USE_SELECTED);
 
 	WM_modalkeymap_assign(keymap, "MESH_OT_point_normals");
 
@@ -7379,7 +7359,8 @@ static int edbm_point_normals_modal(bContext *C, wmOperator *op, const wmEvent *
 			case EDBM_CLNOR_MODAL_POINTTO_SET_USE_3DCURSOR:
 				new_mode = EDBM_CLNOR_POINTTO_MODE_COORDINATES;
 				ED_view3d_cursor3d_update(C, event->mval, false, V3D_CURSOR_ORIENT_NONE);
-				copy_v3_v3(target, ED_view3d_cursor3d_get(scene, v3d)->location);
+				copy_v3_v3(target, scene->cursor.location);
+				ret = OPERATOR_RUNNING_MODAL;
 				break;
 
 			case EDBM_CLNOR_MODAL_POINTTO_SET_USE_SELECTED:
@@ -7427,7 +7408,7 @@ static int edbm_point_normals_modal(bContext *C, wmOperator *op, const wmEvent *
 					}
 
 					case V3D_AROUND_CURSOR:
-						copy_v3_v3(target, ED_view3d_cursor3d_get(scene, v3d)->location);
+						copy_v3_v3(target, scene->cursor.location);
 						break;
 
 					case V3D_AROUND_ACTIVE:
@@ -7573,7 +7554,7 @@ void MESH_OT_point_normals(struct wmOperatorType *ot)
 
 	RNA_def_boolean(ot->srna, "align", false, "Align", "Make all affected normals parallel");
 
-	RNA_def_float_vector(ot->srna, "target_location", 3, (float[3]){0.0f, 0.0f, 0.0f}, -FLT_MAX, FLT_MAX,
+	RNA_def_float_vector(ot->srna, "target_location", 3, NULL, -FLT_MAX, FLT_MAX,
 	                     "Target", "Target location to which normals will point", -1000.0f, 1000.0f);
 
 	RNA_def_boolean(ot->srna, "spherize", false,
@@ -7818,7 +7799,7 @@ static int edbm_average_normals_exec(bContext *C, wmOperator *op)
 
 	BM_normals_loops_edges_tag(bm, true);
 
-	Heap *loop_weight = BLI_heap_new();
+	HeapSimple *loop_weight = BLI_heapsimple_new();
 
 	BM_ITER_MESH(f, &fiter, bm, BM_FACES_OF_MESH) {
 		l_curr = l_first = BM_FACE_FIRST_LOOP(f);
@@ -7858,7 +7839,7 @@ static int edbm_average_normals_exec(bContext *C, wmOperator *op)
 							val = 1.0f / BM_loop_calc_face_angle(lfan_pivot);
 						}
 
-						BLI_heap_insert(loop_weight, val, lfan_pivot);
+						BLI_heapsimple_insert(loop_weight, val, lfan_pivot);
 
 						if (!BM_elem_flag_test(e_next, BM_ELEM_TAG) || (e_next == e_org)) {
 							break;
@@ -7868,15 +7849,15 @@ static int edbm_average_normals_exec(bContext *C, wmOperator *op)
 
 					BLI_SMALLSTACK_DECLARE(loops, BMLoop *);
 					float wnor[3], avg_normal[3] = { 0.0f }, count = 0;
-					float val = BLI_heap_node_value(BLI_heap_top(loop_weight));
+					float val = BLI_heapsimple_top_value(loop_weight);
 
-					while (!BLI_heap_is_empty(loop_weight)) {
-						const float cur_val = BLI_heap_node_value(BLI_heap_top(loop_weight));
+					while (!BLI_heapsimple_is_empty(loop_weight)) {
+						const float cur_val = BLI_heapsimple_top_value(loop_weight);
 						if (!compare_ff(val, cur_val, threshold)) {
 							count++;
 							val = cur_val;
 						}
-						l = BLI_heap_pop_min(loop_weight);
+						l = BLI_heapsimple_pop_min(loop_weight);
 						BLI_SMALLSTACK_PUSH(loops, l);
 
 						const float n_weight = pow(weight, count);
@@ -7907,7 +7888,7 @@ static int edbm_average_normals_exec(bContext *C, wmOperator *op)
 		} while ((l_curr = l_curr->next) != l_first);
 	}
 
-	BLI_heap_free(loop_weight, NULL);
+	BLI_heapsimple_free(loop_weight, NULL);
 	EDBM_update_generic(em, true, false);
 
 	return OPERATOR_FINISHED;
@@ -8157,7 +8138,7 @@ static int edbm_set_normals_from_faces_exec(bContext *C, wmOperator *op)
 {
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];

@@ -99,16 +99,20 @@ def auto_save_render(scene):
         if not exists(filepath):
             mkdir(filepath)
 
-    #imagefiles starting with the blendname
+    # imagefiles starting with the blendname
     files = [f for f in listdir(filepath)
              if f.startswith(blendname)
              and f.lower().endswith(IMAGE_EXTENSIONS)]
 
     def save_number_from_files(files):
+        '''
+        Returns the new highest count number from file names
+        as 3 digit string.
+        '''
         highest = 0
         if files:
             for f in files:
-                #find last numbers in the filename
+                # find last numbers in the filename
                 suffix = findall(r'\d+', f.split(blendname)[-1])
                 if suffix:
                     if int(suffix[-1]) > highest:
@@ -116,6 +120,9 @@ def auto_save_render(scene):
         return str(highest+1).zfill(3)
 
     def this_frame_files(files):
+        '''
+        Filters out files which have the current frame number in the file name
+        '''
         match_files = []
         frame_pattern = r'_f[0-9]{4}_'
         for file in files:
@@ -172,7 +179,6 @@ class RENDER_PT_render_auto_save(Panel):
         return (context.engine in cls.COMPAT_ENGINES)
 
     def draw_header(self, context):
-        rd = context.scene.render
         self.layout.prop(context.scene, 'auto_save_after_render', text="")
 
     def draw(self, context):

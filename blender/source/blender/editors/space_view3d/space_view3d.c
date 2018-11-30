@@ -48,7 +48,6 @@
 #include "BKE_curve.h"
 #include "BKE_icons.h"
 #include "BKE_lattice.h"
-#include "BKE_library.h"
 #include "BKE_main.h"
 #include "BKE_mball.h"
 #include "BKE_mesh.h"
@@ -326,9 +325,9 @@ static SpaceLink *view3d_new(const ScrArea *UNUSED(sa), const Scene *scene)
 	BKE_screen_view3d_shading_init(&v3d->shading);
 
 	v3d->overlay.wireframe_threshold = 0.5f;
-	v3d->overlay.bone_select_alpha = 0.5f;
+	v3d->overlay.xray_alpha_bone = 0.5f;
 	v3d->overlay.texture_paint_mode_opacity = 0.8;
-	v3d->overlay.weight_paint_mode_opacity = 0.8;
+	v3d->overlay.weight_paint_mode_opacity = 1.0f;
 	v3d->overlay.vertex_paint_mode_opacity = 0.8;
 	v3d->overlay.edit_flag = V3D_OVERLAY_EDIT_FACES |
 	                         V3D_OVERLAY_EDIT_SEAMS |
@@ -458,13 +457,6 @@ static void view3d_main_region_init(wmWindowManager *wm, ARegion *ar)
 {
 	ListBase *lb;
 	wmKeyMap *keymap;
-
-	if (ar->gizmo_map == NULL) {
-		ar->gizmo_map = WM_gizmomap_new_from_type(
-		        &(const struct wmGizmoMapType_Params) {SPACE_VIEW3D, RGN_TYPE_WINDOW});
-	}
-
-	WM_gizmomap_add_handlers(ar, ar->gizmo_map);
 
 	/* object ops. */
 
@@ -712,6 +704,7 @@ static void view3d_widgets(void)
 	WM_gizmogrouptype_append(TRANSFORM_GGT_gizmo);
 	WM_gizmogrouptype_append(VIEW3D_GGT_xform_cage);
 	WM_gizmogrouptype_append(VIEW3D_GGT_xform_shear);
+	WM_gizmogrouptype_append(VIEW3D_GGT_xform_extrude);
 	WM_gizmogrouptype_append(VIEW3D_GGT_mesh_preselect_elem);
 	WM_gizmogrouptype_append(VIEW3D_GGT_mesh_preselect_edgering);
 
@@ -1341,8 +1334,9 @@ static void space_view3d_listener(
 			switch (wmn->data) {
 				case ND_WORLD_DRAW:
 				case ND_WORLD:
-					if (v3d->shading.background_type & V3D_SHADING_BACKGROUND_WORLD)
+					if (v3d->shading.background_type == V3D_SHADING_BACKGROUND_WORLD) {
 						ED_area_tag_redraw_regiontype(sa, RGN_TYPE_WINDOW);
+					}
 					break;
 			}
 			break;
@@ -1480,7 +1474,7 @@ void ED_spacetype_view3d(void)
 	/* regions: main window */
 	art = MEM_callocN(sizeof(ARegionType), "spacetype view3d main region");
 	art->regionid = RGN_TYPE_WINDOW;
-	art->keymapflag = ED_KEYMAP_GPENCIL;
+	art->keymapflag = ED_KEYMAP_GIZMO | ED_KEYMAP_GPENCIL;
 	art->draw = view3d_main_region_draw;
 	art->init = view3d_main_region_init;
 	art->exit = view3d_main_region_exit;

@@ -137,17 +137,20 @@ typedef struct View3DCursor {
 
 /* 3D Viewport Shading settings */
 typedef struct View3DShading {
-	short type;        /* Shading type (VIEW3D_SHADE_SOLID, ..) */
-	short prev_type;   /* Runtime, for toggle between rendered viewport. */
+	char type;        /* Shading type (VIEW3D_SHADE_SOLID, ..) */
+	char prev_type;   /* Runtime, for toggle between rendered viewport. */
+	char prev_type_wire;
 
+	char color_type;
 	short flag;
-	short color_type;
 
-	short light;
-	short background_type;
-	short pad2[2];
+	char light;
+	char background_type;
+	char cavity_type;
+	char pad[7];
 
 	char studio_light[256]; /* FILE_MAXFILE */
+	char lookdev_light[256]; /* FILE_MAXFILE */
 	char matcap[256]; /* FILE_MAXFILE */
 
 	float shadow_intensity;
@@ -164,6 +167,9 @@ typedef struct View3DShading {
 	float cavity_ridge_factor;
 
 	float background_color[3];
+
+	float curvature_ridge_factor;
+	float curvature_valley_factor;
 
 } View3DShading;
 
@@ -190,7 +196,7 @@ typedef struct View3DOverlay {
 
 	/* Armature edit/pose mode settings */
 	int arm_flag;
-	float bone_select_alpha;
+	float xray_alpha_bone;
 
 	/* Other settings */
 	float wireframe_threshold;
@@ -198,7 +204,7 @@ typedef struct View3DOverlay {
 	/* grease pencil settings */
 	float gpencil_paper_opacity;
 	float gpencil_grid_opacity;
-	char _pad1[4];
+	float gpencil_fade_layer;
 
 } View3DOverlay;
 
@@ -234,7 +240,8 @@ typedef struct View3D {
 
 	char ob_centre_bone[64];		/* optional string for armature bone to define center, MAXBONENAME */
 
-	unsigned int lay DNA_DEPRECATED;
+	unsigned short local_view_uuid;
+	short _pad6;
 	int layact DNA_DEPRECATED;
 
 	short ob_centre_cursor;		/* optional bool for 3d cursor to define center */
@@ -246,8 +253,6 @@ typedef struct View3D {
 	float lens, grid;
 	float near, far;
 	float ofs[3]  DNA_DEPRECATED;			/* XXX deprecated */
-
-	View3DCursor cursor;
 
 	char _pad[4];
 
@@ -327,7 +332,7 @@ typedef struct View3D {
 #define RV3D_NAVIGATING				8
 #define RV3D_GPULIGHT_UPDATE		16
 #if WITH_VR
-#define RV3D_IS_VR								32
+#define RV3D_IS_VR					32
 #endif
 /*#define RV3D_IS_GAME_ENGINE			32 *//* UNUSED */
 /**
@@ -369,7 +374,7 @@ typedef struct View3D {
 #define V3D_RENDER_BORDER		(1 << 11)
 #define V3D_SOLID_MATCAP		(1 << 12)	/* user flag */
 #define V3D_SHOW_SOLID_MATCAP	(1 << 13)	/* runtime flag */
-#define V3D_OCCLUDE_WIRE		(1 << 14)
+#define V3D_OCCLUDE_WIRE		(1 << 14)   /* XXX: DNA deprecated */
 #define V3D_SHOW_MODE_SHADE_OVERRIDE (1 << 15) /* XXX: DNA deprecated */
 
 /* View3d->gp_flag (short) */
@@ -378,6 +383,7 @@ typedef struct View3D {
 #define V3D_GP_SHOW_EDIT_LINES       (1 << 2)
 #define V3D_GP_SHOW_MULTIEDIT_LINES  (1 << 3)
 #define V3D_GP_SHOW_ONION_SKIN       (1 << 4) /* main switch at view level */
+#define V3D_GP_FADE_NOACTIVE_LAYERS  (1 << 5) /* fade layers not active */
 
 /* View3DShading->light */
 enum {
@@ -396,7 +402,8 @@ enum {
 	V3D_SHADING_CAVITY              = (1 << 5),
 	V3D_SHADING_MATCAP_FLIP_X       = (1 << 6),
 	V3D_SHADING_SCENE_WORLD         = (1 << 7),
-	V3D_SHADING_XRAY_WIREFRAME      = (1 << 8),
+	V3D_SHADING_XRAY_BONE           = (1 << 8),
+	V3D_SHADING_WORLD_ORIENTATION   = (1 << 9),
 };
 
 /* View3DShading->color_type */
@@ -412,6 +419,13 @@ enum {
 	V3D_SHADING_BACKGROUND_THEME    = 0,
 	V3D_SHADING_BACKGROUND_WORLD    = 1,
 	V3D_SHADING_BACKGROUND_VIEWPORT = 2,
+};
+
+/* View3DShading->cavity_type */
+enum {
+	V3D_SHADING_CAVITY_SSAO = 0,
+	V3D_SHADING_CAVITY_CURVATURE = 1,
+	V3D_SHADING_CAVITY_BOTH = 2,
 };
 
 /* View3DOverlay->flag */
@@ -514,6 +528,7 @@ enum {
 #define V3D_MANIP_VIEW			3
 #define V3D_MANIP_GIMBAL		4
 #define V3D_MANIP_CURSOR		5
+#define V3D_MANIP_CUSTOM_MATRIX	(V3D_MANIP_CUSTOM - 1)  /* Runtime only, never saved to DNA. */
 #define V3D_MANIP_CUSTOM		1024
 
 /* View3d.mpr_flag (also) */

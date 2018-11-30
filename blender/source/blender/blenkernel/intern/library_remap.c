@@ -241,7 +241,8 @@ static int foreach_libblock_remap_callback(void *user_data, ID *id_self, ID **id
 		else {
 			if (!is_never_null) {
 				*id_p = new_id;
-				DEG_id_tag_update_ex(id_remap_data->bmain, id_self, DEG_TAG_TRANSFORM | DEG_TAG_TIME | DEG_TAG_GEOMETRY);
+				DEG_id_tag_update_ex(id_remap_data->bmain, id_self,
+				                     DEG_TAG_COPY_ON_WRITE | DEG_TAG_TRANSFORM | DEG_TAG_GEOMETRY);
 			}
 			if (cb_flag & IDWALK_CB_USER) {
 				id_us_min(old_id);
@@ -323,20 +324,14 @@ static void libblock_remap_data_postprocess_object_update(Main *bmain, Object *o
 /* Can be called with both old_collection and new_collection being NULL,
  * this means we have to check whole Main database then. */
 static void libblock_remap_data_postprocess_collection_update(
-        Main *bmain, Collection *old_collection, Collection *new_collection)
+        Main *bmain, Collection *UNUSED(old_collection), Collection *new_collection)
 {
 	if (new_collection == NULL) {
-		 /* In case we unlinked old_collection (new_collection is NULL), we need
-		  * to remove any collection children that have been set to NULL in the
-		  * because of pointer replacement. */
-		if (old_collection != NULL) {
-			BKE_collections_child_remove_nulls(bmain, old_collection);
-		}
-		else {
-			for (Collection *collection = bmain->collection.first; collection; collection = collection->id.next) {
-				BKE_collections_child_remove_nulls(bmain, collection);
-			}
-		}
+		/* XXX Complex cases can lead to NULL pointers in other collections than old_collection,
+		 * and BKE_main_collection_sync_remap() does not tolerate any of those, so for now always check whole
+		 * existing collections for NULL pointers.
+		 * I'd consider optimizing that whole collection remapping process a TODO for later. */
+		BKE_collections_child_remove_nulls(bmain, NULL /*old_collection*/);
 	}
 
 	BKE_main_collection_sync_remap(bmain);

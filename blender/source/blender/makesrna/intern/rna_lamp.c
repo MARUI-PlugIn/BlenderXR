@@ -74,8 +74,6 @@ static StructRNA *rna_Light_refine(struct PointerRNA *ptr)
 			return &RNA_SunLight;
 		case LA_SPOT:
 			return &RNA_SpotLight;
-		case LA_HEMI:
-			return &RNA_HemiLight;
 		case LA_AREA:
 			return &RNA_AreaLight;
 		default:
@@ -115,7 +113,6 @@ const EnumPropertyItem rna_enum_light_type_items[] = {
 	{LA_LOCAL, "POINT", 0, "Point", "Omnidirectional point light source"},
 	{LA_SUN, "SUN", 0, "Sun", "Constant direction parallel ray light source"},
 	{LA_SPOT, "SPOT", 0, "Spot", "Directional cone light source"},
-	{LA_HEMI, "HEMI", 0, "Hemi", "180 degree constant light source"},
 	{LA_AREA, "AREA", 0, "Area", "Directional area light source"},
 	{0, NULL, 0, NULL, NULL}
 };
@@ -165,6 +162,19 @@ static void rna_def_light(BlenderRNA *brna)
 	RNA_def_property_range(prop, 0.0f, 9999.0f);
 	RNA_def_property_ui_range(prop, 0.0f, 1.0f, 0.01, 2);
 	RNA_def_property_ui_text(prop, "Specular Factor", "Specular reflection multiplier");
+	RNA_def_property_update(prop, 0, "rna_Light_update");
+
+	prop = RNA_def_property(srna, "use_custom_distance", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "mode", LA_CUSTOM_ATTENUATION);
+	RNA_def_property_ui_text(prop, "Custom Attenuation", "Use custom attenuation distance instead of global light threshold");
+	RNA_def_property_update(prop, 0, "rna_Light_update");
+
+	prop = RNA_def_property(srna, "cutoff_distance", PROP_FLOAT, PROP_DISTANCE);
+	RNA_def_property_float_sdna(prop, NULL, "att_dist");
+	RNA_def_property_float_default(prop, 1.0f);
+	RNA_def_property_range(prop, 0.0f, FLT_MAX);
+	RNA_def_property_ui_range(prop, 0.01f, 100.0f, 1.0, 2);
+	RNA_def_property_ui_text(prop, "Cutoff Distance", "Distance at which the light influence will be set to 0");
 	RNA_def_property_update(prop, 0, "rna_Light_update");
 
 	/* nodes */
@@ -364,8 +374,8 @@ static void rna_def_light_shadow(StructRNA *srna, int sun)
 	if (sun) {
 		prop = RNA_def_property(srna, "shadow_cascade_max_distance", PROP_FLOAT, PROP_DISTANCE);
 		RNA_def_property_float_sdna(prop, NULL, "cascade_max_dist");
-		RNA_def_property_float_default(prop, 1000.0f);
-		RNA_def_property_range(prop, 0.0f, 9999.0f);
+		RNA_def_property_float_default(prop, 200.0f);
+		RNA_def_property_range(prop, 0.0f, FLT_MAX);
 		RNA_def_property_ui_text(prop, "Cascade Max Distance", "End distance of the cascaded shadow map (only in perspective view)");
 		RNA_def_property_update(prop, 0, "rna_Light_update");
 

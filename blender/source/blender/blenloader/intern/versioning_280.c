@@ -63,31 +63,35 @@
 #include "DNA_armature_types.h"
 
 #include "BKE_action.h"
+#include "BKE_cloth.h"
 #include "BKE_collection.h"
 #include "BKE_constraint.h"
-#include "BKE_customdata.h"
 #include "BKE_colortools.h"
+#include "BKE_customdata.h"
 #include "BKE_freestyle.h"
+#include "BKE_gpencil.h"
 #include "BKE_idprop.h"
 #include "BKE_image.h"
+#include "BKE_key.h"
+#include "BKE_library.h"
 #include "BKE_layer.h"
 #include "BKE_main.h"
 #include "BKE_material.h"
 #include "BKE_mesh.h"
 #include "BKE_node.h"
+#include "BKE_object.h"
+#include "BKE_paint.h"
 #include "BKE_pointcache.h"
 #include "BKE_report.h"
 #include "BKE_scene.h"
 #include "BKE_screen.h"
 #include "BKE_sequencer.h"
 #include "BKE_studiolight.h"
-#include "BKE_workspace.h"
-#include "BKE_gpencil.h"
-#include "BKE_paint.h"
-#include "BKE_object.h"
-#include "BKE_cloth.h"
-#include "BKE_key.h"
 #include "BKE_unit.h"
+#include "BKE_workspace.h"
+
+/* Only for IMB_BlendMode */
+#include "IMB_imbuf.h"
 
 #include "DEG_depsgraph.h"
 
@@ -450,6 +454,7 @@ static void do_version_layers_to_collections(Main *bmain, Scene *scene)
 
 	/* Handle legacy render layers. */
 	bool have_override = false;
+	const bool need_default_renderlayer = scene->r.layers.first == NULL;
 
 	for (SceneRenderLayer *srl = scene->r.layers.first; srl; srl = srl->next) {
 		ViewLayer *view_layer = BKE_view_layer_add(scene, srl->name);
@@ -537,9 +542,9 @@ static void do_version_layers_to_collections(Main *bmain, Scene *scene)
 
 	BLI_freelistN(&scene->r.layers);
 
-	/* If render layers included overrides, we also create a vanilla
-	 * viewport layer without them. */
-	if (have_override) {
+	/* If render layers included overrides, or there are no render layers,
+	 * we also create a vanilla viewport layer. */
+	if (have_override || need_default_renderlayer) {
 		ViewLayer *view_layer = BKE_view_layer_add(scene, "Viewport");
 
 		/* Make it first in the list. */
@@ -718,24 +723,12 @@ void do_versions_after_linking_280(Main *bmain)
 
 	if (!MAIN_VERSION_ATLEAST(bmain, 280, 4)) {
 		for (Object *object = bmain->object.first; object; object = object->id.next) {
-#ifndef VERSION_280_SUBVERSION_4
-			/* If any object already has an initialized value for
-			 * duplicator_visibility_flag it means we've already doversioned it.
-			 * TODO(all) remove the VERSION_280_SUBVERSION_4 code once the subversion was bumped. */
-			if (object->duplicator_visibility_flag != 0) {
-				break;
-			}
-#endif
 			if (object->particlesystem.first) {
 				object->duplicator_visibility_flag = OB_DUPLI_FLAG_VIEWPORT;
 				for (ParticleSystem *psys = object->particlesystem.first; psys; psys = psys->next) {
 					if (psys->part->draw & PART_DRAW_EMITTER) {
 						object->duplicator_visibility_flag |= OB_DUPLI_FLAG_RENDER;
-#ifndef VERSION_280_SUBVERSION_4
-						psys->part->draw &= ~PART_DRAW_EMITTER;
-#else
 						break;
-#endif
 					}
 				}
 			}
@@ -745,6 +738,11 @@ void do_versions_after_linking_280(Main *bmain)
 			else {
 				object->duplicator_visibility_flag = OB_DUPLI_FLAG_VIEWPORT | OB_DUPLI_FLAG_RENDER;
 			}
+		}
+
+		/* Cleanup deprecated flag from particlesettings data-blocks. */
+		for (ParticleSettings *part = bmain->particle.first; part; part = part->id.next) {
+			part->draw &= ~PART_DRAW_EMITTER;
 		}
 	}
 
@@ -909,6 +907,15 @@ void do_versions_after_linking_280(Main *bmain)
 			}
 		}
 	}
+
+	if (!MAIN_VERSION_ATLEAST(bmain, 280, 30)) {
+		for (Brush *brush = bmain->brush.first; brush; brush = brush->id.next) {
+			if (brush->gpencil_settings != NULL) {
+				brush->gpencil_tool = brush->gpencil_settings->brush_type;
+			}
+		}
+		BKE_paint_toolslots_init_from_main(bmain);
+	}
 }
 
 /* NOTE: this version patch is intended for versions < 2.52.2, but was initially introduced in 2.27 already.
@@ -1065,12 +1072,12 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *bmain)
 
 		{
 			/* Grease pencil sculpt and paint cursors */
-			if (!DNA_struct_elem_find(fd->filesdna, "GP_BrushEdit_Settings", "int", "weighttype")) {
+			if (!DNA_struct_elem_find(fd->filesdna, "GP_Sculpt_Settings", "int", "weighttype")) {
 				for (Scene *scene = bmain->scene.first; scene; scene = scene->id.next) {
 					/* sculpt brushes */
-					GP_BrushEdit_Settings *gset = &scene->toolsettings->gp_sculpt;
+					GP_Sculpt_Settings *gset = &scene->toolsettings->gp_sculpt;
 					if (gset) {
-						gset->weighttype = GP_EDITBRUSH_TYPE_WEIGHT;
+						gset->weighttype = GP_SCULPT_TYPE_WEIGHT;
 					}
 				}
 			}
@@ -1079,15 +1086,15 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *bmain)
 				float curcolor_add[3], curcolor_sub[3];
 				ARRAY_SET_ITEMS(curcolor_add, 1.0f, 0.6f, 0.6f);
 				ARRAY_SET_ITEMS(curcolor_sub, 0.6f, 0.6f, 1.0f);
-				GP_EditBrush_Data *gp_brush;
+				GP_Sculpt_Data *gp_brush;
 
 				for (Scene *scene = bmain->scene.first; scene; scene = scene->id.next) {
 					ToolSettings *ts = scene->toolsettings;
 					/* sculpt brushes */
-					GP_BrushEdit_Settings *gset = &ts->gp_sculpt;
-					for (int i = 0; i < TOT_GP_EDITBRUSH_TYPES; ++i) {
+					GP_Sculpt_Settings *gset = &ts->gp_sculpt;
+					for (int i = 0; i < GP_SCULPT_TYPE_MAX; ++i) {
 						gp_brush = &gset->brush[i];
-						gp_brush->flag |= GP_EDITBRUSH_FLAG_ENABLE_CURSOR;
+						gp_brush->flag |= GP_SCULPT_FLAG_ENABLE_CURSOR;
 						copy_v3_v3(gp_brush->curcolor_add, curcolor_add);
 						copy_v3_v3(gp_brush->curcolor_sub, curcolor_sub);
 					}
@@ -1102,17 +1109,17 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *bmain)
 			}
 
 			/* Init grease pencil pixel size factor */
-			if (!DNA_struct_elem_find(fd->filesdna, "bGPDdata", "int", "pixfactor")) {
+			if (!DNA_struct_elem_find(fd->filesdna, "bGPdata", "int", "pixfactor")) {
 				for (bGPdata *gpd = bmain->gpencil.first; gpd; gpd = gpd->id.next) {
 					gpd->pixfactor = GP_DEFAULT_PIX_FACTOR;
 				}
 			}
 
 			/* Grease pencil multiframe falloff curve */
-			if (!DNA_struct_elem_find(fd->filesdna, "GP_BrushEdit_Settings", "CurveMapping", "cur_falloff")) {
+			if (!DNA_struct_elem_find(fd->filesdna, "GP_Sculpt_Settings", "CurveMapping", "cur_falloff")) {
 				for (Scene *scene = bmain->scene.first; scene; scene = scene->id.next) {
 					/* sculpt brushes */
-					GP_BrushEdit_Settings *gset = &scene->toolsettings->gp_sculpt;
+					GP_Sculpt_Settings *gset = &scene->toolsettings->gp_sculpt;
 					if ((gset) && (gset->cur_falloff == NULL)) {
 						gset->cur_falloff = curvemapping_add(1, 0.0f, 0.0f, 1.0f, 1.0f);
 						curvemapping_initialize(gset->cur_falloff);
@@ -1359,16 +1366,6 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *bmain)
 		if (!DNA_struct_find(fd->filesdna, "View3DCursor")) {
 			for (Scene *scene = bmain->scene.first; scene; scene = scene->id.next) {
 				unit_qt(scene->cursor.rotation);
-			}
-			for (bScreen *screen = bmain->screen.first; screen; screen = screen->id.next) {
-				for (ScrArea *sa = screen->areabase.first; sa; sa = sa->next) {
-					for (SpaceLink *sl = sa->spacedata.first; sl; sl = sl->next) {
-						if (sl->spacetype == SPACE_VIEW3D) {
-							View3D *v3d = (View3D *)sl;
-							unit_qt(v3d->cursor.rotation);
-						}
-					}
-				}
 			}
 		}
 	}
@@ -1673,7 +1670,7 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *bmain)
 			}
 		}
 		if (!DNA_struct_elem_find(fd->filesdna, "View3DShading", "char", "matcap[256]")) {
-			StudioLight *default_matcap = BKE_studiolight_find_first(STUDIOLIGHT_ORIENTATION_VIEWNORMAL);
+			StudioLight *default_matcap = BKE_studiolight_find_first(STUDIOLIGHT_TYPE_MATCAP);
 			/* when loading the internal file is loaded before the matcaps */
 			if (default_matcap) {
 				for (bScreen *screen = bmain->screen.first; screen; screen = screen->id.next) {
@@ -1713,13 +1710,13 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *bmain)
 				}
 			}
 		}
-		if (!DNA_struct_elem_find(fd->filesdna, "View3DOverlay", "float", "bone_select_alpha")) {
+		if (!DNA_struct_elem_find(fd->filesdna, "View3DOverlay", "float", "xray_alpha_bone")) {
 			for (bScreen *screen = bmain->screen.first; screen; screen = screen->id.next) {
 				for (ScrArea *sa = screen->areabase.first; sa; sa = sa->next) {
 					for (SpaceLink *sl = sa->spacedata.first; sl; sl = sl->next) {
 						if (sl->spacetype == SPACE_VIEW3D) {
 							View3D *v3d = (View3D *)sl;
-							v3d->overlay.bone_select_alpha = 0.5f;
+							v3d->overlay.xray_alpha_bone = 0.5f;
 						}
 					}
 				}
@@ -1786,16 +1783,17 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *bmain)
 						if (sl->spacetype == SPACE_VIEW3D) {
 							View3D *v3d = (View3D *)sl;
 							float alpha = v3d->flag2 & V3D_SHOW_MODE_SHADE_OVERRIDE ? 0.0f : 0.8f;
+							float alpha_full = v3d->flag2 & V3D_SHOW_MODE_SHADE_OVERRIDE ? 0.0f : 1.0f;
 							v3d->overlay.texture_paint_mode_opacity = alpha;
 							v3d->overlay.vertex_paint_mode_opacity = alpha;
-							v3d->overlay.weight_paint_mode_opacity = alpha;
+							v3d->overlay.weight_paint_mode_opacity = alpha_full;
 						}
 					}
 				}
 			}
 		}
 
-		if (!DNA_struct_elem_find(fd->filesdna, "View3DShadeing", "short", "background_type")) {
+		if (!DNA_struct_elem_find(fd->filesdna, "View3DShadeing", "char", "background_type")) {
 			for (bScreen *screen = bmain->screen.first; screen; screen = screen->id.next) {
 				for (ScrArea *sa = screen->areabase.first; sa; sa = sa->next) {
 					for (SpaceLink *sl = sa->spacedata.first; sl; sl = sl->next) {
@@ -1948,10 +1946,10 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *bmain)
 		}
 
 		/* default loc axis */
-		if (!DNA_struct_elem_find(fd->filesdna, "GP_BrushEdit_Settings", "int", "lock_axis")) {
+		if (!DNA_struct_elem_find(fd->filesdna, "GP_Sculpt_Settings", "int", "lock_axis")) {
 			for (Scene *scene = bmain->scene.first; scene; scene = scene->id.next) {
 				/* lock axis */
-				GP_BrushEdit_Settings *gset = &scene->toolsettings->gp_sculpt;
+				GP_Sculpt_Settings *gset = &scene->toolsettings->gp_sculpt;
 				if (gset) {
 					gset->lock_axis = GP_LOCKAXIS_Y;
 				}
@@ -2029,7 +2027,7 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *bmain)
 			for (Brush *brush = bmain->brush.first; brush; brush = brush->id.next) {
 				if (brush->gpencil_settings != NULL) {
 					BrushGpencilSettings *gp = brush->gpencil_settings;
-					if (gp->brush_type == GP_BRUSH_TYPE_ERASE) {
+					if (gp->brush_type == GPAINT_TOOL_ERASE) {
 						gp->era_strength_f = 100.0f;
 						gp->era_thickness_f = 10.0f;
 					}
@@ -2137,7 +2135,7 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *bmain)
 					for (SpaceLink *sl = sa->spacedata.first; sl; sl = sl->next) {
 						if (sl->spacetype == SPACE_VIEW3D) {
 							View3D *v3d = (View3D *)sl;
-							v3d->shading.flag |= V3D_SHADING_XRAY_WIREFRAME;
+							v3d->shading.flag |= V3D_SHADING_XRAY_BONE;
 						}
 					}
 				}
@@ -2160,9 +2158,327 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *bmain)
 			ARRAY_SET_ITEMS(gpd->grid.color, 0.5f, 0.5f, 0.5f); // Color
 			ARRAY_SET_ITEMS(gpd->grid.scale, 1.0f, 1.0f); // Scale
 			gpd->grid.lines = GP_DEFAULT_GRID_LINES; // Number of lines
-			gpd->grid.axis = GP_GRID_AXIS_Y;
+		}
+	}
+
+	{
+		for (bScreen *screen = bmain->screen.first; screen; screen = screen->id.next) {
+			for (ScrArea *sa = screen->areabase.first; sa; sa = sa->next) {
+				for (SpaceLink *sl = sa->spacedata.first; sl; sl = sl->next) {
+					if (sl->spacetype == SPACE_VIEW3D) {
+						View3D *v3d = (View3D *)sl;
+						if (v3d->flag2 & V3D_OCCLUDE_WIRE) {
+							v3d->overlay.edit_flag |= V3D_OVERLAY_EDIT_OCCLUDE_WIRE;
+							v3d->flag2 &= ~V3D_OCCLUDE_WIRE;
+						}
+					}
+				}
+			}
+		}
+	}
+
+	if (!MAIN_VERSION_ATLEAST(bmain, 280, 29)) {
+		for (bScreen *screen = bmain->screen.first; screen; screen = screen->id.next) {
+			for (ScrArea *sa = screen->areabase.first; sa; sa = sa->next) {
+				for (SpaceLink *sl = sa->spacedata.first; sl; sl = sl->next) {
+					if (sl->spacetype == SPACE_BUTS) {
+						ListBase *regionbase = (sl == sa->spacedata.first) ? &sa->regionbase : &sl->regionbase;
+						ARegion *ar = MEM_callocN(sizeof(ARegion), "navigation bar for properties");
+						ARegion *ar_header = NULL;
+
+						for (ar_header = regionbase->first; ar_header; ar_header = ar_header->next) {
+							if (ar_header->regiontype == RGN_TYPE_HEADER) {
+								break;
+							}
+						}
+						BLI_assert(ar_header);
+
+						BLI_insertlinkafter(regionbase, ar_header, ar);
+
+						ar->regiontype = RGN_TYPE_NAV_BAR;
+						ar->alignment = RGN_ALIGN_LEFT;
+					}
+				}
+			}
+		}
+
+		/* grease pencil fade layer opacity */
+		if (!DNA_struct_elem_find(fd->filesdna, "View3DOverlay", "float", "gpencil_fade_layer")) {
+			for (bScreen *screen = bmain->screen.first; screen; screen = screen->id.next) {
+				for (ScrArea *sa = screen->areabase.first; sa; sa = sa->next) {
+					for (SpaceLink *sl = sa->spacedata.first; sl; sl = sl->next) {
+						if (sl->spacetype == SPACE_VIEW3D) {
+							View3D *v3d = (View3D *)sl;
+							v3d->overlay.gpencil_fade_layer = 0.5f;
+						}
+					}
+				}
+			}
+		}
+
+		for (Object *ob = bmain->object.first; ob; ob = ob->id.next) {
+			ob->empty_image_visibility_flag = (
+			        OB_EMPTY_IMAGE_VISIBLE_PERSPECTIVE |
+			        OB_EMPTY_IMAGE_VISIBLE_ORTHOGRAPHIC |
+			        OB_EMPTY_IMAGE_VISIBLE_BACKSIDE);
 		}
 
 
+	}
+
+	if (!MAIN_VERSION_ATLEAST(bmain, 280, 30)) {
+		/* grease pencil main material show switches */
+		for (Material *mat = bmain->mat.first; mat; mat = mat->id.next) {
+			if (mat->gp_style) {
+				mat->gp_style->flag |= GP_STYLE_STROKE_SHOW;
+				mat->gp_style->flag |= GP_STYLE_FILL_SHOW;
+			}
+		}
+	}
+
+	if (!MAIN_VERSION_ATLEAST(bmain, 280, 33)) {
+		/* Grease pencil reset sculpt brushes after struct rename  */
+		if (!DNA_struct_elem_find(fd->filesdna, "GP_Sculpt_Settings", "int", "weighttype")) {
+			float curcolor_add[3], curcolor_sub[3];
+			ARRAY_SET_ITEMS(curcolor_add, 1.0f, 0.6f, 0.6f);
+			ARRAY_SET_ITEMS(curcolor_sub, 0.6f, 0.6f, 1.0f);
+
+			for (Scene *scene = bmain->scene.first; scene; scene = scene->id.next) {
+				/* sculpt brushes */
+				GP_Sculpt_Settings *gset = &scene->toolsettings->gp_sculpt;
+				if (gset) {
+					for (int i = 0; i < GP_SCULPT_TYPE_MAX; i++) {
+						GP_Sculpt_Data *gp_brush = &gset->brush[i];
+						gp_brush->size = 30;
+						gp_brush->strength = 0.5f;
+						gp_brush->flag = GP_SCULPT_FLAG_USE_FALLOFF | GP_SCULPT_FLAG_ENABLE_CURSOR;
+						copy_v3_v3(gp_brush->curcolor_add, curcolor_add);
+						copy_v3_v3(gp_brush->curcolor_sub, curcolor_sub);
+					}
+				}
+			}
+		}
+
+		/* Grease pencil target weight  */
+		if (!DNA_struct_elem_find(fd->filesdna, "GP_Sculpt_Settings", "float", "target_weight")) {
+			for (Scene *scene = bmain->scene.first; scene; scene = scene->id.next) {
+				/* sculpt brushes */
+				GP_Sculpt_Settings *gset = &scene->toolsettings->gp_sculpt;
+				if (gset) {
+					for (int i = 0; i < GP_SCULPT_TYPE_MAX; i++) {
+						GP_Sculpt_Data *gp_brush = &gset->brush[i];
+						gp_brush->target_weight = 1.0f;
+					}
+				}
+			}
+		}
+
+		if (!DNA_struct_elem_find(fd->filesdna, "SceneEEVEE", "float", "overscan")) {
+			for (Scene *scene = bmain->scene.first; scene; scene = scene->id.next) {
+				scene->eevee.overscan = 3.0f;
+			}
+		}
+
+		for (Lamp *la = bmain->lamp.first; la; la = la->id.next) {
+			/* Removed Hemi lights. */
+			if (!ELEM(la->type, LA_LOCAL, LA_SUN, LA_SPOT, LA_AREA)) {
+				la->type = LA_SUN;
+			}
+		}
+
+		if (!DNA_struct_elem_find(fd->filesdna, "SceneEEVEE", "float", "light_threshold")) {
+			for (Scene *scene = bmain->scene.first; scene; scene = scene->id.next) {
+				scene->eevee.light_threshold = 0.01f;
+			}
+		}
+
+		if (!DNA_struct_elem_find(fd->filesdna, "SceneEEVEE", "float", "gi_irradiance_smoothing")) {
+			for (Scene *scene = bmain->scene.first; scene; scene = scene->id.next) {
+				scene->eevee.gi_irradiance_smoothing = 0.1f;
+			}
+		}
+
+		if (!DNA_struct_elem_find(fd->filesdna, "SceneEEVEE", "float", "gi_filter_quality")) {
+			for (Scene *scene = bmain->scene.first; scene; scene = scene->id.next) {
+				scene->eevee.gi_filter_quality = 1.0f;
+			}
+		}
+
+		if (!DNA_struct_elem_find(fd->filesdna, "Lamp", "float", "att_dist")) {
+			for (Lamp *la = bmain->lamp.first; la; la = la->id.next) {
+				la->att_dist = la->clipend;
+			}
+		}
+
+		if (!DNA_struct_elem_find(fd->filesdna, "Brush", "char", "weightpaint_tool")) {
+			/* Magic defines from old files (2.7x) */
+
+#define PAINT_BLEND_MIX 0
+#define PAINT_BLEND_ADD 1
+#define PAINT_BLEND_SUB 2
+#define PAINT_BLEND_MUL 3
+#define PAINT_BLEND_BLUR 4
+#define PAINT_BLEND_LIGHTEN 5
+#define PAINT_BLEND_DARKEN 6
+#define PAINT_BLEND_AVERAGE 7
+#define PAINT_BLEND_SMEAR 8
+#define PAINT_BLEND_COLORDODGE 9
+#define PAINT_BLEND_DIFFERENCE 10
+#define PAINT_BLEND_SCREEN 11
+#define PAINT_BLEND_HARDLIGHT 12
+#define PAINT_BLEND_OVERLAY 13
+#define PAINT_BLEND_SOFTLIGHT 14
+#define PAINT_BLEND_EXCLUSION 15
+#define PAINT_BLEND_LUMINOSITY 16
+#define PAINT_BLEND_SATURATION 17
+#define PAINT_BLEND_HUE 18
+#define PAINT_BLEND_ALPHA_SUB 19
+#define PAINT_BLEND_ALPHA_ADD 20
+
+			for (Brush *brush = bmain->brush.first; brush; brush = brush->id.next) {
+				if (brush->ob_mode & (OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT)) {
+					const char tool_init = brush->vertexpaint_tool;
+					bool is_blend = false;
+
+					{
+						char tool = tool_init;
+						switch (tool_init) {
+							case PAINT_BLEND_MIX: tool = VPAINT_TOOL_DRAW; break;
+							case PAINT_BLEND_BLUR: tool = VPAINT_TOOL_BLUR; break;
+							case PAINT_BLEND_AVERAGE: tool = VPAINT_TOOL_AVERAGE; break;
+							case PAINT_BLEND_SMEAR: tool = VPAINT_TOOL_SMEAR; break;
+							default:
+								tool = VPAINT_TOOL_DRAW;
+								is_blend = true;
+								break;
+						}
+						brush->vertexpaint_tool = tool;
+					}
+
+					if (is_blend == false) {
+						brush->blend = IMB_BLEND_MIX;
+					}
+					else {
+						short blend = IMB_BLEND_MIX;
+						switch (tool_init) {
+							case PAINT_BLEND_ADD: blend = IMB_BLEND_ADD; break;
+							case PAINT_BLEND_SUB: blend = IMB_BLEND_SUB; break;
+							case PAINT_BLEND_MUL: blend = IMB_BLEND_MUL; break;
+							case PAINT_BLEND_LIGHTEN: blend = IMB_BLEND_LIGHTEN; break;
+							case PAINT_BLEND_DARKEN: blend = IMB_BLEND_DARKEN; break;
+							case PAINT_BLEND_COLORDODGE: blend = IMB_BLEND_COLORDODGE; break;
+							case PAINT_BLEND_DIFFERENCE: blend = IMB_BLEND_DIFFERENCE; break;
+							case PAINT_BLEND_SCREEN: blend = IMB_BLEND_SCREEN; break;
+							case PAINT_BLEND_HARDLIGHT: blend = IMB_BLEND_HARDLIGHT; break;
+							case PAINT_BLEND_OVERLAY: blend = IMB_BLEND_OVERLAY; break;
+							case PAINT_BLEND_SOFTLIGHT: blend = IMB_BLEND_SOFTLIGHT; break;
+							case PAINT_BLEND_EXCLUSION: blend = IMB_BLEND_EXCLUSION; break;
+							case PAINT_BLEND_LUMINOSITY: blend = IMB_BLEND_LUMINOSITY; break;
+							case PAINT_BLEND_SATURATION: blend = IMB_BLEND_SATURATION; break;
+							case PAINT_BLEND_HUE: blend = IMB_BLEND_HUE; break;
+							case PAINT_BLEND_ALPHA_SUB: blend = IMB_BLEND_ERASE_ALPHA; break;
+							case PAINT_BLEND_ALPHA_ADD: blend = IMB_BLEND_ADD_ALPHA; break;
+						}
+						brush->blend = blend;
+					}
+				}
+				/* For now these match, in the future new items may not. */
+				brush->weightpaint_tool = brush->vertexpaint_tool;
+			}
+
+#undef PAINT_BLEND_MIX
+#undef PAINT_BLEND_ADD
+#undef PAINT_BLEND_SUB
+#undef PAINT_BLEND_MUL
+#undef PAINT_BLEND_BLUR
+#undef PAINT_BLEND_LIGHTEN
+#undef PAINT_BLEND_DARKEN
+#undef PAINT_BLEND_AVERAGE
+#undef PAINT_BLEND_SMEAR
+#undef PAINT_BLEND_COLORDODGE
+#undef PAINT_BLEND_DIFFERENCE
+#undef PAINT_BLEND_SCREEN
+#undef PAINT_BLEND_HARDLIGHT
+#undef PAINT_BLEND_OVERLAY
+#undef PAINT_BLEND_SOFTLIGHT
+#undef PAINT_BLEND_EXCLUSION
+#undef PAINT_BLEND_LUMINOSITY
+#undef PAINT_BLEND_SATURATION
+#undef PAINT_BLEND_HUE
+#undef PAINT_BLEND_ALPHA_SUB
+#undef PAINT_BLEND_ALPHA_ADD
+		}
+	}
+
+	if (!MAIN_VERSION_ATLEAST(bmain, 280, 34)) {
+		for (bScreen *screen = bmain->screen.first; screen; screen = screen->id.next) {
+			for (ScrArea *area = screen->areabase.first; area; area = area->next) {
+				for (SpaceLink *slink = area->spacedata.first; slink; slink = slink->next) {
+					if (slink->spacetype == SPACE_USERPREF) {
+						ARegion *navigation_region = BKE_spacedata_find_region_type(slink, area, RGN_TYPE_NAV_BAR);
+
+						if (!navigation_region) {
+							ListBase *regionbase = (slink == area->spacedata.first) ?
+							                           &area->regionbase : &slink->regionbase;
+
+							navigation_region = MEM_callocN(sizeof(ARegion), "userpref navigation-region do_versions");
+
+							BLI_addhead(regionbase, navigation_region); /* order matters, addhead not addtail! */
+							navigation_region->regiontype = RGN_TYPE_NAV_BAR;
+							navigation_region->alignment = RGN_ALIGN_LEFT;
+						}
+					}
+				}
+			}
+		}
+	}
+
+	{
+		/* Versioning code until next subversion bump goes here. */
+
+		if (!DNA_struct_elem_find(fd->filesdna, "View3DShading", "float", "curvature_ridge_factor")) {
+			for (bScreen *screen = bmain->screen.first; screen; screen = screen->id.next) {
+				for (ScrArea *sa = screen->areabase.first; sa; sa = sa->next) {
+					for (SpaceLink *sl = sa->spacedata.first; sl; sl = sl->next) {
+						if (sl->spacetype == SPACE_VIEW3D) {
+							View3D *v3d = (View3D *)sl;
+							v3d->shading.curvature_ridge_factor = 1.0f;
+							v3d->shading.curvature_valley_factor = 1.0f;
+						}
+					}
+				}
+			}
+		}
+
+		/* Rename OpenGL to Workbench. */
+		for (Scene *scene = bmain->scene.first; scene; scene = scene->id.next) {
+			if (STREQ(scene->r.engine, "BLENDER_OPENGL")) {
+				STRNCPY(scene->r.engine, RE_engine_id_BLENDER_WORKBENCH);
+			}
+		}
+
+		/* init Annotations onion skin */
+		if (!DNA_struct_elem_find(fd->filesdna, "bGPDlayer", "int", "gstep")) {
+			for (bGPdata *gpd = bmain->gpencil.first; gpd; gpd = gpd->id.next) {
+				for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
+					ARRAY_SET_ITEMS(gpl->gcolor_prev, 0.302f, 0.851f, 0.302f);
+					ARRAY_SET_ITEMS(gpl->gcolor_next, 0.250f, 0.1f, 1.0f);
+				}
+			}
+		}
+
+		/* Move studio_light selection to lookdev_light. */
+		if (!DNA_struct_elem_find(fd->filesdna, "View3DShading", "char", "lookdev_light[256]")) {
+			for (bScreen *screen = bmain->screen.first; screen; screen = screen->id.next) {
+				for (ScrArea *sa = screen->areabase.first; sa; sa = sa->next) {
+					for (SpaceLink *sl = sa->spacedata.first; sl; sl = sl->next) {
+						if (sl->spacetype == SPACE_VIEW3D) {
+							View3D *v3d = (View3D *)sl;
+							memcpy(v3d->shading.lookdev_light, v3d->shading.studio_light, sizeof(char) * 256);
+						}
+					}
+				}
+			}
+		}
 	}
 }

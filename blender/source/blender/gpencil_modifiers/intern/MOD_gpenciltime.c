@@ -57,6 +57,8 @@ static void initData(GpencilModifierData *md)
 	gpmd->offset = 1;
 	gpmd->frame_scale = 1.0f;
 	gpmd->flag |= GP_TIME_KEEP_LOOP;
+	gpmd->sfra = 1;
+	gpmd->efra = 250;
 }
 
 static void copyData(const GpencilModifierData *md, GpencilModifierData *target)
@@ -69,10 +71,16 @@ static int remapTime(
         struct Scene *scene, struct Object *UNUSED(ob), struct bGPDlayer *gpl, int cfra)
 {
 	TimeGpencilModifierData *mmd = (TimeGpencilModifierData *)md;
-	const int sfra = scene->r.sfra;
-	const int efra = scene->r.efra;
+	const bool custom = mmd->flag &	GP_TIME_CUSTOM_RANGE;
 	const bool invgpl = mmd->flag & GP_TIME_INVERT_LAYER;
 	const bool invpass = mmd->flag & GP_TIME_INVERT_LAYERPASS;
+	int sfra = custom ? mmd->sfra : scene->r.sfra;
+	int efra = custom ? mmd->efra : scene->r.efra;
+	CLAMP_MIN(sfra, 1);
+	CLAMP_MIN(efra, 1);
+	const int time_range = efra - sfra + 1;
+	int offset = mmd->offset;
+	int segments = 0;
 
 	/* omit if filter by layer */
 	if (mmd->layername[0] != '\0') {
@@ -103,7 +111,7 @@ static int remapTime(
 
 	/* if fix mode, return predefined frame number */
 	if (mmd->mode == GP_TIME_MODE_FIX) {
-		return mmd->offset;
+		return offset;
 	}
 
 	/* invert current frame number */
@@ -113,24 +121,48 @@ static int remapTime(
 
 	/* apply frame scale */
 	cfra *= mmd->frame_scale;
+
+	/* verify offset never is greater than frame range */
+	if (abs(offset) > time_range) {
+		offset = offset - ((offset / time_range) * time_range);
+	}
+
+	/* verify not outside range if loop is disabled */
+	if ((mmd->flag & GP_TIME_KEEP_LOOP) == 0) {
+		if (cfra + offset < sfra) {
+			return sfra;
+		}
+		if (cfra + offset > efra) {
+			return efra;
+		}
+	}
+
+	/* check frames before start */
+	if (cfra < sfra) {
+		segments = ((cfra + sfra) / time_range);
+		cfra = cfra + (segments * time_range);
+	}
+
+	/* check frames after end */
 	if (cfra > efra) {
-		cfra = sfra + (cfra - ((cfra / efra) * efra));
+		segments = ((cfra - sfra) / time_range);
+		cfra = cfra - (segments * time_range);
 	}
 
 	if (mmd->flag & GP_TIME_KEEP_LOOP) {
-		const int nfra = cfra + mmd->offset;
+		const int nfra = cfra + offset;
 
 		/* if the sum of the cfra is out scene frame range, recalc */
-		if (cfra + mmd->offset < sfra) {
+		if (cfra + offset < sfra) {
 			const int delta = abs(sfra - nfra);
 			return efra - delta + 1;
 		}
-		else if (cfra + mmd->offset > efra) {
+		else if (cfra + offset > efra) {
 			return nfra - efra + sfra - 1;
 		}
 	}
 
-	return cfra + mmd->offset;
+	return cfra + offset;
 }
 
 GpencilModifierTypeInfo modifierType_Gpencil_Time = {
@@ -155,4 +187,5 @@ GpencilModifierTypeInfo modifierType_Gpencil_Time = {
 	/* foreachObjectLink */ NULL,
 	/* foreachIDLink */     NULL,
 	/* foreachTexLink */    NULL,
+	/* getDuplicationFactor */ NULL,
 };

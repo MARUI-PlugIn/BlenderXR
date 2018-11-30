@@ -27,7 +27,7 @@
  *  \ingroup bke
  *  \brief General operations for speakers.
  */
-
+ 
 #include "../vr/vr_build.h"
 #if WITH_VR
 #ifdef __cplusplus

@@ -41,6 +41,8 @@
 #include "DNA_space_types.h"
 #include "DNA_windowmanager_types.h"
 
+#include "UI_interface.h"
+
 #include "wm_cursors.h"
 
 #include "rna_internal.h"  /* own include */
@@ -72,6 +74,11 @@ const EnumPropertyItem rna_enum_window_cursor_items[] = {
 #include "BKE_context.h"
 
 #include "WM_types.h"
+
+static void rna_KeyMapItem_to_string(wmKeyMapItem *kmi, bool compact, char *result)
+{
+	WM_keymap_item_to_string(kmi, compact, result, UI_MAX_SHORTCUT_STR);
+}
 
 static wmKeyMap *rna_keymap_active(wmKeyMap *km, bContext *C)
 {
@@ -240,6 +247,25 @@ static wmKeyMapItem *rna_KeyMap_item_new(
 	return kmi;
 }
 
+static wmKeyMapItem *rna_KeyMap_item_new_from_item(
+        wmKeyMap *km, ReportList *reports, wmKeyMapItem *kmi_src, bool head)
+{
+/*	wmWindowManager *wm = CTX_wm_manager(C); */
+
+	if ((km->flag & KEYMAP_MODAL) == (kmi_src->idname[0] != '\0')) {
+		BKE_report(reports, RPT_ERROR, "Can not mix mondal/non-modal items");
+		return NULL;
+	}
+
+	/* create keymap item */
+	wmKeyMapItem *kmi = WM_keymap_add_item_copy(km, kmi_src);
+	if (head) {
+		BLI_remlink(&km->items, kmi);
+		BLI_addhead(&km->items, kmi);
+	}
+	return kmi;
+}
+
 static wmKeyMapItem *rna_KeyMap_item_new_modal(
         wmKeyMap *km, ReportList *reports, const char *propvalue_str,
         int type, int value, bool any, bool shift, bool ctrl, bool alt,
@@ -283,14 +309,22 @@ static void rna_KeyMap_item_remove(wmKeyMap *km, ReportList *reports, PointerRNA
 	RNA_POINTER_INVALIDATE(kmi_ptr);
 }
 
-static wmKeyMap *rna_keymap_new(wmKeyConfig *keyconf, const char *idname, int spaceid, int regionid, bool modal)
+static wmKeyMap *rna_keymap_new(wmKeyConfig *keyconf, const char *idname, int spaceid, int regionid, bool modal, bool tool)
 {
+	wmKeyMap *keymap;
+
 	if (modal == 0) {
-		return WM_keymap_ensure(keyconf, idname, spaceid, regionid);
+		keymap = WM_keymap_ensure(keyconf, idname, spaceid, regionid);
 	}
 	else {
-		return WM_modalkeymap_add(keyconf, idname, NULL); /* items will be lazy init */
+		keymap = WM_modalkeymap_add(keyconf, idname, NULL); /* items will be lazy init */
 	}
+
+	if (keymap && tool) {
+		keymap->flag |= KEYMAP_TOOL;
+	}
+
+	return keymap;
 }
 
 static wmKeyMap *rna_keymap_find(wmKeyConfig *keyconf, const char *idname, int spaceid, int regionid)
@@ -803,6 +837,12 @@ void RNA_api_keymapitem(StructRNA *srna)
 	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	parm = RNA_def_boolean(func, "result", 0, "Comparison result", "");
 	RNA_def_function_return(func, parm);
+
+	func = RNA_def_function(srna, "to_string", "rna_KeyMapItem_to_string");
+	RNA_def_boolean(func, "compact", false, "Compact", "");
+	parm = RNA_def_string(func, "result", NULL, UI_MAX_SHORTCUT_STR, "result", "");
+	RNA_def_parameter_flags(parm, PROP_THICK_WRAP, 0);
+	RNA_def_function_output(func, parm);
 }
 
 void RNA_api_keymapitems(StructRNA *srna)
@@ -847,6 +887,14 @@ void RNA_api_keymapitems(StructRNA *srna)
 	parm = RNA_def_pointer(func, "item", "KeyMapItem", "Item", "Added key map item");
 	RNA_def_function_return(func, parm);
 
+	func = RNA_def_function(srna, "new_from_item", "rna_KeyMap_item_new_from_item");
+	RNA_def_function_flag(func, FUNC_USE_REPORTS);
+	parm = RNA_def_pointer(func, "item", "KeyMapItem", "Item", "Item to use as a reference");
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
+	RNA_def_boolean(func, "head", 0, "At Head", "");
+	parm = RNA_def_pointer(func, "result", "KeyMapItem", "Item", "Added key map item");
+	RNA_def_function_return(func, parm);
+
 	func = RNA_def_function(srna, "remove", "rna_KeyMap_item_remove");
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	parm = RNA_def_pointer(func, "item", "KeyMapItem", "Item", "");
@@ -871,7 +919,8 @@ void RNA_api_keymaps(StructRNA *srna)
 	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	RNA_def_enum(func, "space_type", rna_enum_space_type_items, SPACE_EMPTY, "Space Type", "");
 	RNA_def_enum(func, "region_type", rna_enum_region_type_items, RGN_TYPE_WINDOW, "Region Type", "");
-	RNA_def_boolean(func, "modal", 0, "Modal", "");
+	RNA_def_boolean(func, "modal", 0, "Modal", "Keymap for modal operators");
+	RNA_def_boolean(func, "tool", 0, "Tool", "Keymap for active tools");
 	parm = RNA_def_pointer(func, "keymap", "KeyMap", "Key Map", "Added key map");
 	RNA_def_function_return(func, parm);
 

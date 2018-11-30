@@ -65,7 +65,6 @@
 #include "ED_anim_api.h"
 #include "ED_armature.h"
 #include "ED_keyframes_edit.h" // XXX move the select modes out of there!
-#include "ED_keymap_templates.h"
 #include "ED_object.h"
 #include "ED_screen.h"
 #include "ED_select_utils.h"
@@ -255,10 +254,10 @@ static void select_pchan_for_action_group(bAnimContext *ac, bActionGroup *agrp, 
 }
 
 /* Deselect all animation channels
- *	- data: pointer to datatype, as contained in bAnimContext
- *	- datatype: the type of data that 'data' represents (eAnimCont_Types)
- *	- test: check if deselecting instead of selecting
- *	- sel: eAnimChannels_SetFlag;
+ * - data: pointer to datatype, as contained in bAnimContext
+ * - datatype: the type of data that 'data' represents (eAnimCont_Types)
+ * - test: check if deselecting instead of selecting
+ * - sel: eAnimChannels_SetFlag;
  */
 void ANIM_deselect_anim_channels(bAnimContext *ac, void *data, eAnimCont_Types datatype, bool test, eAnimChannels_SetFlag sel)
 {
@@ -454,13 +453,13 @@ void ANIM_deselect_anim_channels(bAnimContext *ac, void *data, eAnimCont_Types d
 /* ---------------------------- Graph Editor ------------------------------------- */
 
 /* Flush visibility (for Graph Editor) changes up/down hierarchy for changes in the given setting
- *	- anim_data: list of the all the anim channels that can be chosen
- *		-> filtered using ANIMFILTER_CHANNELS only, since if we took VISIBLE too,
- *		  then the channels under closed expanders get ignored...
- *	- ale_setting: the anim channel (not in the anim_data list directly, though occurring there)
- *		with the new state of the setting that we want flushed up/down the hierarchy
- *	- setting: type of setting to set
- *	- on: whether the visibility setting has been enabled or disabled
+ * - anim_data: list of the all the anim channels that can be chosen
+ *   -> filtered using ANIMFILTER_CHANNELS only, since if we took VISIBLE too,
+ *      then the channels under closed expanders get ignored...
+ * - ale_setting: the anim channel (not in the anim_data list directly, though occurring there)
+ *   with the new state of the setting that we want flushed up/down the hierarchy
+ * - setting: type of setting to set
+ * - on: whether the visibility setting has been enabled or disabled
  */
 void ANIM_flush_setting_anim_channels(bAnimContext *ac, ListBase *anim_data, bAnimListElem *ale_setting, eAnimChannel_Settings setting, eAnimChannels_SetFlag mode)
 {
@@ -509,12 +508,12 @@ void ANIM_flush_setting_anim_channels(bAnimContext *ac, ListBase *anim_data, bAn
 	/* flush up?
 	 *
 	 * For Visibility:
-	 *	- only flush up if the current state is now enabled (positive 'on' state is default)
-	 *	  (otherwise, it's too much work to force the parents to be inactive too)
+	 * - only flush up if the current state is now enabled (positive 'on' state is default)
+	 *   (otherwise, it's too much work to force the parents to be inactive too)
 	 *
 	 * For everything else:
-	 *	- only flush up if the current state is now disabled (negative 'off' state is default)
-	 *	  (otherwise, it's too much work to force the parents to be active too)
+	 * - only flush up if the current state is now disabled (negative 'off' state is default)
+	 *   (otherwise, it's too much work to force the parents to be active too)
 	 */
 	if ( ((setting == ACHANNEL_SETTING_VISIBLE) && (mode != ACHANNEL_SETFLAG_CLEAR)) ||
 	     ((setting != ACHANNEL_SETTING_VISIBLE) && (mode == ACHANNEL_SETFLAG_CLEAR)))
@@ -601,17 +600,17 @@ void ANIM_flush_setting_anim_channels(bAnimContext *ac, ListBase *anim_data, bAn
 void ANIM_fcurve_delete_from_animdata(bAnimContext *ac, AnimData *adt, FCurve *fcu)
 {
 	/* - if no AnimData, we've got nowhere to remove the F-Curve from
-	 *	(this doesn't guarantee that the F-Curve is in there, but at least we tried
+	 *   (this doesn't guarantee that the F-Curve is in there, but at least we tried
 	 * - if no F-Curve, there is nothing to remove
 	 */
 	if (ELEM(NULL, adt, fcu))
 		return;
 
 	/* remove from whatever list it came from
-	 *	- Action Group
-	 *	- Action
-	 *	- Drivers
-	 *	- TODO... some others?
+	 * - Action Group
+	 * - Action
+	 * - Drivers
+	 * - TODO... some others?
 	 */
 	if ((ac) && (ac->datatype == ANIMCONT_DRIVERS)) {
 		/* driver F-Curve */
@@ -1014,8 +1013,8 @@ static bool rearrange_animchannel_islands(ListBase *list, AnimChanRearrangeFp re
 	}
 
 	/* perform moving of selected islands now, but only if there is more than one of 'em so that something will happen
-	 *	- scanning of the list is performed in the opposite direction to the direction we're moving things, so that we
-	 *	  shouldn't need to encounter items we've moved already
+	 * - scanning of the list is performed in the opposite direction to the direction we're moving things, so that we
+	 *   shouldn't need to encounter items we've moved already
 	 */
 	if (islands.first != islands.last) {
 		tReorderChannelIsland *first = (mode > 0) ? islands.last : islands.first;
@@ -1043,7 +1042,7 @@ static bool rearrange_animchannel_islands(ListBase *list, AnimChanRearrangeFp re
 
 /* Change the order NLA Tracks within NLA Stack
  * ! NLA tracks are displayed in opposite order, so directions need care
- *	mode: REARRANGE_ANIMCHAN_*
+ * mode: REARRANGE_ANIMCHAN_*
  */
 static void rearrange_nla_channels(bAnimContext *ac, AnimData *adt, eRearrangeAnimChan_Mode mode)
 {
@@ -1071,7 +1070,7 @@ static void rearrange_nla_channels(bAnimContext *ac, AnimData *adt, eRearrangeAn
 /* Drivers Specific Stuff ------------------------------------------------- */
 
 /* Change the order drivers within AnimData block
- *	mode: REARRANGE_ANIMCHAN_*
+ * mode: REARRANGE_ANIMCHAN_*
  */
 static void rearrange_driver_channels(bAnimContext *ac, AnimData *adt, eRearrangeAnimChan_Mode mode)
 {
@@ -1186,7 +1185,7 @@ static void join_groups_action_temp(bAction *act)
 }
 
 /* Change the order of anim-channels within action
- *	mode: REARRANGE_ANIMCHAN_*
+ * mode: REARRANGE_ANIMCHAN_*
  */
 static void rearrange_action_channels(bAnimContext *ac, bAction *act, eRearrangeAnimChan_Mode mode)
 {
@@ -1207,8 +1206,8 @@ static void rearrange_action_channels(bAnimContext *ac, bAction *act, eRearrange
 	rearrange_animchannels_filter_visible(&anim_data_visible, ac, ANIMTYPE_GROUP);
 
 	/* rearrange groups first
-	 *	- the group's channels will only get considered if nothing happened when rearranging the groups
-	 *	  i.e. the rearrange function returned 0
+	 * - the group's channels will only get considered if nothing happened when rearranging the groups
+	 *   i.e. the rearrange function returned 0
 	 */
 	do_channels = (rearrange_animchannel_islands(&act->groups, rearrange_func, mode, ANIMTYPE_GROUP,
 	                                             &anim_data_visible) == 0);
@@ -1793,9 +1792,9 @@ static const EnumPropertyItem prop_animchannel_settings_types[] = {
 /* ------------------- */
 
 /* Set/clear a particular flag (setting) for all selected + visible channels
- *	setting: the setting to modify
- *	mode: eAnimChannels_SetFlag
- *	onlysel: only selected channels get the flag set
+ * setting: the setting to modify
+ * mode: eAnimChannels_SetFlag
+ * onlysel: only selected channels get the flag set
  */
 // TODO: enable a setting which turns flushing on/off?
 static void setflag_anim_channels(bAnimContext *ac, eAnimChannel_Settings setting, eAnimChannels_SetFlag mode, bool onlysel, bool flush)
@@ -1888,7 +1887,7 @@ static int animchannels_setflag_exec(bContext *C, wmOperator *op)
 		flush = false;
 
 	/* modify setting
-	 *	- only selected channels are affected
+	 * - only selected channels are affected
 	 */
 	setflag_anim_channels(&ac, setting, mode, true, flush);
 
@@ -2584,8 +2583,8 @@ static int animchannels_channel_get(bAnimContext *ac, const int mval[2])
 
 	/* figure out which channel user clicked in
 	 * Note: although channels technically start at (y = ACHANNEL_FIRST), we need to adjust by half a channel's height
-	 *		so that the tops of channels get caught ok. Since ACHANNEL_FIRST is really ACHANNEL_HEIGHT, we simply use
-	 *		ACHANNEL_HEIGHT_HALF.
+	 *       so that the tops of channels get caught ok. Since ACHANNEL_FIRST is really ACHANNEL_HEIGHT, we simply use
+	 *       ACHANNEL_HEIGHT_HALF.
 	 */
 	UI_view2d_region_to_view(v2d, mval[0], mval[1], &x, &y);
 
@@ -2911,7 +2910,7 @@ static int mouse_anim_channels(bContext *C, bAnimContext *ac, int channel_index,
 			bGPdata *gpd = (bGPdata *)ale->data;
 
 			/* toggle expand
-			 *	- although the triangle widget already allows this, the whole channel can also be used for this purpose
+			 * - although the triangle widget already allows this, the whole channel can also be used for this purpose
 			 */
 			gpd->flag ^= GP_DATA_EXPAND;
 
@@ -2920,6 +2919,7 @@ static int mouse_anim_channels(bContext *C, bAnimContext *ac, int channel_index,
 		}
 		case ANIMTYPE_GPLAYER:
 		{
+			bGPdata *gpd = (bGPdata *)ale->id;
 			bGPDlayer *gpl = (bGPDlayer *)ale->data;
 
 			/* select/deselect */
@@ -2936,10 +2936,12 @@ static int mouse_anim_channels(bContext *C, bAnimContext *ac, int channel_index,
 			/* change active layer, if this is selected (since we must always have an active layer) */
 			if (gpl->flag & GP_LAYER_SELECT) {
 				ANIM_set_active_channel(ac, ac->data, ac->datatype, filter, gpl, ANIMTYPE_GPLAYER);
+				/* update other layer status */
+				BKE_gpencil_layer_setactive(gpd, gpl);
 			}
 
-			WM_event_add_notifier(C, NC_GPENCIL | NA_EDITED, NULL); /* Grease Pencil updates */
-			notifierFlags |= (ND_ANIMCHAN | NA_EDITED); /* Animation Ediotrs updates */
+			WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED | ND_SPACE_PROPERTIES, NULL); /* Grease Pencil updates */
+			notifierFlags |= (ND_ANIMCHAN | NA_EDITED); /* Animation Editors updates */
 			break;
 		}
 		case ANIMTYPE_MASKDATABLOCK:
@@ -2947,7 +2949,7 @@ static int mouse_anim_channels(bContext *C, bAnimContext *ac, int channel_index,
 			Mask *mask = (Mask *)ale->data;
 
 			/* toggle expand
-			 *	- although the triangle widget already allows this, the whole channel can also be used for this purpose
+			 * - although the triangle widget already allows this, the whole channel can also be used for this purpose
 			 */
 			mask->flag ^= MASK_ANIMF_EXPAND;
 
@@ -3017,8 +3019,8 @@ static int animchannels_mouseclick_invoke(bContext *C, wmOperator *op, const wmE
 
 	/* figure out which channel user clicked in
 	 * Note: although channels technically start at (y = ACHANNEL_FIRST), we need to adjust by half a channel's height
-	 *		so that the tops of channels get caught ok. Since ACHANNEL_FIRST is really ACHANNEL_HEIGHT, we simply use
-	 *		ACHANNEL_HEIGHT_HALF.
+	 *       so that the tops of channels get caught ok. Since ACHANNEL_FIRST is really ACHANNEL_HEIGHT, we simply use
+	 *       ACHANNEL_HEIGHT_HALF.
 	 */
 	UI_view2d_region_to_view(v2d, event->mval[0], event->mval[1], &x, &y);
 	UI_view2d_listview_view_to_cell(v2d, ACHANNEL_NAMEWIDTH, ACHANNEL_STEP(&ac), 0, (float)ACHANNEL_HEIGHT_HALF(&ac), x, y, NULL, &channel_index);
@@ -3195,61 +3197,7 @@ void ED_operatortypes_animchannels(void)
 // TODO: check on a poll callback for this, to get hotkeys into menus
 void ED_keymap_animchannels(wmKeyConfig *keyconf)
 {
-	wmKeyMap *keymap = WM_keymap_ensure(keyconf, "Animation Channels", 0, 0);
-	wmKeyMapItem *kmi;
-
-	/* click-select */
-	/* XXX for now, only leftmouse.... */
-	WM_keymap_add_item(keymap, "ANIM_OT_channels_click", LEFTMOUSE, KM_PRESS, 0, 0);
-	RNA_boolean_set(WM_keymap_add_item(keymap, "ANIM_OT_channels_click", LEFTMOUSE, KM_PRESS, KM_SHIFT, 0)->ptr, "extend", true);
-	RNA_boolean_set(WM_keymap_add_item(keymap, "ANIM_OT_channels_click", LEFTMOUSE, KM_PRESS, KM_CTRL | KM_SHIFT, 0)->ptr, "children_only", true);
-
-	/* rename */
-	WM_keymap_add_item(keymap, "ANIM_OT_channels_rename", LEFTMOUSE, KM_PRESS, KM_CTRL, 0);
-	WM_keymap_add_item(keymap, "ANIM_OT_channels_rename", LEFTMOUSE, KM_DBL_CLICK, 0, 0);
-	WM_keymap_add_item(keymap, "ANIM_OT_channel_select_keys", LEFTMOUSE, KM_DBL_CLICK, 0, 0);
-	RNA_boolean_set(WM_keymap_add_item(keymap, "ANIM_OT_channel_select_keys", LEFTMOUSE, KM_DBL_CLICK, KM_SHIFT, 0)->ptr, "extend", true);
-
-	/* find (i.e. a shortcut for setting the name filter) */
-	WM_keymap_add_item(keymap, "ANIM_OT_channels_find", FKEY, KM_PRESS, KM_CTRL, 0);
-
-	/* deselect all */
-	ED_keymap_template_select_all(keymap, "ANIM_OT_channels_select_all");
-
-	/* box select */
-	WM_keymap_add_item(keymap, "ANIM_OT_channels_select_box", BKEY, KM_PRESS, 0, 0);
-	WM_keymap_add_item(keymap, "ANIM_OT_channels_select_box", EVT_TWEAK_L, KM_ANY, 0, 0);
-
-	/* delete */
-	WM_keymap_add_item(keymap, "ANIM_OT_channels_delete", XKEY, KM_PRESS, 0, 0);
-	WM_keymap_add_item(keymap, "ANIM_OT_channels_delete", DELKEY, KM_PRESS, 0, 0);
-
-	/* settings */
-	WM_keymap_add_item(keymap, "ANIM_OT_channels_setting_toggle", WKEY, KM_PRESS, KM_SHIFT, 0);
-	WM_keymap_add_item(keymap, "ANIM_OT_channels_setting_enable", WKEY, KM_PRESS, KM_CTRL | KM_SHIFT, 0);
-	WM_keymap_add_item(keymap, "ANIM_OT_channels_setting_disable", WKEY, KM_PRESS, KM_ALT, 0);
-
-	/* settings - specialized hotkeys */
-	WM_keymap_add_item(keymap, "ANIM_OT_channels_editable_toggle", TABKEY, KM_PRESS, 0, 0);
-
-	/* expand/collapse */
-	WM_keymap_add_item(keymap, "ANIM_OT_channels_expand", PADPLUSKEY, KM_PRESS, 0, 0);
-	WM_keymap_add_item(keymap, "ANIM_OT_channels_collapse", PADMINUS, KM_PRESS, 0, 0);
-
-	kmi = WM_keymap_add_item(keymap, "ANIM_OT_channels_expand", PADPLUSKEY, KM_PRESS, KM_CTRL, 0);
-	RNA_boolean_set(kmi->ptr, "all", false);
-	kmi = WM_keymap_add_item(keymap, "ANIM_OT_channels_collapse", PADMINUS, KM_PRESS, KM_CTRL, 0);
-	RNA_boolean_set(kmi->ptr, "all", false);
-
-	/* rearranging */
-	RNA_enum_set(WM_keymap_add_item(keymap, "ANIM_OT_channels_move", PAGEUPKEY, KM_PRESS, 0, 0)->ptr, "direction", REARRANGE_ANIMCHAN_UP);
-	RNA_enum_set(WM_keymap_add_item(keymap, "ANIM_OT_channels_move", PAGEDOWNKEY, KM_PRESS, 0, 0)->ptr, "direction", REARRANGE_ANIMCHAN_DOWN);
-	RNA_enum_set(WM_keymap_add_item(keymap, "ANIM_OT_channels_move", PAGEUPKEY, KM_PRESS, KM_SHIFT, 0)->ptr, "direction", REARRANGE_ANIMCHAN_TOP);
-	RNA_enum_set(WM_keymap_add_item(keymap, "ANIM_OT_channels_move", PAGEDOWNKEY, KM_PRESS, KM_SHIFT, 0)->ptr, "direction", REARRANGE_ANIMCHAN_BOTTOM);
-
-	/* grouping */
-	WM_keymap_add_item(keymap, "ANIM_OT_channels_group", GKEY, KM_PRESS, KM_CTRL, 0);
-	WM_keymap_add_item(keymap, "ANIM_OT_channels_ungroup", GKEY, KM_PRESS, KM_CTRL | KM_ALT, 0);
+	WM_keymap_ensure(keyconf, "Animation Channels", 0, 0);
 }
 
 /* ************************************************************************** */

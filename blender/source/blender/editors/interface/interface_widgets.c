@@ -2016,6 +2016,21 @@ static void widget_draw_text(uiFontStyle *fstyle, uiWidgetColors *wcol, uiBut *b
 	}
 }
 
+static BIFIconID widget_icon_id(uiBut *but)
+{
+	if (!(but->flag & UI_HAS_ICON)) {
+		return ICON_NONE;
+	}
+
+	/* Consecutive icons can be toggle between. */
+	if (but->drawflag & UI_BUT_ICON_REVERSE) {
+		return but->icon - but->iconadd;
+	}
+	else {
+		return but->icon + but->iconadd;
+	}
+}
+
 /* draws text and icons for buttons */
 static void widget_draw_text_icon(uiFontStyle *fstyle, uiWidgetColors *wcol, uiBut *but, rcti *rect)
 {
@@ -2039,7 +2054,7 @@ static void widget_draw_text_icon(uiFontStyle *fstyle, uiWidgetColors *wcol, uiB
 
 	/* Big previews with optional text label below */
 	if (but->flag & UI_BUT_ICON_PREVIEW && ui_block_is_menu(but->block)) {
-		const BIFIconID icon = (but->flag & UI_HAS_ICON) ? but->icon + but->iconadd : ICON_NONE;
+		const BIFIconID icon = widget_icon_id(but);
 		int icon_size = BLI_rcti_size_y(rect);
 		int text_size = 0;
 
@@ -2076,7 +2091,7 @@ static void widget_draw_text_icon(uiFontStyle *fstyle, uiWidgetColors *wcol, uiB
 		}
 #endif
 
-		const BIFIconID icon = (but->flag & UI_HAS_ICON) ? but->icon + but->iconadd : ICON_NONE;
+		const BIFIconID icon = widget_icon_id(but);
 		int icon_size_init = is_tool ? ICON_DEFAULT_HEIGHT_TOOLBAR : ICON_DEFAULT_HEIGHT;
 		const float icon_size = icon_size_init / (but->block->aspect / UI_DPI_FAC);
 		const float icon_padding = 2 * UI_DPI_FAC;
@@ -2266,7 +2281,12 @@ static void widget_state(uiWidgetType *wt, int state)
 
 	if (state & UI_BUT_REDALERT) {
 		char red[4] = {255, 0, 0};
-		widget_state_blend(wt->wcol.inner, red, 0.4f);
+		if (wt->draw) {
+			widget_state_blend(wt->wcol.inner, red, 0.4f);
+		}
+		else {
+			widget_state_blend(wt->wcol.text, red, 0.4f);
+		}
 	}
 
 	if (state & UI_BUT_DRAG_MULTI) {
@@ -3639,6 +3659,11 @@ static void widget_state_label(uiWidgetType *wt, int state)
 		else
 			UI_GetThemeColor3ubv(TH_TEXT, (unsigned char *)wt->wcol.text);
 	}
+
+	if (state & UI_BUT_REDALERT) {
+		char red[4] = {255, 0, 0};
+		widget_state_blend(wt->wcol.text, red, 0.4f);
+	}
 }
 
 static void widget_radiobut(uiWidgetColors *wcol, rcti *rect, int UNUSED(state), int roundboxalign)
@@ -3728,9 +3753,7 @@ static void widget_roundbut_exec(uiWidgetColors *wcol, rcti *rect, int state, in
 
 static void widget_tab(uiWidgetColors *wcol, rcti *rect, int state, int roundboxalign)
 {
-	const uiStyle *style = UI_style_get();
 	const float rad = wcol->roundness * U.widget_unit;
-	const int fontid = style->widget.uifont_id;
 	const bool is_active = (state & UI_SELECT);
 
 /* Draw shaded outline - Disabled for now, seems incorrect and also looks nicer without it imho ;) */
@@ -3771,11 +3794,6 @@ static void widget_tab(uiWidgetColors *wcol, rcti *rect, int state, int roundbox
 	/* draw outline (3d look) */
 	ui_draw_but_TAB_outline(rect, rad, theme_col_tab_highlight, (unsigned char *)wcol->inner);
 #endif
-
-	/* text shadow */
-	BLF_enable(fontid, BLF_SHADOW);
-	BLF_shadow(fontid, 3, (const float[4]){1.0f, 1.0f, 1.0f, 0.25f});
-	BLF_shadow_offset(fontid, 0, -1);
 
 #ifndef USE_TAB_SHADED_HIGHLIGHT
 	UNUSED_VARS(is_active, theme_col_tab_highlight);
@@ -4541,8 +4559,8 @@ void ui_draw_pie_center(uiBlock *block)
 
 	float *pie_dir = block->pie_data.pie_dir;
 
-	float pie_radius_internal = U.pixelsize * U.pie_menu_threshold;
-	float pie_radius_external = U.pixelsize * (U.pie_menu_threshold + 7.0f);
+	float pie_radius_internal = U.dpi_fac * U.pie_menu_threshold;
+	float pie_radius_external = U.dpi_fac * (U.pie_menu_threshold + 7.0f);
 
 	int subd = 40;
 
@@ -4584,8 +4602,8 @@ void ui_draw_pie_center(uiBlock *block)
 	immUnbindProgram();
 
 	if (U.pie_menu_confirm > 0 && !(block->pie_data.flags & (UI_PIE_INVALID_DIR | UI_PIE_CLICK_STYLE))) {
-		float pie_confirm_radius = U.pixelsize * (pie_radius_internal + U.pie_menu_confirm);
-		float pie_confirm_external = U.pixelsize * (pie_radius_internal + U.pie_menu_confirm + 7.0f);
+		float pie_confirm_radius = U.dpi_fac * (pie_radius_internal + U.pie_menu_confirm);
+		float pie_confirm_external = U.dpi_fac * (pie_radius_internal + U.pie_menu_confirm + 7.0f);
 
 		const char col[4] = {btheme->tui.wcol_pie_menu.text_sel[0],
 		                     btheme->tui.wcol_pie_menu.text_sel[1],

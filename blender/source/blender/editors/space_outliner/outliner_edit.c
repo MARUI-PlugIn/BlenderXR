@@ -58,10 +58,10 @@
 #include "BKE_library_query.h"
 #include "BKE_library_remap.h"
 #include "BKE_main.h"
+#include "BKE_material.h"
 #include "BKE_outliner_treehash.h"
 #include "BKE_report.h"
 #include "BKE_scene.h"
-#include "BKE_material.h"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_build.h"
@@ -99,7 +99,7 @@ static int outliner_highlight_update(bContext *C, wmOperator *UNUSED(op), const 
 	/* Drag and drop does own highlighting. */
 	wmWindowManager *wm = CTX_wm_manager(C);
 	if (wm->drags.first) {
-		return (OPERATOR_CANCELLED | OPERATOR_PASS_THROUGH);
+		return OPERATOR_PASS_THROUGH;
 	}
 
 	ARegion *ar = CTX_wm_region(C);
@@ -121,7 +121,7 @@ static int outliner_highlight_update(bContext *C, wmOperator *UNUSED(op), const 
 		ED_region_tag_redraw_no_rebuild(ar);
 	}
 
-	return (OPERATOR_FINISHED | OPERATOR_PASS_THROUGH);
+	return OPERATOR_PASS_THROUGH;
 }
 
 void OUTLINER_OT_highlight_update(wmOperatorType *ot)
@@ -561,7 +561,6 @@ void OUTLINER_OT_id_remap(wmOperatorType *ot)
 	/* identifiers */
 	ot->name = "Outliner ID data Remap";
 	ot->idname = "OUTLINER_OT_id_remap";
-	ot->description = "";
 
 	/* callbacks */
 	ot->invoke = outliner_id_remap_invoke;
@@ -1386,18 +1385,18 @@ static void tree_element_to_path(TreeElement *te, TreeStoreElem *tselem,
 	char *newpath = NULL;
 
 	/* optimize tricks:
-	 *	- Don't do anything if the selected item is a 'struct', but arrays are allowed
+	 * - Don't do anything if the selected item is a 'struct', but arrays are allowed
 	 */
 	if (tselem->type == TSE_RNA_STRUCT)
 		return;
 
 	/* Overview of Algorithm:
-	 *  1. Go up the chain of parents until we find the 'root', taking note of the
-	 *	   levels encountered in reverse-order (i.e. items are added to the start of the list
-	 *      for more convenient looping later)
-	 *  2. Walk down the chain, adding from the first ID encountered
-	 *	   (which will become the 'ID' for the KeyingSet Path), and build a
-	 *      path as we step through the chain
+	 * 1. Go up the chain of parents until we find the 'root', taking note of the
+	 *    levels encountered in reverse-order (i.e. items are added to the start of the list
+	 *    for more convenient looping later)
+	 * 2. Walk down the chain, adding from the first ID encountered
+	 *    (which will become the 'ID' for the KeyingSet Path), and build a
+	 *    path as we step through the chain
 	 */
 
 	/* step 1: flatten out hierarchy of parents into a flat chain */

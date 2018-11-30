@@ -29,7 +29,6 @@
 #include "MEM_guardedalloc.h"
 
 #include "DNA_listBase.h"
-#include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 
 #include "BLI_linklist_stack.h"
@@ -189,7 +188,7 @@ BMesh *BM_mesh_create(
 /**
  * \brief BMesh Free Mesh Data
  *
- *	Frees a BMesh structure.
+ * Frees a BMesh structure.
  *
  * \note frees mesh, but not actual BMesh struct
  */
@@ -298,7 +297,7 @@ void BM_mesh_clear(BMesh *bm)
 /**
  * \brief BMesh Free Mesh
  *
- *	Frees a BMesh data and its structure.
+ * Frees a BMesh data and its structure.
  */
 void BM_mesh_free(BMesh *bm)
 {
@@ -372,6 +371,8 @@ typedef struct BMVertsCalcNormalsData {
 
 static void mesh_verts_calc_normals_accum_cb(void *userdata, MempoolIterData *mp_f)
 {
+#define FLT_EQ_NONAN(_fa, _fb) (*((const uint32_t *)&_fa) == *((const uint32_t *)&_fb))
+
 	BMVertsCalcNormalsData *data = userdata;
 	BMFace *f = (BMFace *)mp_f;
 
@@ -399,6 +400,11 @@ static void mesh_verts_calc_normals_accum_cb(void *userdata, MempoolIterData *mp
 
 		fac = saacos(-dotprod);
 
+		if (fac != fac) {  /* NAN detection. */
+			/* Degenerated case, nothing to do here, just ignore that vertex. */
+			continue;
+		}
+
 		/* accumulate weighted face normal into the vertex's normal */
 		float *v_no = data->vnos ? data->vnos[BM_elem_index_get(l_iter->v)] : l_iter->v->no;
 
@@ -414,7 +420,7 @@ static void mesh_verts_calc_normals_accum_cb(void *userdata, MempoolIterData *mp
 			 *   - v_no[0] was not FLT_MAX, i.e. it was not locked by another thread.
 			 */
 			const float vl = atomic_cas_float(&v_no[0], virtual_lock, FLT_MAX);
-			if (vl == virtual_lock && vl != FLT_MAX) {
+			if (FLT_EQ_NONAN(vl, virtual_lock) && vl != FLT_MAX) {
 				break;
 			}
 			virtual_lock = vl;
@@ -432,6 +438,8 @@ static void mesh_verts_calc_normals_accum_cb(void *userdata, MempoolIterData *mp
 		BLI_assert(virtual_lock == FLT_MAX);
 
 	} while ((l_iter = l_iter->next) != l_first);
+
+#undef FLT_EQ_NONAN
 }
 
 static void mesh_verts_calc_normals_normalize_cb(void *userdata, MempoolIterData *mp_v)

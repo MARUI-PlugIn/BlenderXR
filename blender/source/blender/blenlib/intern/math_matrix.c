@@ -1011,6 +1011,11 @@ int compare_m4m4(const float mat1[4][4], const float mat2[4][4], float limit)
 	return 0;
 }
 
+/**
+ * Make an orthonormal matrix around the selected axis of the given matrix.
+ *
+ * \param axis: Axis to build the orthonormal basis around.
+ */
 void orthogonalize_m3(float mat[3][3], int axis)
 {
 	float size[3];
@@ -1095,6 +1100,11 @@ void orthogonalize_m3(float mat[3][3], int axis)
 	mul_v3_fl(mat[2], size[2]);
 }
 
+/**
+ * Make an orthonormal matrix around the selected axis of the given matrix.
+ *
+ * \param axis: Axis to build the orthonormal basis around.
+ */
 void orthogonalize_m4(float mat[4][4], int axis)
 {
 	float size[3];
@@ -2202,11 +2212,11 @@ void svd_m4(float U[4][4], float s[4], float V[4][4], float A_[4][4])
 		 * negligible elements in the s and e arrays.  On
 		 * completion the variables kase and k are set as follows.
 		 *
-		 * kase = 1	  if s(p) and e[k - 1] are negligible and k<p
-		 * kase = 2	  if s(k) is negligible and k<p
-		 * kase = 3	  if e[k - 1] is negligible, k<p, and
-		 *               s(k), ..., s(p) are not negligible (qr step).
-		 * kase = 4	  if e(p - 1) is negligible (convergence). */
+		 * kase = 1: if s(p) and e[k - 1] are negligible and k<p
+		 * kase = 2: if s(k) is negligible and k<p
+		 * kase = 3: if e[k - 1] is negligible, k<p, and
+		 *              s(k), ..., s(p) are not negligible (qr step).
+		 * kase = 4: if e(p - 1) is negligible (convergence). */
 
 		for (k = p - 2; k >= -1; k--) {
 			if (k == -1) {

@@ -179,6 +179,12 @@ class MATERIAL_PT_gpencil_strokecolor(GPMaterialButtonsPanel, Panel):
     bl_label = "Stroke"
     bl_parent_id = 'MATERIAL_PT_gpencil_surface'
 
+    def draw_header(self, context):
+        ma = context.object.active_material
+        if ma is not None and ma.grease_pencil is not None:
+            gpcolor = ma.grease_pencil
+            self.layout.prop(gpcolor, "show_stroke", text="")
+
     @staticmethod
     def draw(self, context):
         layout = self.layout
@@ -210,6 +216,12 @@ class MATERIAL_PT_gpencil_strokecolor(GPMaterialButtonsPanel, Panel):
 class MATERIAL_PT_gpencil_fillcolor(GPMaterialButtonsPanel, Panel):
     bl_label = "Fill"
     bl_parent_id = 'MATERIAL_PT_gpencil_surface'
+
+    def draw_header(self, context):
+        ma = context.object.active_material
+        if ma is not None and ma.grease_pencil is not None:
+            gpcolor = ma.grease_pencil
+            self.layout.prop(gpcolor, "show_fill", text="")
 
     @staticmethod
     def draw(self, context):
@@ -287,7 +299,7 @@ class MATERIAL_PT_gpencil_preview(GPMaterialButtonsPanel, Panel):
 
 
 class MATERIAL_PT_gpencil_custom_props(GPMaterialButtonsPanel, PropertyPanel, Panel):
-    COMPAT_ENGINES = {'BLENDER_EEVEE', 'BLENDER_OPENGL'}
+    COMPAT_ENGINES = {'BLENDER_EEVEE', 'BLENDER_WORKBENCH'}
     _context_path = "object.active_material"
     _property_type = bpy.types.Material
 

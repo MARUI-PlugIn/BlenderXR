@@ -46,6 +46,7 @@ const EnumPropertyItem rna_enum_region_type_items[] = {
 	{RGN_TYPE_TOOLS, "TOOLS", 0, "Tools", ""},
 	{RGN_TYPE_TOOL_PROPS, "TOOL_PROPS", 0, "Tool Properties", ""},
 	{RGN_TYPE_PREVIEW, "PREVIEW", 0, "Preview", ""},
+	{RGN_TYPE_NAV_BAR, "NAVIGATION_BAR", 0, "Navigation Bar", ""},
 	{0, NULL, 0, NULL, NULL}
 };
 
@@ -152,7 +153,7 @@ static const EnumPropertyItem *rna_Area_type_itemf(bContext *UNUSED(C), PointerR
 
 	/* +1 to skip SPACE_EMPTY */
 	for (const EnumPropertyItem *item_from = rna_enum_space_type_items + 1; item_from->identifier; item_from++) {
-		if (ELEM(item_from->value, SPACE_TOPBAR, SPACE_STATUSBAR, SPACE_USERPREF)) {
+		if (ELEM(item_from->value, SPACE_TOPBAR, SPACE_STATUSBAR)) {
 			continue;
 		}
 		RNA_enum_item_add(&item, &totitem, item_from);
@@ -173,7 +174,7 @@ static int rna_Area_type_get(PointerRNA *ptr)
 
 static void rna_Area_type_set(PointerRNA *ptr, int value)
 {
-	if (ELEM(value, SPACE_TOPBAR, SPACE_STATUSBAR, SPACE_USERPREF)) {
+	if (ELEM(value, SPACE_TOPBAR, SPACE_STATUSBAR)) {
 		/* Special case: An area can not be set to show the top-bar editor (or
 		 * other global areas). However it should still be possible to identify
 		 * its type from Python. */
@@ -231,7 +232,7 @@ static const EnumPropertyItem *rna_Area_ui_type_itemf(
 
 	/* +1 to skip SPACE_EMPTY */
 	for (const EnumPropertyItem *item_from = rna_enum_space_type_items + 1; item_from->identifier; item_from++) {
-		if (ELEM(item_from->value, SPACE_TOPBAR, SPACE_STATUSBAR, SPACE_USERPREF)) {
+		if (ELEM(item_from->value, SPACE_TOPBAR, SPACE_STATUSBAR)) {
 			continue;
 		}
 
@@ -331,8 +332,9 @@ static void rna_def_area_api(StructRNA *srna)
 
 	func = RNA_def_function(srna, "header_text_set", "ED_area_status_text");
 	RNA_def_function_ui_description(func, "Set the header status text");
-	parm = RNA_def_string(func, "text", NULL, 0, "Text", "New string for the header, no argument clears the text");
+	parm = RNA_def_string(func, "text", NULL, 0, "Text", "New string for the header, None clears the text");
 	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
+	RNA_def_property_clear_flag(parm, PROP_NEVER_NULL);
 }
 
 static void rna_def_area(BlenderRNA *brna)

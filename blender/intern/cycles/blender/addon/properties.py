@@ -529,6 +529,11 @@ class CyclesRenderSettings(bpy.types.PropertyGroup):
         items=enum_bvh_types,
         default='DYNAMIC_BVH',
     )
+    use_bvh_embree: BoolProperty(
+        name="Use Embree",
+        description="Use Embree as ray accelerator",
+        default=False,
+    )
     debug_use_spatial_splits: BoolProperty(
         name="Use Spatial Splits",
         description="Use BVH spatial splits: longer builder time, faster render",
@@ -834,8 +839,6 @@ class CyclesCameraSettings(bpy.types.PropertyGroup):
 
     @classmethod
     def register(cls):
-        import math
-
         bpy.types.Camera.cycles = PointerProperty(
             name="Cycles Camera Settings",
             description="Cycles camera settings",
@@ -1221,8 +1224,6 @@ class CyclesCurveRenderSettings(bpy.types.PropertyGroup):
 
 
 def update_render_passes(self, context):
-    scene = context.scene
-    rd = scene.render
     view_layer = context.view_layer
     view_layer.update_render_passes()
 
@@ -1347,6 +1348,36 @@ class CyclesRenderLayerSettings(bpy.types.PropertyGroup):
         default=False,
         update=update_render_passes,
     )
+    use_pass_crypto_object: BoolProperty(
+        name="Cryptomatte Object",
+        description="Render cryptomatte object pass, for isolating objects in compositing",
+        default=False,
+        update=update_render_passes,
+        )
+    use_pass_crypto_material: BoolProperty(
+        name="Cryptomatte Material",
+        description="Render cryptomatte material pass, for isolating materials in compositing",
+        default=False,
+        update=update_render_passes,
+        )
+    use_pass_crypto_asset: BoolProperty(
+        name="Cryptomatte Asset",
+        description="Render cryptomatte asset pass, for isolating groups of objects with the same parent",
+        default=False,
+        update=update_render_passes,
+        )
+    pass_crypto_depth: IntProperty(
+        name="Cryptomatte Levels",
+        description="Sets how many unique objects can be distinguished per pixel",
+        default=6, min=2, max=16, step=2,
+        update=update_render_passes,
+        )
+    pass_crypto_accurate: BoolProperty(
+        name="Cryptomatte Accurate",
+        description="Generate a more accurate Cryptomatte pass. CPU only, may render slower and use more memory",
+        default=True,
+        update=update_render_passes,
+        )
 
     @classmethod
     def register(cls):

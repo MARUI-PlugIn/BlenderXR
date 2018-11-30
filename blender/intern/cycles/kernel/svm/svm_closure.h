@@ -262,7 +262,7 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 					        ? (MicrofacetExtra*)closure_alloc_extra(sd, sizeof(MicrofacetExtra))
 					        : NULL;
 
-					if (bsdf && extra) {
+					if(bsdf && extra) {
 						bsdf->N = N;
 						bsdf->ior = (2.0f / (1.0f - safe_sqrtf(0.08f * specular))) - 1.0f;
 						bsdf->T = T;
@@ -285,7 +285,7 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 						/* setup bsdf */
 						if(distribution == CLOSURE_BSDF_MICROFACET_GGX_GLASS_ID || roughness <= 0.075f) /* use single-scatter GGX */
 							sd->flag |= bsdf_microfacet_ggx_aniso_fresnel_setup(bsdf, sd);
-						else /* use multi-scatter GGX */
+						else  /* use multi-scatter GGX */
 							sd->flag |= bsdf_microfacet_multi_ggx_aniso_fresnel_setup(bsdf, sd);
 					}
 				}
@@ -314,7 +314,7 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 							        ? (MicrofacetExtra*)closure_alloc_extra(sd, sizeof(MicrofacetExtra))
 							        : NULL;
 
-							if (bsdf && extra) {
+							if(bsdf && extra) {
 								bsdf->N = N;
 								bsdf->T = make_float3(0.0f, 0.0f, 0.0f);
 								bsdf->extra = extra;

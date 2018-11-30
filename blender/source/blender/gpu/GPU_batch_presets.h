@@ -34,6 +34,14 @@
 #ifndef __GPU_BATCH_PRESETS_H__
 #define __GPU_BATCH_PRESETS_H__
 
+#include "../vr/vr_build.h"
+#if WITH_VR
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+#endif
+
 struct rctf;
 struct GPUVertFormat;
 
@@ -52,5 +60,11 @@ void gpu_batch_presets_register(struct GPUBatch *preset_batch);
 bool gpu_batch_presets_unregister(struct GPUBatch *preset_batch);
 void gpu_batch_presets_reset(void);
 void gpu_batch_presets_exit(void);
+
+#if WITH_VR
+#ifdef __cplusplus
+}
+#endif
+#endif
 
 #endif  /* __GPU_BATCH_PRESETS_H__ */

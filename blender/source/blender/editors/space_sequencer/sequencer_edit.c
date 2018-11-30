@@ -48,8 +48,8 @@
 #include "BKE_context.h"
 #include "BKE_global.h"
 #include "BKE_main.h"
-#include "BKE_sequencer.h"
 #include "BKE_report.h"
+#include "BKE_sequencer.h"
 #include "BKE_sound.h"
 
 
@@ -1789,7 +1789,7 @@ static int sequencer_unmute_exec(bContext *C, wmOperator *op)
 void SEQUENCER_OT_unmute(struct wmOperatorType *ot)
 {
 	/* identifiers */
-	ot->name = "Un-Mute Strips";
+	ot->name = "Unmute Strips";
 	ot->idname = "SEQUENCER_OT_unmute";
 	ot->description = "Unmute (un)selected strips";
 
@@ -1858,7 +1858,7 @@ static int sequencer_unlock_exec(bContext *C, wmOperator *UNUSED(op))
 void SEQUENCER_OT_unlock(struct wmOperatorType *ot)
 {
 	/* identifiers */
-	ot->name = "UnLock Strips";
+	ot->name = "Unlock Strips";
 	ot->idname = "SEQUENCER_OT_unlock";
 	ot->description = "Unlock the active strip so that it can't be transformed";
 
@@ -3267,7 +3267,6 @@ void SEQUENCER_OT_copy(wmOperatorType *ot)
 	/* identifiers */
 	ot->name = "Copy";
 	ot->idname = "SEQUENCER_OT_copy";
-	ot->description = "";
 
 	/* api callbacks */
 	ot->exec = sequencer_copy_exec;
@@ -3332,7 +3331,6 @@ void SEQUENCER_OT_paste(wmOperatorType *ot)
 	/* identifiers */
 	ot->name = "Paste";
 	ot->idname = "SEQUENCER_OT_paste";
-	ot->description = "";
 
 	/* api callbacks */
 	ot->exec = sequencer_paste_exec;
@@ -3525,7 +3523,7 @@ void SEQUENCER_OT_rebuild_proxy(wmOperatorType *ot)
 
 static int sequencer_enable_proxies_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
 {
-	return WM_operator_props_dialog_popup(C, op, 10 * UI_UNIT_X, 5 * UI_UNIT_Y);
+	return WM_operator_props_dialog_popup(C, op, 200, 100);
 }
 
 static int sequencer_enable_proxies_exec(bContext *C, wmOperator *op)
@@ -3663,7 +3661,6 @@ void SEQUENCER_OT_change_effect_input(struct wmOperatorType *ot)
 	/* identifiers */
 	ot->name = "Change Effect Input";
 	ot->idname = "SEQUENCER_OT_change_effect_input";
-	ot->description = "";
 
 	/* api callbacks */
 	ot->exec = sequencer_change_effect_input_exec;
@@ -3723,7 +3720,6 @@ void SEQUENCER_OT_change_effect_type(struct wmOperatorType *ot)
 	/* identifiers */
 	ot->name = "Change Effect Type";
 	ot->idname = "SEQUENCER_OT_change_effect_type";
-	ot->description = "";
 
 	/* api callbacks */
 	ot->exec = sequencer_change_effect_type_exec;
@@ -3858,7 +3854,6 @@ void SEQUENCER_OT_change_path(struct wmOperatorType *ot)
 	/* identifiers */
 	ot->name = "Change Data/Files";
 	ot->idname = "SEQUENCER_OT_change_path";
-	ot->description = "";
 
 	/* api callbacks */
 	ot->exec = sequencer_change_path_exec;

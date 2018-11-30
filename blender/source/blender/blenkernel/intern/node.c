@@ -76,6 +76,7 @@
 #include "NOD_texture.h"
 
 #include "DEG_depsgraph.h"
+#include "DEG_depsgraph_build.h"
 
 #define NODE_DEFAULT_MAX_WIDTH 700
 
@@ -1234,12 +1235,14 @@ void nodePositionRelative(bNode *from_node, bNode *to_node, bNodeSocket *from_so
 	float offset_y = U.widget_unit * tot_sock_idx;
 
 	/* Output socket. */
-	if (SOCK_IN == from_sock->in_out) {
-		tot_sock_idx = BLI_listbase_count(&from_node->outputs);
-		tot_sock_idx += BLI_findindex(&from_node->inputs, from_sock);
-	}
-	else {
-		tot_sock_idx = BLI_findindex(&from_node->outputs, from_sock);
+	if (from_sock) {
+		if (SOCK_IN == from_sock->in_out) {
+			tot_sock_idx = BLI_listbase_count(&from_node->outputs);
+			tot_sock_idx += BLI_findindex(&from_node->inputs, from_sock);
+		}
+		else {
+			tot_sock_idx = BLI_findindex(&from_node->outputs, from_sock);
+		}
 	}
 
 	BLI_assert(tot_sock_idx != -1);
@@ -1686,14 +1689,16 @@ static void node_unlink_attached(bNodeTree *ntree, bNode *parent)
 }
 
 /** \note caller needs to manage node->id user */
-static void node_free_node_ex(bNodeTree *ntree, bNode *node, bool remove_animdata, bool use_api_free_cb)
+static void node_free_node_ex(
+        Main *bmain, bNodeTree *ntree, bNode *node,
+        bool remove_animdata, bool use_api_free_cb)
 {
 	bNodeSocket *sock, *nextsock;
 
 	/* don't remove node animdata if the tree is localized,
 	 * Action is shared with the original tree (T38221)
 	 */
-	remove_animdata &= ntree && !(ntree->flag & NTREE_IS_LOCALIZED);
+	remove_animdata &= ntree && !(ntree->id.tag & LIB_TAG_LOCALIZED);
 
 	/* extra free callback */
 	if (use_api_free_cb && node->typeinfo->freefunc_api) {
@@ -1720,7 +1725,11 @@ static void node_free_node_ex(bNodeTree *ntree, bNode *node, bool remove_animdat
 			BLI_strescape(propname_esc, node->name, sizeof(propname_esc));
 			BLI_snprintf(prefix, sizeof(prefix), "nodes[\"%s\"]", propname_esc);
 
-			BKE_animdata_fix_paths_remove((ID *)ntree, prefix);
+			if (BKE_animdata_fix_paths_remove((ID *)ntree, prefix)) {
+				if (bmain != NULL) {
+					DEG_relations_tag_update(bmain);
+				}
+			}
 		}
 
 		if (ntree->typeinfo->free_node_cache)
@@ -1763,7 +1772,12 @@ static void node_free_node_ex(bNodeTree *ntree, bNode *node, bool remove_animdat
 
 void nodeFreeNode(bNodeTree *ntree, bNode *node)
 {
-	node_free_node_ex(ntree, node, true, true);
+	node_free_node_ex(NULL, ntree, node, false, true);
+}
+
+void nodeDeleteNode(Main *bmain, bNodeTree *ntree, bNode *node)
+{
+	node_free_node_ex(bmain, ntree, node, true, true);
 }
 
 static void node_socket_interface_free(bNodeTree *UNUSED(ntree), bNodeSocket *sock)
@@ -1786,7 +1800,7 @@ static void free_localized_node_groups(bNodeTree *ntree)
 	 * since it is a localized copy itself (no risk of accessing free'd
 	 * data in main, see [#37939]).
 	 */
-	if (!(ntree->flag & NTREE_IS_LOCALIZED))
+	if (!(ntree->id.tag & LIB_TAG_LOCALIZED))
 		return;
 
 	for (node = ntree->nodes.first; node; node = node->next) {
@@ -1833,7 +1847,7 @@ void ntreeFreeTree(bNodeTree *ntree)
 
 	for (node = ntree->nodes.first; node; node = next) {
 		next = node->next;
-		node_free_node_ex(ntree, node, false, false);
+		node_free_node_ex(NULL, ntree, node, false, false);
 	}
 
 	/* free interface sockets */
@@ -2016,7 +2030,6 @@ bNodeTree *ntreeLocalize(bNodeTree *ntree)
 		         LIB_ID_COPY_NO_PREVIEW |
 		         LIB_ID_COPY_NO_ANIMDATA),
 		        false);
-		ltree->flag |= NTREE_IS_LOCALIZED;
 
 		for (node = ltree->nodes.first; node; node = node->next) {
 			if (node->type == NODE_GROUP && node->id) {
@@ -2576,7 +2589,7 @@ void BKE_node_clipboard_clear(void)
 
 	for (node = node_clipboard.nodes.first; node; node = node_next) {
 		node_next = node->next;
-		node_free_node_ex(NULL, node, false, false);
+		node_free_node_ex(NULL, NULL, node, false, false);
 	}
 	BLI_listbase_clear(&node_clipboard.nodes);
 

@@ -48,6 +48,7 @@
 #include "BLI_math.h"
 #include "BLI_utildefines.h"
 
+#include "BKE_action.h"
 #include "BKE_armature.h"
 #include "BKE_camera.h"
 #include "BKE_context.h"
@@ -61,7 +62,6 @@
 #include "BKE_report.h"
 #include "BKE_scene.h"
 #include "BKE_screen.h"
-#include "BKE_action.h"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_query.h"
@@ -254,6 +254,7 @@ static bool view3d_orbit_calc_center(bContext *C, float r_dyn_ofs[3])
 	const Depsgraph *depsgraph = CTX_data_depsgraph(C);
 	Scene *scene = CTX_data_scene(C);
 	ViewLayer *view_layer_eval = DEG_get_evaluated_view_layer(depsgraph);
+	View3D *v3d = CTX_wm_view3d(C);
 	Object *ob_act_eval = OBACT(view_layer_eval);
 	Object *ob_act = DEG_get_original_object(ob_act_eval);
 
@@ -298,7 +299,7 @@ static bool view3d_orbit_calc_center(bContext *C, float r_dyn_ofs[3])
 
 		zero_v3(select_center);
 		for (base_eval = FIRSTBASE(view_layer_eval); base_eval; base_eval = base_eval->next) {
-			if (TESTBASE(base_eval)) {
+			if (TESTBASE(v3d, base_eval)) {
 				/* use the boundbox if we can */
 				Object *ob_eval = base_eval->object;
 
@@ -582,13 +583,6 @@ void viewrotate_modal_keymap(wmKeyConfig *keyconf)
 	if (keymap && keymap->modal_items) return;
 
 	keymap = WM_modalkeymap_add(keyconf, "View3D Rotate Modal", modal_items);
-
-	/* items for modal map */
-	WM_modalkeymap_add_item(keymap, MIDDLEMOUSE, KM_RELEASE, KM_ANY, 0, VIEW_MODAL_CONFIRM);
-	WM_modalkeymap_add_item(keymap, ESCKEY, KM_PRESS, KM_ANY, 0, VIEW_MODAL_CONFIRM);
-
-	WM_modalkeymap_add_item(keymap, LEFTALTKEY, KM_PRESS, KM_ANY, 0, VIEWROT_MODAL_AXIS_SNAP_ENABLE);
-	WM_modalkeymap_add_item(keymap, LEFTALTKEY, KM_RELEASE, KM_ANY, 0, VIEWROT_MODAL_AXIS_SNAP_DISABLE);
 
 	/* disabled mode switching for now, can re-implement better, later on */
 #if 0
@@ -1787,10 +1781,6 @@ void viewzoom_modal_keymap(wmKeyConfig *keyconf)
 
 	keymap = WM_modalkeymap_add(keyconf, "View3D Zoom Modal", modal_items);
 
-	/* items for modal map */
-	WM_modalkeymap_add_item(keymap, MIDDLEMOUSE, KM_RELEASE, KM_ANY, 0, VIEW_MODAL_CONFIRM);
-	WM_modalkeymap_add_item(keymap, ESCKEY, KM_PRESS, KM_ANY, 0, VIEW_MODAL_CONFIRM);
-
 	/* disabled mode switching for now, can re-implement better, later on */
 #if 0
 	WM_modalkeymap_add_item(keymap, LEFTMOUSE, KM_RELEASE, KM_ANY, 0, VIEWROT_MODAL_SWITCH_ROTATE);
@@ -2322,10 +2312,6 @@ void viewdolly_modal_keymap(wmKeyConfig *keyconf)
 
 	keymap = WM_modalkeymap_add(keyconf, "View3D Dolly Modal", modal_items);
 
-	/* items for modal map */
-	WM_modalkeymap_add_item(keymap, MIDDLEMOUSE, KM_RELEASE, KM_ANY, 0, VIEW_MODAL_CONFIRM);
-	WM_modalkeymap_add_item(keymap, ESCKEY, KM_PRESS, KM_ANY, 0, VIEW_MODAL_CONFIRM);
-
 	/* disabled mode switching for now, can re-implement better, later on */
 #if 0
 	WM_modalkeymap_add_item(keymap, LEFTMOUSE, KM_RELEASE, KM_ANY, 0, VIEWROT_MODAL_SWITCH_ROTATE);
@@ -2726,7 +2712,7 @@ static int view3d_all_exec(bContext *C, wmOperator *op)
 
 	if (center) {
 		/* in 2.4x this also move the cursor to (0, 0, 0) (with shift+c). */
-		View3DCursor *cursor = ED_view3d_cursor3d_get(scene, v3d);
+		View3DCursor *cursor = &scene->cursor;
 		zero_v3(min);
 		zero_v3(max);
 		zero_v3(cursor->location);
@@ -2737,7 +2723,7 @@ static int view3d_all_exec(bContext *C, wmOperator *op)
 	}
 
 	for (base_eval = view_layer_eval->object_bases.first; base_eval; base_eval = base_eval->next) {
-		if (BASE_VISIBLE(base_eval)) {
+		if (BASE_VISIBLE(v3d, base_eval)) {
 			changed = true;
 
 			Object *ob = DEG_get_original_object(base_eval->object);
@@ -2834,7 +2820,7 @@ static int viewselected_exec(bContext *C, wmOperator *op)
 		/* this is weak code this way, we should make a generic active/selection callback interface once... */
 		Base *base_eval;
 		for (base_eval = view_layer_eval->object_bases.first; base_eval; base_eval = base_eval->next) {
-			if (TESTBASELIB(base_eval)) {
+			if (TESTBASELIB(v3d, base_eval)) {
 				if (base_eval->object->type == OB_ARMATURE)
 					if (base_eval->object->mode & OB_MODE_POSE)
 						break;
@@ -2867,13 +2853,13 @@ static int viewselected_exec(bContext *C, wmOperator *op)
 	}
 	else if (obedit) {
 		/* only selected */
-		FOREACH_OBJECT_IN_MODE_BEGIN (view_layer_eval, obedit->mode, ob_eval_iter) {
+		FOREACH_OBJECT_IN_MODE_BEGIN (view_layer_eval, v3d, obedit->mode, ob_eval_iter) {
 			ok |= ED_view3d_minmax_verts(ob_eval_iter, min, max);
 		}
 		FOREACH_OBJECT_IN_MODE_END;
 	}
 	else if (ob_eval && (ob_eval->mode & OB_MODE_POSE)) {
-		FOREACH_OBJECT_IN_MODE_BEGIN (view_layer_eval, ob_eval->mode, ob_eval_iter) {
+		FOREACH_OBJECT_IN_MODE_BEGIN (view_layer_eval, v3d, ob_eval->mode, ob_eval_iter) {
 			ok |= BKE_pose_minmax(ob_eval_iter, min, max, true, true);
 		}
 		FOREACH_OBJECT_IN_MODE_END;
@@ -2895,7 +2881,7 @@ static int viewselected_exec(bContext *C, wmOperator *op)
 	else {
 		Base *base_eval;
 		for (base_eval = FIRSTBASE(view_layer_eval); base_eval; base_eval = base_eval->next) {
-			if (TESTBASE(base_eval)) {
+			if (TESTBASE(v3d, base_eval)) {
 
 				if (skip_camera && base_eval->object == v3d->camera) {
 					continue;
@@ -3057,7 +3043,7 @@ static int viewcenter_cursor_exec(bContext *C, wmOperator *op)
 
 		/* non camera center */
 		float new_ofs[3];
-		negate_v3_v3(new_ofs, ED_view3d_cursor3d_get(scene, v3d)->location);
+		negate_v3_v3(new_ofs, scene->cursor.location);
 		ED_view3d_smooth_view(
 		        C, v3d, ar, smooth_viewtx,
 		        &(const V3D_SmoothParams) {.ofs = new_ofs});
@@ -4565,6 +4551,8 @@ void ED_view3d_clipping_local(RegionView3D *rv3d, float mat[4][4])
 		calc_local_clipping(rv3d->clip_local, rv3d->clipbb, mat);
 }
 
+#if 0 /* TODO Missing from 2.8 drawing code. Find a solution to support clip border then uncomment it. */
+
 static int view3d_clipping_exec(bContext *C, wmOperator *op)
 {
 	ARegion *ar = CTX_wm_region(C);
@@ -4621,6 +4609,7 @@ void VIEW3D_OT_clip_border(wmOperatorType *ot)
 	/* properties */
 	WM_operator_properties_border(ot);
 }
+#endif
 
 /** \} */
 
@@ -4766,7 +4755,7 @@ void ED_view3d_cursor3d_update(
 	ARegion *ar = CTX_wm_region(C);
 	RegionView3D *rv3d = ar->regiondata;
 
-	View3DCursor *cursor_curr = ED_view3d_cursor3d_get(scene, v3d);
+	View3DCursor *cursor_curr = &scene->cursor;
 	View3DCursor  cursor_prev = *cursor_curr;
 
 	ED_view3d_cursor3d_position_rotation(
@@ -4884,7 +4873,7 @@ static int toggle_shading_exec(bContext *C, wmOperator *op)
 	ScrArea *sa = CTX_wm_area(C);
 	int type = RNA_enum_get(op->ptr, "type");
 
-	if (ELEM(type, OB_WIRE, OB_SOLID)) {
+	if (type == OB_SOLID) {
 		if (v3d->shading.type != type) {
 			v3d->shading.type = type;
 		}
@@ -4896,12 +4885,18 @@ static int toggle_shading_exec(bContext *C, wmOperator *op)
 		}
 	}
 	else {
-
+		char *prev_type = (
+		        (type == OB_WIRE) ?
+		        &v3d->shading.prev_type_wire :
+		        &v3d->shading.prev_type);
 		if (v3d->shading.type == type) {
-			v3d->shading.type = v3d->shading.prev_type;
+			if (*prev_type == type || !ELEM(*prev_type, OB_WIRE, OB_SOLID, OB_MATERIAL, OB_RENDER)) {
+				*prev_type = OB_SOLID;
+			}
+			v3d->shading.type = *prev_type;
 		}
 		else {
-			v3d->shading.prev_type = v3d->shading.type;
+			*prev_type = v3d->shading.type;
 			v3d->shading.type = type;
 		}
 	}
@@ -4927,6 +4922,57 @@ void VIEW3D_OT_toggle_shading(wmOperatorType *ot)
 
 	prop = RNA_def_enum(ot->srna, "type", prop_shading_type_items, 0, "Type", "Shading type to toggle");
 	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
+}
+
+/** \} */
+
+
+/* -------------------------------------------------------------------- */
+/** \name Toggle XRay
+ * \{ */
+
+static int toggle_xray_exec(bContext *C, wmOperator *op)
+{
+	View3D *v3d = CTX_wm_view3d(C);
+	ScrArea *sa = CTX_wm_area(C);
+	Object *obact = CTX_data_active_object(C);
+
+	if (obact &&
+	    ((obact->mode & OB_MODE_POSE) ||
+	     ((obact->mode & OB_MODE_WEIGHT_PAINT) && BKE_object_pose_armature_get(obact))))
+	{
+		v3d->overlay.flag ^= V3D_OVERLAY_BONE_SELECT;
+	}
+	else {
+		const bool xray_active = (
+		        (obact && (obact->mode & OB_MODE_EDIT)) ||
+		        ELEM(v3d->shading.type, OB_WIRE, OB_SOLID));
+
+		if (v3d->shading.type == OB_WIRE) {
+			v3d->shading.flag ^= V3D_SHADING_XRAY_BONE;
+		}
+		else {
+			v3d->shading.flag ^= V3D_SHADING_XRAY;
+		}
+		if (!xray_active) {
+			BKE_report(op->reports, RPT_INFO, "X-Ray not available in current mode");
+		}
+	}
+
+	ED_area_tag_redraw(sa);
+
+	return OPERATOR_FINISHED;
+}
+
+void VIEW3D_OT_toggle_xray(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Toggle X-Ray";
+	ot->idname = "VIEW3D_OT_toggle_xray";
+
+	/* api callbacks */
+	ot->exec = toggle_xray_exec;
+	ot->poll = ED_operator_view3d_active;
 }
 
 /** \} */

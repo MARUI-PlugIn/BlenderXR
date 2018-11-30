@@ -36,6 +36,7 @@
 #include "DNA_curve_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
+#include "DNA_world_types.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -65,6 +66,8 @@
 #include "ED_screen.h"
 #include "ED_view3d.h"
 
+#include "UI_resources.h"
+
 #include "view3d_intern.h"  /* own include */
 
 #include "../vr/vr_build.h"
@@ -77,25 +80,31 @@
  *
  * \{ */
 
-View3DCursor *ED_view3d_cursor3d_get(Scene *scene, View3D *v3d)
+void ED_view3d_background_color_get(const Scene *scene, const View3D *v3d, float r_color[3])
 {
-	if (v3d && v3d->localvd) {
-		return &v3d->cursor;
-	}
-	else {
-		return &scene->cursor;
+	switch (v3d->shading.background_type) {
+		case V3D_SHADING_BACKGROUND_WORLD:
+			copy_v3_v3(r_color, &scene->world->horr);
+			break;
+		case V3D_SHADING_BACKGROUND_VIEWPORT:
+			copy_v3_v3(r_color, v3d->shading.background_color);
+			break;
+		case V3D_SHADING_BACKGROUND_THEME:
+		default:
+			UI_GetThemeColor3fv(TH_HIGH_GRAD, r_color);
+			break;
 	}
 }
 
-void ED_view3d_cursor3d_calc_mat3(const Scene *scene, const View3D *v3d, float mat[3][3])
+void ED_view3d_cursor3d_calc_mat3(const Scene *scene, float mat[3][3])
 {
-	const View3DCursor *cursor = ED_view3d_cursor3d_get((Scene *)scene, (View3D *)v3d);
+	const View3DCursor *cursor = &scene->cursor;
 	quat_to_mat3(mat, cursor->rotation);
 }
 
-void ED_view3d_cursor3d_calc_mat4(const Scene *scene, const View3D *v3d, float mat[4][4])
+void ED_view3d_cursor3d_calc_mat4(const Scene *scene, float mat[4][4])
 {
-	const View3DCursor *cursor = ED_view3d_cursor3d_get((Scene *)scene, (View3D *)v3d);
+	const View3DCursor *cursor = &scene->cursor;
 	quat_to_mat4(mat, cursor->rotation);
 	copy_v3_v3(mat[3], cursor->location);
 }

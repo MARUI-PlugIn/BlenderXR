@@ -57,15 +57,15 @@
 #include "DNA_texture_types.h"
 #include "DNA_world_types.h"
 
-#include "BKE_animsys.h"
 #include "BKE_action.h"
+#include "BKE_animsys.h"
 #include "BKE_context.h"
 #include "BKE_fcurve.h"
-#include "BKE_nla.h"
 #include "BKE_global.h"
+#include "BKE_library.h"
 #include "BKE_main.h"
 #include "BKE_material.h"
-#include "BKE_library.h"
+#include "BKE_nla.h"
 #include "BKE_report.h"
 #include "BKE_texture.h"
 
@@ -246,7 +246,7 @@ void BKE_animdata_free(ID *id, const bool do_id_user)
 			}
 
 			/* free nla data */
-			BKE_nla_tracks_free(&adt->nla_tracks);
+			BKE_nla_tracks_free(&adt->nla_tracks, do_id_user);
 
 			/* free drivers - stored as a list of F-Curves */
 			free_fcurves(&adt->drivers);
@@ -266,10 +266,17 @@ void BKE_animdata_free(ID *id, const bool do_id_user)
 
 /* Copying -------------------------------------------- */
 
-/* Make a copy of the given AnimData - to be used when copying datablocks */
-AnimData *BKE_animdata_copy(Main *bmain, AnimData *adt, const bool do_action, const bool do_id_user)
+/**
+ * Make a copy of the given AnimData - to be used when copying datablocks.
+ * \param flag Control ID pointers management, see LIB_ID_CREATE_.../LIB_ID_COPY_... flags in BKE_library.h
+ * \return The copied animdata.
+ */
+AnimData *BKE_animdata_copy(Main *bmain, AnimData *adt, const int flag)
 {
 	AnimData *dadt;
+
+	const bool do_action = (flag & LIB_ID_COPY_ACTIONS) != 0 && (flag & LIB_ID_CREATE_NO_MAIN) == 0;
+	const bool do_id_user = (flag & LIB_ID_CREATE_NO_USER_REFCOUNT) == 0;
 
 	/* sanity check before duplicating struct */
 	if (adt == NULL)
@@ -288,7 +295,7 @@ AnimData *BKE_animdata_copy(Main *bmain, AnimData *adt, const bool do_action, co
 	}
 
 	/* duplicate NLA data */
-	BKE_nla_tracks_copy(bmain, &dadt->nla_tracks, &adt->nla_tracks);
+	BKE_nla_tracks_copy(bmain, &dadt->nla_tracks, &adt->nla_tracks, flag);
 
 	/* duplicate drivers (F-Curves) */
 	copy_fcurves(&dadt->drivers, &adt->drivers);
@@ -301,19 +308,23 @@ AnimData *BKE_animdata_copy(Main *bmain, AnimData *adt, const bool do_action, co
 	return dadt;
 }
 
-bool BKE_animdata_copy_id(Main *bmain, ID *id_to, ID *id_from, const bool do_action, const bool do_id_user)
+/**
+ * \param flag Control ID pointers management, see LIB_ID_CREATE_.../LIB_ID_COPY_... flags in BKE_library.h
+ * \return true is succesfully copied.
+ */
+bool BKE_animdata_copy_id(Main *bmain, ID *id_to, ID *id_from, const int flag)
 {
 	AnimData *adt;
 
 	if ((id_to && id_from) && (GS(id_to->name) != GS(id_from->name)))
 		return false;
 
-	BKE_animdata_free(id_to, do_id_user);
+	BKE_animdata_free(id_to, (flag & LIB_ID_CREATE_NO_USER_REFCOUNT) == 0);
 
 	adt = BKE_animdata_from_id(id_from);
 	if (adt) {
 		IdAdtTemplate *iat = (IdAdtTemplate *)id_to;
-		iat->adt = BKE_animdata_copy(bmain, adt, do_action, do_id_user);
+		iat->adt = BKE_animdata_copy(bmain, adt, flag);
 	}
 
 	return true;
@@ -373,7 +384,7 @@ void BKE_animdata_merge_copy(
 	if (src->nla_tracks.first) {
 		ListBase tracks = {NULL, NULL};
 
-		BKE_nla_tracks_copy(bmain, &tracks, &src->nla_tracks);
+		BKE_nla_tracks_copy(bmain, &tracks, &src->nla_tracks, 0);
 		BLI_movelisttolist(&dst->nla_tracks, &tracks);
 	}
 
@@ -427,8 +438,8 @@ static bool animpath_matches_basepath(const char path[], const char basepath[])
 /* Move F-Curves in src action to dst action, setting up all the necessary groups
  * for this to happen, but only if the F-Curves being moved have the appropriate
  * "base path".
- *	- This is used when data moves from one datablock to another, causing the
- *	  F-Curves to need to be moved over too
+ * - This is used when data moves from one datablock to another, causing the
+ *   F-Curves to need to be moved over too
  */
 void action_move_fcurves_by_basepath(bAction *srcAct, bAction *dstAct, const char basepath[])
 {
@@ -454,7 +465,7 @@ void action_move_fcurves_by_basepath(bAction *srcAct, bAction *dstAct, const cha
 		fcn = fcu->next;
 
 		/* should F-Curve be moved over?
-		 *	- we only need the start of the path to match basepath
+		 * - we only need the start of the path to match basepath
 		 */
 		if (animpath_matches_basepath(fcu->rna_path, basepath)) {
 			bActionGroup *agrp = NULL;
@@ -931,10 +942,11 @@ void BKE_animdata_fix_paths_rename(ID *owner_id, AnimData *adt, ID *ref_id, cons
 /* Remove FCurves with Prefix  -------------------------------------- */
 
 /* Check RNA-Paths for a list of F-Curves */
-static void fcurves_path_remove_fix(const char *prefix, ListBase *curves)
+static bool fcurves_path_remove_fix(const char *prefix, ListBase *curves)
 {
 	FCurve *fcu, *fcn;
-	if (!prefix) return;
+	bool any_removed = false;
+	if (!prefix) return any_removed;
 
 	/* we need to check every curve... */
 	for (fcu = curves->first; fcu; fcu = fcn) {
@@ -944,57 +956,61 @@ static void fcurves_path_remove_fix(const char *prefix, ListBase *curves)
 			if (STRPREFIX(fcu->rna_path, prefix)) {
 				BLI_remlink(curves, fcu);
 				free_fcurve(fcu);
+				any_removed = true;
 			}
 		}
 	}
+	return any_removed;
 }
 
 /* Check RNA-Paths for a list of F-Curves */
-static void nlastrips_path_remove_fix(const char *prefix, ListBase *strips)
+static bool nlastrips_path_remove_fix(const char *prefix, ListBase *strips)
 {
 	NlaStrip *strip;
+	bool any_removed = false;
 
 	/* recursively check strips, fixing only actions... */
 	for (strip = strips->first; strip; strip = strip->next) {
 		/* fix strip's action */
-		if (strip->act)
-			fcurves_path_remove_fix(prefix, &strip->act->curves);
+		if (strip->act) {
+			any_removed |= fcurves_path_remove_fix(prefix, &strip->act->curves);
+		}
 
 		/* check sub-strips (if metas) */
-		nlastrips_path_remove_fix(prefix, &strip->strips);
+		any_removed |= nlastrips_path_remove_fix(prefix, &strip->strips);
 	}
+	return any_removed;
 }
 
-void BKE_animdata_fix_paths_remove(ID *id, const char *prefix)
+bool BKE_animdata_fix_paths_remove(ID *id, const char *prefix)
 {
 	/* Only some ID-blocks have this info for now, so we cast the
 	 * types that do to be of type IdAdtTemplate
 	 */
-	NlaTrack *nlt;
-
-	if (id_can_have_animdata(id)) {
-		IdAdtTemplate *iat = (IdAdtTemplate *)id;
-		AnimData *adt = iat->adt;
-
-		/* check if there's any AnimData to start with */
-		if (adt) {
-			/* free fcurves */
-			if (adt->action)
-				fcurves_path_remove_fix(prefix, &adt->action->curves);
-
-			if (adt->tmpact)
-				fcurves_path_remove_fix(prefix, &adt->tmpact->curves);
-
-			/* free drivers - stored as a list of F-Curves */
-			fcurves_path_remove_fix(prefix, &adt->drivers);
-
-			/* NLA Data - Animation Data for Strips */
-			for (nlt = adt->nla_tracks.first; nlt; nlt = nlt->next)
-				nlastrips_path_remove_fix(prefix, &nlt->strips);
+	if (!id_can_have_animdata(id)) {
+		return false;
+	}
+	bool any_removed = false;
+	IdAdtTemplate *iat = (IdAdtTemplate *)id;
+	AnimData *adt = iat->adt;
+	/* check if there's any AnimData to start with */
+	if (adt) {
+		/* free fcurves */
+		if (adt->action != NULL) {
+			any_removed |= fcurves_path_remove_fix(prefix, &adt->action->curves);
+		}
+		if (adt->tmpact != NULL) {
+			any_removed |= fcurves_path_remove_fix(prefix, &adt->tmpact->curves);
+		}
+		/* free drivers - stored as a list of F-Curves */
+		any_removed |= fcurves_path_remove_fix(prefix, &adt->drivers);
+		/* NLA Data - Animation Data for Strips */
+		for (NlaTrack *nlt = adt->nla_tracks.first; nlt; nlt = nlt->next) {
+			any_removed |= nlastrips_path_remove_fix(prefix, &nlt->strips);
 		}
 	}
+	return any_removed;
 }
-
 
 /* Apply Op to All FCurves in Database --------------------------- */
 
@@ -1168,8 +1184,8 @@ void BKE_animdata_fix_paths_rename_all(ID *ref_id, const char *prefix, const cha
 	ID *id;
 
 	/* macro for less typing
-	 *	- whether animdata exists is checked for by the main renaming callback, though taking
-	 *	  this outside of the function may make things slightly faster?
+	 * - whether animdata exists is checked for by the main renaming callback, though taking
+	 *   this outside of the function may make things slightly faster?
 	 */
 #define RENAMEFIX_ANIM_IDS(first) \
 	for (id = first; id; id = id->next) { \
@@ -1445,7 +1461,7 @@ void BKE_keyingsets_free(ListBase *list)
 		return;
 
 	/* loop over KeyingSets freeing them
-	 *  - BKE_keyingset_free() doesn't free the set itself, but it frees its sub-data
+	 * - BKE_keyingset_free() doesn't free the set itself, but it frees its sub-data
 	 */
 	for (ks = list->first; ks; ks = ksn) {
 		ksn = ks->next;
@@ -1457,34 +1473,14 @@ void BKE_keyingsets_free(ListBase *list)
 /* ***************************************** */
 /* Evaluation Data-Setting Backend */
 
-/* Retrieve string to act as RNA-path, adjusted using mapping-table if provided
- * It returns whether the string needs to be freed (i.e. if it was a temp remapped one)
- * // FIXME: maybe it would be faster if we didn't have to alloc/free strings like this all the time, but for now it's safer
- *
- *	- remap: remapping table to use
- *	- path: original path string (as stored in F-Curve data)
- *	- dst: destination string to write data to
- */
-static bool animsys_remap_path(AnimMapper *UNUSED(remap), char *path, char **dst)
-{
-	/* nothing suitable found, so just set dst to look at path (i.e. no alloc/free needed) */
-	*dst = path;
-	return false;
-}
-
 static bool animsys_store_rna_setting(
-        PointerRNA *ptr, AnimMapper *remap,
+        PointerRNA *ptr,
         /* typically 'fcu->rna_path', 'fcu->array_index' */
         const char *rna_path, const int array_index,
         PathResolvedRNA *r_result)
 {
 	bool success = false;
-
-	char *path = NULL;
-	bool free_path;
-
-	/* get path, remapped as appropriate to work in its new environment */
-	free_path = animsys_remap_path(remap, (char *)rna_path, &path);
+	const char *path = rna_path;
 
 	/* write value to setting */
 	if (path) {
@@ -1516,11 +1512,6 @@ static bool animsys_store_rna_setting(
 				       path, array_index);
 			}
 		}
-	}
-
-	/* free temp path-info */
-	if (free_path) {
-		MEM_freeN((void *)path);
 	}
 
 	return success;
@@ -1667,12 +1658,12 @@ static bool animsys_write_rna_setting(PathResolvedRNA *anim_rna, const float val
 }
 
 /* Simple replacement based data-setting of the FCurve using RNA */
-bool BKE_animsys_execute_fcurve(PointerRNA *ptr, AnimMapper *remap, FCurve *fcu, float curval)
+bool BKE_animsys_execute_fcurve(PointerRNA *ptr, FCurve *fcu, float curval)
 {
 	PathResolvedRNA anim_rna;
 	bool ok = false;
 
-	if (animsys_store_rna_setting(ptr, remap, fcu->rna_path, fcu->array_index, &anim_rna)) {
+	if (animsys_store_rna_setting(ptr, fcu->rna_path, fcu->array_index, &anim_rna)) {
 		ok = animsys_write_rna_setting(&anim_rna, curval);
 	}
 
@@ -1682,17 +1673,24 @@ bool BKE_animsys_execute_fcurve(PointerRNA *ptr, AnimMapper *remap, FCurve *fcu,
 
 static void animsys_write_orig_anim_rna(
         PointerRNA *ptr,
-        AnimMapper *remap,
-        FCurve *fcu,
+        const char *rna_path,
+        int array_index,
         float value)
 {
-	/* Pointer is expected to be an ID pointer, if it's not -- we are doomed. */
+	/* Pointer is expected to be an ID pointer, if it's not -- we are doomed.
+	 *
+	 * NOTE: It is possible to have animation data on NLA strip, see T57360.
+	 * TODO(sergey): Find solution for those cases.
+	 */
+	if (ptr->id.data == NULL) {
+		return;
+	}
 	PointerRNA orig_ptr = *ptr;
 	orig_ptr.id.data = ((ID *)orig_ptr.id.data)->orig_id;
 	orig_ptr.data = orig_ptr.id.data;
 	PathResolvedRNA orig_anim_rna;
 	/* TODO(sergey): Is there a faster way to get anim_rna of original ID? */
-	if (animsys_store_rna_setting(&orig_ptr, remap, fcu->rna_path, fcu->array_index, &orig_anim_rna)) {
+	if (animsys_store_rna_setting(&orig_ptr, rna_path, array_index, &orig_anim_rna)) {
 		animsys_write_rna_setting(&orig_anim_rna, value);
 	}
 }
@@ -1701,7 +1699,7 @@ static void animsys_write_orig_anim_rna(
  * This performs a set of standard checks. If extra checks are required, separate code should be used
  */
 static void animsys_evaluate_fcurves(
-        Depsgraph *depsgraph, PointerRNA *ptr, ListBase *list, AnimMapper *remap, float ctime)
+        Depsgraph *depsgraph, PointerRNA *ptr, ListBase *list, float ctime)
 {
 	const bool is_active_depsgraph = DEG_is_active(depsgraph);
 	/* Calculate then execute each curve. */
@@ -1715,11 +1713,11 @@ static void animsys_evaluate_fcurves(
 			continue;
 		}
 		PathResolvedRNA anim_rna;
-		if (animsys_store_rna_setting(ptr, remap, fcu->rna_path, fcu->array_index, &anim_rna)) {
+		if (animsys_store_rna_setting(ptr, fcu->rna_path, fcu->array_index, &anim_rna)) {
 			const float curval = calculate_fcurve(&anim_rna, fcu, ctime);
 			animsys_write_rna_setting(&anim_rna, curval);
 			if (is_active_depsgraph) {
-				animsys_write_orig_anim_rna(ptr, remap, fcu, curval);
+				animsys_write_orig_anim_rna(ptr, fcu->rna_path, fcu->array_index, curval);
 			}
 		}
 	}
@@ -1750,7 +1748,7 @@ static void animsys_evaluate_drivers(PointerRNA *ptr, AnimData *adt, float ctime
 				 *       new to only be done when drivers only changed */
 
 				PathResolvedRNA anim_rna;
-				if (animsys_store_rna_setting(ptr, NULL, fcu->rna_path, fcu->array_index, &anim_rna)) {
+				if (animsys_store_rna_setting(ptr, fcu->rna_path, fcu->array_index, &anim_rna)) {
 					const float curval = calculate_fcurve(&anim_rna, fcu, ctime);
 					ok = animsys_write_rna_setting(&anim_rna, curval);
 				}
@@ -1786,8 +1784,8 @@ static void action_idcode_patch_check(ID *id, bAction *act)
 	/* the actual checks... hopefully not too much of a performance hit in the long run... */
 	if (act->idroot == 0) {
 		/* use the current root if not set already (i.e. newly created actions and actions from 2.50-2.57 builds)
-		 *  - this has problems if there are 2 users, and the first one encountered is the invalid one
-		 *	  in which case, the user will need to manually fix this (?)
+		 * - this has problems if there are 2 users, and the first one encountered is the invalid one
+		 *   in which case, the user will need to manually fix this (?)
 		 */
 		act->idroot = idcode;
 	}
@@ -1803,13 +1801,12 @@ static void action_idcode_patch_check(ID *id, bAction *act)
 /* ----------------------------------------- */
 
 /* Evaluate Action Group */
-void animsys_evaluate_action_group(PointerRNA *ptr, bAction *act, bActionGroup *agrp, AnimMapper *remap, float ctime)
+void animsys_evaluate_action_group(PointerRNA *ptr, bAction *act, bActionGroup *agrp, float ctime)
 {
 	FCurve *fcu;
 
 	/* check if mapper is appropriate for use here (we set to NULL if it's inappropriate) */
 	if (ELEM(NULL, act, agrp)) return;
-	if ((remap) && (remap->target != act)) remap = NULL;
 
 	action_idcode_patch_check(ptr->id.data, act);
 
@@ -1822,7 +1819,7 @@ void animsys_evaluate_action_group(PointerRNA *ptr, bAction *act, bActionGroup *
 		/* check if this curve should be skipped */
 		if ((fcu->flag & (FCURVE_MUTED | FCURVE_DISABLED)) == 0) {
 			PathResolvedRNA anim_rna;
-			if (animsys_store_rna_setting(ptr, remap, fcu->rna_path, fcu->array_index, &anim_rna)) {
+			if (animsys_store_rna_setting(ptr, fcu->rna_path, fcu->array_index, &anim_rna)) {
 				const float curval = calculate_fcurve(&anim_rna, fcu, ctime);
 				animsys_write_rna_setting(&anim_rna, curval);
 			}
@@ -1832,21 +1829,20 @@ void animsys_evaluate_action_group(PointerRNA *ptr, bAction *act, bActionGroup *
 
 /* Evaluate Action (F-Curve Bag) */
 static void animsys_evaluate_action_ex(
-        Depsgraph *depsgraph, PointerRNA *ptr, bAction *act, AnimMapper *remap, float ctime)
+        Depsgraph *depsgraph, PointerRNA *ptr, bAction *act, float ctime)
 {
 	/* check if mapper is appropriate for use here (we set to NULL if it's inappropriate) */
 	if (act == NULL) return;
-	if ((remap) && (remap->target != act)) remap = NULL;
 
 	action_idcode_patch_check(ptr->id.data, act);
 
 	/* calculate then execute each curve */
-	animsys_evaluate_fcurves(depsgraph, ptr, &act->curves, remap, ctime);
+	animsys_evaluate_fcurves(depsgraph, ptr, &act->curves, ctime);
 }
 
-void animsys_evaluate_action(Depsgraph *depsgraph, PointerRNA *ptr, bAction *act, AnimMapper *remap, float ctime)
+void animsys_evaluate_action(Depsgraph *depsgraph, PointerRNA *ptr, bAction *act, float ctime)
 {
-	animsys_evaluate_action_ex(depsgraph, ptr, act, remap, ctime);
+	animsys_evaluate_action_ex(depsgraph, ptr, act, ctime);
 }
 
 /* ***************************************** */
@@ -1885,12 +1881,12 @@ static void nlastrip_evaluate_controls(Depsgraph *depsgraph, NlaStrip *strip, fl
 		RNA_pointer_create(NULL, &RNA_NlaStrip, strip, &strip_ptr);
 
 		/* execute these settings as per normal */
-		animsys_evaluate_fcurves(depsgraph, &strip_ptr, &strip->fcurves, NULL, ctime);
+		animsys_evaluate_fcurves(depsgraph, &strip_ptr, &strip->fcurves, ctime);
 	}
 
 	/* analytically generate values for influence and time (if applicable)
-	 *  - we do this after the F-Curves have been evaluated to override the effects of those
-	 *    in case the override has been turned off.
+	 * - we do this after the F-Curves have been evaluated to override the effects of those
+	 *   in case the override has been turned off.
 	 */
 	if ((strip->flag & NLASTRIP_FLAG_USR_TIME) == 0)
 		strip->strip_time = nlastrip_get_frame(strip, ctime, NLATIME_CONVERT_EVAL);
@@ -1936,8 +1932,8 @@ NlaEvalStrip *nlastrips_ctime_get_strip(Depsgraph *depsgraph, ListBase *list, Li
 			else {
 				/* before next strip - previous strip has ended, but next hasn't begun,
 				 * so blending mode depends on whether strip is being held or not...
-				 *  - only occurs when no transition strip added, otherwise the transition would have
-				 *    been picked up above...
+				 * - only occurs when no transition strip added, otherwise the transition would have
+				 *   been picked up above...
 				 */
 				strip = strip->prev;
 
@@ -1964,7 +1960,7 @@ NlaEvalStrip *nlastrips_ctime_get_strip(Depsgraph *depsgraph, ListBase *list, Li
 	}
 
 	/* check if a valid strip was found
-	 *	- must not be muted (i.e. will have contribution
+	 * - must not be muted (i.e. will have contribution
 	 */
 	if ((estrip == NULL) || (estrip->flag & NLASTRIP_FLAG_MUTED))
 		return NULL;
@@ -1980,8 +1976,8 @@ NlaEvalStrip *nlastrips_ctime_get_strip(Depsgraph *depsgraph, ListBase *list, Li
 	}
 
 	/* evaluate strip's evaluation controls
-	 *  - skip if no influence (i.e. same effect as muting the strip)
-	 *	- negative influence is not supported yet... how would that be defined?
+	 * - skip if no influence (i.e. same effect as muting the strip)
+	 * - negative influence is not supported yet... how would that be defined?
 	 */
 	/* TODO: this sounds a bit hacky having a few isolated F-Curves stuck on some data it operates on... */
 	nlastrip_evaluate_controls(depsgraph, estrip, ctime);
@@ -2025,9 +2021,9 @@ NlaEvalStrip *nlastrips_ctime_get_strip(Depsgraph *depsgraph, ListBase *list, Li
 /* ---------------------- */
 
 /* find an NlaEvalChannel that matches the given criteria
- *	- ptr and prop are the RNA data to find a match for
+ * - ptr and prop are the RNA data to find a match for
  */
-static NlaEvalChannel *nlaevalchan_find_match(ListBase *channels, PointerRNA *ptr, PropertyRNA *prop, int array_index)
+static NlaEvalChannel *nlaevalchan_find_match(ListBase *channels, const PathResolvedRNA *prna)
 {
 	NlaEvalChannel *nec;
 
@@ -2040,9 +2036,9 @@ static NlaEvalChannel *nlaevalchan_find_match(ListBase *channels, PointerRNA *pt
 		/* - comparing the PointerRNA's is done by comparing the pointers
 		 *   to the actual struct the property resides in, since that all the
 		 *   other data stored in PointerRNA cannot allow us to definitively
-		 *	identify the data
+		 *   identify the data
 		 */
-		if ((nec->ptr.data == ptr->data) && (nec->prop == prop) && (nec->index == array_index))
+		if ((nec->rna.ptr.data == prna->ptr.data) && (nec->rna.prop == prna->prop) && ELEM(nec->rna.prop_index, -1, prna->prop_index))
 			return nec;
 	}
 
@@ -2051,11 +2047,11 @@ static NlaEvalChannel *nlaevalchan_find_match(ListBase *channels, PointerRNA *pt
 }
 
 /* initialise default value for NlaEvalChannel, so that it doesn't blend things wrong */
-static void nlaevalchan_value_init(NlaEvalChannel *nec)
+static float nlaevalchan_init_value(PathResolvedRNA *rna)
 {
-	PointerRNA *ptr = &nec->ptr;
-	PropertyRNA *prop = nec->prop;
-	int index = nec->index;
+	PointerRNA *ptr = &rna->ptr;
+	PropertyRNA *prop = rna->prop;
+	int index = rna->prop_index;
 
 	/* NOTE: while this doesn't work for all RNA properties as default values aren't in fact
 	 * set properly for most of them, at least the common ones (which also happen to get used
@@ -2064,61 +2060,43 @@ static void nlaevalchan_value_init(NlaEvalChannel *nec)
 	switch (RNA_property_type(prop)) {
 		case PROP_BOOLEAN:
 			if (RNA_property_array_check(prop))
-				nec->value = (float)RNA_property_boolean_get_default_index(ptr, prop, index);
+				return (float)RNA_property_boolean_get_default_index(ptr, prop, index);
 			else
-				nec->value = (float)RNA_property_boolean_get_default(ptr, prop);
-			break;
+				return (float)RNA_property_boolean_get_default(ptr, prop);
 		case PROP_INT:
 			if (RNA_property_array_check(prop))
-				nec->value = (float)RNA_property_int_get_default_index(ptr, prop, index);
+				return (float)RNA_property_int_get_default_index(ptr, prop, index);
 			else
-				nec->value = (float)RNA_property_int_get_default(ptr, prop);
-			break;
+				return (float)RNA_property_int_get_default(ptr, prop);
 		case PROP_FLOAT:
 			if (RNA_property_array_check(prop))
-				nec->value = RNA_property_float_get_default_index(ptr, prop, index);
+				return RNA_property_float_get_default_index(ptr, prop, index);
 			else
-				nec->value = RNA_property_float_get_default(ptr, prop);
-			break;
+				return RNA_property_float_get_default(ptr, prop);
 		case PROP_ENUM:
-			nec->value = (float)RNA_property_enum_get_default(ptr, prop);
-			break;
+			return (float)RNA_property_enum_get_default(ptr, prop);
 		default:
-			break;
+			return 0.0f;
 	}
 }
 
 /* verify that an appropriate NlaEvalChannel for this F-Curve exists */
-static NlaEvalChannel *nlaevalchan_verify(PointerRNA *ptr, ListBase *channels, NlaEvalStrip *nes, FCurve *fcu, bool *newChan)
+static NlaEvalChannel *nlaevalchan_verify(PointerRNA *ptr, ListBase *channels, FCurve *fcu, bool *newChan)
 {
 	NlaEvalChannel *nec;
-	NlaStrip *strip = nes->strip;
-	PropertyRNA *prop;
-	PointerRNA new_ptr;
-	char *path = NULL;
-	/* short free_path = 0; */
+	PathResolvedRNA rna;
 
 	/* sanity checks */
 	if (channels == NULL)
 		return NULL;
 
 	/* get RNA pointer+property info from F-Curve for more convenient handling */
-	/* get path, remapped as appropriate to work in its new environment */
-	/* free_path = */ /* UNUSED */ animsys_remap_path(strip->remap, fcu->rna_path, &path);
-
-	/* a valid property must be available, and it must be animatable */
-	if (RNA_path_resolve_property(ptr, path, &new_ptr, &prop) == false) {
-		if (G.debug & G_DEBUG) printf("NLA Strip Eval: Cannot resolve path\n");
-		return NULL;
-	}
-	/* only ok if animatable */
-	else if (RNA_property_animateable(&new_ptr, prop) == 0) {
-		if (G.debug & G_DEBUG) printf("NLA Strip Eval: Property not animatable\n");
+	if (!animsys_store_rna_setting(ptr, fcu->rna_path, fcu->array_index, &rna)) {
 		return NULL;
 	}
 
 	/* try to find a match */
-	nec = nlaevalchan_find_match(channels, &new_ptr, prop, fcu->array_index);
+	nec = nlaevalchan_find_match(channels, &rna);
 
 	/* allocate a new struct for this if none found */
 	if (nec == NULL) {
@@ -2126,12 +2104,13 @@ static NlaEvalChannel *nlaevalchan_verify(PointerRNA *ptr, ListBase *channels, N
 		BLI_addtail(channels, nec);
 
 		/* store property links for writing to the property later */
-		nec->ptr = new_ptr;
-		nec->prop = prop;
-		nec->index = fcu->array_index;
+		nec->rna = rna;
+
+		/* store parameters for use with write_orig_anim_rna */
+		nec->rna_path = fcu->rna_path;
 
 		/* initialise value using default value of property [#35856] */
-		nlaevalchan_value_init(nec);
+		nec->value = nlaevalchan_init_value(&rna);
 		*newChan = true;
 	}
 	else
@@ -2187,8 +2166,8 @@ static void nlaevalchan_accumulate(NlaEvalChannel *nec, NlaEvalStrip *nes, float
 		case NLASTRIP_MODE_REPLACE:
 		default: /* TODO: do we really want to blend by default? it seems more uses might prefer add... */
 			/* do linear interpolation
-			 *	- the influence of the accumulated data (elsewhere, that is called dstweight)
-			 *	  is 1 - influence, since the strip's influence is srcweight
+			 * - the influence of the accumulated data (elsewhere, that is called dstweight)
+			 *   is 1 - influence, since the strip's influence is srcweight
 			 */
 			nec->value = nec->value * (1.0f - inf)   +   (value * inf);
 			break;
@@ -2210,7 +2189,7 @@ static void nlaevalchan_buffers_accumulate(ListBase *channels, ListBase *tmp_buf
 		necn = nec->next;
 
 		/* try to find an existing matching channel for this setting in the accumulation buffer */
-		necd = nlaevalchan_find_match(channels, &nec->ptr, nec->prop, nec->index);
+		necd = nlaevalchan_find_match(channels, &nec->rna);
 
 		/* if there was a matching channel already in the buffer, accumulate to it,
 		 * otherwise, add the current channel to the buffer for efficiency
@@ -2249,7 +2228,7 @@ static void nlaeval_fmodifiers_join_stacks(ListBase *result, ListBase *list1, Li
 	}
 	else {
 		/* list1 should be added first, and list2 second, with the endpoints of these being the endpoints for result
-		 *  - the original lists must be left unchanged though, as we need that fact for restoring
+		 * - the original lists must be left unchanged though, as we need that fact for restoring
 		 */
 		result->first = list1->first;
 		result->last = list2->last;
@@ -2337,7 +2316,7 @@ static void nlastrip_evaluate_actionclip(PointerRNA *ptr, ListBase *channels, Li
 		/* get an NLA evaluation channel to work with, and accumulate the evaluated value with the value(s)
 		 * stored in this channel if it has been used already
 		 */
-		nec = nlaevalchan_verify(ptr, channels, nes, fcu, &newChan);
+		nec = nlaevalchan_verify(ptr, channels, fcu, &newChan);
 		if (nec)
 			nlaevalchan_accumulate(nec, nes, value, newChan);
 	}
@@ -2362,11 +2341,11 @@ static void nlastrip_evaluate_transition(
 	nlaeval_fmodifiers_join_stacks(&tmp_modifiers, &nes->strip->modifiers, modifiers);
 
 	/* get the two strips to operate on
-	 *	- we use the endpoints of the strips directly flanking our strip
-	 *	  using these as the endpoints of the transition (destination and source)
-	 *	- these should have already been determined to be valid...
-	 *	- if this strip is being played in reverse, we need to swap these endpoints
-	 *	  otherwise they will be interpolated wrong
+	 * - we use the endpoints of the strips directly flanking our strip
+	 *   using these as the endpoints of the transition (destination and source)
+	 * - these should have already been determined to be valid...
+	 * - if this strip is being played in reverse, we need to swap these endpoints
+	 *   otherwise they will be interpolated wrong
 	 */
 	if (nes->strip->flag & NLASTRIP_FLAG_REVERSE) {
 		s1 = nes->strip->next;
@@ -2378,11 +2357,11 @@ static void nlastrip_evaluate_transition(
 	}
 
 	/* prepare template for 'evaluation strip'
-	 *	- based on the transition strip's evaluation strip data
-	 *	- strip_mode is NES_TIME_TRANSITION_* based on which endpoint
-	 *	- strip_time is the 'normalized' (i.e. in-strip) time for evaluation,
-	 *	  which doubles up as an additional weighting factor for the strip influences
-	 *	  which allows us to appear to be 'interpolating' between the two extremes
+	 * - based on the transition strip's evaluation strip data
+	 * - strip_mode is NES_TIME_TRANSITION_* based on which endpoint
+	 * - strip_time is the 'normalized' (i.e. in-strip) time for evaluation,
+	 *   which doubles up as an additional weighting factor for the strip influences
+	 *   which allows us to appear to be 'interpolating' between the two extremes
 	 */
 	tmp_nes = *nes;
 
@@ -2478,7 +2457,7 @@ void nlastrip_evaluate(Depsgraph *depsgraph, PointerRNA *ptr, ListBase *channels
 }
 
 /* write the accumulated settings to */
-void nladata_flush_channels(ListBase *channels)
+void nladata_flush_channels(Depsgraph *depsgraph, PointerRNA *ptr, ListBase *channels)
 {
 	NlaEvalChannel *nec;
 
@@ -2486,39 +2465,13 @@ void nladata_flush_channels(ListBase *channels)
 	if (channels == NULL)
 		return;
 
+	const bool is_active_depsgraph = DEG_is_active(depsgraph);
+
 	/* for each channel with accumulated values, write its value on the property it affects */
 	for (nec = channels->first; nec; nec = nec->next) {
-		PointerRNA *ptr = &nec->ptr;
-		PropertyRNA *prop = nec->prop;
-		int array_index = nec->index;
-		float value = nec->value;
-
-		/* write values - see animsys_write_rna_setting() to sync the code */
-		switch (RNA_property_type(prop)) {
-			case PROP_BOOLEAN:
-				if (RNA_property_array_check(prop))
-					RNA_property_boolean_set_index(ptr, prop, array_index, ANIMSYS_FLOAT_AS_BOOL(value));
-				else
-					RNA_property_boolean_set(ptr, prop, ANIMSYS_FLOAT_AS_BOOL(value));
-				break;
-			case PROP_INT:
-				if (RNA_property_array_check(prop))
-					RNA_property_int_set_index(ptr, prop, array_index, (int)value);
-				else
-					RNA_property_int_set(ptr, prop, (int)value);
-				break;
-			case PROP_FLOAT:
-				if (RNA_property_array_check(prop))
-					RNA_property_float_set_index(ptr, prop, array_index, value);
-				else
-					RNA_property_float_set(ptr, prop, value);
-				break;
-			case PROP_ENUM:
-				RNA_property_enum_set(ptr, prop, (int)value);
-				break;
-			default:
-				/* can't do anything with other types of property.... */
-				break;
+		animsys_write_rna_setting(&nec->rna, nec->value);
+		if (is_active_depsgraph) {
+			animsys_write_orig_anim_rna(ptr, nec->rna_path, nec->rna.prop_index, nec->value);
 		}
 	}
 }
@@ -2564,7 +2517,7 @@ static void animsys_evaluate_nla(Depsgraph *depsgraph, ListBase *echannels, Poin
 		}
 
 		/* if this track has strips (but maybe they won't be suitable), set has_strips
-		 *	- used for mainly for still allowing normal action evaluation...
+		 * - used for mainly for still allowing normal action evaluation...
 		 */
 		if (nlt->strips.first)
 			has_strips = true;
@@ -2575,9 +2528,9 @@ static void animsys_evaluate_nla(Depsgraph *depsgraph, ListBase *echannels, Poin
 	}
 
 	/* add 'active' Action (may be tweaking track) as last strip to evaluate in NLA stack
-	 *	- only do this if we're not exclusively evaluating the 'solo' NLA-track
-	 *	- however, if the 'solo' track houses the current 'tweaking' strip,
-	 *	  then we should allow this to play, otherwise nothing happens
+	 * - only do this if we're not exclusively evaluating the 'solo' NLA-track
+	 * - however, if the 'solo' track houses the current 'tweaking' strip,
+	 *   then we should allow this to play, otherwise nothing happens
 	 */
 	if ((adt->action) && ((adt->flag & ADT_NLA_SOLO_TRACK) == 0 || (adt->flag & ADT_NLA_EDIT_ON))) {
 		/* if there are strips, evaluate action as per NLA rules */
@@ -2595,7 +2548,6 @@ static void animsys_evaluate_nla(Depsgraph *depsgraph, ListBase *echannels, Poin
 			else {
 				/* set settings of dummy NLA strip from AnimData settings */
 				dummy_strip.act = adt->action;
-				dummy_strip.remap = adt->remap;
 
 				/* action range is calculated taking F-Modifiers into account (which making new strips doesn't do due to the troublesome nature of that) */
 				calc_action_range(dummy_strip.act, &dummy_strip.actstart, &dummy_strip.actend, 1);
@@ -2618,7 +2570,7 @@ static void animsys_evaluate_nla(Depsgraph *depsgraph, ListBase *echannels, Poin
 			/* TODO: this is really just a stop-gap measure... */
 			if (G.debug & G_DEBUG) printf("NLA Eval: Stopgap for active action on NLA Stack - no strips case\n");
 
-			animsys_evaluate_action(depsgraph, ptr, adt->action, adt->remap, ctime);
+			animsys_evaluate_action(depsgraph, ptr, adt->action, ctime);
 			BLI_freelistN(&estrips);
 			return;
 		}
@@ -2638,8 +2590,8 @@ static void animsys_evaluate_nla(Depsgraph *depsgraph, ListBase *echannels, Poin
 }
 
 /* NLA Evaluation function (mostly for use through do_animdata)
- *	- All channels that will be affected are not cleared anymore. Instead, we just evaluate into
- *		some temp channels, where values can be accumulated in one go.
+ * - All channels that will be affected are not cleared anymore. Instead, we just evaluate into
+ *   some temp channels, where values can be accumulated in one go.
  */
 static void animsys_calculate_nla(Depsgraph *depsgraph, PointerRNA *ptr, AnimData *adt, float ctime)
 {
@@ -2652,7 +2604,7 @@ static void animsys_calculate_nla(Depsgraph *depsgraph, PointerRNA *ptr, AnimDat
 	animsys_evaluate_nla(depsgraph, &echannels, ptr, adt, ctime);
 
 	/* flush effects of accumulating channels in NLA to the actual data they affect */
-	nladata_flush_channels(&echannels);
+	nladata_flush_channels(depsgraph, ptr, &echannels);
 
 	/* free temp data */
 	BLI_freelistN(&echannels);
@@ -2669,7 +2621,7 @@ static void animsys_evaluate_overrides(PointerRNA *ptr, AnimData *adt)
 	/* for each override, simply execute... */
 	for (aor = adt->overrides.first; aor; aor = aor->next) {
 		PathResolvedRNA anim_rna;
-		if (animsys_store_rna_setting(ptr, NULL, aor->rna_path, aor->array_index, &anim_rna)) {
+		if (animsys_store_rna_setting(ptr, aor->rna_path, aor->array_index, &anim_rna)) {
 			animsys_write_rna_setting(&anim_rna, aor->value);
 		}
 	}
@@ -2679,34 +2631,34 @@ static void animsys_evaluate_overrides(PointerRNA *ptr, AnimData *adt)
 /* Evaluation System - Public API */
 
 /* Overview of how this system works:
- *	1) Depsgraph sorts data as necessary, so that data is in an order that means
- *		that all dependencies are resolved before dependents.
- *	2) All normal animation is evaluated, so that drivers have some basis values to
- *		work with
- *		a.	NLA stacks are done first, as the Active Actions act as 'tweaking' tracks
- *			which modify the effects of the NLA-stacks
- *		b.	Active Action is evaluated as per normal, on top of the results of the NLA tracks
+ * 1) Depsgraph sorts data as necessary, so that data is in an order that means
+ *     that all dependencies are resolved before dependents.
+ * 2) All normal animation is evaluated, so that drivers have some basis values to
+ *    work with
+ *    a.  NLA stacks are done first, as the Active Actions act as 'tweaking' tracks
+ *        which modify the effects of the NLA-stacks
+ *    b.  Active Action is evaluated as per normal, on top of the results of the NLA tracks
  *
  * --------------< often in a separate phase... >------------------
  *
- *	3) Drivers/expressions are evaluated on top of this, in an order where dependencies are
- *		resolved nicely.
- *	   Note: it may be necessary to have some tools to handle the cases where some higher-level
- *		drivers are added and cause some problematic dependencies that didn't exist in the local levels...
+ * 3) Drivers/expressions are evaluated on top of this, in an order where dependencies are
+ *    resolved nicely.
+ *    Note: it may be necessary to have some tools to handle the cases where some higher-level
+ *          drivers are added and cause some problematic dependencies that didn't exist in the local levels...
  *
  * --------------< always executed >------------------
  *
  * Maintenance of editability of settings (XXX):
- *	In order to ensure that settings that are animated can still be manipulated in the UI without requiring
- *	that keyframes are added to prevent these values from being overwritten, we use 'overrides'.
+ *  In order to ensure that settings that are animated can still be manipulated in the UI without requiring
+ *  that keyframes are added to prevent these values from being overwritten, we use 'overrides'.
  *
  * Unresolved things:
- *	- Handling of multi-user settings (i.e. time-offset, group-instancing) -> big cache grids or nodal system? but stored where?
- *	- Multiple-block dependencies (i.e. drivers for settings are in both local and higher levels) -> split into separate lists?
+ * - Handling of multi-user settings (i.e. time-offset, group-instancing) -> big cache grids or nodal system? but stored where?
+ * - Multiple-block dependencies (i.e. drivers for settings are in both local and higher levels) -> split into separate lists?
  *
  * Current Status:
- *	- Currently (as of September 2009), overrides we haven't needed to (fully) implement overrides.
- *    However, the code for this is relatively harmless, so is left in the code for now.
+ * - Currently (as of September 2009), overrides we haven't needed to (fully) implement overrides.
+ *   However, the code for this is relatively harmless, so is left in the code for now.
  */
 
 /* Evaluation loop for evaluation animation data
@@ -2727,30 +2679,30 @@ void BKE_animsys_evaluate_animdata(Depsgraph *depsgraph, Scene *scene, ID *id, A
 	RNA_id_pointer_create(id, &id_ptr);
 
 	/* recalculate keyframe data:
-	 *	- NLA before Active Action, as Active Action behaves as 'tweaking track'
-	 *	  that overrides 'rough' work in NLA
+	 * - NLA before Active Action, as Active Action behaves as 'tweaking track'
+	 *   that overrides 'rough' work in NLA
 	 */
 	/* TODO: need to double check that this all works correctly */
 	if ((recalc & ADT_RECALC_ANIM) || (adt->recalc & ADT_RECALC_ANIM)) {
 		/* evaluate NLA data */
 		if ((adt->nla_tracks.first) && !(adt->flag & ADT_NLA_EVAL_OFF)) {
 			/* evaluate NLA-stack
-			 *	- active action is evaluated as part of the NLA stack as the last item
+			 * - active action is evaluated as part of the NLA stack as the last item
 			 */
 			animsys_calculate_nla(depsgraph, &id_ptr, adt, ctime);
 		}
 		/* evaluate Active Action only */
 		else if (adt->action)
-			animsys_evaluate_action_ex(depsgraph, &id_ptr, adt->action, adt->remap, ctime);
+			animsys_evaluate_action_ex(depsgraph, &id_ptr, adt->action, ctime);
 
 		/* reset tag */
 		adt->recalc &= ~ADT_RECALC_ANIM;
 	}
 
 	/* recalculate drivers
-	 *	- Drivers need to be evaluated afterwards, as they can either override
-	 *	  or be layered on top of existing animation data.
-	 *	- Drivers should be in the appropriate order to be evaluated without problems...
+	 * - Drivers need to be evaluated afterwards, as they can either override
+	 *   or be layered on top of existing animation data.
+	 * - Drivers should be in the appropriate order to be evaluated without problems...
 	 */
 	if ((recalc & ADT_RECALC_DRIVERS)
 	    /* XXX for now, don't check yet, as depsgraph hasn't been updated */
@@ -2760,10 +2712,10 @@ void BKE_animsys_evaluate_animdata(Depsgraph *depsgraph, Scene *scene, ID *id, A
 	}
 
 	/* always execute 'overrides'
-	 *	- Overrides allow editing, by overwriting the value(s) set from animation-data, with the
-	 *	  value last set by the user (and not keyframed yet).
-	 *	- Overrides are cleared upon frame change and/or keyframing
-	 *	- It is best that we execute this every time, so that no errors are likely to occur.
+	 * - Overrides allow editing, by overwriting the value(s) set from animation-data, with the
+	 *   value last set by the user (and not keyframed yet).
+	 * - Overrides are cleared upon frame change and/or keyframing
+	 * - It is best that we execute this every time, so that no errors are likely to occur.
 	 */
 	animsys_evaluate_overrides(&id_ptr, adt);
 
@@ -2793,9 +2745,9 @@ void BKE_animsys_evaluate_all_animation(Main *main, Depsgraph *depsgraph, Scene 
 		printf("Evaluate all animation - %f\n", ctime);
 
 	/* macros for less typing
-	 *	- only evaluate animation data for id if it has users (and not just fake ones)
-	 *	- whether animdata exists is checked for by the evaluation function, though taking
-	 *	  this outside of the function may make things slightly faster?
+	 * - only evaluate animation data for id if it has users (and not just fake ones)
+	 * - whether animdata exists is checked for by the evaluation function, though taking
+	 *   this outside of the function may make things slightly faster?
 	 */
 #define EVAL_ANIM_IDS(first, aflag) \
 	for (id = first; id; id = id->next) { \
@@ -2806,10 +2758,10 @@ void BKE_animsys_evaluate_all_animation(Main *main, Depsgraph *depsgraph, Scene 
 	} (void)0
 
 	/* another macro for the "embedded" nodetree cases
-	 *	- this is like EVAL_ANIM_IDS, but this handles the case "embedded nodetrees"
-	 *	  (i.e. scene/material/texture->nodetree) which we need a special exception
-	 *    for, otherwise they'd get skipped
-	 *	- ntp = "node tree parent" = datablock where node tree stuff resides
+	 * - this is like EVAL_ANIM_IDS, but this handles the case "embedded nodetrees"
+	 *   (i.e. scene/material/texture->nodetree) which we need a special exception
+	 *   for, otherwise they'd get skipped
+	 * - ntp = "node tree parent" = datablock where node tree stuff resides
 	 */
 #define EVAL_ANIM_NODETREE_IDS(first, NtId_Type, aflag) \
 	for (id = first; id; id = id->next) { \
@@ -2983,12 +2935,12 @@ void BKE_animsys_eval_driver(Depsgraph *depsgraph,
 			//printf("\told val = %f\n", fcu->curval);
 
 			PathResolvedRNA anim_rna;
-			if (animsys_store_rna_setting(&id_ptr, NULL, fcu->rna_path, fcu->array_index, &anim_rna)) {
+			if (animsys_store_rna_setting(&id_ptr, fcu->rna_path, fcu->array_index, &anim_rna)) {
 				const float ctime = DEG_get_ctime(depsgraph);
 				const float curval = evaluate_fcurve_driver(&anim_rna, fcu, driver_orig, ctime);
 				ok = animsys_write_rna_setting(&anim_rna, curval);
 				if (ok && DEG_is_active(depsgraph)) {
-					animsys_write_orig_anim_rna(&id_ptr, NULL, fcu, curval);
+					animsys_write_orig_anim_rna(&id_ptr, fcu->rna_path, fcu->array_index, curval);
 				}
 			}
 

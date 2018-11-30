@@ -475,6 +475,12 @@ struct Depsgraph;
 void BKE_particle_system_eval_init(struct Depsgraph *depsgraph,
                                    struct Scene *scene,
                                    struct Object *ob);
+								   
+#if WITH_VR
+#ifdef __cplusplus
+}
+#endif
+#endif
 
 #endif
 
@@ -484,9 +490,3 @@ enum {
 };
 void BKE_particle_batch_cache_dirty_tag(struct ParticleSystem *psys, int mode);
 void BKE_particle_batch_cache_free(struct ParticleSystem *psys);
-
-#if WITH_VR
-#ifdef __cplusplus
-}
-#endif
-#endif

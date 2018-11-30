@@ -76,10 +76,11 @@
 #include "BKE_bvhutils.h"
 #include "BKE_customdata.h"
 #include "BKE_image.h"
-#include "BKE_node.h"
+#include "BKE_library.h"
 #include "BKE_mesh.h"
 #include "BKE_mesh_tangent.h"
 #include "BKE_mesh_runtime.h"
+#include "BKE_node.h"
 
 #include "IMB_imbuf_types.h"
 #include "IMB_imbuf.h"
@@ -513,9 +514,9 @@ bool RE_bake_pixels_populate_from_objects(
 		tris_high[i] = mesh_calc_tri_tessface(highpoly[i].me, false, NULL);
 
 		me_highpoly[i] = highpoly[i].me;
-		BKE_mesh_runtime_looptri_ensure(me_highpoly[i]);
+		BKE_mesh_tessface_ensure(me_highpoly[i]);
 
-		if (me_highpoly[i]->runtime.looptris.len != 0) {
+		if (me_highpoly[i]->totface != 0) {
 			/* Create a bvh-tree for each highpoly object */
 			BKE_bvhtree_from_mesh_get(&treeData[i], me_highpoly[i], BVHTREE_FROM_FACES, 2);
 

@@ -75,6 +75,7 @@
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_query.h"
+#include "BKE_shrinkwrap.h"
 
 #ifdef WITH_OPENSUBDIV
 #  include "DNA_userdef_types.h"
@@ -1980,6 +1981,23 @@ static void mesh_finalize_eval(Object *object)
 	}
 }
 
+static void mesh_build_extra_data(struct Depsgraph *depsgraph, Object *ob)
+{
+	uint32_t eval_flags = DEG_get_eval_flags_for_id(depsgraph, &ob->id);
+
+	if (eval_flags & DAG_EVAL_NEED_SHRINKWRAP_BOUNDARY) {
+		BKE_shrinkwrap_compute_boundary_data(ob->runtime.mesh_eval);
+	}
+}
+
+static void mesh_runtime_check_normals_valid(const Mesh *mesh)
+{
+	UNUSED_VARS_NDEBUG(mesh);
+	BLI_assert(!(mesh->runtime.cd_dirty_vert & CD_MASK_NORMAL));
+	BLI_assert(!(mesh->runtime.cd_dirty_loop & CD_MASK_NORMAL));
+	BLI_assert(!(mesh->runtime.cd_dirty_poly & CD_MASK_NORMAL));
+}
+
 static void mesh_build_data(
         struct Depsgraph *depsgraph, Scene *scene, Object *ob, CustomDataMask dataMask,
         const bool build_shapekey_layers, const bool need_mapping)
@@ -1993,17 +2011,21 @@ static void mesh_build_data(
 	        depsgraph, scene, ob, NULL, 1, need_mapping, dataMask, -1, true, build_shapekey_layers,
 	        &ob->runtime.mesh_deform_eval, &ob->runtime.mesh_eval);
 
-	mesh_finalize_eval(ob);
-
+#ifdef USE_DERIVEDMESH
 	/* TODO(campbell): remove these copies, they are expected in various places over the code. */
 	ob->derivedDeform = CDDM_from_mesh_ex(ob->runtime.mesh_deform_eval, CD_REFERENCE, CD_MASK_MESH);
 	ob->derivedFinal = CDDM_from_mesh_ex(ob->runtime.mesh_eval, CD_REFERENCE, CD_MASK_MESH);
+#endif
 
 	BKE_object_boundbox_calc_from_mesh(ob, ob->runtime.mesh_eval);
 	BKE_mesh_texspace_copy_from_object(ob->runtime.mesh_eval, ob);
 
+	mesh_finalize_eval(ob);
+
+#ifdef USE_DERIVEDMESH
 	ob->derivedFinal->needsFree = 0;
 	ob->derivedDeform->needsFree = 0;
+#endif
 	ob->lastDataMask = dataMask;
 	ob->lastNeedMapping = need_mapping;
 
@@ -2015,7 +2037,8 @@ static void mesh_build_data(
 //		BKE_sculpt_update_mesh_elements(depsgraph, scene, scene->toolsettings->sculpt, ob, false, false);
 	}
 
-	BLI_assert(!(ob->derivedFinal->dirty & DM_DIRTY_NORMALS));
+	mesh_runtime_check_normals_valid(ob->runtime.mesh_eval);
+	mesh_build_extra_data(depsgraph, ob);
 }
 
 static void editbmesh_build_data(
@@ -2041,7 +2064,7 @@ static void editbmesh_build_data(
 
 	em->lastDataMask = dataMask;
 
-	BLI_assert(!(em->mesh_eval_final->runtime.cd_dirty_vert & DM_DIRTY_NORMALS));
+	mesh_runtime_check_normals_valid(em->mesh_eval_final);
 }
 
 static CustomDataMask object_get_datamask(const Depsgraph *depsgraph, Object *ob, bool *r_need_mapping)

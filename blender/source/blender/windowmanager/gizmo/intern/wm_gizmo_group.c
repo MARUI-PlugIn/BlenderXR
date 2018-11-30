@@ -67,6 +67,7 @@
 /* Allow gizmo part's to be single click only,
  * dragging falls back to activating their 'drag_part' action. */
 #define USE_DRAG_DETECT
+#define DRAG_THRESHOLD (U.tweak_threshold * U.dpi_fac)
 
 /* -------------------------------------------------------------------- */
 /** \name wmGizmoGroup
@@ -445,7 +446,7 @@ static int gizmo_tweak_modal(bContext *C, wmOperator *op, const wmEvent *event)
 	wmGizmoMap *gzmap = mtweak->gzmap;
 	if (mtweak->drag_state == DRAG_DETECT) {
 		if (ELEM(event->type, MOUSEMOVE, INBETWEEN_MOUSEMOVE)) {
-			if (len_manhattan_v2v2_int(&event->x, gzmap->gzmap_context.event_xy) > 2) {
+			if (len_manhattan_v2v2_int(&event->x, gzmap->gzmap_context.event_xy) >= DRAG_THRESHOLD) {
 				mtweak->drag_state = DRAG_IDLE;
 				gz->highlight_part = gz->drag_part;
 			}
@@ -693,16 +694,26 @@ wmKeyMap *WM_gizmogroup_keymap_common_select(
 {
 	/* Use area and region id since we might have multiple gizmos with the same name in different areas/regions */
 	wmKeyMap *km = WM_keymap_ensure(config, gzgt->name, gzgt->gzmap_params.spaceid, gzgt->gzmap_params.regionid);
+	/* FIXME(campbell) */
+#if 0
+	const int select_mouse = (U.flag & USER_LMOUSESELECT) ? LEFTMOUSE : RIGHTMOUSE;
+	const int select_tweak = (U.flag & USER_LMOUSESELECT) ? EVT_TWEAK_L : EVT_TWEAK_R;
+	const int action_mouse = (U.flag & USER_LMOUSESELECT) ? RIGHTMOUSE : LEFTMOUSE;
+#else
+	const int select_mouse = RIGHTMOUSE;
+	const int select_tweak = EVT_TWEAK_R;
+	const int action_mouse = LEFTMOUSE;
+#endif
 
-	WM_keymap_add_item(km, "GIZMOGROUP_OT_gizmo_tweak", ACTIONMOUSE, KM_PRESS, KM_ANY, 0);
-	WM_keymap_add_item(km, "GIZMOGROUP_OT_gizmo_tweak", EVT_TWEAK_S, KM_ANY, 0, 0);
+	WM_keymap_add_item(km, "GIZMOGROUP_OT_gizmo_tweak", action_mouse, KM_PRESS, KM_ANY, 0);
+	WM_keymap_add_item(km, "GIZMOGROUP_OT_gizmo_tweak", select_tweak, KM_ANY, 0, 0);
 	gizmogroup_tweak_modal_keymap(config, gzgt->name);
 
-	wmKeyMapItem *kmi = WM_keymap_add_item(km, "GIZMOGROUP_OT_gizmo_select", SELECTMOUSE, KM_PRESS, 0, 0);
+	wmKeyMapItem *kmi = WM_keymap_add_item(km, "GIZMOGROUP_OT_gizmo_select", select_mouse, KM_PRESS, 0, 0);
 	RNA_boolean_set(kmi->ptr, "extend", false);
 	RNA_boolean_set(kmi->ptr, "deselect", false);
 	RNA_boolean_set(kmi->ptr, "toggle", false);
-	kmi = WM_keymap_add_item(km, "GIZMOGROUP_OT_gizmo_select", SELECTMOUSE, KM_PRESS, KM_SHIFT, 0);
+	kmi = WM_keymap_add_item(km, "GIZMOGROUP_OT_gizmo_select", select_mouse, KM_PRESS, KM_SHIFT, 0);
 	RNA_boolean_set(kmi->ptr, "extend", false);
 	RNA_boolean_set(kmi->ptr, "deselect", false);
 	RNA_boolean_set(kmi->ptr, "toggle", true);

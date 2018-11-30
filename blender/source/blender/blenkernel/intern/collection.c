@@ -130,7 +130,7 @@ bool BKE_collection_delete(Main *bmain, Collection *collection, bool hierarchy)
 {
 	/* Master collection is not real datablock, can't be removed. */
 	if (collection->flag & COLLECTION_IS_MASTER) {
-		BLI_assert("!Scene master collection can't be deleted");
+		BLI_assert(!"Scene master collection can't be deleted");
 		return false;
 	}
 
@@ -296,6 +296,19 @@ void BKE_collection_new_name_get(Collection *collection_parent, char *rname)
 
 	BLI_strncpy(rname, name, MAX_NAME);
 	MEM_freeN(name);
+}
+
+/**
+ * The name to show in the interface.
+ */
+const char *BKE_collection_ui_name_get(struct Collection *collection)
+{
+	if (collection->flag & COLLECTION_IS_MASTER) {
+		return IFACE_("Scene Collection");
+	}
+	else {
+		return collection->id.name + 2;
+	}
 }
 
 /* **************** Object List Cache *******************/
@@ -650,36 +663,68 @@ void BKE_collections_object_remove_nulls(Main *bmain)
 	}
 }
 
-/*
- * Remove all NULL children from parent objects of changed old_collection.
- * This is used for library remapping, where these pointers have been set to NULL.
- * Otherwise this should never happen.
- */
-void BKE_collections_child_remove_nulls(Main *bmain, Collection *old_collection)
+static void collection_null_children_remove(Collection *collection)
 {
-	bool changed = false;
+	for (CollectionChild *child = collection->children.first, *child_next = NULL; child; child = child_next) {
+		child_next = child->next;
 
-	for (CollectionParent *cparent = old_collection->parents.first, *cnext; cparent; cparent = cnext) {
-		Collection *parent = cparent->collection;
-		cnext = cparent->next;
-
-		for (CollectionChild *child = parent->children.first, *child_next = NULL; child; child = child_next) {
-			child_next = child->next;
-
-			if (child->collection == NULL) {
-				BLI_freelinkN(&parent->children, child);
-				changed = true;
-			}
-		}
-
-		if (!collection_find_child(parent, old_collection)) {
-			BLI_freelinkN(&old_collection->parents, cparent);
-			changed = true;
+		if (child->collection == NULL) {
+			BLI_freelinkN(&collection->children, child);
 		}
 	}
+}
 
-	if (changed) {
-		BKE_main_collection_sync_remap(bmain);
+static void collection_missing_parents_remove(Collection *collection)
+{
+	for (CollectionParent *parent = collection->parents.first, *parent_next; parent != NULL; parent = parent_next) {
+		parent_next = parent->next;
+
+		if (!collection_find_child(parent->collection, collection)) {
+			BLI_freelinkN(&collection->parents, parent);
+		}
+	}
+}
+
+/**
+ * Remove all NULL children from parent collections of changed \a collection.
+ * This is used for library remapping, where these pointers have been set to NULL.
+ * Otherwise this should never happen.
+ *
+ * \note caller must ensure BKE_main_collection_sync_remap() is called afterwards!
+ *
+ * \param collection may be \a NULL, in which case whole \a bmain database of collections is checked.
+ */
+void BKE_collections_child_remove_nulls(Main *bmain, Collection *collection)
+{
+	if (collection == NULL) {
+		/* We need to do the checks in two steps when more than one collection may be involved,
+		 * otherwise we can miss some cases...
+		 * Also, master collections are not in bmain, so we also need to loop over scenes.
+		 */
+		for (collection = bmain->collection.first; collection != NULL; collection = collection->id.next) {
+			collection_null_children_remove(collection);
+		}
+		for (Scene *scene = bmain->scene.first; scene != NULL; scene = scene->id.next) {
+			collection_null_children_remove(BKE_collection_master(scene));
+		}
+
+		for (collection = bmain->collection.first; collection != NULL; collection = collection->id.next) {
+			collection_missing_parents_remove(collection);
+		}
+		for (Scene *scene = bmain->scene.first; scene != NULL; scene = scene->id.next) {
+			collection_missing_parents_remove(BKE_collection_master(scene));
+		}
+	}
+	else {
+		for (CollectionParent *parent = collection->parents.first, *parent_next; parent; parent = parent_next) {
+			parent_next = parent->next;
+
+			collection_null_children_remove(parent->collection);
+
+			if (!collection_find_child(parent->collection, collection)) {
+				BLI_freelinkN(&collection->parents, parent);
+			}
+		}
 	}
 }
 
@@ -1092,16 +1137,13 @@ void BKE_scene_objects_iterator_begin(BLI_Iterator *iter, void *data_in)
 	BKE_scene_collections_iterator_begin(&data->scene_collection_iter, scene);
 
 	Collection *collection = data->scene_collection_iter.current;
-	if (collection->gobject.first != NULL) {
-		iter->current = ((CollectionObject *)collection->gobject.first)->ob;
-	}
-	else {
-		BKE_scene_objects_iterator_next(iter);
-	}
+	data->cob_next = collection->gobject.first;
+
+	BKE_scene_objects_iterator_next(iter);
 }
 
 /**
- * Gets the first unique object in the sequence
+ * Ensures we only get each object once, even when included in several collections.
  */
 static CollectionObject *object_base_unique(GSet *gs, CollectionObject *cob)
 {

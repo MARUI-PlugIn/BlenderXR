@@ -51,18 +51,13 @@
 
 #include "ED_mesh.h"
 #include "ED_screen.h"
+#include "ED_select_utils.h"
 
 #include "mesh_intern.h"  /* own include */
 
 /* -------------------------------------------------------------------- */
 /** \name Select Similar (Vert/Edge/Face) Operator - common
  * \{ */
-
-enum {
-	SIM_CMP_EQ = 0,
-	SIM_CMP_GT,
-	SIM_CMP_LT
-};
 
 static const EnumPropertyItem prop_similar_compare_types[] = {
 	{SIM_CMP_EQ, "EQUAL", 0, "Equal", ""},
@@ -105,21 +100,6 @@ static const EnumPropertyItem prop_similar_types[] = {
 	{0, NULL, 0, NULL, NULL}
 };
 
-static int mesh_select_similar_compare_float(const float delta, const float thresh, const int compare)
-{
-	switch (compare) {
-		case SIM_CMP_EQ:
-			return (fabsf(delta) < thresh + FLT_EPSILON);
-		case SIM_CMP_GT:
-			return ((delta + thresh) > -FLT_EPSILON);
-		case SIM_CMP_LT:
-			return ((delta - thresh) < FLT_EPSILON);
-		default:
-			BLI_assert(0);
-			return 0;
-	}
-}
-
 static int mesh_select_similar_compare_int(const int delta, const int compare)
 {
 	switch (compare) {
@@ -133,42 +113,6 @@ static int mesh_select_similar_compare_int(const int delta, const int compare)
 			BLI_assert(0);
 			return 0;
 	}
-}
-
-static bool mesh_select_similar_compare_float_tree(const KDTree *tree, const float length, const float thresh, const int compare)
-{
-	/* Length of the edge we want to compare against. */
-	float nearest_edge_length;
-
-	switch (compare) {
-		case SIM_CMP_EQ:
-			/* Compare to the edge closest to the current edge. */
-			nearest_edge_length = length;
-			break;
-		case SIM_CMP_GT:
-			/* Compare against the shortest edge. */
-			/* -FLT_MAX leads to some precision issues and the wrong edge being selected.
-			 * For example, in a tree with 1, 2 and 3, which is stored squared as 1, 4, 9, it returns as the nearest
-			 * length/node the "4" instead of "1". */
-			nearest_edge_length = -1.0f;
-			break;
-		case SIM_CMP_LT:
-			/* Compare against the longest edge. */
-			nearest_edge_length = FLT_MAX;
-			break;
-		default:
-			BLI_assert(0);
-			return false;
-	}
-
-	KDTreeNearest nearest;
-	float dummy[3] = {nearest_edge_length, 0.0f, 0.0f};
-	if (BLI_kdtree_find_nearest(tree, dummy, &nearest) != -1) {
-		float delta = length - nearest.co[0];
-		return mesh_select_similar_compare_float(delta, thresh, compare);
-	}
-
-	return false;
 }
 
 /** \} */
@@ -253,7 +197,7 @@ static int similar_face_select_exec(bContext *C, wmOperator *op)
 
 	int tot_faces_selected_all = 0;
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *ob = objects[ob_index];
@@ -300,6 +244,9 @@ static int similar_face_select_exec(bContext *C, wmOperator *op)
 		if (bm->totfacesel == 0) {
 			continue;
 		}
+
+		float ob_m3[3][3];
+		copy_m3_m4(ob_m3, ob->obmat);
 
 		switch (type) {
 			case SIMFACE_MATERIAL:
@@ -349,14 +296,14 @@ static int similar_face_select_exec(bContext *C, wmOperator *op)
 					}
 					case SIMFACE_AREA:
 					{
-						float area = BM_face_calc_area(face);
+						float area = BM_face_calc_area_with_mat3(face, ob_m3);
 						float dummy[3] = {area, 0.0f, 0.0f};
 						BLI_kdtree_insert(tree, tree_index++, dummy);
 						break;
 					}
 					case SIMFACE_PERIMETER:
 					{
-						float perimeter = BM_face_calc_perimeter(face);
+						float perimeter = BM_face_calc_perimeter_with_mat3(face, ob_m3);
 						float dummy[3] = {perimeter, 0.0f, 0.0f};
 						BLI_kdtree_insert(tree, tree_index++, dummy);
 						break;
@@ -427,6 +374,9 @@ static int similar_face_select_exec(bContext *C, wmOperator *op)
 		Material ***material_array = NULL;
 		int custom_data_offset;
 
+		float ob_m3[3][3];
+		copy_m3_m4(ob_m3, ob->obmat);
+
 		bool has_custom_data_layer = false;
 		switch (type) {
 			case SIMFACE_MATERIAL:
@@ -496,16 +446,16 @@ static int similar_face_select_exec(bContext *C, wmOperator *op)
 					}
 					case SIMFACE_AREA:
 					{
-						float area = BM_face_calc_area(face);
-						if (mesh_select_similar_compare_float_tree(tree, area, thresh, compare)) {
+						float area = BM_face_calc_area_with_mat3(face, ob_m3);
+						if (ED_select_similar_compare_float_tree(tree, area, thresh, compare)) {
 							select = true;
 						}
 						break;
 					}
 					case SIMFACE_PERIMETER:
 					{
-						float perimeter = BM_face_calc_perimeter(face);
-						if (mesh_select_similar_compare_float_tree(tree, perimeter, thresh, compare)) {
+						float perimeter = BM_face_calc_perimeter_with_mat3(face, ob_m3);
+						if (ED_select_similar_compare_float_tree(tree, perimeter, thresh, compare)) {
 							select = true;
 						}
 						break;
@@ -733,7 +683,7 @@ static int similar_edge_select_exec(bContext *C, wmOperator *op)
 
 	int tot_edges_selected_all = 0;
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *ob = objects[ob_index];
@@ -804,6 +754,10 @@ static int similar_edge_select_exec(bContext *C, wmOperator *op)
 			}
 		}
 
+		float ob_m3[3][3], ob_m3_inv[3][3];
+		copy_m3_m4(ob_m3, ob->obmat);
+		invert_m3_m3(ob_m3_inv, ob_m3);
+
 		BMEdge *edge; /* Mesh edge. */
 		BMIter iter; /* Selected edges iterator. */
 
@@ -830,7 +784,7 @@ static int similar_edge_select_exec(bContext *C, wmOperator *op)
 					case SIMEDGE_FACE_ANGLE:
 					{
 						if (BM_edge_face_count_at_most(edge, 2) == 2) {
-							float angle = BM_edge_calc_face_angle(edge);
+							float angle = BM_edge_calc_face_angle_with_imat3(edge, ob_m3_inv);
 							float dummy[3] = {angle, 0.0f, 0.0f};
 							BLI_kdtree_insert(tree, tree_index++, dummy);
 						}
@@ -904,12 +858,16 @@ static int similar_edge_select_exec(bContext *C, wmOperator *op)
 					/* Proceed only if we have to select all the edges that have custom data value of 0.0f.
 					 * In this case we will just select all the edges.
 					 * Otherwise continue the for loop. */
-					if (!mesh_select_similar_compare_float_tree(tree, 0.0f, thresh, compare)) {
+					if (!ED_select_similar_compare_float_tree(tree, 0.0f, thresh, compare)) {
 						continue;
 					}
 				}
 			}
 		}
+
+		float ob_m3[3][3], ob_m3_inv[3][3];
+		copy_m3_m4(ob_m3, ob->obmat);
+		invert_m3_m3(ob_m3_inv, ob_m3);
 
 		BMEdge *edge; /* Mesh edge. */
 		BMIter iter; /* Selected edges iterator. */
@@ -952,7 +910,7 @@ static int similar_edge_select_exec(bContext *C, wmOperator *op)
 					case SIMEDGE_LENGTH:
 					{
 						float length = edge_length_squared_worldspace_get(ob, edge);
-						if (mesh_select_similar_compare_float_tree(tree, length, thresh, compare)) {
+						if (ED_select_similar_compare_float_tree(tree, length, thresh, compare)) {
 							select = true;
 						}
 						break;
@@ -960,8 +918,8 @@ static int similar_edge_select_exec(bContext *C, wmOperator *op)
 					case SIMEDGE_FACE_ANGLE:
 					{
 						if (BM_edge_face_count_at_most(edge, 2) == 2) {
-							float angle = BM_edge_calc_face_angle(edge);
-							if (mesh_select_similar_compare_float_tree(tree, angle, thresh, SIM_CMP_EQ)) {
+							float angle = BM_edge_calc_face_angle_with_imat3(edge, ob_m3_inv);
+							if (ED_select_similar_compare_float_tree(tree, angle, thresh, SIM_CMP_EQ)) {
 								select = true;
 							}
 						}
@@ -1008,7 +966,7 @@ static int similar_edge_select_exec(bContext *C, wmOperator *op)
 						}
 
 						const float *value = CustomData_bmesh_get(&bm->edata, edge->head.data, custom_data_type);
-						if (mesh_select_similar_compare_float_tree(tree, *value, thresh, compare)) {
+						if (ED_select_similar_compare_float_tree(tree, *value, thresh, compare)) {
 							select = true;
 						}
 						break;
@@ -1080,7 +1038,7 @@ static int similar_vert_select_exec(bContext *C, wmOperator *op)
 
 	int tot_verts_selected_all = 0;
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *ob = objects[ob_index];

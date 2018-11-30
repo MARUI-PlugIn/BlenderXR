@@ -70,9 +70,6 @@ struct GPUMaterial {
 	Scene *scene; /* DEPRECATED was only useful for lamps */
 	Material *ma;
 
-	/* material for mesh surface, worlds or something else.
-	 * some code generation is done differently depending on the use case */
-	int type; /* DEPRECATED */
 	GPUMaterialStatus status;
 
 	const void *engine_type;   /* attached engine type */
@@ -226,11 +223,6 @@ GPUBuiltin GPU_get_material_builtins(GPUMaterial *material)
 Scene *GPU_material_scene(GPUMaterial *material)
 {
 	return material->scene;
-}
-
-GPUMatType GPU_Material_get_type(GPUMaterial *material)
-{
-	return material->type;
 }
 
 GPUPass *GPU_material_get_pass(GPUMaterial *material)
@@ -566,6 +558,11 @@ struct GPUUniformBuffer *GPU_material_sss_profile_get(GPUMaterial *material, int
 		*tex_profile = material->sss_tex_profile;
 	}
 	return material->sss_profile;
+}
+
+struct GPUUniformBuffer *GPU_material_create_sss_profile_ubo(void)
+{
+	return GPU_uniformbuffer_create(sizeof(GPUSssKernelData), NULL, NULL);
 }
 
 #undef SSS_EXPONENT

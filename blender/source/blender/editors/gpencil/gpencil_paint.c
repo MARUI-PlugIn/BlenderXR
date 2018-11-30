@@ -285,12 +285,11 @@ static bool gpencil_project_check(tGPsdata *p)
 /* get the reference point for stroke-point conversions */
 static void gp_get_3d_reference(tGPsdata *p, float vec[3])
 {
-	View3D *v3d = p->sa->spacedata.first;
 	Object *ob = NULL;
 	if (p->ownerPtr.type == &RNA_Object) {
 		ob = (Object *)p->ownerPtr.data;
 	}
-	ED_gp_get_drawing_reference(v3d, p->scene, ob, p->gpl, *p->align_flag, vec);
+	ED_gp_get_drawing_reference(p->scene, ob, p->gpl, *p->align_flag, vec);
 }
 
 /* Stroke Editing ---------------------------- */
@@ -378,7 +377,7 @@ static void gp_stroke_convertcoords(tGPsdata *p, const int mval[2], float out[3]
 
 		if (gpencil_project_check(p) && (ED_view3d_autodist_simple(p->ar, mval, out, 0, depth))) {
 			/* projecting onto 3D-Geometry
-			 *	- nothing more needs to be done here, since view_autodist_simple() has already done it
+			 * - nothing more needs to be done here, since view_autodist_simple() has already done it
 			 */
 
 			 /* verify valid zdepth, if it's wrong, the default darwing mode is used
@@ -399,8 +398,8 @@ static void gp_stroke_convertcoords(tGPsdata *p, const int mval[2], float out[3]
 		 * works OK, but it could of course be improved.
 		 *
 		 * TODO:
-		 *	- investigate using nearest point(s) on a previous stroke as
-		 *	  reference point instead or as offset, for easier stroke matching
+		 * - investigate using nearest point(s) on a previous stroke as
+		 *   reference point instead or as offset, for easier stroke matching
 		 */
 
 		gp_get_3d_reference(p, rvec);
@@ -588,7 +587,7 @@ static short gp_stroke_addpoint(
 		}
 		else {
 			/* just reset the endpoint to the latest value
-			 *	- assume that pointers for this are always valid...
+			 * - assume that pointers for this are always valid...
 			 */
 			pt = ((tGPspoint *)(gpd->runtime.sbuffer) + 1);
 
@@ -708,12 +707,11 @@ static short gp_stroke_addpoint(
 			gp_get_3d_reference(p, origin);
 			/* reproject current */
 			ED_gpencil_tpoint_to_point(p->ar, origin, pt, &spt);
-			ED_gp_project_point_to_plane(obact, rv3d, origin, ts->gp_sculpt.lock_axis - 1, &spt);
+			ED_gp_project_point_to_plane(obact, rv3d, origin, p->lock_axis - 1, &spt);
 
 			/* reproject previous */
 			ED_gpencil_tpoint_to_point(p->ar, origin, ptb, &spt2);
-			ED_gp_project_point_to_plane(obact, rv3d, origin, ts->gp_sculpt.lock_axis - 1, &spt2);
-
+			ED_gp_project_point_to_plane(obact, rv3d, origin, p->lock_axis - 1, &spt2);
 			p->totpixlen += len_v3v3(&spt.x, &spt2.x) / pixsize;
 			pt->uv_fac = p->totpixlen;
 			if ((gp_style) && (gp_style->sima)) {
@@ -854,7 +852,7 @@ static void gp_stroke_newfrombuffer(tGPsdata *p)
 	int depth_margin = (ts->gpencil_v3d_align & GP_PROJECT_DEPTH_STROKE) ? 4 : 0;
 
 	/* get total number of points to allocate space for
-	 *	- drawing straight-lines only requires the endpoints
+	 * - drawing straight-lines only requires the endpoints
 	 */
 	if (p->paintmode == GP_PAINTMODE_DRAW_STRAIGHT)
 		totelem = (gpd->runtime.sbuffer_size >= 2) ? 2 : gpd->runtime.sbuffer_size;
@@ -1041,27 +1039,37 @@ static void gp_stroke_newfrombuffer(tGPsdata *p)
 					depth_arr[i] = 0.9999f;
 			}
 			else {
-				if (ts->gpencil_v3d_align & GP_PROJECT_DEPTH_STROKE_ENDPOINTS) {
-					/* remove all info between the valid endpoints */
+				if ((ts->gpencil_v3d_align & GP_PROJECT_DEPTH_STROKE_ENDPOINTS) ||
+				    (ts->gpencil_v3d_align & GP_PROJECT_DEPTH_STROKE_FIRST))
+				{
 					int first_valid = 0;
 					int last_valid = 0;
 
+					/* find first valid contact point */
 					for (i = 0; i < gpd->runtime.sbuffer_size; i++) {
 						if (depth_arr[i] != FLT_MAX)
 							break;
 					}
 					first_valid = i;
 
-					for (i = gpd->runtime.sbuffer_size - 1; i >= 0; i--) {
-						if (depth_arr[i] != FLT_MAX)
-							break;
+					/* find last valid contact point */
+					if (ts->gpencil_v3d_align & GP_PROJECT_DEPTH_STROKE_FIRST) {
+						last_valid = first_valid;
 					}
-					last_valid = i;
-
-					/* invalidate non-endpoints, so only blend between first and last */
-					for (i = first_valid + 1; i < last_valid; i++)
-						depth_arr[i] = FLT_MAX;
-
+					else {
+						for (i = gpd->runtime.sbuffer_size - 1; i >= 0; i--) {
+							if (depth_arr[i] != FLT_MAX)
+								break;
+						}
+						last_valid = i;
+					}
+					/* invalidate any point other point, to interpolate between
+					 * first and last contact in an imaginary line between them */
+					for (i = 0; i < gpd->runtime.sbuffer_size; i++) {
+						if ((i != first_valid) && (i != last_valid)) {
+							depth_arr[i] = FLT_MAX;
+						}
+					}
 					interp_depth = true;
 				}
 
@@ -1439,7 +1447,7 @@ static void gp_stroke_eraser_dostroke(tGPsdata *p,
 			{
 				/* Check if point segment of stroke had anything to do with
 				 * eraser region  (either within stroke painted, or on its lines)
-				 *  - this assumes that linewidth is irrelevant
+				 * - this assumes that linewidth is irrelevant
 				 */
 				if (gp_stroke_inside_circle(mval, mvalo, radius, pc0[0], pc0[1], pc2[0], pc2[1])) {
 					if ((gp_stroke_eraser_is_occluded(p, pt0, pc0[0], pc0[1]) == false) ||
@@ -1537,10 +1545,10 @@ static void gp_stroke_doeraser(tGPsdata *p)
 	float press = 1.0f;
 
 	/* detect if use pressure in eraser */
-	if (brush->gpencil_settings->brush_type == GP_BRUSH_TYPE_ERASE) {
+	if (brush->gpencil_tool == GPAINT_TOOL_ERASE) {
 		use_pressure = (bool)(brush->gpencil_settings->flag & GP_BRUSH_USE_PRESSURE);
 	}
-	else if ((eraser != NULL) & (eraser->gpencil_settings->brush_type == GP_BRUSH_TYPE_ERASE)) {
+	else if ((eraser != NULL) & (eraser->gpencil_tool == GPAINT_TOOL_ERASE)) {
 		use_pressure = (bool)(eraser->gpencil_settings->flag & GP_BRUSH_USE_PRESSURE);
 	}
 	if (use_pressure) {
@@ -1632,11 +1640,11 @@ static void gp_session_validatebuffer(tGPsdata *p)
 static Brush *gp_get_default_eraser(Main *bmain, ToolSettings *ts)
 {
 	Brush *brush_dft = NULL;
-	Paint *paint = BKE_brush_get_gpencil_paint(ts);
+	Paint *paint = &ts->gp_paint->paint;
 	Brush *brush_old = paint->brush;
 	for (Brush *brush = bmain->brush.first; brush; brush = brush->id.next) {
 		if ((brush->ob_mode == OB_MODE_GPENCIL_PAINT) &&
-		    (brush->gpencil_settings->brush_type == GP_BRUSH_TYPE_ERASE))
+		    (brush->gpencil_tool == GPAINT_TOOL_ERASE))
 		{
 			/* save first eraser to use later if no default */
 			if (brush_dft == NULL) {
@@ -1659,7 +1667,7 @@ static Brush *gp_get_default_eraser(Main *bmain, ToolSettings *ts)
 		brush_dft->size = 30.0f;
 		brush_dft->gpencil_settings->flag |= (GP_BRUSH_ENABLE_CURSOR | GP_BRUSH_DEFAULT_ERASER);
 		brush_dft->gpencil_settings->icon_id = GP_BRUSH_ICON_ERASE_SOFT;
-		brush_dft->gpencil_settings->brush_type = GP_BRUSH_TYPE_ERASE;
+		brush_dft->gpencil_tool = GPAINT_TOOL_ERASE;
 		brush_dft->gpencil_settings->eraser_mode = GP_BRUSH_ERASER_SOFT;
 
 		/* reset current brush */
@@ -1672,34 +1680,28 @@ static Brush *gp_get_default_eraser(Main *bmain, ToolSettings *ts)
 /* initialize a drawing brush */
 static void gp_init_drawing_brush(bContext *C, tGPsdata *p)
 {
-	Brush *brush;
 	Scene *scene = CTX_data_scene(C);
 	ToolSettings *ts = CTX_data_tool_settings(C);
 
-	Paint *paint = BKE_brush_get_gpencil_paint(ts);
+	Paint *paint = &ts->gp_paint->paint;
 
 	/* if not exist, create a new one */
 	if (paint->brush == NULL) {
 		/* create new brushes */
 		BKE_brush_gpencil_presets(C);
-		brush = BKE_brush_getactive_gpencil(ts);
-	}
-	else {
-		/* Use the current */
-		brush = BKE_brush_getactive_gpencil(ts);
 	}
 	/* be sure curves are initializated */
-	curvemapping_initialize(brush->gpencil_settings->curve_sensitivity);
-	curvemapping_initialize(brush->gpencil_settings->curve_strength);
-	curvemapping_initialize(brush->gpencil_settings->curve_jitter);
+	curvemapping_initialize(paint->brush->gpencil_settings->curve_sensitivity);
+	curvemapping_initialize(paint->brush->gpencil_settings->curve_strength);
+	curvemapping_initialize(paint->brush->gpencil_settings->curve_jitter);
 
 	/* assign to temp tGPsdata */
-	p->brush = brush;
-	if (brush->gpencil_settings->brush_type != GP_BRUSH_TYPE_ERASE) {
+	p->brush = paint->brush;
+	if (paint->brush->gpencil_tool != GPAINT_TOOL_ERASE) {
 		p->eraser = gp_get_default_eraser(p->bmain, ts);
 	}
 	else {
-		p->eraser = brush;
+		p->eraser = paint->brush;
 	}
 	/* use radius of eraser */
 	p->radius = (short)p->eraser->size;
@@ -1771,7 +1773,6 @@ static bool gp_session_initdata(bContext *C, wmOperator *op, tGPsdata *p)
 	ARegion *ar = CTX_wm_region(C);
 	ToolSettings *ts = CTX_data_tool_settings(C);
 	Object *obact = CTX_data_active_object(C);
-	View3D *v3d = curarea->spacedata.first;
 
 	/* make sure the active view (at the starting time) is a 3d-view */
 	if (curarea == NULL) {
@@ -1800,7 +1801,7 @@ static bool gp_session_initdata(bContext *C, wmOperator *op, tGPsdata *p)
 			/* RegionView3D *rv3d = ar->regiondata; */
 
 			/* set current area
-			 *	- must verify that region data is 3D-view (and not something else)
+			 * - must verify that region data is 3D-view (and not something else)
 			 */
 			 /* CAUTION: If this is the "toolbar", then this will change on the first stroke */
 			p->sa = curarea;
@@ -1815,7 +1816,7 @@ static bool gp_session_initdata(bContext *C, wmOperator *op, tGPsdata *p)
 			}
 
 			/* if active object doesn't exist or isn't a GP Object, create one */
-			float *cur = ED_view3d_cursor3d_get(p->scene, v3d)->location;
+			const float *cur = p->scene->cursor.location;
 			if ((!obact) || (obact->type != OB_GPENCIL)) {
 				/* create new default object */
 				obact = ED_add_gpencil_object(C, p->scene, cur);
@@ -1872,8 +1873,15 @@ static bool gp_session_initdata(bContext *C, wmOperator *op, tGPsdata *p)
 		gp_init_colors(p);
 	}
 
-	/* lock axis */
-	p->lock_axis = ts->gp_sculpt.lock_axis;
+	/* lock axis (in some modes, disable) */
+	if (((*p->align_flag & GP_PROJECT_DEPTH_VIEW) == 0) &&
+	    ((*p->align_flag & GP_PROJECT_DEPTH_STROKE) == 0))
+	{
+		p->lock_axis = ts->gp_sculpt.lock_axis;
+	}
+	else {
+		p->lock_axis = 0;
+	}
 
 	/* region where paint was originated */
 	p->gpd->runtime.ar = CTX_wm_region(C);
@@ -2002,7 +2010,7 @@ static void gp_paint_initstroke(tGPsdata *p, eGPencil_PaintModes paintmode, Deps
 		 * (though this is only available in editmode)
 		 */
 		if (p->gpd->flag & GP_DATA_STROKE_EDITMODE) {
-			if (ts->gp_sculpt.flag & GP_BRUSHEDIT_FLAG_SELECT_MASK) {
+			if (ts->gp_sculpt.flag & GP_SCULPT_SETT_FLAG_SELECT_MASK) {
 				p->flags |= GP_PAINTFLAG_SELECTMASK;
 			}
 		}
@@ -2297,11 +2305,11 @@ static int gpencil_draw_init(bContext *C, wmOperator *op, const wmEvent *event)
 	tGPsdata *p;
 	eGPencil_PaintModes paintmode = RNA_enum_get(op->ptr, "mode");
 	ToolSettings *ts = CTX_data_tool_settings(C);
-	Brush *brush = BKE_brush_getactive_gpencil(ts);
+	Brush *brush = BKE_paint_brush(&ts->gp_paint->paint);
 
 	/* if mode is draw and the brush is eraser, cancel */
 	if (paintmode != GP_PAINTMODE_ERASER) {
-		if ((brush) && (brush->gpencil_settings->brush_type == GP_BRUSH_TYPE_ERASE)) {
+		if ((brush) && (brush->gpencil_tool == GPAINT_TOOL_ERASE)) {
 			return 0;
 		}
 	}
@@ -2342,12 +2350,13 @@ static void gpencil_draw_cursor_set(tGPsdata *p)
 {
 	Brush *brush = p->brush;
 	if ((p->paintmode == GP_PAINTMODE_ERASER) ||
-	    (brush->gpencil_settings->brush_type == GP_BRUSH_TYPE_ERASE))
+	    (brush->gpencil_tool == GPAINT_TOOL_ERASE))
 	{
 		WM_cursor_modal_set(p->win, BC_CROSSCURSOR);  /* XXX need a better cursor */
 	}
 	else {
-		WM_cursor_modal_set(p->win, CURSOR_STD);
+		WM_cursor_modal_set(p->win,	CURSOR_NONE);
+
 	}
 }
 
@@ -3009,9 +3018,9 @@ static int gpencil_draw_modal(bContext *C, wmOperator *op, const wmEvent *event)
 	}
 
 	/* toggle painting mode upon mouse-button movement
-	 *  - LEFTMOUSE  = standard drawing (all) / straight line drawing (all) / polyline (toolbox only)
-	 *  - RIGHTMOUSE = polyline (hotkey) / eraser (all)
-	 *    (Disabling RIGHTMOUSE case here results in bugs like [#32647])
+	 * - LEFTMOUSE  = standard drawing (all) / straight line drawing (all) / polyline (toolbox only)
+	 * - RIGHTMOUSE = polyline (hotkey) / eraser (all)
+	 *   (Disabling RIGHTMOUSE case here results in bugs like [#32647])
 	 * also making sure we have a valid event value, to not exit too early
 	 */
 	if (ELEM(event->type, LEFTMOUSE, RIGHTMOUSE) && (ELEM(event->val, KM_PRESS, KM_RELEASE))) {

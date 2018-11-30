@@ -127,6 +127,11 @@ typedef struct ObjectDisplay {
 	int flag;
 } ObjectDisplay;
 
+/* Forward declaration for cache bbone deformation information.
+ *
+ * TODO(sergey): Consider moving it to more appropriate place. */
+struct ObjectBBoneDeform;
+
 /* Not saved in file! */
 typedef struct Object_Runtime {
 	/* Original mesh pointer, before object->data was changed to point
@@ -149,6 +154,8 @@ typedef struct Object_Runtime {
 
 	/* Runtime grease pencil drawing data */
 	struct GpencilBatchCache *gpencil_cache;
+
+	struct ObjectBBoneDeform *cached_bbone_deformation;
 } Object_Runtime;
 
 typedef struct Object {
@@ -238,7 +245,7 @@ typedef struct Object {
 
 	/* Depsgraph */
 	short base_flag; /* used by depsgraph, flushed from base */
-	short pad8;
+	unsigned short base_local_view_bits; /* used by viewport, synced from base */
 
 	/** Collision mask settings */
 	unsigned short col_group, col_mask;
@@ -296,6 +303,9 @@ typedef struct Object {
 
 	float ima_ofs[2];		/* offset for image empties */
 	ImageUser *iuser;		/* must be non-null when object is an empty image */
+	char empty_image_visibility_flag;
+	char empty_image_depth;
+	char pad11[6];
 
 	ListBase lodlevels;		/* contains data for levels of detail */
 	LodLevel *currentlod;
@@ -594,6 +604,18 @@ enum {
 enum {
 	OB_DUPLI_FLAG_VIEWPORT = 1 << 0,
 	OB_DUPLI_FLAG_RENDER   = 1 << 1,
+};
+
+/* ob->empty_image_depth */
+#define OB_EMPTY_IMAGE_DEPTH_DEFAULT 0
+#define OB_EMPTY_IMAGE_DEPTH_FRONT 1
+#define OB_EMPTY_IMAGE_DEPTH_BACK 2
+
+/* ob->empty_image_visibility_flag */
+enum {
+	OB_EMPTY_IMAGE_VISIBLE_PERSPECTIVE  = 1 << 0,
+	OB_EMPTY_IMAGE_VISIBLE_ORTHOGRAPHIC = 1 << 1,
+	OB_EMPTY_IMAGE_VISIBLE_BACKSIDE     = 1 << 2,
 };
 
 #define MAX_DUPLI_RECUR 8

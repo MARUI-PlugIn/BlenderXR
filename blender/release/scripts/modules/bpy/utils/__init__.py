@@ -26,6 +26,7 @@ not associated with blenders internal data.
 __all__ = (
     "blend_paths",
     "escape_identifier",
+    "keyconfig_init",
     "keyconfig_set",
     "load_scripts",
     "modules_from_path",
@@ -50,6 +51,7 @@ __all__ = (
     "units",
     "unregister_class",
     "user_resource",
+    "execfile",
 )
 
 from _bpy import (
@@ -72,6 +74,18 @@ import addon_utils as _addon_utils
 _user_preferences = _bpy.context.user_preferences
 _script_module_dirs = "startup", "modules"
 _is_factory_startup = _bpy.app.factory_startup
+
+
+def execfile(filepath, mod=None):
+    # module name isn't used or added to 'sys.modules'.
+    # passing in 'mod' allows re-execution without having to reload.
+
+    import importlib.util
+    mod_spec = importlib.util.spec_from_file_location("__main__", filepath)
+    if mod is None:
+        mod = importlib.util.module_from_spec(mod_spec)
+    mod_spec.loader.exec_module(mod)
+    return mod
 
 
 def _test_import(module_name, loaded_modules):
@@ -146,6 +160,7 @@ def load_scripts(reload_scripts=False, refresh_scripts=False):
     """
     use_time = use_class_register_check = _bpy.app.debug_python
     use_user = not _is_factory_startup
+    is_background = _bpy.app.background
 
     if use_time:
         import time
@@ -260,13 +275,6 @@ def load_scripts(reload_scripts=False, refresh_scripts=False):
     else:
         _addon_utils.reset_all(reload_scripts=reload_scripts)
     del _initialize
-
-    # run the active integration preset
-    filepath = preset_find(_user_preferences.inputs.active_keyconfig,
-                           "keyconfig")
-
-    if filepath:
-        keyconfig_set(filepath)
 
     if reload_scripts:
         import gc
@@ -561,6 +569,22 @@ def preset_find(name, preset_path, display_name=False, ext=".py"):
                 return filepath
 
 
+def keyconfig_init():
+    # Key configuration initialization and refresh, called from the Blender
+    # window manager on startup and refresh.
+    active_config = _user_preferences.inputs.active_keyconfig
+
+    # Load the default key configuration.
+    default_filepath = preset_find("blender", "keyconfig")
+    keyconfig_set(default_filepath)
+
+    # Set the active key configuration if different
+    filepath = preset_find(active_config, "keyconfig")
+
+    if filepath and filepath != default_filepath:
+        keyconfig_set(filepath)
+
+
 def keyconfig_set(filepath, report=None):
     from os.path import basename, splitext
     from itertools import chain
@@ -574,14 +598,7 @@ def keyconfig_set(filepath, report=None):
 
     try:
         error_msg = ""
-        with open(filepath, 'r', encoding='utf-8') as keyfile:
-            exec(
-                compile(keyfile.read(), filepath, "exec"),
-                {
-                    "__file__": filepath,
-                    "__name__": "__main__",
-                }
-            )
+        execfile(filepath)
     except:
         import traceback
         error_msg = traceback.format_exc()
@@ -593,23 +610,15 @@ def keyconfig_set(filepath, report=None):
 
     kc_new = next(chain(iter(kc for kc in keyconfigs
                              if kc not in keyconfigs_old), (None,)))
+
+    # Get name, exception for default keymap to keep backwards compatibility.
+    name = splitext(basename(filepath))[0]
+    kc_new = keyconfigs.get(name)
     if kc_new is None:
         if report is not None:
             report({'ERROR'}, "Failed to load keymap %r" % filepath)
         return False
     else:
-        kc_new.name = ""
-
-        # remove duplicates
-        name = splitext(basename(filepath))[0]
-        while True:
-            kc_dupe = keyconfigs.get(name)
-            if kc_dupe:
-                keyconfigs.remove(kc_dupe)
-            else:
-                break
-
-        kc_new.name = name
         keyconfigs.active = kc_new
         return True
 
@@ -706,48 +715,6 @@ def register_submodule_factory(module_name, submodule_names):
         submodules.clear()
 
     return register, unregister
-
-
-# -----------------------------------------------------------------------------
-# Tool Registraion
-
-def register_tool(space_type, context_mode, tool_def):
-    from bl_ui.space_toolsystem_common import ToolSelectPanelHelper
-    cls = ToolSelectPanelHelper._tool_class_from_space_type(space_type)
-    if cls is None:
-        raise Exception(f"Space type {space_type!r} has no toolbar")
-    tools = cls._tools[context_mode]
-
-    keymap_data = tool_def.keymap
-    if keymap_data is not None:
-        if context_mode is None:
-            context_descr = "All"
-        else:
-            context_descr = context_mode.replace("_", " ").title()
-        from bpy import context
-        wm = context.window_manager
-        kc = wm.keyconfigs.default
-        if callable(keymap_data[0]):
-            cls._km_action_simple(kc, context_descr, tool_def.text, keymap_data)
-
-    tools.append(tool_def)
-
-
-def unregister_tool(space_type, context_mode, tool_def):
-    from bl_ui.space_toolsystem_common import ToolSelectPanelHelper
-    cls = ToolSelectPanelHelper._tool_class_from_space_type(space_type)
-    if cls is None:
-        raise Exception(f"Space type {space_type!r} has no toolbar")
-    tools = cls._tools[context_mode]
-    tools.remove(tool_def)
-
-    keymap_data = tool_def.keymap
-    if keymap_data is not None:
-        from bpy import context
-        wm = context.window_manager
-        kc = wm.keyconfigs.default
-        km = keymap_data[0]
-        kc.keymaps.remove(km)
 
 
 # -----------------------------------------------------------------------------

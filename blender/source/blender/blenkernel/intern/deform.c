@@ -56,6 +56,7 @@
 #include "BKE_deform.h"  /* own include */
 #include "BKE_mesh.h"
 #include "BKE_mesh_mapping.h"
+#include "BKE_object.h"
 #include "BKE_object_deform.h"
 
 #include "data_transfer_intern.h"
@@ -74,9 +75,7 @@ bDeformGroup *BKE_defgroup_new(Object *ob, const char *name)
 	BLI_addtail(&ob->defbase, defgroup);
 	defgroup_unique_name(defgroup, ob);
 
-	if (ob->type != OB_GPENCIL) {
-		BKE_mesh_batch_cache_dirty_tag(ob->data, BKE_MESH_BATCH_DIRTY_ALL);
-	}
+	BKE_object_batch_cache_dirty_tag(ob);
 
 	return defgroup;
 }
@@ -480,12 +479,12 @@ void defvert_flip_merged(MDeformVert *dvert, const int *flip_map, const int flip
 
 bDeformGroup *defgroup_find_name(Object *ob, const char *name)
 {
-	return BLI_findstring(&ob->defbase, name, offsetof(bDeformGroup, name));
+	return (name && name[0] != '\0') ? BLI_findstring(&ob->defbase, name, offsetof(bDeformGroup, name)) : NULL;
 }
 
 int defgroup_name_index(Object *ob, const char *name)
 {
-	return (name) ? BLI_findstringindex(&ob->defbase, name, offsetof(bDeformGroup, name)) : -1;
+	return (name && name[0] != '\0') ? BLI_findstringindex(&ob->defbase, name, offsetof(bDeformGroup, name)) : -1;
 }
 
 /**

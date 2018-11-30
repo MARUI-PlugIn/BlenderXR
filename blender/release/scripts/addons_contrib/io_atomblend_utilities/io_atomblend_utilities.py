@@ -419,7 +419,7 @@ def separate_atoms(scn):
     atom = bpy.context.edit_object
 
     # Do nothing if it is not a dupliverts structure.
-    if not atom.dupli_type == "VERTS":
+    if not atom.instance_type == "VERTS":
        return {'FINISHED'}
 
     bm = bmesh.from_edit_mesh(atom.data)

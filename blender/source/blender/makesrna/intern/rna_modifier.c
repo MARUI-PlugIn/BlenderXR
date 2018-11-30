@@ -116,7 +116,7 @@ const EnumPropertyItem rna_enum_object_modifier_type_items[] = {
 	{eModifierType_Explode, "EXPLODE", ICON_MOD_EXPLODE, "Explode", ""},
 	{eModifierType_Fluidsim, "FLUID_SIMULATION", ICON_MOD_FLUIDSIM, "Fluid Simulation", ""},
 	{eModifierType_Ocean, "OCEAN", ICON_MOD_OCEAN, "Ocean", ""},
-	{eModifierType_ParticleInstance, "PARTICLE_INSTANCE", ICON_MOD_PARTICLES, "Particle Instance", ""},
+	{eModifierType_ParticleInstance, "PARTICLE_INSTANCE", ICON_MOD_PARTICLE_INSTANCE, "Particle Instance", ""},
 	{eModifierType_ParticleSystem, "PARTICLE_SYSTEM", ICON_MOD_PARTICLES, "Particle System", ""},
 	{eModifierType_Smoke, "SMOKE", ICON_MOD_SMOKE, "Smoke", ""},
 	{eModifierType_Softbody, "SOFT_BODY", ICON_MOD_SOFT, "Soft Body", ""},
@@ -305,7 +305,6 @@ const EnumPropertyItem rna_enum_axis_flag_xyz_items[] = {
 
 #include "BKE_cachefile.h"
 #include "BKE_context.h"
-#include "BKE_library.h"
 #include "BKE_mesh_runtime.h"
 #include "BKE_modifier.h"
 #include "BKE_object.h"
@@ -1229,14 +1228,12 @@ static PropertyRNA *rna_def_property_subdivision_common(StructRNA *srna, const c
 	RNA_def_property_ui_text(prop, "UV Smooth", "Controls how smoothing is applied to UVs");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
-#ifdef WITH_OPENSUBDIV_MODIFIER
 	prop = RNA_def_property(srna, "quality", PROP_INT, PROP_UNSIGNED);
 	RNA_def_property_int_sdna(prop, NULL, "quality");
 	RNA_def_property_range(prop, 1, 10);
 	RNA_def_property_ui_range(prop, 1, 6, 1, -1);
 	RNA_def_property_ui_text(prop, "Quality", "Accuracy of vertex positions, lower value is faster but less precise");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
-#endif
 
 	prop = RNA_def_property(srna, "subdivision_type", PROP_ENUM, PROP_NONE);
 	RNA_def_property_enum_sdna(prop, NULL, type);
@@ -1542,19 +1539,22 @@ static void rna_def_modifier_mirror(BlenderRNA *brna)
 	RNA_def_struct_sdna(srna, "MirrorModifierData");
 	RNA_def_struct_ui_icon(srna, ICON_MOD_MIRROR);
 
-	prop = RNA_def_property(srna, "use_x", PROP_BOOLEAN, PROP_NONE);
+	prop = RNA_def_property(srna, "use_axis", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", MOD_MIR_AXIS_X);
-	RNA_def_property_ui_text(prop, "X", "Enable X axis mirror");
+	RNA_def_property_array(prop, 3);
+	RNA_def_property_ui_text(prop, "Mirror Axis", "Enable axis mirror");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
-	prop = RNA_def_property(srna, "use_y", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "flag", MOD_MIR_AXIS_Y);
-	RNA_def_property_ui_text(prop, "Y", "Enable Y axis mirror");
+	prop = RNA_def_property(srna, "use_bisect_axis", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", MOD_MIR_BISECT_AXIS_X);
+	RNA_def_property_array(prop, 3);
+	RNA_def_property_ui_text(prop, "Bisect Axis", "Cuts the mesh across the mirrorplane");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
-	prop = RNA_def_property(srna, "use_z", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "flag", MOD_MIR_AXIS_Z);
-	RNA_def_property_ui_text(prop, "Z", "Enable Z axis mirror");
+	prop = RNA_def_property(srna, "use_bisect_flip_axis", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", MOD_MIR_BISECT_FLIP_AXIS_X);
+	RNA_def_property_array(prop, 3);
+	RNA_def_property_ui_text(prop, "Bisect Flip Axis", "Flips the direction of the slice");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
 	prop = RNA_def_property(srna, "use_clip", PROP_BOOLEAN, PROP_NONE);
@@ -3167,6 +3167,9 @@ static void rna_def_modifier_shrinkwrap(BlenderRNA *brna)
 		                         "Shrink the mesh to the nearest target surface along a given axis"},
 		{MOD_SHRINKWRAP_NEAREST_VERTEX, "NEAREST_VERTEX", 0, "Nearest Vertex",
 		                                "Shrink the mesh to the nearest target vertex"},
+		{MOD_SHRINKWRAP_TARGET_PROJECT, "TARGET_PROJECT", 0, "Target Normal Project",
+		                                "Shrink the mesh to the nearest target surface "
+		                                "along the interpolated vertex normals of the target"},
 		{0, NULL, 0, NULL, NULL}
 	};
 
@@ -3335,6 +3338,13 @@ static void rna_def_modifier_mask(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "invert_vertex_group", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", MOD_MASK_INV);
 	RNA_def_property_ui_text(prop, "Invert", "Use vertices that are not part of region defined");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "threshold", PROP_FLOAT, PROP_FACTOR);
+	RNA_def_property_float_sdna(prop, NULL, "threshold");
+	RNA_def_property_range(prop, 0.0, 1.0);
+	RNA_def_property_ui_range(prop, 0, 1, 0.1, 3);
+	RNA_def_property_ui_text(prop, "Threshold", "Weights over this threshold remain");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 }
 
@@ -5054,13 +5064,13 @@ void RNA_def_modifier(BlenderRNA *brna)
 	RNA_def_property_flag(prop, PROP_LIB_EXCEPTION);
 	RNA_def_property_override_flag(prop, PROPOVERRIDE_OVERRIDABLE_STATIC);
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
-	RNA_def_property_ui_icon(prop, ICON_RESTRICT_VIEW_OFF, 0);
+	RNA_def_property_ui_icon(prop, ICON_RESTRICT_VIEW_ON, 1);
 
 	prop = RNA_def_property(srna, "show_render", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "mode", eModifierMode_Render);
 	RNA_def_property_override_flag(prop, PROPOVERRIDE_OVERRIDABLE_STATIC);
 	RNA_def_property_ui_text(prop, "Render", "Use modifier during render");
-	RNA_def_property_ui_icon(prop, ICON_SCENE, 0);
+	RNA_def_property_ui_icon(prop, ICON_RESTRICT_RENDER_ON, 1);
 	RNA_def_property_update(prop, NC_OBJECT | ND_MODIFIER, NULL);
 
 	prop = RNA_def_property(srna, "show_in_editmode", PROP_BOOLEAN, PROP_NONE);
@@ -5079,7 +5089,7 @@ void RNA_def_modifier(BlenderRNA *brna)
 	RNA_def_property_boolean_sdna(prop, NULL, "mode", eModifierMode_Expanded);
 	RNA_def_property_override_flag(prop, PROPOVERRIDE_OVERRIDABLE_STATIC);
 	RNA_def_property_ui_text(prop, "Expanded", "Set modifier expanded in the user interface");
-	RNA_def_property_ui_icon(prop, ICON_TRIA_RIGHT, 1);
+	RNA_def_property_ui_icon(prop, ICON_DISCLOSURE_TRI_RIGHT, 1);
 
 	prop = RNA_def_property(srna, "use_apply_on_spline", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "mode", eModifierMode_ApplyOnSpline);

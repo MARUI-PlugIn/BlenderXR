@@ -24,7 +24,10 @@ import bpy
 from mathutils import Matrix, Vector, Color
 from bpy_extras import io_utils, node_shader_utils
 
-from progress_report import ProgressReport, ProgressReportSubstep
+from bpy_extras.wm_utils.progress_report import (
+    ProgressReport,
+    ProgressReportSubstep,
+)
 
 
 def name_compat(name):
@@ -321,13 +324,13 @@ def write_file(filepath, objects, depsgraph, scene,
             subprogress1.enter_substeps(len(objects))
             for i, ob_main in enumerate(objects):
                 # ignore dupli children
-                if ob_main.parent and ob_main.parent.dupli_type in {'VERTS', 'FACES'}:
+                if ob_main.parent and ob_main.parent.instance_type in {'VERTS', 'FACES'}:
                     # XXX
                     subprogress1.step("Ignoring %s, dupli child..." % ob_main.name)
                     continue
 
                 obs = [(ob_main, ob_main.matrix_world)]
-                if ob_main.dupli_type != 'NONE':
+                if ob_main.instance_type != 'NONE':
                     # XXX
                     print('creating dupli_list on', ob_main.name)
                     ob_main.dupli_list_create(scene)
@@ -641,7 +644,7 @@ def write_file(filepath, objects, depsgraph, scene,
                         # clean up
                         bpy.data.meshes.remove(me)
 
-                if ob_main.dupli_type != 'NONE':
+                if ob_main.instance_type != 'NONE':
                     ob_main.dupli_list_clear()
 
                 subprogress1.leave_substeps("Finished writing geometry of '%s'." % ob_main.name)

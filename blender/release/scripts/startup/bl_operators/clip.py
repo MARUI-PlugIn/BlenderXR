@@ -99,7 +99,7 @@ def CLIP_default_settings_from_track(clip, track, framenr):
     width = clip.size[0]
     height = clip.size[1]
 
-    marker = track.markers.find_frame(framenr, False)
+    marker = track.markers.find_frame(framenr, exact=False)
     pattern_bb = marker.pattern_bound_box
 
     pattern = Vector(pattern_bb[1]) - Vector(pattern_bb[0])
@@ -237,7 +237,7 @@ class CLIP_OT_track_to_empty(Operator):
 
         ob = bpy.data.objects.new(name=track.name, object_data=None)
         context.collection.objects.link(ob)
-        ob.select_set(action='SELECT')
+        ob.select_set(True)
         context.view_layer.objects.active = ob
 
         for con in ob.constraints:
@@ -313,7 +313,7 @@ class CLIP_OT_bundles_to_mesh(Operator):
             ob = bpy.data.objects.new(name="Tracks", object_data=mesh)
             ob.matrix_world = matrix
             context.collection.objects.link(ob)
-            ob.select_set('SELECT')
+            ob.select_set(True)
             context.view_layer.objects.active = ob
         else:
             self.report({'WARNING'}, "No usable tracks selected")
@@ -516,7 +516,7 @@ class CLIP_OT_constraint_to_fcurve(Operator):
         # XXX, should probably use context.selected_editable_objects
         # since selected objects can be from a lib or in hidden layer!
         for ob in scene.objects:
-            if ob.select_set(action='SELECT'):
+            if ob.select_set(True):
                 self._bake_object(scene, ob)
 
         return {'FINISHED'}
@@ -673,13 +673,13 @@ class CLIP_OT_setup_tracking_scene(Operator):
 
         # rendersettings
         setup_collection_recursively(
-            vlayers["Foreground"].collections[0].children,
+            vlayers["Foreground"].layer_collection.children,
             "background",
             "holdout",
         )
 
         setup_collection_recursively(
-            vlayers["Background"].collections[0].children,
+            vlayers["Background"].layer_collection.children,
             "foreground",
             "indirect_only",
         )
@@ -1053,11 +1053,11 @@ class CLIP_OT_track_settings_to_track(bpy.types.Operator):
         track = clip.tracking.tracks.active
 
         framenr = context.scene.frame_current - clip.frame_start + 1
-        marker = track.markers.find_frame(framenr, False)
+        marker = track.markers.find_frame(framenr, exact=False)
 
         for t in clip.tracking.tracks:
             if t.select and t != track:
-                marker_selected = t.markers.find_frame(framenr, False)
+                marker_selected = t.markers.find_frame(framenr, exact=False)
                 for attr in self._attrs_track:
                     setattr(t, attr, getattr(track, attr))
                 for attr in self._attrs_marker:

@@ -179,7 +179,6 @@ struct wmPaintCursor *WM_paint_cursor_activate(
         void *customdata);
 
 bool		WM_paint_cursor_end(struct wmWindowManager *wm, struct wmPaintCursor *handle);
-void       *WM_paint_cursor_customdata_get(struct wmPaintCursor *pc);
 void		WM_paint_cursor_tag_redraw(struct wmWindow *win, struct ARegion *ar);
 
 
@@ -288,7 +287,8 @@ void		WM_menu_name_call(struct bContext *C, const char *menu_name, short context
 int         WM_enum_search_invoke_previews(struct bContext *C, struct wmOperator *op, short prv_cols, short prv_rows);
 int			WM_enum_search_invoke(struct bContext *C, struct wmOperator *op, const struct wmEvent *event);
 			/* invoke callback, confirm menu + exec */
-int			WM_operator_confirm		(struct bContext *C, struct wmOperator *op, const struct wmEvent *event);
+int			WM_operator_confirm(struct bContext *C, struct wmOperator *op, const struct wmEvent *event);
+int			WM_operator_confirm_or_exec(struct bContext *C, struct wmOperator *op, const struct wmEvent *event);
 		/* invoke callback, file selector "filepath" unset + exec */
 int			WM_operator_filesel		(struct bContext *C, struct wmOperator *op, const struct wmEvent *event);
 bool        WM_operator_filesel_ensure_ext_imtype(wmOperator *op, const struct ImageFormatData *im_format);
@@ -349,6 +349,7 @@ bool        WM_operator_last_properties_store(struct wmOperator *op);
 
 
 /* wm_operator_props.c */
+void        WM_operator_properties_confirm_or_exec(struct wmOperatorType *ot);
 void        WM_operator_properties_filesel(
         struct wmOperatorType *ot, int filter, short type, short action,
         short flag, short display, short sort);
@@ -373,6 +374,7 @@ void        WM_operator_properties_select_action_simple(struct wmOperatorType *o
 void        WM_operator_properties_select_random(struct wmOperatorType *ot);
 int         WM_operator_properties_select_random_seed_increment_get(wmOperator *op);
 void        WM_operator_properties_select_operation(struct wmOperatorType *ot);
+void        WM_operator_properties_select_operation_simple(struct wmOperatorType *ot);
 struct CheckerIntervalParams {
 	int nth;  /* bypass when set to zero */
 	int skip;

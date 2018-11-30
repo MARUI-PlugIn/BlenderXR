@@ -43,7 +43,6 @@
 #include "DNA_texture_types.h"
 
 #include "BKE_animsys.h"
-#include "BKE_main.h"
 #include "BKE_node.h"
 #include "BKE_image.h"
 #include "BKE_texture.h"
@@ -118,26 +117,30 @@ const EnumPropertyItem rna_enum_node_math_items[] = {
 	{NODE_MATH_SUB,     "SUBTRACT",     0, "Subtract",     ""},
 	{NODE_MATH_MUL,     "MULTIPLY",     0, "Multiply",     ""},
 	{NODE_MATH_DIVIDE,  "DIVIDE",       0, "Divide",       ""},
+	{0, "", ICON_NONE, NULL, NULL},
+	{NODE_MATH_POW,     "POWER",        0, "Power",        ""},
+	{NODE_MATH_LOG,     "LOGARITHM",    0, "Logarithm",    ""},
+	{NODE_MATH_SQRT,    "SQRT",         0, "Square Root",  ""},
+	{NODE_MATH_ABS,     "ABSOLUTE",     0, "Absolute",     ""},
+	{0, "", ICON_NONE, NULL, NULL},
+	{NODE_MATH_MIN,     "MINIMUM",      0, "Minimum",      ""},
+	{NODE_MATH_MAX,     "MAXIMUM",      0, "Maximum",      ""},
+	{NODE_MATH_LESS,    "LESS_THAN",    0, "Less Than",    ""},
+	{NODE_MATH_GREATER, "GREATER_THAN", 0, "Greater Than", ""},
+	{0, "", ICON_NONE, NULL, NULL},
+	{NODE_MATH_ROUND,   "ROUND",        0, "Round",        ""},
+	{NODE_MATH_FLOOR,   "FLOOR",        0, "Floor",        ""},
+	{NODE_MATH_CEIL,    "CEIL",         0, "Ceil",         ""},
+	{NODE_MATH_FRACT,   "FRACT",        0, "Fract",        ""},
+	{NODE_MATH_MOD,     "MODULO",       0, "Modulo",       ""},
+	{0, "", ICON_NONE, NULL, NULL},
 	{NODE_MATH_SIN,     "SINE",         0, "Sine",         ""},
 	{NODE_MATH_COS,     "COSINE",       0, "Cosine",       ""},
 	{NODE_MATH_TAN,     "TANGENT",      0, "Tangent",      ""},
 	{NODE_MATH_ASIN,    "ARCSINE",      0, "Arcsine",      ""},
 	{NODE_MATH_ACOS,    "ARCCOSINE",    0, "Arccosine",    ""},
 	{NODE_MATH_ATAN,    "ARCTANGENT",   0, "Arctangent",   ""},
-	{NODE_MATH_POW,     "POWER",        0, "Power",        ""},
-	{NODE_MATH_LOG,     "LOGARITHM",    0, "Logarithm",    ""},
-	{NODE_MATH_MIN,     "MINIMUM",      0, "Minimum",      ""},
-	{NODE_MATH_MAX,     "MAXIMUM",      0, "Maximum",      ""},
-	{NODE_MATH_ROUND,   "ROUND",        0, "Round",        ""},
-	{NODE_MATH_LESS,    "LESS_THAN",    0, "Less Than",    ""},
-	{NODE_MATH_GREATER, "GREATER_THAN", 0, "Greater Than", ""},
-	{NODE_MATH_MOD,     "MODULO",       0, "Modulo",       ""},
-	{NODE_MATH_ABS,     "ABSOLUTE",     0, "Absolute",     ""},
 	{NODE_MATH_ATAN2,   "ARCTAN2",      0, "Arctan2",      ""},
-	{NODE_MATH_FLOOR,   "FLOOR",        0, "Floor",        ""},
-	{NODE_MATH_CEIL,    "CEIL",         0, "Ceil",         ""},
-	{NODE_MATH_FRACT,   "FRACT",        0, "Fract",        ""},
-	{NODE_MATH_SQRT,    "SQRT",         0, "Square Root",  ""},
 	{0, NULL, 0, NULL, NULL}
 };
 
@@ -186,7 +189,6 @@ static const EnumPropertyItem prop_shader_output_target_items[] = {
 
 #include "BKE_context.h"
 #include "BKE_idprop.h"
-#include "BKE_library.h"
 
 #include "BKE_global.h"
 
@@ -746,7 +748,7 @@ static void rna_NodeTree_node_remove(bNodeTree *ntree, Main *bmain, ReportList *
 	}
 
 	id_us_min(node->id);
-	nodeFreeNode(ntree, node);
+	nodeDeleteNode(bmain, ntree, node);
 	RNA_POINTER_INVALIDATE(node_ptr);
 
 	ntreeUpdateTree(bmain, ntree); /* update group node socket links */
@@ -766,7 +768,7 @@ static void rna_NodeTree_node_clear(bNodeTree *ntree, Main *bmain, ReportList *r
 		if (node->id)
 			id_us_min(node->id);
 
-		nodeFreeNode(ntree, node);
+		nodeDeleteNode(bmain, ntree, node);
 
 		node = next_node;
 	}
@@ -4055,9 +4057,9 @@ static void def_sh_tex_coord(StructRNA *srna)
 	RNA_def_property_ui_text(prop, "Object", "Use coordinates from this object (for object texture coordinates output)");
 	RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_Node_update");
 
-	prop = RNA_def_property(srna, "from_dupli", PROP_BOOLEAN, PROP_NONE);
+	prop = RNA_def_property(srna, "from_instancer", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "custom1", 1);
-	RNA_def_property_ui_text(prop, "From Dupli", "Use the parent of the dupli object if possible");
+	RNA_def_property_ui_text(prop, "From Instancer", "Use the parent of the dupli object if possible");
 	RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_Node_update");
 }
 
@@ -4353,9 +4355,9 @@ static void def_sh_uvmap(StructRNA *srna)
 {
 	PropertyRNA *prop;
 
-	prop = RNA_def_property(srna, "from_dupli", PROP_BOOLEAN, PROP_NONE);
+	prop = RNA_def_property(srna, "from_instancer", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "custom1", 1);
-	RNA_def_property_ui_text(prop, "From Dupli", "Use the parent of the dupli object if possible");
+	RNA_def_property_ui_text(prop, "From Instancer", "Use the parent of the dupli object if possible");
 	RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_Node_update");
 
 	RNA_def_struct_sdna_from(srna, "NodeShaderUVMap", "storage");
@@ -7094,7 +7096,7 @@ static void rna_def_node_socket(BlenderRNA *brna)
 	RNA_def_struct_ui_text(srna, "Node Socket", "Input or output socket of a node");
 	RNA_def_struct_sdna(srna, "bNodeSocket");
 	RNA_def_struct_refine_func(srna, "rna_NodeSocket_refine");
-	RNA_def_struct_ui_icon(srna, ICON_PLUG);
+	RNA_def_struct_ui_icon(srna, ICON_PLUGIN);
 	RNA_def_struct_path_func(srna, "rna_NodeSocket_path");
 	RNA_def_struct_register_funcs(srna, "rna_NodeSocket_register", "rna_NodeSocket_unregister", NULL);
 	RNA_def_struct_idprops_func(srna, "rna_NodeSocket_idprops");

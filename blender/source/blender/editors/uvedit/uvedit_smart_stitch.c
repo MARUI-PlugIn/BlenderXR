@@ -2241,8 +2241,9 @@ static int stitch_init_all(bContext *C, wmOperator *op)
 	ssc->states = NULL;
 
 	ViewLayer *view_layer = CTX_data_view_layer(C);
+	View3D *v3d = CTX_wm_view3d(C);
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data_with_uvs(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data_with_uvs(view_layer, v3d, &objects_len);
 
 	if (objects_len == 0) {
 		MEM_freeN(objects);
@@ -2549,18 +2550,6 @@ static int stitch_modal(bContext *C, wmOperator *op, const wmEvent *event)
 			return OPERATOR_CANCELLED;
 
 		case LEFTMOUSE:
-			if (event->shift && (U.flag & USER_LMOUSESELECT)) {
-				if (event->val == KM_PRESS) {
-					StitchState *selected_state = stitch_select(C, scene, event, ssc);
-
-					if (selected_state && !stitch_process_data(ssc, selected_state, scene, false)) {
-						stitch_cancel(C, op);
-						return OPERATOR_CANCELLED;
-					}
-				}
-				break;
-			}
-			ATTR_FALLTHROUGH;
 		case PADENTER:
 		case RETKEY:
 			if (event->val == KM_PRESS) {
@@ -2658,7 +2647,7 @@ static int stitch_modal(bContext *C, wmOperator *op, const wmEvent *event)
 				stitch_cancel(C, op);
 				return OPERATOR_CANCELLED;
 			}
-			if (event->val == KM_PRESS && !(U.flag & USER_LMOUSESELECT)) {
+			if (event->val == KM_PRESS) {
 				StitchState *selected_state = stitch_select(C, scene, event, ssc);
 
 				if (selected_state && !stitch_process_data(ssc, selected_state, scene, false)) {

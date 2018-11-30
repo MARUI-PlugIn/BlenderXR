@@ -126,15 +126,15 @@ class OBJECT_OT_collection_link(Operator):
     bl_idname = "object.collection_link"
     bl_label = "Link to Collection"
 
-    collection_index = IntProperty(
-            name = "Collection Index",
-            default = -1,
-            options = {'SKIP_SAVE'},
+    collection_index: IntProperty(
+            name="Collection Index",
+            default=-1,
+            options={'SKIP_SAVE'},
             )
 
-    type = EnumProperty(
-            name = "",
-            description = "Dynamic enum for collections",
+    type: EnumProperty(
+            name="",
+            description="Dynamic enum for collections",
             items=collection_items,
             )
 
@@ -193,7 +193,7 @@ class OBJECT_OT_collection_unlink(Operator):
 
 def select_collection_objects(collection):
     for ob in collection.objects:
-        ob.select_set('SELECT')
+        ob.select_set(True)
 
     for collection_nested in collection.collections:
         select_collection_objects(collection_nested)

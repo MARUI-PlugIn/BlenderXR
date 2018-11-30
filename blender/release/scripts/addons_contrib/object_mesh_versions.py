@@ -27,7 +27,7 @@ bl_info = {
     "name": "KTX Mesh Versions",
     "description": "Keep multiple mesh versions of an object",
     "author": "Roel Koster, @koelooptiemanna, irc:kostex",
-    "version": (1, 5, 1),
+    "version": (1, 5, 2),
     "blender": (2, 80, 0),
     "location": "View3D > Properties",
     "warning": "",
@@ -130,7 +130,7 @@ class KTX_Mesh_Versions(bpy.types.Panel):
                         row.prop(scene, "ktx_defpin", text="", icon=icon)
                         row.operator("ktx.meshversions_create")
                         box = layout.box()
-                        box.scale_y = 0.65
+                        box.scale_y = 1.0
                         box.label(text="Currently active mesh: " + obj.data.name)
                         for m in bpy.data.meshes:
                             if m.ktx_mesh_id == obj.ktx_object_id:
@@ -154,7 +154,7 @@ class KTX_Mesh_Versions(bpy.types.Panel):
             else:
                 layout.label(text="All Meshes (Cleanup/Pin):")
                 box = layout.box()
-                box.scale_y = 0.65
+                box.scale_y = 1.0
                 for m in bpy.data.meshes:
                     mesh_name = m.name
                     row = box.row(align=True)

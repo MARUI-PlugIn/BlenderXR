@@ -832,12 +832,6 @@ class PANEL(bpy.types.Panel):
 
 
         if scn.interface:
-            #Select with
-            boxrow=box.row()
-            boxrow.label(text="Select With:")
-            boxrow=box.row()
-            boxrow.prop(inputs, "select_mouse", expand=True)
-
             #Orbit
             boxrow=box.row()
             boxrow.label(text="Orbit Style:")

@@ -70,19 +70,21 @@
 /***********************************/
 
 
-static PointerRNA rna_LayerCollections_active_collection_get(PointerRNA *ptr)
+static PointerRNA rna_ViewLayer_active_layer_collection_get(PointerRNA *ptr)
 {
 	ViewLayer *view_layer = (ViewLayer *)ptr->data;
 	LayerCollection *lc = view_layer->active_collection;
 	return rna_pointer_inherit_refine(ptr, &RNA_LayerCollection, lc);
 }
 
-static void rna_LayerCollections_active_collection_set(PointerRNA *ptr, PointerRNA value)
+static void rna_ViewLayer_active_layer_collection_set(PointerRNA *ptr, PointerRNA value)
 {
 	ViewLayer *view_layer = (ViewLayer *)ptr->data;
 	LayerCollection *lc = (LayerCollection *)value.data;
 	const int index = BKE_layer_collection_findindex(view_layer, lc);
-	if (index != -1) BKE_layer_collection_activate(view_layer, lc);
+	if (index != -1) {
+		BKE_layer_collection_activate(view_layer, lc);
+	}
 }
 
 static PointerRNA rna_LayerObjects_active_object_get(PointerRNA *ptr)
@@ -190,6 +192,18 @@ static void rna_ObjectBase_select_update(Main *UNUSED(bmain), Scene *UNUSED(scen
 	ED_object_base_select(base, mode);
 }
 
+static void rna_LayerCollection_name_get(struct PointerRNA *ptr, char *value)
+{
+	ID *id = (ID *)((LayerCollection *)ptr->data)->collection;
+	BLI_strncpy(value, id->name + 2, sizeof(id->name) - 2);
+}
+
+int rna_LayerCollection_name_length(PointerRNA *ptr)
+{
+	ID *id = (ID *)((LayerCollection *)ptr->data)->collection;
+	return strlen(id->name + 2);
+}
+
 static void rna_LayerCollection_use_update(Main *bmain, Scene *UNUSED(scene), PointerRNA *ptr)
 {
 	Scene *scene = (Scene *)ptr->id.data;
@@ -203,11 +217,42 @@ static void rna_LayerCollection_use_update(Main *bmain, Scene *UNUSED(scene), Po
 	WM_main_add_notifier(NC_SCENE | ND_LAYER_CONTENT, NULL);
 }
 
+static bool rna_LayerCollection_has_objects(LayerCollection *lc)
+{
+	return (lc->runtime_flag & LAYER_COLLECTION_HAS_OBJECTS) != 0;
+}
+
+static bool rna_LayerCollection_has_visible_objects(LayerCollection *lc, ViewLayer *view_layer)
+{
+	if ((view_layer->runtime_flag & VIEW_LAYER_HAS_HIDE) &&
+	    !(lc->runtime_flag & LAYER_COLLECTION_HAS_VISIBLE_OBJECTS))
+	{
+		return false;
+	}
+	return true;
+}
+
+static bool rna_LayerCollection_has_hidden_objects(LayerCollection *lc, ViewLayer *view_layer)
+{
+	if ((view_layer->runtime_flag & VIEW_LAYER_HAS_HIDE) &&
+	    (lc->runtime_flag & LAYER_COLLECTION_HAS_HIDDEN_OBJECTS))
+	{
+		return true;
+	}
+	return false;
+}
+
+static bool rna_LayerCollection_has_selected_objects(LayerCollection *lc, ViewLayer *view_layer)
+{
+	return BKE_layer_collection_has_selected_objects(view_layer, lc);
+}
+
 #else
 
 static void rna_def_layer_collection(BlenderRNA *brna)
 {
 	StructRNA *srna;
+	FunctionRNA *func;
 	PropertyRNA *prop;
 
 	srna = RNA_def_struct(brna, "LayerCollection", NULL);
@@ -219,6 +264,13 @@ static void rna_def_layer_collection(BlenderRNA *brna)
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE | PROP_ANIMATABLE);
 	RNA_def_property_struct_type(prop, "Collection");
 	RNA_def_property_ui_text(prop, "Collection", "Collection this layer collection is wrapping");
+
+	prop = RNA_def_property(srna, "name", PROP_STRING, PROP_NONE);
+	RNA_def_property_string_sdna(prop, NULL, "collection->id.name");
+	RNA_def_property_clear_flag(prop, PROP_EDITABLE | PROP_ANIMATABLE);
+	RNA_def_property_ui_text(prop, "Name", "Name of this view layer (same as its collection one)");
+	RNA_def_property_string_funcs(prop, "rna_LayerCollection_name_get", "rna_LayerCollection_name_length", NULL);
+	RNA_def_struct_name_property(srna, prop);
 
 	prop = RNA_def_property(srna, "children", PROP_COLLECTION, PROP_NONE);
 	RNA_def_property_collection_sdna(prop, NULL, "layer_collections", NULL);
@@ -240,27 +292,32 @@ static void rna_def_layer_collection(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "indirect_only", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", LAYER_COLLECTION_INDIRECT_ONLY);
 	RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
-	RNA_def_property_ui_text(prop, "Indirect Only", "Objects in collection only contribute indirectly (through shadows and reflections) in the view layer");
+	RNA_def_property_ui_text(prop, "Indirect Only",
+	                         "Objects in collection only contribute indirectly (through shadows and reflections) "
+	                         "in the view layer");
 	RNA_def_property_update(prop, NC_SCENE | ND_LAYER, "rna_LayerCollection_use_update");
-}
 
-static void rna_def_layer_collections(BlenderRNA *brna, PropertyRNA *cprop)
-{
-	StructRNA *srna;
-	PropertyRNA *prop;
+	func = RNA_def_function(srna, "has_objects", "rna_LayerCollection_has_objects");
+	RNA_def_function_ui_description(func, "");
+	RNA_def_function_return(func, RNA_def_boolean(func, "result", 0, "", ""));
 
-	RNA_def_property_srna(cprop, "LayerCollections");
-	srna = RNA_def_struct(brna, "LayerCollections", NULL);
-	RNA_def_struct_sdna(srna, "ViewLayer");
-	RNA_def_struct_ui_text(srna, "Layer Collections", "Collections of render layer");
+	func = RNA_def_function(srna, "has_visible_objects", "rna_LayerCollection_has_visible_objects");
+	RNA_def_function_ui_description(func, "");
+	prop = RNA_def_pointer(func, "view_layer", "ViewLayer", "", "ViewLayer the layer collection belongs to");
+	RNA_def_parameter_flags(prop, 0, PARM_REQUIRED);
+	RNA_def_function_return(func, RNA_def_boolean(func, "result", 0, "", ""));
 
-	prop = RNA_def_property(srna, "active", PROP_POINTER, PROP_NONE);
-	RNA_def_property_struct_type(prop, "LayerCollection");
-	RNA_def_property_pointer_funcs(prop, "rna_LayerCollections_active_collection_get",
-	                               "rna_LayerCollections_active_collection_set", NULL, NULL);
-	RNA_def_property_flag(prop, PROP_EDITABLE | PROP_NEVER_NULL);
-	RNA_def_property_ui_text(prop, "Active Layer Collection", "Active Layer Collection");
-	RNA_def_property_update(prop, NC_SCENE | ND_LAYER, NULL);
+	func = RNA_def_function(srna, "has_hidden_objects", "rna_LayerCollection_has_hidden_objects");
+	RNA_def_function_ui_description(func, "");
+	prop = RNA_def_pointer(func, "view_layer", "ViewLayer", "", "ViewLayer the layer collection belongs to");
+	RNA_def_parameter_flags(prop, 0, PARM_REQUIRED);
+	RNA_def_function_return(func, RNA_def_boolean(func, "result", 0, "", ""));
+
+	func = RNA_def_function(srna, "has_selected_objects", "rna_LayerCollection_has_selected_objects");
+	RNA_def_function_ui_description(func, "");
+	prop = RNA_def_pointer(func, "view_layer", "ViewLayer", "", "ViewLayer the layer collection belongs to");
+	RNA_def_parameter_flags(prop, 0, PARM_REQUIRED);
+	RNA_def_function_return(func, RNA_def_boolean(func, "result", 0, "", ""));
 }
 
 static void rna_def_layer_objects(BlenderRNA *brna, PropertyRNA *cprop)
@@ -275,7 +332,8 @@ static void rna_def_layer_objects(BlenderRNA *brna, PropertyRNA *cprop)
 
 	prop = RNA_def_property(srna, "active", PROP_POINTER, PROP_NONE);
 	RNA_def_property_struct_type(prop, "Object");
-	RNA_def_property_pointer_funcs(prop, "rna_LayerObjects_active_object_get", "rna_LayerObjects_active_object_set", NULL, NULL);
+	RNA_def_property_pointer_funcs(prop, "rna_LayerObjects_active_object_get",
+	                               "rna_LayerObjects_active_object_set", NULL, NULL);
 	RNA_def_property_flag(prop, PROP_EDITABLE | PROP_NEVER_UNLINK);
 	RNA_def_property_ui_text(prop, "Active Object", "Active object for this layer");
 	/* Could call: ED_object_base_activate(C, rl->basact);
@@ -329,11 +387,22 @@ void RNA_def_view_layer(BlenderRNA *brna)
 	RNA_def_function_ui_description(func, "Requery the enabled render passes from the render engine");
 	RNA_def_function_flag(func, FUNC_USE_SELF_ID | FUNC_NO_SELF);
 
-	prop = RNA_def_property(srna, "collections", PROP_COLLECTION, PROP_NONE);
-	RNA_def_property_collection_sdna(prop, NULL, "layer_collections", NULL);
+	prop = RNA_def_property(srna, "layer_collection", PROP_POINTER, PROP_NONE);
 	RNA_def_property_struct_type(prop, "LayerCollection");
-	RNA_def_property_ui_text(prop, "Layer Collections", "");
-	rna_def_layer_collections(brna, prop);
+	RNA_def_property_pointer_sdna(prop, NULL, "layer_collections.first");
+	RNA_def_property_flag(prop, PROP_NEVER_NULL);
+	RNA_def_property_ui_text(prop, "Layer Collection",
+	                         "Root of collections hierarchy of this view layer,"
+	                         "its 'collection' pointer property is the same as the scene's master collection");
+
+	prop = RNA_def_property(srna, "active_layer_collection", PROP_POINTER, PROP_NONE);
+	RNA_def_property_struct_type(prop, "LayerCollection");
+	RNA_def_property_pointer_funcs(prop, "rna_ViewLayer_active_layer_collection_get",
+	                               "rna_ViewLayer_active_layer_collection_set", NULL, NULL);
+	RNA_def_property_flag(prop, PROP_EDITABLE | PROP_NEVER_NULL);
+	RNA_def_property_ui_text(prop, "Active Layer Collection",
+	                         "Active layer collection in this view layer's hierarchy");
+	RNA_def_property_update(prop, NC_SCENE | ND_LAYER, NULL);
 
 	prop = RNA_def_property(srna, "objects", PROP_COLLECTION, PROP_NONE);
 	RNA_def_property_collection_sdna(prop, NULL, "object_bases", NULL);

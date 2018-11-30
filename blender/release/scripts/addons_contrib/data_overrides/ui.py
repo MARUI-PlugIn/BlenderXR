@@ -29,8 +29,8 @@ from data_overrides.override import *
 '''
 def id_data_children(id_data):
     if isinstance(id_data, bpy.types.Object):
-        if id_data.dupli_type == 'GROUP' and id_data.dupli_group:
-            yield id_data.dupli_group
+        if id_data.instance_type == 'COLLECTION' and id_data.instance_collection:
+            yield id_data.instance_collection
     elif isinstance(id_data, bpy.types.Group):
         for ob in id_data.objects:
             yield ob

@@ -58,8 +58,9 @@
 
 #include "BKE_context.h"
 #include "BKE_customdata.h"
+#include "BKE_editmesh.h"
 #include "BKE_image.h"
-#include "BKE_library.h"
+#include "BKE_layer.h"
 #include "BKE_main.h"
 #include "BKE_material.h"
 #include "BKE_mesh.h"
@@ -67,8 +68,6 @@
 #include "BKE_node.h"
 #include "BKE_report.h"
 #include "BKE_scene.h"
-#include "BKE_editmesh.h"
-#include "BKE_layer.h"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_query.h"
@@ -80,7 +79,6 @@
 #include "ED_object.h"
 #include "ED_screen.h"
 #include "ED_select_utils.h"
-#include "ED_keymap_templates.h"
 #include "ED_transform.h"
 
 #include "RNA_access.h"
@@ -1376,7 +1374,7 @@ static int uv_select_more_less(bContext *C, const bool select)
 	ToolSettings *ts = scene->toolsettings;
 
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data_with_uvs(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data_with_uvs(view_layer, ((View3D *)NULL), &objects_len);
 
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
@@ -1539,7 +1537,7 @@ static void uv_weld_align(bContext *C, eUVWeldAlign tool)
 	INIT_MINMAX2(min, max);
 
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data_with_uvs(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data_with_uvs(view_layer, ((View3D *)NULL), &objects_len);
 
 	if (tool == UV_ALIGN_AUTO) {
 		for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
@@ -1827,7 +1825,7 @@ static int uv_remove_doubles_to_selected(bContext *C, wmOperator *op)
 	const bool synced_selection = (ts->uv_flag & UV_SYNC_SELECTION) != 0;
 
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data_with_uvs(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data_with_uvs(view_layer, ((View3D *)NULL), &objects_len);
 
 	bool *changed = MEM_callocN(sizeof(bool) * objects_len, "uv_remove_doubles_selected.changed");
 
@@ -1973,7 +1971,7 @@ static int uv_remove_doubles_to_unselected(bContext *C, wmOperator *op)
 	const bool synced_selection = (ts->uv_flag & UV_SYNC_SELECTION) != 0;
 
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data_with_uvs(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data_with_uvs(view_layer, ((View3D *)NULL), &objects_len);
 
 	/* Calculate max possible number of kdtree nodes. */
 	int uv_maxlen = 0;
@@ -2256,7 +2254,7 @@ static int uv_select_all_exec(bContext *C, wmOperator *op)
 	int action = RNA_enum_get(op->ptr, "action");
 
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data_with_uvs(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data_with_uvs(view_layer, ((View3D *)NULL), &objects_len);
 
 	uv_select_all_perform_multi(scene, ima, objects, objects_len, action);
 
@@ -2587,7 +2585,7 @@ static int uv_mouse_select(bContext *C, const float co[2], bool extend, bool loo
 {
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data_with_uvs(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data_with_uvs(view_layer, ((View3D *)NULL), &objects_len);
 	int ret = uv_mouse_select_multi(C, objects, objects_len, co, extend, loop);
 	MEM_freeN(objects);
 	return ret;
@@ -2714,7 +2712,7 @@ static int uv_select_linked_internal(bContext *C, wmOperator *op, const wmEvent 
 	uvedit_pixel_to_float(sima, limit, 0.05f);
 
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data_with_uvs(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data_with_uvs(view_layer, ((View3D *)NULL), &objects_len);
 
 	if (pick) {
 		float co[2];
@@ -2841,7 +2839,7 @@ static int uv_select_split_exec(bContext *C, wmOperator *op)
 	bool changed_multi = false;
 
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data_with_uvs(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data_with_uvs(view_layer, ((View3D *)NULL), &objects_len);
 
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
@@ -3187,7 +3185,7 @@ static int uv_box_select_exec(bContext *C, wmOperator *op)
 	BMIter iter, liter;
 	MLoopUV *luv;
 	rctf rectf;
-	bool pinned, select, extend;
+	bool pinned;
 	const bool use_face_center = (
 	        (ts->uv_flag & UV_SYNC_SELECTION) ?
 	        (ts->selectmode == SCE_SELECT_FACE) :
@@ -3197,15 +3195,19 @@ static int uv_box_select_exec(bContext *C, wmOperator *op)
 	WM_operator_properties_border_to_rctf(op, &rectf);
 	UI_view2d_region_to_view_rctf(&ar->v2d, &rectf, &rectf);
 
-	/* figure out what to select/deselect */
-	select = !RNA_boolean_get(op->ptr, "deselect");
-	extend = RNA_boolean_get(op->ptr, "extend");
+	const eSelectOp sel_op = RNA_enum_get(op->ptr, "mode");
+	const bool select = (sel_op != SEL_OP_SUB);
+
 	pinned = RNA_boolean_get(op->ptr, "pinned");
 
 	bool changed_multi = false;
 
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data_with_uvs(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data_with_uvs(view_layer, ((View3D *)NULL), &objects_len);
+
+	if (SEL_OP_USE_PRE_DESELECT(sel_op)) {
+		uv_select_all_perform_multi(scene, ima, objects, objects_len, SEL_DESELECT);
+	}
 
 	/* don't indent to avoid diff noise! */
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
@@ -3215,9 +3217,6 @@ static int uv_box_select_exec(bContext *C, wmOperator *op)
 		bool changed = false;
 
 		const int cd_loop_uv_offset  = CustomData_get_offset(&em->bm->ldata, CD_MLOOPUV);
-
-		if (!extend)
-			uv_select_all_perform_multi(scene, ima, objects, objects_len, SEL_DESELECT);
 
 		/* do actual selection */
 		if (use_face_center && !pinned) {
@@ -3310,7 +3309,8 @@ static void UV_OT_select_box(wmOperatorType *ot)
 	/* properties */
 	RNA_def_boolean(ot->srna, "pinned", 0, "Pinned", "Border select pinned UVs only");
 
-	WM_operator_properties_gesture_box_select(ot);
+	WM_operator_properties_gesture_box(ot);
+	WM_operator_properties_select_operation_simple(ot);
 }
 
 /** \} */
@@ -3367,7 +3367,7 @@ static int uv_circle_select_exec(bContext *C, wmOperator *op)
 	bool changed_multi = false;
 
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data_with_uvs(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data_with_uvs(view_layer, ((View3D *)NULL), &objects_len);
 
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
@@ -3456,8 +3456,9 @@ static void UV_OT_select_circle(wmOperatorType *ot)
 /** \name Lasso Select Operator
  * \{ */
 
-static bool do_lasso_select_mesh_uv(bContext *C, const int mcords[][2], short moves,
-                                    const bool select, const bool extend)
+static bool do_lasso_select_mesh_uv(
+        bContext *C, const int mcords[][2], short moves,
+        const eSelectOp sel_op)
 {
 	Depsgraph *depsgraph = CTX_data_depsgraph(C);
 	SpaceImage *sima = CTX_wm_space_image(C);
@@ -3470,7 +3471,7 @@ static bool do_lasso_select_mesh_uv(bContext *C, const int mcords[][2], short mo
 	        (ts->uv_flag & UV_SYNC_SELECTION) ?
 	        (ts->selectmode == SCE_SELECT_FACE) :
 	        (ts->uv_selectmode == UV_SELECT_FACE));
-
+	const bool select = (sel_op != SEL_OP_SUB);
 
 	BMIter iter, liter;
 
@@ -3483,7 +3484,11 @@ static bool do_lasso_select_mesh_uv(bContext *C, const int mcords[][2], short mo
 	BLI_lasso_boundbox(&rect, mcords, moves);
 
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data_with_uvs(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data_with_uvs(view_layer, ((View3D *)NULL), &objects_len);
+
+	if (SEL_OP_USE_PRE_DESELECT(sel_op)) {
+		uv_select_all_perform_multi(scene, ima, objects, objects_len, SEL_DESELECT);
+	}
 
 	/* don't indent to avoid diff noise! */
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
@@ -3494,10 +3499,6 @@ static bool do_lasso_select_mesh_uv(bContext *C, const int mcords[][2], short mo
 		BMEditMesh *em = BKE_editmesh_from_object(obedit);
 
 		const int cd_loop_uv_offset  = CustomData_get_offset(&em->bm->ldata, CD_MLOOPUV);
-
-		if (!extend && select) {
-			uv_select_all_perform_multi(scene, ima, objects, objects_len, SEL_DESELECT);
-		}
 
 		if (use_face_center) { /* Face Center Sel */
 			BM_ITER_MESH (efa, &iter, em->bm, BM_FACES_OF_MESH) {
@@ -3569,13 +3570,8 @@ static int uv_lasso_select_exec(bContext *C, wmOperator *op)
 	const int (*mcords)[2] = WM_gesture_lasso_path_to_array(C, op, &mcords_tot);
 
 	if (mcords) {
-		bool select, extend;
-		bool changed;
-
-		select = !RNA_boolean_get(op->ptr, "deselect");
-		extend = RNA_boolean_get(op->ptr, "extend");
-		changed = do_lasso_select_mesh_uv(C, mcords, mcords_tot, select, extend);
-
+		const eSelectOp sel_op = RNA_enum_get(op->ptr, "mode");
+		bool changed = do_lasso_select_mesh_uv(C, mcords, mcords_tot, sel_op);
 		MEM_freeN((void *)mcords);
 
 		return changed ? OPERATOR_FINISHED : OPERATOR_CANCELLED;
@@ -3600,7 +3596,8 @@ static void UV_OT_select_lasso(wmOperatorType *ot)
 	ot->flag = OPTYPE_UNDO;
 
 	/* properties */
-	WM_operator_properties_gesture_lasso_select(ot);
+	WM_operator_properties_gesture_lasso(ot);
+	WM_operator_properties_select_operation_simple(ot);
 }
 
 /** \} */
@@ -3648,7 +3645,7 @@ static int uv_snap_cursor_exec(bContext *C, wmOperator *op)
 
 			uint objects_len = 0;
 			Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data_with_uvs(
-			        view_layer, &objects_len);
+			        view_layer, ((View3D *)NULL), &objects_len);
 			changed = uv_snap_cursor_to_selection(scene, ima, objects, objects_len, sima);
 			MEM_freeN(objects);
 			break;
@@ -3846,7 +3843,7 @@ static int uv_snap_selection_exec(bContext *C, wmOperator *op)
 	float offset[2] = {0};
 
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data_with_uvs(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data_with_uvs(view_layer, ((View3D *)NULL), &objects_len);
 
 	if (target == 2) {
 		float center[2];
@@ -3937,7 +3934,7 @@ static int uv_pin_exec(bContext *C, wmOperator *op)
 	const bool synced_selection = (ts->uv_flag & UV_SYNC_SELECTION) != 0;
 
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data_with_uvs(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data_with_uvs(view_layer, ((View3D *)NULL), &objects_len);
 
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
@@ -4014,7 +4011,7 @@ static int uv_select_pinned_exec(bContext *C, wmOperator *UNUSED(op))
 	MLoopUV *luv;
 
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data_with_uvs(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data_with_uvs(view_layer, ((View3D *)NULL), &objects_len);
 
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
@@ -4423,7 +4420,7 @@ static int uv_seams_from_islands_exec(bContext *C, wmOperator *op)
 	const bool mark_sharp = RNA_boolean_get(op->ptr, "mark_sharp");
 
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data_with_uvs(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data_with_uvs(view_layer, ((View3D *)NULL), &objects_len);
 
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *ob = objects[ob_index];
@@ -4567,7 +4564,7 @@ static int uv_mark_seam_exec(bContext *C, wmOperator *op)
 	const bool synced_selection = (ts->uv_flag & UV_SYNC_SELECTION) != 0;
 
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data_with_uvs(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data_with_uvs(view_layer, ((View3D *)NULL), &objects_len);
 
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *ob = objects[ob_index];
@@ -4698,107 +4695,9 @@ void ED_operatortypes_uvedit(void)
 void ED_keymap_uvedit(wmKeyConfig *keyconf)
 {
 	wmKeyMap *keymap;
-	wmKeyMapItem *kmi;
 
 	keymap = WM_keymap_ensure(keyconf, "UV Editor", 0, 0);
 	keymap->poll = ED_operator_uvedit_can_uv_sculpt;
-
-	/* cursor */
-	WM_keymap_add_item(keymap, "UV_OT_cursor_set", ACTIONMOUSE, KM_CLICK, 0, 0);
-
-#ifdef USE_WM_KEYMAP_27X
-	/* Uv sculpt toggle */
-	kmi = WM_keymap_add_item(keymap, "WM_OT_context_toggle", QKEY, KM_PRESS, 0, 0);
-	RNA_string_set(kmi->ptr, "data_path", "tool_settings.use_uv_sculpt");
-#endif
-
-	/* Select Element (Sync Select: on) */
-	ED_keymap_editmesh_elem_mode(keyconf, keymap);
-	/* Hack to prevent fall-through, when the button isn't visible. */
-	WM_keymap_add_item(keymap, "MESH_OT_select_mode", FOURKEY, KM_PRESS, 0, 0);
-	/* Select Element (Sync Select: off) */
-	WM_keymap_add_context_enum_set_items(
-	        keymap, rna_enum_mesh_select_mode_uv_items, "tool_settings.uv_select_mode",
-	        ONEKEY, KM_PRESS, 0, 0);
-
-	/* Mark edge seam */
-	WM_keymap_add_item(keymap, "UV_OT_mark_seam", EKEY, KM_PRESS, KM_CTRL, 0);
-
-	/* pick selection */
-	RNA_boolean_set(WM_keymap_add_item(keymap, "UV_OT_select", SELECTMOUSE, KM_PRESS, 0, 0)->ptr, "extend", false);
-	RNA_boolean_set(WM_keymap_add_item(keymap, "UV_OT_select", SELECTMOUSE, KM_PRESS, KM_SHIFT, 0)->ptr, "extend", true);
-	RNA_boolean_set(WM_keymap_add_item(keymap, "UV_OT_select_loop", SELECTMOUSE, KM_PRESS, KM_ALT, 0)->ptr, "extend", false);
-	RNA_boolean_set(WM_keymap_add_item(keymap, "UV_OT_select_loop", SELECTMOUSE, KM_PRESS, KM_SHIFT | KM_ALT, 0)->ptr, "extend", true);
-	WM_keymap_add_item(keymap, "UV_OT_select_split", YKEY, KM_PRESS, 0, 0);
-
-	/* box/circle selection */
-	kmi = WM_keymap_add_item(keymap, "UV_OT_select_box", BKEY, KM_PRESS, 0, 0);
-	RNA_boolean_set(kmi->ptr, "pinned", false);
-	kmi = WM_keymap_add_item(keymap, "UV_OT_select_box", BKEY, KM_PRESS, KM_CTRL, 0);
-	RNA_boolean_set(kmi->ptr, "pinned", true);
-
-	WM_keymap_add_item(keymap, "UV_OT_select_circle", CKEY, KM_PRESS, 0, 0);
-
-	kmi = WM_keymap_add_item(keymap, "UV_OT_select_lasso", EVT_TWEAK_A, KM_ANY, KM_CTRL, 0);
-	RNA_boolean_set(kmi->ptr, "deselect", false);
-	kmi = WM_keymap_add_item(keymap, "UV_OT_select_lasso", EVT_TWEAK_A, KM_ANY, KM_CTRL | KM_SHIFT, 0);
-	RNA_boolean_set(kmi->ptr, "deselect", true);
-
-	/* selection manipulation */
-	kmi = WM_keymap_add_item(keymap, "UV_OT_select_linked", LKEY, KM_PRESS, KM_CTRL, 0);
-	RNA_boolean_set(kmi->ptr, "extend", true);
-	RNA_boolean_set(kmi->ptr, "deselect", false);
-	kmi = WM_keymap_add_item(keymap, "UV_OT_select_linked_pick", LKEY, KM_PRESS, 0, 0);
-	RNA_boolean_set(kmi->ptr, "extend", true);
-	RNA_boolean_set(kmi->ptr, "deselect", false);
-	kmi = WM_keymap_add_item(keymap, "UV_OT_select_linked", LKEY, KM_PRESS, KM_CTRL | KM_SHIFT, 0);
-	RNA_boolean_set(kmi->ptr, "extend", false);
-	RNA_boolean_set(kmi->ptr, "deselect", true);
-	kmi = WM_keymap_add_item(keymap, "UV_OT_select_linked_pick", LKEY, KM_PRESS, KM_SHIFT, 0);
-	RNA_boolean_set(kmi->ptr, "extend", false);
-	RNA_boolean_set(kmi->ptr, "deselect", true);
-
-	/* select more/less */
-	WM_keymap_add_item(keymap, "UV_OT_select_more", PADPLUSKEY, KM_PRESS, KM_CTRL, 0);
-	WM_keymap_add_item(keymap, "UV_OT_select_less", PADMINUS, KM_PRESS, KM_CTRL, 0);
-
-	ED_keymap_template_select_all(keymap, "UV_OT_select_all");
-
-	WM_keymap_add_item(keymap, "UV_OT_select_pinned", PKEY, KM_PRESS, KM_SHIFT, 0);
-
-	WM_keymap_add_menu(keymap, "IMAGE_MT_uvs_weldalign", WKEY, KM_PRESS, KM_SHIFT, 0);
-
-	/* uv operations */
-	WM_keymap_add_item(keymap, "UV_OT_stitch", VKEY, KM_PRESS, 0, 0);
-	kmi = WM_keymap_add_item(keymap, "UV_OT_pin", PKEY, KM_PRESS, 0, 0);
-	RNA_boolean_set(kmi->ptr, "clear", false);
-	kmi = WM_keymap_add_item(keymap, "UV_OT_pin", PKEY, KM_PRESS, KM_ALT, 0);
-	RNA_boolean_set(kmi->ptr, "clear", true);
-
-	/* unwrap */
-	WM_keymap_add_item(keymap, "UV_OT_unwrap", UKEY, KM_PRESS, 0, 0);
-#ifdef USE_WM_KEYMAP_27X
-	WM_keymap_add_item(keymap, "UV_OT_minimize_stretch", VKEY, KM_PRESS, KM_CTRL, 0);
-	WM_keymap_add_item(keymap, "UV_OT_pack_islands", PKEY, KM_PRESS, KM_CTRL, 0);
-	WM_keymap_add_item(keymap, "UV_OT_average_islands_scale", AKEY, KM_PRESS, KM_CTRL, 0);
-#endif
-
-	/* hide */
-	kmi = WM_keymap_add_item(keymap, "UV_OT_hide", HKEY, KM_PRESS, 0, 0);
-	RNA_boolean_set(kmi->ptr, "unselected", false);
-	kmi = WM_keymap_add_item(keymap, "UV_OT_hide", HKEY, KM_PRESS, KM_SHIFT, 0);
-	RNA_boolean_set(kmi->ptr, "unselected", true);
-
-	WM_keymap_add_item(keymap, "UV_OT_reveal", HKEY, KM_PRESS, KM_ALT, 0);
-
-	/* menus */
-	WM_keymap_add_menu_pie(keymap, "IMAGE_MT_uvs_snap_pie", SKEY, KM_PRESS, KM_SHIFT, 0);
-	WM_keymap_add_menu(keymap, "IMAGE_MT_uvs_select_mode", TABKEY, KM_PRESS, KM_CTRL, 0);
-
-	ED_keymap_proportional_cycle(keyconf, keymap);
-	ED_keymap_proportional_editmode(keyconf, keymap, false);
-
-	transform_keymap_for_space(keyconf, keymap, SPACE_IMAGE);
 }
 
 /** \} */

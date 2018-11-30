@@ -38,8 +38,8 @@
 #include "BLI_math.h"
 #include "BLI_string_utils.h"
 
-#include "BKE_animsys.h"
 #include "BKE_action.h"
+#include "BKE_animsys.h"
 #include "BKE_appdir.h"
 #include "BKE_armature.h"
 #include "BKE_blender_copybuffer.h"
@@ -47,9 +47,9 @@
 #include "BKE_deform.h"
 #include "BKE_global.h"
 #include "BKE_idprop.h"
+#include "BKE_layer.h"
 #include "BKE_main.h"
 #include "BKE_object.h"
-#include "BKE_layer.h"
 #include "BKE_report.h"
 
 #include "DEG_depsgraph.h"
@@ -137,8 +137,8 @@ static int apply_armature_pose2bones_exec(bContext *C, wmOperator *op)
 		copy_v3_v3(curbone->tail, pchan_eval->pose_tail);
 
 		/* fix roll:
-		 *	1. find auto-calculated roll value for this bone now
-		 *	2. remove this from the 'visual' y-rotation
+		 * 1. find auto-calculated roll value for this bone now
+		 * 2. remove this from the 'visual' y-rotation
 		 */
 		{
 			float premat[3][3], imat[3][3], pmat[3][3], tmat[3][3];
@@ -232,9 +232,10 @@ void POSE_OT_armature_apply(wmOperatorType *ot)
 static int pose_visual_transform_apply_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	ViewLayer *view_layer = CTX_data_view_layer(C);
+	View3D *v3d = CTX_wm_view3d(C);
 	Depsgraph *depsgraph = CTX_data_depsgraph(C);
 
-	FOREACH_OBJECT_IN_MODE_BEGIN(view_layer, OB_MODE_POSE, ob)
+	FOREACH_OBJECT_IN_MODE_BEGIN(view_layer, v3d, OB_MODE_POSE, ob)
 	{
 		/* loop over all selected pchans
 		 *
@@ -342,7 +343,7 @@ static bPoseChannel *pose_bone_do_paste(Object *ob, bPoseChannel *chan, const bo
 	/* continue? */
 	if (paste_ok) {
 		/* only loc rot size
-		 *	- only copies transform info for the pose
+		 * - only copies transform info for the pose
 		 */
 		copy_v3_v3(pchan->loc, chan->loc);
 		copy_v3_v3(pchan->size, chan->size);
@@ -779,7 +780,8 @@ static int pose_clear_transform_generic_exec(bContext *C, wmOperator *op,
 
 	/* only clear relevant transforms for selected bones */
 	ViewLayer *view_layer = CTX_data_view_layer(C);
-	FOREACH_OBJECT_IN_MODE_BEGIN (view_layer, OB_MODE_POSE, ob_iter)
+	View3D *v3d = CTX_wm_view3d(C);
+	FOREACH_OBJECT_IN_MODE_BEGIN (view_layer, v3d, OB_MODE_POSE, ob_iter)
 	{
 		Object *ob_eval = DEG_get_evaluated_object(CTX_data_depsgraph(C), ob_iter); // XXX: UGLY HACK (for autokey + clear transforms)
 		ListBase dsources = {NULL, NULL};
@@ -935,11 +937,12 @@ void POSE_OT_transforms_clear(wmOperatorType *ot)
 static int pose_clear_user_transforms_exec(bContext *C, wmOperator *op)
 {
 	ViewLayer *view_layer = CTX_data_view_layer(C);
+	View3D *v3d = CTX_wm_view3d(C);
 	Scene *scene = CTX_data_scene(C);
 	float cframe = (float)CFRA;
 	const bool only_select = RNA_boolean_get(op->ptr, "only_selected");
 
-	FOREACH_OBJECT_IN_MODE_BEGIN (view_layer, OB_MODE_POSE, ob)
+	FOREACH_OBJECT_IN_MODE_BEGIN (view_layer, v3d, OB_MODE_POSE, ob)
 	{
 		if ((ob->adt) && (ob->adt->action)) {
 			/* XXX: this is just like this to avoid contaminating anything else;

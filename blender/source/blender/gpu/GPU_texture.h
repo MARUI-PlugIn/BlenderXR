@@ -54,10 +54,10 @@ typedef struct GPUTexture GPUTexture;
  *   graphics card capabilities the texture may actually be stored in a
  *   larger texture with power of two dimensions.
  * - can use reference counting:
- *     - reference counter after GPU_texture_create is 1
- *     - GPU_texture_ref increases by one
- *     - GPU_texture_free decreases by one, and frees if 0
- *  - if created with from_blender, will not free the texture
+ *   - reference counter after GPU_texture_create is 1
+ *   - GPU_texture_ref increases by one
+ *   - GPU_texture_free decreases by one, and frees if 0
+ * - if created with from_blender, will not free the texture
  */
 
 /* Wrapper to supported OpenGL/Vulkan texture internal storage
@@ -102,9 +102,9 @@ typedef enum GPUTextureFormat {
 #if 0
 	GPU_RGB10_A2,
 	GPU_RGB10_A2UI,
-	GPU_DEPTH32F_STENCIL8,
 #endif
 	GPU_R11F_G11F_B10F,
+	GPU_DEPTH32F_STENCIL8,
 	GPU_DEPTH24_STENCIL8,
 
 	/* Texture only format */
@@ -157,19 +157,19 @@ typedef enum GPUDataFormat {
 
 #if WITH_VR
 /* Maximum number of FBOs a texture can be attached to. */
-#define GPU_TEX_MAX_FBO_ATTACHED 9
+#define GPU_TEX_MAX_FBO_ATTACHED 10
 
 typedef enum GPUTextureFormatFlag {
-	GPU_FORMAT_DEPTH = (1 << 0),
-	GPU_FORMAT_STENCIL = (1 << 1),
-	GPU_FORMAT_INTEGER = (1 << 2),
-	GPU_FORMAT_FLOAT = (1 << 3),
+	GPU_FORMAT_DEPTH     = (1 << 0),
+	GPU_FORMAT_STENCIL   = (1 << 1),
+	GPU_FORMAT_INTEGER   = (1 << 2),
+	GPU_FORMAT_FLOAT     = (1 << 3),
 
-	GPU_FORMAT_1D = (1 << 10),
-	GPU_FORMAT_2D = (1 << 11),
-	GPU_FORMAT_3D = (1 << 12),
-	GPU_FORMAT_CUBE = (1 << 13),
-	GPU_FORMAT_ARRAY = (1 << 14),
+	GPU_FORMAT_1D        = (1 << 10),
+	GPU_FORMAT_2D        = (1 << 11),
+	GPU_FORMAT_3D        = (1 << 12),
+	GPU_FORMAT_CUBE      = (1 << 13),
+	GPU_FORMAT_ARRAY     = (1 << 14),
 } GPUTextureFormatFlag;
 
 typedef struct GPUTexture {

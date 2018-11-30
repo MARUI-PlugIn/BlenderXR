@@ -50,19 +50,19 @@
 
 #include "BKE_context.h"
 #include "BKE_deform.h"
+#include "BKE_editmesh.h"
 #include "BKE_key.h"
+#include "BKE_layer.h"
 #include "BKE_library.h"
 #include "BKE_main.h"
+#include "BKE_material.h"
 #include "BKE_mesh.h"
 #include "BKE_mesh_iterators.h"
 #include "BKE_mesh_runtime.h"
-#include "BKE_material.h"
+#include "BKE_multires.h"
 #include "BKE_object.h"
 #include "BKE_object_deform.h"
 #include "BKE_report.h"
-#include "BKE_editmesh.h"
-#include "BKE_multires.h"
-#include "BKE_layer.h"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_build.h"
@@ -138,8 +138,8 @@ static void join_mesh_single(
 			}
 
 			/* for each shapekey in destination mesh:
-			 *	- if there's a matching one, copy it across (will need to transform vertices into new space...)
-			 *	- otherwise, just copy own coordinates of mesh (no need to transform vertex coordinates into new space)
+			 * - if there's a matching one, copy it across (will need to transform vertices into new space...)
+			 * - otherwise, just copy own coordinates of mesh (no need to transform vertex coordinates into new space)
 			 */
 			if (key) {
 				/* if this mesh has any shapekeys, check first, otherwise just copy coordinates */
@@ -168,8 +168,8 @@ static void join_mesh_single(
 		}
 		else {
 			/* for each shapekey in destination mesh:
-			 *	- if it was an 'original', copy the appropriate data from nkey
-			 *	- otherwise, copy across plain coordinates (no need to transform coordinates)
+			 * - if it was an 'original', copy the appropriate data from nkey
+			 * - otherwise, copy across plain coordinates (no need to transform coordinates)
 			 */
 			if (key) {
 				for (KeyBlock *kb = key->block.first; kb; kb = kb->next) {

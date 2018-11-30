@@ -210,7 +210,7 @@ class CLIP_HT_header(Header):
                     sub.active = clip.tracking.reconstruction.is_valid
                     sub.prop(sc, "show_graph_frames", icon='SEQUENCE', text="")
 
-                    row.prop(sc, "show_graph_tracks_motion", icon='IPO', text="")
+                    row.prop(sc, "show_graph_tracks_motion", icon='GRAPH', text="")
                     row.prop(sc, "show_graph_tracks_error", icon='ANIM', text="")
                 else:
                     row.prop(sc, "show_filters", icon='DISCLOSURE_TRI_RIGHT',
@@ -689,6 +689,7 @@ class CLIP_PT_tools_object(CLIP_PT_reconstruction_panel, Panel):
 class CLIP_PT_objects(CLIP_PT_clip_view_panel, Panel):
     bl_space_type = 'CLIP_EDITOR'
     bl_region_type = 'UI'
+    bl_category = "Track"
     bl_label = "Objects"
     bl_options = {'DEFAULT_CLOSED'}
 
@@ -711,6 +712,7 @@ class CLIP_PT_objects(CLIP_PT_clip_view_panel, Panel):
 class CLIP_PT_track(CLIP_PT_tracking_panel, Panel):
     bl_space_type = 'CLIP_EDITOR'
     bl_region_type = 'UI'
+    bl_category = "Track"
     bl_label = "Track"
 
     def draw(self, context):
@@ -775,6 +777,7 @@ class CLIP_PT_track(CLIP_PT_tracking_panel, Panel):
 class CLIP_PT_plane_track(CLIP_PT_tracking_panel, Panel):
     bl_space_type = 'CLIP_EDITOR'
     bl_region_type = 'UI'
+    bl_category = "Track"
     bl_label = "Plane Track"
     bl_options = {'DEFAULT_CLOSED'}
 
@@ -802,6 +805,7 @@ class CLIP_PT_plane_track(CLIP_PT_tracking_panel, Panel):
 class CLIP_PT_track_settings(CLIP_PT_tracking_panel, Panel):
     bl_space_type = 'CLIP_EDITOR'
     bl_region_type = 'UI'
+    bl_category = "Track"
     bl_label = "Tracking Settings"
     bl_options = {'DEFAULT_CLOSED'}
 
@@ -826,6 +830,7 @@ class CLIP_PT_track_settings(CLIP_PT_tracking_panel, Panel):
 class CLIP_PT_track_settings_extras(CLIP_PT_tracking_panel, Panel):
     bl_space_type = 'CLIP_EDITOR'
     bl_region_type = 'UI'
+    bl_category = "Track"
     bl_label = "Tracking Settings Extras"
     bl_parent_id = 'CLIP_PT_track_settings'
     bl_options = {'DEFAULT_CLOSED'}
@@ -852,6 +857,7 @@ class CLIP_PT_track_settings_extras(CLIP_PT_tracking_panel, Panel):
 class CLIP_PT_tracking_camera(Panel):
     bl_space_type = 'CLIP_EDITOR'
     bl_region_type = 'UI'
+    bl_category = "Track"
     bl_label = "Camera"
     bl_options = {'DEFAULT_CLOSED'}
 
@@ -887,6 +893,7 @@ class CLIP_PT_tracking_camera(Panel):
 class CLIP_PT_tracking_lens(Panel):
     bl_space_type = 'CLIP_EDITOR'
     bl_region_type = 'UI'
+    bl_category = "Track"
     bl_label = "Lens"
     bl_options = {'DEFAULT_CLOSED'}
 
@@ -932,6 +939,7 @@ class CLIP_PT_tracking_lens(Panel):
 class CLIP_PT_marker(CLIP_PT_tracking_panel, Panel):
     bl_space_type = 'CLIP_EDITOR'
     bl_region_type = 'UI'
+    bl_category = "Track"
     bl_label = "Marker"
     bl_options = {'DEFAULT_CLOSED'}
 
@@ -956,7 +964,6 @@ class CLIP_PT_stabilization(CLIP_PT_reconstruction_panel, Panel):
     bl_region_type = 'UI'
     bl_label = "2D Stabilization"
     bl_category = "Stabilization"
-    bl_options = {'DEFAULT_CLOSED'}
 
     @classmethod
     def poll(cls, context):
@@ -1054,6 +1061,7 @@ class CLIP_PT_stabilization(CLIP_PT_reconstruction_panel, Panel):
 class CLIP_PT_proxy(CLIP_PT_clip_view_panel, Panel):
     bl_space_type = 'CLIP_EDITOR'
     bl_region_type = 'UI'
+    bl_category = "Footage"
     bl_label = "Proxy/Timecode"
     bl_options = {'DEFAULT_CLOSED'}
 
@@ -1127,31 +1135,37 @@ from .properties_mask_common import (
 class CLIP_PT_mask_layers(MASK_PT_layers, Panel):
     bl_space_type = 'CLIP_EDITOR'
     bl_region_type = 'UI'
+    bl_category = "Mask"
 
 
 class CLIP_PT_mask_display(MASK_PT_display, Panel):
     bl_space_type = 'CLIP_EDITOR'
     bl_region_type = 'HEADER'
+    bl_category = "Mask"
 
 
 class CLIP_PT_active_mask_spline(MASK_PT_spline, Panel):
     bl_space_type = 'CLIP_EDITOR'
     bl_region_type = 'UI'
+    bl_category = "Mask"
 
 
 class CLIP_PT_active_mask_point(MASK_PT_point, Panel):
     bl_space_type = 'CLIP_EDITOR'
     bl_region_type = 'UI'
+    bl_category = "Mask"
 
 
 class CLIP_PT_mask(MASK_PT_mask, Panel):
     bl_space_type = 'CLIP_EDITOR'
     bl_region_type = 'UI'
+    bl_category = "Mask"
 
 
 class CLIP_PT_tools_mask_transforms(MASK_PT_transforms, Panel):
     bl_space_type = 'CLIP_EDITOR'
     bl_region_type = 'TOOLS'
+    bl_category = "Mask"
 
 
 # --- end mask ---
@@ -1160,8 +1174,8 @@ class CLIP_PT_tools_mask_transforms(MASK_PT_transforms, Panel):
 class CLIP_PT_footage(CLIP_PT_clip_view_panel, Panel):
     bl_space_type = 'CLIP_EDITOR'
     bl_region_type = 'UI'
+    bl_category = "Footage"
     bl_label = "Footage Settings"
-    bl_options = {'DEFAULT_CLOSED'}
 
     def draw(self, context):
         layout = self.layout
@@ -1203,7 +1217,8 @@ class CLIP_PT_tools_scenesetup(Panel):
 class CLIP_PT_grease_pencil(AnnotationDataPanel, CLIP_PT_clip_view_panel, Panel):
     bl_space_type = 'CLIP_EDITOR'
     bl_region_type = 'UI'
-    bl_options = {'DEFAULT_CLOSED'}
+    bl_category = "Annotation"
+    bl_options = set()
 
     # NOTE: this is just a wrapper around the generic GP Panel
     # But, this should only be visible in "clip" view
@@ -1534,15 +1549,15 @@ classes = (
     CLIP_PT_tracking_camera,
     CLIP_PT_tracking_lens,
     CLIP_PT_marker,
-    CLIP_PT_stabilization,
     CLIP_PT_proxy,
+    CLIP_PT_footage,
+    CLIP_PT_stabilization,
     CLIP_PT_mask,
     CLIP_PT_mask_layers,
     CLIP_PT_mask_display,
     CLIP_PT_active_mask_spline,
     CLIP_PT_active_mask_point,
     CLIP_PT_tools_mask_transforms,
-    CLIP_PT_footage,
     CLIP_PT_tools_scenesetup,
     CLIP_PT_grease_pencil,
     CLIP_PT_tools_grease_pencil_draw,

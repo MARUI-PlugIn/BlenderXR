@@ -245,9 +245,12 @@ class ExecutePreset(Operator):
         if hasattr(preset_class, "reset_cb"):
             preset_class.reset_cb(context)
 
-        # execute the preset using script.python_file_run
         if ext == ".py":
-            bpy.ops.script.python_file_run(filepath=filepath)
+            try:
+                bpy.utils.execfile(filepath)
+            except Exception as ex:
+                self.report({'ERROR'}, "Failed to execute the preset: " + repr(ex))
+
         elif ext == ".xml":
             import rna_xml
             rna_xml.xml_file_run(context,
@@ -436,32 +439,6 @@ class AddPresetHairDynamics(AddPresetBase, Operator):
         "settings.voxel_cell_size",
         "settings.pin_stiffness",
     ]
-
-
-class AddPresetInteraction(AddPresetBase, Operator):
-    """Add or remove an Application Interaction Preset"""
-    bl_idname = "wm.interaction_preset_add"
-    bl_label = "Add Interaction Preset"
-    preset_menu = "USERPREF_MT_interaction_presets"
-
-    preset_defines = [
-        "user_preferences = bpy.context.user_preferences"
-    ]
-
-    preset_values = [
-        "user_preferences.edit.use_drag_immediately",
-        "user_preferences.edit.use_insertkey_xyz_to_rgb",
-        "user_preferences.inputs.invert_mouse_zoom",
-        "user_preferences.inputs.select_mouse",
-        "user_preferences.inputs.use_emulate_numpad",
-        "user_preferences.inputs.use_mouse_continuous",
-        "user_preferences.inputs.use_mouse_emulate_3_button",
-        "user_preferences.inputs.view_rotate_method",
-        "user_preferences.inputs.view_zoom_axis",
-        "user_preferences.inputs.view_zoom_method",
-    ]
-
-    preset_subdir = "interaction"
 
 
 class AddPresetTrackingCamera(AddPresetBase, Operator):
@@ -675,7 +652,7 @@ class AddPresetGpencilBrush(AddPresetBase, Operator):
         "settings.active_smooth_factor",
         "settings.angle",
         "settings.angle_factor",
-        "settings.use_stabilizer",
+        "settings.use_settings_stabilizer",
         "brush.smooth_stroke_radius",
         "brush.smooth_stroke_factor",
         "settings.pen_smooth_factor",
@@ -684,7 +661,7 @@ class AddPresetGpencilBrush(AddPresetBase, Operator):
         "settings.pen_thick_smooth_steps",
         "settings.pen_subdivision_steps",
         "settings.random_subdiv",
-        "settings.enable_random",
+        "settings.use_settings_random",
         "settings.random_pressure",
         "settings.random_strength",
         "settings.uv_random",
@@ -733,6 +710,8 @@ class AddPresetGpencilMaterial(AddPresetBase, Operator):
         "gpcolor.texture_clamp",
         "gpcolor.texture_mix",
         "gpcolor.mix_factor",
+        "gpcolor.show_stroke",
+        "gpcolor.show_fill",
     ]
 
     preset_subdir = "gpencil_material"
@@ -743,7 +722,6 @@ classes = (
     AddPresetCloth,
     AddPresetFluid,
     AddPresetHairDynamics,
-    AddPresetInteraction,
     AddPresetInterfaceTheme,
     AddPresetKeyconfig,
     AddPresetNodeColor,

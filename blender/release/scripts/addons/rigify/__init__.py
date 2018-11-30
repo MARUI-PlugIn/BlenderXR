@@ -217,6 +217,15 @@ class RigifyParameters(bpy.types.PropertyGroup):
     name: StringProperty()
 
 
+# Remember the initial property set
+RIGIFY_PARAMETERS_BASE_DIR = set(dir(RigifyParameters))
+
+def clear_rigify_parameters():
+    for name in list(dir(RigifyParameters)):
+        if name not in RIGIFY_PARAMETERS_BASE_DIR:
+            delattr(RigifyParameters, name)
+
+
 class RigifyArmatureLayer(bpy.types.PropertyGroup):
 
     def get_group(self):
@@ -386,6 +395,8 @@ def unregister():
     # Classes.
     for cls in classes:
         unregister_class(cls)
+
+    clear_rigify_parameters()
 
     # Sub-modules.
     metarig_menu.unregister()

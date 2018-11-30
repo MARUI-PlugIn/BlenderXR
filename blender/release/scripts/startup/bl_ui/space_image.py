@@ -194,7 +194,7 @@ class IMAGE_MT_image(Menu):
         show_render = sima.show_render
 
         layout.operator("image.new", text="New")
-        layout.operator("image.open", text="Open...")
+        layout.operator("image.open", text="Open...", icon='FILE_FOLDER')
 
         layout.operator("image.read_viewlayers")
 
@@ -210,7 +210,7 @@ class IMAGE_MT_image(Menu):
         layout.separator()
 
         if ima:
-            layout.operator("image.save", text="Save")
+            layout.operator("image.save", text="Save", icon='FILE_TICK')
             layout.operator("image.save_as", text="Save As...")
             layout.operator("image.save_as", text="Save a Copy...").copy = True
 
@@ -244,17 +244,17 @@ class IMAGE_MT_image_invert(Menu):
     def draw(self, context):
         layout = self.layout
 
-        props = layout.operator("image.invert", text="Invert Image Colors")
+        props = layout.operator("image.invert", text="Invert Image Colors", icon='IMAGE_RGB')
         props.invert_r = True
         props.invert_g = True
         props.invert_b = True
 
         layout.separator()
 
-        layout.operator("image.invert", text="Invert Red Channel").invert_r = True
-        layout.operator("image.invert", text="Invert Green Channel").invert_g = True
-        layout.operator("image.invert", text="Invert Blue Channel").invert_b = True
-        layout.operator("image.invert", text="Invert Alpha Channel").invert_a = True
+        layout.operator("image.invert", text="Invert Red Channel", icon='COLOR_RED').invert_r = True
+        layout.operator("image.invert", text="Invert Green Channel", icon='COLOR_GREEN').invert_g = True
+        layout.operator("image.invert", text="Invert Blue Channel", icon='COLOR_BLUE').invert_b = True
+        layout.operator("image.invert", text="Invert Alpha Channel", icon='IMAGE_ALPHA').invert_a = True
 
 
 class IMAGE_MT_uvs_showhide(Menu):
@@ -653,26 +653,31 @@ from .properties_mask_common import (
 class IMAGE_PT_mask(MASK_PT_mask, Panel):
     bl_space_type = 'IMAGE_EDITOR'
     bl_region_type = 'UI'
+    bl_category = "Image"
 
 
 class IMAGE_PT_mask_layers(MASK_PT_layers, Panel):
     bl_space_type = 'IMAGE_EDITOR'
     bl_region_type = 'UI'
+    bl_category = "Image"
 
 
 class IMAGE_PT_mask_display(MASK_PT_display, Panel):
     bl_space_type = 'IMAGE_EDITOR'
     bl_region_type = 'UI'
+    bl_category = "Image"
 
 
 class IMAGE_PT_active_mask_spline(MASK_PT_spline, Panel):
     bl_space_type = 'IMAGE_EDITOR'
     bl_region_type = 'UI'
+    bl_category = "Image"
 
 
 class IMAGE_PT_active_mask_point(MASK_PT_point, Panel):
     bl_space_type = 'IMAGE_EDITOR'
     bl_region_type = 'UI'
+    bl_category = "Image"
 
 
 # --- end mask ---
@@ -681,6 +686,7 @@ class IMAGE_PT_active_mask_point(MASK_PT_point, Panel):
 class IMAGE_PT_image_properties(Panel):
     bl_space_type = 'IMAGE_EDITOR'
     bl_region_type = 'UI'
+    bl_category = "Image"
     bl_label = "Image"
 
     @classmethod
@@ -802,6 +808,7 @@ class IMAGE_UL_render_slots(UIList):
 class IMAGE_PT_render_slots(Panel):
     bl_space_type = 'IMAGE_EDITOR'
     bl_region_type = 'UI'
+    bl_category = "Image"
     bl_label = "Render Slots"
 
     @classmethod
@@ -874,7 +881,7 @@ class IMAGE_PT_tools_brush_overlay(BrushButtonsPanel, Panel):
             "use_cursor_overlay",
             text="",
             toggle=True,
-            icon='RESTRICT_VIEW_OFF' if brush.use_cursor_overlay else 'RESTRICT_VIEW_ON',
+            icon='RESTRICT_VIEW_ON' if brush.use_cursor_overlay else 'RESTRICT_VIEW_OFF',
         )
 
         sub = row.row(align=True)
@@ -890,7 +897,7 @@ class IMAGE_PT_tools_brush_overlay(BrushButtonsPanel, Panel):
                 "use_primary_overlay",
                 text="",
                 toggle=True,
-                icon='RESTRICT_VIEW_OFF' if brush.use_primary_overlay else 'RESTRICT_VIEW_ON',
+                icon='RESTRICT_VIEW_ON' if brush.use_primary_overlay else 'RESTRICT_VIEW_OFF',
             )
 
         sub = row.row(align=True)
@@ -906,7 +913,7 @@ class IMAGE_PT_tools_brush_overlay(BrushButtonsPanel, Panel):
                 "use_secondary_overlay",
                 text="",
                 toggle=True,
-                icon='RESTRICT_VIEW_OFF' if brush.use_secondary_overlay else 'RESTRICT_VIEW_ON',
+                icon='RESTRICT_VIEW_ON' if brush.use_secondary_overlay else 'RESTRICT_VIEW_OFF',
             )
 
         sub = row.row(align=True)
@@ -1187,6 +1194,7 @@ class ImageScopesPanel:
 class IMAGE_PT_view_scopes(ImageScopesPanel, Panel):
     bl_space_type = 'IMAGE_EDITOR'
     bl_region_type = 'UI'
+    bl_category = "Image"
     bl_label = "Scopes"
 
     def draw(self, layout):
@@ -1196,6 +1204,7 @@ class IMAGE_PT_view_scopes(ImageScopesPanel, Panel):
 class IMAGE_PT_view_histogram(ImageScopesPanel, Panel):
     bl_space_type = 'IMAGE_EDITOR'
     bl_region_type = 'UI'
+    bl_category = "Image"
     bl_label = "Histogram"
     bl_parent_id = 'IMAGE_PT_view_scopes'
 
@@ -1215,6 +1224,7 @@ class IMAGE_PT_view_histogram(ImageScopesPanel, Panel):
 class IMAGE_PT_view_waveform(ImageScopesPanel, Panel):
     bl_space_type = 'IMAGE_EDITOR'
     bl_region_type = 'UI'
+    bl_category = "Image"
     bl_label = "Waveform"
     bl_parent_id = 'IMAGE_PT_view_scopes'
     bl_options = {'DEFAULT_CLOSED'}
@@ -1233,6 +1243,7 @@ class IMAGE_PT_view_waveform(ImageScopesPanel, Panel):
 class IMAGE_PT_view_vectorscope(ImageScopesPanel, Panel):
     bl_space_type = 'IMAGE_EDITOR'
     bl_region_type = 'UI'
+    bl_category = "Image"
     bl_label = "Vectorscope"
     bl_parent_id = 'IMAGE_PT_view_scopes'
     bl_options = {'DEFAULT_CLOSED'}
@@ -1248,6 +1259,7 @@ class IMAGE_PT_view_vectorscope(ImageScopesPanel, Panel):
 class IMAGE_PT_sample_line(ImageScopesPanel, Panel):
     bl_space_type = 'IMAGE_EDITOR'
     bl_region_type = 'UI'
+    bl_category = "Image"
     bl_label = "Sample Line"
     bl_parent_id = 'IMAGE_PT_view_scopes'
     bl_options = {'DEFAULT_CLOSED'}
@@ -1269,6 +1281,7 @@ class IMAGE_PT_sample_line(ImageScopesPanel, Panel):
 class IMAGE_PT_scope_sample(ImageScopesPanel, Panel):
     bl_space_type = 'IMAGE_EDITOR'
     bl_region_type = 'UI'
+    bl_category = "Image"
     bl_label = "Samples"
     bl_parent_id = 'IMAGE_PT_view_scopes'
     bl_options = {'DEFAULT_CLOSED'}
@@ -1292,6 +1305,7 @@ class IMAGE_PT_scope_sample(ImageScopesPanel, Panel):
 class IMAGE_PT_grease_pencil(AnnotationDataPanel, Panel):
     bl_space_type = 'IMAGE_EDITOR'
     bl_region_type = 'UI'
+    bl_category = "Image"
 
     # NOTE: this is just a wrapper around the generic GP Panel.
 

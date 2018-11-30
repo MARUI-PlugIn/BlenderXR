@@ -194,6 +194,24 @@ bool DRW_object_is_flat_normal(const Object *ob)
 	return true;
 }
 
+bool DRW_object_use_hide_faces(const struct Object *ob)
+{
+	if (ob->type == OB_MESH) {
+		const Mesh *me = ob->data;
+
+		switch (ob->mode) {
+			case OB_MODE_TEXTURE_PAINT:
+			case OB_MODE_VERTEX_PAINT:
+				return (me->editflag & ME_EDIT_PAINT_FACE_SEL) != 0;
+
+			case OB_MODE_WEIGHT_PAINT:
+				return (me->editflag & (ME_EDIT_PAINT_FACE_SEL | ME_EDIT_PAINT_VERT_SEL)) != 0;
+		}
+	}
+
+	return false;
+}
+
 bool DRW_object_is_visible_psys_in_active_context(
         const Object *object,
         const ParticleSystem *psys)
@@ -219,6 +237,16 @@ bool DRW_object_is_visible_psys_in_active_context(
 		}
 	}
 	return true;
+}
+
+struct Object *DRW_object_get_dupli_parent(const Object *UNUSED(ob))
+{
+	return DST.dupli_parent;
+}
+
+struct DupliObject *DRW_object_get_dupli(const Object *UNUSED(ob))
+{
+	return DST.dupli_source;
 }
 
 /** \} */
@@ -1062,49 +1090,9 @@ static void drw_engines_draw_text(void)
 	}
 }
 
-#define MAX_INFO_LINES 10
-
-/**
- * Returns the offset required for the drawing of engines info.
- */
-int DRW_draw_region_engine_info_offset(void)
+/* Draw render engine info. */
+void DRW_draw_region_engine_info(int xoffset, int yoffset)
 {
-	int lines = 0;
-	for (LinkData *link = DST.enabled_engines.first; link; link = link->next) {
-		DrawEngineType *engine = link->data;
-		ViewportEngineData *data = drw_viewport_engine_data_ensure(engine);
-
-		/* Count the number of lines. */
-		if (data->info[0] != '\0') {
-			lines++;
-			char *c = data->info;
-			while (*c++ != '\0') {
-				if (*c == '\n') {
-					lines++;
-				}
-			}
-		}
-	}
-	return MIN2(MAX_INFO_LINES, lines) * UI_UNIT_Y;
-}
-
-/**
- * Actual drawing;
- */
-void DRW_draw_region_engine_info(void)
-{
-	const char *info_array_final[MAX_INFO_LINES + 1];
-	/* This should be maximum number of engines running at the same time. */
-	char info_array[MAX_INFO_LINES][GPU_INFO_SIZE];
-	int i = 0;
-
-	const DRWContextState *draw_ctx = DRW_context_state_get();
-	ARegion *ar = draw_ctx->ar;
-	float fill_color[4] = {0.0f, 0.0f, 0.0f, 0.25f};
-
-	UI_GetThemeColor3fv(TH_HIGH_GRAD, fill_color);
-	mul_v3_fl(fill_color, fill_color[3]);
-
 	for (LinkData *link = DST.enabled_engines.first; link; link = link->next) {
 		DrawEngineType *engine = link->data;
 		ViewportEngineData *data = drw_viewport_engine_data_ensure(engine);
@@ -1114,35 +1102,36 @@ void DRW_draw_region_engine_info(void)
 			char *chr_start = chr_current;
 			int line_len = 0;
 
+			const int font_id = BLF_default();
+			UI_FontThemeColor(font_id, TH_TEXT_HI);
+
+			BLF_enable(font_id, BLF_SHADOW);
+			BLF_shadow(font_id, 5, (const float[4]){0.0f, 0.0f, 0.0f, 1.0f});
+			BLF_shadow_offset(font_id, 1, -1);
+
 			while (*chr_current++ != '\0') {
 				line_len++;
 				if (*chr_current == '\n') {
-					BLI_strncpy(info_array[i++], chr_start, line_len + 1);
+					char info[GPU_INFO_SIZE];
+					BLI_strncpy(info, chr_start, line_len + 1);
+					yoffset -= U.widget_unit;
+					BLF_draw_default(xoffset, yoffset, 0.0f, info, sizeof(info));
+
 					/* Re-start counting. */
 					chr_start = chr_current + 1;
 					line_len = -1;
 				}
 			}
 
-			BLI_strncpy(info_array[i++], chr_start, line_len + 1);
+			char info[GPU_INFO_SIZE];
+			BLI_strncpy(info, chr_start, line_len + 1);
+			yoffset -= U.widget_unit;
+			BLF_draw_default(xoffset, yoffset, 0.0f, info, sizeof(info));
 
-			if (i >= MAX_INFO_LINES) {
-				break;
-			}
+			BLF_disable(font_id, BLF_SHADOW);
 		}
 	}
-
-	for (int j = 0; j < i; j++) {
-		info_array_final[j] = info_array[j];
-	}
-	info_array_final[i] = NULL;
-
-	if (info_array[0] != NULL) {
-		ED_region_info_draw_multiline(ar, info_array_final, fill_color, true);
-	}
 }
-
-#undef MAX_INFO_LINES
 
 static void use_drw_engine(DrawEngineType *engine)
 {
@@ -1207,7 +1196,6 @@ static void drw_engines_enable_from_paint_mode(int mode)
 			use_drw_engine(&draw_engine_sculpt_type);
 			break;
 		case CTX_MODE_PAINT_WEIGHT:
-			use_drw_engine(&draw_engine_pose_type);
 			use_drw_engine(&draw_engine_paint_weight_type);
 			break;
 		case CTX_MODE_PAINT_VERTEX:
@@ -1243,20 +1231,21 @@ static void drw_engines_enable_from_mode(int mode)
 		case CTX_MODE_EDIT_LATTICE:
 			use_drw_engine(&draw_engine_edit_lattice_type);
 			break;
-		case CTX_MODE_POSE:
-			use_drw_engine(&draw_engine_pose_type);
-			break;
 		case CTX_MODE_PARTICLE:
 			use_drw_engine(&draw_engine_particle_type);
 			break;
-		case CTX_MODE_SCULPT:
+		case CTX_MODE_POSE:
 		case CTX_MODE_PAINT_WEIGHT:
+			/* The pose engine clears the depth of the default framebuffer
+			 * to draw an object with `OB_DRAWXRAY`.
+			 * (different of workbench that has its own framebuffer).
+			 * So make sure you call its `draw_scene` after all the other engines. */
+			use_drw_engine(&draw_engine_pose_type);
+			break;
+		case CTX_MODE_SCULPT:
 		case CTX_MODE_PAINT_VERTEX:
 		case CTX_MODE_PAINT_TEXTURE:
-			/* Should have already been enabled */
-			break;
 		case CTX_MODE_OBJECT:
-			break;
 		case CTX_MODE_GPENCIL_PAINT:
 		case CTX_MODE_GPENCIL_EDIT:
 		case CTX_MODE_GPENCIL_SCULPT:
@@ -1468,13 +1457,23 @@ void DRW_draw_render_loop_ex(
 		drw_engines_world_update(scene);
 
 		const int object_type_exclude_viewport = v3d->object_type_exclude_viewport;
-		DEG_OBJECT_ITER_FOR_RENDER_ENGINE_BEGIN(depsgraph, ob)
+		DEG_OBJECT_ITER_BEGIN(depsgraph, ob,
+		        DEG_ITER_OBJECT_FLAG_LINKED_DIRECTLY |
+		        DEG_ITER_OBJECT_FLAG_LINKED_VIA_SET |
+		        DEG_ITER_OBJECT_FLAG_VISIBLE |
+		        DEG_ITER_OBJECT_FLAG_DUPLI)
 		{
-			if ((object_type_exclude_viewport & (1 << ob->type)) == 0) {
-				drw_engines_cache_populate(ob);
+			if ((object_type_exclude_viewport & (1 << ob->type)) != 0) {
+				continue;
 			}
+			if (v3d->localvd && ((v3d->local_view_uuid & ob->base_local_view_bits) == 0)) {
+				continue;
+			}
+			DST.dupli_parent = data_.dupli_parent;
+			DST.dupli_source = data_.dupli_object_current;
+			drw_engines_cache_populate(ob);
 		}
-		DEG_OBJECT_ITER_FOR_RENDER_ENGINE_END;
+		DEG_OBJECT_ITER_END;
 
 		drw_engines_cache_finish();
 
@@ -1494,7 +1493,7 @@ void DRW_draw_render_loop_ex(
 	DRW_state_reset();
 
 	DRW_hair_update();
-
+	
 #if WITH_VR
 	if (rv3d->rflag & RV3D_IS_VR) {
 		/* Update VR matrices and pre-render. */
@@ -1529,7 +1528,7 @@ void DRW_draw_render_loop_ex(
 	if (DST.draw_ctx.evil_C) {
 		ED_region_draw_cb_draw(DST.draw_ctx.evil_C, DST.draw_ctx.ar, REGION_DRAW_PRE_VIEW);
 	}
-
+	
 #if WITH_VR
 	/* Render VR controllers and menus. */
 	if (rv3d->rflag & RV3D_IS_VR) {
@@ -1541,9 +1540,7 @@ void DRW_draw_render_loop_ex(
 
 	/* annotations - temporary drawing buffer (3d space) */
 	/* XXX: Or should we use a proper draw/overlay engine for this case? */
-	if (((v3d->flag2 & V3D_RENDER_OVERRIDE) == 0) &&
-	    (do_annotations))
-	{
+	if (do_annotations) {
 		glDisable(GL_DEPTH_TEST);
 		/* XXX: as scene->gpd is not copied for COW yet */
 		ED_gpencil_draw_view3d_annotations(DEG_get_input_scene(depsgraph), depsgraph, v3d, ar, true);
@@ -1674,8 +1671,8 @@ void DRW_draw_render_loop_offscreen(
 	GPU_offscreen_bind(ofs, false);
 }
 
-/* helper to check if exit object type to render */
-static bool DRW_render_check_grease_pencil(Depsgraph *depsgraph)
+/* Helper to check if exit object type to render. */
+bool DRW_render_check_grease_pencil(Depsgraph *depsgraph)
 {
 	DEG_OBJECT_ITER_FOR_RENDER_ENGINE_BEGIN(depsgraph, ob)
 	{
@@ -1912,14 +1909,20 @@ void DRW_render_object_iter(
 	DRW_hair_init();
 
 	const int object_type_exclude_viewport = draw_ctx->v3d ? draw_ctx->v3d->object_type_exclude_viewport : 0;
-	DEG_OBJECT_ITER_FOR_RENDER_ENGINE_BEGIN(depsgraph, ob)
+	DEG_OBJECT_ITER_BEGIN(depsgraph, ob,
+	        DEG_ITER_OBJECT_FLAG_LINKED_DIRECTLY |
+	        DEG_ITER_OBJECT_FLAG_LINKED_VIA_SET |
+	        DEG_ITER_OBJECT_FLAG_VISIBLE |
+	        DEG_ITER_OBJECT_FLAG_DUPLI)
 	{
 		if ((object_type_exclude_viewport & (1 << ob->type)) == 0) {
+			DST.dupli_parent = data_.dupli_parent;
+			DST.dupli_source = data_.dupli_object_current;
 			DST.ob_state = NULL;
 			callback(vedata, ob, engine, depsgraph);
 		}
 	}
-	DEG_OBJECT_ITER_FOR_RENDER_ENGINE_END
+	DEG_OBJECT_ITER_END
 }
 
 /* Assume a valid gl context is bound (and that the gl_context_mutex has been acquired).
@@ -2049,6 +2052,7 @@ void DRW_draw_select_loop(
 	}
 	if (v3d->overlay.flag & V3D_OVERLAY_BONE_SELECT) {
 		if (!(v3d->flag2 & V3D_RENDER_OVERRIDE)) {
+			/* Note: don't use "BKE_object_pose_armature_get" here, it breaks selection. */
 			Object *obpose = OBPOSE_FROM_OBACT(obact);
 			if (obpose) {
 				use_obedit = true;
@@ -2105,7 +2109,7 @@ void DRW_draw_select_loop(
 #if 0
 			drw_engines_cache_populate(obact);
 #else
-			FOREACH_OBJECT_IN_MODE_BEGIN (view_layer, obact->mode, ob_iter) {
+			FOREACH_OBJECT_IN_MODE_BEGIN (view_layer, v3d, obact->mode, ob_iter) {
 				drw_engines_cache_populate(ob_iter);
 			}
 			FOREACH_OBJECT_IN_MODE_END;
@@ -2116,12 +2120,16 @@ void DRW_draw_select_loop(
 			        v3d->object_type_exclude_viewport | v3d->object_type_exclude_select
 			);
 			bool filter_exclude = false;
-			DEG_OBJECT_ITER_BEGIN(
-			        depsgraph, ob,
+			DEG_OBJECT_ITER_BEGIN(depsgraph, ob,
 			        DEG_ITER_OBJECT_FLAG_LINKED_DIRECTLY |
+			        DEG_ITER_OBJECT_FLAG_LINKED_VIA_SET |
 			        DEG_ITER_OBJECT_FLAG_VISIBLE |
 			        DEG_ITER_OBJECT_FLAG_DUPLI)
 			{
+				if (v3d->localvd && ((v3d->local_view_uuid & ob->base_local_view_bits) == 0)) {
+					continue;
+				}
+
 				if ((ob->base_flag & BASE_SELECTABLE) &&
 				    (object_type_exclude_select & (1 << ob->type)) == 0)
 				{
@@ -2142,6 +2150,8 @@ void DRW_draw_select_loop(
 						Object *ob_orig = DEG_get_original_object(ob);
 						DRW_select_load_id(ob_orig->select_color);
 					}
+					DST.dupli_parent = data_.dupli_parent;
+					DST.dupli_source = data_.dupli_object_current;
 					drw_engines_cache_populate(ob);
 				}
 			}
@@ -2297,13 +2307,25 @@ void DRW_draw_depth_loop(
 		drw_engines_world_update(scene);
 
 		const int object_type_exclude_viewport = v3d->object_type_exclude_viewport;
-		DEG_OBJECT_ITER_FOR_RENDER_ENGINE_BEGIN(depsgraph, ob)
+		DEG_OBJECT_ITER_BEGIN(depsgraph, ob,
+		        DEG_ITER_OBJECT_FLAG_LINKED_DIRECTLY |
+		        DEG_ITER_OBJECT_FLAG_LINKED_VIA_SET |
+		        DEG_ITER_OBJECT_FLAG_VISIBLE |
+		        DEG_ITER_OBJECT_FLAG_DUPLI)
 		{
-			if ((object_type_exclude_viewport & (1 << ob->type)) == 0) {
-				drw_engines_cache_populate(ob);
+			if ((object_type_exclude_viewport & (1 << ob->type)) != 0) {
+				continue;
 			}
+
+			if (v3d->localvd && ((v3d->local_view_uuid & ob->base_local_view_bits) == 0)) {
+				continue;
+			}
+
+			DST.dupli_parent = data_.dupli_parent;
+			DST.dupli_source = data_.dupli_object_current;
+			drw_engines_cache_populate(ob);
 		}
-		DEG_OBJECT_ITER_FOR_RENDER_ENGINE_END;
+		DEG_OBJECT_ITER_END;
 
 		drw_engines_cache_finish();
 
@@ -2482,7 +2504,7 @@ void DRW_engine_register(DrawEngineType *draw_engine_type)
 void DRW_engines_register(void)
 {
 	RE_engines_register(&DRW_engine_viewport_eevee_type);
-	RE_engines_register(&DRW_engine_viewport_opengl_type);
+	RE_engines_register(&DRW_engine_viewport_workbench_type);
 
 	DRW_engine_register(&draw_engine_workbench_solid);
 	DRW_engine_register(&draw_engine_workbench_transparent);

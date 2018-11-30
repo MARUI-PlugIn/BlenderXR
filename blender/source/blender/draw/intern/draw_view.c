@@ -62,19 +62,10 @@ void DRW_draw_region_info(void)
 {
 	const DRWContextState *draw_ctx = DRW_context_state_get();
 	ARegion *ar = draw_ctx->ar;
-	int offset = 0;
 
 	DRW_draw_cursor();
 
-	if ((draw_ctx->v3d->overlay.flag & V3D_OVERLAY_HIDE_TEXT) == 0) {
-		offset = DRW_draw_region_engine_info_offset();
-	}
-
-	view3d_draw_region_info(draw_ctx->evil_C, ar, offset);
-
-	if (offset > 0) {
-		DRW_draw_region_engine_info();
-	}
+	view3d_draw_region_info(draw_ctx->evil_C, ar);
 }
 
 /* ************************* Background ************************** */
@@ -174,7 +165,6 @@ static bool is_cursor_visible(const DRWContextState *draw_ctx, Scene *scene, Vie
 void DRW_draw_cursor(void)
 {
 	const DRWContextState *draw_ctx = DRW_context_state_get();
-	View3D *v3d = draw_ctx->v3d;
 	ARegion *ar = draw_ctx->ar;
 	Scene *scene = draw_ctx->scene;
 	ViewLayer *view_layer = draw_ctx->view_layer;
@@ -185,7 +175,7 @@ void DRW_draw_cursor(void)
 
 	if (is_cursor_visible(draw_ctx, scene, view_layer)) {
 		int co[2];
-		const View3DCursor *cursor = ED_view3d_cursor3d_get(scene, v3d);
+		const View3DCursor *cursor = &scene->cursor;
 		if (ED_view3d_project_int_global(
 		            ar, cursor->location, co, V3D_PROJ_TEST_NOP | V3D_PROJ_TEST_CLIP_NEAR) == V3D_PROJ_RET_OK)
 		{

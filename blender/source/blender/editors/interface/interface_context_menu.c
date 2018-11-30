@@ -361,7 +361,12 @@ bool ui_popup_context_menu_for_button(bContext *C, uiBut *but)
 		uiLayoutSetOperatorContext(layout, WM_OP_INVOKE_DEFAULT);
 	}
 
-	if (but->type == UI_BTYPE_TAB) {
+	const bool is_disabled = but->flag & UI_BUT_DISABLED;
+
+	if (is_disabled) {
+		/* Suppress editing commands. */
+	}
+	else if (but->type == UI_BTYPE_TAB) {
 		uiButTab *tab = (uiButTab *)but;
 		if (tab->menu) {
 			UI_menutype_draw(C, tab->menu, layout);
@@ -639,6 +644,17 @@ bool ui_popup_context_menu_for_button(bContext *C, uiBut *but)
 		}
 	}
 
+	/* Pointer properties and string properties with prop_search support jumping to target object/bone. */
+	if (but->rnapoin.data && but->rnaprop) {
+		const PropertyType type = RNA_property_type(but->rnaprop);
+
+		if ((type == PROP_POINTER) || (type == PROP_STRING && but->type == UI_BTYPE_SEARCH_MENU && but->search_func == ui_rna_collection_search_cb)) {
+			uiItemO(layout, CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Jump To Target"),
+			        ICON_NONE, "UI_OT_jump_to_target_button");
+			uiItemS(layout);
+		}
+	}
+
 	/* Favorites Menu */
 	if (ui_but_is_user_menu_compatible(C, but)) {
 		uiBlock *block = uiLayoutGetBlock(layout);
@@ -766,9 +782,16 @@ bool ui_popup_context_menu_for_button(bContext *C, uiBut *but)
 
 	/* Show header tools for header buttons. */
 	if (ui_block_is_popup_any(but->block) == false) {
-		ARegion *ar = CTX_wm_region(C);
-		if (ar && (ar->regiontype == RGN_TYPE_HEADER)) {
+		const ARegion *ar = CTX_wm_region(C);
+
+		if (!ar) {
+			/* skip */
+		}
+		else if (ar->regiontype == RGN_TYPE_HEADER) {
 			uiItemMenuF(layout, IFACE_("Header"), ICON_NONE, ED_screens_header_tools_menu_create, NULL);
+		}
+		else if (ar->regiontype == RGN_TYPE_NAV_BAR) {
+			uiItemMenuF(layout, IFACE_("Navigation Bar"), ICON_NONE, ED_screens_navigation_bar_tools_menu_create, NULL);
 		}
 	}
 

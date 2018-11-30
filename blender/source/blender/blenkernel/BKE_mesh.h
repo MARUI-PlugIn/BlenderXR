@@ -32,7 +32,7 @@
  */
 
 /* defines BLI_INLINE */
-#include "BLI_utildefines.h"
+#include "BLI_compiler_compat.h"
 
 /* defines CustomDataMask */
 #include "BKE_customdata.h"
@@ -83,7 +83,7 @@ extern "C" {
 /* *** mesh.c *** */
 
 struct BMesh *BKE_mesh_to_bmesh_ex(
-        struct Mesh *me,
+        const struct Mesh *me,
         const struct BMeshCreateParams *create_params,
         const struct BMeshFromMeshParams *convert_params);
 struct BMesh *BKE_mesh_to_bmesh(
@@ -105,6 +105,7 @@ int poly_get_adj_loops_from_vert(
         unsigned int r_adj[2]);
 
 int BKE_mesh_edge_other_vert(const struct MEdge *e, int v);
+void BKE_mesh_looptri_get_real_edges(const struct Mesh *mesh, const struct MLoopTri *looptri, int r_edges[3]);
 
 void BKE_mesh_free(struct Mesh *me);
 void BKE_mesh_init(struct Mesh *me);
@@ -164,7 +165,7 @@ void BKE_mesh_smooth_flag_set(struct Object *meshOb, int enableSmooth);
 const char *BKE_mesh_cmp(struct Mesh *me1, struct Mesh *me2, float thresh);
 
 struct BoundBox *BKE_mesh_boundbox_get(struct Object *ob);
-void BKE_mesh_texspace_get(struct Mesh *me, float r_loc[3], float r_rot[3], float r_size[3]);
+struct BoundBox *BKE_mesh_texspace_get(struct Mesh *me, float r_loc[3], float r_rot[3], float r_size[3]);
 void BKE_mesh_texspace_get_reference(struct Mesh *me, short **r_texflag,  float **r_loc, float **r_rot, float **r_size);
 void BKE_mesh_texspace_copy_from_object(struct Mesh *me, struct Object *ob);
 

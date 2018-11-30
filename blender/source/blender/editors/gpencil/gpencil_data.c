@@ -57,9 +57,8 @@
 #include "DNA_space_types.h"
 #include "DNA_view3d_types.h"
 
-#include "BKE_main.h"
-#include "BKE_brush.h"
 #include "BKE_animsys.h"
+#include "BKE_brush.h"
 #include "BKE_context.h"
 #include "BKE_deform.h"
 #include "BKE_fcurve.h"
@@ -67,9 +66,10 @@
 #include "BKE_gpencil.h"
 #include "BKE_gpencil_modifier.h"
 #include "BKE_library.h"
+#include "BKE_main.h"
+#include "BKE_material.h"
 #include "BKE_modifier.h"
 #include "BKE_object.h"
-#include "BKE_material.h"
 #include "BKE_paint.h"
 #include "BKE_report.h"
 #include "BKE_scene.h"
@@ -258,6 +258,8 @@ static int gp_layer_add_exec(bContext *C, wmOperator *op)
 	}
 
 	/* notifiers */
+	bGPdata *gpd = *gpd_ptr;
+	DEG_id_tag_update(&gpd->id, OB_RECALC_OB | OB_RECALC_DATA | DEG_TAG_COPY_ON_WRITE);
 	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
 
 	return OPERATOR_FINISHED;
@@ -479,8 +481,6 @@ static int gp_layer_duplicate_object_exec(bContext *C, wmOperator *op)
 	/* make copy of layer */
 	bGPDlayer *gpl_dst = MEM_dupallocN(gpl_src);
 	gpl_dst->prev = gpl_dst->next = NULL;
-	gpl_dst->runtime.derived_array = NULL;
-	gpl_dst->runtime.len_derived = 0;
 	BLI_addtail(&gpd_dst->layers, gpl_dst);
 	BLI_uniquename(&gpd_dst->layers, gpl_dst, DATA_("GP_Layer"), '.', offsetof(bGPDlayer, info), sizeof(gpl_dst->info));
 
@@ -597,9 +597,9 @@ static int gp_frame_duplicate_exec(bContext *C, wmOperator *op)
 void GPENCIL_OT_frame_duplicate(wmOperatorType *ot)
 {
 	static const EnumPropertyItem duplicate_mode[] = {
-		{ GP_FRAME_DUP_ACTIVE, "ACTIVE", 0, "Active", "Duplicate frame in active layer only" },
-		{ GP_FRAME_DUP_ALL, "ALL", 0, "All", "Duplicate active frames in all layers" },
-		{ 0, NULL, 0, NULL, NULL }
+		{GP_FRAME_DUP_ACTIVE, "ACTIVE", 0, "Active", "Duplicate frame in active layer only"},
+		{GP_FRAME_DUP_ALL, "ALL", 0, "All", "Duplicate active frames in all layers"},
+		{0, NULL, 0, NULL, NULL}
 	};
 
 	/* identifiers */
@@ -1546,103 +1546,6 @@ void GPENCIL_OT_brush_presets_create(wmOperatorType *ot)
 
 }
 
-/* ***************** Select Brush ************************ */
-
-static int gp_brush_select_exec(bContext *C, wmOperator *op)
-{
-	ToolSettings *ts = CTX_data_tool_settings(C);
-	Main *bmain = CTX_data_main(C);
-
-	/* if there's no existing container */
-	if (ts == NULL) {
-		BKE_report(op->reports, RPT_ERROR, "Nowhere to go");
-		return OPERATOR_CANCELLED;
-	}
-
-	const int index = RNA_int_get(op->ptr, "index");
-
-	Paint *paint = BKE_brush_get_gpencil_paint(ts);
-	int i = 0;
-	for (Brush *brush = bmain->brush.first; brush; brush = brush->id.next) {
-		if (brush->ob_mode == OB_MODE_GPENCIL_PAINT) {
-			if (i == index) {
-				BKE_paint_brush_set(paint, brush);
-
-				/* notifiers */
-				WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
-				return OPERATOR_FINISHED;
-			}
-			i++;
-		}
-	}
-
-	return OPERATOR_CANCELLED;
-}
-
-void GPENCIL_OT_brush_select(wmOperatorType *ot)
-{
-	/* identifiers */
-	ot->name = "Select Brush";
-	ot->idname = "GPENCIL_OT_brush_select";
-	ot->description = "Select a Grease Pencil drawing brush";
-
-	/* callbacks */
-	ot->exec = gp_brush_select_exec;
-	ot->poll = gp_active_brush_poll;
-
-	/* flags */
-	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
-
-	/* properties */
-	RNA_def_int(ot->srna, "index", 0, 0, INT_MAX, "Index", "Index of Drawing Brush", 0, INT_MAX);
-}
-
-/* ***************** Select Sculpt Brush ************************ */
-
-static int gp_sculpt_select_exec(bContext *C, wmOperator *op)
-{
-	ToolSettings *ts = CTX_data_tool_settings(C);
-
-	/* if there's no existing container */
-	if (ts == NULL) {
-		BKE_report(op->reports, RPT_ERROR, "Nowhere to go");
-		return OPERATOR_CANCELLED;
-	}
-
-	const int index = RNA_int_get(op->ptr, "index");
-	GP_BrushEdit_Settings *gp_sculpt = &ts->gp_sculpt;
-	/* sanity checks */
-	if (ELEM(NULL, gp_sculpt)) {
-		return OPERATOR_CANCELLED;
-	}
-
-	if (index < TOT_GP_EDITBRUSH_TYPES - 1) {
-		gp_sculpt->brushtype = index;
-	}
-	/* notifiers */
-	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
-
-	return OPERATOR_FINISHED;
-}
-
-void GPENCIL_OT_sculpt_select(wmOperatorType *ot)
-{
-	/* identifiers */
-	ot->name = "Select Sculpt Brush";
-	ot->idname = "GPENCIL_OT_sculpt_select";
-	ot->description = "Select a Grease Pencil sculpt brush";
-
-	/* callbacks */
-	ot->exec = gp_sculpt_select_exec;
-	ot->poll = gp_add_poll;
-
-	/* flags */
-	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
-
-	/* properties */
-	RNA_def_int(ot->srna, "index", 0, 0, INT_MAX, "Index", "Index of Sculpt Brush", 0, INT_MAX);
-}
-
 /*********************** Vertex Groups ***********************************/
 
 static bool gpencil_vertex_group_poll(bContext *C)
@@ -2219,7 +2122,7 @@ int ED_gpencil_join_objects_exec(bContext *C, wmOperator *op)
 				if (ob_iter->adt) {
 					if (ob_active->adt == NULL) {
 						/* no animdata, so just use a copy of the whole thing */
-						ob_active->adt = BKE_animdata_copy(bmain, ob_iter->adt, false, true);
+						ob_active->adt = BKE_animdata_copy(bmain, ob_iter->adt, 0);
 					}
 					else {
 						/* merge in data - we'll fix the drivers manually */
@@ -2230,7 +2133,7 @@ int ED_gpencil_join_objects_exec(bContext *C, wmOperator *op)
 				if (gpd_src->adt) {
 					if (gpd_dst->adt == NULL) {
 						/* no animdata, so just use a copy of the whole thing */
-						gpd_dst->adt = BKE_animdata_copy(bmain, gpd_src->adt, false, true);
+						gpd_dst->adt = BKE_animdata_copy(bmain, gpd_src->adt, 0);
 					}
 					else {
 						/* merge in data - we'll fix the drivers manually */

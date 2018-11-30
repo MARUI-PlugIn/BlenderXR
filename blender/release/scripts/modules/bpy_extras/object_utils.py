@@ -61,10 +61,7 @@ def add_object_align_init(context, operator):
     if operator and properties.is_property_set("location"):
         location = Matrix.Translation(Vector(properties.location))
     else:
-        if space_data:  # local view cursor is detected below
-            location = Matrix.Translation(space_data.cursor_location)
-        else:
-            location = Matrix.Translation(context.scene.cursor_location)
+        location = Matrix.Translation(context.scene.cursor_location)
 
         if operator:
             properties.location = location.to_translation()
@@ -121,17 +118,11 @@ def object_data_add(context, obdata, operator=None, name=None):
     """
     scene = context.scene
     layer = context.view_layer
-    layer_collection = context.layer_collection
+    layer_collection = context.layer_collection or layer.active_layer_collection
+    scene_collection = layer_collection.collection
 
     for ob in layer.objects:
-        ob.select_set(action='DESELECT')
-
-    if not layer_collection:
-        # when there is no collection linked to this view_layer create one
-        scene_collection = scene.master_collection.collections.new("")
-        layer_collection = layer.collections.link(scene_collection)
-    else:
-        scene_collection = layer_collection.collection
+        ob.select_set(False)
 
     if name is None:
         name = "Object" if obdata is None else obdata.name
@@ -139,7 +130,7 @@ def object_data_add(context, obdata, operator=None, name=None):
     obj_act = layer.objects.active
     obj_new = bpy.data.objects.new(name, obdata)
     scene_collection.objects.link(obj_new)
-    obj_new.select_set(action='SELECT')
+    obj_new.select_set(True)
     obj_new.matrix_world = add_object_align_init(context, operator)
 
     # XXX
@@ -161,10 +152,10 @@ def object_data_add(context, obdata, operator=None, name=None):
 
     if obj_act and obj_act.mode == 'EDIT' and obj_act.type == obj_new.type:
         bpy.ops.mesh.select_all(action='DESELECT')
-        obj_act.select_set(action='SELECT')
+        obj_act.select_set(True)
         bpy.ops.object.mode_set(mode='OBJECT')
 
-        obj_act.select_set(action='SELECT')
+        obj_act.select_set(True)
         scene.update()  # apply location
         # layer.objects.active = obj_new
 

@@ -1161,12 +1161,12 @@ class VIEW3D_MT_GroupMenu2(Menu):
 
     def draw(self, context):
         layout = self.layout
-        layout.operator("group.create")
-        layout.operator("group.objects_add_active")
+        layout.operator("collection.create")
+        layout.operator("collection.objects_add_active")
         UseSeparator(self, context)
-        layout.operator("group.objects_remove")
-        layout.operator("group.objects_remove_all")
-        layout.operator("group.objects_remove_active")
+        layout.operator("collection.objects_remove")
+        layout.operator("collection.objects_remove_all")
+        layout.operator("collection.objects_remove_active")
 
 
 # ********** Object Camera Options **********

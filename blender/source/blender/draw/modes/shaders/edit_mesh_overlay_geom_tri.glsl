@@ -13,6 +13,7 @@ layout(triangle_strip, max_vertices=12) out;
 
 uniform mat4 ProjectionMatrix;
 uniform vec2 viewportSize;
+uniform bool isXray = false;
 
 in vec4 pPos[];
 in ivec4 vData[];
@@ -36,7 +37,7 @@ out float facing;
 #endif
 
 #ifdef ANTI_ALIASING
-#define Z_OFFSET 0.008
+#define Z_OFFSET -0.0005
 #else
 #define Z_OFFSET 0.0
 #endif
@@ -79,7 +80,8 @@ void doVertexOfs(int v, vec2 fixvec)
 #ifdef VERTEX_FACING
 	facing = v_facing[v];
 #endif
-	gl_Position = pPos[v] + vec4(fixvec * pPos[v].w, Z_OFFSET, 0.0);
+	float z_ofs = Z_OFFSET * ((ProjectionMatrix[3][3] == 0.0) ? 1.0 : 0.0);
+	gl_Position = pPos[v] + vec4(fixvec * pPos[v].w, z_ofs, 0.0);
 
 	EmitVertex();
 }
@@ -90,7 +92,7 @@ void mask_edge_flag(int v, ivec3 eflag)
 
 	/* Only shade the edge that we are currently drawing.
 	 * (fix corner bleeding) */
-	flag = eflag;
+	flag = eflag & ~EDGE_VERTEX_EXISTS;
 	flag[vaf] &= ~EDGE_EXISTS;
 	flag[v]   &= ~EDGE_EXISTS;
 }
@@ -121,7 +123,7 @@ vec2 compute_fixvec(int i)
 		perp = -perp;
 	}
 	/* Make it view independent */
-	return perp * sizeEdgeFix / viewportSize;;
+	return perp * sizeEdgeFix / viewportSize;
 }
 
 void main()
@@ -175,12 +177,13 @@ void main()
 		doVertexOfs(0, fixvec);
 		doVertexOfs(1, fixvec);
 	}
+
 	doVertex(0);
 	doVertex(1);
 
 	/* Do face triangle */
 	faceColor = fcol;
-	flag = eflag;
+	flag = (isXray) ? ivec3(0) : eflag;
 	doVertex(2);
 	faceColor.a = 0.0; /* to not let face color bleed */
 

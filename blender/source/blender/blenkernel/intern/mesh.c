@@ -563,6 +563,7 @@ void BKE_mesh_copy_data(Main *bmain, Mesh *me_dst, const Mesh *me_src, const int
 	me_dst->runtime.batch_cache = NULL;
 	me_dst->runtime.looptris.array = NULL;
 	me_dst->runtime.bvh_cache = NULL;
+	me_dst->runtime.shrinkwrap_data = NULL;
 
 	if (me_src->id.tag & LIB_TAG_NO_MAIN) {
 		me_dst->runtime.deformed_only = me_src->runtime.deformed_only;
@@ -717,7 +718,7 @@ Mesh *BKE_mesh_copy(Main *bmain, const Mesh *me)
 }
 
 BMesh *BKE_mesh_to_bmesh_ex(
-        Mesh *me,
+        const Mesh *me,
         const struct BMeshCreateParams *create_params,
         const struct BMeshFromMeshParams *convert_params)
 {
@@ -913,19 +914,25 @@ void BKE_mesh_texspace_calc(Mesh *me)
 
 BoundBox *BKE_mesh_boundbox_get(Object *ob)
 {
-	Mesh *me = ob->data;
+	/* This is Object-level data access, DO NOT touch to Mesh's bb, would be totally thread-unsafe. */
+	if (ob->bb == NULL || ob->bb->flag & BOUNDBOX_DIRTY) {
+		Mesh *me = ob->data;
+		float min[3], max[3];
 
-	if (ob->bb)
-		return ob->bb;
+		INIT_MINMAX(min, max);
+		BKE_mesh_minmax(me, min, max);
 
-	if (me->bb == NULL || (me->bb->flag & BOUNDBOX_DIRTY)) {
-		BKE_mesh_texspace_calc(me);
+		if (ob->bb == NULL) {
+			ob->bb = MEM_mallocN(sizeof(*ob->bb), __func__);
+		}
+		BKE_boundbox_init_from_minmax(ob->bb, min, max);
+		ob->bb->flag &= ~BOUNDBOX_DIRTY;
 	}
 
-	return me->bb;
+	return ob->bb;
 }
 
-void BKE_mesh_texspace_get(Mesh *me, float r_loc[3], float r_rot[3], float r_size[3])
+BoundBox *BKE_mesh_texspace_get(Mesh *me, float r_loc[3], float r_rot[3], float r_size[3])
 {
 	if (me->bb == NULL || (me->bb->flag & BOUNDBOX_DIRTY)) {
 		BKE_mesh_texspace_calc(me);
@@ -934,6 +941,8 @@ void BKE_mesh_texspace_get(Mesh *me, float r_loc[3], float r_rot[3], float r_siz
 	if (r_loc) copy_v3_v3(r_loc,  me->loc);
 	if (r_rot) copy_v3_v3(r_rot,  me->rot);
 	if (r_size) copy_v3_v3(r_size, me->size);
+
+	return me->bb;
 }
 
 void BKE_mesh_texspace_get_reference(Mesh *me, short **r_texflag,  float **r_loc, float **r_rot, float **r_size)
@@ -1268,6 +1277,21 @@ int BKE_mesh_edge_other_vert(const MEdge *e, int v)
 		return e->v1;
 	else
 		return -1;
+}
+
+/**
+ * Sets each output array element to the edge index if it is a real edge, or -1.
+ */
+void BKE_mesh_looptri_get_real_edges(const Mesh *mesh, const MLoopTri *looptri, int r_edges[3])
+{
+	for (int i = 2, i_next = 0; i_next < 3; i = i_next++) {
+		const MLoop *l1 = &mesh->mloop[looptri->tri[i]], *l2 = &mesh->mloop[looptri->tri[i_next]];
+		const MEdge *e = &mesh->medge[l1->e];
+
+		bool is_real = (l1->v == e->v1 && l2->v == e->v2) || (l1->v == e->v2 && l2->v == e->v1);
+
+		r_edges[i] = is_real ? l1->e : -1;
+	}
 }
 
 /* basic vertex data functions */
@@ -1892,5 +1916,8 @@ void BKE_mesh_eval_geometry(
 	DEG_debug_print_eval(depsgraph, __func__, mesh->id.name, mesh);
 	if (mesh->bb == NULL || (mesh->bb->flag & BOUNDBOX_DIRTY)) {
 		BKE_mesh_texspace_calc(mesh);
+		/* Clear autospace flag in evaluated mesh, so that texspace does not get recomputed when bbox is
+		 * (e.g. after modifiers, etc.) */
+		mesh->texflag &= ~ME_AUTOSPACE;
 	}
 }

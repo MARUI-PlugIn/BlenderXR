@@ -628,8 +628,8 @@ static ShaderNode *add_node(Scene *scene,
 			}
 		}
 #else
-		(void)b_data;
-		(void)b_ntree;
+		(void) b_data;
+		(void) b_ntree;
 #endif
 	}
 	else if(b_node.is_a(&RNA_ShaderNodeTexImage)) {
@@ -812,7 +812,7 @@ static ShaderNode *add_node(Scene *scene,
 	else if(b_node.is_a(&RNA_ShaderNodeTexCoord)) {
 		BL::ShaderNodeTexCoord b_tex_coord_node(b_node);
 		TextureCoordinateNode *tex_coord = new TextureCoordinateNode();
-		tex_coord->from_dupli = b_tex_coord_node.from_dupli();
+		tex_coord->from_dupli = b_tex_coord_node.from_instancer();
 		if(b_tex_coord_node.object()) {
 			tex_coord->use_transform = true;
 			tex_coord->ob_tfm = get_transform(b_tex_coord_node.object().matrix_world());
@@ -865,7 +865,7 @@ static ShaderNode *add_node(Scene *scene,
 		BL::ShaderNodeUVMap b_uvmap_node(b_node);
 		UVMapNode *uvm = new UVMapNode();
 		uvm->attribute = b_uvmap_node.uv_map();
-		uvm->from_dupli = b_uvmap_node.from_dupli();
+		uvm->from_dupli = b_uvmap_node.from_instancer();
 		node = uvm;
 	}
 	else if(b_node.is_a(&RNA_ShaderNodeTexPointDensity)) {
@@ -1236,7 +1236,7 @@ void BlenderSync::sync_materials(BL::Depsgraph& b_depsgraph, bool update_all)
 
 	BL::Depsgraph::ids_iterator b_id;
 	for(b_depsgraph.ids.begin(b_id); b_id != b_depsgraph.ids.end(); ++b_id) {
-		if (!b_id->is_a(&RNA_Material)) {
+		if(!b_id->is_a(&RNA_Material)) {
 			continue;
 		}
 
@@ -1409,7 +1409,7 @@ void BlenderSync::sync_lights(BL::Depsgraph& b_depsgraph, bool update_all)
 
 	BL::Depsgraph::ids_iterator b_id;
 	for(b_depsgraph.ids.begin(b_id); b_id != b_depsgraph.ids.end(); ++b_id) {
-		if (!b_id->is_a(&RNA_Light)) {
+		if(!b_id->is_a(&RNA_Light)) {
 			continue;
 		}
 

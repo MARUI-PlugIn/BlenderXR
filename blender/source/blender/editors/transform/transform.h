@@ -503,8 +503,15 @@ typedef struct TransInfo {
 	/*************** NEW STUFF *********************/
 	short		launch_event; 	/* event type used to launch transform */
 
-	short		current_orientation;
-	TransformOrientation *custom_orientation; /* this gets used when current_orientation is V3D_MANIP_CUSTOM */
+	struct {
+		short		user;
+		/* Used when user is global. */
+		short		user_alt;
+		short		index;
+		short		*types[2];
+		/* this gets used when current_orientation is V3D_MANIP_CUSTOM */
+		TransformOrientation *custom;
+	} orientation;
 	short		gizmo_flag;			/* backup from view3d, to restore on end */
 
 	short		prop_mode;

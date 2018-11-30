@@ -163,6 +163,7 @@ public:
 		std::string name;	/* Name of the mapping. */
 		VR_UI_Type type;	/* The UI type of the layout. */
 		VR_Widget* m[VR_SIDES][BUTTONIDS][VR_UI::ALTSTATES];	/* Mapping of buttons to widgets (one for each controller side, each button, ALT on/off). */
+		ButtonBit ctrl_button_bits[VR_SIDES][VR_UI::ALTSTATES];	/* Controller button bits defined to be the 'ctrl buttons' (per side, and whether ALT is pressed). */
 		ButtonBit shift_button_bits[VR_SIDES][VR_UI::ALTSTATES];	/* Controller button bits defined to be the 'shift buttons' (per side, and whether ALT is pressed). */
 		ButtonBit alt_button_bits[VR_SIDES];	/* Controller button bits defined to be the 'alt buttons' (per side). */
 	} Layout;
@@ -180,8 +181,6 @@ public:
 	static VR_UI::Error   reset_to_default_layouts();	/* Load the default layout. */
 	static VR_UI::Error   get_current_layout(std::string& layout);	/* Get the current UI layout (task mode). */
 	static VR_UI::Error   set_current_layout(const std::string& layout_name);	/* Set the current UI layout (task mode). */
-	static const VR_Widget* get_current_tool(VR_Side side);	/* Get the currently active tool for the controller. */
-	static VR_UI::Error   set_current_tool(const VR_Widget* tool, VR_Side side);	/* Set the currently active tool for the controller. */
 	static VR_UI::Error   rename_current_layout(const std::string& new_name);	/* Update the name of the layout (task mode). */
 	static VR_UI::Error   delete_current_layout();	/* Delete the current layout (task mode). */
 	static VR_UI::Error   get_layouts_list(std::vector<std::string>& list);	/* Get list of all known UI layouts (task modes). */

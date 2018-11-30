@@ -107,6 +107,7 @@ static GPUAttachmentType attachment_type_from_tex(GPUTexture *tex, int slot)
 		case GPU_DEPTH_COMPONENT16:
 			return GPU_FB_DEPTH_ATTACHMENT;
 		case GPU_DEPTH24_STENCIL8:
+		case GPU_DEPTH32F_STENCIL8:
 			return GPU_FB_DEPTH_STENCIL_ATTACHMENT;
 		default:
 			return GPU_FB_COLOR_ATTACHMENT0 + slot;
@@ -420,6 +421,31 @@ static void gpu_framebuffer_update_attachments(GPUFrameBuffer *fb)
 	else
 		glDrawBuffer(GL_NONE);
 }
+
+
+#define FRAMEBUFFER_STACK_DEPTH 16
+
+static struct {
+	GPUFrameBuffer *framebuffers[FRAMEBUFFER_STACK_DEPTH];
+	uint top;
+} FrameBufferStack = { 0 };
+
+static void gpuPushFrameBuffer(GPUFrameBuffer *fbo)
+{
+	BLI_assert(FrameBufferStack.top < FRAMEBUFFER_STACK_DEPTH);
+	FrameBufferStack.framebuffers[FrameBufferStack.top] = fbo;
+	FrameBufferStack.top++;
+}
+
+static GPUFrameBuffer *gpuPopFrameBuffer(void)
+{
+	BLI_assert(FrameBufferStack.top > 0);
+	FrameBufferStack.top--;
+	return FrameBufferStack.framebuffers[FrameBufferStack.top];
+}
+
+#undef FRAMEBUFFER_STACK_DEPTH
+
 
 void GPU_framebuffer_bind(GPUFrameBuffer *fb)
 {
@@ -758,6 +784,8 @@ void GPU_offscreen_bind(GPUOffScreen *ofs, bool save)
 {
 	if (save) {
 		gpuPushAttrib(GPU_SCISSOR_BIT | GPU_VIEWPORT_BIT);
+		GPUFrameBuffer *fb = GPU_framebuffer_active_get();
+		gpuPushFrameBuffer(fb);
 	}
 	glDisable(GL_SCISSOR_TEST);
 	GPU_framebuffer_bind(ofs->fb);
@@ -765,9 +793,18 @@ void GPU_offscreen_bind(GPUOffScreen *ofs, bool save)
 
 void GPU_offscreen_unbind(GPUOffScreen *UNUSED(ofs), bool restore)
 {
-	GPU_framebuffer_restore();
+	GPUFrameBuffer *fb = NULL;
+
 	if (restore) {
 		gpuPopAttrib();
+		fb = gpuPopFrameBuffer();
+	}
+
+	if (fb) {
+		GPU_framebuffer_bind(fb);
+	}
+	else {
+		GPU_framebuffer_restore();
 	}
 }
 

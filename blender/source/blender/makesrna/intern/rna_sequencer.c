@@ -125,7 +125,6 @@ static void rna_Sequence_update(Main *UNUSED(bmain), Scene *UNUSED(scene), Point
 		Sequence *seq = (Sequence *) ptr->data;
 
 		BKE_sequence_invalidate_cache(scene, seq);
-		WM_main_add_notifier(NC_SCENE | ND_SEQUENCER, scene);
 	}
 }
 
@@ -1511,12 +1510,13 @@ static void rna_def_sequence(BlenderRNA *brna)
 
 	prop = RNA_def_property(srna, "mute", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", SEQ_MUTE);
-	RNA_def_property_ui_icon(prop, ICON_HIDE_OFF, true);
+	RNA_def_property_ui_icon(prop, ICON_HIDE_OFF, -1);
 	RNA_def_property_ui_text(prop, "Mute", "Disable strip so that it cannot be viewed in the output");
 	RNA_def_property_update(prop, NC_SCENE | ND_SEQUENCER, "rna_Sequence_mute_update");
 
 	prop = RNA_def_property(srna, "lock", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", SEQ_LOCK);
+	RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
 	RNA_def_property_ui_icon(prop, ICON_UNLOCKED, true);
 	RNA_def_property_ui_text(prop, "Lock", "Lock strip so that it cannot be transformed");
 	RNA_def_property_update(prop, NC_SCENE | ND_SEQUENCER, NULL);
@@ -1596,6 +1596,7 @@ static void rna_def_sequence(BlenderRNA *brna)
 
 	prop = RNA_def_property(srna, "channel", PROP_INT, PROP_UNSIGNED);
 	RNA_def_property_int_sdna(prop, NULL, "machine");
+	RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
 	RNA_def_property_range(prop, 1, MAXSEQ);
 	RNA_def_property_ui_text(prop, "Channel", "Y position of the sequence strip");
 	RNA_def_property_int_funcs(prop, NULL, "rna_Sequence_channel_set", NULL); /* overlap test */
@@ -2317,7 +2318,6 @@ static void rna_def_transform(StructRNA *srna)
 
 	prop = RNA_def_property(srna, "rotation_start", PROP_FLOAT, PROP_NONE);
 	RNA_def_property_float_sdna(prop, NULL, "rotIni");
-	RNA_def_property_range(prop, -360.0f, 360.0f);
 	RNA_def_property_ui_text(prop, "Rotation", "Degrees to rotate the input");
 	RNA_def_property_update(prop, NC_SCENE | ND_SEQUENCER, "rna_Sequence_update");
 
@@ -2588,7 +2588,7 @@ static void rna_def_modifier(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "mute", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", SEQUENCE_MODIFIER_MUTE);
 	RNA_def_property_ui_text(prop, "Mute", "Mute this modifier");
-	RNA_def_property_ui_icon(prop, ICON_HIDE_OFF, 1);
+	RNA_def_property_ui_icon(prop, ICON_HIDE_OFF, -1);
 	RNA_def_property_update(prop, NC_SCENE | ND_SEQUENCER, "rna_SequenceModifier_update");
 
 	prop = RNA_def_property(srna, "show_expanded", PROP_BOOLEAN, PROP_NONE);

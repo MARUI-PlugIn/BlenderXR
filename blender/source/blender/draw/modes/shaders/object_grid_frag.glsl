@@ -12,6 +12,7 @@ uniform vec3 eye;
 uniform vec4 gridSettings;
 uniform vec2 viewportSize;
 uniform vec4 screenvecs[3];
+uniform float lineKernel = 0.0;
 uniform float gridOneOverLogSubdiv;
 uniform sampler2D depthBuffer;
 
@@ -31,7 +32,18 @@ uniform int gridFlag;
 #define PLANE_YZ  (1 << 6)
 #define GRID_BACK (1 << 9) /* grid is behind objects */
 
-#define GRID_LINE_SMOOTH 1.15
+#define M_1_SQRTPI   0.5641895835477563    /* 1/sqrt(pi) */
+
+/**
+ * We want to know how much a pixel is covered by a line.
+ * We replace the square pixel with acircle of the same area and try to find the intersection area.
+ * The area we search is the circular segment. https://en.wikipedia.org/wiki/Circular_segment
+ * The formula for the area uses inverse trig function and is quite complexe.
+ * Instead, we approximate it by using the smoothstep function and a 1.05 factor to the disc radius.
+ **/
+#define DISC_RADIUS (M_1_SQRTPI * 1.05)
+#define GRID_LINE_SMOOTH_START (0.5 - DISC_RADIUS)
+#define GRID_LINE_SMOOTH_END (0.5 + DISC_RADIUS)
 
 float get_grid(vec2 co, vec2 fwidthCos, float grid_size)
 {
@@ -42,10 +54,10 @@ float get_grid(vec2 co, vec2 fwidthCos, float grid_size)
 	 * (make lines have the same width under perspective) */
 	grid_domain /= fwidthCos;
 
-	/* collapse waves and normalize */
-	grid_domain.x = min(grid_domain.x, grid_domain.y) / half_size;
+	/* collapse waves */
+	float line_dist = min(grid_domain.x, grid_domain.y);
 
-	return 1.0 - smoothstep(0.0, GRID_LINE_SMOOTH / grid_size, grid_domain.x * 0.5);
+	return 1.0 - smoothstep(GRID_LINE_SMOOTH_START, GRID_LINE_SMOOTH_END, line_dist - lineKernel);
 }
 
 vec3 get_axes(vec3 co, vec3 fwidthCos, float line_size)
@@ -55,7 +67,7 @@ vec3 get_axes(vec3 co, vec3 fwidthCos, float line_size)
 	 * (make line have the same width under perspective) */
 	axes_domain /= fwidthCos;
 
-	return 1.0 - smoothstep(0.0, GRID_LINE_SMOOTH, axes_domain - line_size);
+	return 1.0 - smoothstep(GRID_LINE_SMOOTH_START, GRID_LINE_SMOOTH_END, axes_domain - (line_size + lineKernel));
 }
 
 vec3 get_floor_pos(vec2 uv, out vec3 wPos)
@@ -170,9 +182,10 @@ void main()
 		float gridB = get_grid(grid_pos, grid_fwidth, scaleB);
 		float gridC = get_grid(grid_pos, grid_fwidth, scaleC);
 
-		FragColor = vec4(colorGrid.rgb, gridA * blend);
-		FragColor = mix(FragColor, vec4(mix(colorGrid.rgb, colorGridEmphasise.rgb, blend), 1.0), gridB);
-		FragColor = mix(FragColor, vec4(colorGridEmphasise.rgb, 1.0), gridC);
+		FragColor = colorGrid;
+		FragColor.a *= gridA * blend;
+		FragColor = mix(FragColor, mix(colorGrid, colorGridEmphasise, blend), gridB);
+		FragColor = mix(FragColor, colorGridEmphasise, gridC);
 	}
 	else {
 		FragColor = vec4(colorGrid.rgb, 0.0);

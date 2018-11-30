@@ -54,8 +54,6 @@
 
 #include "mesh_intern.h"  /* own include */
 
-#define USE_GIZMO
-
 /* -------------------------------------------------------------------- */
 /** \name Extrude Internal Utilities
  * \{ */
@@ -298,7 +296,7 @@ static int edbm_extrude_repeat_exec(bContext *C, wmOperator *op)
 
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 
@@ -409,7 +407,7 @@ static int edbm_extrude_region_exec(bContext *C, wmOperator *op)
 {
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
@@ -464,7 +462,7 @@ static int edbm_extrude_context_exec(bContext *C, wmOperator *op)
 {
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
@@ -502,10 +500,6 @@ void MESH_OT_extrude_context(wmOperatorType *ot)
 
 	RNA_def_boolean(ot->srna, "use_normal_flip", false, "Flip Normals", "");
 	Transform_Properties(ot, P_NO_DEFAULTS | P_MIRROR_DUMMY);
-
-#ifdef USE_GIZMO
-	WM_gizmogrouptype_append(MESH_GGT_extrude);
-#endif
 }
 
 /** \} */
@@ -518,7 +512,7 @@ static int edbm_extrude_verts_exec(bContext *C, wmOperator *op)
 {
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
@@ -565,7 +559,7 @@ static int edbm_extrude_edges_exec(bContext *C, wmOperator *op)
 	const bool use_normal_flip = RNA_boolean_get(op->ptr, "use_normal_flip");
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
@@ -612,7 +606,7 @@ static int edbm_extrude_faces_exec(bContext *C, wmOperator *op)
 {
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
@@ -675,7 +669,7 @@ static int edbm_dupli_extrude_cursor_invoke(bContext *C, wmOperator *op, const w
 	verts_len = 0;
 
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(vc.view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(vc.view_layer, vc.v3d, &objects_len);
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *obedit = objects[ob_index];
 		ED_view3d_viewcontext_init_object(&vc, obedit);
@@ -829,7 +823,7 @@ static int edbm_dupli_extrude_cursor_invoke(bContext *C, wmOperator *op, const w
 		}
 		else {
 			/* This only runs for the active object. */
-			const float *cursor = ED_view3d_cursor3d_get(vc.scene, vc.v3d)->location;
+			const float *cursor = vc.scene->cursor.location;
 			BMOperator bmop;
 			BMOIter oiter;
 

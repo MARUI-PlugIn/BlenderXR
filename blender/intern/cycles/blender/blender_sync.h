@@ -67,9 +67,9 @@ public:
 	               int width, int height,
 	               void **python_thread_state);
 	void sync_view_layer(BL::SpaceView3D& b_v3d, BL::ViewLayer& b_view_layer);
-	array<Pass> sync_render_passes(BL::RenderLayer& b_render_layer,
-	                               BL::ViewLayer& b_view_layer,
-	                               const SessionParams &session_params);
+	vector<Pass> sync_render_passes(BL::RenderLayer& b_render_layer,
+	                                BL::ViewLayer& b_view_layer,
+	                                const SessionParams &session_params);
 	void sync_integrator();
 	void sync_camera(BL::RenderSettings& b_render,
 	                 BL::Object& b_override,
@@ -208,4 +208,4 @@ private:
 
 CCL_NAMESPACE_END
 
-#endif /* __BLENDER_SYNC_H__ */
+#endif  /* __BLENDER_SYNC_H__ */

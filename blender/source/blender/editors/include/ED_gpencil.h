@@ -121,7 +121,7 @@ struct bGPdata *ED_gpencil_data_get_active_direct(
 bool ED_gpencil_data_owner_is_annotation(struct PointerRNA *owner_ptr);
 
 /* 3D View */
-struct bGPdata  *ED_gpencil_data_get_active_v3d(struct ViewLayer *view_layer);
+struct bGPdata  *ED_gpencil_data_get_active_v3d(struct ViewLayer *view_layer, struct View3D *v3d);
 
 bool ED_gpencil_has_keyframe_v3d(struct Scene *scene, struct Object *ob, int cfra);
 
@@ -170,7 +170,8 @@ void ED_gpencil_draw_view3d_object(
         struct ARegion *ar,
         bool only3d);
 void ED_gpencil_draw_ex(
-        struct RegionView3D *rv3d, struct Scene *scene, struct bGPdata *gpd, int winx, int winy,
+        struct ViewLayer *view_layer, struct RegionView3D *rv3d, struct Scene *scene,
+        struct bGPdata *gpd, int winx, int winy,
         const int cfra, const char spacetype);
 
 /* ----------- Grease-Pencil AnimEdit API ------------------ */
@@ -234,9 +235,15 @@ void ED_gpencil_add_defaults(struct bContext *C);
 /* set object modes */
 void ED_gpencil_setup_modes(struct bContext *C, struct bGPdata *gpd, int newmode);
 
-void ED_gp_project_stroke_to_plane(struct Object *ob, struct RegionView3D *rv3d, struct bGPDstroke *gps, const float origin[3], const int axis);
-void ED_gp_project_point_to_plane(struct Object *ob, struct RegionView3D *rv3d, const float origin[3], const int axis, struct bGPDspoint *pt);
-void ED_gp_get_drawing_reference(struct View3D *v3d, struct Scene *scene, struct Object *ob, struct bGPDlayer *gpl, char align_flag, float vec[3]);
+void ED_gp_project_stroke_to_plane(
+        const struct Object *ob, const struct RegionView3D *rv3d,
+        struct bGPDstroke *gps, const float origin[3], const int axis);
+void ED_gp_project_point_to_plane(
+        const struct Object *ob, const struct RegionView3D *rv3d,
+        const float origin[3], const int axis, struct bGPDspoint *pt);
+void ED_gp_get_drawing_reference(
+        const struct Scene *scene, const struct Object *ob,
+        struct bGPDlayer *gpl, char align_flag, float vec[3]);
 
 /* set sculpt cursor */
 void ED_gpencil_toggle_brush_cursor(struct bContext *C, bool enable, void *customdata);

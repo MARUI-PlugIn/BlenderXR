@@ -458,6 +458,7 @@ void BKE_object_free_derived_caches(Object *ob)
 
 	object_update_from_subsurf_ccg(ob);
 	BKE_object_free_derived_mesh_caches(ob);
+	BKE_armature_cached_bbone_deformation_free(ob);
 
 	if (ob->runtime.mesh_eval != NULL) {
 		Mesh *mesh_eval = ob->runtime.mesh_eval;
@@ -608,45 +609,27 @@ void BKE_object_free(Object *ob)
 /* actual check for internal data, not context or flags */
 bool BKE_object_is_in_editmode(const Object *ob)
 {
-	if (ob->data == NULL)
+	if (ob->data == NULL) {
 		return false;
-
-	if (ob->type == OB_MESH) {
-		Mesh *me = ob->data;
-		if (me->edit_btmesh)
-			return true;
 	}
-	else if (ob->type == OB_ARMATURE) {
-		bArmature *arm = ob->data;
 
-		if (arm->edbo)
-			return true;
+	switch (ob->type) {
+		case OB_MESH:
+			return ((Mesh *)ob->data)->edit_btmesh != NULL;
+		case OB_ARMATURE:
+			return ((bArmature *)ob->data)->edbo != NULL;
+		case OB_FONT:
+			return ((Curve *)ob->data)->editfont != NULL;
+		case OB_MBALL:
+			return ((MetaBall *)ob->data)->editelems != NULL;
+		case OB_LATTICE:
+			return ((Lattice *)ob->data)->editlatt != NULL;
+		case OB_SURF:
+		case OB_CURVE:
+			return ((Curve *)ob->data)->editnurb != NULL;
+		default:
+			return false;
 	}
-	else if (ob->type == OB_FONT) {
-		Curve *cu = ob->data;
-
-		if (cu->editfont)
-			return true;
-	}
-	else if (ob->type == OB_MBALL) {
-		MetaBall *mb = ob->data;
-
-		if (mb->editelems)
-			return true;
-	}
-	else if (ob->type == OB_LATTICE) {
-		Lattice *lt = ob->data;
-
-		if (lt->editlatt)
-			return true;
-	}
-	else if (ob->type == OB_SURF || ob->type == OB_CURVE) {
-		Curve *cu = ob->data;
-
-		if (cu->editnurb)
-			return true;
-	}
-	return false;
 }
 
 bool BKE_object_is_in_editmode_vgroup(const Object *ob)
@@ -850,6 +833,11 @@ void BKE_object_init(Object *ob)
 	ob->dt = OB_TEXTURE;
 	ob->empty_drawtype = OB_PLAINAXES;
 	ob->empty_drawsize = 1.0;
+	ob->empty_image_depth = OB_EMPTY_IMAGE_DEPTH_DEFAULT;
+	ob->empty_image_visibility_flag = (
+	        OB_EMPTY_IMAGE_VISIBLE_PERSPECTIVE |
+	        OB_EMPTY_IMAGE_VISIBLE_ORTHOGRAPHIC |
+	        OB_EMPTY_IMAGE_VISIBLE_BACKSIDE);
 	if (ob->type == OB_EMPTY) {
 		copy_v2_fl(ob->ima_ofs, -0.5f);
 	}
@@ -938,7 +926,7 @@ Object *BKE_object_add(
 	BKE_collection_object_add(bmain, layer_collection->collection, ob);
 
 	base = BKE_view_layer_base_find(view_layer, ob);
-	BKE_view_layer_base_select(view_layer, base);
+	BKE_view_layer_base_select_and_set_active(view_layer, base);
 
 	return ob;
 }
@@ -959,7 +947,7 @@ Object *BKE_object_add_from(
 	BKE_collection_object_add_from(bmain, scene, ob_src, ob);
 
 	base = BKE_view_layer_base_find(view_layer, ob);
-	BKE_view_layer_base_select(view_layer, base);
+	BKE_view_layer_base_select_and_set_active(view_layer, base);
 
 	return ob;
 }
@@ -993,7 +981,7 @@ Object *BKE_object_add_for_data(
 	BKE_collection_object_add(bmain, layer_collection->collection, ob);
 
 	base = BKE_view_layer_base_find(view_layer, ob);
-	BKE_view_layer_base_select(view_layer, base);
+	BKE_view_layer_base_select_and_set_active(view_layer, base);
 
 	return ob;
 }
@@ -1079,7 +1067,14 @@ ParticleSystem *BKE_object_copy_particlesystem(ParticleSystem *psys, const int f
 	BLI_listbase_clear(&psysn->pathcachebufs);
 	BLI_listbase_clear(&psysn->childcachebufs);
 
-	psysn->pointcache = BKE_ptcache_copy_list(&psysn->ptcaches, &psys->ptcaches, flag);
+	if (flag & LIB_ID_CREATE_NO_MAIN) {
+		BLI_assert((psys->flag & PSYS_SHARED_CACHES) == 0);
+		psysn->flag |= PSYS_SHARED_CACHES;
+		BLI_assert(psysn->pointcache != NULL);
+	}
+	else {
+		psysn->pointcache = BKE_ptcache_copy_list(&psysn->ptcaches, &psys->ptcaches, flag);
+	}
 
 	/* XXX - from reading existing code this seems correct but intended usage of
 	 * pointcache should /w cloth should be added in 'ParticleSystem' - campbell */
@@ -1212,13 +1207,13 @@ Object *BKE_object_pose_armature_get(Object *ob)
 	return NULL;
 }
 
-Object *BKE_object_pose_armature_get_visible(Object *ob, ViewLayer *view_layer)
+Object *BKE_object_pose_armature_get_visible(Object *ob, ViewLayer *view_layer, View3D *v3d)
 {
 	Object *ob_armature = BKE_object_pose_armature_get(ob);
 	if (ob_armature) {
 		Base *base = BKE_view_layer_base_find(view_layer, ob_armature);
 		if (base) {
-			if (BASE_VISIBLE(base)) {
+			if (BASE_VISIBLE(v3d, base)) {
 				return ob_armature;
 			}
 		}
@@ -1229,14 +1224,14 @@ Object *BKE_object_pose_armature_get_visible(Object *ob, ViewLayer *view_layer)
 /**
  * Access pose array with special check to get pose object when in weight paint mode.
  */
-Object **BKE_object_pose_array_get_ex(ViewLayer *view_layer, uint *r_objects_len, bool unique)
+Object **BKE_object_pose_array_get_ex(ViewLayer *view_layer, View3D *v3d, uint *r_objects_len, bool unique)
 {
 	Object *ob_active = OBACT(view_layer);
 	Object *ob_pose = BKE_object_pose_armature_get(ob_active);
 	Object **objects = NULL;
 	if (ob_pose == ob_active) {
 		objects = BKE_view_layer_array_from_objects_in_mode(
-		        view_layer, r_objects_len, {
+		        view_layer, v3d, r_objects_len, {
 		            .object_mode = OB_MODE_POSE,
 		            .no_dup_data = unique});
 	}
@@ -1251,16 +1246,16 @@ Object **BKE_object_pose_array_get_ex(ViewLayer *view_layer, uint *r_objects_len
 	}
 	return objects;
 }
-Object **BKE_object_pose_array_get_unique(ViewLayer *view_layer, uint *r_objects_len)
+Object **BKE_object_pose_array_get_unique(ViewLayer *view_layer, View3D *v3d, uint *r_objects_len)
 {
-	return BKE_object_pose_array_get_ex(view_layer, r_objects_len, true);
+	return BKE_object_pose_array_get_ex(view_layer, v3d, r_objects_len, true);
 }
-Object **BKE_object_pose_array_get(ViewLayer *view_layer, uint *r_objects_len)
+Object **BKE_object_pose_array_get(ViewLayer *view_layer, View3D *v3d, uint *r_objects_len)
 {
-	return BKE_object_pose_array_get_ex(view_layer, r_objects_len, false);
+	return BKE_object_pose_array_get_ex(view_layer, v3d, r_objects_len, false);
 }
 
-Base **BKE_object_pose_base_array_get_ex(ViewLayer *view_layer, uint *r_bases_len, bool unique)
+Base **BKE_object_pose_base_array_get_ex(ViewLayer *view_layer, View3D *v3d, uint *r_bases_len, bool unique)
 {
 	Base *base_active = BASACT(view_layer);
 	Object *ob_pose = base_active ? BKE_object_pose_armature_get(base_active->object) : NULL;
@@ -1278,7 +1273,7 @@ Base **BKE_object_pose_base_array_get_ex(ViewLayer *view_layer, uint *r_bases_le
 
 	if (base_active && (base_pose == base_active)) {
 		bases = BKE_view_layer_array_from_bases_in_mode(
-		        view_layer, r_bases_len, {
+		        view_layer, v3d, r_bases_len, {
 		            .object_mode = OB_MODE_POSE,
 		            .no_dup_data = unique});
 	}
@@ -1293,13 +1288,13 @@ Base **BKE_object_pose_base_array_get_ex(ViewLayer *view_layer, uint *r_bases_le
 	}
 	return bases;
 }
-Base **BKE_object_pose_base_array_get_unique(ViewLayer *view_layer, uint *r_bases_len)
+Base **BKE_object_pose_base_array_get_unique(ViewLayer *view_layer, View3D *v3d, uint *r_bases_len)
 {
-	return BKE_object_pose_base_array_get_ex(view_layer, r_bases_len, true);
+	return BKE_object_pose_base_array_get_ex(view_layer, v3d, r_bases_len, true);
 }
-Base **BKE_object_pose_base_array_get(ViewLayer *view_layer, uint *r_bases_len)
+Base **BKE_object_pose_base_array_get(ViewLayer *view_layer, View3D *v3d, uint *r_bases_len)
 {
-	return BKE_object_pose_base_array_get_ex(view_layer, r_bases_len, false);
+	return BKE_object_pose_base_array_get_ex(view_layer, v3d, r_bases_len, false);
 }
 
 void BKE_object_transform_copy(Object *ob_tar, const Object *ob_src)
@@ -2035,69 +2030,29 @@ static void give_parvert(Object *par, int nr, float vec[3])
 	if (par->type == OB_MESH) {
 		Mesh *me = par->data;
 		BMEditMesh *em = me->edit_btmesh;
-		DerivedMesh *dm = NULL;
 		Mesh *me_eval = (em) ? em->mesh_eval_final : par->runtime.mesh_eval;
-
-		/* Keep this until subsurf code ported away from derived mesh - campbell. */
-		dm = par->derivedFinal;
-		if (dm && dm->type != DM_TYPE_CCGDM) {
-			dm = NULL;
-		}
 
 		if (me_eval) {
 			int count = 0;
 			const int numVerts = me_eval->totvert;
 
 			if (nr < numVerts) {
-				bool use_special_ss_case = false;
-
-				if (dm && dm->type == DM_TYPE_CCGDM) {
-					ModifierData *md;
-					VirtualModifierData virtualModifierData;
-					use_special_ss_case = true;
-					for (md = modifiers_getVirtualModifierList(par, &virtualModifierData);
-					     md != NULL;
-					     md = md->next)
-					{
-						const ModifierTypeInfo *mti = modifierType_getInfo(md->type);
-						/* TODO(sergey): Check for disabled modifiers. */
-						if (mti->type != eModifierTypeType_OnlyDeform && md->next != NULL) {
-							use_special_ss_case = false;
-							break;
-						}
-					}
-				}
-
-				if (!use_special_ss_case) {
-					/* avoid dm->getVertDataArray() since it allocates arrays in the dm (not thread safe) */
-					if (em && me_eval->runtime.is_original) {
-						if (em->bm->elem_table_dirty & BM_VERT) {
+				if (em && me_eval->runtime.is_original) {
+					if (em->bm->elem_table_dirty & BM_VERT) {
 #ifdef VPARENT_THREADING_HACK
-							BLI_mutex_lock(&vparent_lock);
-							if (em->bm->elem_table_dirty & BM_VERT) {
-								BM_mesh_elem_table_ensure(em->bm, BM_VERT);
-							}
-							BLI_mutex_unlock(&vparent_lock);
-#else
-							BLI_assert(!"Not safe for threading");
+						BLI_mutex_lock(&vparent_lock);
+						if (em->bm->elem_table_dirty & BM_VERT) {
 							BM_mesh_elem_table_ensure(em->bm, BM_VERT);
-#endif
 						}
+						BLI_mutex_unlock(&vparent_lock);
+#else
+						BLI_assert(!"Not safe for threading");
+						BM_mesh_elem_table_ensure(em->bm, BM_VERT);
+#endif
 					}
 				}
 
-				if (use_special_ss_case) {
-					/* Special case if the last modifier is SS and no constructive modifier are in front of it. */
-					CCGDerivedMesh *ccgdm = (CCGDerivedMesh *)dm;
-					CCGVert *ccg_vert = ccgSubSurf_getVert(ccgdm->ss, POINTER_FROM_INT(nr));
-					/* In case we deleted some verts, nr may refer to inexistent one now, see T42557. */
-					if (ccg_vert) {
-						float *co = ccgSubSurf_getVertData(ccgdm->ss, ccg_vert);
-						add_v3_v3(vec, co);
-						count++;
-					}
-				}
-				else if (CustomData_has_layer(&me_eval->vdata, CD_ORIGINDEX) &&
+				if (CustomData_has_layer(&me_eval->vdata, CD_ORIGINDEX) &&
 				         !(em && me_eval->runtime.is_original))
 				{
 					const int *index = CustomData_get_layer(&me_eval->vdata, CD_ORIGINDEX);
@@ -2132,7 +2087,7 @@ static void give_parvert(Object *par, int nr, float vec[3])
 		}
 		else {
 			fprintf(stderr,
-			        "%s: DerivedMesh is needed to solve parenting, "
+			        "%s: Evaluated mesh is needed to solve parenting, "
 			        "object position can be wrong now\n", __func__);
 		}
 	}
@@ -2515,20 +2470,29 @@ BoundBox *BKE_object_boundbox_get(Object *ob)
 {
 	BoundBox *bb = NULL;
 
-	if (ob->type == OB_MESH) {
-		bb = BKE_mesh_boundbox_get(ob);
-	}
-	else if (ELEM(ob->type, OB_CURVE, OB_SURF, OB_FONT)) {
-		bb = BKE_curve_boundbox_get(ob);
-	}
-	else if (ob->type == OB_MBALL) {
-		bb = BKE_mball_boundbox_get(ob);
-	}
-	else if (ob->type == OB_LATTICE) {
-		bb = BKE_lattice_boundbox_get(ob);
-	}
-	else if (ob->type == OB_ARMATURE) {
-		bb = BKE_armature_boundbox_get(ob);
+	switch (ob->type) {
+		case OB_MESH:
+			bb = BKE_mesh_boundbox_get(ob);
+			break;
+		case OB_CURVE:
+		case OB_SURF:
+		case OB_FONT:
+			bb = BKE_curve_boundbox_get(ob);
+			break;
+		case OB_MBALL:
+			bb = BKE_mball_boundbox_get(ob);
+			break;
+		case OB_LATTICE:
+			bb = BKE_lattice_boundbox_get(ob);
+			break;
+		case OB_ARMATURE:
+			bb = BKE_armature_boundbox_get(ob);
+			break;
+		case OB_GPENCIL:
+			bb = BKE_gpencil_boundbox_get(ob);
+			break;
+		default:
+			break;
 	}
 	return bb;
 }
@@ -3648,8 +3612,8 @@ LinkNode *BKE_object_relational_superset(struct ViewLayer *view_layer, eObjectSe
 			obrel_list_add(&links, ob);
 		}
 		else {
-			if ((objectSet == OB_SET_SELECTED && TESTBASELIB_BGMODE(base)) ||
-			    (objectSet == OB_SET_VISIBLE  && BASE_EDITABLE_BGMODE(base)))
+			if ((objectSet == OB_SET_SELECTED && TESTBASELIB_BGMODE(((View3D *)NULL), base)) ||
+			    (objectSet == OB_SET_VISIBLE  && BASE_EDITABLE_BGMODE(((View3D *)NULL), base)))
 			{
 				Object *ob = base->object;
 
@@ -3679,7 +3643,7 @@ LinkNode *BKE_object_relational_superset(struct ViewLayer *view_layer, eObjectSe
 				if (includeFilter & (OB_REL_CHILDREN | OB_REL_CHILDREN_RECURSIVE)) {
 					Base *local_base;
 					for (local_base = view_layer->object_bases.first; local_base; local_base = local_base->next) {
-						if (BASE_EDITABLE_BGMODE(local_base)) {
+						if (BASE_EDITABLE_BGMODE(((View3D *)NULL), local_base)) {
 
 							Object *child = local_base->object;
 							if (obrel_list_test(child)) {
@@ -4076,4 +4040,22 @@ bool BKE_object_modifier_update_subframe(
 	}
 
 	return false;
+}
+
+bool BKE_image_empty_visible_in_view3d(const Object *ob, const RegionView3D *rv3d)
+{
+	int visibility_flag = ob->empty_image_visibility_flag;
+
+	if ((visibility_flag & OB_EMPTY_IMAGE_VISIBLE_BACKSIDE) == 0) {
+		if (dot_v3v3((float *)&ob->obmat[2], (float *)&rv3d->viewinv[2]) < 0.0f) {
+			return false;
+		}
+	}
+
+	if (rv3d->is_persp) {
+		return visibility_flag & OB_EMPTY_IMAGE_VISIBLE_PERSPECTIVE;
+	}
+	else {
+		return visibility_flag & OB_EMPTY_IMAGE_VISIBLE_ORTHOGRAPHIC;
+	}
 }

@@ -162,8 +162,8 @@ static void view2d_masks(View2D *v2d, bool check_scrollers, const rcti *mask_scr
 	scroll = view2d_scroll_mapped(v2d->scroll);
 
 	/* scrollers are based off regionsize
-	 *	- they can only be on one to two edges of the region they define
-	 *	- if they overlap, they must not occupy the corners (which are reserved for other widgets)
+	 * - they can only be on one to two edges of the region they define
+	 * - if they overlap, they must not occupy the corners (which are reserved for other widgets)
 	 */
 	if (scroll) {
 		const int scroll_width = (v2d->scroll & V2D_SCROLL_SCALE_VERTICAL) ?
@@ -406,16 +406,16 @@ static void ui_view2d_curRect_validate_resize(View2D *v2d, bool resize, bool mas
 	tot = &v2d->tot;
 
 	/* we must satisfy the following constraints (in decreasing order of importance):
-	 *	- alignment restrictions are respected
-	 *	- cur must not fall outside of tot
-	 *	- axis locks (zoom and offset) must be maintained
-	 *	- zoom must not be excessive (check either sizes or zoom values)
-	 *	- aspect ratio should be respected (NOTE: this is quite closely related to zoom too)
+	 * - alignment restrictions are respected
+	 * - cur must not fall outside of tot
+	 * - axis locks (zoom and offset) must be maintained
+	 * - zoom must not be excessive (check either sizes or zoom values)
+	 * - aspect ratio should be respected (NOTE: this is quite closely related to zoom too)
 	 */
 
 	/* Step 1: if keepzoom, adjust the sizes of the rects only
-	 *	- firstly, we calculate the sizes of the rects
-	 *	- curwidth and curheight are saved as reference... modify width and height values here
+	 * - firstly, we calculate the sizes of the rects
+	 * - curwidth and curheight are saved as reference... modify width and height values here
 	 */
 	totwidth  = BLI_rctf_size_x(tot);
 	totheight = BLI_rctf_size_y(tot);
@@ -525,9 +525,9 @@ static void ui_view2d_curRect_validate_resize(View2D *v2d, bool resize, bool mas
 		if (do_cur) {
 			if ((v2d->keeptot == V2D_KEEPTOT_STRICT) && (winx != v2d->oldwinx)) {
 				/* special exception for Outliner (and later channel-lists):
-				 *  - The view may be moved left to avoid contents being pushed out of view when view shrinks.
-				 *	- The keeptot code will make sure cur->xmin will not be less than tot->xmin (which cannot be allowed)
-				 *	- width is not adjusted for changed ratios here...
+				 * - The view may be moved left to avoid contents being pushed out of view when view shrinks.
+				 * - The keeptot code will make sure cur->xmin will not be less than tot->xmin (which cannot be allowed)
+				 * - width is not adjusted for changed ratios here...
 				 */
 				if (winx < v2d->oldwinx) {
 					float temp = v2d->oldwinx - winx;
@@ -548,7 +548,7 @@ static void ui_view2d_curRect_validate_resize(View2D *v2d, bool resize, bool mas
 		else {
 			if ((v2d->keeptot == V2D_KEEPTOT_STRICT) && (winy != v2d->oldwiny)) {
 				/* special exception for Outliner (and later channel-lists):
-				 *	- Currently, no actions need to be taken here...
+				 * - Currently, no actions need to be taken here...
 				 */
 
 				if (winy < v2d->oldwiny) {
@@ -635,8 +635,8 @@ static void ui_view2d_curRect_validate_resize(View2D *v2d, bool resize, bool mas
 		}
 		else if (v2d->keeptot == V2D_KEEPTOT_STRICT) {
 			/* This is an exception for the outliner (and later channel-lists, headers)
-			 *	- must clamp within tot rect (absolutely no excuses)
-			 *	--> therefore, cur->xmin must not be less than tot->xmin
+			 * - must clamp within tot rect (absolutely no excuses)
+			 * --> therefore, cur->xmin must not be less than tot->xmin
 			 */
 			if (cur->xmin < tot->xmin) {
 				/* move cur across so that it sits at minimum of tot */
@@ -667,8 +667,8 @@ static void ui_view2d_curRect_validate_resize(View2D *v2d, bool resize, bool mas
 		}
 		else {
 			/* This here occurs when:
-			 *  - width too big, but maintaining zoom (i.e. widths cannot be changed)
-			 *	- width is OK, but need to check if outside of boundaries
+			 * - width too big, but maintaining zoom (i.e. widths cannot be changed)
+			 * - width is OK, but need to check if outside of boundaries
 			 *
 			 * So, resolution is to just shift view by the gap between the extremities.
 			 * We favour moving the 'minimum' across, as that's origin for most things
@@ -718,8 +718,8 @@ static void ui_view2d_curRect_validate_resize(View2D *v2d, bool resize, bool mas
 		}
 		else {
 			/* This here occurs when:
-			 *  - height too big, but maintaining zoom (i.e. heights cannot be changed)
-			 *	- height is OK, but need to check if outside of boundaries
+			 * - height too big, but maintaining zoom (i.e. heights cannot be changed)
+			 * - height is OK, but need to check if outside of boundaries
 			 *
 			 * So, resolution is to just shift view by the gap between the extremities.
 			 * We favour moving the 'minimum' across, as that's origin for most things
@@ -1690,8 +1690,8 @@ View2DScrollers *UI_view2d_scrollers_calc(
 	scrollers->hor = hor;
 
 	/* scroller 'buttons':
-	 *	- These should always remain within the visible region of the scrollbar
-	 *	- They represent the region of 'tot' that is visible in 'cur'
+	 * - These should always remain within the visible region of the scrollbar
+	 * - They represent the region of 'tot' that is visible in 'cur'
 	 */
 
 	/* horizontal scrollers */
@@ -1861,11 +1861,11 @@ void UI_view2d_scrollers_draw(const bContext *C, View2D *v2d, View2DScrollers *v
 		btheme->tui.widget_emboss[3] *= alpha_fac; /* will be reset later */
 
 		/* show zoom handles if:
-		 *	- zooming on x-axis is allowed (no scroll otherwise)
-		 *	- slider bubble is large enough (no overdraw confusion)
-		 *	- scale is shown on the scroller
-		 *	  (workaround to make sure that button windows don't show these,
-		 *		and only the time-grids with their zoomability can do so)
+		 * - zooming on x-axis is allowed (no scroll otherwise)
+		 * - slider bubble is large enough (no overdraw confusion)
+		 * - scale is shown on the scroller
+		 *   (workaround to make sure that button windows don't show these,
+		 *   and only the time-grids with their zoomability can do so)
 		 */
 		if ((v2d->keepzoom & V2D_LOCKZOOM_X) == 0 &&
 		    (v2d->scroll & V2D_SCROLL_SCALE_HORIZONTAL) &&
@@ -1883,8 +1883,8 @@ void UI_view2d_scrollers_draw(const bContext *C, View2D *v2d, View2DScrollers *v
 			float fac, dfac, fac2, val;
 
 			/* the numbers: convert grid->startx and -dx to scroll coordinates
-			 *	- fac is x-coordinate to draw to
-			 *	- dfac is gap between scale markings
+			 * - fac is x-coordinate to draw to
+			 * - dfac is gap between scale markings
 			 */
 			fac = (grid->startx - v2d->cur.xmin) / BLI_rctf_size_x(&v2d->cur);
 			fac = (float)hor.xmin + fac * BLI_rcti_size_x(&hor);
@@ -1964,11 +1964,11 @@ void UI_view2d_scrollers_draw(const bContext *C, View2D *v2d, View2DScrollers *v
 		btheme->tui.widget_emboss[3] *= alpha_fac; /* will be reset later */
 
 		/* show zoom handles if:
-		 *	- zooming on y-axis is allowed (no scroll otherwise)
-		 *	- slider bubble is large enough (no overdraw confusion)
-		 *	- scale is shown on the scroller
-		 *	  (workaround to make sure that button windows don't show these,
-		 *		and only the time-grids with their zoomability can do so)
+		 * - zooming on y-axis is allowed (no scroll otherwise)
+		 * - slider bubble is large enough (no overdraw confusion)
+		 * - scale is shown on the scroller
+		 *   (workaround to make sure that button windows don't show these,
+		 *   and only the time-grids with their zoomability can do so)
 		 */
 		if ((v2d->keepzoom & V2D_LOCKZOOM_Y) == 0 &&
 		    (v2d->scroll & V2D_SCROLL_SCALE_VERTICAL) &&
@@ -1986,10 +1986,10 @@ void UI_view2d_scrollers_draw(const bContext *C, View2D *v2d, View2DScrollers *v
 			float fac, dfac, val;
 
 			/* the numbers: convert grid->starty and dy to scroll coordinates
-			 *	- fac is y-coordinate to draw to
-			 *	- dfac is gap between scale markings
-			 *	- these involve a correction for horizontal scrollbar
-			 *	  NOTE: it's assumed that that scrollbar is there if this is involved!
+			 * - fac is y-coordinate to draw to
+			 * - dfac is gap between scale markings
+			 * - these involve a correction for horizontal scrollbar
+			 *   NOTE: it's assumed that that scrollbar is there if this is involved!
 			 */
 			fac = (grid->starty - v2d->cur.ymin) / BLI_rctf_size_y(&v2d->cur);
 			fac = vert.ymin + fac * BLI_rcti_size_y(&vert);
@@ -2159,11 +2159,11 @@ void UI_view2d_listview_visible_cells(
 /* *********************************************************************** */
 /* Coordinate Conversions */
 
-float UI_view2d_region_to_view_x(struct View2D *v2d, float x)
+float UI_view2d_region_to_view_x(const struct View2D *v2d, float x)
 {
 	return (v2d->cur.xmin + (BLI_rctf_size_x(&v2d->cur) * (x - v2d->mask.xmin) / BLI_rcti_size_x(&v2d->mask)));
 }
-float UI_view2d_region_to_view_y(struct View2D *v2d, float y)
+float UI_view2d_region_to_view_y(const struct View2D *v2d, float y)
 {
 	return (v2d->cur.ymin + (BLI_rctf_size_y(&v2d->cur) * (y - v2d->mask.ymin) / BLI_rcti_size_y(&v2d->mask)));
 }
@@ -2174,13 +2174,13 @@ float UI_view2d_region_to_view_y(struct View2D *v2d, float y)
  * \param x, y: coordinates to convert
  * \param r_view_x, r_view_y: resultant coordinates
  */
-void UI_view2d_region_to_view(View2D *v2d, float x, float y, float *r_view_x, float *r_view_y)
+void UI_view2d_region_to_view(const View2D *v2d, float x, float y, float *r_view_x, float *r_view_y)
 {
 	*r_view_x = UI_view2d_region_to_view_x(v2d, x);
 	*r_view_y = UI_view2d_region_to_view_y(v2d, y);
 }
 
-void UI_view2d_region_to_view_rctf(View2D *v2d, const rctf *rect_src, rctf *rect_dst)
+void UI_view2d_region_to_view_rctf(const View2D *v2d, const rctf *rect_src, rctf *rect_dst)
 {
 	const float cur_size[2]  = {BLI_rctf_size_x(&v2d->cur),  BLI_rctf_size_y(&v2d->cur)};
 	const float mask_size[2] = {BLI_rcti_size_x(&v2d->mask), BLI_rcti_size_y(&v2d->mask)};
@@ -2191,11 +2191,11 @@ void UI_view2d_region_to_view_rctf(View2D *v2d, const rctf *rect_src, rctf *rect
 	rect_dst->ymax = (v2d->cur.ymin + (cur_size[1] * (rect_src->ymax - v2d->mask.ymin) / mask_size[1]));
 }
 
-float UI_view2d_view_to_region_x(View2D *v2d, float x)
+float UI_view2d_view_to_region_x(const View2D *v2d, float x)
 {
 	return (v2d->mask.xmin + (((x - v2d->cur.xmin) / BLI_rctf_size_x(&v2d->cur)) * BLI_rcti_size_x(&v2d->mask)));
 }
-float UI_view2d_view_to_region_y(View2D *v2d, float y)
+float UI_view2d_view_to_region_y(const View2D *v2d, float y)
 {
 	return (v2d->mask.ymin + (((y - v2d->cur.ymin) / BLI_rctf_size_y(&v2d->cur)) * BLI_rcti_size_y(&v2d->mask)));
 }
@@ -2207,7 +2207,7 @@ float UI_view2d_view_to_region_y(View2D *v2d, float y)
  * \param x, y: Coordinates to convert.
  * \param r_region_x, r_region_y: Resultant coordinates.
  */
-bool UI_view2d_view_to_region_clip(View2D *v2d, float x, float y, int *r_region_x, int *r_region_y)
+bool UI_view2d_view_to_region_clip(const View2D *v2d, float x, float y, int *r_region_x, int *r_region_y)
 {
 	/* express given coordinates as proportional values */
 	x = (x - v2d->cur.xmin) / BLI_rctf_size_x(&v2d->cur);
@@ -2429,16 +2429,20 @@ void UI_view2d_offset(struct View2D *v2d, float xfac, float yfac)
  * Check if mouse is within scrollers
  *
  * \param x, y: Mouse coordinates in screen (not region) space.
+ * \param r_scroll: Mapped view2d scroll flag.
  *
  * \return appropriate code for match.
  * - 'h' = in horizontal scroller.
  * - 'v' = in vertical scroller.
  * - 0 = not in scroller.
  */
-short UI_view2d_mouse_in_scrollers(const ARegion *ar, View2D *v2d, int x, int y)
+char UI_view2d_mouse_in_scrollers_ex(
+        const ARegion *ar, View2D *v2d, int x, int y,
+        int *r_scroll)
 {
 	int co[2];
 	int scroll = view2d_scroll_mapped(v2d->scroll);
+	*r_scroll = scroll;
 
 	/* clamp x,y to region-coordinates first */
 	co[0] = x - ar->winrct.xmin;
@@ -2454,6 +2458,13 @@ short UI_view2d_mouse_in_scrollers(const ARegion *ar, View2D *v2d, int x, int y)
 
 	/* not found */
 	return 0;
+}
+
+char UI_view2d_mouse_in_scrollers(
+        const ARegion *ar, View2D *v2d, int x, int y)
+{
+	int scroll_dummy = 0;
+	return UI_view2d_mouse_in_scrollers_ex(ar, v2d, x, y, &scroll_dummy);
 }
 
 /* ******************* view2d text drawing cache ******************** */

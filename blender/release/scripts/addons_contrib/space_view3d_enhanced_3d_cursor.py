@@ -343,6 +343,8 @@ class EnhancedSetCursor(bpy.types.Operator):
     def setup_keymaps(self, context, event=None):
         self.key_map = self.key_map.copy()
 
+        wm = context.window_manager
+
         # There is no such event as 'ACTIONMOUSE',
         # it's always 'LEFTMOUSE' or 'RIGHTMOUSE'
         if event:
@@ -355,7 +357,8 @@ class EnhancedSetCursor(bpy.types.Operator):
             else:
                 event = None
         if event is None:
-            select_mouse = context.user_preferences.inputs.select_mouse
+            keyconfig = wm.keyconfigs.active
+            select_mouse = getattr(keyconfig.preferences, "select_mouse", "LEFT")
             if select_mouse == 'RIGHT':
                 self.key_map["confirm"] = {'LEFTMOUSE'}
                 self.key_map["cancel"] = {'RIGHTMOUSE', 'ESC'}
@@ -364,7 +367,6 @@ class EnhancedSetCursor(bpy.types.Operator):
                 self.key_map["cancel"] = {'LEFTMOUSE', 'ESC'}
 
         # Use user-defined "free mouse" key, if it exists
-        wm = context.window_manager
         if '3D View' in wm.keyconfigs.user.keymaps:
             km = wm.keyconfigs.user.keymaps['3D View']
             for kmi in KeyMapItemSearch(EnhancedSetCursor.bl_idname, km):
@@ -3184,14 +3186,14 @@ class MeshCache:
             # (though it'd be better to change the logic in the raycasting)
             tmp_obj.show_in_front = src_obj.show_in_front
 
-            tmp_obj.dupli_faces_scale = src_obj.dupli_faces_scale
-            tmp_obj.dupli_frames_end = src_obj.dupli_frames_end
-            tmp_obj.dupli_frames_off = src_obj.dupli_frames_off
-            tmp_obj.dupli_frames_on = src_obj.dupli_frames_on
-            tmp_obj.dupli_frames_start = src_obj.dupli_frames_start
-            tmp_obj.dupli_group = src_obj.dupli_group
+            tmp_obj.instance_faces_scale = src_obj.instance_faces_scale
+            tmp_obj.instance_frames_end = src_obj.instance_frames_end
+            tmp_obj.instance_frames_off = src_obj.instance_frames_off
+            tmp_obj.instance_frames_on = src_obj.instance_frames_on
+            tmp_obj.instance_frames_start = src_obj.instance_frames_start
+            tmp_obj.instance_collection = src_obj.instance_collection
             #tmp_obj.dupli_list = src_obj.dupli_list
-            tmp_obj.dupli_type = src_obj.dupli_type
+            tmp_obj.instance_type = src_obj.instance_type
 
         # Make Blender recognize object as having geometry
         # (is there a simpler way to do this?)

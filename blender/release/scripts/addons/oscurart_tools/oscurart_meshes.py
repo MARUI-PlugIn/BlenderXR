@@ -449,7 +449,7 @@ class ModalIndexOperator(Operator):
             self.tsize -= 1
         elif event.type in {'RIGHTMOUSE', 'ESC', 'TAB'}:
             bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
-            context.area.header_text_set("")
+            context.area.header_text_set(None)
             return {'CANCELLED'}
 
         return {'PASS_THROUGH'}
@@ -659,7 +659,7 @@ class createEditMultimesh(Operator):
         global relvert
         global me
         global ob
-        temp = [[ob , [vert.co for vert in ob.data.vertices]]for ob in bpy.data.groups[bpy.context.scene.multimeshedit].objects]
+        temp = [[ob , [vert.co for vert in ob.data.vertices]]for ob in bpy.data.collections[bpy.context.scene.multimeshedit].objects]
         vi = 0
         pi = 0
         relvert = {}

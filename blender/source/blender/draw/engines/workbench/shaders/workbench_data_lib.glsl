@@ -1,17 +1,21 @@
 struct LightData {
-	vec4 light_direction_vs;
+	vec4 direction;
 	vec4 specular_color;
+	vec4 diffuse_color_wrap; /* rgb: diffuse col a: wrapped lighting factor */
 };
 
 struct WorldData {
-	vec3 spherical_harmonics_coefs[STUDIOLIGHT_SPHERICAL_HARMONICS_MAX_COMPONENTS];
+	vec3 spherical_harmonics_coefs[STUDIOLIGHT_SH_MAX_COMPONENTS];
 	vec4 background_color_low;
 	vec4 background_color_high;
 	vec4 object_outline_color;
 	vec4 shadow_direction_vs;
-	LightData lights[3];
+	LightData lights[4];
+	vec4 ambient_color;
 	int num_lights;
 	int matcap_orientation;
 	float background_alpha;
-	int pad[1];
+	float curvature_ridge;
+	float curvature_valley;
+	int pad[3];
 };

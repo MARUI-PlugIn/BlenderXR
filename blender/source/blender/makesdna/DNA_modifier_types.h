@@ -219,8 +219,9 @@ typedef struct MaskModifierData {
 	struct Object *ob_arm;  /* armature to use to in place of hardcoded vgroup */
 	char vgroup[64];        /* name of vertex group to use to mask, MAX_VGROUP_NAME */
 
-	int mode;               /* using armature or hardcoded vgroup */
-	int flag;               /* flags for various things */
+	short mode;               /* using armature or hardcoded vgroup */
+	short flag;               /* flags for various things */
+	float threshold;
 } MaskModifierData;
 
 /* Mask Modifier -> mode */
@@ -312,14 +313,20 @@ typedef struct MirrorModifierData {
 
 /* MirrorModifierData->flag */
 enum {
-	MOD_MIR_CLIPPING  = (1 << 0),
-	MOD_MIR_MIRROR_U  = (1 << 1),
-	MOD_MIR_MIRROR_V  = (1 << 2),
-	MOD_MIR_AXIS_X    = (1 << 3),
-	MOD_MIR_AXIS_Y    = (1 << 4),
-	MOD_MIR_AXIS_Z    = (1 << 5),
-	MOD_MIR_VGROUP    = (1 << 6),
-	MOD_MIR_NO_MERGE  = (1 << 7),
+	MOD_MIR_CLIPPING      = (1 << 0),
+	MOD_MIR_MIRROR_U      = (1 << 1),
+	MOD_MIR_MIRROR_V      = (1 << 2),
+	MOD_MIR_AXIS_X        = (1 << 3),
+	MOD_MIR_AXIS_Y        = (1 << 4),
+	MOD_MIR_AXIS_Z        = (1 << 5),
+	MOD_MIR_VGROUP        = (1 << 6),
+	MOD_MIR_NO_MERGE      = (1 << 7),
+	MOD_MIR_BISECT_AXIS_X = (1 << 8),
+	MOD_MIR_BISECT_AXIS_Y = (1 << 9),
+	MOD_MIR_BISECT_AXIS_Z = (1 << 10),
+	MOD_MIR_BISECT_FLIP_AXIS_X = (1 << 11),
+	MOD_MIR_BISECT_FLIP_AXIS_Y = (1 << 12),
+	MOD_MIR_BISECT_FLIP_AXIS_Z = (1 << 13),
 };
 
 typedef struct EdgeSplitModifierData {
@@ -887,6 +894,7 @@ enum {
 	MOD_SHRINKWRAP_NEAREST_SURFACE = 0,
 	MOD_SHRINKWRAP_PROJECT         = 1,
 	MOD_SHRINKWRAP_NEAREST_VERTEX  = 2,
+	MOD_SHRINKWRAP_TARGET_PROJECT  = 3,
 };
 
 /* Shrinkwrap->shrinkMode */

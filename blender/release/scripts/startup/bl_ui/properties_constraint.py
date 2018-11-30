@@ -748,7 +748,7 @@ class ConstraintButtonsPanel:
         layout.prop(con, "distance")
         layout.prop(con, "shrinkwrap_type")
 
-        if con.shrinkwrap_type in {'PROJECT', 'NEAREST_SURFACE'}:
+        if con.shrinkwrap_type in {'PROJECT', 'NEAREST_SURFACE', 'TARGET_PROJECT'}:
             layout.prop(con, 'wrap_mode', text="Snap Mode")
 
         if con.shrinkwrap_type == 'PROJECT':
@@ -769,7 +769,7 @@ class ConstraintButtonsPanel:
             rowsub.prop(con, "use_invert_cull")
             layout.prop(con, "project_limit")
 
-        if con.shrinkwrap_type in {'PROJECT', 'NEAREST_SURFACE'}:
+        if con.shrinkwrap_type in {'PROJECT', 'NEAREST_SURFACE', 'TARGET_PROJECT'}:
             layout.prop(con, "use_track_normal")
 
             row = layout.row(align=True)
@@ -918,6 +918,46 @@ class ConstraintButtonsPanel:
 
     def SCRIPT(self, context, layout, con):
         layout.label(text="Blender 2.6 doesn't support python constraints yet")
+
+    def ARMATURE(self, context, layout, con):
+        topcol = layout.column()
+        topcol.use_property_split = True
+        topcol.operator("constraint.add_target", text="Add Target Bone")
+
+        if not con.targets:
+            box = topcol.box()
+            box.label(text="No target bones were added", icon='ERROR')
+
+        for i, tgt in enumerate(con.targets):
+            box = topcol.box()
+
+            has_target = tgt.target is not None
+
+            header = box.row()
+            header.use_property_split = False
+
+            split = header.split(factor=0.45, align=True)
+            split.prop(tgt, "target", text="")
+
+            row = split.row(align=True)
+            row.active = has_target
+            if has_target:
+                row.prop_search(tgt, "subtarget", tgt.target.data, "bones", text="")
+            else:
+                row.prop(tgt, "subtarget", text="", icon='BONE_DATA')
+
+            header.operator("constraint.remove_target", text="", icon='REMOVE').index = i
+
+            col = box.column()
+            col.active = has_target and tgt.subtarget != ""
+            col.prop(tgt, "weight", slider=True)
+
+        topcol.operator("constraint.normalize_target_weights")
+        topcol.prop(con, "use_deform_preserve_volume")
+        topcol.prop(con, "use_bone_envelopes")
+
+        if context.pose_bone:
+            topcol.prop(con, "use_current_location")
 
 
 class OBJECT_PT_constraints(ConstraintButtonsPanel, Panel):

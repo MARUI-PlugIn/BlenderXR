@@ -31,7 +31,7 @@
  *  \ingroup bke
  *  \author Sergey Sharybin
  */
-
+ 
 #include "../vr/vr_build.h"
 #if WITH_VR
 #ifdef __cplusplus
@@ -374,6 +374,7 @@ void BKE_tracking_get_rna_path_prefix_for_plane_track(
 #ifdef __cplusplus
 }
 #endif
+
 #endif
 
 #endif

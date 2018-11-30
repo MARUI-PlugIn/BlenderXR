@@ -154,28 +154,49 @@ public:
 	static Texture *ascii_tex;	/* Texture for the ascii characters. */
 	static Texture *zoom_tex;	/* Texture for the "zoom" icon. */
 	static Texture *close_tex;	/* Texture for the "close" icon. */
-	static Texture *nav_tex;	/* Texture for the "nav" icon. */
+	static Texture *nav_grabair_tex;	/* Texture for the "nav grabair" icon. */
 	static Texture *nav_joystick_tex;	/* Texture for the "nav joystick" icon. */
 	static Texture *nav_teleport_tex;	/* Texture for the "nav teleport" icon. */
 	static Texture *ctrl_tex;	/* Texture for the "ctrl" icon. */
 	static Texture *shift_tex;	/* Texture for the "shift" icon. */
 	static Texture *alt_tex;	/* Texture for the "alt" icon. */
 	static Texture *cursoroffset_tex;	/* Texture for the "cursor offset" icon. */
+	static Texture *select_tex;	/* Texture for the "select" icon. */
+	static Texture *transform_tex;	/* Texture for the "transform" icon. */
+	static Texture *move_tex;	/* Texture for the "move" icon. */
+	static Texture *rotate_tex;	/* Texture for the "rotate" icon. */
+	static Texture *scale_tex;	/* Texture for the "scale" icon. */
+	static Texture *annotate_tex;	/* Texture for the "annotate" icon. */
+	static Texture *measure_tex;	/* Texture for the "measure" icon. */
 	static Texture *delete_tex;	/* Texture for the "delete" icon. */
 	static Texture *duplicate_tex;	/* Texture for the "duplicate" icon. */
 	static Texture *undo_tex;	/* Texture for the "undo" icon. */
 	static Texture *redo_tex;	/* Texture for the "redo" icon. */
-	static Texture *colorwheel_menu_tex;	/* Texture for the "color wheel" menu. */
-	static Texture *colorwheel_menu_triangle_tex;	/* Texture for the "triangle" icon for the "color wheel" menu . */
-	static Texture *colorwheel_menu_trianglecancel_tex;	/* Texture for the "triangle cancel" icon for the "color wheel" menu. */
+	static Texture *manip_tex;	/* Texture for the "manipulator" icon. */
+	static Texture *manip_local_tex;	/* Texture for the "local manipulator" icon. */
+	static Texture *manip_plus_tex;	/* Texture for the "grow manipulator" icon. */
+	static Texture *manip_minus_tex;	/* Texture for the "shrink manipulator" icon. */
+
+	/* Menu textures. */
+	static Texture *background_menu_tex;	/* Texture for the menu background. */
+	static Texture *colorwheel_menu_tex;	/* Texture for the "colorwheel" menu. */
+	static Texture *triangle_menu_tex;	/* Texture for the "triangle" menu icon. */
 
 	/* String textures. */
 	static Texture *select_str_tex;	/* Texture for the "SELECT" string. */
-	static Texture *quickgrab_str_tex;	/* Texture for the "QUICKGRAB" string. */
+	static Texture *transform_str_tex;	/* Texture for the "TRANSFORM" string. */
 	static Texture *annotate_str_tex;	/* Texture for the "ANNOTATE" string. */
 	static Texture *measure_str_tex;	/* Texture for the "MEASURE" string. */
 	static Texture *raycast_str_tex;	/* Texture for the "RAYCAST" string. */
 	static Texture *proximity_str_tex;	/* Texture for the "PROXIMITY" string. */
+	static Texture *on_str_tex;	/* Texture for the "ON" string. */
+	static Texture *off_str_tex;	/* Texture for the "OFF" string. */
+	static Texture *x_str_tex;	/* Texture for the "X" string. */
+	static Texture *y_str_tex;	/* Texture for the "Y" string. */
+	static Texture *z_str_tex;	/* Texture for the "Z" string. */
+	static Texture *xy_str_tex;	/* Texture for the "XY" string. */
+	static Texture *yz_str_tex;	/* Texture for the "YZ" string. */
+	static Texture *zx_str_tex;	/* Texture for the "ZX" string. */
 protected:
 	static Mat44f	model_matrix;	/* OpenGL model matrix. */ 
 	static Mat44f	view_matrix;	/* OpenGL view matrix. */
@@ -200,9 +221,9 @@ public:
 	
 	static void render_rect(float left, float right, float top, float bottom, float z, float u=1.0f, float v=1.0f, Texture* tex=0);	/* Render a rectangle with currently set transformation. */
 	static void render_frame(float left, float right, float top, float bottom, float b, float z = 0);	/* Render a flat frame. */
-	static void render_box(const Coord3Df& p0, const Coord3Df& p1);	/* Render an axis-aligned box. */
+	static void render_box(const Coord3Df& p0, const Coord3Df& p1, bool outline=false);	/* Render an axis-aligned box. */
 	static void render_ball(float r, bool golf=false);	/* Render a ball with currently set transformation. */
-	static void render_arrow(const Coord3Df& from, const Coord3Df& to, float width, float u, float v, Texture* tex);	/* Render an arrow. */
+	static void render_arrow(const Coord3Df& from, const Coord3Df& to, float width);	/* Render an arrow. */
 	static void render_string(const char* str, float character_width, float character_height, VR_HAlign h_align, VR_VAlign v_align, float x_offset = 0.0f, float y_offset = 0.0f, float z_offset = 0.0f);	/* Render a string. */
 };
 

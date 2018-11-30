@@ -2801,7 +2801,7 @@ static int vertex_group_select_exec(bContext *C, wmOperator *UNUSED(op))
 		return OPERATOR_CANCELLED;
 
 	vgroup_select_verts(ob, 1);
-	DEG_id_tag_update(ob->data, DEG_TAG_SELECT_UPDATE);
+	DEG_id_tag_update(ob->data, DEG_TAG_COPY_ON_WRITE | DEG_TAG_SELECT_UPDATE);
 	WM_event_add_notifier(C, NC_GEOM | ND_SELECT, ob->data);
 
 	return OPERATOR_FINISHED;
@@ -2827,7 +2827,7 @@ static int vertex_group_deselect_exec(bContext *C, wmOperator *UNUSED(op))
 	Object *ob = ED_object_context(C);
 
 	vgroup_select_verts(ob, 0);
-	DEG_id_tag_update(ob->data, DEG_TAG_SELECT_UPDATE);
+	DEG_id_tag_update(ob->data, DEG_TAG_COPY_ON_WRITE | DEG_TAG_SELECT_UPDATE);
 	WM_event_add_notifier(C, NC_GEOM | ND_SELECT, ob->data);
 
 	return OPERATOR_FINISHED;
@@ -3126,7 +3126,7 @@ static int vertex_group_smooth_exec(bContext *C, wmOperator *op)
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		Object *ob = objects[ob_index];
 

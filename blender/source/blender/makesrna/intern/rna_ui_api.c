@@ -140,6 +140,25 @@ static void rna_uiItemMenuEnumR(
 	uiItemMenuEnumR_prop(layout, ptr, prop, name, icon);
 }
 
+static void rna_uiItemTabsEnumR(
+        uiLayout *layout, bContext *C,
+        struct PointerRNA *ptr, const char *propname,
+        bool icon_only)
+{
+	PropertyRNA *prop = RNA_struct_find_property(ptr, propname);
+
+	if (!prop) {
+		RNA_warning("property not found: %s.%s", RNA_struct_identifier(ptr->type), propname);
+		return;
+	}
+	if (RNA_property_type(prop) != PROP_ENUM) {
+		RNA_warning("property is not an enum: %s.%s", RNA_struct_identifier(ptr->type), propname);
+		return;
+	}
+
+	uiItemTabsEnumR_prop(layout, C, ptr, prop, icon_only);
+}
+
 static void rna_uiItemEnumR_string(
         uiLayout *layout, struct PointerRNA *ptr, const char *propname, const char *value,
         const char *name, const char *text_ctxt, bool translate, int icon)
@@ -617,6 +636,11 @@ void RNA_api_ui_layout(StructRNA *srna)
 	api_ui_item_rna_common(func);
 	api_ui_item_common(func);
 
+	func = RNA_def_function(srna, "prop_tabs_enum", "rna_uiItemTabsEnumR");
+	RNA_def_function_flag(func, FUNC_USE_CONTEXT);
+	api_ui_item_rna_common(func);
+	RNA_def_boolean(func, "icon_only", false, "", "Draw only icons in tabs, no text");
+
 	func = RNA_def_function(srna, "prop_enum", "rna_uiItemEnumR_string");
 	api_ui_item_rna_common(func);
 	parm = RNA_def_string(func, "value", NULL, 0, "", "Enum property value");
@@ -736,8 +760,12 @@ void RNA_api_ui_layout(StructRNA *srna)
 	parm = RNA_def_string(func, "category", NULL, 0, "", "panel type category");
 	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 
-	func = RNA_def_function(srna, "separator", "uiItemS");
+	func = RNA_def_function(srna, "separator", "uiItemS_ex");
 	RNA_def_function_ui_description(func, "Item. Inserts empty space into the layout between items");
+	RNA_def_float(
+		func, "factor", 1.0f, 0.0f, FLT_MAX, "Percentage",
+		"Percentage of width to space (leave unset for default space)",
+		0.0f, FLT_MAX);
 
 	func = RNA_def_function(srna, "separator_spacer", "uiItemSpacer");
 	RNA_def_function_ui_description(func, "Item. Inserts horizontal spacing empty space into the layout between items");
@@ -774,6 +802,7 @@ void RNA_api_ui_layout(StructRNA *srna)
 	RNA_def_int(func, "cols", 0, 0, INT_MAX, "Number of thumbnail preview columns to display", "", 0, INT_MAX);
 	RNA_def_enum(func, "filter", id_template_filter_items, UI_TEMPLATE_ID_FILTER_ALL,
 	             "", "Optionally limit the items which can be selected");
+	RNA_def_boolean(func, "hide_buttons", false, "", "Show only list, no buttons");
 
 	func = RNA_def_function(srna, "template_any_ID", "rna_uiTemplateAnyID");
 	parm = RNA_def_pointer(func, "data", "AnyType", "", "Data from which to take property");

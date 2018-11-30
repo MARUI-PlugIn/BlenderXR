@@ -30,6 +30,14 @@
 #ifndef __GIZMO_LIBRARY_INTERN_H__
 #define __GIZMO_LIBRARY_INTERN_H__
 
+#include "../vr/vr_build.h"
+#if WITH_VR
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+#endif
+
 /* distance around which gizmos respond to input (and get highlighted) */
 #define GIZMO_HOTSPOT 14.0f
 
@@ -107,5 +115,10 @@ void wm_gizmo_vec_draw(
         const float color[4], const float (*verts)[3], uint vert_count,
         uint pos, uint primitive_type);
 
-
+#if WITH_VR
+#ifdef __cplusplus
+}
+#endif
+#endif
+		
 #endif  /* __GIZMO_LIBRARY_INTERN_H__ */

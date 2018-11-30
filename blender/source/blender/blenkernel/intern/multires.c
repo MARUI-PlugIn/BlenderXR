@@ -282,22 +282,7 @@ static MDisps *multires_mdisps_initialize_hidden(Mesh *me, int level)
 	return mdisps;
 }
 
-DerivedMesh *get_multires_dm(struct Depsgraph *depsgraph, Scene *scene, MultiresModifierData *mmd, Object *ob)
-{
-	ModifierData *md = (ModifierData *)mmd;
-	DerivedMesh *tdm = mesh_get_derived_deform(depsgraph, scene, ob, CD_MASK_BAREMESH);
-	DerivedMesh *dm;
-	ModifierEvalContext mectx = {depsgraph, ob, MOD_APPLY_USECACHE | MOD_APPLY_IGNORE_SIMPLIFY};
-
-	dm = modifier_applyModifier_DM_deprecated(md, &mectx, tdm);
-	if (dm == tdm) {
-		dm = CDDM_copy(tdm);
-	}
-
-	return dm;
-}
-
-Mesh *get_multires_mesh(
+Mesh *BKE_multires_create_mesh(
         struct Depsgraph *depsgraph,
         Scene *scene,
         MultiresModifierData *mmd,
@@ -2125,130 +2110,46 @@ static void multires_sync_levels(Scene *scene, Object *ob_src, Object *ob_dst)
 	}
 }
 
-static void multires_apply_smat_cb(
-        void *__restrict userdata,
-        const int pidx,
-        const ParallelRangeTLS *__restrict UNUSED(tls))
+static void multires_apply_uniform_scale(Object *object, const float scale)
 {
-	MultiresThreadedData *tdata = userdata;
-
-	CCGElem **gridData = tdata->gridData;
-	CCGElem **subGridData = tdata->subGridData;
-	CCGKey *dm_key = tdata->key;
-	CCGKey *subdm_key = tdata->sub_key;
-	MPoly *mpoly = tdata->mpoly;
-	MDisps *mdisps = tdata->mdisps;
-	int *gridOffset = tdata->gridOffset;
-	int gridSize = tdata->gridSize;
-	int dGridSize = tdata->dGridSize;
-	int dSkip = tdata->dSkip;
-	float (*smat)[3] = tdata->smat;
-
-	const int numVerts = mpoly[pidx].totloop;
-	MDisps *mdisp = &mdisps[mpoly[pidx].loopstart];
-	int S, x, y, gIndex = gridOffset[pidx];
-
-	for (S = 0; S < numVerts; ++S, ++gIndex, mdisp++) {
-		CCGElem *grid = gridData[gIndex];
-		CCGElem *subgrid = subGridData[gIndex];
-		float (*dispgrid)[3] = mdisp->disps;
-
-		for (y = 0; y < gridSize; y++) {
-			for (x = 0; x < gridSize; x++) {
-				float *co = CCG_grid_elem_co(dm_key, grid, x, y);
-				float *sco = CCG_grid_elem_co(subdm_key, subgrid, x, y);
-				float *data = dispgrid[dGridSize * y * dSkip + x * dSkip];
-				float mat[3][3], disp[3];
-
-				/* construct tangent space matrix */
-				grid_tangent_matrix(mat, dm_key, x, y, grid);
-
-				/* scale subgrid coord and calculate displacement */
-				mul_m3_v3(smat, sco);
-				sub_v3_v3v3(disp, sco, co);
-
-				/* convert difference to tangent space */
-				invert_m3(mat);
-				mul_v3_m3v3(data, mat, disp);
-			}
+	Mesh *mesh = (Mesh *)object->data;
+	MDisps *mdisps = CustomData_get_layer(&mesh->ldata, CD_MDISPS);
+	for (int i = 0; i < mesh->totloop; ++i) {
+		MDisps *grid = &mdisps[i];
+		for (int j = 0; j < grid->totdisp; ++j) {
+			mul_v3_fl(grid->disps[j], scale);
 		}
 	}
 }
 
-static void multires_apply_smat(struct Depsgraph *depsgraph, Scene *scene, Object *ob, float smat[3][3])
+static void multires_apply_smat(
+        struct Depsgraph *UNUSED(depsgraph),
+        Scene *scene,
+        Object *object,
+        float smat[3][3])
 {
-	DerivedMesh *dm = NULL, *cddm = NULL, *subdm = NULL;
-	CCGElem **gridData, **subGridData;
-	CCGKey dm_key, subdm_key;
-	Mesh *me = (Mesh *)ob->data;
-	MPoly *mpoly = me->mpoly;
-	/* MLoop *mloop = me->mloop; */ /* UNUSED */
-	MDisps *mdisps;
-	int *gridOffset;
-	int i, /*numGrids, */ gridSize, dGridSize, dSkip, totvert;
-	float (*vertCos)[3] = NULL;
-	MultiresModifierData *mmd = get_multires_modifier(scene, ob, 1);
-	MultiresModifierData high_mmd;
-
-	CustomData_external_read(&me->ldata, &me->id, CD_MASK_MDISPS, me->totloop);
-	mdisps = CustomData_get_layer(&me->ldata, CD_MDISPS);
-
-	if (!mdisps || !mmd || !mmd->totlvl) return;
-
-	/* we need derived mesh created from highest resolution */
-	high_mmd = *mmd;
-	high_mmd.lvl = high_mmd.totlvl;
-
-	/* unscaled multires with applied displacement */
-	subdm = get_multires_dm(depsgraph, scene, &high_mmd, ob);
-
-	/* prepare scaled CDDM to create ccgDN */
-	cddm = mesh_get_derived_deform(depsgraph, scene, ob, CD_MASK_BAREMESH);
-
-	totvert = cddm->getNumVerts(cddm);
-	vertCos = MEM_malloc_arrayN(totvert, sizeof(*vertCos), "multiresScale vertCos");
-	cddm->getVertCos(cddm, vertCos);
-	for (i = 0; i < totvert; i++)
-		mul_m3_v3(smat, vertCos[i]);
-	CDDM_apply_vert_coords(cddm, vertCos);
-	MEM_freeN(vertCos);
-
-	/* scaled ccgDM for tangent space of object with applied scale */
-	dm = subsurf_dm_create_local(scene, ob, cddm, high_mmd.totlvl, high_mmd.simple, 0, mmd->uv_smooth == SUBSURF_UV_SMOOTH_NONE, 0, false);
-	cddm->release(cddm);
-
-	gridSize = dm->getGridSize(dm);
-	gridData = dm->getGridData(dm);
-	gridOffset = dm->getGridOffset(dm);
-	dm->getGridKey(dm, &dm_key);
-	subGridData = subdm->getGridData(subdm);
-	subdm->getGridKey(subdm, &subdm_key);
-
-	dGridSize = multires_side_tot[high_mmd.totlvl];
-	dSkip = (dGridSize - 1) / (gridSize - 1);
-
-	ParallelRangeSettings settings;
-	BLI_parallel_range_settings_defaults(&settings);
-	settings.min_iter_per_thread = CCG_TASK_LIMIT;
-
-	MultiresThreadedData data = {
-	    .gridData = gridData,
-	    .subGridData = subGridData,
-	    .key = &dm_key,
-	    .sub_key = &subdm_key,
-	    .mpoly = mpoly,
-	    .mdisps = mdisps,
-	    .gridOffset = gridOffset,
-	    .gridSize = gridSize,
-	    .dGridSize = dGridSize,
-	    .dSkip = dSkip,
-	    .smat = smat
-	};
-
-	BLI_task_parallel_range(0, me->totpoly, &data, multires_apply_smat_cb, &settings);
-
-	dm->release(dm);
-	subdm->release(subdm);
+	const MultiresModifierData *mmd = get_multires_modifier(scene, object, true);
+	if (mmd == NULL || mmd->totlvl == 0) {
+		return;
+	}
+	/* Make sure layer present. */
+	Mesh *mesh = (Mesh *)object->data;
+	CustomData_external_read(
+	        &mesh->ldata, &mesh->id, CD_MASK_MDISPS, mesh->totloop);
+	if (!CustomData_get_layer(&mesh->ldata, CD_MDISPS)) {
+		return;
+	}
+	if (is_uniform_scaled_m3(smat)) {
+		const float scale = mat3_to_scale(smat);
+		multires_apply_uniform_scale(object, scale);
+	}
+	else {
+		/* TODO(sergey): This branch of code actually requires more work to
+		 * preserve all the details.
+		 */
+		const float scale = mat3_to_scale(smat);
+		multires_apply_uniform_scale(object, scale);
+	}
 }
 
 int multires_mdisp_corners(MDisps *s)

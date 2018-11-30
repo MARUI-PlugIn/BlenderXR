@@ -105,7 +105,7 @@ static float ui_pie_menu_title_width(const char *name, int icon)
 {
 	const uiFontStyle *fstyle = UI_FSTYLE_WIDGET;
 	return (UI_fontstyle_string_width(fstyle, name) +
-	         (UI_UNIT_X * (1.50f + (icon ? 0.25f : 0.0f))));
+	        (UI_UNIT_X * (1.50f + (icon ? 0.25f : 0.0f))));
 }
 
 uiPieMenu *UI_pie_menu_begin(struct bContext *C, const char *title, int icon, const wmEvent *event)
@@ -152,15 +152,9 @@ uiPieMenu *UI_pie_menu_begin(struct bContext *C, const char *title, int icon, co
 
 	pie->layout = UI_block_layout(pie->block_radial, UI_LAYOUT_VERTICAL, UI_LAYOUT_PIEMENU, 0, 0, 200, 0, 0, style);
 
-	/* Open from where we started dragging. */
-	if (event->val == KM_CLICK_DRAG) {
-		pie->mx = event->prevclickx;
-		pie->my = event->prevclicky;
-	}
-	else {
-		pie->mx = event->x;
-		pie->my = event->y;
-	}
+	/* Note event->x/y is where we started dragging in case of KM_CLICK_DRAG. */
+	pie->mx = event->x;
+	pie->my = event->y;
 
 	/* create title button */
 	if (title[0]) {

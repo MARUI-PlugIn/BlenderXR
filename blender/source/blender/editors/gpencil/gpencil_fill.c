@@ -408,11 +408,11 @@ static bool is_leak_narrow(ImBuf *ibuf, const int maxpixel, int limit, int index
 	bool t_b = false;
 
 	/* Horizontal leak (check vertical pixels)
-	 *     X
-	 *	   X
-	 *	   xB7
-	 *	   X
-	 *	   X
+	 * X
+	 * X
+	 * xB7
+	 * X
+	 * X
 	 */
 	if (type == LEAK_HORZ) {
 		/* pixels on top */
@@ -813,11 +813,10 @@ static void gpencil_points_from_stack(tGPDfill *tgpf)
 /* create a grease pencil stroke using points in buffer */
 static void gpencil_stroke_from_buffer(tGPDfill *tgpf)
 {
-	ToolSettings *ts = tgpf->scene->toolsettings;
-	int cfra_eval = (int)DEG_get_ctime(tgpf->depsgraph);
+	const int cfra_eval = (int)DEG_get_ctime(tgpf->depsgraph);
 
-	Brush *brush;
-	brush = BKE_brush_getactive_gpencil(ts);
+	ToolSettings *ts = tgpf->scene->toolsettings;
+	Brush *brush = BKE_paint_brush(&ts->gp_paint->paint);
 	if (brush == NULL) {
 		return;
 	}
@@ -881,10 +880,10 @@ static void gpencil_stroke_from_buffer(tGPDfill *tgpf)
 	for (int i = 0; i < tgpf->sbuffer_size && point2D; i++, point2D++, pt++) {
 		/* convert screen-coordinates to 3D coordinates */
 		gp_stroke_convertcoords_tpoint(
-			tgpf->scene, tgpf->ar, tgpf->v3d, tgpf->ob,
-			tgpf->gpl, point2D,
-			tgpf->depth_arr ? tgpf->depth_arr + i : NULL,
-			&pt->x);
+		        tgpf->scene, tgpf->ar, tgpf->ob,
+		        tgpf->gpl, point2D,
+		        tgpf->depth_arr ? tgpf->depth_arr + i : NULL,
+		        &pt->x);
 
 		pt->pressure = 1.0f;
 		pt->strength = 1.0f;
@@ -918,10 +917,10 @@ static void gpencil_stroke_from_buffer(tGPDfill *tgpf)
 	}
 
 	/* if axis locked, reproject to plane locked */
-	if ((tgpf->lock_axis > GP_LOCKAXIS_NONE) && ((ts->gpencil_v3d_align & GP_PROJECT_DEPTH_VIEW) == 0)) {
+	if ((tgpf->lock_axis > GP_LOCKAXIS_VIEW) && ((ts->gpencil_v3d_align & GP_PROJECT_DEPTH_VIEW) == 0)) {
 		float origin[3];
 		ED_gp_get_drawing_reference(
-		        tgpf->v3d, tgpf->scene, tgpf->ob, tgpf->gpl,
+		        tgpf->scene, tgpf->ob, tgpf->gpl,
 		        ts->gpencil_v3d_align, origin);
 		ED_gp_project_stroke_to_plane(
 		        tgpf->ob, tgpf->rv3d, gps, origin,
@@ -1026,7 +1025,7 @@ static tGPDfill *gp_session_init_fill(bContext *C, wmOperator *UNUSED(op))
 	tgpf->depth_arr = NULL;
 
 	/* save filling parameters */
-	Brush *brush = BKE_brush_getactive_gpencil(ts);
+	Brush *brush = BKE_paint_brush(&ts->gp_paint->paint);
 	tgpf->flag = brush->gpencil_settings->flag;
 	tgpf->fill_leak = brush->gpencil_settings->fill_leak;
 	tgpf->fill_threshold = brush->gpencil_settings->fill_threshold;

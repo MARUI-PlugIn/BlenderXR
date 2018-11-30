@@ -208,10 +208,11 @@ static void deformStroke(
 	float dmat[4][4];
 	struct GPHookData_cb tData;
 
-	if (!is_stroke_affected_by_modifier(ob,
-	        mmd->layername, mmd->pass_index, mmd->layer_pass, 3, gpl, gps,
-	        mmd->flag & GP_HOOK_INVERT_LAYER, mmd->flag & GP_HOOK_INVERT_PASS,
-			mmd->flag & GP_HOOK_INVERT_LAYERPASS))
+	if (!is_stroke_affected_by_modifier(
+	            ob,
+	            mmd->layername, mmd->pass_index, mmd->layer_pass, 3, gpl, gps,
+	            mmd->flag & GP_HOOK_INVERT_LAYER, mmd->flag & GP_HOOK_INVERT_PASS,
+	            mmd->flag & GP_HOOK_INVERT_LAYERPASS))
 	{
 		return;
 	}
@@ -352,4 +353,5 @@ GpencilModifierTypeInfo modifierType_Gpencil_Hook = {
 	/* foreachObjectLink */ foreachObjectLink,
 	/* foreachIDLink */     NULL,
 	/* foreachTexLink */    NULL,
+	/* getDuplicationFactor */ NULL,
 };

@@ -42,7 +42,6 @@
 
 #include "BKE_context.h"
 #include "BKE_idprop.h"
-#include "BKE_library.h"
 
 #include "RNA_access.h"
 #include "RNA_define.h"
@@ -121,6 +120,7 @@ static void wm_operatortype_append__end(wmOperatorType *ot)
 	if (ot->name == NULL) {
 		CLOG_ERROR(WM_LOG_OPERATORS, "Operator '%s' has no name property", ot->idname);
 	}
+	BLI_assert((ot->description == NULL) || (ot->description[0]));
 
 	/* Allow calling _begin without _end in operatortype creation. */
 	WM_operatortype_props_advanced_end(ot);

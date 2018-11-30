@@ -51,6 +51,7 @@
 #include "BKE_animsys.h"
 #include "BKE_context.h"
 #include "BKE_curve.h"
+#include "BKE_editmesh.h"
 #include "BKE_font.h"
 #include "BKE_global.h"
 #include "BKE_image.h"
@@ -65,7 +66,6 @@
 #include "BKE_texture.h"
 #include "BKE_workspace.h"
 #include "BKE_world.h"
-#include "BKE_editmesh.h"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_build.h"
@@ -383,9 +383,9 @@ static int material_slot_copy_exec(bContext *C, wmOperator *UNUSED(op))
 void OBJECT_OT_material_slot_copy(wmOperatorType *ot)
 {
 	/* identifiers */
-	ot->name = "Copy Material to Others";
+	ot->name = "Copy Material to Selected";
 	ot->idname = "OBJECT_OT_material_slot_copy";
-	ot->description = "Copies materials to other selected objects";
+	ot->description = "Copy material to selected objects";
 
 	/* api callbacks */
 	ot->exec = material_slot_copy_exec;

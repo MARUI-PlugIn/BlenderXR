@@ -1748,10 +1748,10 @@ def createCurve(vertArray, self, align_matrix):
 
     bpy.ops.object.mode_set(mode = 'OBJECT')
 
-    if group_name in bpy.data.groups:
-        group = bpy.data.groups[group_name]
+    if group_name in bpy.data.collections:
+        group = bpy.data.collections[group_name]
     else:
-        group = bpy.data.groups.new(group_name)
+        group = bpy.data.collections.new(group_name)
 
     if not DimensionCurve.name in group.objects:
         group.objects.link(DimensionCurve)

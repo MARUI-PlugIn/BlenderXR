@@ -1315,7 +1315,7 @@ class drawPoly(bpy.types.Operator):
 
             # reset header gui
             context.area.tag_redraw()
-            context.area.header_text_set("")
+            context.area.header_text_set(None)
 
             # Convert to Quads
             bpy.ops.mesh.quads_convert_to_tris(quad_method='BEAUTY', ngon_method='BEAUTY')
@@ -1344,7 +1344,7 @@ class drawPoly(bpy.types.Operator):
 
             # reset header gui
             context.area.tag_redraw()
-            context.area.header_text_set("")
+            context.area.header_text_set(None)
 
 
             # restore selection mode and manipulator
@@ -2482,7 +2482,7 @@ def register():
         if kc:
             # Add paint select to CTRL+SHIFT+ALT+LeftMouse
             km = kc.keymaps.new(name="3D View", space_type="VIEW_3D")
-            kmi = km.keymap_items.new('view3d.select_paint', 'ACTIONMOUSE', 'PRESS', shift=True, ctrl=True, alt=True)
+            kmi = km.keymap_items.new('view3d.select_paint', 'LEFTMOUSE', 'PRESS', shift=True, ctrl=True, alt=True)
 
 
 

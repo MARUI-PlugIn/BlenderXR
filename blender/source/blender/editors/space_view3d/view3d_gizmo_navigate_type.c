@@ -60,10 +60,33 @@
 
 #include "view3d_intern.h"
 
+#define USE_AXIS_FONT
+#define USE_FADE_BACKGROUND
+
+#ifdef USE_AXIS_FONT
+#  include "BLF_api.h"
+#endif
+
 #define DIAL_RESOLUTION 32
 
-#define HANDLE_SIZE 0.33
+/* Sizes of axis spheres containing XYZ characters. */
+#define AXIS_HANDLE_SIZE_FG 0.19f
+/* When pointing away from the view. */
+#define AXIS_HANDLE_SIZE_BG 0.15f
+/* How far axis handles are away from the center. */
+#define AXIS_HANDLE_OFFSET (1.0f - AXIS_HANDLE_SIZE_FG)
 
+struct AxisDrawInfo {
+	/* Matrix is needed for screen-aligned font drawing. */
+#ifdef USE_AXIS_FONT
+	float matrix_final[4][4];
+#endif
+#ifdef USE_FADE_BACKGROUND
+	float color_bg[3];
+#endif
+};
+
+#ifndef USE_AXIS_FONT
 /**
  * \param viewmat_local_unit is typically the 'rv3d->viewmatob'
  * copied into a 3x3 matrix and normalized.
@@ -167,8 +190,14 @@ static void draw_xyz_wire(
 	}
 	immEnd();
 }
+#endif  /* !USE_AXIS_FONT */
 
-static void axis_geom_draw(const wmGizmo *gz, const float color[4], const bool UNUSED(select))
+/**
+ * \param draw_info: Extra data needed for drawing.
+ */
+static void axis_geom_draw(
+        const wmGizmo *gz, const float color[4], const bool select,
+        const struct AxisDrawInfo *draw_info)
 {
 	GPU_line_width(gz->line_width);
 
@@ -180,7 +209,7 @@ static void axis_geom_draw(const wmGizmo *gz, const float color[4], const bool U
 		float depth;
 		char index;
 		char axis;
-		char is_pos;
+		bool is_pos;
 	} axis_order[6] = {
 		{-gz->matrix_offset[0][2], 0, 0, false},
 		{+gz->matrix_offset[0][2], 1, 0, true},
@@ -189,16 +218,6 @@ static void axis_geom_draw(const wmGizmo *gz, const float color[4], const bool U
 		{-gz->matrix_offset[2][2], 4, 2, false},
 		{+gz->matrix_offset[2][2], 5, 2, true},
 	};
-	qsort(&axis_order, ARRAY_SIZE(axis_order), sizeof(axis_order[0]), BLI_sortutil_cmp_float);
-
-	const float scale_axis = 0.25f;
-	static const float axis_highlight[4] = {1, 1, 1, 1};
-	static const float axis_black[4] = {0, 0, 0, 1};
-	static float axis_color[3][4];
-	GPU_matrix_push();
-	GPU_matrix_mul(gz->matrix_offset);
-
-	bool draw_center_done = false;
 
 	int axis_align = -1;
 	for (int axis = 0; axis < 3; axis++) {
@@ -208,6 +227,51 @@ static void axis_geom_draw(const wmGizmo *gz, const float color[4], const bool U
 		}
 	}
 
+	/* Show backwards pointing highlight on-top (else we can't see it at all). */
+	if ((select == false) && (gz->highlight_part > 0) && (axis_align != -1)) {
+		if (axis_order[gz->highlight_part - 1].is_pos == false) {
+			axis_order[gz->highlight_part - 1].depth = FLT_MAX;
+		}
+	}
+
+	qsort(&axis_order, ARRAY_SIZE(axis_order), sizeof(axis_order[0]), BLI_sortutil_cmp_float);
+
+	static const float axis_highlight[4] = {1, 1, 1, 1};
+	static const float axis_black[4] = {0, 0, 0, 1};
+	static float axis_color[3][4];
+
+	const float axis_depth_bias = 0.01f;
+
+#ifdef USE_AXIS_FONT
+	struct {
+		float matrix[4][4];
+		int id;
+	} font;
+
+	if (select == false) {
+		font.id = blf_mono_font;
+		BLF_disable(font.id, BLF_ROTATION | BLF_SHADOW | BLF_MATRIX | BLF_ASPECT | BLF_WORD_WRAP);
+		BLF_color4fv(font.id, axis_black);
+		BLF_size(font.id, 11 * U.dpi_fac, 72);
+
+		/* Calculate the inverse of the (matrix_final * matrix_offset).
+		 * This allows us to use the final location, while reversing the rotation so fonts
+		 * show without any rotation. */
+		float m3[3][3];
+		float m3_offset[3][3];
+		copy_m3_m4(m3, draw_info->matrix_final);
+		copy_m3_m4(m3_offset, gz->matrix_offset);
+		mul_m3_m3m3(m3, m3, m3_offset);
+		invert_m3(m3);
+		copy_m4_m3(font.matrix, m3);
+	}
+#endif
+
+	GPU_matrix_push();
+	GPU_matrix_mul(gz->matrix_offset);
+
+	bool draw_center_done = false;
+
 	for (int axis_index = 0; axis_index < ARRAY_SIZE(axis_order); axis_index++) {
 		const int index = axis_order[axis_index].index;
 		const int axis = axis_order[axis_index].axis;
@@ -215,7 +279,7 @@ static void axis_geom_draw(const wmGizmo *gz, const float color[4], const bool U
 		const bool is_highlight = index + 1 == gz->highlight_part;
 
 		/* Draw slightly before, so axis aligned arrows draw ontop. */
-		if ((draw_center_done == false) && (axis_order[axis_index].depth > -0.01f)) {
+		if ((draw_center_done == false) && (axis_order[axis_index].depth > -axis_depth_bias)) {
 
 			/* Circle defining active area (revert back to 2D space). */
 			if (color[3] != 0.0f) {
@@ -236,30 +300,48 @@ static void axis_geom_draw(const wmGizmo *gz, const float color[4], const bool U
 
 		bool ok = true;
 
-		/* skip view align axis */
-		if ((axis_align == axis) && (gz->matrix_offset[axis][2] > 0.0f) == is_pos) {
+		/* Skip view align axis when selecting (allows to switch to opposite side). */
+		if (select && ((axis_align == axis) && (gz->matrix_offset[axis][2] > 0.0f) == is_pos)) {
 			ok = false;
 		}
 		if (ok) {
 			/* Check aligned, since the front axis won't display in this case,
 			 * and we want to make sure all 3 axes have a character at all times. */
 			const bool show_axis_char = (is_pos || (axis == axis_align));
-			const float v[3] = {0, 0, 3 * (is_pos ? 1 : -1)};
-			const float v_final[3] = {
-				v[index_x] * scale_axis,
-				v[index_y] * scale_axis,
-				v[index_z] * scale_axis,
-			};
+			const float v[3] = {0, 0, AXIS_HANDLE_OFFSET * (is_pos ? 1 : -1)};
+			const float v_final[3] = {v[index_x], v[index_y], v[index_z]};
 			const float *color_current = is_highlight ? axis_highlight : axis_color[axis];
 			float color_current_fade[4];
-			copy_v4_v4(color_current_fade, color_current);
-			color_current_fade[3] *= 0.2;
+
+			/* Flip the faded state when axis aligned, since we're hiding the front-mode axis
+			 * otherwise we see the color for the back-most axis, which is useful for
+			 * click-to-rotate 180d but not useful to visualize.
+			 *
+			 * Use depth bias so axis-aligned views show the positive axis as being in-front.
+			 * This is a detail so primary axes show as dominant.
+			 */
+			const bool is_pos_color = (
+			        axis_order[axis_index].depth > (axis_depth_bias * (is_pos ? -1 : 1)));
+
+
+			if (select == false) {
+#ifdef USE_FADE_BACKGROUND
+				interp_v3_v3v3(color_current_fade, draw_info->color_bg, color_current, is_highlight ? 1.0 : 0.5f);
+				color_current_fade[3] = color_current[3];
+#else
+				copy_v4_v4(color_current_fade, color_current);
+				color_current_fade[3] *= 0.2;
+#endif
+			}
+			else {
+				copy_v4_fl(color_current_fade, 1.0f);
+			}
 
 			/* Axis Line. */
 			if (is_pos) {
 				float v_start[3];
 				GPU_line_width(2.0f);
-				immUniformColor4fv(color_current);
+				immUniformColor4fv(is_pos_color ? color_current : color_current_fade);
 				immBegin(GPU_PRIM_LINES, 2);
 				if (axis_align == -1) {
 					zero_v3(v_start);
@@ -281,22 +363,40 @@ static void axis_geom_draw(const wmGizmo *gz, const float color[4], const bool U
 			{
 				GPU_matrix_push();
 				GPU_matrix_translate_3fv(v_final);
-				GPU_matrix_scale_1f(show_axis_char ? 0.22f : 0.18f);
+				GPU_matrix_scale_1f(is_pos ? AXIS_HANDLE_SIZE_FG : AXIS_HANDLE_SIZE_BG);
 
 				GPUBatch *sphere = GPU_batch_preset_sphere(0);
 				GPU_batch_program_set_builtin(sphere, GPU_SHADER_3D_UNIFORM_COLOR);
-				GPU_batch_uniform_4fv(sphere, "color", is_pos ? color_current : color_current_fade);
+				GPU_batch_uniform_4fv(sphere, "color", is_pos_color ? color_current : color_current_fade);
 				GPU_batch_draw(sphere);
 				GPU_matrix_pop();
 			}
 
 			/* Axis XYZ Character. */
-			if (show_axis_char) {
+			if (show_axis_char && (select == false)) {
+#ifdef USE_AXIS_FONT
+				immUnbindProgram();
+
+				GPU_matrix_push();
+				GPU_matrix_translate_3fv(v_final);
+				GPU_matrix_mul(font.matrix);
+
+				const char axis_str[2] = {'X' + axis, 0};
+				float offset[2] = {0};
+				BLF_width_and_height(font.id, axis_str, 2, &offset[0], &offset[1]);
+				BLF_position(font.id, roundf(offset[0] * -0.5f), roundf(offset[1] * -0.5f), 0);
+				BLF_draw_ascii(font.id, axis_str, 2);
+				GPU_blend(true);  /* XXX, blf disables */
+				GPU_matrix_pop();
+
+				immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
+#else
 				GPU_line_width(1.0f);
 				float m3[3][3];
 				copy_m3_m4(m3, gz->matrix_offset);
 				immUniformColor4fv(axis_black);
 				draw_xyz_wire(pos_id, m3, v_final, 1.0, axis);
+#endif
 			}
 		}
 	}
@@ -306,7 +406,7 @@ static void axis_geom_draw(const wmGizmo *gz, const float color[4], const bool U
 }
 
 static void axis3d_draw_intern(
-        const bContext *UNUSED(C), wmGizmo *gz,
+        const bContext *C, wmGizmo *gz,
         const bool select, const bool highlight)
 {
 	const float *color = highlight ? gz->color_hi : gz->color;
@@ -324,8 +424,26 @@ static void axis3d_draw_intern(
 	GPU_matrix_push();
 	GPU_matrix_mul(matrix_final);
 
+
+	struct AxisDrawInfo draw_info;
+#ifdef USE_AXIS_FONT
+	if (select == false) {
+		copy_m4_m4(draw_info.matrix_final, matrix_final);
+	}
+#endif
+
+#ifdef USE_FADE_BACKGROUND
+	if (select == false) {
+		ED_view3d_background_color_get(CTX_data_scene(C), CTX_wm_view3d(C), draw_info.color_bg);
+	}
+#else
+	UNUSED_VARS(C);
+#endif
+
 	GPU_blend(true);
-	axis_geom_draw(gz, color, select);
+	axis_geom_draw(
+	        gz, color, select,
+	        &draw_info);
 	GPU_blend(false);
 	GPU_matrix_pop();
 }

@@ -48,6 +48,7 @@ struct Mesh;
 struct Object;
 struct ReportList;
 struct Scene;
+struct View3D;
 struct ViewLayer;
 struct ViewContext;
 struct wmKeyConfig;
@@ -70,7 +71,7 @@ typedef struct EditBone {
 	float head[3];          /* Orientation and length is implicit during editing */
 	float tail[3];
 	/* All joints are considered to have zero rotation with respect to
-	 * their parents.	Therefore any rotations specified during the
+	 * their parents. Therefore any rotations specified during the
 	 * animation are automatically relative to the bones' rest positions*/
 	int flag;
 	int layer;
@@ -154,7 +155,7 @@ void ED_armature_edit_deselect_all_multi(struct Object **objects, uint objects_l
 void ED_armature_edit_deselect_all_visible_multi(struct Object **objects, uint objects_len);
 
 bool ED_armature_pose_select_pick_with_buffer(
-        struct ViewLayer *view_layer, struct Base *base, const unsigned int *buffer, short hits,
+        struct ViewLayer *view_layer, struct View3D *v3d, struct Base *base, const unsigned int *buffer, short hits,
         bool extend, bool deselect, bool toggle, bool do_nearest);
 bool ED_armature_edit_select_pick(
         struct bContext *C, const int mval[2], bool extend, bool deselect, bool toggle);

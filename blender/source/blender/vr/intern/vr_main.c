@@ -475,6 +475,9 @@ int vr_create_viewports(struct ARegion* ar)
 		if (!rv3d) {
 			return -1;
 		}
+		/* Set region view to perspective. */
+		rv3d->is_persp = 1;
+		rv3d->persp = RV3D_PERSP;
 #if WITH_VR
 		rv3d->rflag |= RV3D_IS_VR;
 #endif

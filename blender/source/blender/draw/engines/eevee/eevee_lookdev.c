@@ -56,7 +56,7 @@ static void eevee_lookdev_lightcache_delete(EEVEE_Data *vedata)
 }
 
 void EEVEE_lookdev_cache_init(
-        EEVEE_Data *vedata, DRWShadingGroup **grp, GPUShader *shader, DRWPass *pass,
+        EEVEE_Data *vedata, DRWShadingGroup **grp, DRWPass *pass,
         World *UNUSED(world), EEVEE_LightProbesInfo *pinfo)
 {
 	EEVEE_StorageList *stl = vedata->stl;
@@ -64,8 +64,9 @@ void EEVEE_lookdev_cache_init(
 	const DRWContextState *draw_ctx = DRW_context_state_get();
 	View3D *v3d = draw_ctx->v3d;
 	if (LOOK_DEV_STUDIO_LIGHT_ENABLED(v3d)) {
-		StudioLight *sl = BKE_studiolight_find(v3d->shading.studio_light, STUDIOLIGHT_ORIENTATIONS_MATERIAL_MODE);
-		if (sl && (sl->flag & STUDIOLIGHT_ORIENTATION_WORLD)) {
+		StudioLight *sl = BKE_studiolight_find(v3d->shading.lookdev_light, STUDIOLIGHT_ORIENTATIONS_MATERIAL_MODE);
+		if (sl && (sl->flag & STUDIOLIGHT_TYPE_WORLD)) {
+			GPUShader *shader = EEVEE_shaders_default_studiolight_sh_get();
 			struct GPUBatch *geom = DRW_cache_fullscreen_quad_get();
 			GPUTexture *tex = NULL;
 
@@ -124,31 +125,31 @@ void EEVEE_lookdev_cache_init(
 			if (!pinfo) {
 				/* Do not fadeout when doing probe rendering, only when drawing the background */
 				DRW_shgroup_uniform_float(*grp, "studioLightBackground", &v3d->shading.studiolight_background, 1);
-				BKE_studiolight_ensure_flag(sl, STUDIOLIGHT_EQUIRECTANGULAR_IRRADIANCE_GPUTEXTURE);
-				tex = sl->equirectangular_irradiance_gputexture;
+				BKE_studiolight_ensure_flag(sl, STUDIOLIGHT_EQUIRECT_IRRADIANCE_GPUTEXTURE);
+				tex = sl->equirect_irradiance_gputexture;
 			}
 			else {
-				BKE_studiolight_ensure_flag(sl, STUDIOLIGHT_EQUIRECTANGULAR_RADIANCE_GPUTEXTURE);
-				tex = sl->equirectangular_radiance_gputexture;
+				DRW_shgroup_uniform_float_copy(*grp, "studioLightBackground", 1.0f);
+				BKE_studiolight_ensure_flag(sl, STUDIOLIGHT_EQUIRECT_RADIANCE_GPUTEXTURE);
+				tex = sl->equirect_radiance_gputexture;
 			}
 			DRW_shgroup_uniform_texture(*grp, "image", tex);
-
-	#if WITH_VR
-				/* If VR, need to recalculate lightprobes for each eye. */
-				if (pinfo && (v3d->stereo3d_flag & V3D_S3D_DISPVR)) {
-					static bool update_other = false;
-					if (update_other ||
-					    ((pinfo->studiolight_index != sl->index) ||
-					     (pinfo->studiolight_rot_z != v3d->shading.studiolight_rot_z)))
-					{
-						stl->lookdev_lightcache->flag |= LIGHTCACHE_UPDATE_WORLD;
-						pinfo->studiolight_index = sl->index;
-						pinfo->studiolight_rot_z = v3d->shading.studiolight_rot_z;
-						update_other = !update_other;
-					}
-					return;
+#if WITH_VR
+			/* If VR, need to recalculate lightprobes for each eye. */
+			if (pinfo && (v3d->stereo3d_flag & V3D_S3D_DISPVR)) {
+				static bool update_other = false;
+				if (update_other ||
+					((pinfo->studiolight_index != sl->index) ||
+					    (pinfo->studiolight_rot_z != v3d->shading.studiolight_rot_z)))
+				{
+					stl->lookdev_lightcache->flag |= LIGHTCACHE_UPDATE_WORLD;
+					pinfo->studiolight_index = sl->index;
+					pinfo->studiolight_rot_z = v3d->shading.studiolight_rot_z;
+					update_other = !update_other;
 				}
-	#endif
+				return;
+			}
+#endif
 			/* Do we need to recalc the lightprobes? */
 			if (pinfo &&
 			    ((pinfo->studiolight_index != sl->index) ||
@@ -180,6 +181,25 @@ void EEVEE_lookdev_draw_background(EEVEE_Data *vedata)
 		RegionView3D *rv3d = draw_ctx->rv3d;
 		ARegion *ar = draw_ctx->ar;
 
+		const float *viewport_size = DRW_viewport_size_get();
+		rcti rect;
+		ED_region_visible_rect(draw_ctx->ar, &rect);
+
+		const float viewport_size_target[2] = {
+			viewport_size[0] / 4,
+			viewport_size[1] / 4,
+		};
+		const int viewport_inset[2] = {
+			max_ii(viewport_size_target[0], 300),
+			max_ii(viewport_size_target[0], 300) / 2,  /* intentionally use 'x' here for 'y' value. */
+		};
+
+		/* minimum size for preview spheres viewport */
+		const float aspect[2] = {
+			viewport_inset[0] / viewport_size_target[0],
+			viewport_inset[1] / viewport_size_target[1],
+		};
+
 		BKE_camera_params_from_view3d(&params, draw_ctx->depsgraph, v3d, rv3d);
 		params.is_ortho = true;
 		params.ortho_scale = 3.0f;
@@ -190,14 +210,8 @@ void EEVEE_lookdev_draw_background(EEVEE_Data *vedata)
 		params.shifty = 0.0f;
 		params.clipsta = 0.001f;
 		params.clipend = 20.0f;
-		BKE_camera_params_compute_viewplane(&params, ar->winx, ar->winy, 1.0f, 1.0f);
+		BKE_camera_params_compute_viewplane(&params, ar->winx, ar->winy, aspect[0], aspect[1]);
 		BKE_camera_params_compute_matrix(&params);
-
-		const float *viewport_size = DRW_viewport_size_get();
-		rcti rect;
-		ED_region_visible_rect(draw_ctx->ar, &rect);
-		int viewport_inset_x = viewport_size[0] / 4;
-		int viewport_inset_y = viewport_size[1] / 4;
 
 		EEVEE_CommonUniformBuffer *common = &sldata->common_data;
 		common->la_num_light = 0;
@@ -227,12 +241,12 @@ void EEVEE_lookdev_draw_background(EEVEE_Data *vedata)
 
 		GPUFrameBuffer *fb = effects->final_fb;
 		GPU_framebuffer_bind(fb);
-		GPU_framebuffer_viewport_set(fb, rect.xmax - viewport_inset_x, rect.ymin, viewport_inset_x, viewport_inset_y);
+		GPU_framebuffer_viewport_set(fb, rect.xmax - viewport_inset[0], rect.ymin, viewport_inset[0], viewport_inset[1]);
 		DRW_draw_pass(psl->lookdev_pass);
 
 		fb = dfbl->depth_only_fb;
 		GPU_framebuffer_bind(fb);
-		GPU_framebuffer_viewport_set(fb, rect.xmax - viewport_inset_x, rect.ymin, viewport_inset_x, viewport_inset_y);
+		GPU_framebuffer_viewport_set(fb, rect.xmax - viewport_inset[0], rect.ymin, viewport_inset[0], viewport_inset[1]);
 		DRW_draw_pass(psl->lookdev_pass);
 
 		DRW_viewport_matrix_override_unset_all();

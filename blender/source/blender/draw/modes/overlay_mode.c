@@ -185,22 +185,27 @@ static void overlay_cache_init(void *vedata)
 	{
 		/* Wireframe */
 		DRWState state = DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_LESS_EQUAL | DRW_STATE_BLEND;
+		float wire_size = max_ff(0.0f, U.pixelsize - 1.0f) * 0.5f;
 
 		psl->flat_wireframe_pass = DRW_pass_create("Flat Object Wires", state | DRW_STATE_WRITE_DEPTH);
 
 		psl->face_wireframe_full_pass = DRW_pass_create("All Face Wires", state);
 
 		stl->g_data->sculpt_wires_full = DRW_shgroup_create(e_data.face_wireframe_sculpt_sh, psl->face_wireframe_full_pass);
+		DRW_shgroup_uniform_float_copy(stl->g_data->sculpt_wires_full, "wireSize", wire_size);
 
 		DRWShadingGroup *shgrp = DRW_shgroup_create(e_data.face_wireframe_sh, psl->face_wireframe_full_pass);
+		DRW_shgroup_uniform_float_copy(shgrp, "wireSize", wire_size);
 
 		psl->face_wireframe_pass = DRW_pass_create("Face Wires", state);
 
 		stl->g_data->sculpt_wires = DRW_shgroup_create(e_data.face_wireframe_sculpt_pretty_sh, psl->face_wireframe_pass);
 		DRW_shgroup_uniform_vec2(stl->g_data->sculpt_wires, "wireStepParam", stl->g_data->wire_step_param, 1);
+		DRW_shgroup_uniform_float_copy(stl->g_data->sculpt_wires, "wireSize", wire_size);
 
 		shgrp = DRW_shgroup_create(e_data.face_wireframe_pretty_sh, psl->face_wireframe_pass);
 		DRW_shgroup_uniform_vec2(shgrp, "wireStepParam", stl->g_data->wire_step_param, 1);
+		DRW_shgroup_uniform_float_copy(shgrp, "wireSize", wire_size);
 
 		/**
 		 * The wireframe threshold ranges from 0.0 to 1.0
@@ -227,11 +232,12 @@ static void overlay_cache_populate(void *vedata, Object *ob)
 	RegionView3D *rv3d = draw_ctx->rv3d;
 	View3D *v3d = draw_ctx->v3d;
 
-	if (!stl->g_data->show_overlays)
+	if ((!stl->g_data->show_overlays) ||
+	    (ob->dt < OB_WIRE) ||
+	    (!DRW_object_is_renderable(ob) && (ob->dt != OB_WIRE)))
+	{
 		return;
-
-	if (!DRW_object_is_renderable(ob) && (ob->dt != OB_WIRE))
-		return;
+	}
 
 	if (DRW_object_is_renderable(ob) && stl->g_data->overlay.flag & V3D_OVERLAY_FACE_ORIENTATION) {
 		struct GPUBatch *geom = DRW_cache_object_surface_get(ob);
@@ -245,8 +251,8 @@ static void overlay_cache_populate(void *vedata, Object *ob)
 	    (ob->dtx & OB_DRAWWIRE) ||
 	    (ob->dt == OB_WIRE))
 	{
-		/* Don't do that in edit mode. */
-		if ((ob != draw_ctx->object_edit) && !BKE_object_is_in_editmode(ob)) {
+		/* Don't do that in edit Mesh mode. */
+		if (((ob != draw_ctx->object_edit) && !BKE_object_is_in_editmode(ob)) || ob->type != OB_MESH) {
 			const bool is_active = (ob == draw_ctx->obact);
 			const bool is_sculpt_mode = is_active && (draw_ctx->object_mode & OB_MODE_SCULPT) != 0;
 			const bool all_wires = (stl->g_data->overlay.wireframe_threshold == 1.0f) ||
@@ -273,11 +279,13 @@ static void overlay_cache_populate(void *vedata, Object *ob)
 			else if (is_flat_object_viewed_from_side) {
 				/* Avoid losing flat objects when in ortho views (see T56549) */
 				struct GPUBatch *geom = DRW_cache_object_wire_outline_get(ob);
-				GPUShader *sh = GPU_shader_get_builtin_shader(GPU_SHADER_3D_UNIFORM_COLOR);
-				shgrp = DRW_shgroup_create(sh, psl->flat_wireframe_pass);
-				DRW_shgroup_stencil_mask(shgrp, stencil_mask);
-				DRW_shgroup_uniform_vec4(shgrp, "color", ts.colorWire, 1);
-				DRW_shgroup_call_object_add(shgrp, geom, ob);
+				if (geom) {
+					GPUShader *sh = GPU_shader_get_builtin_shader(GPU_SHADER_3D_UNIFORM_COLOR);
+					shgrp = DRW_shgroup_create(sh, psl->flat_wireframe_pass);
+					DRW_shgroup_stencil_mask(shgrp, stencil_mask);
+					DRW_shgroup_uniform_vec4(shgrp, "color", ts.colorWire, 1);
+					DRW_shgroup_call_object_add(shgrp, geom, ob);
+				}
 			}
 			else {
 				int tri_count;

@@ -1707,7 +1707,7 @@ def Picking(context, event):
             if obj.type == 'MESH':
                 yield (obj, obj.matrix_world.copy())
 
-            if obj.dupli_type != 'NONE':
+            if obj.instance_type != 'NONE':
                 obj.dupli_list_create(scene)
                 for dob in obj.dupli_list:
                     obj_dupli = dob.object
@@ -2884,7 +2884,7 @@ class Carver(bpy.types.Operator):
             traceback.print_exc()
 
             context.window.cursor_modal_set("DEFAULT")
-            context.area.header_text_set("")
+            context.area.header_text_set(None)
             bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
 
             self.report({'WARNING'},

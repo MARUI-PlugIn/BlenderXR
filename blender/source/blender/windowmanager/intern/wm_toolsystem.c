@@ -41,11 +41,12 @@
 #include "DNA_workspace_types.h"
 #include "DNA_object_types.h"
 
+#include "BKE_brush.h"
 #include "BKE_context.h"
+#include "BKE_idprop.h"
 #include "BKE_library.h"
 #include "BKE_main.h"
 #include "BKE_paint.h"
-#include "BKE_idprop.h"
 #include "BKE_workspace.h"
 
 #include "RNA_access.h"
@@ -72,6 +73,9 @@ struct bToolRef *WM_toolsystem_ref_from_context(struct bContext *C)
 	WorkSpace *workspace = CTX_wm_workspace(C);
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	ScrArea *sa = CTX_wm_area(C);
+	if (((1 << sa->spacetype) & WM_TOOLSYSTEM_SPACE_MASK) == 0) {
+		return NULL;
+	}
 	const bToolKey tkey = {
 		.space_type = sa->spacetype,
 		.mode = WM_toolsystem_mode_from_spacetype(view_layer, sa, sa->spacetype),
@@ -92,6 +96,7 @@ struct bToolRef_Runtime *WM_toolsystem_runtime_from_context(struct bContext *C)
 
 bToolRef *WM_toolsystem_ref_find(WorkSpace *workspace, const bToolKey *tkey)
 {
+	BLI_assert((1 << tkey->space_type) & WM_TOOLSYSTEM_SPACE_MASK);
 	LISTBASE_FOREACH (bToolRef *, tref, &workspace->tools) {
 		if ((tref->space_type == tkey->space_type) &&
 		    (tref->mode == tkey->mode))
@@ -177,6 +182,9 @@ static void toolsystem_ref_link__refresh_image_uv_sculpt(bContext *C, Scene *sce
 	RNA_property_update(C, &ptr, prop);
 }
 
+/**
+ * \see #toolsystem_ref_link
+ */
 static void toolsystem_ref_link(bContext *C, WorkSpace *workspace, bToolRef *tref)
 {
 	bToolRef_Runtime *tref_rt = tref->runtime;
@@ -195,9 +203,43 @@ static void toolsystem_ref_link(bContext *C, WorkSpace *workspace, bToolRef *tre
 
 	if (tref_rt->data_block[0]) {
 		Main *bmain = CTX_data_main(C);
-		if ((tref->space_type == SPACE_VIEW3D) &&
-		    (tref->mode == CTX_MODE_PARTICLE))
 
+		if ((tref->space_type == SPACE_VIEW3D) &&
+		    (tref->mode == CTX_MODE_GPENCIL_SCULPT))
+		{
+			const EnumPropertyItem *items = rna_enum_gpencil_sculpt_brush_items;
+			const int i = RNA_enum_from_identifier(items, tref_rt->data_block);
+			if (i != -1) {
+				const int value = items[i].value;
+				wmWindowManager *wm = bmain->wm.first;
+				for (wmWindow *win = wm->windows.first; win; win = win->next) {
+					if (workspace == WM_window_get_active_workspace(win)) {
+						Scene *scene = WM_window_get_active_scene(win);
+						ToolSettings *ts = scene->toolsettings;
+						ts->gp_sculpt.brushtype = value;
+					}
+				}
+			}
+		}
+		else if ((tref->space_type == SPACE_VIEW3D) &&
+		         (tref->mode == CTX_MODE_GPENCIL_WEIGHT))
+		{
+			const EnumPropertyItem *items = rna_enum_gpencil_weight_brush_items;
+			const int i = RNA_enum_from_identifier(items, tref_rt->data_block);
+			if (i != -1) {
+				const int value = items[i].value;
+				wmWindowManager *wm = bmain->wm.first;
+				for (wmWindow *win = wm->windows.first; win; win = win->next) {
+					if (workspace == WM_window_get_active_workspace(win)) {
+						Scene *scene = WM_window_get_active_scene(win);
+						ToolSettings *ts = scene->toolsettings;
+						ts->gp_sculpt.weighttype = value;
+					}
+				}
+			}
+		}
+		else if ((tref->space_type == SPACE_VIEW3D) &&
+		         (tref->mode == CTX_MODE_PARTICLE))
 		{
 			const EnumPropertyItem *items = rna_enum_particle_edit_hair_brush_items;
 			const int i = RNA_enum_from_identifier(items, tref_rt->data_block);
@@ -213,8 +255,8 @@ static void toolsystem_ref_link(bContext *C, WorkSpace *workspace, bToolRef *tre
 				}
 			}
 		}
-		if ((tref->space_type == SPACE_IMAGE) &&
-		    (tref->mode == SI_MODE_UV))
+		else if ((tref->space_type == SPACE_IMAGE) &&
+		         (tref->mode == SI_MODE_UV))
 		{
 			/* Note that switching uv-sculpt boolean is a hack at the moment.
 			 * It would be best to make this either an operator or a higher level mode (like mesh-object sculpt mode). */
@@ -238,19 +280,33 @@ static void toolsystem_ref_link(bContext *C, WorkSpace *workspace, bToolRef *tre
 			}
 		}
 		else {
-			struct Brush *brush = (struct Brush *)BKE_libblock_find_name(bmain, ID_BR, tref_rt->data_block);
-			if (brush) {
+			const ePaintMode paint_mode = BKE_paintmode_get_from_tool(tref);
+			BLI_assert(paint_mode != PAINT_MODE_INVALID);
+			const EnumPropertyItem *items = BKE_paint_get_tool_enum_from_paintmode(paint_mode);
+			BLI_assert(items != NULL);
+
+			const int i = items ? RNA_enum_from_identifier(items, tref_rt->data_block) : -1;
+			if (i != -1) {
+				const int slot_index = items[i].value;
 				wmWindowManager *wm = bmain->wm.first;
 				for (wmWindow *win = wm->windows.first; win; win = win->next) {
 					if (workspace == WM_window_get_active_workspace(win)) {
 						Scene *scene = WM_window_get_active_scene(win);
-						ViewLayer *view_layer = WM_window_get_active_view_layer(win);
-						Paint *paint = BKE_paint_get_active(scene, view_layer);
-						if (paint) {
-							if (brush) {
-								BKE_paint_brush_set(paint, brush);
+						Paint *paint = BKE_paint_get_active_from_paintmode(scene, paint_mode);
+						struct Brush *brush = BKE_paint_toolslots_brush_get(paint, slot_index);
+						if (brush == NULL) {
+							/* Could make into a function. */
+							brush = (struct Brush *)BKE_libblock_find_name(bmain, ID_BR, items[i].name);
+							if (brush && slot_index == BKE_brush_tool_get(brush, paint)) {
+								/* pass */
 							}
+							else {
+								brush = BKE_brush_add(bmain, items[i].name, paint->runtime.ob_mode);
+								BKE_brush_tool_set(brush, paint, slot_index);
+							}
+							BKE_paint_brush_set(paint, brush);
 						}
+						BKE_paint_brush_set(paint, brush);
 					}
 				}
 			}
@@ -334,6 +390,10 @@ void WM_toolsystem_reinit_all(struct bContext *C, wmWindow *win)
 	bScreen *screen = WM_window_get_active_screen(win);
 	ViewLayer *view_layer = WM_window_get_active_view_layer(win);
 	for (ScrArea *sa = screen->areabase.first; sa; sa = sa->next) {
+		if (((1 << sa->spacetype) & WM_TOOLSYSTEM_SPACE_MASK) == 0) {
+			continue;
+		}
+
 		WorkSpace *workspace = WM_window_get_active_workspace(win);
 		const bToolKey tkey = {
 			.space_type = sa->spacetype,
@@ -384,6 +444,106 @@ void WM_toolsystem_ref_set_from_runtime(
 	}
 }
 
+/**
+ * Sync the internal active state of a tool back into the tool system,
+ * this is needed for active brushes where the real active state is not stored in the tool system.
+ *
+ * \see #toolsystem_ref_link
+ */
+void WM_toolsystem_ref_sync_from_context(
+        Main *bmain, WorkSpace *workspace, bToolRef *tref)
+{
+	bToolRef_Runtime *tref_rt = tref->runtime;
+	if ((tref_rt == NULL) || (tref_rt->data_block[0] == '\0')) {
+		return;
+	}
+	wmWindowManager *wm = bmain->wm.first;
+	for (wmWindow *win = wm->windows.first; win; win = win->next) {
+		if (workspace != WM_window_get_active_workspace(win)) {
+			continue;
+		}
+
+		Scene *scene = WM_window_get_active_scene(win);
+		ToolSettings *ts = scene->toolsettings;
+		const ViewLayer *view_layer = WM_window_get_active_view_layer(win);
+		const Object *ob = OBACT(view_layer);
+		if (ob == NULL) {
+			/* pass */
+		}
+		else if ((tref->space_type == SPACE_VIEW3D) &&
+		         (tref->mode == CTX_MODE_GPENCIL_SCULPT))
+		{
+			if (ob->mode & OB_MODE_GPENCIL_SCULPT) {
+				const EnumPropertyItem *items = rna_enum_gpencil_sculpt_brush_items;
+				const int i = RNA_enum_from_value(items, ts->gp_sculpt.brushtype);
+				const EnumPropertyItem *item = &items[i];
+				if (!STREQ(tref_rt->data_block, item->identifier)) {
+					STRNCPY(tref_rt->data_block, item->identifier);
+					STRNCPY(tref->idname, item->name);
+				}
+			}
+		}
+		else if ((tref->space_type == SPACE_VIEW3D) &&
+		         (tref->mode == CTX_MODE_GPENCIL_WEIGHT))
+		{
+			if (ob->mode & OB_MODE_GPENCIL_WEIGHT) {
+				const EnumPropertyItem *items = rna_enum_gpencil_weight_brush_items;
+				const int i = RNA_enum_from_value(items, ts->gp_sculpt.weighttype);
+				const EnumPropertyItem *item = &items[i];
+				if (!STREQ(tref_rt->data_block, item->identifier)) {
+					STRNCPY(tref_rt->data_block, item->identifier);
+					STRNCPY(tref->idname, item->name);
+				}
+			}
+		}
+		else if ((tref->space_type == SPACE_VIEW3D) &&
+		         (tref->mode == CTX_MODE_PARTICLE))
+		{
+			if (ob->mode & OB_MODE_PARTICLE_EDIT) {
+				const EnumPropertyItem *items = rna_enum_particle_edit_hair_brush_items;
+				const int i = RNA_enum_from_value(items, ts->particle.brushtype);
+				const EnumPropertyItem *item = &items[i];
+				if (!STREQ(tref_rt->data_block, item->identifier)) {
+					STRNCPY(tref_rt->data_block, item->identifier);
+					STRNCPY(tref->idname, item->name);
+				}
+			}
+		}
+		else if ((tref->space_type == SPACE_IMAGE) &&
+		         (tref->mode == SI_MODE_UV))
+		{
+			if (ob->mode & OB_MODE_EDIT) {
+				const EnumPropertyItem *items = rna_enum_uv_sculpt_tool_items;
+				const int i = RNA_enum_from_value(items, ts->uv_sculpt_tool);
+				const EnumPropertyItem *item = &items[i];
+				if (!STREQ(tref_rt->data_block, item->identifier)) {
+					STRNCPY(tref_rt->data_block, item->identifier);
+					STRNCPY(tref->idname, item->name);
+				}
+			}
+		}
+		else {
+			const ePaintMode paint_mode = BKE_paintmode_get_from_tool(tref);
+			Paint *paint = BKE_paint_get_active_from_paintmode(scene, paint_mode);
+			const EnumPropertyItem *items = BKE_paint_get_tool_enum_from_paintmode(paint_mode);
+			if (paint && paint->brush && items) {
+				const ID *brush = (ID *)paint->brush;
+				const char tool_type = BKE_brush_tool_get((struct Brush *)brush, paint);
+				const int i = RNA_enum_from_value(items, tool_type);
+				/* Possible when loading files from the future. */
+				if (i != -1) {
+					const char *name = items[i].name;
+					const char *identifier = items[i].identifier;
+					if (!STREQ(tref_rt->data_block, identifier)) {
+						STRNCPY(tref_rt->data_block, identifier);
+						STRNCPY(tref->idname, name);
+					}
+				}
+			}
+		}
+	}
+}
+
 void WM_toolsystem_init(bContext *C)
 {
 	Main *bmain = CTX_data_main(C);
@@ -393,37 +553,10 @@ void WM_toolsystem_init(bContext *C)
 	LISTBASE_FOREACH (WorkSpace *, workspace, &bmain->workspaces) {
 		LISTBASE_FOREACH (bToolRef *, tref, &workspace->tools) {
 			MEM_SAFE_FREE(tref->runtime);
-			tref->tag = 0;
 		}
 	}
 
-	for (wmWindowManager *wm = bmain->wm.first; wm; wm = wm->id.next) {
-		for (wmWindow *win = wm->windows.first; win; win = win->next) {
-			CTX_wm_window_set(C, win);
-			WorkSpace *workspace = WM_window_get_active_workspace(win);
-			bScreen *screen = WM_window_get_active_screen(win);
-			ViewLayer *view_layer = WM_window_get_active_view_layer(win);
-			for (ScrArea *sa = screen->areabase.first; sa; sa = sa->next) {
-				const bToolKey tkey = {
-					.space_type = sa->spacetype,
-					.mode = WM_toolsystem_mode_from_spacetype(view_layer, sa, sa->spacetype),
-				};
-				bToolRef *tref = WM_toolsystem_ref_find(workspace, &tkey);
-				if (tref) {
-					if (tref->tag == 0) {
-						toolsystem_reinit_ref(C, workspace, tref);
-						tref->tag = 1;
-					}
-				}
-				else {
-					/* Without this we may load a file without a default tool. */
-					tref = toolsystem_reinit_ensure_toolref(C, workspace, &tkey, NULL);
-					tref->tag = 1;
-				}
-			}
-			CTX_wm_window_set(C, NULL);
-		}
-	}
+	/* Rely on screen initialization for gizmos. */
 }
 
 int WM_toolsystem_mode_from_spacetype(
@@ -450,6 +583,11 @@ int WM_toolsystem_mode_from_spacetype(
 			mode = sima->mode;
 			break;
 		}
+		case SPACE_NODE:
+		{
+			mode = 0;
+			break;
+		}
 	}
 	return mode;
 }
@@ -471,6 +609,50 @@ bool WM_toolsystem_key_from_context(
 		return true;
 	}
 	return false;
+}
+
+/**
+ * Use to update the active tool (shown in the top bar) in the least disruptive way.
+ *
+ * This is a little involved since there may be multiple valid active tools depending on the mode and space type.
+ *
+ * Used when undoing since the active mode may have changed.
+ */
+void WM_toolsystem_refresh_active(bContext *C)
+{
+	Main *bmain = CTX_data_main(C);
+	for (wmWindowManager *wm = bmain->wm.first; wm; wm = wm->id.next) {
+		for (wmWindow *win = wm->windows.first; win; win = win->next) {
+			WorkSpace *workspace = WM_window_get_active_workspace(win);
+			bScreen *screen = WM_window_get_active_screen(win);
+			ViewLayer *view_layer = WM_window_get_active_view_layer(win);
+			int mode_other = 0;
+			enum { UNSET = -1, CHANGE = 0, MATCH = 1 } mode_match = UNSET;
+			/* Could skip loop for modes that don't depend on space type. */
+			for (ScrArea *sa = screen->areabase.first; sa; sa = sa->next) {
+				/* Don't change the space type of the active tool, only update it's mode. */
+				if (sa->spacetype == workspace->tools_space_type) {
+					const int mode = WM_toolsystem_mode_from_spacetype(view_layer, sa, sa->spacetype);
+					if (workspace->tools_mode == mode) {
+						mode_match = MATCH;
+						break;
+					}
+					else if (mode_match == -1) {
+						mode_match = CHANGE;
+						mode_other = mode;
+					}
+				}
+			}
+
+			if (mode_match == CHANGE) {
+				const bToolKey tkey = {
+					.space_type = workspace->tools_space_type,
+					.mode = mode_other,
+				};
+				toolsystem_reinit_ensure_toolref(C, workspace, &tkey, NULL);
+			}
+		}
+	}
 }
 
 void WM_toolsystem_refresh_screen_area(WorkSpace *workspace, ViewLayer *view_layer, ScrArea *sa)
@@ -556,6 +738,8 @@ bToolRef *WM_toolsystem_ref_set_by_name(
 		tkey = &tkey_from_context;
 	}
 
+	BLI_assert((1 << tkey->space_type) & WM_TOOLSYSTEM_SPACE_MASK);
+
 	RNA_enum_set(&op_props, "space_type", tkey->space_type);
 	RNA_boolean_set(&op_props, "cycle", cycle);
 
@@ -587,38 +771,25 @@ static const char *toolsystem_default_tool(const bToolKey *tkey)
 	switch (tkey->space_type) {
 		case SPACE_VIEW3D:
 			switch (tkey->mode) {
-				/* XXX(campbell): hard coded paint-brush names.
-				 * Eventyally we plan to move away from using brush names as tools,
-				 * in favor of having tool types in the toolbar, which can each select their own brush.
-				 * so keep this as a temporary hack.
-				 */
+				/* Use the names of the enums for each brush tool. */
 				case CTX_MODE_SCULPT:
-					return "SculptDraw";
 				case CTX_MODE_PAINT_VERTEX:
 				case CTX_MODE_PAINT_WEIGHT:
 				case CTX_MODE_GPENCIL_WEIGHT:
-					return "Draw";
 				case CTX_MODE_PAINT_TEXTURE:
-					return "TexDraw";
 				case CTX_MODE_GPENCIL_PAINT:
-					return "Draw Pencil";
+					return "Draw";
 				case CTX_MODE_GPENCIL_SCULPT:
 					return "Push";
 				/* end temporary hack. */
 
 				case CTX_MODE_PARTICLE:
 					return "Comb";
-				default:
-					/* FIXME(campbell): disable for now since this means we can't lasso select by default. */
-#if 0
-					return "Select Box";
-#endif
-					break;
 			}
 			break;
 	}
 
-	return "Cursor";
+	return "Select Box";
 }
 
 /**
@@ -649,6 +820,18 @@ void WM_toolsystem_update_from_context_view3d(bContext *C)
 	};
 	toolsystem_reinit_ensure_toolref(C, workspace, &tkey, NULL);
 }
+
+void WM_toolsystem_update_from_context(
+        bContext *C, WorkSpace *workspace, ViewLayer *view_layer,
+        ScrArea *sa)
+{
+	const bToolKey tkey = {
+		.space_type = sa->spacetype,
+		.mode = WM_toolsystem_mode_from_spacetype(view_layer, sa, sa->spacetype),
+	};
+	toolsystem_reinit_ensure_toolref(C, workspace, &tkey, NULL);
+}
+
 
 /**
  * For paint modes to support non-brush tools.
