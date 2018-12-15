@@ -1499,7 +1499,7 @@ void DRW_draw_render_loop_ex(
 		/* Update VR matrices and pre-render. */
 		eStereoViews side = v3d->multiview_eye;
 		vr_update_view_matrix(side, rv3d->viewinv);
-		vr_update_projection_matrix(rv3d->winmat);
+		vr_update_projection_matrix(side, rv3d->winmat);
 		vr_pre_scene_render(side);
 	}
 #endif

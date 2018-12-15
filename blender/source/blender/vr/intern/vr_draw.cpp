@@ -63,6 +63,7 @@
 #include "ui_cursor.obj.h"
 #include "ui_cursor.png.h"
 #include "icon_cursor.png.h"
+#include "icon_mouse_cursor.png.h"
 
 /* Image textures */
 #include "ascii.png.h" /* Image of the ASCII texture file */
@@ -136,6 +137,7 @@ VR_Draw::Texture *VR_Draw::controller_tex(0);
 VR_Draw::Model *VR_Draw::cursor_model(0);
 VR_Draw::Texture *VR_Draw::cursor_tex(0);
 VR_Draw::Texture *VR_Draw::crosshair_cursor_tex(0);
+VR_Draw::Texture *VR_Draw::mouse_cursor_tex(0);
 
 VR_Draw::Texture *VR_Draw::ascii_tex(0);
 VR_Draw::Texture *VR_Draw::zoom_tex(0);
@@ -233,6 +235,7 @@ int VR_Draw::init(void* display, void* drawable, void* context)
 		cursor_model->texture = cursor_tex;
 	}
 	crosshair_cursor_tex = new Texture(icon_cursor_png);
+	mouse_cursor_tex = new Texture(icon_mouse_cursor_png);
 
 	/* Create image textures. */
 	ascii_tex = new Texture(ascii_png);
@@ -316,6 +319,10 @@ void VR_Draw::uninit()
 	if (crosshair_cursor_tex) {
 		delete crosshair_cursor_tex;
 		crosshair_cursor_tex = NULL;
+	}
+	if (mouse_cursor_tex) {
+		delete mouse_cursor_tex;
+		mouse_cursor_tex = NULL;
 	}
 
 	if (ascii_tex) {

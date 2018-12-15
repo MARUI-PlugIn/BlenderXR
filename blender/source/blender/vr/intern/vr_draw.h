@@ -147,6 +147,7 @@ public:
 	static Model*	cursor_model;	/* Model for the cursor. */
 	static Texture* cursor_tex; /* Texture for the cursor. */
 	static Texture* crosshair_cursor_tex;	/* Texture for the "crosshair cursor" icon. */
+	static Texture* mouse_cursor_tex;	/* Texture for the "mouse cursor" icon. */
 
 	static int create_controller_models(VR_UI_Type type);	/* Create the controller models for a specified UI type. */
 	

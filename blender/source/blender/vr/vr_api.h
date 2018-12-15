@@ -45,7 +45,12 @@ int vr_api_execute_operations();	/* Execute UI operations. */
 int vr_api_execute_post_render_operations();	/* Execute post-render UI operations. */
 const float *vr_api_get_navigation_matrix(int inverse);	/* Get the navigation matrix (or inverse navigation matrix) from the UI module. */
 int vr_api_update_view_matrix(const float _view[4][4]);	/* Update the OpenGL view matrix for the UI module. */
-int vr_api_update_projection_matrix(const float _projection[4][4]);	/* Update the OpenGL projection matrix for the UI module. */
+int vr_api_update_projection_matrix(int side, const float _projection[4][4]);	/* Update the OpenGL projection matrix for the UI module. */
+
+struct rcti;
+
+int vr_api_update_viewport_bounds(const struct rcti *bounds);	/* Update viewport (window) bounds for the UI module.  */
+
 int vr_api_pre_render(int side);	/* Pre-render UI elements. */
 int vr_api_post_render(int side);/* Post-render UI elements. */
 int vr_api_uninit_ui();	/* Un-initialize the internal object. */

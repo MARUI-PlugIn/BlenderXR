@@ -53,6 +53,9 @@
 
 #include "vr_api.h"
 
+#include "WM_types.h"
+#include "wm_window.h"
+
 /* Externed from vr_types.h. */
 ui64 VR_t_now(0);	/* Current (most recent) timestamp. This will be updated (1) when updating tracking (2) when starting rendering a new frame (3) before executing UI operations. */
 
@@ -98,7 +101,9 @@ bool VR_UI::hmd_position_current[VR_SPACES][2] = {0};
 bool VR_UI::eye_position_current[VR_SPACES][VR_SIDES][2] = {0};
 
 float VR_UI::eye_baseline(0.050f);
-VR_Side VR_UI::eye_dominance = VR_SIDE_RIGHT; //VR_SIDE_LEFT;
+VR_Side VR_UI::eye_dominance = VR_SIDE_RIGHT;
+
+VR_Side VR_UI::hand_dominance(VR_SIDE_RIGHT);
 
 bool VR_UI::controller_position_current[VR_SPACES][VR_MAX_CONTROLLERS][2] = {0};
 
@@ -115,10 +120,12 @@ VR_UI::CtrlState VR_UI::ctrl_key(CTRLSTATE_OFF);
 VR_UI::ShiftState VR_UI::shift_key(SHIFTSTATE_OFF);
 VR_UI::AltState VR_UI::alt_key(ALTSTATE_OFF);
 
-VR_Side VR_UI::hand_dominance(VR_SIDE_RIGHT);
-
 bool VR_UI::cursor_offset_update(false);
 bool VR_UI::cursor_offset_enabled(false);
+
+bool VR_UI::mouse_cursor_enabled(false);
+Mat44f VR_UI::viewport_projection[VR_SIDES];
+rcti VR_UI::viewport_bounds;
 
 bool VR_UI::updating(false);
 ui64 VR_UI::fps_render(0);
@@ -1131,6 +1138,10 @@ VR_UI::Error VR_UI::update_cursor(Cursor& c)
 			/* Activate action settings menu. */
 			VR_Widget *tool = get_current_tool(c.side);
 			switch (tool->type()) {
+			case VR_Widget::TYPE_SELECT: {
+				Widget_Menu::menu_type[c.side] = VR_Widget::MENUTYPE_AS_SELECT;
+				break;
+			}
 			case VR_Widget::TYPE_TRANSFORM: {
 				Widget_Menu::menu_type[c.side] = VR_Widget::MENUTYPE_AS_TRANSFORM;
 				break;
@@ -1502,6 +1513,36 @@ VR_UI::Error VR_UI::post_render(VR_Side side)
 		}
 	}
 
+	if (VR_UI::mouse_cursor_enabled && side == VR_UI::eye_dominance) {
+		/* Render mouse cursor. */
+		const Mat44f& prior_model_matrix = VR_Draw::get_model_matrix();
+		const Mat44f& prior_view_matrix = VR_Draw::get_view_matrix();
+		const Mat44f prior_projection_matrix = VR_Draw::get_projection_matrix();
+
+		VR_Draw::update_modelview_matrix(&VR_Math::identity_f, &VR_Math::identity_f);
+		VR_Draw::update_projection_matrix(VR_Math::identity_f.m);
+		VR_Draw::set_color(1.0f, 1.0f, 1.0f, 1.0f);
+
+		const rcti& rect = VR_UI::viewport_bounds;
+		int win_width_half = (int)((float)(rect.xmax - rect.xmin) / 2.0f);
+		int win_height_half = (int)((float)(rect.ymax - rect.ymin) / 2.0f);
+		int x, y;
+		wm_get_cursor_position(vr_get_obj()->window, &x, &y);
+		static int r = 20;
+		static float x0, x1, y0, y1;
+		x0 = ((float)(x - r - win_width_half - rect.xmin) / (float)win_width_half);
+		x1 = ((float)(x + r - win_width_half - rect.xmin) / (float)win_width_half);
+		y0 = ((float)(y - r - win_height_half - rect.ymin) / (float)win_height_half);
+		y1 = ((float)(y + r - win_height_half - rect.ymin) / (float)win_height_half);
+
+		VR_Draw::set_depth_test(false, false);
+		VR_Draw::render_rect(x0, x1, y1, y0, 0.001f, 1.0f, 1.0f, VR_Draw::mouse_cursor_tex);
+		VR_Draw::set_depth_test(true, true);
+
+		VR_Draw::update_modelview_matrix(&prior_model_matrix, &prior_view_matrix);
+		VR_Draw::update_projection_matrix(prior_projection_matrix.m);
+	}
+
 	/* Render warning if VR isn't tracking. */
 	if (!vr->tracking) {
 		/* Render a big warning over the screen. */
@@ -1527,32 +1568,66 @@ VR_UI::Error VR_UI::render_controller(VR_Side controller_side)
 		const Mat44f& t_controller_left = VR_UI::cursor[VR_SIDE_LEFT].position.position->mat;
 		const Mat44f& t_controller_right = VR_UI::cursor[VR_SIDE_RIGHT].position.position->mat;
 
-		VR_Draw::set_depth_test(false, false);
-		VR_Draw::set_color(1, 1, 1, 0.2f);
-		for (int i = 0; i < 2; ++i) {
-			if (i == VR_SIDE_LEFT) {
-				VR_Draw::controller_model[i]->render(t_controller_left);
+		if (VR_UI::ui_type == VR_UI_TYPE_MICROSOFT) {
+			/* Render controller models black until we get proper textures. */
+			VR_Draw::set_depth_test(false, false);
+			for (int i = 0; i < 2; ++i) {
+				VR_Draw::set_color(0.211f, 0.219f, 0.223f, 0.2f);
+				if (i == VR_SIDE_LEFT) {
+					VR_Draw::controller_model[i]->render(t_controller_left);
+				}
+				else { /* VR_SIDE_RIGHT */
+					VR_Draw::controller_model[i]->render(t_controller_right);
+				}
+				VR_Draw::set_color(1.0f, 1.0f, 1.0f, 0.2f);
+				VR_Draw::cursor_model->render();
 			}
-			else { /* VR_SIDE_RIGHT */
-				VR_Draw::controller_model[i]->render(t_controller_right);
-			}
-			VR_Draw::cursor_model->render();
-		}
 
-		VR_Draw::set_depth_test(true, true);
-		VR_Draw::set_color(1, 1, 1, 1);
-		for (int i = 0; i < 2; ++i) {
-			if (i == VR_SIDE_LEFT) {
-				VR_Draw::controller_model[i]->render(t_controller_left);
-			}
-			else { /* VR_SIDE_RIGHT */
-				VR_Draw::controller_model[i]->render(t_controller_right);
-			}
-			VR_Draw::cursor_model->render();
-			VR_Draw::set_depth_test(true, false);
-			/* Render crosshair cursor */
-			VR_Draw::render_rect(-0.005f, 0.005f, 0.005f, -0.005f, 0.001f, 1.0f, 1.0f, VR_Draw::crosshair_cursor_tex);
 			VR_Draw::set_depth_test(true, true);
+			for (int i = 0; i < 2; ++i) {
+				VR_Draw::set_color(0.211f, 0.219f, 0.223f, 1.0f);
+				if (i == VR_SIDE_LEFT) {
+					VR_Draw::controller_model[i]->render(t_controller_left);
+				}
+				else { /* VR_SIDE_RIGHT */
+					VR_Draw::controller_model[i]->render(t_controller_right);
+				}
+				VR_Draw::set_color(1.0f, 1.0f, 1.0f, 1.0f);
+				VR_Draw::cursor_model->render();
+				VR_Draw::set_depth_test(true, false);
+				/* Render crosshair cursor */
+				VR_Draw::render_rect(-0.005f, 0.005f, 0.005f, -0.005f, 0.001f, 1.0f, 1.0f, VR_Draw::crosshair_cursor_tex);
+				VR_Draw::set_depth_test(true, true);
+			}
+		}
+		else {
+			VR_Draw::set_depth_test(false, false);
+			VR_Draw::set_color(1, 1, 1, 0.2f);
+			for (int i = 0; i < 2; ++i) {
+				if (i == VR_SIDE_LEFT) {
+					VR_Draw::controller_model[i]->render(t_controller_left);
+				}
+				else { /* VR_SIDE_RIGHT */
+					VR_Draw::controller_model[i]->render(t_controller_right);
+				}
+				VR_Draw::cursor_model->render();
+			}
+
+			VR_Draw::set_depth_test(true, true);
+			VR_Draw::set_color(1, 1, 1, 1);
+			for (int i = 0; i < 2; ++i) {
+				if (i == VR_SIDE_LEFT) {
+					VR_Draw::controller_model[i]->render(t_controller_left);
+				}
+				else { /* VR_SIDE_RIGHT */
+					VR_Draw::controller_model[i]->render(t_controller_right);
+				}
+				VR_Draw::cursor_model->render();
+				VR_Draw::set_depth_test(true, false);
+				/* Render crosshair cursor */
+				VR_Draw::render_rect(-0.005f, 0.005f, 0.005f, -0.005f, 0.001f, 1.0f, 1.0f, VR_Draw::crosshair_cursor_tex);
+				VR_Draw::set_depth_test(true, true);
+			}
 		}
 		render_widget_icons(VR_SIDE_LEFT, t_controller_left);
 		render_widget_icons(VR_SIDE_RIGHT, t_controller_right);
@@ -1871,9 +1946,17 @@ int vr_api_update_view_matrix(const float _view[4][4])
 }
 
 /* Update the OpenGL projection matrix for the UI module. */
-int vr_api_update_projection_matrix(const float _projection[4][4])
+int vr_api_update_projection_matrix(int side, const float _projection[4][4])
 {
+	VR_UI::viewport_projection[side] = _projection;
 	VR_Draw::update_projection_matrix(_projection);
+	return 0;
+}
+
+/* Update viewport (window) bounds for the UI module. */
+int vr_api_update_viewport_bounds(const rcti *bounds)
+{
+	memcpy(&VR_UI::viewport_bounds, bounds, sizeof(rcti));
 	return 0;
 }
 

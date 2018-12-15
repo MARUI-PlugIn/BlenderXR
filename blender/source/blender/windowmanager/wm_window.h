@@ -32,6 +32,14 @@
 #ifndef __WM_WINDOW_H__
 #define __WM_WINDOW_H__
 
+#include "../vr/vr_build.h"
+#if WITH_VR
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+#endif
+
 struct EnumPropertyItem;
 struct wmEvent;
 struct wmOperator;
@@ -97,5 +105,11 @@ void		wm_test_autorun_warning(bContext *C);
 #define WM_WIN_INIT_SIZE_X 1800
 #define WM_WIN_INIT_SIZE_Y 1000
 #define WM_WIN_INIT_PAD 40
+
+#if WITH_VR
+#ifdef __cplusplus
+}
+#endif
+#endif
 
 #endif /* __WM_WINDOW_H__ */

@@ -307,6 +307,9 @@ public:
 	static void			eye_baseline_set(float baseline); /* Set the distance between the eyes in real-world meters. */
 	static void			eye_dominance_set(VR_Side side);	/* Get which of the eyes is dominant. */
 
+	static VR_Side		hand_dominance_get();	/* Get dominant hand side (right-handed or left-handed). */
+	static void			hand_dominance_set(VR_Side side);	/* Set dominant hand side (right-handed or left-handed). */
+
 	static const Mat44f& controller_position_get(VR_Space space, VR_Side side, bool inverse = false); /* Get the transformation matrix of the controller. */
 
 	static const Mat44f& cursor_position_get(VR_Space space, VR_Side side, bool inverse = false);	/* Get the 3D cursor position of either hand. */
@@ -321,9 +324,10 @@ public:
 	static bool			cursor_offset_enabled;	/* Whether the controller offset is currently being enabled. */
 	static bool			cursor_offset_update;	/* Whether the controller offset is currently being updated. */
 	static void			cursor_offset_set(VR_Side side, const Mat44f& rot, const Coord3Df& pos);	/* Set the current cursor offset for target cursor. */
-
-	static VR_Side		hand_dominance_get();	/* Get dominant hand side (right-handed or left-handed). */
-	static void			hand_dominance_set(VR_Side side);	/* Set dominant hand side (right-handed or left-handed). */
+	
+	static bool			mouse_cursor_enabled;	/* Whether to enable (render) the mouse cursor. */
+	static Mat44f		viewport_projection[VR_SIDES];	/* Projection matrices for the VR viewports. */
+	static rcti			viewport_bounds;	/* Viewport (window) bounds for the VR viewports. */
 
 	static CtrlState	ctrl_key_get();		/* Get Whether the CTRL key is currently held down (on either controller). */
 	static ShiftState	shift_key_get();	/* Get whether the SHIFT key is currently held down (on either controller). */
@@ -332,8 +336,8 @@ public:
 	static void			shift_key_set(ShiftState state);	/* Manually set the VR_UI shift key state. */
 	static void			alt_key_set(AltState state);	/* Manually set the VR_UI alt key state; */
 
-	static VR_Widget* get_current_tool(VR_Side side);	/* Get the currently active tool for the controller. */
-	static VR_UI::Error   set_current_tool(const VR_Widget* tool, VR_Side side);	/* Set the currently active tool for the controller. */
+	static VR_Widget*	get_current_tool(VR_Side side);	/* Get the currently active tool for the controller. */
+	static VR_UI::Error set_current_tool(const VR_Widget* tool, VR_Side side);	/* Set the currently active tool for the controller. */
 
 	static Mat44f		convert_space(const Mat44f& m, VR_Space m_space, VR_Space target_space); //!< Convert a matrix into target space. */
 	static Coord3Df		convert_space(const Coord3Df& v, VR_Space v_space, VR_Space target_space); //!< Convert vector/position into target space. */
@@ -345,7 +349,6 @@ public:
 	static float		drag_threshold_distance;	/* Distance threshold (meters) to detect "dragging" (if the cursor moves farther than this with a button held down, it's dragging). */
 	static float		drag_threshold_rotation;	/* Rotation threshold (deg) to detect "dragging" (if the cursor rotates more than this with a button held down, it's dragging). */
 	static uint			drag_threshold_time;		/* Time threshold (ms) to distinguish between "clicking" and "dragging". */
-
 
 	static int			undo_count;	/* Number of pending VR_UI undo operations to be executed post-scene render. */
 	static int			redo_count; /* Number of pending VR_UI redo operations to be executed post-scene render. */

@@ -3012,13 +3012,13 @@ void Widget_Select::Raycast::render(VR_Side side)
 
 	VR_Draw::update_modelview_matrix(&VR_Math::identity_f, &VR_Math::identity_f);
 	VR_Draw::update_projection_matrix(VR_Math::identity_f.m);
-	VR_Draw::set_color(0.0f, 1.0f, 0.7f, 1.0f);
+	VR_Draw::set_color(0.35f, 0.35f, 1.0f, 1.0f);
 	VR_Draw::render_frame(Raycast::selection_rect[side].x0, Raycast::selection_rect[side].x1, Raycast::selection_rect[side].y1, Raycast::selection_rect[side].y0, 0.005f);
 
 	VR_Draw::update_modelview_matrix(&prior_model_matrix, &prior_view_matrix);
 	VR_Draw::update_projection_matrix(prior_projection_matrix.m);
 
-	// Set render flag to false to prevent redundant rendering from duplicate widgets
+	/* Set render flag to false to prevent redundant rendering from duplicate widgets */
 	Widget_Select::Raycast::obj.do_render[side] = false;
 }
 
@@ -7969,13 +7969,17 @@ static const Coord3Df p_as_7(0.0f, -0.02f, 0.0f);
 void Widget_Menu::stick_center_click(VR_UI::Cursor& c)
 {
 	switch (menu_type[c.side]) {
-		case MENUTYPE_AS_TRANSFORM: {
-			Widget_Transform::local = !Widget_Transform::local;
-			break;
-		}
-		default: {
-			break;
-		}
+	case MENUTYPE_AS_SELECT: {
+		VR_UI::mouse_cursor_enabled = !VR_UI::mouse_cursor_enabled;
+		break;
+	}
+	case MENUTYPE_AS_TRANSFORM: {
+		Widget_Transform::local = !Widget_Transform::local;
+		break;
+	}
+	default: {
+		break;
+	}
 	}
 }
 
@@ -8877,6 +8881,56 @@ void Widget_Menu::render_icon(const Mat44f& t, VR_Side controller_side, bool act
 
 	if (action_settings[controller_side]) {
 		switch (menu_type[controller_side]) {
+		case MENUTYPE_AS_SELECT: {
+			/* Center */
+			if (VR_UI::mouse_cursor_enabled) {
+				VR_Draw::set_color(c_menu_red);
+			}
+			VR_Widget_Layout::ButtonBit btnbit = VR_UI::ui_type == VR_UI_TYPE_OCULUS ? VR_Widget_Layout::BUTTONBITS_STICKS : VR_Widget_Layout::BUTTONBITS_DPADS;
+			bool center_touched = ((vr_get_obj()->controller[controller_side]->buttons_touched & btnbit) != 0);
+			if (VR_UI::ui_type == VR_UI_TYPE_MICROSOFT) {
+				/* Special case for WindowsMR (with SteamVR): replace stick press with dpad press. */
+				t_icon.m[1][1] = t_icon.m[2][2] = (float)cos(QUARTPI);
+				t_icon.m[1][2] = -(t_icon.m[2][1] = (float)sin(QUARTPI));
+				*((Coord3Df*)t_icon.m[3]) = VR_Widget_Layout::button_positions[vr_get_obj()->ui_type][controller_side][VR_Widget_Layout::BUTTONID_DPAD];
+				const Mat44f& t_controller = VR_UI::cursor_position_get(VR_SPACE_REAL, controller_side);
+				if (center_touched) {
+					m = m_widget_touched * t_icon * t_controller;
+				}
+				else {
+					m = t_icon * t_controller;
+				}
+				VR_Draw::update_modelview_matrix(&m, 0);
+				VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::mouse_cursor_tex);
+				t_icon.m[1][1] = t_icon.m[2][2] = 1;
+				t_icon.m[1][2] = t_icon.m[2][1] = 0;
+			}
+			else {
+				*((Coord3Df*)t_icon.m[3]) = p_as_stick;
+				if (VR_UI::ui_type == VR_UI_TYPE_OCULUS) {
+					if (center_touched && menu_highlight_index < 0) {
+						m = m_widget_touched * t_icon * t;
+					}
+					else {
+						m = t_icon * t;
+					}
+				}
+				else {
+					if (center_touched) {
+						m = m_widget_touched * t_icon * t;
+					}
+					else {
+						m = t_icon * t;
+					}
+				}
+				VR_Draw::update_modelview_matrix(&m, 0);
+				VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::mouse_cursor_tex);
+			}
+			if (VR_UI::mouse_cursor_enabled) {
+				VR_Draw::set_color(c_menu_white);
+			}
+			break;
+		}
 		case MENUTYPE_AS_TRANSFORM: {
 			/* Center */
 			if (Widget_Transform::local) {

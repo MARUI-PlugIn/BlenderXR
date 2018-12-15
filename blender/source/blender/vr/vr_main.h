@@ -170,8 +170,12 @@ void vr_do_post_render_interaction(void);	/* Interaction update/execution for sp
 void vr_pre_scene_render(int side);	/* Pre-scene rendering call. */
 void vr_post_scene_render(int side);/* Post-scene rendering call. */
 
-void vr_update_view_matrix(int side, const float view[4][4]);	/* Update OpenGL view matrix for VR module. */
-void vr_update_projection_matrix(const float projection[4][4]);	/* Update OpenGL projection matrix for VR module. */
+void vr_update_view_matrix(int side, const float view[4][4]);	/* Update the OpenGL view matrix for the VR module. */
+void vr_update_projection_matrix(int side, const float projection[4][4]);	/* Update the OpenGL projection matrix for the VR module. */
+
+struct rcti;
+
+void vr_update_viewport_bounds(const struct rcti *bounds);	/* Update viewport (window) bounds for the VR module. */
 
 struct CameraParams;
 

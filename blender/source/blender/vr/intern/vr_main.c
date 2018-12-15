@@ -624,10 +624,18 @@ void vr_update_view_matrix(int side, const float view[4][4])
 	vr_api_update_view_matrix(vr.t_eye_inv[VR_SPACE_REAL][side]);
 }
 
-void vr_update_projection_matrix(const float projection[4][4])
+void vr_update_projection_matrix(int side, const float projection[4][4])
 {
 	BLI_assert(vr.ui_initialized);
-	vr_api_update_projection_matrix(projection);
+
+	vr_api_update_projection_matrix(side, projection);
+}
+
+void vr_update_viewport_bounds(const rcti *bounds)
+{
+	BLI_assert(vr.ui_initialized);
+
+	vr_api_update_viewport_bounds(bounds);
 }
 
 void vr_compute_viewplane(int side, CameraParams *params, int winx, int winy)

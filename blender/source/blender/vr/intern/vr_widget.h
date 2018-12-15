@@ -138,6 +138,8 @@ public:
 		,
 		MENUTYPE_TS_MEASURE	/* Tool settings for the measure widget. */
 		,
+		MENUTYPE_AS_SELECT	/* Action settings for the select widget. */
+		,
 		MENUTYPE_AS_TRANSFORM	/* Action settings for the transform widget. */
 	} MenuType;
 };

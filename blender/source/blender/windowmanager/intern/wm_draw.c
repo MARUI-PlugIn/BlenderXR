@@ -592,6 +592,7 @@ static void wm_draw_window_offscreen(bContext *C, wmWindow *win, bool stereo)
 				vr_do_interaction();
 
 				/* Draw to VR offscreen buffers. */
+				vr_update_viewport_bounds(&ar->winrct);
 				for (int view = 0; view < 2; ++view) {
 					wm_draw_region_stereo_set(bmain, sa, ar, view);
 					vr_draw_region_bind(ar, view);
@@ -711,8 +712,14 @@ static void wm_draw_window_onscreen(bContext *C, wmWindow *win, int view)
 				wmWindowViewport(win);
 
 				/* Blit the screen. */
-				/* TODO_XR: Use the side corresponding to the dominant eye. */
-				wm_draw_region_blend(ar, 1, false);
+				if (ar->draw_buffer) {
+					if (ar->draw_buffer->offscreen[1]) {
+						wm_draw_region_blend(ar, 1, false);
+					}
+					else {
+						wm_draw_region_blend(ar, 0, false);
+					}
+				}
 				continue;
 			}
 #endif
