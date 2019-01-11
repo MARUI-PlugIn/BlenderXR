@@ -43,8 +43,6 @@
 
 #define GPU_INFO_SIZE 512 /* IMA_MAX_RENDER_TEXT */
 
-typedef struct GPUViewport GPUViewport;
-
 /* Contains memory pools information */
 typedef struct ViewportMemoryPool {
 	struct BLI_mempool *calls;

@@ -770,7 +770,7 @@ typedef struct MeshDeformModifierData {
 	float *bindcos;                 /* deprecated storage of cage coords */
 
 	/* runtime */
-	void (*bindfunc)(struct Scene *scene, struct MeshDeformModifierData *mmd, struct Mesh *cagemesh,
+	void (*bindfunc)(struct MeshDeformModifierData *mmd, struct Mesh *cagemesh,
 	                 float *vertexcos, int totvert, float cagemat[4][4]);
 } MeshDeformModifierData;
 
@@ -1306,8 +1306,8 @@ enum {
 
 /* Remesh modifier */
 typedef enum eRemeshModifierFlags {
-	MOD_REMESH_FLOOD_FILL     = 1,
-	MOD_REMESH_SMOOTH_SHADING = 2,
+	MOD_REMESH_FLOOD_FILL     = (1 << 0),
+	MOD_REMESH_SMOOTH_SHADING = (1 << 1),
 } RemeshModifierFlags;
 
 typedef enum eRemeshModifierMode {
@@ -1539,9 +1539,9 @@ typedef struct LaplacianDeformModifierData {
 
 } LaplacianDeformModifierData;
 
-/* Smooth modifier flags */
+/* Laplacian Deform modifier flags */
 enum {
-	MOD_LAPLACIANDEFORM_BIND = 1,
+	MOD_LAPLACIANDEFORM_BIND = 1 << 0,
 };
 
 /* many of these options match 'solidify' */

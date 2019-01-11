@@ -203,10 +203,9 @@ public:
 	static const Mat44d identity_d; /* 4x4 identity matrix (double). */
 	
 	static void		multiply_mat44_coord3D(Coord3Df& r, const Mat44f& m, const Coord3Df& v);	/* Multiply a Coord3Df by a Mat44f (drops the w component). */
-	static float	matrix_distance(const Mat44f& a, const Mat44f& b);	/* Extract the distance between two MMatrix transformations. */
+	static float	matrix_distance(const Mat44f& a, const Mat44f& b);	/* Extract the distance between two Mat44f transformations. */
 	static float	matrix_rotation(const Mat44f& a, const Mat44f& b, Coord3Df* axis = 0);	/* Get the relative rotation bewteen two transformation matrices. */
 	static void		orient_matrix_z(Mat44f& m, Coord3Df z);	/* Rotate transformation matrix to align it with given z-vector. */
-	static Coord2Df project_plane_coordinates(const Mat44f& plane, Coord3Df eye, Coord3Df p, double* distance = 0);	/* Project a pointer on a plane. */
 };
 
 #endif /* __VR_MATH_H__ */

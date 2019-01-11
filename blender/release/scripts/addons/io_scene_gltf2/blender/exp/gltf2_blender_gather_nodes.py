@@ -12,9 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import math
 import bpy
+from mathutils import Quaternion
 
 from . import gltf2_blender_export_keys
+from io_scene_gltf2.blender.com import gltf2_blender_math
 from io_scene_gltf2.blender.exp.gltf2_blender_gather_cache import cached
 from io_scene_gltf2.blender.exp import gltf2_blender_gather_skins
 from io_scene_gltf2.blender.exp import gltf2_blender_gather_cameras
@@ -22,6 +25,7 @@ from io_scene_gltf2.blender.exp import gltf2_blender_gather_mesh
 from io_scene_gltf2.blender.exp import gltf2_blender_gather_joints
 from io_scene_gltf2.blender.exp import gltf2_blender_extract
 from io_scene_gltf2.blender.exp import gltf2_blender_gather_lights
+from io_scene_gltf2.blender.exp import gltf2_blender_generate_extras
 from io_scene_gltf2.io.com import gltf2_io
 from io_scene_gltf2.io.com import gltf2_io_extensions
 
@@ -46,6 +50,18 @@ def gather_node(blender_object, export_settings):
         weights=__gather_weights(blender_object, export_settings)
     )
     node.translation, node.rotation, node.scale = __gather_trans_rot_scale(blender_object, export_settings)
+
+    if export_settings[gltf2_blender_export_keys.YUP]:
+        if blender_object.type == 'LIGHT' and export_settings[gltf2_blender_export_keys.LIGHTS]:
+            correction_node = __get_correction_node(blender_object, export_settings)
+            correction_node.extensions = {"KHR_lights_punctual": node.extensions["KHR_lights_punctual"]}
+            del node.extensions["KHR_lights_punctual"]
+            node.children.append(correction_node)
+        if blender_object.type == 'CAMERA' and export_settings[gltf2_blender_export_keys.CAMERAS]:
+            correction_node = __get_correction_node(blender_object, export_settings)
+            correction_node.camera = node.camera
+            node.children.append(correction_node)
+        node.camera = None
 
     return node
 
@@ -116,6 +132,8 @@ def __gather_extensions(blender_object, export_settings):
 
 
 def __gather_extras(blender_object, export_settings):
+    if export_settings['gltf_extras']:
+        return gltf2_blender_generate_extras.generate_extras(blender_object)
     return None
 
 
@@ -125,18 +143,40 @@ def __gather_matrix(blender_object, export_settings):
 
 
 def __gather_mesh(blender_object, export_settings):
-    if blender_object.type == "MESH":
-        # If not using vertex group, they are irrelevant for caching --> ensure that they do not trigger a cache miss
-        vertex_groups = blender_object.vertex_groups
-        modifiers = blender_object.modifiers
-        if len(vertex_groups) == 0:
-            vertex_groups = None
-        if len(modifiers) == 0:
-            modifiers = None
-
-        return gltf2_blender_gather_mesh.gather_mesh(blender_object.data, vertex_groups, modifiers, export_settings)
-    else:
+    if blender_object.type != "MESH":
         return None
+
+    # If not using vertex group, they are irrelevant for caching --> ensure that they do not trigger a cache miss
+    vertex_groups = blender_object.vertex_groups
+    modifiers = blender_object.modifiers
+    if len(vertex_groups) == 0:
+        vertex_groups = None
+    if len(modifiers) == 0:
+        modifiers = None
+
+    if export_settings[gltf2_blender_export_keys.APPLY]:
+        auto_smooth = blender_object.data.use_auto_smooth
+        if auto_smooth:
+            blender_object = blender_object.copy()
+            edge_split = blender_object.modifiers.new('Temporary_Auto_Smooth', 'EDGE_SPLIT')
+            edge_split.split_angle = blender_object.data.auto_smooth_angle
+            edge_split.use_edge_angle = not blender_object.data.has_custom_normals
+
+        blender_mesh = blender_object.to_mesh(bpy.context.depsgraph, True)
+        skip_filter = True
+
+        if auto_smooth:
+            bpy.data.objects.remove(blender_object)
+    else:
+        blender_mesh = blender_object.data
+        skip_filter = False
+
+    result = gltf2_blender_gather_mesh.gather_mesh(blender_mesh, vertex_groups, modifiers, skip_filter, export_settings)
+
+    if export_settings[gltf2_blender_export_keys.APPLY]:
+        bpy.data.meshes.remove(blender_mesh)
+
+    return result
 
 
 def __gather_name(blender_object, export_settings):
@@ -151,6 +191,12 @@ def __gather_trans_rot_scale(blender_object, export_settings):
         trans = -gltf2_blender_extract.convert_swizzle_location(
             blender_object.instance_collection.instance_offset, export_settings)
     translation, rotation, scale = (None, None, None)
+    trans[0], trans[1], trans[2] = gltf2_blender_math.round_if_near(trans[0], 0.0), gltf2_blender_math.round_if_near(trans[1], 0.0), \
+                                   gltf2_blender_math.round_if_near(trans[2], 0.0)
+    rot[0], rot[1], rot[2], rot[3] = gltf2_blender_math.round_if_near(rot[0], 0.0), gltf2_blender_math.round_if_near(rot[1], 0.0), \
+                                     gltf2_blender_math.round_if_near(rot[2], 0.0), gltf2_blender_math.round_if_near(rot[3], 1.0)
+    sca[0], sca[1], sca[2] = gltf2_blender_math.round_if_near(sca[0], 1.0), gltf2_blender_math.round_if_near(sca[1], 1.0), \
+                             gltf2_blender_math.round_if_near(sca[2], 1.0)
     if trans[0] != 0.0 or trans[1] != 0.0 or trans[2] != 0.0:
         translation = [trans[0], trans[1], trans[2]]
     if rot[0] != 0.0 or rot[1] != 0.0 or rot[2] != 0.0 or rot[3] != 1.0:
@@ -170,4 +216,25 @@ def __gather_skin(blender_object, export_settings):
 
 def __gather_weights(blender_object, export_settings):
     return None
+
+
+def __get_correction_node(blender_object, export_settings):
+    correction_quaternion = gltf2_blender_extract.convert_swizzle_rotation(
+        Quaternion((1.0, 0.0, 0.0), math.radians(-90.0)), export_settings)
+    correction_quaternion = [correction_quaternion[1], correction_quaternion[2],
+                             correction_quaternion[3], correction_quaternion[0]]
+    return gltf2_io.Node(
+        camera=None,
+        children=None,
+        extensions=None,
+        extras=None,
+        matrix=None,
+        mesh=None,
+        name=blender_object.name + '_Orientation',
+        rotation=correction_quaternion,
+        scale=None,
+        skin=None,
+        translation=None,
+        weights=None
+    )
 

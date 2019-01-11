@@ -163,12 +163,14 @@ IDDepsNode *DepsgraphNodeBuilder::add_id_node(ID *id)
 	ID *id_cow = NULL;
 	IDComponentsMask previously_visible_components_mask = 0;
 	uint32_t previous_eval_flags = 0;
+	uint64_t previous_customdata_mask = 0;
 	IDInfo *id_info = (IDInfo *)BLI_ghash_lookup(id_info_hash_, id);
 	if (id_info != NULL) {
 		id_cow = id_info->id_cow;
 		previously_visible_components_mask =
 		        id_info->previously_visible_components_mask;
 		previous_eval_flags = id_info->previous_eval_flags;
+		previous_customdata_mask = id_info->previous_customdata_mask;
 		/* Tag ID info to not free the CoW ID pointer. */
 		id_info->id_cow = NULL;
 	}
@@ -176,6 +178,7 @@ IDDepsNode *DepsgraphNodeBuilder::add_id_node(ID *id)
 	id_node->previously_visible_components_mask =
 	        previously_visible_components_mask;
 	id_node->previous_eval_flags = previous_eval_flags;
+	id_node->previous_customdata_mask = previous_customdata_mask;
 	/* Currently all ID nodes are supposed to have copy-on-write logic.
 	 *
 	 * NOTE: Zero number of components indicates that ID node was just created.
@@ -358,6 +361,7 @@ void DepsgraphNodeBuilder::begin_build()
 		id_info->previously_visible_components_mask =
 		        id_node->visible_components_mask;
 		id_info->previous_eval_flags = id_node->eval_flags;
+		id_info->previous_customdata_mask = id_node->customdata_mask;
 		BLI_ghash_insert(id_info_hash_, id_node->id_orig, id_info);
 		id_node->id_cow = NULL;
 	}
@@ -485,6 +489,9 @@ void DepsgraphNodeBuilder::build_id(ID *id)
 		case ID_TXT:
 			/* Not a part of dependency graph. */
 			break;
+		case ID_CF:
+			build_cachefile((CacheFile *)id);
+			break;
 		default:
 			fprintf(stderr, "Unhandled ID %s\n", id->name);
 			BLI_assert(!"Should never happen");
@@ -572,6 +579,7 @@ void DepsgraphNodeBuilder::build_object(int base_index,
 	}
 	/* Create ID node for object and begin init. */
 	IDDepsNode *id_node = add_id_node(&object->id);
+	Object *object_cow = get_cow_datablock(object);
 	id_node->linked_state = linked_state;
 	if (object == scene_->camera) {
 		id_node->is_directly_visible = true;
@@ -579,7 +587,6 @@ void DepsgraphNodeBuilder::build_object(int base_index,
 	else {
 		id_node->is_directly_visible = is_visible;
 	}
-	object->customdata_mask = 0;
 	/* Various flags, flushing from bases/collections. */
 	build_object_flags(base_index, object, linked_state);
 	/* Transform. */
@@ -633,7 +640,7 @@ void DepsgraphNodeBuilder::build_object(int base_index,
 	build_animdata(&object->id);
 	/* Particle systems. */
 	if (object->particlesystem.first != NULL) {
-		build_particles(object, is_visible);
+		build_particle_systems(object, is_visible);
 	}
 	/* Proxy object to copy from. */
 	if (object->proxy_from != NULL) {
@@ -657,6 +664,13 @@ void DepsgraphNodeBuilder::build_object(int base_index,
 		                   DEG_OPCODE_PLACEHOLDER,
 		                   "Dupli");
 	}
+	/* Syncronization back to original object. */
+	add_operation_node(&object->id,
+	                   DEG_NODE_TYPE_SYNCHRONIZE,
+	                   function_bind(BKE_object_synchronize_to_original,
+	                                 _1,
+	                                 object_cow),
+	                   DEG_OPCODE_SYNCHRONIZE_TO_ORIGINAL);
 }
 
 void DepsgraphNodeBuilder::build_object_flags(
@@ -765,7 +779,6 @@ void DepsgraphNodeBuilder::build_object_data_speaker(Object *object)
 void DepsgraphNodeBuilder::build_object_transform(Object *object)
 {
 	OperationDepsNode *op_node;
-	Scene *scene_cow = get_cow_datablock(scene_);
 	Object *ob_cow = get_cow_datablock(object);
 
 	/* local transforms (from transform channels - loc/rot/scale + deltas) */
@@ -781,7 +794,6 @@ void DepsgraphNodeBuilder::build_object_transform(Object *object)
 		add_operation_node(&object->id, DEG_NODE_TYPE_TRANSFORM,
 		                   function_bind(BKE_object_eval_parent,
 		                                 _1,
-		                                 scene_cow,
 		                                 ob_cow),
 		                   DEG_OPCODE_TRANSFORM_PARENT);
 	}
@@ -956,7 +968,7 @@ void DepsgraphNodeBuilder::build_driver_variables(ID * id, FCurve *fcurve)
 {
 	build_driver_id_property(id, fcurve->rna_path);
 	LISTBASE_FOREACH (DriverVar *, dvar, &fcurve->driver->variables) {
-		DRIVER_TARGETS_USED_LOOPER(dvar)
+		DRIVER_TARGETS_USED_LOOPER_BEGIN(dvar)
 		{
 			if (dtar->id == NULL) {
 				continue;
@@ -972,7 +984,7 @@ void DepsgraphNodeBuilder::build_driver_variables(ID * id, FCurve *fcurve)
 				build_driver_id_property(&proxy_from->id, dtar->rna_path);
 			}
 		}
-		DRIVER_TARGETS_LOOPER_END
+		DRIVER_TARGETS_LOOPER_END;
 	}
 }
 
@@ -1095,8 +1107,8 @@ void DepsgraphNodeBuilder::build_rigidbody(Scene *scene)
 	}
 }
 
-void DepsgraphNodeBuilder::build_particles(Object *object,
-                                           bool is_object_visible)
+void DepsgraphNodeBuilder::build_particle_systems(Object *object,
+                                                  bool is_object_visible)
 {
 	/**
 	 * Particle Systems Nodes
@@ -1114,25 +1126,22 @@ void DepsgraphNodeBuilder::build_particles(Object *object,
 	 */
 	/* Component for all particle systems. */
 	ComponentDepsNode *psys_comp =
-	        add_component_node(&object->id, DEG_NODE_TYPE_EVAL_PARTICLES);
+	        add_component_node(&object->id, DEG_NODE_TYPE_PARTICLE_SYSTEM);
 
-	/* TODO(sergey): Need to get COW of PSYS. */
-	Scene *scene_cow = get_cow_datablock(scene_);
 	Object *ob_cow = get_cow_datablock(object);
-
-	add_operation_node(psys_comp,
-	                   function_bind(BKE_particle_system_eval_init,
-	                                 _1,
-	                                 scene_cow,
-	                                 ob_cow),
-	                   DEG_OPCODE_PARTICLE_SYSTEM_EVAL_INIT);
+	OperationDepsNode *op_node;
+	op_node = add_operation_node(psys_comp,
+	                             function_bind(BKE_particle_system_eval_init,
+	                                           _1,
+	                                           ob_cow),
+	                             DEG_OPCODE_PARTICLE_SYSTEM_INIT);
+	op_node->set_as_entry();
 	/* Build all particle systems. */
 	LISTBASE_FOREACH (ParticleSystem *, psys, &object->particlesystem) {
 		ParticleSettings *part = psys->part;
 		/* Build particle settings operations.
 		 *
-		 * NOTE: The call itself ensures settings are only build once.
-		 */
+		 * NOTE: The call itself ensures settings are only build once.  */
 		build_particle_settings(part);
 		/* Particle system evaluation. */
 		add_operation_node(psys_comp,
@@ -1156,19 +1165,49 @@ void DepsgraphNodeBuilder::build_particles(Object *object,
 				break;
 		}
 	}
+	op_node = add_operation_node(psys_comp,
+	                             NULL,
+	                             DEG_OPCODE_PARTICLE_SYSTEM_DONE);
+	op_node->set_as_exit();
 }
 
-void DepsgraphNodeBuilder::build_particle_settings(ParticleSettings *part) {
-	if (built_map_.checkIsBuiltAndTag(part)) {
+void DepsgraphNodeBuilder::build_particle_settings(
+        ParticleSettings *particle_settings) {
+	if (built_map_.checkIsBuiltAndTag(particle_settings)) {
 		return;
 	}
+	/* Make sure we've got proper copied ID pointer. */
+	add_id_node(&particle_settings->id);
+	ParticleSettings *particle_settings_cow =
+	        get_cow_datablock(particle_settings);
 	/* Animation data. */
-	build_animdata(&part->id);
+	build_animdata(&particle_settings->id);
 	/* Parameters change. */
-	add_operation_node(&part->id,
-	                   DEG_NODE_TYPE_PARAMETERS,
-	                   NULL,
-	                   DEG_OPCODE_PARTICLE_SETTINGS_EVAL);
+	OperationDepsNode *op_node;
+	op_node = add_operation_node(&particle_settings->id,
+	                             DEG_NODE_TYPE_PARTICLE_SETTINGS,
+	                             NULL,
+	                             DEG_OPCODE_PARTICLE_SETTINGS_INIT);
+	op_node->set_as_entry();
+	add_operation_node(&particle_settings->id,
+	                   DEG_NODE_TYPE_PARTICLE_SETTINGS,
+	                   function_bind(BKE_particle_settings_eval_reset,
+	                                 _1,
+	                                 particle_settings_cow),
+	                   DEG_OPCODE_PARTICLE_SETTINGS_RESET);
+	op_node = add_operation_node(&particle_settings->id,
+	                             DEG_NODE_TYPE_PARTICLE_SETTINGS,
+	                             NULL,
+	                             DEG_OPCODE_PARTICLE_SETTINGS_EVAL);
+	op_node->set_as_exit();
+	/* Texture slots. */
+	for (int mtex_index = 0; mtex_index < MAX_MTEX; ++mtex_index) {
+		MTex *mtex = particle_settings->mtex[mtex_index];
+		if (mtex == NULL || mtex->tex == NULL) {
+			continue;
+		}
+		build_texture(mtex->tex);
+	}
 }
 
 /* Shapekeys */
@@ -1520,23 +1559,20 @@ void DepsgraphNodeBuilder::build_texture(Tex *texture)
 			build_image(texture->ima);
 		}
 	}
-	/* Placeholder so we can add relations and tag ID node for update. */
 	add_operation_node(&texture->id,
-	                   DEG_NODE_TYPE_PARAMETERS,
+	                   DEG_NODE_TYPE_GENERIC_DATABLOCK,
 	                   NULL,
-	                   DEG_OPCODE_PLACEHOLDER);
+	                   DEG_OPCODE_GENERIC_DATABLOCK_UPDATE);
 }
 
 void DepsgraphNodeBuilder::build_image(Image *image) {
 	if (built_map_.checkIsBuiltAndTag(image)) {
 		return;
 	}
-	/* Placeholder so we can add relations and tag ID node for update. */
 	add_operation_node(&image->id,
-	                   DEG_NODE_TYPE_PARAMETERS,
+	                   DEG_NODE_TYPE_GENERIC_DATABLOCK,
 	                   NULL,
-	                   DEG_OPCODE_PLACEHOLDER,
-	                   "Image Eval");
+	                   DEG_OPCODE_GENERIC_DATABLOCK_UPDATE);
 }
 
 void DepsgraphNodeBuilder::build_compositor(Scene *scene)

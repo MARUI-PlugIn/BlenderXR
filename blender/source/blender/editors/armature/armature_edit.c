@@ -160,7 +160,7 @@ void ED_armature_origin_set(Main *bmain, Object *ob, float cursor[3], int center
 		mul_m4_v3(ob->imat, cent);
 	}
 	else {
-		if (around == V3D_AROUND_CENTER_MEAN) {
+		if (around == V3D_AROUND_CENTER_MEDIAN) {
 			int total = 0;
 			zero_v3(cent);
 			for (ebone = arm->edbo->first; ebone; ebone = ebone->next) {
@@ -709,7 +709,7 @@ static int armature_fill_bones_exec(bContext *C, wmOperator *op)
 	Object *obedit = NULL;
 	{
 		ViewLayer *view_layer = CTX_data_view_layer(C);
-		FOREACH_OBJECT_IN_MODE_BEGIN (view_layer, v3d, OB_MODE_EDIT, ob_iter) {
+		FOREACH_OBJECT_IN_EDIT_MODE_BEGIN (view_layer, v3d, ob_iter) {
 			if (ob_iter->data == arm) {
 				obedit = ob_iter;
 			}

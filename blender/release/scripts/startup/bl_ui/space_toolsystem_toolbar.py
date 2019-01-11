@@ -32,6 +32,7 @@ from .space_toolsystem_common import (
     ToolDef,
 )
 
+
 def generate_from_enum_ex(
         context, *,
         icon_prefix,
@@ -64,6 +65,13 @@ class _template_widget:
             props = tool.gizmo_group_properties("VIEW3D_GGT_xform_extrude")
             layout.prop(props, "axis_type", expand=True)
 
+    class TRANSFORM_GGT_gizmo:
+        @staticmethod
+        def draw_settings_with_index(context, layout, index):
+            scene = context.scene
+            orient_slot = scene.transform_orientation_slots[index]
+            layout.prop(orient_slot, "type")
+
 
 class _defs_view3d_generic:
     @ToolDef.from_fn
@@ -78,7 +86,7 @@ class _defs_view3d_generic:
                 "Set the cursor location, drag to transform"
             ),
             icon="ops.generic.cursor",
-            keymap=(),
+            keymap="3D View Tool: Cursor",
             draw_settings=draw_settings,
         )
 
@@ -108,7 +116,7 @@ class _defs_view3d_generic:
             description=description,
             icon="ops.view3d.ruler",
             widget="VIEW3D_GGT_ruler",
-            keymap=(),
+            keymap="3D View Tool: Measure",
         )
 
 
@@ -187,8 +195,8 @@ class _defs_annotate:
     def eraser():
         def draw_settings(context, layout, tool):
             # TODO: Move this setting to tool_settings
-            user_prefs = context.user_preferences
-            layout.prop(user_prefs.edit, "grease_pencil_eraser_radius", text="Radius")
+            prefs = context.preferences
+            layout.prop(prefs.edit, "grease_pencil_eraser_radius", text="Radius")
         return dict(
             text="Annotate Eraser",
             icon="ops.gpencil.draw.eraser",
@@ -202,44 +210,56 @@ class _defs_transform:
 
     @ToolDef.from_fn
     def translate():
+        def draw_settings(context, layout, tool):
+            _template_widget.TRANSFORM_GGT_gizmo.draw_settings_with_index(context, layout, 1)
         return dict(
             text="Move",
             # cursor='SCROLL_XY',
             icon="ops.transform.translate",
             widget="TRANSFORM_GGT_gizmo",
             operator="transform.translate",
-            keymap=(),
+            keymap="3D View Tool: Move",
+            draw_settings=draw_settings,
         )
 
     @ToolDef.from_fn
     def rotate():
+        def draw_settings(context, layout, tool):
+            _template_widget.TRANSFORM_GGT_gizmo.draw_settings_with_index(context, layout, 2)
         return dict(
             text="Rotate",
             # cursor='SCROLL_XY',
             icon="ops.transform.rotate",
             widget="TRANSFORM_GGT_gizmo",
             operator="transform.rotate",
-            keymap=(),
+            keymap="3D View Tool: Rotate",
+            draw_settings=draw_settings,
         )
 
     @ToolDef.from_fn
     def scale():
+        def draw_settings(context, layout, tool):
+            _template_widget.TRANSFORM_GGT_gizmo.draw_settings_with_index(context, layout, 3)
         return dict(
             text="Scale",
             # cursor='SCROLL_XY',
             icon="ops.transform.resize",
             widget="TRANSFORM_GGT_gizmo",
             operator="transform.resize",
-            keymap=(),
+            keymap="3D View Tool: Scale",
+            draw_settings=draw_settings,
         )
 
     @ToolDef.from_fn
     def scale_cage():
+        def draw_settings(context, layout, tool):
+            _template_widget.TRANSFORM_GGT_gizmo.draw_settings_with_index(context, layout, 3)
         return dict(
             text="Scale Cage",
             icon="ops.transform.resize.cage",
             widget="VIEW3D_GGT_xform_cage",
             operator="transform.resize",
+            draw_settings=draw_settings,
         )
 
     @ToolDef.from_fn
@@ -252,6 +272,8 @@ class _defs_transform:
             props = tool.gizmo_group_properties("TRANSFORM_GGT_gizmo")
             layout.prop(props, "drag_action")
 
+            _template_widget.TRANSFORM_GGT_gizmo.draw_settings_with_index(context, layout, 1)
+
         return dict(
             text="Transform",
             description=(
@@ -259,7 +281,7 @@ class _defs_transform:
             ),
             icon="ops.transform.transform",
             widget="TRANSFORM_GGT_gizmo",
-            keymap=(),
+            keymap="3D View Tool: Transform",
             draw_settings=draw_settings,
         )
 
@@ -274,7 +296,7 @@ class _defs_view3d_select:
             text="Select",
             icon="ops.generic.select",
             widget=None,
-            keymap=(),
+            keymap="3D View Tool: Select",
             draw_settings=draw_settings,
         )
 
@@ -287,7 +309,7 @@ class _defs_view3d_select:
             text="Select Box",
             icon="ops.generic.select_box",
             widget=None,
-            keymap=(),
+            keymap="3D View Tool: Select Box",
             draw_settings=draw_settings,
         )
 
@@ -300,7 +322,7 @@ class _defs_view3d_select:
             text="Select Lasso",
             icon="ops.generic.select_lasso",
             widget=None,
-            keymap=(),
+            keymap="3D View Tool: Select Lasso",
             draw_settings=draw_settings,
         )
 
@@ -320,7 +342,7 @@ class _defs_view3d_select:
             text="Select Circle",
             icon="ops.generic.select_circle",
             widget=None,
-            keymap=(),
+            keymap="3D View Tool: Select Circle",
             draw_settings=draw_settings,
             draw_cursor=draw_cursor,
         )
@@ -852,6 +874,7 @@ class _defs_vertex_paint:
             attr="vertex_tool",
         )
 
+
 class _defs_texture_paint:
 
     @staticmethod
@@ -1062,6 +1085,26 @@ class _defs_gpencil_paint:
         return dict(
             text="Circle",
             icon="ops.gpencil.primitive_circle",
+            cursor='CROSSHAIR',
+            widget=None,
+            keymap=(),
+        )
+
+    @ToolDef.from_fn
+    def arc():
+        return dict(
+            text="Arc",
+            icon="ops.gpencil.primitive_arc",
+            cursor='CROSSHAIR',
+            widget=None,
+            keymap=(),
+        )
+
+    @ToolDef.from_fn
+    def curve():
+        return dict(
+            text="Curve",
+            icon="ops.gpencil.primitive_curve",
             cursor='CROSSHAIR',
             widget=None,
             keymap=(),
@@ -1565,16 +1608,18 @@ class VIEW3D_PT_tools_active(ToolSelectPanelHelper, Panel):
             None,
             _defs_weight_paint.gradient,
         ],
-        'GPENCIL_PAINT': [
+        'PAINT_GPENCIL': [
             _defs_view3d_generic.cursor,
             None,
             _defs_gpencil_paint.generate_from_brushes,
             None,
             _defs_gpencil_paint.line,
+            _defs_gpencil_paint.arc,
+            _defs_gpencil_paint.curve,
             _defs_gpencil_paint.box,
             _defs_gpencil_paint.circle,
         ],
-        'GPENCIL_EDIT': [
+        'EDIT_GPENCIL': [
             *_tools_gpencil_select,
             _defs_view3d_generic.cursor,
             None,
@@ -1584,12 +1629,12 @@ class VIEW3D_PT_tools_active(ToolSelectPanelHelper, Panel):
             _defs_gpencil_edit.shear,
             _defs_gpencil_edit.tosphere,
         ],
-        'GPENCIL_SCULPT': [
+        'SCULPT_GPENCIL': [
             *_tools_gpencil_select,
             None,
             _defs_gpencil_sculpt.generate_from_brushes,
         ],
-        'GPENCIL_WEIGHT': [
+        'WEIGHT_GPENCIL': [
             _defs_gpencil_weight.generate_from_brushes,
         ],
     }

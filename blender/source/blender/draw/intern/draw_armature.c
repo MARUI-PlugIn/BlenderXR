@@ -318,6 +318,8 @@ static void drw_shgroup_bone_envelope(
 
 /* Custom (geometry) */
 
+extern void drw_batch_cache_generate_requested(Object *custom);
+
 static void drw_shgroup_bone_custom_solid(
         const float (*bone_mat)[4],
         const float bone_color[4], const float hint_color[4], const float outline_color[4],
@@ -328,6 +330,9 @@ static void drw_shgroup_bone_custom_solid(
 	struct GPUBatch *edges = DRW_cache_object_edge_detection_get(custom, NULL);
 	struct GPUBatch *ledges = DRW_cache_object_loose_edges_get(custom);
 	float final_bonemat[4][4];
+
+	/* XXXXXXX needs to be moved elsewhere. */
+	drw_batch_cache_generate_requested(custom);
 
 	if (surf || edges || ledges) {
 		mul_m4_m4m4(final_bonemat, g_data.ob->obmat, bone_mat);
@@ -358,7 +363,11 @@ static void drw_shgroup_bone_custom_wire(
         const float color[4], Object *custom)
 {
 	/* grr, not re-using instances! */
-	struct GPUBatch *geom = DRW_cache_object_wire_outline_get(custom);
+	struct GPUBatch *geom = DRW_cache_object_all_edges_get(custom);
+
+	/* XXXXXXX needs to be moved elsewhere. */
+	drw_batch_cache_generate_requested(custom);
+
 	if (geom) {
 		DRWShadingGroup *shgrp_geom_wire = shgroup_instance_wire(g_data.passes.bone_wire, geom);
 		float final_bonemat[4][4], final_color[4];
@@ -940,7 +949,7 @@ static void edbo_compute_bbone_child(bArmature *arm)
 	}
 }
 
-/* A version of b_bone_spline_setup() for previewing editmode curve settings. */
+/* A version of BKE_pchan_bbone_spline_setup() for previewing editmode curve settings. */
 static void ebone_spline_preview(EditBone *ebone, float result_array[MAX_BBONE_SUBDIV][4][4])
 {
 	BBoneSplineParameters param;
@@ -1043,7 +1052,7 @@ static void ebone_spline_preview(EditBone *ebone, float result_array[MAX_BBONE_S
 	param.curveOutX = ebone->curveOutX;
 	param.curveOutY = ebone->curveOutY;
 
-	ebone->segments = BKE_compute_b_bone_spline(&param, (Mat4 *)result_array);
+	ebone->segments = BKE_pchan_bbone_spline_compute(&param, (Mat4 *)result_array);
 }
 
 static void draw_bone_update_disp_matrix_bbone(EditBone *eBone, bPoseChannel *pchan)
@@ -1086,7 +1095,7 @@ static void draw_bone_update_disp_matrix_bbone(EditBone *eBone, bPoseChannel *pc
 				memcpy(bbones_mat, pchan->runtime.bbone_pose_mats, sizeof(Mat4) * bbone_segments);
 			}
 			else {
-				b_bone_spline_setup(pchan, false, bbones_mat);
+				BKE_pchan_bbone_spline_setup(pchan, false, bbones_mat);
 			}
 
 			for (int i = bbone_segments; i--; bbones_mat++) {

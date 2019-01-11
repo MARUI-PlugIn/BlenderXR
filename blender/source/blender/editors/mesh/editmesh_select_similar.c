@@ -159,7 +159,7 @@ static void face_pos_direction_worldspace_scaled_get(Object *ob, BMFace *face, f
 	copy_v3_v3(r_dir, face->no);
 	normalize_v3(r_dir);
 
-	BM_face_calc_center_mean(face, center);
+	BM_face_calc_center_median(face, center);
 	mul_m4_v3(ob->obmat, center);
 
 	distance = dot_v3v3(r_dir, center);
@@ -306,7 +306,6 @@ static int similar_face_select_exec(bContext *C, wmOperator *op)
 						float perimeter = BM_face_calc_perimeter_with_mat3(face, ob_m3);
 						float dummy[3] = {perimeter, 0.0f, 0.0f};
 						BLI_kdtree_insert(tree, tree_index++, dummy);
-						break;
 						break;
 					}
 					case SIMFACE_NORMAL:

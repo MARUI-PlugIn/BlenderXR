@@ -1,8 +1,8 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: Blender 2.79 (sub 2) (b'6618852b7f1')\n"
+"Project-Id-Version: Blender 2.80 (sub 39) (b'6d89337257b6')\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2018-02-23 10:49:02\n"
+"POT-Creation-Date: 2018-12-24 15:04:25\n"
 "PO-Revision-Date: 2012-10-07 13:56+0300\n"
 "Last-Translator: Barak Itkin <lightningismyname@gmail.com>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -22,60 +22,20 @@ msgid "Action group is selected"
 msgstr "רבד רחבנ אל"
 
 
-msgid "Random"
-msgstr "יארקא"
-
-
-msgid "Scene"
-msgstr "הנצס"
+msgid "Path"
+msgstr "ביתנ"
 
 
 msgid "Add"
 msgstr "ףסוה"
 
 
-msgid "Value"
-msgstr "ךרע"
-
-
-msgid "Y Axis"
-msgstr "Y ריצ"
-
-
-msgid "Reset"
-msgstr "לוחתא"
-
-
-msgid "Location"
-msgstr "םוקימ"
-
-
-msgid "Rotation"
-msgstr "בוביס"
-
-
-msgid "Mean"
-msgstr "עצוממ"
-
-
-msgid "Path"
-msgstr "ביתנ"
+msgid "Default"
+msgstr "לדחמ תרירב"
 
 
 msgid "Width"
 msgstr "בחור"
-
-
-msgid "Size"
-msgstr "לדוג"
-
-
-msgid "Left"
-msgstr "לאמש"
-
-
-msgid "Right"
-msgstr "ןימי"
 
 
 msgid "Indirect"
@@ -98,12 +58,32 @@ msgid "Strength"
 msgstr "המצוע"
 
 
+msgid "Random"
+msgstr "יארקא"
+
+
+msgid "Both"
+msgstr "םהינש"
+
+
+msgid "Smooth"
+msgstr "קלח"
+
+
+msgid "Rotation"
+msgstr "בוביס"
+
+
+msgid "Left"
+msgstr "לאמש"
+
+
+msgid "Right"
+msgstr "ןימי"
+
+
 msgid "Center"
 msgstr "זכרמ"
-
-
-msgid "Default"
-msgstr "לדחמ תרירב"
 
 
 msgid "Input Color Space"
@@ -118,6 +98,10 @@ msgid "Saturation"
 msgstr "היוור"
 
 
+msgid "Value"
+msgstr "ךרע"
+
+
 msgid "Constant"
 msgstr "עובק"
 
@@ -130,8 +114,12 @@ msgid "Output"
 msgstr "טלפ"
 
 
-msgid "Python"
-msgstr "Python"
+msgid "Off"
+msgstr "יובכ"
+
+
+msgid "Location"
+msgstr "םוקימ"
 
 
 msgid "White Level"
@@ -146,12 +134,12 @@ msgid "View"
 msgstr "הגוצת"
 
 
+msgid "Scene"
+msgstr "הנצס"
+
+
 msgid "Generated Coordinates"
 msgstr "רצוימ"
-
-
-msgid "Smooth"
-msgstr "קלח"
 
 
 msgid "Shrink"
@@ -170,16 +158,16 @@ msgid "Frequency"
 msgstr "תורידת"
 
 
+msgid "Size"
+msgstr "לדוג"
+
+
 msgid "Apply Density"
 msgstr "תופיפצ"
 
 
 msgid "Environment"
 msgstr "הביבס"
-
-
-msgid "Both"
-msgstr "םהינש"
 
 
 msgid "End"
@@ -206,6 +194,26 @@ msgid "2D Image"
 msgstr "1 הנומת"
 
 
+msgid "Window"
+msgstr "ןולח"
+
+
+msgid "Header"
+msgstr "תרתוכ"
+
+
+msgid "Tools"
+msgstr "םילכ"
+
+
+msgid "Edit Mode"
+msgstr "הכירע בצמ"
+
+
+msgid "Mirror"
+msgstr "הארמ"
+
+
 msgid "Red"
 msgstr "םודא"
 
@@ -230,20 +238,16 @@ msgid "Use Gradient"
 msgstr "לקשמ תעיבצ"
 
 
-msgid "Off"
-msgstr "יובכ"
-
-
 msgid "Up"
 msgstr "הלעמ"
 
 
+msgid "Mean"
+msgstr "עצוממ"
+
+
 msgid "Straight"
 msgstr "ןימי"
-
-
-msgid "Reflection"
-msgstr "תופקתשה"
 
 
 msgid "Movie"
@@ -254,24 +258,12 @@ msgid "Generated"
 msgstr "רצוימ"
 
 
-msgid "Fields"
-msgstr "תודש"
-
-
-msgid "Specular"
-msgstr "רלקפסא"
-
-
 msgid "Roughness"
 msgstr "תוסג"
 
 
-msgid "Translucency"
-msgstr "הצחמל תופיקש"
-
-
-msgid "Edit Mode"
-msgstr "הכירע בצמ"
+msgid "Specular"
+msgstr "רלקפסא"
 
 
 msgid "Sculpt Mode"
@@ -286,10 +278,6 @@ msgid "Weight Paint"
 msgstr "לקשמ תעיבצ"
 
 
-msgid "Lamp"
-msgstr "הרונמ"
-
-
 msgid "World"
 msgstr "םלוע"
 
@@ -298,28 +286,8 @@ msgid "Mist"
 msgstr "לפרע"
 
 
-msgid "Window"
-msgstr "ןולח"
-
-
-msgid "Header"
-msgstr "תרתוכ"
-
-
-msgid "Tools"
-msgstr "םילכ"
-
-
-msgid "Density"
-msgstr "תופיפצ"
-
-
-msgid "Emission"
-msgstr "הטילפ"
-
-
-msgid "Mirror"
-msgstr "הארמ"
+msgid "Python"
+msgstr "Python"
 
 
 msgid "Apply"
@@ -374,6 +342,10 @@ msgid "Color Key"
 msgstr "עבצ"
 
 
+msgid "Remove"
+msgstr "רסה"
+
+
 msgid "Hue Saturation Value"
 msgstr "היוור"
 
@@ -390,6 +362,10 @@ msgid "Alpha Convert"
 msgstr "רמה"
 
 
+msgid "Y Axis"
+msgstr "Y ריצ"
+
+
 msgid "Background"
 msgstr "עקר"
 
@@ -398,8 +374,16 @@ msgid "Refraction BSDF"
 msgstr "תופקתשה"
 
 
+msgid "Emission"
+msgstr "הטילפ"
+
+
 msgid "Down"
 msgstr "הטמ"
+
+
+msgid "Lamp"
+msgstr "הרונמ"
 
 
 msgid "Other"
@@ -469,21 +453,6 @@ msgstr "קלח"
 
 
 msgctxt "Operator"
-msgid "Set Path"
-msgstr ":ץבוק ביתנ"
-
-
-msgctxt "Operator"
-msgid "Rotate Fix"
-msgstr "בוביס"
-
-
-msgctxt "Operator"
-msgid "Convert Samples"
-msgstr "רמה"
-
-
-msgctxt "Operator"
 msgid "Add Node"
 msgstr "הנשמ ףסוה"
 
@@ -493,13 +462,18 @@ msgid "Add Empty"
 msgstr "טלק ףסוה"
 
 
-msgid "Lamp Type"
-msgstr "הרונמ"
-
-
 msgctxt "Operator"
 msgid "Weight Gradient"
 msgstr "לקשמ תעיבצ"
+
+
+msgid "Density"
+msgstr "תופיפצ"
+
+
+msgctxt "Operator"
+msgid "Move"
+msgstr "טרס"
 
 
 msgctxt "Operator"
@@ -546,12 +520,20 @@ msgid "Color Management"
 msgstr "עבצ לוהינ"
 
 
+msgid "GPU Mipmap Generation"
+msgstr "היוור"
+
+
 msgid "Tile Order"
 msgstr ":םונילופ תלעמ"
 
 
 msgid "Progressive Refine"
 msgstr "תומדקתה"
+
+
+msgid "Manual"
+msgstr "ינדי"
 
 
 msgid "MO File Path"
@@ -566,20 +548,8 @@ msgid "POT File Path"
 msgstr ":ץבוק ביתנ"
 
 
-msgid "Bake to Vertex Color"
-msgstr "דוקדוק עבצ"
-
-
 msgid "Double-Density"
 msgstr "תופיפצ"
-
-
-msgid "Auto Select"
-msgstr "רחבנל קתעה"
-
-
-msgid "Vertex Arrays"
-msgstr "םידוקדוק תעיבצ"
 
 
 msgid "Ignition"
@@ -598,10 +568,6 @@ msgid "Generated coordinates centered to flow object"
 msgstr "רצוימ"
 
 
-msgid "Manual"
-msgstr "ינדי"
-
-
 msgid "Blender File"
 msgstr "Blender לש טנרטניאה רתא"
 
@@ -614,20 +580,8 @@ msgid "Theme Background Color"
 msgstr "עקר"
 
 
-msgid "Show Background"
-msgstr "עקר"
-
-
 msgid "Default Layout"
 msgstr "לדחמ תרירב"
-
-
-msgid "GPU Mipmap Generation"
-msgstr "היוור"
-
-
-msgid "Tiles:"
-msgstr "תיוות לדוג"
 
 
 msgctxt "Operator"
@@ -653,17 +607,8 @@ msgid "Remove"
 msgstr "רסה"
 
 
-msgid "Color Space:"
-msgstr ":עבצ בחרמ"
-
-
 msgid "UV Axis:"
 msgstr "Y ריצ"
-
-
-msgctxt "Operator"
-msgid "Start"
-msgstr "הלחתה"
 
 
 msgctxt "Operator"
@@ -671,25 +616,13 @@ msgid "Cursor to Selected"
 msgstr "רחבנל קתעה"
 
 
-msgid "File Path:"
-msgstr ":ץבוק ביתנ"
-
-
-msgid "Reaction:"
-msgstr "תופקתשה"
-
-
-msgid "Tile Size:"
-msgstr "תיוות לדוג"
+msgctxt "Operator"
+msgid "Invert"
+msgstr "רמה"
 
 
 msgid "Dimension"
 msgstr "דמימ"
-
-
-msgctxt "Operator"
-msgid "Center"
-msgstr "זכרמ"
 
 
 msgctxt "Operator"
@@ -723,43 +656,8 @@ msgstr "Y ריצ"
 
 
 msgctxt "Operator"
-msgid "Manual"
-msgstr "ינדי"
-
-
-msgctxt "Operator"
-msgid "Blender Website"
-msgstr "Blender לש טנרטניאה רתא"
-
-
-msgctxt "Operator"
-msgid "User Community"
-msgstr "םישמתשמ תליהק"
-
-
-msgctxt "Operator"
-msgid "Sensor"
-msgstr "ךרד־רוציק ףסוה"
-
-
-msgctxt "Operator"
-msgid "Controller"
-msgstr "הדוקנ ףסוה"
-
-
-msgctxt "Operator"
-msgid "Move"
-msgstr "טרס"
-
-
-msgctxt "Operator"
 msgid "Movie"
 msgstr "טרס"
-
-
-msgctxt "Operator"
-msgid "Image"
-msgstr "2 הנומת"
 
 
 msgctxt "Operator"
@@ -773,6 +671,11 @@ msgstr "הנצס"
 
 
 msgctxt "Operator"
+msgid "Color"
+msgstr "עבצ"
+
+
+msgctxt "Operator"
 msgid "Alpha Over"
 msgstr "רמה"
 
@@ -782,17 +685,22 @@ msgid "Alpha Under"
 msgstr "רמה"
 
 
-msgctxt "Operator"
-msgid "Color"
-msgstr "עבצ"
-
-
 msgid "Path:"
 msgstr ":ביתנ"
 
 
-msgid "Axis Colors:"
-msgstr ":הגוצת עבצ"
+msgid "Color Space:"
+msgstr ":עבצ בחרמ"
+
+
+msgctxt "Operator"
+msgid "Manual"
+msgstr "ינדי"
+
+
+msgctxt "Operator"
+msgid "Blender Website"
+msgstr "Blender לש טנרטניאה רתא"
 
 
 msgid "Preferences:"
@@ -815,23 +723,8 @@ msgstr "לאמש"
 
 
 msgctxt "Operator"
-msgid "Random"
-msgstr "יארקא"
-
-
-msgctxt "Operator"
-msgid "Select All by Layer"
-msgstr "הבכש רחב"
-
-
-msgctxt "Operator"
-msgid "Copy Properties..."
-msgstr "םינייפאמ אלל"
-
-
-msgctxt "Operator"
-msgid "Invert"
-msgstr "רמה"
+msgid "Path"
+msgstr "ביתנ"
 
 
 msgctxt "Operator"
@@ -850,32 +743,8 @@ msgstr "הכסמ"
 
 
 msgctxt "Operator"
-msgid "Merge Properties"
-msgstr "הגוצת ינייפאמ"
-
-
-msgctxt "Operator"
-msgid "Vertices Only"
-msgstr "דוקדוק עבצ"
-
-
-msgctxt "Operator"
-msgid "Path"
-msgstr "ביתנ"
-
-
-msgid "Constraints:"
-msgstr "עובק"
-
-
-msgctxt "Operator"
 msgid "Apply"
 msgstr "לחה"
-
-
-msgctxt "Operator"
-msgid "Vector"
-msgstr "רוטקו"
 
 
 msgid "Not supported in sculpt mode"
@@ -949,17 +818,16 @@ msgid "Remove Shortcut"
 msgstr "ךרד־רוציק רסה"
 
 
-msgctxt "Operator"
-msgid "Add Shortcut"
-msgstr "ךרד־רוציק ףסוה"
-
-
 msgid "(Gamma Corrected)"
 msgstr "(אמג ןקותמ)"
 
 
 msgid "Shortcut: %s"
 msgstr "‬%s‪ :ךרד־רוציק"
+
+
+msgid "Python: %s"
+msgstr "Python: ‪%s‬"
 
 
 msgid "Radians: %f"
@@ -974,10 +842,6 @@ msgid "Library: %s"
 msgstr "‬%s‪ :היירפס"
 
 
-msgid "Python: %s"
-msgstr "Python: ‪%s‬"
-
-
 msgid "Disabled: %s"
 msgstr "‬%s‪ :תבשומ"
 
@@ -986,8 +850,16 @@ msgid "Python: %s.%s"
 msgstr "Python: ‪%s‬.‪%s‬"
 
 
+msgid "Reset"
+msgstr "לוחתא"
+
+
 msgid "No Properties"
 msgstr "םינייפאמ אלל"
+
+
+msgid "File Path:"
+msgstr ":ץבוק ביתנ"
 
 
 msgid "Convert virtual modifier to a real modifier"
@@ -1028,6 +900,10 @@ msgstr ".לוסיפ בצמב ךמתנ אל"
 
 msgid "No active camera set"
 msgstr "הליעפ הבכש עבק"
+
+
+msgid "Fields"
+msgstr "תודש"
 
 
 msgid "Width:"
@@ -1074,16 +950,8 @@ msgid "ERROR: Invalid target channel(s)"
 msgstr "םיניקת אל הרטמ יצורע :האיגש"
 
 
-msgid "Add Variable"
-msgstr "הנתשמ ףסוה"
-
-
 msgid "Add Modifier"
 msgstr "הנשמ ףסוה"
-
-
-msgid "Force updates of dependencies"
-msgstr "תויולת לש ןוכדע הפכ"
 
 
 msgid "View Properties"
@@ -1102,22 +970,6 @@ msgid "Saved %s"
 msgstr "‬%s‪ :תבשומ"
 
 
-msgid "First Modifier:"
-msgstr "הנשמ ףסוה"
-
-
-msgid "Second Modifier:"
-msgstr "הנשמ ףסוה"
-
-
-msgid "Add Controller"
-msgstr "הדוקנ ףסוה"
-
-
-msgid "Add Sensor"
-msgstr "ךרד־רוציק ףסוה"
-
-
 msgid "Label Size"
 msgstr "תיוות לדוג"
 
@@ -1132,10 +984,6 @@ msgstr "טלק ףסוה"
 
 msgid "Cannot ungroup"
 msgstr "השדח הצובק"
-
-
-msgid "Remove"
-msgstr "רסה"
 
 
 msgid "Disconnect"
@@ -1242,16 +1090,16 @@ msgid "Incoming"
 msgstr "סנכנ"
 
 
-msgid "Spec"
-msgstr "רלקפסא"
-
-
 msgid "Color2"
 msgstr "2עבצ"
 
 
 msgid "Row Height"
 msgstr "הרוש הבוג"
+
+
+msgid "Reflection"
+msgstr "תופקתשה"
 
 
 msgid "Detail"
@@ -1278,23 +1126,7 @@ msgid "Nothing indicated"
 msgstr "רבד רחבנ אל"
 
 
-msgid "Donations"
-msgstr "תומורת"
-
-
-msgid "Credits"
-msgstr "תודות"
-
-
-msgid "Blender Website"
-msgstr "Blender לש טנרטניאה רתא"
-
-
 msgctxt "Operator"
 msgid "Toggle System Console"
 msgstr "רחבנל קתעה"
-
-
-msgid "Blender User Preferences"
-msgstr "Blender שמתשמ תופדעה"
 

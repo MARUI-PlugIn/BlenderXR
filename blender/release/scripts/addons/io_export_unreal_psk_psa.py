@@ -2170,7 +2170,7 @@ def rebuildmesh(obj):
 
     # vertices weight groups
     for vgroup in vertGroups:
-        group = obmesh.vertex_groups.new(vgroup)
+        group = obmesh.vertex_groups.new(name=vgroup)
         for v in vertGroups[vgroup]:
             group.add([v[0]], v[1], 'ADD')  # group.add(array[vertex id],weight,add)
     bpy.context.scene.objects.link(obmesh)
@@ -2830,7 +2830,7 @@ def update_panel(self, context):
                 bpy.utils.unregister_class(panel)
 
         for panel in panels:
-            panel.bl_category = context.user_preferences.addons[__name__].preferences.category
+            panel.bl_category = context.preferences.addons[__name__].preferences.category
             bpy.utils.register_class(panel)
 
     except Exception as e:

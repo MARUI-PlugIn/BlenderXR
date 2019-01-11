@@ -21,10 +21,6 @@ IGNORE = (
     "source/blender/blenlib/intern/md5.c",
     "source/blender/blenlib/intern/voxel.c",
 
-    "source/blender/blenloader/intern/readfile.c",
-    "source/blender/blenloader/intern/versioning_250.c",
-    "source/blender/blenloader/intern/versioning_legacy.c",
-
     "source/blender/editors/space_logic/logic_buttons.c",
     "source/blender/editors/space_logic/logic_window.c",
 

@@ -91,7 +91,7 @@ struct BMesh *BKE_mesh_to_bmesh(
         const bool add_key_index, const struct BMeshCreateParams *params);
 
 struct Mesh *BKE_mesh_from_bmesh_nomain(struct BMesh *bm, const struct BMeshToMeshParams *params);
-struct Mesh *BKE_mesh_from_bmesh_for_eval_nomain(struct BMesh *bm, int64_t cd_mask_extra);
+struct Mesh *BKE_mesh_from_bmesh_for_eval_nomain(struct BMesh *bm, const int64_t cd_mask_extra);
 
 struct Mesh *BKE_mesh_from_editmesh_with_coords_thin_wrap(
         struct BMEditMesh *em, CustomDataMask data_mask, float (*vertexCos)[3]);
@@ -211,6 +211,8 @@ void BKE_mesh_mselect_validate(struct Mesh *me);
 int  BKE_mesh_mselect_find(struct Mesh *me, int index, int type);
 int  BKE_mesh_mselect_active_get(struct Mesh *me, int type);
 void BKE_mesh_mselect_active_set(struct Mesh *me, int index, int type);
+
+void BKE_mesh_count_selected_items(const struct Mesh *mesh, int r_count[3]);
 
 void BKE_mesh_apply_vert_coords(struct Mesh *mesh, float (*vertCoords)[3]);
 void BKE_mesh_apply_vert_normals(struct Mesh *mesh, short (*vertNormals)[3]);
@@ -487,8 +489,10 @@ bool BKE_mesh_validate_arrays(
         bool *r_change);
 
 bool BKE_mesh_validate_all_customdata(
-        struct CustomData *vdata, struct CustomData *edata,
-        struct CustomData *ldata, struct CustomData *pdata,
+        struct CustomData *vdata, const uint totvert,
+        struct CustomData *edata, const uint totedge,
+        struct CustomData *ldata, const uint totloop,
+        struct CustomData *pdata, const uint totpoly,
         const bool check_meshmask,
         const bool do_verbose, const bool do_fixes,
         bool *r_change);

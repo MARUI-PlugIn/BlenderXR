@@ -115,8 +115,8 @@ static void subdiv_settings_init(SubdivSettings *settings,
                                  const SubsurfModifierData *smd)
 {
 	settings->is_simple = (smd->subdivType == SUBSURF_TYPE_SIMPLE);
-	settings->is_adaptive = !settings->is_simple;
-	settings->level = smd->quality;
+	settings->is_adaptive = true;
+	settings->level = settings->is_simple ? 1 : smd->quality;
 	settings->vtx_boundary_interpolation = SUBDIV_VTX_BOUNDARY_EDGE_ONLY;
 	settings->fvar_linear_interpolation =
 	        BKE_subdiv_fvar_interpolation_from_uv_smooth(smd->uv_smooth);
@@ -130,6 +130,8 @@ static void subdiv_mesh_settings_init(SubdivToMeshSettings *settings,
 {
 	const int level = subdiv_levels_for_modifier_get(smd, ctx);
 	settings->resolution = (1 << level) + 1;
+	settings->use_optimal_display =
+	        (smd->flags & eSubsurfModifierFlag_ControlEdges);
 }
 
 static Mesh *subdiv_as_mesh(SubsurfModifierData *smd,

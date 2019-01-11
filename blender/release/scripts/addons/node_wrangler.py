@@ -614,7 +614,7 @@ def force_update(context):
 
 
 def dpifac():
-    prefs = bpy.context.user_preferences.system
+    prefs = bpy.context.preferences.system
     return prefs.dpi * prefs.pixel_size / 72
 
 
@@ -2042,7 +2042,7 @@ class NWMergeNodes(Operator, NWBase):
     )
 
     def execute(self, context):
-        settings = context.user_preferences.addons[__name__].preferences
+        settings = context.preferences.addons[__name__].preferences
         merge_hide = settings.merge_hide
         merge_position = settings.merge_position  # 'center' or 'bottom'
 
@@ -2372,7 +2372,10 @@ class NWCopySettings(Operator, NWBase):
     def poll(cls, context):
         valid = False
         if nw_check(context):
-            if context.active_node is not None and context.active_node.type is not 'FRAME':
+            if (
+                    context.active_node is not None and
+                    context.active_node.type != 'FRAME'
+            ):
                 valid = True
         return valid
 
@@ -2714,7 +2717,7 @@ class NWAddPrincipledSetup(Operator, NWBase, ImportHelper):
 
         # Filter textures names for texturetypes in filenames
         # [Socket Name, [abbreviations and keyword list], Filename placeholder]
-        tags = context.user_preferences.addons[__name__].preferences.principled_tags
+        tags = context.preferences.addons[__name__].preferences.principled_tags
         normal_abbr = tags.normal.split(' ')
         bump_abbr = tags.bump.split(' ')
         gloss_abbr = tags.gloss.split(' ')
@@ -2955,7 +2958,7 @@ class NWAddReroutes(Operator, NWBase):
             reroutes_count = 0  # will be used when aligning reroutes added to hidden nodes
             for out_i, output in enumerate(node.outputs):
                 pass_used = False  # initial value to be analyzed if 'R_LAYERS'
-                # if node is not 'R_LAYERS' - "pass_used" not needed, so set it to True
+                # if node != 'R_LAYERS' - "pass_used" not needed, so set it to True
                 if node.type != 'R_LAYERS':
                     pass_used = True
                 else:  # if 'R_LAYERS' check if output represent used render pass
@@ -4669,7 +4672,7 @@ kmi_defs = (
     # Reset Nodes (Back Space)
     (NWResetNodes.bl_idname, 'BACK_SPACE', 'PRESS', False, False, False, None, "Revert node back to default state, but keep connections"),
     # MENUS
-    ('wm.call_menu', 'SPACE', 'PRESS', True, False, False, (('name', NodeWranglerMenu.bl_idname),), "Node Wranger menu"),
+    ('wm.call_menu', 'SPACE', 'PRESS', True, True, False, (('name', NodeWranglerMenu.bl_idname),), "Node Wranger menu"),
     ('wm.call_menu', 'SLASH', 'PRESS', False, False, False, (('name', NWAddReroutesMenu.bl_idname),), "Add Reroutes menu"),
     ('wm.call_menu', 'NUMPAD_SLASH', 'PRESS', False, False, False, (('name', NWAddReroutesMenu.bl_idname),), "Add Reroutes menu"),
     ('wm.call_menu', 'BACK_SLASH', 'PRESS', False, False, False, (('name', NWLinkActiveToSelectedMenu.bl_idname),), "Link active to selected (menu)"),

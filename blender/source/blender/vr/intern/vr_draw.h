@@ -37,21 +37,21 @@ class VR_Draw
 public:
 	static bool	initialized;	/* Whether the draw module has been initialized. */
 #ifdef WIN32
-	static int	init(void* device, void* context);	/* Initialize OpenGL objects. */
+	static int init(void* device, void* context);	/* Initialize OpenGL objects. */
 #else
-	static int	init(void* display, void* drawable, void* context);	/* Initialize OpenGL objects. */
+	static int init(void* display, void* drawable, void* context);	/* Initialize OpenGL objects. */
 #endif
 	static void	uninit(); /* Un-initialize OpenGL objects. */
 protected:
 #ifdef WIN32
-	static void* device;	/* OpenGL graphics device for rendering (HDC). */
-	static void* context;	/* OpenGL rendering context (HGLRC). */
+	static void *device;	/* OpenGL graphics device for rendering (HDC). */
+	static void *context;	/* OpenGL rendering context (HGLRC). */
 	//static HDC   device;  /* OpenGL graphics device for rendering. */
 	//static HGLRC context; /* OpenGL rendering context. */
 #else
-	static void* display;	/* The connection to the X server (Display*). */
-	static void* drawable;	/* Pointer to the GLX drawable (GLXDrawable*). Either an X window ID or a GLX pixmap ID. */
-	static void* context;	/* Pointer to the GLX rendering context (GLXContext*) attached to drawable. */
+	static void *display;	/* The connection to the X server (Display*). */
+	static void *drawable;	/* Pointer to the GLX drawable (GLXDrawable*). Either an X window ID or a GLX pixmap ID. */
+	static void *context;	/* Pointer to the GLX rendering context (GLXContext*) attached to drawable. */
 	//static Display* display;		/* The connection to the X server. */
 	//static GLXDrawable drawable;	/* The GLX drawable. Either an X window ID or a GLX pixmap ID. */
 	//static GLXContext context;	/* The GLX rendering context attached to the GLX drawable. */
@@ -142,54 +142,66 @@ protected:
 	} Model;
 public:
 	/* Controller models / textures. */
-	static Model*	controller_model[VR_SIDES]; /* Controller models (left and right). */
-	static Texture* controller_tex;	/* Textures for the controller. */
-	static Model*	cursor_model;	/* Model for the cursor. */
-	static Texture* cursor_tex; /* Texture for the cursor. */
-	static Texture* crosshair_cursor_tex;	/* Texture for the "crosshair cursor" icon. */
-	static Texture* mouse_cursor_tex;	/* Texture for the "mouse cursor" icon. */
+	static Model *controller_model[VR_SIDES]; /* Controller models (left and right). */
+	static Texture *controller_tex;	/* Textures for the controller. */
+	static Model *vr_cursor_model;	/* Model for the VR cursor. */
+	static Texture *vr_cursor_tex; /* Texture for the VR cursor. */
+	static Texture *cursor_tex;	/* Texture for the Blender cursor. */
+	static Texture *mouse_cursor_tex; /* Texture for the mouse cursor. */
 
 	static int create_controller_models(VR_UI_Type type);	/* Create the controller models for a specified UI type. */
 	
 	/* Image textures. */
-	static Texture *ascii_tex;	/* Texture for the ascii characters. */
-	static Texture *zoom_tex;	/* Texture for the "zoom" icon. */
-	static Texture *close_tex;	/* Texture for the "close" icon. */
 	static Texture *nav_grabair_tex;	/* Texture for the "nav grabair" icon. */
 	static Texture *nav_joystick_tex;	/* Texture for the "nav joystick" icon. */
 	static Texture *nav_teleport_tex;	/* Texture for the "nav teleport" icon. */
+	static Texture *nav_locktrans_tex;	/* Texture for the "nav locktrans* icon. */
+	static Texture *nav_locktransup_tex;	/* Texture for the "nav locktransup" icon */
+	static Texture *nav_lockrot_tex;	/* Texture for the "nav lockrot" icon. */
+	static Texture *nav_lockrotup_tex;	/* Texture for the "nav lockrotup" icon. */
+	static Texture *nav_lockscale_tex;	/* Texture for the "nav lockscale" icon. */
+	static Texture *nav_lockscalereal_tex;	/* Texture for the "nav lockscalereal" icon. */
 	static Texture *ctrl_tex;	/* Texture for the "ctrl" icon. */
 	static Texture *shift_tex;	/* Texture for the "shift" icon. */
 	static Texture *alt_tex;	/* Texture for the "alt" icon. */
-	static Texture *cursoroffset_tex;	/* Texture for the "cursor offset" icon. */
 	static Texture *select_tex;	/* Texture for the "select" icon. */
+	static Texture *select_raycast_tex;	/* Texture for the "select raycast" icon. */
+	static Texture *select_proximity_tex;	/* Texture for the "select proximity" icon. */
 	static Texture *transform_tex;	/* Texture for the "transform" icon. */
 	static Texture *move_tex;	/* Texture for the "move" icon. */
 	static Texture *rotate_tex;	/* Texture for the "rotate" icon. */
 	static Texture *scale_tex;	/* Texture for the "scale" icon. */
 	static Texture *annotate_tex;	/* Texture for the "annotate" icon. */
 	static Texture *measure_tex;	/* Texture for the "measure" icon. */
+	static Texture *extrude_tex;	/* Texture for the "extrude* icon. */
+	static Texture *extrude_individual_tex;	/* Texture for the "extrude individual* icon. */
+	static Texture *extrude_normals_tex;	/* Texture for the "extrude normals* icon. */
+	static Texture *flip_normals_tex;	/* Texture for the "flip normals" icon. */
 	static Texture *delete_tex;	/* Texture for the "delete" icon. */
+	static Texture *delete_alt_tex; /* Texture for the "updated delete" icon. */
 	static Texture *duplicate_tex;	/* Texture for the "duplicate" icon. */
 	static Texture *undo_tex;	/* Texture for the "undo" icon. */
 	static Texture *redo_tex;	/* Texture for the "redo" icon. */
 	static Texture *manip_tex;	/* Texture for the "manipulator" icon. */
+	static Texture *manip_global_tex;	/* Texture for the "global manipulator" icon. */
 	static Texture *manip_local_tex;	/* Texture for the "local manipulator" icon. */
+	static Texture *manip_normal_tex;	/* Texture for the "normal manipulator" icon. */
 	static Texture *manip_plus_tex;	/* Texture for the "grow manipulator" icon. */
 	static Texture *manip_minus_tex;	/* Texture for the "shrink manipulator" icon. */
+	static Texture *objectmode_tex;	/* Texture for the "object mode" icon. */
+	static Texture *editmode_tex;	/* Texture for the "edit mode" icon. */
+	static Texture *object_tex;	/* Texture for the "object" icon. */
+	static Texture *vertex_tex;	/* Texture for the "vertex" icon. */
+	static Texture *edge_tex;	/* Texture for the "edge" icon. */
+	static Texture *face_tex;	/* Texture for the "face" icon. */
+	static Texture *toolsettings_tex;	/* Texture for the "toolsettings" icon. */
 
 	/* Menu textures. */
 	static Texture *background_menu_tex;	/* Texture for the menu background. */
 	static Texture *colorwheel_menu_tex;	/* Texture for the "colorwheel" menu. */
-	static Texture *triangle_menu_tex;	/* Texture for the "triangle" menu icon. */
 
 	/* String textures. */
-	static Texture *select_str_tex;	/* Texture for the "SELECT" string. */
-	static Texture *transform_str_tex;	/* Texture for the "TRANSFORM" string. */
-	static Texture *annotate_str_tex;	/* Texture for the "ANNOTATE" string. */
-	static Texture *measure_str_tex;	/* Texture for the "MEASURE" string. */
-	static Texture *raycast_str_tex;	/* Texture for the "RAYCAST" string. */
-	static Texture *proximity_str_tex;	/* Texture for the "PROXIMITY" string. */
+	static Texture *ascii_tex;	/* Texture for the ascii characters. */
 	static Texture *on_str_tex;	/* Texture for the "ON" string. */
 	static Texture *off_str_tex;	/* Texture for the "OFF" string. */
 	static Texture *x_str_tex;	/* Texture for the "X" string. */

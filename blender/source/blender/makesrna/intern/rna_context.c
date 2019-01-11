@@ -53,10 +53,10 @@ const EnumPropertyItem rna_enum_context_mode_items[] = {
 	{CTX_MODE_PAINT_TEXTURE, "PAINT_TEXTURE", 0, "Texture Paint", ""},
 	{CTX_MODE_PARTICLE, "PARTICLE", 0, "Particle", ""},
 	{CTX_MODE_OBJECT, "OBJECT", 0, "Object", ""},
-	{CTX_MODE_GPENCIL_PAINT, "GPENCIL_PAINT", 0, "Grease Pencil Paint", "" },
-	{CTX_MODE_GPENCIL_EDIT, "GPENCIL_EDIT", 0, "Grease Pencil Edit", "" },
-	{CTX_MODE_GPENCIL_SCULPT, "GPENCIL_SCULPT", 0, "Grease Pencil Sculpt", "" },
-	{CTX_MODE_GPENCIL_WEIGHT, "GPENCIL_WEIGHT", 0, "Grease Pencil Weight Paint", "" },
+	{CTX_MODE_PAINT_GPENCIL, "PAINT_GPENCIL", 0, "Grease Pencil Paint", "" },
+	{CTX_MODE_EDIT_GPENCIL, "EDIT_GPENCIL", 0, "Grease Pencil Edit", "" },
+	{CTX_MODE_SCULPT_GPENCIL, "SCULPT_GPENCIL", 0, "Grease Pencil Sculpt", "" },
+	{CTX_MODE_WEIGHT_GPENCIL, "WEIGHT_GPENCIL", 0, "Grease Pencil Weight Paint", "" },
 	{0, NULL, 0, NULL, NULL}
 };
 
@@ -196,10 +196,10 @@ static PointerRNA rna_Context_tool_settings_get(PointerRNA *ptr)
 	return rna_pointer_inherit_refine(ptr, &RNA_ToolSettings, CTX_data_tool_settings(C));
 }
 
-static PointerRNA rna_Context_user_preferences_get(PointerRNA *UNUSED(ptr))
+static PointerRNA rna_Context_preferences_get(PointerRNA *UNUSED(ptr))
 {
 	PointerRNA newptr;
-	RNA_pointer_create(NULL, &RNA_UserPreferences, &U, &newptr);
+	RNA_pointer_create(NULL, &RNA_Preferences, &U, &newptr);
 	return newptr;
 }
 
@@ -306,10 +306,10 @@ void RNA_def_context(BlenderRNA *brna)
 	RNA_def_property_struct_type(prop, "ToolSettings");
 	RNA_def_property_pointer_funcs(prop, "rna_Context_tool_settings_get", NULL, NULL, NULL);
 
-	prop = RNA_def_property(srna, "user_preferences", PROP_POINTER, PROP_NONE);
+	prop = RNA_def_property(srna, "preferences", PROP_POINTER, PROP_NONE);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
-	RNA_def_property_struct_type(prop, "UserPreferences");
-	RNA_def_property_pointer_funcs(prop, "rna_Context_user_preferences_get", NULL, NULL, NULL);
+	RNA_def_property_struct_type(prop, "Preferences");
+	RNA_def_property_pointer_funcs(prop, "rna_Context_preferences_get", NULL, NULL, NULL);
 
 	prop = RNA_def_property(srna, "mode", PROP_ENUM, PROP_NONE);
 	RNA_def_property_enum_items(prop, rna_enum_context_mode_items);

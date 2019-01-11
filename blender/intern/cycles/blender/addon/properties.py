@@ -1129,7 +1129,7 @@ class CyclesObjectSettings(bpy.types.PropertyGroup):
 
     dicing_rate: FloatProperty(
         name="Dicing Scale",
-        description="Multiplier for scene dicing rate (located in the Geometry Panel)",
+        description="Multiplier for scene dicing rate (located in the Subdivision panel)",
         min=0.1, max=1000.0, soft_min=0.5,
         default=1.0,
     )
@@ -1484,7 +1484,11 @@ class CyclesPreferences(bpy.types.AddonPreferences):
         return self.get_num_gpu_devices() > 0
 
     def draw_impl(self, layout, context):
+        available_device_types = self.get_device_types(context)
         layout.label(text="Cycles Compute Device:")
+        if len(available_device_types) == 1:
+            layout.label(text="No compatible GPUs found", icon='INFO')
+            return
         layout.row().prop(self, "compute_device_type", expand=True)
 
         cuda_devices, opencl_devices = self.get_devices()

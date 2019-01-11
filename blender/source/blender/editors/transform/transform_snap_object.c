@@ -162,7 +162,7 @@ static void bm_mesh_minmax(BMesh *bm, float r_min[3], float r_max[3])
 {
 	INIT_MINMAX(r_min, r_max);
 	BMIter iter;
-	BMVert * v;
+	BMVert *v;
 
 	BM_ITER_MESH(v, &iter, bm, BM_VERTS_OF_MESH) {
 		minmax_v3v3_v3(r_min, r_max, v->co);
@@ -211,7 +211,6 @@ typedef void(*IterSnapObjsCallback)(SnapObjectContext *sctx, bool is_obedit, Obj
  *
  * \param sctx: Snap context to store data.
  * \param snap_select : from enum eSnapSelect.
- * \param obedit : Object Edited to use its coordinates of BMesh(if any) to do the snapping.
  */
 static void iter_snap_objects(
         SnapObjectContext *sctx,
@@ -1253,10 +1252,7 @@ static short snap_mesh_polygon(
 			normalize_v3(r_no);
 		}
 
-		if (r_index) {
-			*r_index = nearest.index;
-		}
-
+		*r_index = nearest.index;
 		return elem;
 	}
 
@@ -1355,9 +1351,7 @@ static short snap_mesh_edge_verts_mixed(
 			normalize_v3(r_no);
 		}
 
-		if (r_index) {
-			*r_index = nearest.index;
-		}
+		*r_index = nearest.index;
 	}
 
 	return elem;
@@ -1680,7 +1674,6 @@ static short snapCamera(
 {
 	short retval = 0;
 
-	Depsgraph *depsgraph = sctx->depsgraph;
 	Scene *scene = sctx->scene;
 
 	bool is_persp = snapdata->view_proj == VIEW_PROJ_PERSP;
@@ -1705,7 +1698,7 @@ static short snapCamera(
 
 	tracking = &clip->tracking;
 
-	BKE_tracking_get_camera_object_matrix(depsgraph, scene, object, orig_camera_mat);
+	BKE_tracking_get_camera_object_matrix(scene, object, orig_camera_mat);
 
 	invert_m4_m4(orig_camera_imat, orig_camera_mat);
 	invert_m4_m4(imat, obmat);
@@ -2286,13 +2279,11 @@ static void sanp_obj_cb(SnapObjectContext *sctx, bool is_obedit, Object *ob, flo
  *
  * \param sctx: Snap context to store data.
  * \param snapdata: struct generated in `get_snapdata`.
- * \param snap_select : from enum eSnapSelect.
- * \param use_object_edit_cage : Uses the coordinates of BMesh(if any) to do the snapping.
+ * \param params: Parameters for control snap behavior.
  *
  * Read/Write Args
  * ---------------
  *
- * \param ray_depth: maximum depth allowed for r_co, elements deeper than this value will be ignored.
  * \param dist_px: Maximum threshold distance (in pixels).
  *
  * Output Args
@@ -2674,7 +2665,7 @@ bool ED_transform_snap_object_project_view3d_ex(
  * Given a 2D region value, snap to vert/edge/face.
  *
  * \param sctx: Snap context.
- * \param mval_fl: Screenspace coordinate.
+ * \param mval: Screenspace coordinate.
  * \param dist_px: Maximum distance to snap (in pixels).
  * \param r_co: hit location.
  * \param r_no: hit normal (optional).

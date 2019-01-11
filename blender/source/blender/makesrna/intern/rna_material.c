@@ -97,7 +97,7 @@ static void rna_Material_update(Main *UNUSED(bmain), Scene *UNUSED(scene), Point
 {
 	Material *ma = ptr->id.data;
 
-	DEG_id_tag_update(&ma->id, DEG_TAG_COPY_ON_WRITE);
+	DEG_id_tag_update(&ma->id, ID_RECALC_COPY_ON_WRITE);
 	WM_main_add_notifier(NC_MATERIAL | ND_SHADING, ma);
 }
 
@@ -131,7 +131,7 @@ static void rna_Material_draw_update(Main *UNUSED(bmain), Scene *UNUSED(scene), 
 {
 	Material *ma = ptr->id.data;
 
-	DEG_id_tag_update(&ma->id, DEG_TAG_COPY_ON_WRITE);
+	DEG_id_tag_update(&ma->id, ID_RECALC_COPY_ON_WRITE);
 	WM_main_add_notifier(NC_MATERIAL | ND_SHADING_DRAW, ma);
 }
 
@@ -202,7 +202,7 @@ static void rna_Material_use_nodes_update(bContext *C, PointerRNA *ptr)
 	if (ma->use_nodes && ma->nodetree == NULL)
 		ED_node_shader_default(C, &ma->id);
 
-	DEG_id_tag_update(&ma->id, DEG_TAG_COPY_ON_WRITE);
+	DEG_id_tag_update(&ma->id, ID_RECALC_COPY_ON_WRITE);
 	DEG_relations_tag_update(bmain);
 	rna_Material_draw_update(bmain, CTX_data_scene(C), ptr);
 }
@@ -710,9 +710,9 @@ void RNA_def_material(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Clip Threshold", "A pixel is rendered only if its alpha value is above this threshold");
 	RNA_def_property_update(prop, 0, "rna_Material_draw_update");
 
-	prop = RNA_def_property(srna, "show_transparent_backside", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_negative_sdna(prop, NULL, "blend_flag", MA_BL_HIDE_BACKSIDE);
-	RNA_def_property_ui_text(prop, "Show Backside", "Limit transparency to a single layer "
+	prop = RNA_def_property(srna, "show_transparent_back", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_negative_sdna(prop, NULL, "blend_flag", MA_BL_HIDE_BACKFACE);
+	RNA_def_property_ui_text(prop, "Show Backface", "Limit transparency to a single layer "
 	                                                 "(avoids transparency sorting problems)");
 	RNA_def_property_update(prop, 0, "rna_Material_draw_update");
 

@@ -195,7 +195,7 @@ enum {
 	UI_BUT_TEXTEDIT_UPDATE = (1 << 29),  /* when widget is in textedit mode, update value on each char stroke */
 	UI_BUT_VALUE_CLEAR     = (1 << 30),  /* show 'x' icon to clear/unlink value of text or search button */
 
-	UI_BUT_OVERRIDEN       = (1 << 31),  /* RNA property of the button is overridden from linked reference data. */
+	UI_BUT_OVERRIDEN       = (1u << 31u),  /* RNA property of the button is overridden from linked reference data. */
 };
 
 #define UI_PANEL_WIDTH          340
@@ -240,6 +240,8 @@ enum {
 	UI_BUT_HAS_SHORTCUT      = (1 << 23), /* Button has shortcut text. */
 
 	UI_BUT_ICON_REVERSE      = (1 << 24), /* Reverse order of consecutive off/on icons */
+
+	UI_BUT_ANIMATED_CHANGED  = (1 << 25), /* Value is animated, but the current value differs from the animated one. */
 };
 
 /* scale fixed button widths by this to account for DPI */
@@ -1001,6 +1003,7 @@ void uiLayoutSetUnitsY(uiLayout *layout, float unit);
 void uiLayoutSetEmboss(uiLayout *layout, char emboss);
 void uiLayoutSetPropSep(uiLayout *layout, bool is_sep);
 void uiLayoutSetPropDecorate(uiLayout *layout, bool is_sep);
+int uiLayoutGetLocalDir(const uiLayout *layout);
 
 int uiLayoutGetOperatorContext(uiLayout *layout);
 bool uiLayoutGetActive(uiLayout *layout);
@@ -1188,6 +1191,7 @@ void uiItemsFullEnumO_items(
 void uiItemL(uiLayout *layout, const char *name, int icon); /* label */
 void uiItemLDrag(uiLayout *layout, struct PointerRNA *ptr, const char *name, int icon); /* label icon for dragging */
 void uiItemM(uiLayout *layout, const char *menuname, const char *name, int icon); /* menu */
+void uiItemMContents(uiLayout *layout, const char *menuname); /* menu contents */
 void uiItemV(uiLayout *layout, const char *name, int icon, int argval); /* value */
 void uiItemS(uiLayout *layout); /* separator */
 void uiItemS_ex(uiLayout *layout, float factor);

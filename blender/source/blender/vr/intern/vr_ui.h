@@ -117,16 +117,48 @@ public:
 	} AltState;
 
 	/* Possible modes of navigation. */
-	typedef enum NavigationMode
+	typedef enum NavMode
 	{
-		NAVIGATIONMODE_NONE		/* No navigation / disable locomotion. */
+		NAVMODE_NONE		/* No navigation / disable locomotion. */
 		,
-		NAVIGATIONMODE_GRABAIR	/* Grabbing-the-air navigation (default). */
+		NAVMODE_GRABAIR	/* Grabbing-the-air navigation (default). */
 		,
-		NAVIGATIONMODE_JOYSTICK	/* Joystick-style navigation (alyways keeping z-up). */
+		NAVMODE_JOYSTICK	/* Joystick-style navigation (alyways keeping z-up). */
 		,
-		NAVIGATIONMODE_TELEPORT	/* Teleport navigation. */
+		NAVMODE_TELEPORT	/* Teleport navigation. */
 	} NavMode;
+
+	/* Possible navigation locks. */
+	typedef enum NavLock
+	{
+		NAVLOCK_NONE = 0	/* No locks. */
+		,
+		NAVLOCK_TRANS = 1	/* Translation lock. */
+		,
+		NAVLOCK_TRANS_UP = 2	/* Up translation lock. */
+		,
+		NAVLOCK_ROT = 3	/* Rotation lock. */
+		,
+		NAVLOCK_ROT_UP = 4	/* Up-direction rotation lock. */
+		,
+		NAVLOCK_SCALE = 5	/* Scale lock. */
+		,
+		NAVLOCK_SCALE_REAL = 6	/* 1:1 Blender/Real scale lock. */
+		,
+		NAVLOCKS = 7	/* Number of distinct navigation locks. */
+	} NavLock;
+
+	/* Possible transformation spaces. */
+	typedef enum TransformSpace
+	{
+		TRANSFORMSPACE_GLOBAL = 0	/* Global space. */
+		,
+		TRANSFORMSPACE_LOCAL = 1	/* Local space. */
+		,
+		TRANSFORMSPACE_NORMAL = 2	/* Normal space. */
+		,
+		TRANSFORMSPACES = 3	/* Number of distinct transformation spaces. */
+	} TransformSpace;
 
 	/* Possible constraint modes. */
 	typedef enum ConstraintMode
@@ -218,6 +250,7 @@ public:
 		LMatrix2    last_position;		/* Last registered position (prior to the current one). */
 		ui64        last_buttons;		/* Currently depressed buttons associated with this cursor (flagword). */
 		bool        trigger;			/* Whether the Trigger button is currently pressed on this cursor. */
+		bool		grip;				/* Whether the Grip buton is currently pressed on this cursor. */
 		CtrlState	ctrl;				/* Whether the CTRL key is currently pressed on this cursor (0 or 1). */
 		ShiftState  shift;				/* Whether the SHIFT key is currently pressed on this cursor (0 or 1). */
 		AltState    alt;				/* Whether the ALT key is currently pressed on this cursor (0 or 1). */
@@ -293,12 +326,7 @@ public:
 	static bool			is_zaxis_up(); /* Whether the z-axis is the up direction in Blender. (If not, the y-axis is assumed to be the up direction). */
 	static void			navigation_orient_up(Coord3Df* pivot = 0); /* Rotate the origin so than the Blender up-axis is facing (real) upwards again. */
 
-	static NavigationMode navigation_mode;			/* Current mode of navigation (locomotion). */
-	static bool			navigation_lock_up;			/* Lock the "up"-vector to keep scene aligned to reality. */
-	static bool         navigation_lock_rotation;	/* Lock the rotation of of the navigation matrix. */
-	static bool         navigation_lock_altitude;	/* Lock the height / z-position to keep scene at the same level. */
-	static bool         navigation_lock_translation;/* Lock the position / location to keep scene in place. */
-	static bool         navigation_lock_scale;		/* Lock the scale of of the navigation matrix. */
+	static NavMode navigation_mode;	/* Current mode of navigation (locomotion). */
 
 	static const Mat44f& hmd_position_get(VR_Space space, bool inverse = false);	/* Get the current transformation matrix of the HMD. */
 	static const Mat44f& eye_position_get(VR_Space space, VR_Side side, bool inverse = false);	/* Get the transformation matrix of the eye (or physical camera in space). */
@@ -316,6 +344,7 @@ public:
 	static const Mat44f& cursor_interaction_position_get(VR_Space space, VR_Side side, bool inverse = false);	/* Get the 3D cursor position at the time of interaction start. */
 	static ui64			cursor_buttons_get(VR_Side side);	/* Get the cursors current button state. */
 	static bool			cursor_trigger_get(VR_Side side);	/* Get whether the trigger button is currently pressed on the controller. */
+	static bool			cursor_grip_get(VR_Side side);	/* Get whether the grip button is currently pressed on the controller. */
 	static bool			cursor_active_get(VR_Side side);		/* Get whether the 3D cursor is currently active (in use, but not necessarily doing anything right now). */
 	static bool			cursor_visible_get(VR_Side side);	/* Get whether the 3D cursor is set to be visible (tracked, but not necessarily on screen). */
 	static void			cursor_position_set(VR_Space space, VR_Side side, const Mat44f& m); /* Set the 3D cursors current transformation. */
@@ -324,7 +353,7 @@ public:
 	static bool			cursor_offset_enabled;	/* Whether the controller offset is currently being enabled. */
 	static bool			cursor_offset_update;	/* Whether the controller offset is currently being updated. */
 	static void			cursor_offset_set(VR_Side side, const Mat44f& rot, const Coord3Df& pos);	/* Set the current cursor offset for target cursor. */
-	
+
 	static bool			mouse_cursor_enabled;	/* Whether to enable (render) the mouse cursor. */
 	static Mat44f		viewport_projection[VR_SIDES];	/* Projection matrices for the VR viewports. */
 	static rcti			viewport_bounds;	/* Viewport (window) bounds for the VR viewports. */
@@ -341,9 +370,9 @@ public:
 
 	static Mat44f		convert_space(const Mat44f& m, VR_Space m_space, VR_Space target_space); //!< Convert a matrix into target space. */
 	static Coord3Df		convert_space(const Coord3Df& v, VR_Space v_space, VR_Space target_space); //!< Convert vector/position into target space. */
-	static int			get_screen_coordinates(const Coord3Df& c, float& x, float&, VR_Side = VR_SIDE_DOMINANT);	/* Get 2D screen coordinates (-1 ~ 1) of a 3D point. */
-	static int			get_pixel_coordinates(const Coord3Df& c, int& x, int& y, VR_Side = VR_SIDE_DOMINANT);		/* Get 2D pixel coordinates of a 3D point. */
-
+	static int			get_screen_coordinates(const Coord3Df& c, float& x, float&, VR_Side side = VR_SIDE_DOMINANT);	/* Get 2D screen coordinates (-1 ~ 1) of a 3D point. */
+	static int			get_pixel_coordinates(const Coord3Df& c, int& x, int& y, VR_Side side = VR_SIDE_DOMINANT);		/* Get 2D pixel coordinates of a 3D point. */
+	
 	static float		scene_unit_scale(VR_Space space);	/* Get the length (scale) of Blender scene units in respective space. */
 
 	static float		drag_threshold_distance;	/* Distance threshold (meters) to detect "dragging" (if the cursor moves farther than this with a button held down, it's dragging). */
@@ -352,6 +381,7 @@ public:
 
 	static int			undo_count;	/* Number of pending VR_UI undo operations to be executed post-scene render. */
 	static int			redo_count; /* Number of pending VR_UI redo operations to be executed post-scene render. */
+	static bool			editmode_exit;	/* Whether to exit edit mode (executed post-scene render). */
 
 	/* Selection mode (raycast or proximity). */
 	enum SelectionMode {
@@ -395,7 +425,7 @@ public:
 	static Error	render_widget_icons(VR_Side controller_side, const Mat44f& t_controller);	/* Helper function to render the widget icons on the controller. */
 	
 	static Error	execute_widget_renders(VR_Side side);	/* Helper function to execute widget render functions. */
-	static Error	render_menus(const Mat44f* _model, const Mat44f* _view);	/* Helper function to render VR floating menus. */
+	static Error	render_menus(const Mat44f *_model, const Mat44f *_view);	/* Helper function to render VR floating menus. */
 };
 
 #endif /* __VR_UI_H__ */

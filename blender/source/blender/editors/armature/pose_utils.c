@@ -240,11 +240,11 @@ void poseAnim_mapping_refresh(bContext *C, Scene *scene, Object *ob)
 	 */
 	/* FIXME: shouldn't this use the builtin stuff? */
 	if ((arm->flag & ARM_DELAYDEFORM) == 0)
-		DEG_id_tag_update(&ob->id, OB_RECALC_DATA);  /* sets recalc flags */
+		DEG_id_tag_update(&ob->id, ID_RECALC_GEOMETRY);  /* sets recalc flags */
 	else
 		BKE_pose_where_is(depsgraph, scene, ob);
 
-	DEG_id_tag_update(&ob->id, DEG_TAG_COPY_ON_WRITE); /* otherwise animation doesn't get updated */
+	DEG_id_tag_update(&ob->id, ID_RECALC_COPY_ON_WRITE); /* otherwise animation doesn't get updated */
 	WM_event_add_notifier(C, NC_OBJECT | ND_POSE, ob);
 }
 
@@ -290,7 +290,7 @@ void poseAnim_mapping_autoKeyframe(bContext *C, Scene *scene, ListBase *pfLinks,
 	View3D *v3d = CTX_wm_view3d(C);
 	bool skip = true;
 
-	FOREACH_OBJECT_IN_MODE_BEGIN(view_layer, v3d, OB_MODE_POSE, ob) {
+	FOREACH_OBJECT_IN_MODE_BEGIN(view_layer, v3d, OB_ARMATURE, OB_MODE_POSE, ob) {
 		ob->id.tag &= ~LIB_TAG_DOIT;
 		ob = poseAnim_object_get(ob);
 
@@ -342,7 +342,7 @@ void poseAnim_mapping_autoKeyframe(bContext *C, Scene *scene, ListBase *pfLinks,
 	 * - only do this if keyframes should have been added
 	 * - do not calculate unless there are paths already to update...
 	 */
-	FOREACH_OBJECT_IN_MODE_BEGIN(view_layer, v3d, OB_MODE_POSE, ob) {
+	FOREACH_OBJECT_IN_MODE_BEGIN(view_layer, v3d, OB_ARMATURE, OB_MODE_POSE, ob) {
 		if (ob->id.tag & LIB_TAG_DOIT) {
 			if (ob->pose->avs.path_bakeflag & MOTIONPATH_BAKE_HAS_PATHS) {
 				//ED_pose_clear_paths(C, ob); // XXX for now, don't need to clear

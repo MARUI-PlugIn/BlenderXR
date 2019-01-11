@@ -146,7 +146,7 @@ void cloth_init(ClothModifierData *clmd )
 	clmd->sim_parms->bending_model = CLOTH_BENDING_ANGULAR;
 
 	if (!clmd->sim_parms->effector_weights)
-		clmd->sim_parms->effector_weights = BKE_add_effector_weights(NULL);
+		clmd->sim_parms->effector_weights = BKE_effector_add_weights(NULL);
 
 	if (clmd->point_cache)
 		clmd->point_cache->step = 1;
@@ -804,7 +804,6 @@ static int cloth_from_object(Object *ob, ClothModifierData *clmd, Mesh *mesh, fl
 	if ( !cloth_build_springs ( clmd, mesh ) ) {
 		cloth_free_modifier ( clmd );
 		modifier_setError(&(clmd->modifier), "Cannot build springs");
-		printf("cloth_free_modifier cloth_build_springs\n");
 		return 0;
 	}
 

@@ -130,23 +130,6 @@ void DEG_add_object_relation(DepsNodeHandle *node_handle,
 	                                                   description);
 }
 
-void DEG_add_object_relation_with_customdata(DepsNodeHandle *node_handle,
-                                             Object *object,
-                                             eDepsObjectComponentType component,
-                                             uint64_t customdata_mask,
-                                             const char *description)
-{
-	DEG::eDepsNode_Type type = deg_build_object_component_type(component);
-	DEG::ComponentKey comp_key(&object->id, type);
-	DEG::DepsNodeHandle *deg_node_handle = get_node_handle(node_handle);
-	deg_node_handle->builder->add_node_handle_relation(comp_key,
-	                                                   deg_node_handle,
-	                                                   description);
-	if (object->type == OB_MESH) {
-		deg_node_handle->builder->add_customdata_mask(comp_key, customdata_mask);
-	}
-}
-
 void DEG_add_object_cache_relation(DepsNodeHandle *node_handle,
                                    CacheFile *cache_file,
                                    eDepsObjectComponentType component,
@@ -202,12 +185,34 @@ void DEG_add_object_pointcache_relation(struct DepsNodeHandle *node_handle,
 	}
 }
 
+void DEG_add_generic_id_relation(struct DepsNodeHandle *node_handle,
+                                 struct ID *id,
+                                 const char *description)
+{
+	DEG::OperationKey operation_key(
+	        id,
+	        DEG::DEG_NODE_TYPE_GENERIC_DATABLOCK,
+	        DEG::DEG_OPCODE_GENERIC_DATABLOCK_UPDATE);
+	DEG::DepsNodeHandle *deg_node_handle = get_node_handle(node_handle);
+	deg_node_handle->builder->add_node_handle_relation(operation_key,
+	                                                   deg_node_handle,
+	                                                   description);
+}
+
 void DEG_add_special_eval_flag(struct DepsNodeHandle *node_handle,
                                ID *id,
                                uint32_t flag)
 {
 	DEG::DepsNodeHandle *deg_node_handle = get_node_handle(node_handle);
 	deg_node_handle->builder->add_special_eval_flag(id, flag);
+}
+
+void DEG_add_customdata_mask(struct DepsNodeHandle *node_handle,
+                             struct Object *object,
+                             uint64_t mask)
+{
+	DEG::DepsNodeHandle *deg_node_handle = get_node_handle(node_handle);
+	deg_node_handle->builder->add_customdata_mask(object, mask);
 }
 
 struct ID *DEG_get_id_from_handle(struct DepsNodeHandle *node_handle)

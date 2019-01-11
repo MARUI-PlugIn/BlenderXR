@@ -118,7 +118,7 @@ static void deformVerts(
 	int defgrp_index = -1;
 	MOD_get_vgroup(ctx->object, mesh_src, swmd->vgroup_name, &dvert, &defgrp_index);
 
-	shrinkwrapModifier_deform(swmd, scene, ctx->object, mesh_src, dvert, defgrp_index, vertexCos, numVerts);
+	shrinkwrapModifier_deform(swmd, ctx, scene, ctx->object, mesh_src, dvert, defgrp_index, vertexCos, numVerts);
 
 	if (!ELEM(mesh_src, NULL, mesh)) {
 		BKE_id_free(NULL, mesh_src);
@@ -138,7 +138,7 @@ static void deformVertsEM(
 	int defgrp_index = -1;
 	MOD_get_vgroup(ctx->object, mesh_src, swmd->vgroup_name, &dvert, &defgrp_index);
 
-	shrinkwrapModifier_deform(swmd, scene, ctx->object, mesh_src, dvert, defgrp_index, vertexCos, numVerts);
+	shrinkwrapModifier_deform(swmd, ctx, scene, ctx->object, mesh_src, dvert, defgrp_index, vertexCos, numVerts);
 
 	if (!ELEM(mesh_src, NULL, mesh)) {
 		BKE_id_free(NULL, mesh_src);
@@ -156,14 +156,16 @@ static void updateDepsgraph(ModifierData *md, const ModifierUpdateDepsgraphConte
 
 	if (smd->target != NULL) {
 		DEG_add_object_relation(ctx->node, smd->target, DEG_OB_COMP_TRANSFORM, "Shrinkwrap Modifier");
-		DEG_add_object_relation_with_customdata(ctx->node, smd->target, DEG_OB_COMP_GEOMETRY, mask, "Shrinkwrap Modifier");
+		DEG_add_object_relation(ctx->node, smd->target, DEG_OB_COMP_GEOMETRY, "Shrinkwrap Modifier");
+		DEG_add_customdata_mask(ctx->node, smd->target, mask);
 		if (smd->shrinkType == MOD_SHRINKWRAP_TARGET_PROJECT) {
 			DEG_add_special_eval_flag(ctx->node, &smd->target->id, DAG_EVAL_NEED_SHRINKWRAP_BOUNDARY);
 		}
 	}
 	if (smd->auxTarget != NULL) {
 		DEG_add_object_relation(ctx->node, smd->auxTarget, DEG_OB_COMP_TRANSFORM, "Shrinkwrap Modifier");
-		DEG_add_object_relation_with_customdata(ctx->node, smd->auxTarget, DEG_OB_COMP_GEOMETRY, mask, "Shrinkwrap Modifier");
+		DEG_add_object_relation(ctx->node, smd->auxTarget, DEG_OB_COMP_GEOMETRY, "Shrinkwrap Modifier");
+		DEG_add_customdata_mask(ctx->node, smd->auxTarget, mask);
 		if (smd->shrinkType == MOD_SHRINKWRAP_TARGET_PROJECT) {
 			DEG_add_special_eval_flag(ctx->node, &smd->auxTarget->id, DAG_EVAL_NEED_SHRINKWRAP_BOUNDARY);
 		}

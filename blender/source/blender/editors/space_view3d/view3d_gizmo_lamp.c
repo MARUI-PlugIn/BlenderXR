@@ -30,6 +30,8 @@
 #include "BKE_context.h"
 #include "BKE_object.h"
 
+#include "DEG_depsgraph.h"
+
 #include "DNA_object_types.h"
 #include "DNA_lamp_types.h"
 
@@ -61,11 +63,14 @@ static bool WIDGETGROUP_lamp_spot_poll(const bContext *C, wmGizmoGroupType *UNUS
 		return false;
 	}
 
-	Object *ob = CTX_data_active_object(C);
-
-	if (ob && ob->type == OB_LAMP) {
-		Lamp *la = ob->data;
-		return (la->type == LA_SPOT);
+	ViewLayer *view_layer = CTX_data_view_layer(C);
+	Base *base = BASACT(view_layer);
+	if (base && BASE_VISIBLE(v3d, base)) {
+		Object *ob = base->object;
+		if (ob->type == OB_LAMP) {
+			Lamp *la = ob->data;
+			return (la->type == LA_SPOT);
+		}
 	}
 	return false;
 }
@@ -89,7 +94,8 @@ static void WIDGETGROUP_lamp_spot_refresh(const bContext *C, wmGizmoGroup *gzgro
 {
 	wmGizmoWrapper *wwrapper = gzgroup->customdata;
 	wmGizmo *gz = wwrapper->gizmo;
-	Object *ob = CTX_data_active_object(C);
+	ViewLayer *view_layer = CTX_data_view_layer(C);
+	Object *ob = OBACT(view_layer);
 	Lamp *la = ob->data;
 	float dir[3];
 
@@ -154,6 +160,9 @@ static void gizmo_area_lamp_prop_matrix_set(
 	else {
 		la->area_size = len_v3(matrix[0]);
 	}
+
+	DEG_id_tag_update(&la->id, ID_RECALC_COPY_ON_WRITE);
+	WM_main_add_notifier(NC_LAMP | ND_LIGHTING_DRAW, la);
 }
 
 static bool WIDGETGROUP_lamp_area_poll(const bContext *C, wmGizmoGroupType *UNUSED(gzgt))
@@ -163,10 +172,14 @@ static bool WIDGETGROUP_lamp_area_poll(const bContext *C, wmGizmoGroupType *UNUS
 		return false;
 	}
 
-	Object *ob = CTX_data_active_object(C);
-	if (ob && ob->type == OB_LAMP) {
-		Lamp *la = ob->data;
-		return (la->type == LA_AREA);
+	ViewLayer *view_layer = CTX_data_view_layer(C);
+	Base *base = BASACT(view_layer);
+	if (base && BASE_VISIBLE(v3d, base)) {
+		Object *ob = base->object;
+		if (ob->type == OB_LAMP) {
+			Lamp *la = ob->data;
+			return (la->type == LA_AREA);
+		}
 	}
 	return false;
 }
@@ -190,7 +203,8 @@ static void WIDGETGROUP_lamp_area_setup(const bContext *UNUSED(C), wmGizmoGroup 
 static void WIDGETGROUP_lamp_area_refresh(const bContext *C, wmGizmoGroup *gzgroup)
 {
 	wmGizmoWrapper *wwrapper = gzgroup->customdata;
-	Object *ob = CTX_data_active_object(C);
+	ViewLayer *view_layer = CTX_data_view_layer(C);
+	Object *ob = OBACT(view_layer);
 	Lamp *la = ob->data;
 	wmGizmo *gz = wwrapper->gizmo;
 
@@ -242,9 +256,10 @@ static bool WIDGETGROUP_lamp_target_poll(const bContext *C, wmGizmoGroupType *UN
 		return false;
 	}
 
-	Object *ob = CTX_data_active_object(C);
-
-	if (ob != NULL) {
+	ViewLayer *view_layer = CTX_data_view_layer(C);
+	Base *base = BASACT(view_layer);
+	if (base && BASE_VISIBLE(v3d, base)) {
+		Object *ob = base->object;
 		if (ob->type == OB_LAMP) {
 			Lamp *la = ob->data;
 			return (ELEM(la->type, LA_SUN, LA_SPOT, LA_AREA));
@@ -282,12 +297,21 @@ static void WIDGETGROUP_lamp_target_setup(const bContext *UNUSED(C), wmGizmoGrou
 static void WIDGETGROUP_lamp_target_draw_prepare(const bContext *C, wmGizmoGroup *gzgroup)
 {
 	wmGizmoWrapper *wwrapper = gzgroup->customdata;
-	Object *ob = CTX_data_active_object(C);
+	ViewLayer *view_layer = CTX_data_view_layer(C);
+	Object *ob = OBACT(view_layer);
 	wmGizmo *gz = wwrapper->gizmo;
 
-	copy_m4_m4(gz->matrix_basis, ob->obmat);
+	normalize_m4_m4(gz->matrix_basis, ob->obmat);
 	unit_m4(gz->matrix_offset);
-	gz->matrix_offset[3][2] = -2.4f / gz->scale_basis;
+
+	if (ob->type == OB_LAMP) {
+		Lamp *la = ob->data;
+		if (la->type == LA_SPOT) {
+			/* Draw just past the lamp size angle gizmo. */
+			madd_v3_v3fl(gz->matrix_basis[3], gz->matrix_basis[2], -la->spotsize);
+		}
+	}
+	gz->matrix_offset[3][2] -= 23.0;
 	WM_gizmo_set_flag(gz, WM_GIZMO_DRAW_OFFSET_SCALE, true);
 }
 

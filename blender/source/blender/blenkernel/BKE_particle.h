@@ -472,15 +472,12 @@ float psys_get_current_display_percentage(struct ParticleSystem *psys, const boo
 
 struct Depsgraph;
 
+void BKE_particle_settings_eval_reset(
+        struct Depsgraph *depsgraph,
+        struct ParticleSettings *particle_settings);
+
 void BKE_particle_system_eval_init(struct Depsgraph *depsgraph,
-                                   struct Scene *scene,
-                                   struct Object *ob);
-								   
-#if WITH_VR
-#ifdef __cplusplus
-}
-#endif
-#endif
+                                   struct Object *object);
 
 #endif
 
@@ -490,3 +487,9 @@ enum {
 };
 void BKE_particle_batch_cache_dirty_tag(struct ParticleSystem *psys, int mode);
 void BKE_particle_batch_cache_free(struct ParticleSystem *psys);
+
+#if WITH_VR
+#ifdef __cplusplus
+}
+#endif
+#endif

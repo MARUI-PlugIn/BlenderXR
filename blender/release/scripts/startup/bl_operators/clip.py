@@ -299,7 +299,7 @@ class CLIP_OT_bundles_to_mesh(Operator):
         if camera:
             reconstruction = tracking_object.reconstruction
             framenr = scene.frame_current - clip.frame_start + 1
-            reconstructed_matrix = reconstruction.cameras.matrix_from_frame(framenr)
+            reconstructed_matrix = reconstruction.cameras.matrix_from_frame(frame=framenr)
             matrix = camera.matrix_world @ reconstructed_matrix.inverted()
 
         for track in tracking_object.tracks:
@@ -516,7 +516,7 @@ class CLIP_OT_constraint_to_fcurve(Operator):
         # XXX, should probably use context.selected_editable_objects
         # since selected objects can be from a lib or in hidden layer!
         for ob in scene.objects:
-            if ob.select_set(True):
+            if ob.select_get():
                 self._bake_object(scene, ob)
 
         return {'FINISHED'}

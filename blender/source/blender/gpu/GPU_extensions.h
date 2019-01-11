@@ -54,6 +54,7 @@ int GPU_color_depth(void);
 void GPU_get_dfdy_factors(float fac[2]);
 bool GPU_mip_render_workaround(void);
 bool GPU_depth_blitting_workaround(void);
+bool GPU_unused_fb_slot_workaround(void);
 
 bool GPU_mem_stats_supported(void);
 void GPU_mem_stats_get(int *totalmem, int *freemem);
@@ -66,8 +67,9 @@ typedef enum GPUDeviceType {
 	GPU_DEVICE_NVIDIA =     (1 << 0),
 	GPU_DEVICE_ATI =        (1 << 1),
 	GPU_DEVICE_INTEL =      (1 << 2),
-	GPU_DEVICE_SOFTWARE =   (1 << 3),
-	GPU_DEVICE_UNKNOWN =    (1 << 4),
+	GPU_DEVICE_INTEL_UHD =  (1 << 3),
+	GPU_DEVICE_SOFTWARE =   (1 << 4),
+	GPU_DEVICE_UNKNOWN =    (1 << 5),
 	GPU_DEVICE_ANY =        (0xff)
 } GPUDeviceType;
 

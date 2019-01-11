@@ -162,42 +162,6 @@ def module_filesystem_remove(path_base, module_name):
                 os.remove(f_full)
 
 
-class BRUSH_OT_active_index_set(Operator):
-    """Set active sculpt/paint brush from it's number"""
-    bl_idname = "brush.active_index_set"
-    bl_label = "Set Brush Number"
-
-    mode: StringProperty(
-        name="Mode",
-        description="Paint mode to set brush for",
-        maxlen=1024,
-    )
-    index: IntProperty(
-        name="Number",
-        description="Brush number",
-    )
-
-    _attr_dict = {
-        "sculpt": "use_paint_sculpt",
-        "vertex_paint": "use_paint_vertex",
-        "weight_paint": "use_paint_weight",
-        "image_paint": "use_paint_image",
-    }
-
-    def execute(self, context):
-        attr = self._attr_dict.get(self.mode)
-        if attr is None:
-            return {'CANCELLED'}
-
-        toolsettings = context.tool_settings
-        for i, brush in enumerate((cur for cur in bpy.data.brushes if getattr(cur, attr))):
-            if i == self.index:
-                getattr(toolsettings, self.mode).brush = brush
-                return {'FINISHED'}
-
-        return {'CANCELLED'}
-
-
 class WM_OT_context_set_boolean(Operator):
     """Set a context value"""
     bl_idname = "wm.context_set_boolean"
@@ -1060,9 +1024,9 @@ class WM_OT_doc_view(Operator):
 
     doc_id: doc_id
     if bpy.app.version_cycle == "release":
-        _prefix = ("https://docs.blender.org/api/blender_python_api_current")
+        _prefix = ("https://docs.blender.org/api/current")
     else:
-        _prefix = ("https://docs.blender.org/api/blender_python_api_master")
+        _prefix = ("https://docs.blender.org/api/blender2.8")
 
     def execute(self, context):
         url = _wm_doc_get_id(self.doc_id, do_url=True, url_prefix=self._prefix)
@@ -1085,6 +1049,12 @@ rna_path = StringProperty(
 rna_value = StringProperty(
     name="Property Value",
     description="Property value edit",
+    maxlen=1024,
+)
+
+rna_default = StringProperty(
+    name="Default Value",
+    description="Default value of the property. Important for NLA mixing",
     maxlen=1024,
 )
 
@@ -1125,6 +1095,7 @@ class WM_OT_properties_edit(Operator):
     data_path: rna_path
     property: rna_property
     value: rna_value
+    default: rna_default
     min: rna_min
     max: rna_max
     use_soft_limits: rna_use_soft_limits
@@ -1143,6 +1114,26 @@ class WM_OT_properties_edit(Operator):
             "hard_range": (self.min, self.max),
         }
 
+    def get_value_eval(self):
+        try:
+            value_eval = eval(self.value)
+            # assert else None -> None, not "None", see [#33431]
+            assert(type(value_eval) in {str, float, int, bool, tuple, list})
+        except:
+            value_eval = self.value
+
+        return value_eval
+
+    def get_default_eval(self):
+        try:
+            default_eval = eval(self.default)
+            # assert else None -> None, not "None", see [#33431]
+            assert(type(default_eval) in {str, float, int, bool, tuple, list})
+        except:
+            default_eval = self.default
+
+        return default_eval
+
     def execute(self, context):
         from rna_prop_ui import (
             rna_idprop_ui_prop_get,
@@ -1160,12 +1151,8 @@ class WM_OT_properties_edit(Operator):
             self.report({'ERROR'}, "Direct execution not supported")
             return {'CANCELLED'}
 
-        try:
-            value_eval = eval(value)
-            # assert else None -> None, not "None", see [#33431]
-            assert(type(value_eval) in {str, float, int, bool, tuple, list})
-        except:
-            value_eval = value
+        value_eval = self.get_value_eval()
+        default_eval = self.get_default_eval()
 
         # First remove
         item = eval("context.%s" % data_path)
@@ -1195,6 +1182,8 @@ class WM_OT_properties_edit(Operator):
         if prop_type in {float, int}:
             prop_ui["min"] = prop_type(self.min)
             prop_ui["max"] = prop_type(self.max)
+            if type(default_eval) in {float, int} and default_eval != 0:
+                prop_ui["default"] = prop_type(default_eval)
 
             if self.use_soft_limits:
                 prop_ui["soft_min"] = prop_type(self.soft_min)
@@ -1255,12 +1244,27 @@ class WM_OT_properties_edit(Operator):
 
         item = eval("context.%s" % data_path)
 
+        # retrieve overridable static
+        exec_str = "item.is_property_overridable_static('[\"%s\"]')" % (self.property)
+        self.is_overridable_static = bool(eval(exec_str))
+
+        # default default value
+        prop_type = type(self.get_value_eval())
+        if prop_type in {int, float}:
+            self.default = str(prop_type(0))
+        else:
+            self.default = ""
+
         # setup defaults
         prop_ui = rna_idprop_ui_prop_get(item, self.property, False)  # don't create
         if prop_ui:
             self.min = prop_ui.get("min", -1000000000)
             self.max = prop_ui.get("max", 1000000000)
             self.description = prop_ui.get("description", "")
+
+            defval = prop_ui.get("default", None)
+            if defval is not None:
+                self.default = str(defval)
 
             self.soft_min = prop_ui.get("soft_min", self.min)
             self.soft_max = prop_ui.get("soft_max", self.max)
@@ -1307,6 +1311,11 @@ class WM_OT_properties_edit(Operator):
         layout = self.layout
         layout.prop(self, "property")
         layout.prop(self, "value")
+
+        row = layout.row()
+        row.enabled = type(self.get_value_eval()) in {int, float}
+        row.prop(self, "default")
+
         row = layout.row(align=True)
         row.prop(self, "min")
         row.prop(self, "max")
@@ -2006,7 +2015,7 @@ class WM_OT_addon_install(Operator):
             # don't use bpy.utils.script_paths("addons") because we may not be able to write to it.
             path_addons = bpy.utils.user_resource('SCRIPTS', "addons", create=True)
         else:
-            path_addons = context.user_preferences.filepaths.script_directory
+            path_addons = context.preferences.filepaths.script_directory
             if path_addons:
                 path_addons = os.path.join(path_addons, "addons")
 
@@ -2197,7 +2206,7 @@ class WM_OT_addon_expand(Operator):
 
 
 class WM_OT_addon_userpref_show(Operator):
-    """Show add-on user preferences"""
+    """Show add-on preferences"""
     bl_idname = "wm.addon_userpref_show"
     bl_label = ""
     bl_options = {'INTERNAL'}
@@ -2218,7 +2227,7 @@ class WM_OT_addon_userpref_show(Operator):
             info = addon_utils.module_bl_info(mod)
             info["show_expanded"] = True
 
-            context.user_preferences.active_section = 'ADDONS'
+            context.preferences.active_section = 'ADDONS'
             context.window_manager.addon_filter = 'All'
             context.window_manager.addon_search = info["name"]
             bpy.ops.screen.userpref_show('INVOKE_DEFAULT')
@@ -2385,6 +2394,7 @@ class WM_OT_toolbar(Operator):
 
     if use_toolbar_release_hack:
         _key_held = None
+
         def invoke(self, context, event):
             WM_OT_toolbar._key_held = event.type
             return self.execute(context)
@@ -2444,7 +2454,7 @@ class WM_OT_studiolight_install(Operator):
         import traceback
         import shutil
         import pathlib
-        userpref = context.user_preferences
+        prefs = context.preferences
 
         filepaths = [pathlib.Path(self.directory, e.name) for e in self.files]
         path_studiolights = bpy.utils.user_resource('DATAFILES')
@@ -2462,7 +2472,7 @@ class WM_OT_studiolight_install(Operator):
 
         for filepath in filepaths:
             shutil.copy(str(filepath), str(path_studiolights))
-            userpref.studio_lights.load(str(path_studiolights.joinpath(filepath.name)), self.type)
+            prefs.studio_lights.load(str(path_studiolights.joinpath(filepath.name)), self.type)
 
         # print message
         msg = (
@@ -2480,18 +2490,21 @@ class WM_OT_studiolight_install(Operator):
 
 
 class WM_OT_studiolight_new(Operator):
-    """Create custom studio light from the studio light editor settings"""
+    """Save custom studio light from the studio light editor settings"""
     bl_idname = 'wm.studiolight_new'
-    bl_label = "Create custom Studio light"
+    bl_label = "Save custom Studio light"
 
     filename: StringProperty(
         name="Name",
         default="StudioLight",
     )
 
+    ask_overide = False
+
     def execute(self, context):
         import pathlib
-        userpref = context.user_preferences
+        prefs = context.preferences
+        wm = context.window_manager
 
         path_studiolights = bpy.utils.user_resource('DATAFILES')
 
@@ -2506,12 +2519,17 @@ class WM_OT_studiolight_new(Operator):
             except:
                 traceback.print_exc()
 
-        finalpath = str(path_studiolights.joinpath(self.filename));
+        finalpath = str(path_studiolights.joinpath(self.filename))
         if pathlib.Path(finalpath + ".sl").is_file():
-            self.report({'ERROR'}, "File already exists")
-            return {'CANCELLED'}
+            if not self.ask_overide:
+                self.ask_overide = True
+                return wm.invoke_props_dialog(self, width=600)
+            else:
+                for studio_light in prefs.studio_lights:
+                    if studio_light.name == self.filename + ".sl":
+                        bpy.ops.wm.studiolight_uninstall(index=studio_light.index)
 
-        userpref.studio_lights.new(path=finalpath)
+        prefs.studio_lights.new(path=finalpath)
 
         # print message
         msg = (
@@ -2524,7 +2542,10 @@ class WM_OT_studiolight_new(Operator):
 
     def draw(self, context):
         layout = self.layout
-        layout.prop(self, "filename")
+        if self.ask_overide:
+            layout.label(text="Warning, file already exists. Overwrite existing file?")
+        else:
+            layout.prop(self, "filename")
 
     def invoke(self, context, event):
         wm = context.window_manager
@@ -2532,6 +2553,7 @@ class WM_OT_studiolight_new(Operator):
 
 
 class WM_OT_studiolight_uninstall(Operator):
+    """Delete Studio Light"""
     bl_idname = 'wm.studiolight_uninstall'
     bl_label = "Uninstall Studio Light"
     index: bpy.props.IntProperty()
@@ -2542,8 +2564,8 @@ class WM_OT_studiolight_uninstall(Operator):
 
     def execute(self, context):
         import pathlib
-        userpref = context.user_preferences
-        for studio_light in userpref.studio_lights:
+        prefs = context.preferences
+        for studio_light in prefs.studio_lights:
             if studio_light.index == self.index:
                 if studio_light.path:
                     self._remove_path(pathlib.Path(studio_light.path))
@@ -2551,19 +2573,41 @@ class WM_OT_studiolight_uninstall(Operator):
                     self._remove_path(pathlib.Path(studio_light.path_irr_cache))
                 if studio_light.path_sh_cache:
                     self._remove_path(pathlib.Path(studio_light.path_sh_cache))
-                userpref.studio_lights.remove(studio_light)
+                prefs.studio_lights.remove(studio_light)
+                return {'FINISHED'}
+        return {'CANCELLED'}
+
+
+class WM_OT_studiolight_copy_settings(Operator):
+    """Copy Studio Light settings to the Studio light editor"""
+    bl_idname = 'wm.studiolight_copy_settings'
+    bl_label = "Copy Studio Light settings"
+    index: bpy.props.IntProperty()
+
+    def execute(self, context):
+        prefs = context.preferences
+        system = prefs.system
+        for studio_light in prefs.studio_lights:
+            if studio_light.index == self.index:
+                system.light_ambient = studio_light.light_ambient
+                for sys_light, light in zip(system.solid_lights, studio_light.solid_lights):
+                    sys_light.use = light.use
+                    sys_light.diffuse_color = light.diffuse_color
+                    sys_light.specular_color = light.specular_color
+                    sys_light.smooth = light.smooth
+                    sys_light.direction = light.direction
                 return {'FINISHED'}
         return {'CANCELLED'}
 
 
 class WM_OT_studiolight_userpref_show(Operator):
-    """Show light user preferences"""
+    """Show light preferences"""
     bl_idname = "wm.studiolight_userpref_show"
     bl_label = ""
     bl_options = {'INTERNAL'}
 
     def execute(self, context):
-        context.user_preferences.active_section = 'LIGHTS'
+        context.preferences.active_section = 'LIGHTS'
         bpy.ops.screen.userpref_show('INVOKE_DEFAULT')
         return {'FINISHED'}
 
@@ -2573,7 +2617,7 @@ class WM_MT_splash(Menu):
 
     def draw_setup(self, context):
         wm = context.window_manager
-        # userpref = context.user_preferences
+        # prefs = context.preferences
 
         layout = self.layout
 
@@ -2633,9 +2677,9 @@ class WM_MT_splash(Menu):
         #sub = col.split(factor=0.35)
         #row = sub.row()
         #row.alignment = 'RIGHT'
-        #row.label(text="Language:")
-        #userpref = context.user_preferences
-        #sub.prop(userpref.system, "language", text="")
+        # row.label(text="Language:")
+        #prefs = context.preferences
+        #sub.prop(prefs.system, "language", text="")
 
         # Keep height constant
         if not has_select_mouse:
@@ -2661,7 +2705,7 @@ class WM_MT_splash(Menu):
         layout.separator()
 
     def draw(self, context):
-        # Draw setup screen if no user preferences have been saved yet.
+        # Draw setup screen if no preferences have been saved yet.
         import os
 
         user_path = bpy.utils.resource_path('USER')
@@ -2763,8 +2807,8 @@ class WM_OT_drop_blend_file(Operator):
         col.operator("wm.link", text="Link...", icon='LINK_BLEND').filepath = self.filepath
         col.operator("wm.append", text="Append...", icon='APPEND_BLEND').filepath = self.filepath
 
+
 classes = (
-    BRUSH_OT_active_index_set,
     WM_OT_addon_disable,
     WM_OT_addon_enable,
     WM_OT_addon_expand,
@@ -2819,6 +2863,7 @@ classes = (
     WM_OT_studiolight_install,
     WM_OT_studiolight_new,
     WM_OT_studiolight_uninstall,
+    WM_OT_studiolight_copy_settings,
     WM_OT_studiolight_userpref_show,
     WM_OT_tool_set_by_name,
     WM_OT_toolbar,

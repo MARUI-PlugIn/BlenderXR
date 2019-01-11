@@ -1187,7 +1187,8 @@ static void studiolight_irradiance_preview(uint *icon_buffer, StudioLight *sl)
 void BKE_studiolight_init(void)
 {
 	/* Add default studio light */
-	StudioLight * sl = studiolight_create(STUDIOLIGHT_INTERNAL | STUDIOLIGHT_SPHERICAL_HARMONICS_COEFFICIENTS_CALCULATED | STUDIOLIGHT_TYPE_STUDIO);
+	StudioLight *sl = studiolight_create(
+	        STUDIOLIGHT_INTERNAL | STUDIOLIGHT_SPHERICAL_HARMONICS_COEFFICIENTS_CALCULATED | STUDIOLIGHT_TYPE_STUDIO);
 	BLI_strncpy(sl->name, "Default", FILE_MAXFILE);
 
 	copy_v4_fl4(sl->light_ambient, 0.025000, 0.025000, 0.025000, 1.000000);
@@ -1210,16 +1211,31 @@ void BKE_studiolight_init(void)
 	sl->light[2].flag = 1;
 	sl->light[2].smooth = 0.5;
 
+	copy_v4_fl4(sl->light[3].vec, 0.021053, -0.989474, 0.143173, 0.0);
+	copy_v4_fl4(sl->light[3].col, 0.0, 0.0, 0.0, 1.0);
+	copy_v4_fl4(sl->light[3].spec, 0.072234, 0.082253, 0.162642, 1.000000);
+	sl->light[3].flag = 1;
+	sl->light[3].smooth = 0.7;
+
 	BLI_addtail(&studiolights, sl);
 
 	/* go over the preset folder and add a studiolight for every image with its path */
+	/* for portable installs (where USER and SYSTEM paths are the same), only go over LOCAL datafiles once */
 	/* Also reserve icon space for it. */
+	if (!BKE_appdir_app_is_portable_install()) {
+		studiolight_add_files_from_datafolder(BLENDER_USER_DATAFILES,
+		                                      STUDIOLIGHT_LIGHTS_FOLDER,
+		                                      STUDIOLIGHT_TYPE_STUDIO | STUDIOLIGHT_USER_DEFINED);
+		studiolight_add_files_from_datafolder(BLENDER_USER_DATAFILES,
+		                                      STUDIOLIGHT_WORLD_FOLDER,
+		                                      STUDIOLIGHT_TYPE_WORLD | STUDIOLIGHT_USER_DEFINED);
+		studiolight_add_files_from_datafolder(BLENDER_USER_DATAFILES,
+		                                      STUDIOLIGHT_MATCAP_FOLDER,
+		                                      STUDIOLIGHT_TYPE_MATCAP | STUDIOLIGHT_USER_DEFINED);
+	}
 	studiolight_add_files_from_datafolder(BLENDER_SYSTEM_DATAFILES, STUDIOLIGHT_LIGHTS_FOLDER, STUDIOLIGHT_TYPE_STUDIO);
-	studiolight_add_files_from_datafolder(BLENDER_USER_DATAFILES,   STUDIOLIGHT_LIGHTS_FOLDER, STUDIOLIGHT_TYPE_STUDIO | STUDIOLIGHT_USER_DEFINED);
 	studiolight_add_files_from_datafolder(BLENDER_SYSTEM_DATAFILES, STUDIOLIGHT_WORLD_FOLDER,  STUDIOLIGHT_TYPE_WORLD);
-	studiolight_add_files_from_datafolder(BLENDER_USER_DATAFILES,   STUDIOLIGHT_WORLD_FOLDER,  STUDIOLIGHT_TYPE_WORLD | STUDIOLIGHT_USER_DEFINED);
 	studiolight_add_files_from_datafolder(BLENDER_SYSTEM_DATAFILES, STUDIOLIGHT_MATCAP_FOLDER, STUDIOLIGHT_TYPE_MATCAP);
-	studiolight_add_files_from_datafolder(BLENDER_USER_DATAFILES,   STUDIOLIGHT_MATCAP_FOLDER, STUDIOLIGHT_TYPE_MATCAP | STUDIOLIGHT_USER_DEFINED);
 
 	/* sort studio lights on filename. */
 	BLI_listbase_sort(&studiolights, studiolight_cmp);
@@ -1360,7 +1376,7 @@ StudioLight *BKE_studiolight_create(const char *path, const SolidLight light[4],
 	BLI_snprintf(sl->path, FILE_MAXFILE, "%s%s", path, ".sl");
 	BLI_snprintf(sl->name, FILE_MAXFILE, "%s%s", filename, ".sl");
 
-	memcpy(sl->light, light, sizeof(*light) * 3);
+	memcpy(sl->light, light, sizeof(*light) * 4);
 	memcpy(sl->light_ambient, light_ambient, sizeof(*light_ambient) * 3);
 
 	studiolight_write_solid_light(sl);
@@ -1375,8 +1391,8 @@ StudioLight *BKE_studiolight_studio_edit_get(void)
 	static StudioLight sl = {0};
 	sl.flag = STUDIOLIGHT_TYPE_STUDIO;
 
-	memcpy(sl.light, U.light, sizeof(*sl.light) * 3);
-	memcpy(sl.light_ambient, U.light_ambient, sizeof(sl.light_ambient) * 3);
+	memcpy(sl.light, U.light_param, sizeof(*sl.light) * 4);
+	memcpy(sl.light_ambient, U.light_ambient, sizeof(*sl.light_ambient) * 3);
 
 	return &sl;
 }

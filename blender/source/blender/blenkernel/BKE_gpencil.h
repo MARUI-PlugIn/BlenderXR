@@ -30,7 +30,7 @@
   *  \ingroup bke
   *  \author Joshua Leung
   */
-  
+
 #include "../vr/vr_build.h"
 #if WITH_VR
 #ifdef __cplusplus

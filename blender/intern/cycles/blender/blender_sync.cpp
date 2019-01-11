@@ -123,9 +123,9 @@ void BlenderSync::sync_recalc(BL::Depsgraph& b_depsgraph)
 		/* Object */
 		else if(b_id.is_a(&RNA_Object)) {
 			BL::Object b_ob(b_id);
-			const bool updated_geometry = !b_update->is_dirty_geometry();
+			const bool updated_geometry = b_update->is_updated_geometry();
 
-			if(!b_update->is_dirty_transform()) {
+			if(b_update->is_updated_transform()) {
 				object_map.set_recalc(b_ob);
 				light_map.set_recalc(b_ob);
 			}
@@ -702,7 +702,7 @@ bool BlenderSync::get_session_pause(BL::Scene& b_scene, bool background)
 }
 
 SessionParams BlenderSync::get_session_params(BL::RenderEngine& b_engine,
-                                              BL::UserPreferences& b_userpref,
+                                              BL::Preferences& b_userpref,
                                               BL::Scene& b_scene,
                                               bool background)
 {
@@ -742,7 +742,7 @@ SessionParams BlenderSync::get_session_params(BL::RenderEngine& b_engine,
 	else if(get_enum(cscene, "device") == 1) {
 		PointerRNA b_preferences;
 
-		BL::UserPreferences::addons_iterator b_addon_iter;
+		BL::Preferences::addons_iterator b_addon_iter;
 		for(b_userpref.addons.begin(b_addon_iter); b_addon_iter != b_userpref.addons.end(); ++b_addon_iter) {
 			if(b_addon_iter->module() == "cycles") {
 				b_preferences = b_addon_iter->preferences().ptr;
@@ -780,7 +780,7 @@ SessionParams BlenderSync::get_session_params(BL::RenderEngine& b_engine,
 						}
 					}
 				}
-			} RNA_END
+			} RNA_END;
 
 			if(used_devices.size() == 1) {
 				params.device = used_devices[0];

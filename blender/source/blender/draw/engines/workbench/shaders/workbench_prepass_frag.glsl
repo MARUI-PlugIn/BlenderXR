@@ -1,79 +1,81 @@
 uniform int object_id = 0;
 
-uniform vec4 materialDiffuseColor;
-uniform vec4 materialSpecularColor;
+uniform vec3 materialDiffuseColor;
+uniform float materialMetallic;
 uniform float materialRoughness;
 
-#ifdef V3D_SHADING_TEXTURE_COLOR
 uniform sampler2D image;
 uniform float ImageTransparencyCutoff = 0.1;
-
-#endif
+uniform bool imageSrgb;
 
 #ifdef NORMAL_VIEWPORT_PASS_ENABLED
 in vec3 normal_viewport;
-#endif /* NORMAL_VIEWPORT_PASS_ENABLED */
+#endif
 
 #ifdef V3D_SHADING_TEXTURE_COLOR
 in vec2 uv_interp;
-#endif /* V3D_SHADING_TEXTURE_COLOR */
+#endif
 
 #ifdef HAIR_SHADER
 flat in float hair_rand;
 #endif
 
-layout(location=0) out uint objectId;
-layout(location=1) out vec4 diffuseColor;
-#ifdef V3D_SHADING_SPECULAR_HIGHLIGHT
-layout(location=2) out vec4 specularColor;
+#ifdef MATDATA_PASS_ENABLED
+layout(location=0) out vec4 materialData;
+#endif
+#ifdef OBJECT_ID_PASS_ENABLED
+layout(location=1) out uint objectId;
 #endif
 #ifdef NORMAL_VIEWPORT_PASS_ENABLED
-#  ifdef WORKBENCH_ENCODE_NORMALS
-layout(location=3) out vec2 normalViewport;
-#  else /* WORKBENCH_ENCODE_NORMALS */
-layout(location=3) out vec3 normalViewport;
-#  endif /* WORKBENCH_ENCODE_NORMALS */
-#endif /* NORMAL_VIEWPORT_PASS_ENABLED */
+layout(location=2) out WB_Normal normalViewport;
+#endif
 
 void main()
 {
+#ifdef MATDATA_PASS_ENABLED
+	float metallic, roughness;
+	vec4 color;
+
+#  ifdef V3D_SHADING_TEXTURE_COLOR
+	color = texture(image, uv_interp);
+	if (color.a < ImageTransparencyCutoff) {
+		discard;
+	}
+	if (imageSrgb) {
+		color = srgb_to_linearrgb(color);
+	}
+#  else
+	color.rgb = materialDiffuseColor;
+#  endif
+
+#  ifdef V3D_LIGHTING_MATCAP
+	/* Encode front facing in metallic channel. */
+	metallic = float(gl_FrontFacing);
+	roughness = 0.0;
+#  else
+	metallic = materialMetallic;
+	roughness = materialRoughness;
+#  endif
+
+#  ifdef HAIR_SHADER
+	/* Add some variation to the hairs to avoid uniform look. */
+	float hair_variation = hair_rand * 0.1;
+	color = clamp(color - hair_variation, 0.0, 1.0);
+	metallic = clamp(materialMetallic - hair_variation, 0.0, 1.0);
+	roughness = clamp(materialRoughness - hair_variation, 0.0, 1.0);
+#  endif
+
+	materialData.rgb = color.rgb;
+	materialData.a   = workbench_float_pair_encode(roughness, metallic);
+#endif /* MATDATA_PASS_ENABLED */
+
+#ifdef OBJECT_ID_PASS_ENABLED
 	objectId = uint(object_id);
+#endif
 
 #ifdef NORMAL_VIEWPORT_PASS_ENABLED
 	vec3 n = (gl_FrontFacing) ? normal_viewport : -normal_viewport;
 	n = normalize(n);
+	normalViewport = workbench_normal_encode(n);
 #endif
-
-#ifdef V3D_SHADING_TEXTURE_COLOR
-	diffuseColor = texture(image, uv_interp);
-	if (diffuseColor.a < ImageTransparencyCutoff) {
-		discard;
-	}
-#else
-	diffuseColor = vec4(materialDiffuseColor.rgb, 0.0);
-#endif /* V3D_SHADING_TEXTURE_COLOR */
-
-#ifdef HAIR_SHADER
-	float hair_color_variation = hair_rand * 0.1;
-	diffuseColor.rgb = clamp(diffuseColor.rgb - hair_color_variation, 0.0, 1.0);
-#endif
-
-#ifdef V3D_SHADING_SPECULAR_HIGHLIGHT
-	specularColor = vec4(materialSpecularColor.rgb, materialRoughness);
-#  ifdef HAIR_SHADER
-	specularColor.rgb = clamp(specularColor.rgb - hair_color_variation, 0.0, 1.0);
-#  endif
-#endif
-
-#ifdef NORMAL_VIEWPORT_PASS_ENABLED
-#  ifdef WORKBENCH_ENCODE_NORMALS
-	diffuseColor.a = float(gl_FrontFacing);
-	normalViewport = normal_encode(n);
-#  else /* WORKBENCH_ENCODE_NORMALS */
-	normalViewport = n;
-#  endif /* WORKBENCH_ENCODE_NORMALS */
-#  ifdef HAIR_SHADER
-	diffuseColor.a = 0.5;
-#  endif
-#endif /* NORMAL_VIEWPORT_PASS_ENABLED */
 }

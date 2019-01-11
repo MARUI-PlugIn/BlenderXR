@@ -31,7 +31,7 @@
  *  \ingroup bke
  *  \author Sergey Sharybin
  */
- 
+
 #include "../vr/vr_build.h"
 #if WITH_VR
 #ifdef __cplusplus
@@ -39,7 +39,7 @@ extern "C"
 {
 #endif
 #endif
-
+ 
 struct Depsgraph;
 struct bGPDlayer;
 struct ImBuf;
@@ -71,7 +71,7 @@ struct MovieTrackingReconstruction *BKE_tracking_get_active_reconstruction(struc
 
 /* matrices for constraints and drawing */
 void BKE_tracking_get_camera_object_matrix(
-        struct Depsgraph *depsgraph, struct Scene *scene, struct Object *ob, float mat[4][4]);
+        struct Scene *scene, struct Object *ob, float mat[4][4]);
 void BKE_tracking_get_projection_matrix(struct MovieTracking *tracking, struct MovieTrackingObject *object,
                                         int framenr, int winx, int winy, float mat[4][4]);
 
@@ -374,7 +374,6 @@ void BKE_tracking_get_rna_path_prefix_for_plane_track(
 #ifdef __cplusplus
 }
 #endif
-
 #endif
 
 #endif

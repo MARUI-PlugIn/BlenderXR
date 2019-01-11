@@ -1198,7 +1198,7 @@ static bool ui_but_event_property_operator_string(
 		}
 
 		/* we have a datapath! */
-		if (data_path || prop_enum_value_id) {
+		if (data_path || (prop_enum_value_ok && prop_enum_value_id)) {
 			/* create a property to host the "datapath" property we're sending to the operators */
 			IDProperty *prop_path;
 
@@ -2264,7 +2264,7 @@ void ui_but_convert_to_unit_alt_name(uiBut *but, char *str, size_t maxlen)
 }
 
 /**
- * \param float_precision  Override the button precision.
+ * \param float_precision: Override the button precision.
  */
 static void ui_get_but_string_unit(uiBut *but, char *str, int len_max, double value, bool pad, int float_precision)
 {
@@ -2326,8 +2326,8 @@ static float ui_get_but_step_unit(uiBut *but, float step_default)
 }
 
 /**
- * \param float_precision  For number buttons the precision to use or -1 to fallback to the button default.
- * \param use_exp_float  Use exponent representation of floats when out of reasonable range (outside of 1e3/1e-3).
+ * \param float_precision: For number buttons the precision to use or -1 to fallback to the button default.
+ * \param use_exp_float: Use exponent representation of floats when out of reasonable range (outside of 1e3/1e-3).
  */
 void ui_but_string_get_ex(uiBut *but, char *str, const size_t maxlen, const int float_precision, const bool use_exp_float, bool *r_use_exp_float)
 {
@@ -2594,8 +2594,19 @@ bool ui_but_string_set(bContext *C, uiBut *but, const char *str)
 					PointerRNA ptr = but->rnasearchpoin;
 					PropertyRNA *prop = but->rnasearchprop;
 
-					if (prop && RNA_property_collection_lookup_string(&ptr, prop, str, &rptr))
+					/* This is kind of hackish, in theory think we could only ever use the second member of
+					 * this if/else, since ui_searchbox_apply() is supposed to always set that pointer when
+					 * we are storing pointers... But keeping str search first for now, to try to break as little as
+					 * possible existing code. All this is band-aids anyway.
+					 * Fact remains, using editstr as main 'reference' over whole search button thingy is utterly weak
+					 * and should be redesigned imho, but that's not a simple task. */
+					if (prop && RNA_property_collection_lookup_string(&ptr, prop, str, &rptr)) {
 						RNA_property_pointer_set(&but->rnapoin, but->rnaprop, rptr);
+					}
+					else if (but->func_arg2 != NULL) {
+						RNA_pointer_create(NULL, RNA_property_pointer_type(&but->rnapoin, but->rnaprop), but->func_arg2, &rptr);
+						RNA_property_pointer_set(&but->rnapoin, but->rnaprop, rptr);
+					}
 
 					return true;
 				}
@@ -2992,18 +3003,19 @@ uiBlock *UI_block_begin(const bContext *C, ARegion *region, const char *name, sh
 	block->evil_C = (void *)C;  /* XXX */
 
 	if (scn) {
-		block->color_profile = true;
-
 		/* store display device name, don't lookup for transformations yet
 		 * block could be used for non-color displays where looking up for transformation
 		 * would slow down redraw, so only lookup for actual transform when it's indeed
 		 * needed
 		 */
-		BLI_strncpy(block->display_device, scn->display_settings.display_device, sizeof(block->display_device));
+		STRNCPY(block->display_device, scn->display_settings.display_device);
 
 		/* copy to avoid crash when scene gets deleted with ui still open */
 		block->unit = MEM_mallocN(sizeof(scn->unit), "UI UnitSettings");
 		memcpy(block->unit, &scn->unit, sizeof(scn->unit));
+	}
+	else {
+		STRNCPY(block->display_device, IMB_colormanagement_display_get_default_name());
 	}
 
 	BLI_strncpy(block->name, name, sizeof(block->name));
@@ -3286,27 +3298,6 @@ void ui_block_cm_to_display_space_v3(uiBlock *block, float pixel[3])
 	struct ColorManagedDisplay *display = ui_block_cm_display_get(block);
 
 	IMB_colormanagement_scene_linear_to_display_v3(pixel, display);
-}
-
-void ui_block_cm_to_scene_linear_v3(uiBlock *block, float pixel[3])
-{
-	struct ColorManagedDisplay *display = ui_block_cm_display_get(block);
-
-	IMB_colormanagement_display_to_scene_linear_v3(pixel, display);
-}
-
-void ui_block_cm_to_display_space_range(uiBlock *block, float *min, float *max)
-{
-	struct ColorManagedDisplay *display = ui_block_cm_display_get(block);
-	float pixel[3];
-
-	copy_v3_fl(pixel, *min);
-	IMB_colormanagement_scene_linear_to_display_v3(pixel, display);
-	*min = min_fff(UNPACK3(pixel));
-
-	copy_v3_fl(pixel, *max);
-	IMB_colormanagement_scene_linear_to_display_v3(pixel, display);
-	*max = max_fff(UNPACK3(pixel));
 }
 
 static uiBut *ui_but_alloc(const eButType type)
@@ -3749,8 +3740,16 @@ static uiBut *ui_def_but_rna(
 		ui_def_but_icon(but, icon, UI_HAS_ICON);
 	}
 
-	if ((type == UI_BTYPE_MENU) && (but->dt == UI_EMBOSS_PULLDOWN)) {
-		ui_but_submenu_enable(block, but);
+	if (type == UI_BTYPE_MENU) {
+		if (but->dt == UI_EMBOSS_PULLDOWN) {
+			ui_but_submenu_enable(block, but);
+		}
+	}
+	else if (type == UI_BTYPE_SEARCH_MENU) {
+		if (proptype == PROP_POINTER) {
+			/* Search buttons normally don't get undo, see: T54580. */
+			but->flag |= UI_BUT_UNDO;
+		}
 	}
 
 	const char *info;
@@ -4777,8 +4776,15 @@ void UI_but_string_info_get(bContext *C, uiBut *but, ...)
 				tmp = BLI_strdup(but->optype->idname);
 			else if (ELEM(but->type, UI_BTYPE_MENU, UI_BTYPE_PULLDOWN)) {
 				MenuType *mt = UI_but_menutype_get(but);
-				if (mt)
+				if (mt) {
 					tmp = BLI_strdup(mt->idname);
+				}
+			}
+			else if (but->type == UI_BTYPE_POPOVER) {
+				PanelType *pt = UI_but_paneltype_get(but);
+				if (pt) {
+					tmp = BLI_strdup(pt->idname);
+				}
 			}
 		}
 		else if (ELEM(type, BUT_GET_RNA_LABEL, BUT_GET_RNA_TIP)) {

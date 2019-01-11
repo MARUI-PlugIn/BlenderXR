@@ -579,7 +579,7 @@ static int wm_collada_import_exec(bContext *C, wmOperator *op)
 	import_settings.keep_bind_info = keep_bind_info != 0;
 
 	if (collada_import(C, &import_settings)) {
-		DEG_id_tag_update(&CTX_data_scene(C)->id, DEG_TAG_BASE_FLAGS_UPDATE);
+		DEG_id_tag_update(&CTX_data_scene(C)->id, ID_RECALC_BASE_FLAGS);
 		return OPERATOR_FINISHED;
 	}
 	else {
@@ -650,36 +650,40 @@ void WM_OT_collada_import(wmOperatorType *ot)
 	        ot, FILE_TYPE_FOLDER | FILE_TYPE_COLLADA, FILE_BLENDER, FILE_OPENFILE,
 	        WM_FILESEL_FILEPATH, FILE_DEFAULTDISPLAY, FILE_SORT_ALPHA);
 
-	RNA_def_boolean(ot->srna,
-		"import_units", 0, "Import Units",
-		"If disabled match import to Blender's current Unit settings, "
-		"otherwise use the settings from the Imported scene");
+	RNA_def_boolean(
+	        ot->srna,
+	        "import_units", 0, "Import Units",
+	        "If disabled match import to Blender's current Unit settings, "
+	        "otherwise use the settings from the Imported scene");
 
-	RNA_def_boolean(ot->srna,
-		"fix_orientation", 0, "Fix Leaf Bones",
-		"Fix Orientation of Leaf Bones (Collada does only support Joints)");
+	RNA_def_boolean(
+	        ot->srna,
+	        "fix_orientation", 0, "Fix Leaf Bones",
+	        "Fix Orientation of Leaf Bones (Collada does only support Joints)");
 
-	RNA_def_boolean(ot->srna,
-		"find_chains", 0, "Find Bone Chains",
-		"Find best matching Bone Chains and ensure bones in chain are connected");
+	RNA_def_boolean(
+	        ot->srna,
+	        "find_chains", 0, "Find Bone Chains",
+	        "Find best matching Bone Chains and ensure bones in chain are connected");
 
-	RNA_def_boolean(ot->srna,
-		"auto_connect", 0, "Auto Connect",
-		"Set use_connect for parent bones which have exactly one child bone");
+	RNA_def_boolean(
+	        ot->srna,
+	        "auto_connect", 0, "Auto Connect",
+	        "Set use_connect for parent bones which have exactly one child bone");
 
-	RNA_def_int(ot->srna,
-		"min_chain_length",
-		0,
-		0,
-		INT_MAX,
-		"Minimum Chain Length",
-		"When searching Bone Chains disregard chains of length below this value",
-		0,
-		INT_MAX);
+	RNA_def_int(
+	        ot->srna,
+	        "min_chain_length",
+	        0,
+	        0, INT_MAX,
+	        "Minimum Chain Length",
+	        "When searching Bone Chains disregard chains of length below this value",
+	        0, INT_MAX);
 
-	RNA_def_boolean(ot->srna,
-		"keep_bind_info", 0, "Keep Bind Info",
-		"Store Bindpose information in custom bone properties for later use during Collada export");
+	RNA_def_boolean(
+	        ot->srna,
+	        "keep_bind_info", 0, "Keep Bind Info",
+	        "Store Bindpose information in custom bone properties for later use during Collada export");
 
 }
 #endif

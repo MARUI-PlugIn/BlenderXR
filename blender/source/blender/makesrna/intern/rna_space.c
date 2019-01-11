@@ -102,7 +102,7 @@ const EnumPropertyItem rna_enum_space_type_items[] = {
 	{SPACE_OUTLINER, "OUTLINER", ICON_OUTLINER, "Outliner", "Overview of scene graph and all available data-blocks"},
 	{SPACE_BUTS, "PROPERTIES", ICON_PROPERTIES, "Properties", "Edit properties of active object and related data-blocks"},
 	{SPACE_FILE, "FILE_BROWSER", ICON_FILEBROWSER, "File Browser", "Browse for files and assets"},
-	{SPACE_USERPREF, "USER_PREFERENCES", ICON_PREFERENCES, "User Preferences",
+	{SPACE_USERPREF, "PREFERENCES", ICON_PREFERENCES, "Preferences",
 	                 "Edit persistent configuration settings"},
 	{0, NULL, 0, NULL, NULL}
 };
@@ -167,13 +167,41 @@ const EnumPropertyItem rna_enum_space_action_mode_items[] = {
 #undef SACT_ITEM_MASK
 #undef SACT_ITEM_CACHEFILE
 
-const EnumPropertyItem rna_enum_space_image_mode_items[] = {
-	{SI_MODE_VIEW, "VIEW", ICON_FILE_IMAGE, "View", "View the image"},
-	{SI_MODE_UV, "UV", ICON_GROUP_UVS, "UV Edit", "UV edit in mesh editmode"},
-	{SI_MODE_PAINT, "PAINT", ICON_TPAINT_HLT, "Paint", "2D image painting mode"},
-	{SI_MODE_MASK, "MASK", ICON_MOD_MASK, "Mask", "Mask editing"},
+
+#define SI_ITEM_VIEW(name, icon) \
+	{SI_MODE_VIEW, "VIEW", icon, name, "View the image"}
+#define SI_ITEM_UV \
+	{SI_MODE_UV, "UV", ICON_GROUP_UVS, "UV Editor", "UV edit in mesh editmode"}
+#define SI_ITEM_PAINT \
+	{SI_MODE_PAINT, "PAINT", ICON_TPAINT_HLT, "Paint", "2D image painting mode"}
+#define SI_ITEM_MASK \
+	{SI_MODE_MASK, "MASK", ICON_MOD_MASK, "Mask", "Mask editing"}
+
+const EnumPropertyItem rna_enum_space_image_mode_all_items[] = {
+	SI_ITEM_VIEW("View", ICON_FILE_IMAGE),
+	SI_ITEM_UV,
+	SI_ITEM_PAINT,
+	SI_ITEM_MASK,
 	{0, NULL, 0, NULL, NULL}
 };
+
+static const EnumPropertyItem rna_enum_space_image_mode_ui_items[] = {
+	SI_ITEM_VIEW("View", ICON_FILE_IMAGE),
+	SI_ITEM_PAINT,
+	SI_ITEM_MASK,
+	{0, NULL, 0, NULL, NULL}
+};
+
+const EnumPropertyItem rna_enum_space_image_mode_items[] = {
+	SI_ITEM_VIEW("Image Editor", ICON_IMAGE),
+	SI_ITEM_UV,
+	{0, NULL, 0, NULL, NULL}
+};
+
+#undef SI_ITEM_VIEW
+#undef SI_ITEM_UV
+#undef SI_ITEM_PAINT
+#undef SI_ITEM_MASK
 
 #define V3D_S3D_CAMERA_LEFT        {STEREO_LEFT_ID, "LEFT", ICON_RESTRICT_RENDER_OFF, "Left", ""},
 #define V3D_S3D_CAMERA_RIGHT       {STEREO_RIGHT_ID, "RIGHT", ICON_RESTRICT_RENDER_OFF, "Right", ""},
@@ -256,6 +284,7 @@ static const EnumPropertyItem rna_enum_viewport_lighting_items[] = {
 static const EnumPropertyItem rna_enum_shading_color_type_items[] = {
 	{V3D_SHADING_SINGLE_COLOR,   "SINGLE",   0, "Single",   "Show scene in a single color"},
 	{V3D_SHADING_MATERIAL_COLOR, "MATERIAL", 0, "Material", "Show material color"},
+	{V3D_SHADING_OBJECT_COLOR,   "OBJECT", 0, "Object",     "Show object color"},
 	{V3D_SHADING_RANDOM_COLOR,   "RANDOM",   0, "Random",   "Show random object color"},
 	{V3D_SHADING_TEXTURE_COLOR,  "TEXTURE",  0, "Texture",  "Show texture"},
 	{0, NULL, 0, NULL, NULL}
@@ -388,7 +417,7 @@ static StructRNA *rna_Space_refine(struct PointerRNA *ptr)
 		case SPACE_CONSOLE:
 			return &RNA_SpaceConsole;
 		case SPACE_USERPREF:
-			return &RNA_SpaceUserPreferences;
+			return &RNA_SpacePreferences;
 		case SPACE_CLIP:
 			return &RNA_SpaceClipEditor;
 		default:
@@ -484,7 +513,7 @@ static void rna_GPencil_update(Main *bmain, Scene *UNUSED(scene), PointerRNA *UN
 	/* need set all caches as dirty to recalculate onion skinning */
 	for (Object *ob = bmain->object.first; ob; ob = ob->id.next) {
 		if (ob->type == OB_GPENCIL) {
-			DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+			DEG_id_tag_update(&ob->id, ID_RECALC_GEOMETRY);
 		}
 	}
 	WM_main_add_notifier(NC_GPENCIL | NA_EDITED, NULL);
@@ -651,7 +680,7 @@ static void rna_3DViewShading_type_update(Main *bmain, Scene *UNUSED(scene), Poi
 		 * the meshes itself.
 		 * This hack just tag BKE_MESH_BATCH_DIRTY_SHADING for every mesh that
 		 * have a material. (see T55059) */
-		DEG_id_tag_update(&ma->id, DEG_TAG_SHADING_UPDATE);
+		DEG_id_tag_update(&ma->id, ID_RECALC_SHADING);
 	}
 
 	bScreen *screen = ptr->id.data;
@@ -685,10 +714,10 @@ static int rna_3DViewShading_type_get(PointerRNA *ptr)
 {
 	/* Available shading types depend on render engine. */
 	Scene *scene = rna_3DViewShading_scene(ptr);
-	RenderEngineType *type = RE_engines_find(scene->r.engine);
+	RenderEngineType *type = (scene) ? RE_engines_find(scene->r.engine) : NULL;
 	View3DShading *shading = (View3DShading *)ptr->data;
 
-	if (BKE_scene_uses_blender_eevee(scene)) {
+	if (scene == NULL || BKE_scene_uses_blender_eevee(scene)) {
 		return shading->type;
 	}
 	else if (BKE_scene_uses_blender_workbench(scene)) {
@@ -718,7 +747,7 @@ static const EnumPropertyItem *rna_3DViewShading_type_itemf(
         PropertyRNA *UNUSED(prop), bool *r_free)
 {
 	Scene *scene = rna_3DViewShading_scene(ptr);
-	RenderEngineType *type = RE_engines_find(scene->r.engine);
+	RenderEngineType *type = (scene) ? RE_engines_find(scene->r.engine) : NULL;
 
 	EnumPropertyItem *item = NULL;
 	int totitem = 0;
@@ -726,7 +755,7 @@ static const EnumPropertyItem *rna_3DViewShading_type_itemf(
 	RNA_enum_items_add_value(&item, &totitem, rna_enum_shading_type_items, OB_WIRE);
 	RNA_enum_items_add_value(&item, &totitem, rna_enum_shading_type_items, OB_SOLID);
 
-	if (BKE_scene_uses_blender_eevee(scene)) {
+	if (scene == NULL || BKE_scene_uses_blender_eevee(scene)) {
 		RNA_enum_items_add_value(&item, &totitem, rna_enum_shading_type_items, OB_MATERIAL);
 		RNA_enum_items_add_value(&item, &totitem, rna_enum_shading_type_items, OB_RENDER);
 	}
@@ -791,6 +820,7 @@ static const EnumPropertyItem *rna_View3DShading_color_type_itemf(
 	if (shading->type == OB_SOLID) {
 		RNA_enum_items_add_value(&item, &totitem, rna_enum_shading_color_type_items, V3D_SHADING_SINGLE_COLOR);
 		RNA_enum_items_add_value(&item, &totitem, rna_enum_shading_color_type_items, V3D_SHADING_MATERIAL_COLOR);
+		RNA_enum_items_add_value(&item, &totitem, rna_enum_shading_color_type_items, V3D_SHADING_OBJECT_COLOR);
 		RNA_enum_items_add_value(&item, &totitem, rna_enum_shading_color_type_items, V3D_SHADING_RANDOM_COLOR);
 		if (shading->light != V3D_LIGHTING_MATCAP) {
 			RNA_enum_items_add_value(&item, &totitem, rna_enum_shading_color_type_items, V3D_SHADING_TEXTURE_COLOR);
@@ -1163,7 +1193,7 @@ static const EnumPropertyItem *rna_SpaceImageEditor_pivot_itemf(
 {
 	static const EnumPropertyItem pivot_items[] = {
 		{V3D_AROUND_CENTER_BOUNDS, "CENTER", ICON_PIVOT_BOUNDBOX, "Bounding Box Center", ""},
-		{V3D_AROUND_CENTER_MEAN, "MEDIAN", ICON_PIVOT_MEDIAN, "Median Point", ""},
+		{V3D_AROUND_CENTER_MEDIAN, "MEDIAN", ICON_PIVOT_MEDIAN, "Median Point", ""},
 		{V3D_AROUND_CURSOR, "CURSOR", ICON_PIVOT_CURSOR, "2D Cursor", ""},
 		{V3D_AROUND_LOCAL_ORIGINS, "INDIVIDUAL_ORIGINS", ICON_PIVOT_INDIVIDUAL,
 		            "Individual Origins", "Pivot around each selected island's own median point"},
@@ -1506,7 +1536,7 @@ static void rna_SpaceDopeSheetEditor_action_update(bContext *C, PointerRNA *ptr)
 		}
 
 		/* force depsgraph flush too */
-		DEG_id_tag_update(&obact->id, OB_RECALC_OB | OB_RECALC_DATA);
+		DEG_id_tag_update(&obact->id, ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY);
 		/* Update relations as well, so new time source dependency is added. */
 		DEG_relations_tag_update(bmain);
 	}
@@ -1565,7 +1595,7 @@ static void rna_SpaceDopeSheetEditor_mode_update(bContext *C, PointerRNA *ptr)
 	}
 
 	/* recalculate extents of channel list */
-	saction->flag |= SACTION_TEMP_NEEDCHANSYNC;
+	saction->runtime.flag |= SACTION_RUNTIME_FLAG_NEED_CHAN_SYNC;
 
 	/* store current mode as "old mode", so that returning from other editors doesn't always reset to "Action Editor" */
 	if (saction->mode != SACTCONT_TIMELINE) {
@@ -1595,7 +1625,7 @@ static void rna_SpaceGraphEditor_display_mode_update(bContext *C, PointerRNA *pt
 static bool rna_SpaceGraphEditor_has_ghost_curves_get(PointerRNA *ptr)
 {
 	SpaceIpo *sipo = (SpaceIpo *)(ptr->data);
-	return (BLI_listbase_is_empty(&sipo->ghostCurves) == false);
+	return (BLI_listbase_is_empty(&sipo->runtime.ghost_curves) == false);
 }
 
 static void rna_SpaceConsole_rect_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *ptr)
@@ -2447,6 +2477,11 @@ static void rna_def_space_view3d_shading(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "World Space Lighting", "Make the lighting fixed and not follow the camera");
 	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, NULL);
 
+	prop = RNA_def_property(srna, "show_backface_culling", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", V3D_SHADING_BACKFACE_CULLING);
+	RNA_def_property_ui_text(prop, "Backface Culling", "Use back face culling to hide the back side of faces");
+	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, NULL);
+
 	prop = RNA_def_property(srna, "show_cavity", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", V3D_SHADING_CAVITY);
 	RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
@@ -2698,12 +2733,6 @@ static void rna_def_space_view3d_overlay(BlenderRNA *brna)
 	                         "Show dashed lines indicating parent or constraint relationships");
 	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, NULL);
 
-	/* TODO: this should become a per object setting? */
-	prop = RNA_def_property(srna, "show_backface_culling", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "flag2", V3D_BACKFACE_CULLING);
-	RNA_def_property_ui_text(prop, "Backface Culling", "Use back face culling to hide the back side of faces");
-	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, NULL);
-
 	prop = RNA_def_property(srna, "show_cursor", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_negative_sdna(prop, NULL, "overlay.flag", V3D_OVERLAY_HIDE_CURSOR);
 	RNA_def_property_ui_text(prop, "Show 3D Cursor", "Display 3D Cursor Overlay");
@@ -2721,7 +2750,7 @@ static void rna_def_space_view3d_overlay(BlenderRNA *brna)
 
 	prop = RNA_def_property(srna, "show_bones", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_negative_sdna(prop, NULL, "overlay.flag", V3D_OVERLAY_HIDE_BONES);
-	RNA_def_property_ui_text(prop, "Show Bones", "Display bones");
+	RNA_def_property_ui_text(prop, "Show Bones", "Display bones (disable to show motion paths only)");
 	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, NULL);
 
 	prop = RNA_def_property(srna, "show_face_orientation", PROP_BOOLEAN, PROP_NONE);
@@ -2906,8 +2935,9 @@ static void rna_def_space_view3d_overlay(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "normals_length", PROP_FLOAT, PROP_FACTOR);
 	RNA_def_property_float_sdna(prop, NULL, "overlay.normals_length");
 	RNA_def_property_ui_text(prop, "Normal Size", "Display size for normals in the 3D view");
-	RNA_def_property_range(prop, 0.00001, 1000.0);
-	RNA_def_property_ui_range(prop, 0.01, 10.0, 10.0, 2);
+	RNA_def_property_range(prop, 0.00001, 100000.0);
+	RNA_def_property_ui_range(prop, 0.01, 2.0, 1, 2);
+	RNA_def_property_float_default(prop, 0.02);
 	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, NULL);
 
 	prop = RNA_def_property(srna, "backwire_opacity", PROP_FLOAT, PROP_FACTOR);
@@ -3125,11 +3155,6 @@ static void rna_def_space_view3d(BlenderRNA *brna)
 	RNA_def_property_ui_range(prop, 0.001f, FLT_MAX, 10, 3);
 	RNA_def_property_float_default(prop, 1000.0f);
 	RNA_def_property_ui_text(prop, "Clip End", "3D View far clipping distance");
-	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, NULL);
-
-	prop = RNA_def_property(srna, "show_textured_solid", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "flag2", V3D_SOLID_TEX);
-	RNA_def_property_ui_text(prop, "Textured Solid", "Display face-assigned textures in solid view");
 	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, NULL);
 
 	prop = RNA_def_property(srna, "lock_camera", PROP_BOOLEAN, PROP_NONE);
@@ -3539,10 +3564,16 @@ static void rna_def_space_image(BlenderRNA *brna)
 	RNA_def_property_pointer_funcs(prop, "rna_SpaceImageEditor_uvedit_get", NULL, NULL, NULL);
 	RNA_def_property_ui_text(prop, "UV Editor", "UV editor settings");
 
-	/* mode */
+	/* mode (hidden in the UI, see 'ui_mode') */
 	prop = RNA_def_property(srna, "mode", PROP_ENUM, PROP_NONE);
 	RNA_def_property_enum_sdna(prop, NULL, "mode");
-	RNA_def_property_enum_items(prop, rna_enum_space_image_mode_items);
+	RNA_def_property_enum_items(prop, rna_enum_space_image_mode_all_items);
+	RNA_def_property_ui_text(prop, "Mode", "Editing context being displayed");
+	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_IMAGE, "rna_SpaceImageEditor_mode_update");
+
+	prop = RNA_def_property(srna, "ui_mode", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_sdna(prop, NULL, "mode");
+	RNA_def_property_enum_items(prop, rna_enum_space_image_mode_ui_items);
 	RNA_def_property_ui_text(prop, "Mode", "Editing context being displayed");
 	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_IMAGE, "rna_SpaceImageEditor_mode_update");
 
@@ -4050,7 +4081,7 @@ static void rna_def_space_graph(BlenderRNA *brna)
 		{V3D_AROUND_CENTER_BOUNDS, "BOUNDING_BOX_CENTER", ICON_PIVOT_BOUNDBOX, "Bounding Box Center", ""},
 		{V3D_AROUND_CURSOR, "CURSOR", ICON_PIVOT_CURSOR, "2D Cursor", ""},
 		{V3D_AROUND_LOCAL_ORIGINS, "INDIVIDUAL_ORIGINS", ICON_PIVOT_INDIVIDUAL, "Individual Centers", ""},
-		/*{V3D_AROUND_CENTER_MEAN, "MEDIAN_POINT", 0, "Median Point", ""}, */
+		/*{V3D_AROUND_CENTER_MEDIAN, "MEDIAN_POINT", 0, "Median Point", ""}, */
 		/*{V3D_AROUND_ACTIVE, "ACTIVE_ELEMENT", 0, "Active Element", ""}, */
 		{0, NULL, 0, NULL, NULL}
 	};
@@ -4702,7 +4733,7 @@ static void rna_def_space_userpref(BlenderRNA *brna)
 	StructRNA *srna;
 	PropertyRNA *prop;
 
-	srna = RNA_def_struct(brna, "SpaceUserPreferences", "Space");
+	srna = RNA_def_struct(brna, "SpacePreferences", "Space");
 	RNA_def_struct_sdna(srna, "SpaceUserPref");
 	RNA_def_struct_ui_text(srna, "Space User Preferences", "User preferences space data");
 
@@ -4958,7 +4989,7 @@ static void rna_def_space_clip(BlenderRNA *brna)
 		{V3D_AROUND_CURSOR, "CURSOR", ICON_PIVOT_CURSOR, "2D Cursor", "Pivot around the 2D cursor"},
 		{V3D_AROUND_LOCAL_ORIGINS, "INDIVIDUAL_ORIGINS", ICON_CENTER_ONLY,
 		            "Individual Origins", "Pivot around each object's own origin"},
-		{V3D_AROUND_CENTER_MEAN, "MEDIAN_POINT", ICON_PIVOT_MEDIAN, "Median Point",
+		{V3D_AROUND_CENTER_MEDIAN, "MEDIAN_POINT", ICON_PIVOT_MEDIAN, "Median Point",
 		               "Pivot around the median point of selected objects"},
 		{0, NULL, 0, NULL, NULL}
 	};

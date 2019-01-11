@@ -645,7 +645,7 @@ class Gizmo(StructRNA):
 
 # Only defined so operators members can be used by accessing self.order
 # with doc generation 'self.properties.bl_rna.properties' can fail
-class Operator(StructRNA):
+class Operator(StructRNA, metaclass=RNAMeta):
     __slots__ = ()
 
     def __getattribute__(self, attr):
@@ -920,7 +920,7 @@ class Menu(StructRNA, _GenericUI, metaclass=RNAMeta):
         # only usable within headers
         if context.area.show_menus:
             # Align menus to space them closely.
-            cls.draw_menus(layout.row(align=True), context)
+            layout.row(align=True).menu_contents(cls.__name__)
         else:
             layout.menu(cls.__name__, icon='COLLAPSEMENU')
 

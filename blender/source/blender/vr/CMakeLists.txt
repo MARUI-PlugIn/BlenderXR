@@ -34,13 +34,13 @@ set(INC
 	../blenlib
 	../blentranslation
 	../bmesh
-	../bmesh/intern
 	../depsgraph
 	../draw
 	../draw/intern
 	../editors/include
 	../editors/gizmo_library
 	../editors/gpencil
+	../editors/mesh
 	../editors/transform
 	../gpu
 	../makesdna

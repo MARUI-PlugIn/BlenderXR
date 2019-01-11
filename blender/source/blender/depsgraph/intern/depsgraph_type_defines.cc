@@ -96,7 +96,8 @@ const char *nodeTypeAsString(eDepsNode_Type type)
 		/* **** Evaluation-Related Outer Types (with Subdata) **** */
 		STRINGIFY_TYPE(EVAL_POSE);
 		STRINGIFY_TYPE(BONE);
-		STRINGIFY_TYPE(EVAL_PARTICLES);
+		STRINGIFY_TYPE(PARTICLE_SYSTEM);
+		STRINGIFY_TYPE(PARTICLE_SETTINGS);
 		STRINGIFY_TYPE(SHADING);
 		STRINGIFY_TYPE(SHADING_PARAMETERS);
 		STRINGIFY_TYPE(CACHE);
@@ -104,6 +105,10 @@ const char *nodeTypeAsString(eDepsNode_Type type)
 		STRINGIFY_TYPE(BATCH_CACHE);
 		/* Duplication. */
 		STRINGIFY_TYPE(DUPLI);
+		/* Synchronization. */
+		STRINGIFY_TYPE(SYNCHRONIZE);
+		/* Generic datablock. */
+		STRINGIFY_TYPE(GENERIC_DATABLOCK);
 
 		/* Total number of meaningful node types. */
 		case NUM_DEG_NODE_TYPES: return "SpecialCase";
@@ -158,10 +163,14 @@ const char *operationCodeAsString(eDepsOperation_Code opcode)
 		STRINGIFY_OPCODE(BONE_READY);
 		STRINGIFY_OPCODE(BONE_DONE);
 		STRINGIFY_OPCODE(BONE_SEGMENTS);
-		/* Particles. */
-		STRINGIFY_OPCODE(PARTICLE_SYSTEM_EVAL_INIT);
+		/* Particle System. */
+		STRINGIFY_OPCODE(PARTICLE_SYSTEM_INIT);
 		STRINGIFY_OPCODE(PARTICLE_SYSTEM_EVAL);
+		STRINGIFY_OPCODE(PARTICLE_SYSTEM_DONE);
+		/* Particles Settings. */
+		STRINGIFY_OPCODE(PARTICLE_SETTINGS_INIT);
 		STRINGIFY_OPCODE(PARTICLE_SETTINGS_EVAL);
+		STRINGIFY_OPCODE(PARTICLE_SETTINGS_RESET);
 		/* Point Cache. */
 		STRINGIFY_OPCODE(POINT_CACHE_RESET);
 		/* Batch cache. */
@@ -180,6 +189,10 @@ const char *operationCodeAsString(eDepsOperation_Code opcode)
 		/* Movie clip. */
 		STRINGIFY_OPCODE(MOVIECLIP_EVAL);
 		STRINGIFY_OPCODE(MOVIECLIP_SELECT_UPDATE);
+		/* Synchronization. */
+		STRINGIFY_OPCODE(SYNCHRONIZE_TO_ORIGINAL);
+		/* Generic datablock. */
+		STRINGIFY_OPCODE(GENERIC_DATABLOCK_UPDATE);
 
 		case DEG_NUM_OPCODES: return "SpecialCase";
 #undef STRINGIFY_OPCODE

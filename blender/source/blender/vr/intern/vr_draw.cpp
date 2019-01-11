@@ -66,44 +66,55 @@
 #include "icon_mouse_cursor.png.h"
 
 /* Image textures */
-#include "ascii.png.h" /* Image of the ASCII texture file */
-#include "icon_zoom.png.h"
-#include "icon_close.png.h"
 #include "icon_nav_grabair.png.h"
 #include "icon_nav_joystick.png.h"
 #include "icon_nav_teleport.png.h"
+#include "icon_nav_locktrans.png.h"
+#include "icon_nav_locktransup.png.h"
+#include "icon_nav_lockrot.png.h"
+#include "icon_nav_lockrotup.png.h"
+#include "icon_nav_lockscale.png.h"
+#include "icon_nav_lockscalereal.png.h"
 #include "icon_ctrl.png.h"
 #include "icon_shift.png.h"
 #include "icon_alt.png.h"
-#include "icon_cursoroffset.png.h"
 #include "icon_select.png.h"
+#include "icon_select_raycast.png.h"
+#include "icon_select_proximity.png.h"
 #include "icon_transform.png.h"
 #include "icon_move.png.h"
 #include "icon_rotate.png.h"
 #include "icon_scale.png.h"
 #include "icon_annotate.png.h"
 #include "icon_measure.png.h"
+#include "icon_extrude.png.h"
+#include "icon_extrude_individual.png.h"
+#include "icon_extrude_normals.png.h"
+#include "icon_flip_normals.png.h"
 #include "icon_delete.png.h"
 #include "icon_duplicate.png.h"
 #include "icon_undo.png.h"
 #include "icon_redo.png.h"
 #include "icon_manip.png.h"
+#include "icon_manip_global.png.h"
 #include "icon_manip_local.png.h"
+#include "icon_manip_normal.png.h"
 #include "icon_manip_plus.png.h"
 #include "icon_manip_minus.png.h"
+#include "icon_objectmode.png.h"
+#include "icon_editmode.png.h"
+#include "icon_object.png.h"
+#include "icon_vertex.png.h"
+#include "icon_edge.png.h"
+#include "icon_face.png.h"
+#include "icon_toolsettings.png.h"
 
 /* Menu textures */
 #include "menu_background.png.h"
 #include "menu_colorwheel.png.h"
-#include "menu_triangle.png.h"
 
 /* String textures */
-#include "str_select.png.h"
-#include "str_transform.png.h"
-#include "str_annotate.png.h"
-#include "str_measure.png.h"
-#include "str_raycast.png.h"
-#include "str_proximity.png.h"
+#include "ascii.png.h" /* Image of the ASCII texture file */
 #include "str_on.png.h"
 #include "str_off.png.h"
 #include "str_x.png.h"
@@ -134,47 +145,59 @@ void *VR_Draw::context(0);
 
 VR_Draw::Model *VR_Draw::controller_model[VR_SIDES]{ 0 };
 VR_Draw::Texture *VR_Draw::controller_tex(0);
-VR_Draw::Model *VR_Draw::cursor_model(0);
+VR_Draw::Model *VR_Draw::vr_cursor_model(0);
+VR_Draw::Texture *VR_Draw::vr_cursor_tex(0);
 VR_Draw::Texture *VR_Draw::cursor_tex(0);
-VR_Draw::Texture *VR_Draw::crosshair_cursor_tex(0);
 VR_Draw::Texture *VR_Draw::mouse_cursor_tex(0);
 
-VR_Draw::Texture *VR_Draw::ascii_tex(0);
-VR_Draw::Texture *VR_Draw::zoom_tex(0);
-VR_Draw::Texture *VR_Draw::close_tex(0);
 VR_Draw::Texture *VR_Draw::nav_grabair_tex(0);
 VR_Draw::Texture *VR_Draw::nav_joystick_tex(0);
 VR_Draw::Texture *VR_Draw::nav_teleport_tex(0);
+VR_Draw::Texture *VR_Draw::nav_locktrans_tex(0);
+VR_Draw::Texture *VR_Draw::nav_locktransup_tex(0);
+VR_Draw::Texture *VR_Draw::nav_lockrot_tex(0);
+VR_Draw::Texture *VR_Draw::nav_lockrotup_tex(0);
+VR_Draw::Texture *VR_Draw::nav_lockscale_tex(0);
+VR_Draw::Texture *VR_Draw::nav_lockscalereal_tex(0);
 VR_Draw::Texture *VR_Draw::ctrl_tex(0);
 VR_Draw::Texture *VR_Draw::shift_tex(0);
 VR_Draw::Texture *VR_Draw::alt_tex(0);
-VR_Draw::Texture *VR_Draw::cursoroffset_tex(0);
 VR_Draw::Texture *VR_Draw::select_tex(0);
+VR_Draw::Texture *VR_Draw::select_raycast_tex(0);
+VR_Draw::Texture *VR_Draw::select_proximity_tex(0);
 VR_Draw::Texture *VR_Draw::transform_tex(0);
 VR_Draw::Texture *VR_Draw::move_tex(0);
 VR_Draw::Texture *VR_Draw::rotate_tex(0);
 VR_Draw::Texture *VR_Draw::scale_tex(0);
 VR_Draw::Texture *VR_Draw::annotate_tex(0);
 VR_Draw::Texture *VR_Draw::measure_tex(0);
+VR_Draw::Texture *VR_Draw::extrude_tex(0);
+VR_Draw::Texture *VR_Draw::extrude_individual_tex(0);
+VR_Draw::Texture *VR_Draw::extrude_normals_tex(0);
+VR_Draw::Texture *VR_Draw::flip_normals_tex(0);
 VR_Draw::Texture *VR_Draw::delete_tex(0);
+VR_Draw::Texture *VR_Draw::delete_alt_tex(0);
 VR_Draw::Texture *VR_Draw::duplicate_tex(0);
 VR_Draw::Texture *VR_Draw::undo_tex(0);
 VR_Draw::Texture *VR_Draw::redo_tex(0);
 VR_Draw::Texture *VR_Draw::manip_tex(0);
+VR_Draw::Texture *VR_Draw::manip_global_tex(0);
 VR_Draw::Texture *VR_Draw::manip_local_tex(0);
+VR_Draw::Texture *VR_Draw::manip_normal_tex(0);
 VR_Draw::Texture *VR_Draw::manip_plus_tex(0);
 VR_Draw::Texture *VR_Draw::manip_minus_tex(0);
+VR_Draw::Texture *VR_Draw::objectmode_tex(0);
+VR_Draw::Texture *VR_Draw::editmode_tex(0);
+VR_Draw::Texture *VR_Draw::object_tex(0);
+VR_Draw::Texture *VR_Draw::vertex_tex(0);
+VR_Draw::Texture *VR_Draw::edge_tex(0);
+VR_Draw::Texture *VR_Draw::face_tex(0);
+VR_Draw::Texture *VR_Draw::toolsettings_tex(0);
 
 VR_Draw::Texture *VR_Draw::background_menu_tex(0);
 VR_Draw::Texture *VR_Draw::colorwheel_menu_tex(0);
-VR_Draw::Texture *VR_Draw::triangle_menu_tex(0);
 
-VR_Draw::Texture *VR_Draw::select_str_tex(0);
-VR_Draw::Texture *VR_Draw::transform_str_tex(0);
-VR_Draw::Texture *VR_Draw::annotate_str_tex(0);
-VR_Draw::Texture *VR_Draw::measure_str_tex(0);
-VR_Draw::Texture *VR_Draw::raycast_str_tex(0);
-VR_Draw::Texture *VR_Draw::proximity_str_tex(0);
+VR_Draw::Texture *VR_Draw::ascii_tex(0);
 VR_Draw::Texture *VR_Draw::on_str_tex(0);
 VR_Draw::Texture *VR_Draw::off_str_tex(0);
 VR_Draw::Texture *VR_Draw::x_str_tex(0);
@@ -229,51 +252,62 @@ int VR_Draw::init(void* display, void* drawable, void* context)
 	}
 
 	/* Create cursor model. */
-	cursor_model = Model::create(ui_cursor_obj_verts, ui_cursor_obj_nrmls, ui_cursor_obj_uvs, ui_cursor_obj_numverts);
-	cursor_tex = new Texture(ui_cursor_png);
-	if (cursor_model) {
-		cursor_model->texture = cursor_tex;
+	vr_cursor_model = Model::create(ui_cursor_obj_verts, ui_cursor_obj_nrmls, ui_cursor_obj_uvs, ui_cursor_obj_numverts);
+	vr_cursor_tex = new Texture(ui_cursor_png);
+	if (vr_cursor_model) {
+		vr_cursor_model->texture = vr_cursor_tex;
 	}
-	crosshair_cursor_tex = new Texture(icon_cursor_png);
+	cursor_tex = new Texture(icon_cursor_png);
 	mouse_cursor_tex = new Texture(icon_mouse_cursor_png);
 
 	/* Create image textures. */
-	ascii_tex = new Texture(ascii_png);
-	zoom_tex = new Texture(icon_zoom_png);
-	close_tex = new Texture(icon_close_png);
 	nav_grabair_tex = new Texture(icon_nav_grabair_png);
 	nav_joystick_tex = new Texture(icon_nav_joystick_png);
 	nav_teleport_tex = new Texture(icon_nav_teleport_png);
+	nav_locktrans_tex = new Texture(icon_nav_locktrans_png);
+	nav_locktransup_tex = new Texture(icon_nav_locktransup_png);
+	nav_lockrot_tex = new Texture(icon_nav_lockrot_png);
+	nav_lockrotup_tex = new Texture(icon_nav_lockrotup_png);
+	nav_lockscale_tex = new Texture(icon_nav_lockscale_png);
+	nav_lockscalereal_tex = new Texture(icon_nav_lockscalereal_png);
 	ctrl_tex = new Texture(icon_ctrl_png);
 	shift_tex = new Texture(icon_shift_png);
 	alt_tex = new Texture(icon_alt_png);
-	cursoroffset_tex = new Texture(icon_cursoroffset_png);
 	select_tex = new Texture(icon_select_png);
+	select_raycast_tex = new Texture(icon_select_raycast_png);
+	select_proximity_tex = new Texture(icon_select_proximity_png);
 	transform_tex = new Texture(icon_transform_png);
 	move_tex = new Texture(icon_move_png);
 	rotate_tex = new Texture(icon_rotate_png);
 	scale_tex = new Texture(icon_scale_png);
 	annotate_tex = new Texture(icon_annotate_png);
 	measure_tex = new Texture(icon_measure_png);
+	extrude_tex = new Texture(icon_extrude_png);
+	extrude_individual_tex = new Texture(icon_extrude_individual_png);
+	extrude_normals_tex = new Texture(icon_extrude_normals_png);
+	flip_normals_tex = new Texture(icon_flip_normals_png);
 	delete_tex = new Texture(icon_delete_png);
 	duplicate_tex = new Texture(icon_duplicate_png);
 	undo_tex = new Texture(icon_undo_png);
 	redo_tex = new Texture(icon_redo_png);
 	manip_tex = new Texture(icon_manip_png);
+	manip_global_tex = new Texture(icon_manip_global_png);
 	manip_local_tex = new Texture(icon_manip_local_png);
+	manip_normal_tex = new Texture(icon_manip_normal_png);
 	manip_plus_tex = new Texture(icon_manip_plus_png);
 	manip_minus_tex = new Texture(icon_manip_minus_png);
+	objectmode_tex = new Texture(icon_objectmode_png);
+	editmode_tex = new Texture(icon_editmode_png);
+	object_tex = new Texture(icon_object_png);
+	vertex_tex = new Texture(icon_vertex_png);
+	edge_tex = new Texture(icon_edge_png);
+	face_tex = new Texture(icon_face_png);
+	toolsettings_tex = new Texture(icon_toolsettings_png);
 
 	background_menu_tex = new Texture(menu_background_png);
 	colorwheel_menu_tex = new Texture(menu_colorwheel_png);
-	triangle_menu_tex = new Texture(menu_triangle_png);
 
-	select_str_tex = new Texture(str_select_png);
-	transform_str_tex = new Texture(str_transform_png);
-	annotate_str_tex = new Texture(str_annotate_png);
-	measure_str_tex = new Texture(str_measure_png);
-	raycast_str_tex = new Texture(str_raycast_png);
-	proximity_str_tex = new Texture(str_proximity_png);
+	ascii_tex = new Texture(ascii_png);
 	on_str_tex = new Texture(str_on_png);
 	off_str_tex = new Texture(str_off_png);
 	x_str_tex = new Texture(str_x_png);
@@ -308,35 +342,23 @@ void VR_Draw::uninit()
 		delete controller_model[VR_SIDE_RIGHT];
 		controller_model[VR_SIDE_RIGHT] = NULL;
 	}
+	if (vr_cursor_tex) {
+		delete vr_cursor_tex;
+		vr_cursor_tex = NULL;
+	}
+	if (vr_cursor_model) {
+		delete vr_cursor_model;
+		vr_cursor_model = NULL;
+	}
 	if (cursor_tex) {
 		delete cursor_tex;
 		cursor_tex = NULL;
 	}
-	if (cursor_model) {
-		delete cursor_model;
-		cursor_model = NULL;
-	}
-	if (crosshair_cursor_tex) {
-		delete crosshair_cursor_tex;
-		crosshair_cursor_tex = NULL;
-	}
-	if (mouse_cursor_tex) {
-		delete mouse_cursor_tex;
-		mouse_cursor_tex = NULL;
-	}
+    if (mouse_cursor_tex) {
+        delete mouse_cursor_tex;
+        mouse_cursor_tex = NULL;
+    }
 
-	if (ascii_tex) {
-		delete ascii_tex;
-		ascii_tex = NULL;
-	}
-	if (zoom_tex) {
-		delete zoom_tex;
-		zoom_tex = NULL;
-	}
-	if (close_tex) {
-		delete close_tex;
-		close_tex = NULL;
-	}
 	if (nav_grabair_tex) {
 		delete nav_grabair_tex;
 		nav_grabair_tex = NULL;
@@ -348,6 +370,30 @@ void VR_Draw::uninit()
 	if (nav_teleport_tex) {
 		delete nav_teleport_tex;
 		nav_teleport_tex = NULL;
+	}
+	if (nav_locktrans_tex) {
+		delete nav_locktrans_tex;
+		nav_locktrans_tex = NULL;
+	}
+	if (nav_locktransup_tex) {
+		delete nav_locktransup_tex;
+		nav_locktransup_tex = NULL;
+	}
+	if (nav_lockrot_tex) {
+		delete nav_lockrot_tex;
+		nav_lockrot_tex = NULL;
+	}
+	if (nav_lockrotup_tex) {
+		delete nav_lockrotup_tex;
+		nav_lockrotup_tex = NULL;
+	}
+	if (nav_lockscale_tex) {
+		delete nav_lockscale_tex;
+		nav_lockscale_tex = NULL;
+	}
+	if (nav_lockscalereal_tex) {
+		delete nav_lockscalereal_tex;
+		nav_lockscalereal_tex = NULL;
 	}
 	if (ctrl_tex) {
 		delete ctrl_tex;
@@ -361,13 +407,17 @@ void VR_Draw::uninit()
 		delete alt_tex;
 		alt_tex = NULL;
 	}
-	if (cursoroffset_tex) {
-		delete cursoroffset_tex;
-		cursoroffset_tex = NULL;
-	}
 	if (select_tex) {
 		delete select_tex;
 		select_tex = NULL;
+	}
+	if (select_raycast_tex) {
+		delete select_raycast_tex;
+		select_raycast_tex = NULL;
+	}
+	if (select_proximity_tex) {
+		delete select_proximity_tex;
+		select_proximity_tex = NULL;
 	}
 	if (transform_tex) {
 		delete transform_tex;
@@ -393,6 +443,22 @@ void VR_Draw::uninit()
 		delete measure_tex;
 		measure_tex = NULL;
 	}
+	if (extrude_tex) {
+		delete extrude_tex;
+		extrude_tex = NULL;
+	}
+	if (extrude_individual_tex) {
+		delete extrude_individual_tex;
+		extrude_individual_tex = NULL;
+	}
+	if (extrude_normals_tex) {
+		delete extrude_normals_tex;
+		extrude_normals_tex = NULL;
+	}
+	if (flip_normals_tex) {
+		delete flip_normals_tex;
+		flip_normals_tex = NULL;
+	}
 	if (delete_tex) {
 		delete delete_tex;
 		delete_tex = NULL;
@@ -413,9 +479,17 @@ void VR_Draw::uninit()
 		delete manip_tex;
 		manip_tex = NULL;
 	}
+	if (manip_global_tex) {
+		delete manip_global_tex;
+		manip_global_tex = NULL;
+	}
 	if (manip_local_tex) {
 		delete manip_local_tex;
 		manip_local_tex = NULL;
+	}
+	if (manip_normal_tex) {
+		delete manip_normal_tex;
+		manip_normal_tex = NULL;
 	}
 	if (manip_plus_tex) {
 		delete manip_plus_tex;
@@ -424,6 +498,34 @@ void VR_Draw::uninit()
 	if (manip_minus_tex) {
 		delete manip_minus_tex;
 		manip_minus_tex = NULL;
+	}
+	if (objectmode_tex) {
+		delete objectmode_tex;
+		objectmode_tex = NULL;
+	}
+	if (editmode_tex) {
+		delete editmode_tex;
+		editmode_tex = NULL;
+	}
+	if (object_tex) {
+		delete object_tex;
+		object_tex = NULL;
+	}
+	if (vertex_tex) {
+		delete vertex_tex;
+		vertex_tex = NULL;
+	}
+	if (edge_tex) {
+		delete edge_tex;
+		edge_tex = NULL;
+	}
+	if (face_tex) {
+		delete face_tex;
+		face_tex = NULL;
+	}
+	if (toolsettings_tex) {
+		delete toolsettings_tex;
+		toolsettings_tex = NULL;
 	}
 
 	if (background_menu_tex) {
@@ -434,34 +536,10 @@ void VR_Draw::uninit()
 		delete colorwheel_menu_tex;
 		colorwheel_menu_tex = NULL;
 	}
-	if (triangle_menu_tex) {
-		delete triangle_menu_tex;
-		triangle_menu_tex = NULL;
-	}
 
-	if (select_str_tex) {
-		delete select_str_tex;
-		select_str_tex = NULL;
-	}
-	if (transform_str_tex) {
-		delete transform_str_tex;
-		transform_str_tex = NULL;
-	}
-	if (annotate_str_tex) {
-		delete annotate_str_tex;
-		annotate_str_tex = NULL;
-	}
-	if (measure_str_tex) {
-		delete measure_str_tex;
-		measure_str_tex = NULL;
-	}
-	if (raycast_str_tex) {
-		delete raycast_str_tex;
-		raycast_str_tex = NULL;
-	}
-	if (proximity_str_tex) {
-		delete proximity_str_tex;
-		proximity_str_tex = NULL;
+	if (ascii_tex) {
+		delete ascii_tex;
+		ascii_tex = NULL;
 	}
 	if (on_str_tex) {
 		delete on_str_tex;
@@ -737,9 +815,9 @@ static bool createTextureFromPNG(const uchar* data, uint& texture_id, uint& w, u
  * OpenGL shader implementation.
  **************************************************************************************************/
 VR_Draw::Shader::Shader()
-	: fragment_shader(0), vertex_shader(0), program(0),
-	position_location(0), normal_location(0), uv_location(0), sampler_location(0),
-	modelview_location(0), projection_location(0), normal_matrix_location(0), color_location(0)
+	: program(0), vertex_shader(0), fragment_shader(0),
+	position_location(0), normal_location(0), uv_location(0), modelview_location(0),
+	projection_location(0), normal_matrix_location(0), color_location(0), sampler_location(0)
 {
 	//
 }
@@ -834,9 +912,9 @@ VR_Draw::Shader VR_Draw::Shader::shader_col;
 
 const char* const VR_Draw::Shader::shader_col_vsource(STRING(#version 120\n
 	attribute vec3 position;
-varying vec4 front_color;
-uniform mat4 modelview;
-uniform mat4 projection;
+	varying vec4 front_color;
+	uniform mat4 modelview;
+	uniform mat4 projection;
 void main()
 {
 	gl_Position = projection * modelview * vec4(position, 1.0);
@@ -855,13 +933,13 @@ VR_Draw::Shader VR_Draw::Shader::shader_tex;
 
 const char* const VR_Draw::Shader::shader_tex_vsource(STRING(#version 120\n
 	attribute vec3 position;
-attribute vec3 normal;
-attribute vec2 uv;
-varying vec3 normal_transformed;
-varying vec2 texcoord;
-uniform mat4 modelview;
-uniform mat4 projection;
-uniform mat4 normal_matrix; /* normal_matrix = transpose(inverse(modelview)) */
+	attribute vec3 normal;
+	attribute vec2 uv;
+	varying vec3 normal_transformed;
+	varying vec2 texcoord;
+	uniform mat4 modelview;
+	uniform mat4 projection;
+	uniform mat4 normal_matrix; /* normal_matrix = transpose(inverse(modelview)) */
 void main()
 {
 	gl_Position = projection * modelview * vec4(position, 1.0);
@@ -872,9 +950,9 @@ void main()
 
 const char* const VR_Draw::Shader::shader_tex_fsource(STRING(#version 120\n
 	varying vec3 normal_transformed;
-varying vec2 texcoord;
-uniform sampler2D tex;
-uniform vec4 color;
+	varying vec2 texcoord;
+	uniform sampler2D tex;
+	uniform vec4 color;
 void main()
 {
 	vec4 normal_to_viewangle = vec4(clamp(dot(normal_transformed, vec3(0, 0, 1)), 0.1, 1.0));
@@ -996,8 +1074,8 @@ void VR_Draw::Texture::TextureImplementation::unbind()
 
 VR_Draw::Model::Model()
 	: verts(0)
-	, uvs(0)
 	, nrmls(0)
+	, uvs(0)
 	, vertex_array(0)
 	, num_verts(0)
 {
@@ -1082,8 +1160,8 @@ int VR_Draw::Model::render()
 	glEnable(GL_TEXTURE_2D);
 
 	glUseProgram(VR_Draw::Shader::texture_shader());
-	GLint prior_vertex_array_binding;
-	glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &prior_vertex_array_binding);
+	//GLint prior_vertex_array_binding;
+	//glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &prior_vertex_array_binding);
 	GLint prior_array_buffer;
 	glGetIntegerv(GL_ARRAY_BUFFER, &prior_array_buffer);
 	GLint prior_texture_binding_2d;
@@ -1104,7 +1182,7 @@ int VR_Draw::Model::render()
 	glUniform4fv(VR_Draw::Shader::shader_tex.color_location, 1, (float*)VR_Draw::color_vector);
 
 	/* Load attribute buffers */
-	glBindVertexArray(this->vertex_array);
+	//glBindVertexArray(this->vertex_array);
 	glBindBuffer(GL_ARRAY_BUFFER, this->verts);
 	glVertexAttribPointer(VR_Draw::Shader::shader_tex.position_location, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 3, (void*)0);
 	glEnableVertexAttribArray(VR_Draw::Shader::shader_tex.position_location);
@@ -1124,7 +1202,7 @@ int VR_Draw::Model::render()
 	glDisableVertexAttribArray(VR_Draw::Shader::shader_tex.uv_location);
 
 	/* Restore previous OpenGL state */
-	glBindVertexArray(prior_vertex_array_binding);
+	//glBindVertexArray(prior_vertex_array_binding);
 	glBindBuffer(GL_ARRAY_BUFFER, prior_array_buffer);
 	glBindTexture(GL_TEXTURE_2D, prior_texture_binding_2d);
 	glActiveTexture(prior_texture_unit);
@@ -1132,6 +1210,7 @@ int VR_Draw::Model::render()
 	glUseProgram(prior_program);
 	prior_backface_culling ? glEnable(GL_CULL_FACE) : glDisable(GL_CULL_FACE);
 	prior_blend_enabled ? glEnable(GL_BLEND) : glDisable(GL_BLEND);
+	glDisable(GL_BLEND);
 	prior_depth_test ? glEnable(GL_DEPTH_TEST) : glDisable(GL_DEPTH_TEST);
 	prior_texture_enabled ? glEnable(GL_TEXTURE_2D) : glDisable(GL_TEXTURE_2D);
 

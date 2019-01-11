@@ -128,9 +128,33 @@ void BKE_pchan_apply_mat4(struct bPoseChannel *pchan, float mat[4][4], bool use_
 void BKE_pchan_to_mat4(struct bPoseChannel *pchan, float chan_mat[4][4]);
 void BKE_pchan_calc_mat(struct bPoseChannel *pchan);
 
-/* Get the "pchan to pose" transform matrix. These matrices apply the effects of
+/* Simple helper, computes the offset bone matrix. */
+void BKE_bone_offset_matrix_get(const struct Bone *bone, float offs_bone[4][4]);
+
+/* Transformation inherited from the parent bone. These matrices apply the effects of
  * HINGE/NO_SCALE/NO_LOCAL_LOCATION options over the pchan loc/rot/scale transformations. */
-void BKE_pchan_to_pose_mat(struct bPoseChannel *pchan, float rotscale_mat[4][4], float loc_mat[4][4]);
+typedef struct BoneParentTransform {
+	float rotscale_mat[4][4];	/* parent effect on rotation & scale pose channels */
+	float loc_mat[4][4];		/* parent effect on location pose channel */
+} BoneParentTransform;
+
+/* Matrix-like algebra operations on the transform */
+void BKE_bone_parent_transform_clear(struct BoneParentTransform *bpt);
+void BKE_bone_parent_transform_invert(struct BoneParentTransform *bpt);
+void BKE_bone_parent_transform_combine(
+        const struct BoneParentTransform *in1, const struct BoneParentTransform *in2,
+        struct BoneParentTransform *result);
+
+void BKE_bone_parent_transform_apply(
+        const struct BoneParentTransform *bpt, const float inmat[4][4], float outmat[4][4]);
+
+/* Get the current parent transformation for the given pose bone. */
+void BKE_bone_parent_transform_calc_from_pchan(
+        const struct bPoseChannel *pchan,
+        struct BoneParentTransform *r_bpt);
+void BKE_bone_parent_transform_calc_from_matrices(
+        int bone_flag, const float offs_bone[4][4], const float parent_arm_mat[4][4], const float parent_pose_mat[4][4],
+        struct BoneParentTransform *r_bpt);
 
 /* Rotation Mode Conversions - Used for PoseChannels + Objects... */
 void BKE_rotMode_change_values(float quat[4], float eul[3], float axis[3], float *angle, short oldMode, short newMode);
@@ -164,16 +188,26 @@ typedef struct BBoneSplineParameters {
 	float curveInX, curveInY, curveOutX, curveOutY;
 } BBoneSplineParameters;
 
-void BKE_pchan_get_bbone_handles(struct bPoseChannel *pchan, struct bPoseChannel **r_prev, struct bPoseChannel **r_next);
-void BKE_pchan_get_bbone_spline_parameters(struct bPoseChannel *pchan, const bool rest, struct BBoneSplineParameters *r_param);
+void BKE_pchan_bbone_handles_get(
+        struct bPoseChannel *pchan, struct bPoseChannel **r_prev, struct bPoseChannel **r_next);
+void BKE_pchan_bbone_spline_params_get(
+        struct bPoseChannel *pchan, const bool rest, struct BBoneSplineParameters *r_param);
 
-void b_bone_spline_setup(struct bPoseChannel *pchan, const bool rest, Mat4 result_array[MAX_BBONE_SUBDIV]);
+void BKE_pchan_bbone_spline_setup(
+        struct bPoseChannel *pchan, const bool rest, Mat4 result_array[MAX_BBONE_SUBDIV]);
 
-void BKE_compute_b_bone_handles(const BBoneSplineParameters *param, float h1[3], float *r_roll1, float h2[3], float *r_roll2, bool ease, bool offsets);
-int BKE_compute_b_bone_spline(struct BBoneSplineParameters *param, Mat4 result_array[MAX_BBONE_SUBDIV]);
+void BKE_pchan_bbone_handles_compute(
+        const BBoneSplineParameters *param,
+        float h1[3], float *r_roll1,
+        float h2[3], float *r_roll2,
+        bool ease, bool offsets);
+int  BKE_pchan_bbone_spline_compute(
+        struct BBoneSplineParameters *param, Mat4 result_array[MAX_BBONE_SUBDIV]);
 
-void BKE_pchan_cache_bbone_segments(struct bPoseChannel *pchan);
-void BKE_pchan_copy_bbone_segments_cache(struct bPoseChannel *pchan, struct bPoseChannel *pchan_from);
+void BKE_pchan_bbone_segments_cache_compute(
+        struct bPoseChannel *pchan);
+void BKE_pchan_bbone_segments_cache_copy(
+        struct bPoseChannel *pchan, struct bPoseChannel *pchan_from);
 
 /* like EBONE_VISIBLE */
 #define PBONE_VISIBLE(arm, bone) ( \
@@ -222,45 +256,45 @@ void BKE_splineik_execute_tree(
 void BKE_pose_eval_init(
         struct Depsgraph *depsgraph,
         struct Scene *scene,
-        struct Object *ob);
+        struct Object *object);
 
 void BKE_pose_eval_init_ik(
         struct Depsgraph *depsgraph,
         struct Scene *scene,
-        struct Object *ob);
+        struct Object *object);
 
 void BKE_pose_eval_bone(
         struct Depsgraph *depsgraph,
         struct Scene *scene,
-        struct Object *ob,
+        struct Object *object,
         int pchan_index);
 
 void BKE_pose_constraints_evaluate(
         struct Depsgraph *depsgraph,
         struct Scene *scene,
-        struct Object *ob,
+        struct Object *object,
         int pchan_index);
 
 void BKE_pose_bone_done(
         struct Depsgraph *depsgraph,
-        struct Object *ob,
+        struct Object *object,
         int pchan_index);
 
 void BKE_pose_eval_bbone_segments(
         struct Depsgraph *depsgraph,
-        struct Object *ob,
+        struct Object *object,
         int pchan_index);
 
 void BKE_pose_iktree_evaluate(
         struct Depsgraph *depsgraph,
         struct Scene *scene,
-        struct Object *ob,
+        struct Object *object,
         int rootchan_index);
 
 void BKE_pose_splineik_evaluate(
         struct Depsgraph *depsgraph,
         struct Scene *scene,
-        struct Object *ob,
+        struct Object *object,
         int rootchan_index);
 
 void BKE_pose_eval_done(
@@ -270,7 +304,7 @@ void BKE_pose_eval_done(
 void BKE_pose_eval_cleanup(
         struct Depsgraph *depsgraph,
         struct Scene *scene,
-        struct Object *ob);
+        struct Object *object);
 
 void BKE_pose_eval_proxy_init(struct Depsgraph *depsgraph,
                               struct Object *object);

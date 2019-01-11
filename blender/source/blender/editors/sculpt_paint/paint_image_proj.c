@@ -3076,8 +3076,7 @@ static void project_paint_delayed_face_init(ProjPaintState *ps, const MLoopTri *
 #endif
 }
 
-static void proj_paint_state_viewport_init(
-        ProjPaintState *ps, const Depsgraph *depsgraph, const char symmetry_flag)
+static void proj_paint_state_viewport_init(ProjPaintState *ps, const char symmetry_flag)
 {
 	float mat[3][3];
 	float viewmat[4][4];
@@ -3138,7 +3137,7 @@ static void proj_paint_state_viewport_init(
 			invert_m4_m4(viewinv, viewmat);
 		}
 		else if (ps->source == PROJ_SRC_IMAGE_CAM) {
-			Object *cam_ob_eval = DEG_get_evaluated_object(depsgraph, ps->scene->camera);
+			Object *cam_ob_eval = DEG_get_evaluated_object(ps->depsgraph, ps->scene->camera);
 			CameraParams params;
 
 			/* viewmat & viewinv */
@@ -3405,17 +3404,24 @@ static bool proj_paint_state_mesh_eval_init(const bContext *C, ProjPaintState *p
 	Depsgraph *depsgraph = CTX_data_depsgraph(C);
 	Object *ob = ps->ob;
 
+	Scene *scene_eval = DEG_get_evaluated_scene(depsgraph);
+	Object *ob_eval = DEG_get_evaluated_object(depsgraph, ob);
+
+	if (scene_eval == NULL || ob_eval == NULL) {
+		return false;
+	}
+
 	/* Workaround for subsurf selection, try the display mesh first */
 	if (ps->source == PROJ_SRC_IMAGE_CAM) {
 		/* using render mesh, assume only camera was rendered from */
 		ps->me_eval = mesh_create_eval_final_render(
-		             depsgraph, ps->scene, ps->ob, ps->scene->customdata_mask | CD_MASK_MLOOPUV | CD_MASK_MTFACE);
+		             depsgraph, scene_eval, ob_eval, scene_eval->customdata_mask | CD_MASK_MLOOPUV | CD_MASK_MTFACE);
 		ps->me_eval_free = true;
 	}
 	else {
 		ps->me_eval = mesh_get_eval_final(
-		        depsgraph, ps->scene, ps->ob,
-		        ps->scene->customdata_mask | CD_MASK_MLOOPUV | CD_MASK_MTFACE | (ps->do_face_sel ? CD_MASK_ORIGINDEX : 0));
+		        depsgraph, scene_eval, ob_eval,
+		        scene_eval->customdata_mask | CD_MASK_MLOOPUV | CD_MASK_MTFACE | (ps->do_face_sel ? CD_MASK_ORIGINDEX : 0));
 		ps->me_eval_free = false;
 	}
 
@@ -3852,7 +3858,7 @@ static void project_paint_begin(
 		proj_paint_state_cavity_init(ps);
 	}
 
-	proj_paint_state_viewport_init(ps, CTX_data_depsgraph(C), symmetry_flag);
+	proj_paint_state_viewport_init(ps, symmetry_flag);
 
 	/* calculate vert screen coords
 	 * run this early so we can calculate the x/y resolution of our bucket rect */

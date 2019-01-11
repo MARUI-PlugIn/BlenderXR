@@ -83,11 +83,11 @@ void imm_draw_cylinder_wire_3d(
 void imm_draw_cylinder_fill_3d(
         uint pos, float base, float top, float height,
         int slices, int stacks);
-
+		
 #if WITH_VR
 #ifdef __cplusplus
 }
 #endif
 #endif
-		
+
 #endif  /* __GPU_IMMEDIATE_UTIL_H__ */

@@ -105,7 +105,7 @@ static const EnumPropertyItem rna_enum_layer_blend_modes_items[] = {
 
 static void rna_GPencil_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *ptr)
 {
-	DEG_id_tag_update(ptr->id.data, OB_RECALC_DATA);
+	DEG_id_tag_update(ptr->id.data, ID_RECALC_GEOMETRY);
 	WM_main_add_notifier(NC_GPENCIL | NA_EDITED, NULL);
 }
 
@@ -144,7 +144,7 @@ static void rna_GPencil_autolock(Main *bmain, Scene *scene, PointerRNA *ptr)
 static void rna_GPencil_editmode_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *ptr)
 {
 	bGPdata *gpd = (bGPdata *)ptr->id.data;
-	DEG_id_tag_update(&gpd->id, OB_RECALC_OB | OB_RECALC_DATA);
+	DEG_id_tag_update(&gpd->id, ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY);
 
 	/* Notify all places where GPencil data lives that the editing state is different */
 	WM_main_add_notifier(NC_GPENCIL | NA_EDITED, NULL);
@@ -382,7 +382,7 @@ static void rna_GPencil_active_layer_index_set(PointerRNA *ptr, int value)
 	BKE_gpencil_layer_setactive(gpd, gpl);
 
 	/* Now do standard updates... */
-	DEG_id_tag_update(&gpd->id, OB_RECALC_DATA);
+	DEG_id_tag_update(&gpd->id, ID_RECALC_GEOMETRY);
 	WM_main_add_notifier(NC_GPENCIL | ND_DATA | NA_EDITED | ND_SPACE_PROPERTIES, NULL);
 }
 
@@ -500,8 +500,10 @@ static void rna_GPencil_stroke_point_select_set(PointerRNA *ptr, const bool valu
 	}
 }
 
-static void rna_GPencil_stroke_point_add(bGPDstroke *stroke, int count, float pressure, float strength)
+static void rna_GPencil_stroke_point_add(ID *id, bGPDstroke *stroke, int count, float pressure, float strength)
 {
+	bGPdata *gpd = (bGPdata *)id;
+
 	if (count > 0) {
 		/* create space at the end of the array for extra points */
 		stroke->points = MEM_recallocN_id(stroke->points,
@@ -525,11 +527,19 @@ static void rna_GPencil_stroke_point_add(bGPDstroke *stroke, int count, float pr
 		}
 
 		stroke->totpoints += count;
+
+		stroke->flag |= GP_STROKE_RECALC_CACHES;
+
+		gpd->flag |= GP_DATA_PYTHON_UPDATED;
+		DEG_id_tag_update(&gpd->id, ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY | ID_RECALC_COPY_ON_WRITE);
+
+		WM_main_add_notifier(NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
 	}
 }
 
-static void rna_GPencil_stroke_point_pop(bGPDstroke *stroke, ReportList *reports, int index)
+static void rna_GPencil_stroke_point_pop(ID *id, bGPDstroke *stroke, ReportList *reports, int index)
 {
+	bGPdata *gpd = (bGPdata *)id;
 	bGPDspoint *pt_tmp = stroke->points;
 	MDeformVert *pt_dvert = stroke->dvert;
 
@@ -570,6 +580,11 @@ static void rna_GPencil_stroke_point_pop(bGPDstroke *stroke, ReportList *reports
 	if (pt_dvert != NULL) {
 		MEM_freeN(pt_dvert);
 	}
+
+	stroke->flag |= GP_STROKE_RECALC_CACHES;
+
+	gpd->flag |= GP_DATA_PYTHON_UPDATED;
+	DEG_id_tag_update(&gpd->id, ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY | ID_RECALC_COPY_ON_WRITE);
 
 	WM_main_add_notifier(NC_GPENCIL | NA_EDITED, NULL);
 }
@@ -698,7 +713,7 @@ static void rna_GPencil_layer_move(bGPdata *gpd, ReportList *reports, PointerRNA
 	const int direction = type * -1;
 
 	if (BLI_listbase_link_move(&gpd->layers, gpl, direction)) {
-		DEG_id_tag_update(&gpd->id, OB_RECALC_OB | OB_RECALC_DATA);
+		DEG_id_tag_update(&gpd->id, ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY);
 	}
 
 	WM_main_add_notifier(NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
@@ -805,6 +820,7 @@ static void rna_def_gpencil_stroke_points_api(BlenderRNA *brna, PropertyRNA *cpr
 
 	func = RNA_def_function(srna, "add", "rna_GPencil_stroke_point_add");
 	RNA_def_function_ui_description(func, "Add a new grease pencil stroke point");
+	RNA_def_function_flag(func, FUNC_USE_SELF_ID);
 	parm = RNA_def_int(func, "count", 1, 0, INT_MAX, "Number", "Number of points to add to the stroke", 0, INT_MAX);
 	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	RNA_def_float(func, "pressure", 1.0f, 0.0f, 1.0f, "Pressure", "Pressure for newly created points", 0.0f, 1.0f);
@@ -812,7 +828,7 @@ static void rna_def_gpencil_stroke_points_api(BlenderRNA *brna, PropertyRNA *cpr
 
 	func = RNA_def_function(srna, "pop", "rna_GPencil_stroke_point_pop");
 	RNA_def_function_ui_description(func, "Remove a grease pencil stroke point");
-	RNA_def_function_flag(func, FUNC_USE_REPORTS);
+	RNA_def_function_flag(func, FUNC_USE_REPORTS | FUNC_USE_SELF_ID);
 	RNA_def_int(func, "index", -1, INT_MIN, INT_MAX, "Index", "point index", INT_MIN, INT_MAX);
 }
 
@@ -1487,6 +1503,7 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
 
 	prop = RNA_def_property(srna, "use_onion_skinning", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_DATA_SHOW_ONIONSKINS);
+	RNA_def_property_boolean_default(prop, true);
 	RNA_def_property_ui_text(prop, "Onion Skins", "Show ghosts of the keyframes before and after the current frame");
 	RNA_def_property_update(prop, NC_SCREEN | NC_SCENE | ND_TOOLSETTINGS | ND_DATA | NC_GPENCIL, "rna_GPencil_update");
 

@@ -325,7 +325,7 @@ static bool view3d_orbit_calc_center(bContext *C, float r_dyn_ofs[3])
 	}
 	else {
 		/* If there's no selection, lastofs is unmodified and last value since static */
-		is_set = calculateTransformCenter(C, V3D_AROUND_CENTER_MEAN, lastofs, NULL);
+		is_set = calculateTransformCenter(C, V3D_AROUND_CENTER_MEDIAN, lastofs, NULL);
 	}
 
 	copy_v3_v3(r_dyn_ofs, lastofs);
@@ -1039,7 +1039,7 @@ static float view3d_ndof_pan_speed_calc(RegionView3D *rv3d)
 /**
  * Zoom and pan in the same function since sometimes zoom is interpreted as dolly (pan forward).
  *
- * \param has_zoom zoom, otherwise dolly, often `!rv3d->is_persp` since it doesn't make sense to dolly in ortho.
+ * \param has_zoom: zoom, otherwise dolly, often `!rv3d->is_persp` since it doesn't make sense to dolly in ortho.
  */
 static void view3d_ndof_pan_zoom(
         const struct wmNDOFMotionData *ndof, ScrArea *sa, ARegion *ar,
@@ -2734,6 +2734,11 @@ static int view3d_all_exec(bContext *C, wmOperator *op)
 			BKE_object_minmax(base_eval->object, min, max, false);
 		}
 	}
+
+	if (center) {
+		DEG_id_tag_update(&scene->id, ID_RECALC_COPY_ON_WRITE);
+	}
+
 	if (!changed) {
 		ED_region_tag_redraw(ar);
 		/* TODO - should this be cancel?
@@ -2751,10 +2756,6 @@ static int view3d_all_exec(bContext *C, wmOperator *op)
 	}
 	else {
 		view3d_from_minmax(C, v3d, ar, min, max, true, smooth_viewtx);
-	}
-
-	if (center) {
-		DEG_id_tag_update(&scene->id, DEG_TAG_COPY_ON_WRITE);
 	}
 
 	return OPERATOR_FINISHED;
@@ -2841,25 +2842,31 @@ static int viewselected_exec(bContext *C, wmOperator *op)
 		CTX_DATA_END;
 
 		if ((ob_eval) && (ok)) {
-			add_v3_v3(min, ob_eval->obmat[3]);
-			add_v3_v3(max, ob_eval->obmat[3]);
+			mul_m4_v3(ob_eval->obmat, min);
+			mul_m4_v3(ob_eval->obmat, max);
 		}
 	}
 	else if (ob_eval && (ob_eval->type == OB_GPENCIL)) {
 		ok |= BKE_gpencil_data_minmax(ob_eval, gpd, min, max);
+		/* if no strokes, use object location */
+		if ((ob_eval) && (!ok)) {
+			copy_v3_v3(min, ob_eval->obmat[3]);
+			copy_v3_v3(max, ob_eval->obmat[3]);
+			ok = true;
+		}
 	}
 	else if (is_face_map) {
 		ok = WM_gizmomap_minmax(ar->gizmo_map, true, true, min, max);
 	}
 	else if (obedit) {
 		/* only selected */
-		FOREACH_OBJECT_IN_MODE_BEGIN (view_layer_eval, v3d, obedit->mode, ob_eval_iter) {
+		FOREACH_OBJECT_IN_MODE_BEGIN (view_layer_eval, v3d, obedit->type, obedit->mode, ob_eval_iter) {
 			ok |= ED_view3d_minmax_verts(ob_eval_iter, min, max);
 		}
 		FOREACH_OBJECT_IN_MODE_END;
 	}
 	else if (ob_eval && (ob_eval->mode & OB_MODE_POSE)) {
-		FOREACH_OBJECT_IN_MODE_BEGIN (view_layer_eval, v3d, ob_eval->mode, ob_eval_iter) {
+		FOREACH_OBJECT_IN_MODE_BEGIN (view_layer_eval, v3d, ob_eval->type, ob_eval->mode, ob_eval_iter) {
 			ok |= BKE_pose_minmax(ob_eval_iter, min, max, true, true);
 		}
 		FOREACH_OBJECT_IN_MODE_END;
@@ -3276,7 +3283,7 @@ static int render_border_exec(bContext *C, wmOperator *op)
 	}
 
 	if (rv3d->persp == RV3D_CAMOB) {
-		DEG_id_tag_update(&scene->id, DEG_TAG_COPY_ON_WRITE);
+		DEG_id_tag_update(&scene->id, ID_RECALC_COPY_ON_WRITE);
 	}
 	return OPERATOR_FINISHED;
 }
@@ -3336,7 +3343,7 @@ static int clear_render_border_exec(bContext *C, wmOperator *UNUSED(op))
 	border->ymax = 1.0f;
 
 	if (rv3d->persp == RV3D_CAMOB) {
-		DEG_id_tag_update(&scene->id, DEG_TAG_COPY_ON_WRITE);
+		DEG_id_tag_update(&scene->id, ID_RECALC_COPY_ON_WRITE);
 	}
 	return OPERATOR_FINISHED;
 }
@@ -4795,7 +4802,7 @@ void ED_view3d_cursor3d_update(
 		        mbus, &scene->id, scene, Scene, cursor_location);
 	}
 
-	DEG_id_tag_update(&scene->id, DEG_TAG_COPY_ON_WRITE);
+	DEG_id_tag_update(&scene->id, ID_RECALC_COPY_ON_WRITE);
 }
 
 static int view3d_cursor3d_invoke(bContext *C, wmOperator *op, const wmEvent *event)

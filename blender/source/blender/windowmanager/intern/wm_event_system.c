@@ -1009,7 +1009,7 @@ static int wm_operator_exec_notest(bContext *C, wmOperator *op)
 /**
  * for running operators with frozen context (modal handlers, menus)
  *
- * \param store Store settings for re-use.
+ * \param store: Store settings for re-use.
  *
  * warning: do not use this within an operator to call its self! [#29537] */
 int WM_operator_call_ex(bContext *C, wmOperator *op,
@@ -3125,7 +3125,10 @@ void wm_event_do_handlers(bContext *C)
 
 			/* If press was handled, we don't want to do click. This way
 			 * press in tool keymap can override click in editor keymap.*/
-			if (event->val == KM_PRESS && !wm_action_not_handled(action)) {
+			if (ISMOUSE_BUTTON(event->type) &&
+			    event->val == KM_PRESS &&
+			    !wm_action_not_handled(action))
+			{
 				win->eventstate->check_click = false;
 			}
 
@@ -3529,6 +3532,54 @@ bool WM_event_is_modal_tweak_exit(const wmEvent *event, int tweak_event)
 	}
 
 	return 0;
+}
+
+bool WM_event_type_mask_test(const int event_type, const enum eEventType_Mask mask)
+{
+	/* Keyboard. */
+	if (mask & EVT_TYPE_MASK_KEYBOARD) {
+		if (ISKEYBOARD(event_type)) {
+			return true;
+		}
+	}
+	else if (mask & EVT_TYPE_MASK_KEYBOARD_MODIFIER) {
+		if (ISKEYMODIFIER(event_type)) {
+			return true;
+		}
+	}
+
+	/* Mouse. */
+	if (mask & EVT_TYPE_MASK_MOUSE) {
+		if (ISMOUSE(event_type)) {
+			return true;
+		}
+	}
+	else if (mask & EVT_TYPE_MASK_MOUSE_WHEEL) {
+		if (ISMOUSE_WHEEL(event_type)) {
+			return true;
+		}
+	}
+	else if (mask & EVT_TYPE_MASK_MOUSE_GESTURE) {
+		if (ISMOUSE_GESTURE(event_type)) {
+			return true;
+		}
+	}
+
+	/* Tweak. */
+	if (mask & EVT_TYPE_MASK_TWEAK) {
+		if (ISTWEAK(event_type)) {
+			return true;
+		}
+	}
+
+	/* Action Zone. */
+	if (mask & EVT_TYPE_MASK_ACTIONZONE) {
+		if (IS_EVENT_ACTIONZONE(event_type)) {
+			return true;
+		}
+	}
+
+	return false;
 }
 
 /* ********************* ghost stuff *************** */

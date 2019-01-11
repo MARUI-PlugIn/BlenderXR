@@ -869,14 +869,14 @@ class IMPORT_IMAGE_OT_to_plane(Operator, AddObjectHelper):
             self.relative = False
 
         # this won't work in edit mode
-        editmode = context.user_preferences.edit.use_enter_edit_mode
-        context.user_preferences.edit.use_enter_edit_mode = False
+        editmode = context.preferences.edit.use_enter_edit_mode
+        context.preferences.edit.use_enter_edit_mode = False
         if context.active_object and context.active_object.mode == 'EDIT':
             bpy.ops.object.mode_set(mode='OBJECT')
 
         self.import_images(context)
 
-        context.user_preferences.edit.use_enter_edit_mode = editmode
+        context.preferences.edit.use_enter_edit_mode = editmode
 
         return {'FINISHED'}
 
@@ -1042,7 +1042,7 @@ class IMPORT_IMAGE_OT_to_plane(Operator, AddObjectHelper):
         bpy.ops.mesh.primitive_plane_add('INVOKE_REGION_WIN')
         plane = context.active_object
         # Why does mesh.primitive_plane_add leave the object in edit mode???
-        if plane.mode is not 'OBJECT':
+        if plane.mode != 'OBJECT':
             bpy.ops.object.mode_set(mode='OBJECT')
         plane.dimensions = width, height, 0.0
         plane.data.name = plane.name = name

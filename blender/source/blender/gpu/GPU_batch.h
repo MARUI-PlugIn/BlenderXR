@@ -103,18 +103,19 @@ enum {
 	GPU_BATCH_OWNS_VBO = (1 << 0),
 	/* each vbo index gets bit-shifted */
 	GPU_BATCH_OWNS_INSTANCES = (1 << 30),
-	GPU_BATCH_OWNS_INDEX = (1 << 31),
+	GPU_BATCH_OWNS_INDEX = (1u << 31u),
 };
 
 GPUBatch *GPU_batch_create_ex(GPUPrimType, GPUVertBuf *, GPUIndexBuf *, uint owns_flag);
 void GPU_batch_init_ex(GPUBatch *, GPUPrimType, GPUVertBuf *, GPUIndexBuf *, uint owns_flag);
-GPUBatch *GPU_batch_duplicate(GPUBatch *batch_src);
+void GPU_batch_copy(GPUBatch *batch_dst, GPUBatch *batch_src);
 
 #define GPU_batch_create(prim, verts, elem) \
 	GPU_batch_create_ex(prim, verts, elem, 0)
 #define GPU_batch_init(batch, prim, verts, elem) \
 	GPU_batch_init_ex(batch, prim, verts, elem, 0)
 
+void GPU_batch_clear(GPUBatch *); /* Same as discard but does not free. */
 void GPU_batch_discard(GPUBatch *); /* verts & elem are not discarded */
 
 void GPU_batch_vao_cache_clear(GPUBatch *);
@@ -201,6 +202,13 @@ void gpu_batch_exit(void);
 	if (batch != NULL) { \
 		GPU_batch_discard(batch); \
 		batch = NULL; \
+	} \
+} while (0)
+
+#define GPU_BATCH_CLEAR_SAFE(batch) do { \
+	if (batch != NULL) { \
+		GPU_batch_clear(batch); \
+		memset(batch, 0, sizeof(*(batch))); \
 	} \
 } while (0)
 

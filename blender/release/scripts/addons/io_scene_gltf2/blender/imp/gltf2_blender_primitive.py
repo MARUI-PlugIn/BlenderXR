@@ -57,17 +57,22 @@ class BlenderPrimitive():
         # manage material of primitive
         if pyprimitive.material is not None:
 
-            # Create Blender material
-            # TODO, a same material can have difference COLOR_0 multiplicator
-            if gltf.data.materials[pyprimitive.material].blender_material is None:
-                vertex_color = None
-                if 'COLOR_0' in pyprimitive.attributes.keys():
-                    vertex_color = pyprimitive.attributes['COLOR_0']
-                BlenderMaterial.create(gltf, pyprimitive.material, vertex_color)
+            vertex_color = None
+            if 'COLOR_0' in pyprimitive.attributes.keys():
+                vertex_color = 'COLOR_0'
+
+            # Create Blender material if needed
+            if vertex_color is None:
+                if None not in gltf.data.materials[pyprimitive.material].blender_material.keys():
+                    BlenderMaterial.create(gltf, pyprimitive.material, vertex_color)
+            else:
+                if vertex_color not in gltf.data.materials[pyprimitive.material].blender_material.keys():
+                    BlenderMaterial.create(gltf, pyprimitive.material, vertex_color)
+
 
         return verts, edges, faces
 
-    def set_normals(gltf, pyprimitive, mesh, offset):
+    def set_normals(gltf, pyprimitive, mesh, offset, custom_normals):
         """Set Normal."""
         if 'NORMAL' in pyprimitive.attributes.keys():
             normal_data = BinaryData.get_data_from_accessor(gltf, pyprimitive.attributes['NORMAL'])
@@ -79,6 +84,7 @@ class BlenderPrimitive():
                         if vert_idx in range(offset, offset + pyprimitive.vertices_length):
                             cpt_vert = vert_idx - offset
                             mesh.vertices[vert_idx].normal = normal_data[cpt_vert]
+                            custom_normals[vert_idx] = list(normal_data[cpt_vert])
                             calc_norm_vertices.append(vert_idx)
 
                         if len(calc_norm_vertices) == 3:
@@ -112,7 +118,7 @@ class BlenderPrimitive():
         for texcoord in [attr for attr in pyprimitive.attributes.keys() if attr[:9] == "TEXCOORD_"]:
             if texcoord not in mesh.uv_layers:
                 mesh.uv_layers.new(name=texcoord)
-                pyprimitive.blender_texcoord[int(texcoord[9:])] = texcoord
+            pyprimitive.blender_texcoord[int(texcoord[9:])] = texcoord
 
             texcoord_data = BinaryData.get_data_from_accessor(gltf, pyprimitive.attributes[texcoord])
             for poly in mesh.polygons:
@@ -125,7 +131,7 @@ class BlenderPrimitive():
         offset = offset + pyprimitive.vertices_length
         return offset
 
-    def set_UV_in_mat(gltf, pyprimitive, obj):
+    def set_UV_in_mat(gltf, pyprimitive, obj, vertex_color):
         """After nodetree creation, set UVMap in nodes."""
         if pyprimitive.material is None:
             return
@@ -136,29 +142,34 @@ class BlenderPrimitive():
                     and gltf.data.materials[pyprimitive.material].extensions[
                         'KHR_materials_pbrSpecularGlossiness'
                     ]['diffuse_type'] in [gltf.TEXTURE, gltf.TEXTURE_FACTOR]:
-                BlenderMaterial.set_uvmap(gltf, pyprimitive.material, pyprimitive, obj)
+                BlenderMaterial.set_uvmap(gltf, pyprimitive.material, pyprimitive, obj, vertex_color)
             else:
                 if pyprimitive.material is not None \
                         and gltf.data.materials[pyprimitive.material].extensions[
                             'KHR_materials_pbrSpecularGlossiness'
                         ]['specgloss_type'] in [gltf.TEXTURE, gltf.TEXTURE_FACTOR]:
-                    BlenderMaterial.set_uvmap(gltf, pyprimitive.material, pyprimitive, obj)
+                    BlenderMaterial.set_uvmap(gltf, pyprimitive.material, pyprimitive, obj, vertex_color)
 
         else:
             if pyprimitive.material is not None \
                     and gltf.data.materials[pyprimitive.material].pbr_metallic_roughness.color_type in \
                     [gltf.TEXTURE, gltf.TEXTURE_FACTOR]:
-                BlenderMaterial.set_uvmap(gltf, pyprimitive.material, pyprimitive, obj)
+                BlenderMaterial.set_uvmap(gltf, pyprimitive.material, pyprimitive, obj, vertex_color)
             else:
                 if pyprimitive.material is not None \
                         and gltf.data.materials[pyprimitive.material].pbr_metallic_roughness.metallic_type in \
                         [gltf.TEXTURE, gltf.TEXTURE_FACTOR]:
-                    BlenderMaterial.set_uvmap(gltf, pyprimitive.material, pyprimitive, obj)
+                    BlenderMaterial.set_uvmap(gltf, pyprimitive.material, pyprimitive, obj, vertex_color)
 
     def assign_material(gltf, pyprimitive, obj, bm, offset, cpt_index_mat):
         """Assign material to faces of primitives."""
         if pyprimitive.material is not None:
-            obj.data.materials.append(bpy.data.materials[gltf.data.materials[pyprimitive.material].blender_material])
+
+            vertex_color = None
+            if 'COLOR_0' in pyprimitive.attributes.keys():
+                vertex_color = 'COLOR_0'
+
+            obj.data.materials.append(bpy.data.materials[gltf.data.materials[pyprimitive.material].blender_material[vertex_color]])
             for vert in bm.verts:
                 if vert.index in range(offset, offset + pyprimitive.vertices_length):
                     for loop in vert.link_loops:

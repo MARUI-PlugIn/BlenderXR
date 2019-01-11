@@ -280,7 +280,7 @@ static void drawWalkPixel(const struct bContext *UNUSED(C), ARegion *ar, void *a
 	int xoff, yoff;
 	rctf viewborder;
 
-	if (walk->scene->camera) {
+	if (ED_view3d_cameracontrol_object_get(walk->v3d_camera_control)) {
 		ED_view3d_calc_camera_border(walk->scene, walk->depsgraph, ar, walk->v3d, walk->rv3d, &viewborder, false);
 		xoff = viewborder.xmin + BLI_rctf_size_x(&viewborder) * 0.5f;
 		yoff = viewborder.ymin + BLI_rctf_size_y(&viewborder) * 0.5f;
@@ -369,7 +369,7 @@ static void walk_navigation_mode_set(bContext *C, wmOperator *op, WalkInfo *walk
 }
 
 /**
- * \param r_distance  Distance to the hit point
+ * \param r_distance: Distance to the hit point
  */
 static bool walk_floor_distance_get(
         RegionView3D *rv3d, WalkInfo *walk, const float dvec[3],
@@ -403,9 +403,9 @@ static bool walk_floor_distance_get(
 }
 
 /**
- * \param ray_distance  Distance to the hit point
- * \param r_location  Location of the hit point
- * \param r_normal  Normal of the hit surface, transformed to always face the camera
+ * \param ray_distance: Distance to the hit point
+ * \param r_location: Location of the hit point
+ * \param r_normal: Normal of the hit surface, transformed to always face the camera
  */
 static bool walk_ray_cast(
         RegionView3D *rv3d, WalkInfo *walk,

@@ -812,7 +812,7 @@ static void deg_update_copy_on_write_animation(const Depsgraph *depsgraph,
 typedef struct ObjectRuntimeBackup {
 	Object_Runtime runtime;
 	short base_flag;
-	CustomDataMask lastDataMask;
+	unsigned short base_local_view_bits;
 } ObjectRuntimeBackup;
 
 /* Make a backup of object's evaluation runtime data, additionally
@@ -836,7 +836,7 @@ static void deg_backup_object_runtime(
 	}
 	/* Make a backup of base flags. */
 	object_runtime_backup->base_flag = object->base_flag;
-	object_runtime_backup->lastDataMask = object->lastDataMask;
+	object_runtime_backup->base_local_view_bits = object->base_local_view_bits;
 }
 
 static void deg_restore_object_runtime(
@@ -856,6 +856,9 @@ static void deg_restore_object_runtime(
 			 * that datablock.
 			 */
 			object->data = mesh_orig;
+
+			/* After that, immediately free the invalidated caches. */
+			BKE_object_free_derived_caches(object);
 		}
 		else {
 			Mesh *mesh_eval = object->runtime.mesh_eval;
@@ -871,7 +874,7 @@ static void deg_restore_object_runtime(
 		}
 	}
 	object->base_flag = object_runtime_backup->base_flag;
-	object->lastDataMask = object_runtime_backup->lastDataMask;
+	object->base_local_view_bits = object_runtime_backup->base_local_view_bits;
 }
 
 ID *deg_update_copy_on_write_datablock(const Depsgraph *depsgraph,
@@ -927,7 +930,7 @@ ID *deg_update_copy_on_write_datablock(const Depsgraph *depsgraph,
 				 * everything is done by node tree update function which
 				 * only copies socket values.
 				 */
-				const int ignore_flag = (ID_RECALC_DRAW |
+				const int ignore_flag = (ID_RECALC_SHADING |
 				                         ID_RECALC_ANIMATION |
 				                         ID_RECALC_COPY_ON_WRITE);
 				if ((id_cow->recalc & ~ignore_flag) == 0) {

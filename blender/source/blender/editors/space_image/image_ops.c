@@ -1094,8 +1094,8 @@ static void image_open_cancel(bContext *UNUSED(C), wmOperator *op)
 
 /**
  * \brief Get a list of frames from the list of image files matching the first file name sequence pattern
- * \param ptr [in] the RNA pointer containing the "directory" entry and "files" collection
- * \param frames_all [out] the list of frame numbers found in the files matching the first one by name
+ * \param ptr: [in] the RNA pointer containing the "directory" entry and "files" collection
+ * \param frames_all: [out] the list of frame numbers found in the files matching the first one by name
  */
 static void image_sequence_get_frame_ranges(PointerRNA *ptr, ListBase *frames_all)
 {
@@ -1136,7 +1136,7 @@ static void image_sequence_get_frame_ranges(PointerRNA *ptr, ListBase *frames_al
 		BLI_addtail(&frame_range->frames, frame);
 		MEM_freeN(filename);
 	}
-	RNA_END
+	RNA_END;
 }
 
 static int image_cmp_frame(const void *a, const void *b)
@@ -1777,7 +1777,7 @@ static void save_image_post(
 
 			BKE_color_managed_colorspace_settings_copy(&old_colorspace_settings,
 			                                           &ima->colorspace_settings);
-			IMB_colormanagment_colorspace_from_ibuf_ftype(&ima->colorspace_settings, ibuf);
+			IMB_colormanagement_colorspace_from_ibuf_ftype(&ima->colorspace_settings, ibuf);
 			if (!BKE_color_managed_colorspace_settings_equals(&old_colorspace_settings,
 			                                                  &ima->colorspace_settings))
 			{

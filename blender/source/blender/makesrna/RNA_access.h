@@ -610,7 +610,7 @@ extern StructRNA RNA_SpaceProperties;
 extern StructRNA RNA_SpaceSequenceEditor;
 extern StructRNA RNA_SpaceTextEditor;
 extern StructRNA RNA_SpaceUVEditor;
-extern StructRNA RNA_SpaceUserPreferences;
+extern StructRNA RNA_SpacePreferences;
 extern StructRNA RNA_SpaceView3D;
 extern StructRNA RNA_Speaker;
 extern StructRNA RNA_SpeedControlSequence;
@@ -685,7 +685,7 @@ extern StructRNA RNA_ThemeSpaceListGeneric;
 extern StructRNA RNA_ThemeStyle;
 extern StructRNA RNA_ThemeTextEditor;
 extern StructRNA RNA_ThemeUserInterface;
-extern StructRNA RNA_ThemeUserPreferences;
+extern StructRNA RNA_ThemePreferences;
 extern StructRNA RNA_ThemeView3D;
 extern StructRNA RNA_ThemeWidgetColors;
 extern StructRNA RNA_ThemeWidgetStateColors;
@@ -697,6 +697,7 @@ extern StructRNA RNA_TintGpencilModifier;
 extern StructRNA RNA_ToolSettings;
 extern StructRNA RNA_TrackToConstraint;
 extern StructRNA RNA_TransformConstraint;
+extern StructRNA RNA_TransformOrientationSlot;
 extern StructRNA RNA_TransformSequence;
 extern StructRNA RNA_UILayout;
 extern StructRNA RNA_UIList;
@@ -707,13 +708,13 @@ extern StructRNA RNA_UVProjector;
 extern StructRNA RNA_UVWarpModifier;
 extern StructRNA RNA_UnitSettings;
 extern StructRNA RNA_UnknownType;
-extern StructRNA RNA_UserPreferences;
-extern StructRNA RNA_UserPreferencesEdit;
-extern StructRNA RNA_UserPreferencesFilePaths;
-extern StructRNA RNA_UserPreferencesInput;
-extern StructRNA RNA_UserPreferencesSystem;
-extern StructRNA RNA_UserPreferencesView;
-extern StructRNA RNA_UserPreferencesWalkNavigation;
+extern StructRNA RNA_Preferences;
+extern StructRNA RNA_PreferencesEdit;
+extern StructRNA RNA_PreferencesFilePaths;
+extern StructRNA RNA_PreferencesInput;
+extern StructRNA RNA_PreferencesSystem;
+extern StructRNA RNA_PreferencesView;
+extern StructRNA RNA_PreferencesWalkNavigation;
 extern StructRNA RNA_UserSolidLight;
 extern StructRNA RNA_VectorFont;
 extern StructRNA RNA_VertexGroup;
@@ -951,6 +952,7 @@ int RNA_property_int_get_index(PointerRNA *ptr, PropertyRNA *prop, int index);
 void RNA_property_int_set_array(PointerRNA *ptr, PropertyRNA *prop, const int *values);
 void RNA_property_int_set_index(PointerRNA *ptr, PropertyRNA *prop, int index, int value);
 int RNA_property_int_get_default(PointerRNA *ptr, PropertyRNA *prop);
+bool RNA_property_int_set_default(PointerRNA *ptr, PropertyRNA *prop, int value);
 void RNA_property_int_get_default_array(PointerRNA *ptr, PropertyRNA *prop, int *values);
 int RNA_property_int_get_default_index(PointerRNA *ptr, PropertyRNA *prop, int index);
 
@@ -962,6 +964,7 @@ float RNA_property_float_get_index(PointerRNA *ptr, PropertyRNA *prop, int index
 void RNA_property_float_set_array(PointerRNA *ptr, PropertyRNA *prop, const float *values);
 void RNA_property_float_set_index(PointerRNA *ptr, PropertyRNA *prop, int index, float value);
 float RNA_property_float_get_default(PointerRNA *ptr, PropertyRNA *prop);
+bool RNA_property_float_set_default(PointerRNA *ptr, PropertyRNA *prop, float value);
 void RNA_property_float_get_default_array(PointerRNA *ptr, PropertyRNA *prop, float *values);
 float RNA_property_float_get_default_index(PointerRNA *ptr, PropertyRNA *prop, int index);
 
@@ -1014,6 +1017,7 @@ bool RNA_property_collection_move(PointerRNA *ptr, PropertyRNA *prop, int key, i
 /* copy/reset */
 bool RNA_property_copy(struct Main *bmain, PointerRNA *ptr, PointerRNA *fromptr, PropertyRNA *prop, int index);
 bool RNA_property_reset(PointerRNA *ptr, PropertyRNA *prop, int index);
+bool RNA_property_assign_default(PointerRNA *ptr, PropertyRNA *prop);
 
 /* Path
  *
@@ -1141,7 +1145,7 @@ void RNA_collection_clear(PointerRNA *ptr, const char *name);
 #define RNA_END                                                               \
 		}                                                                     \
 		RNA_property_collection_end(&rna_macro_iter);                         \
-	}
+	} ((void)0)
 
 #define RNA_PROP_BEGIN(sptr, itemptr, prop)                                   \
 	{                                                                         \

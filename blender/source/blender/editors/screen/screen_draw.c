@@ -25,6 +25,7 @@
 #include "ED_screen.h"
 
 #include "GPU_batch_presets.h"
+#include "GPU_extensions.h"
 #include "GPU_framebuffer.h"
 #include "GPU_immediate.h"
 #include "GPU_matrix.h"
@@ -216,7 +217,7 @@ static void draw_join_shape(ScrArea *sa, char dir, unsigned int pos)
 	}
 }
 
-#define CORNER_RESOLUTION 9
+#define CORNER_RESOLUTION 3
 
 static void do_vert_pair(GPUVertBuf *vbo, uint pos, uint *vidx, int corner, int i)
 {
@@ -235,7 +236,7 @@ static void do_vert_pair(GPUVertBuf *vbo, uint pos, uint *vidx, int corner, int 
 	}
 
 	/* Line width is 20% of the entire corner size. */
-	const float line_width = 0.2f;
+	const float line_width = 0.2f; /* Keep in sync with shader */
 	mul_v2_fl(inter, 1.0f - line_width);
 	mul_v2_fl(exter, 1.0f + line_width);
 
@@ -271,15 +272,12 @@ static GPUBatch *batch_screen_edges_get(int *corner_len)
 		uint pos = GPU_vertformat_attr_add(&format, "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
 
 		GPUVertBuf *vbo = GPU_vertbuf_create_with_format(&format);
-		GPU_vertbuf_data_alloc(vbo, CORNER_RESOLUTION * 2 * 4 * 8 + 2);
+		GPU_vertbuf_data_alloc(vbo, CORNER_RESOLUTION * 2 * 4 + 2);
 
 		uint vidx = 0;
-		/* Note jitter is applied in the shader. */
-		for (int jit = 0; jit < 8; ++jit) {
-			for (int corner = 0; corner < 4; ++corner) {
-				for (int c = 0; c < CORNER_RESOLUTION; ++c) {
-					do_vert_pair(vbo, pos, &vidx, corner, c);
-				}
+		for (int corner = 0; corner < 4; ++corner) {
+			for (int c = 0; c < CORNER_RESOLUTION; ++c) {
+				do_vert_pair(vbo, pos, &vidx, corner, c);
 			}
 		}
 		/* close the loop */
@@ -309,7 +307,7 @@ static void scrarea_draw_shape_dark(ScrArea *sa, char dir, unsigned int pos)
 }
 
 /**
- * Draw screen area ligher with arrow shape ("eraser" of previous dark shape).
+ * Draw screen area lighter with arrow shape ("eraser" of previous dark shape).
  */
 static void scrarea_draw_shape_light(ScrArea *sa, char UNUSED(dir), unsigned int pos)
 {
@@ -390,21 +388,30 @@ void ED_screen_draw_edges(wmWindow *win)
 		BLI_rcti_do_minmax_v(&scissor_rect, (int[2]){sa->v3->vec.x, sa->v3->vec.y});
 	}
 
+	if (GPU_type_matches(GPU_DEVICE_INTEL_UHD, GPU_OS_UNIX, GPU_DRIVER_ANY)) {
+		/* For some reason, on linux + Intel UHD Graphics 620 the driver
+		 * hangs if we don't flush before this. (See T57455) */
+		GPU_flush();
+	}
+
 	GPU_scissor(scissor_rect.xmin,
 	            scissor_rect.ymin,
 	            BLI_rcti_size_x(&scissor_rect) + 1,
 	            BLI_rcti_size_y(&scissor_rect) + 1);
 
-	glEnable(GL_SCISSOR_TEST);
+	/* It seems that all areas gets smaller when pixelsize is > 1.
+	 * So in order to avoid missing pixels we just disable de scissors. */
+	if (U.pixelsize <= 1.0f) {
+		glEnable(GL_SCISSOR_TEST);
+	}
 
 	UI_GetThemeColor4fv(TH_EDITOR_OUTLINE, col);
-	col[3] = 1.0f / 8.0f;
+	col[3] = 1.0f;
 	corner_scale = U.pixelsize * 8.0f;
 	edge_thickness = corner_scale * 0.21f;
 
 	GPU_blend(true);
 
-	/* Transparent pass (for AA). */
 	GPUBatch *batch = batch_screen_edges_get(&verts_per_corner);
 	GPU_batch_program_set_builtin(batch, GPU_SHADER_2D_AREA_EDGES);
 	GPU_batch_uniform_1i(batch, "cornerLen", verts_per_corner);
@@ -417,16 +424,9 @@ void ED_screen_draw_edges(wmWindow *win)
 
 	GPU_blend(false);
 
-	/* Opaque pass. */
-	corner_scale -= 2.0f;
-	edge_thickness = corner_scale * 0.2f;
-	GPU_batch_uniform_1f(batch, "scale", corner_scale);
-
-	for (sa = screen->areabase.first; sa; sa = sa->next) {
-		drawscredge_area(sa, winsize_x, winsize_y, edge_thickness);
+	if (U.pixelsize <= 1.0f) {
+		glDisable(GL_SCISSOR_TEST);
 	}
-
-	glDisable(GL_SCISSOR_TEST);
 }
 
 /**

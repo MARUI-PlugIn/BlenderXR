@@ -68,13 +68,15 @@ void BIF_clearTransformOrientation(bContext *C)
 {
 	Scene *scene = CTX_data_scene(C);
 	ListBase *transform_orientations = &scene->transform_spaces;
-	View3D *v3d = CTX_wm_view3d(C);
 
 	BLI_freelistN(transform_orientations);
 
-	if (v3d && scene->orientation_type == V3D_MANIP_CUSTOM) {
-		scene->orientation_type = V3D_MANIP_GLOBAL; /* fallback to global */
-		scene->orientation_index_custom = -1;
+	for (int i = 0; i < ARRAY_SIZE(scene->orientation_slots); i++) {
+		TransformOrientationSlot *orient_slot = &scene->orientation_slots[i];
+		if (orient_slot->type == V3D_MANIP_CUSTOM) {
+			orient_slot->type = V3D_MANIP_GLOBAL; /* fallback to global */
+			orient_slot->index_custom = -1;
+		}
 	}
 }
 
@@ -367,21 +369,8 @@ void BIF_selectTransformOrientation(bContext *C, TransformOrientation *target)
 
 	BLI_assert(index != -1);
 
-	scene->orientation_type = V3D_MANIP_CUSTOM;
-	scene->orientation_index_custom = index;
-}
-
-/**
- * Activate a transform orientation in a 3D view based on an enum value.
- *
- * \param orientation: If this is #V3D_MANIP_CUSTOM or greater, the custom transform orientation
- *                     with index \a orientation - #V3D_MANIP_CUSTOM gets activated.
- */
-void BIF_selectTransformOrientationValue(Scene *scene, int orientation)
-{
-	const bool is_custom = orientation >= V3D_MANIP_CUSTOM;
-	scene->orientation_type = is_custom ? V3D_MANIP_CUSTOM : orientation;
-	scene->orientation_index_custom = is_custom ? (orientation - V3D_MANIP_CUSTOM) : -1;
+	scene->orientation_slots[SCE_ORIENT_DEFAULT].type = V3D_MANIP_CUSTOM;
+	scene->orientation_slots[SCE_ORIENT_DEFAULT].index_custom = index;
 }
 
 int BIF_countTransformOrientation(const bContext *C)

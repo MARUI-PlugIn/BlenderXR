@@ -16,7 +16,7 @@ void workbench_private_data_init(WORKBENCH_PrivateData *wpd)
 	const DRWContextState *draw_ctx = DRW_context_state_get();
 	const Scene *scene = draw_ctx->scene;
 	wpd->material_hash = BLI_ghash_ptr_new(__func__);
-	wpd->user_preferences = &U;
+	wpd->preferences = &U;
 
 	View3D *v3d = draw_ctx->v3d;
 	if (!v3d) {
@@ -55,13 +55,14 @@ void workbench_private_data_init(WORKBENCH_PrivateData *wpd)
 	wd->matcap_orientation = (wpd->shading.flag & V3D_SHADING_MATCAP_FLIP_X) != 0;
 	wd->background_alpha = (DRW_state_is_image_render() && scene->r.alphamode == R_ALPHAPREMUL) ? 0.0f : 1.0f;
 
-	if (!v3d || ((v3d->shading.background_type == V3D_SHADING_BACKGROUND_WORLD) &&
-	    (scene->world != NULL)))
+	if ((scene->world != NULL) &&
+	    (!v3d || (v3d && ((v3d->shading.background_type == V3D_SHADING_BACKGROUND_WORLD) ||
+	                      (v3d->shading.type == OB_RENDER)))))
 	{
 		copy_v3_v3(wd->background_color_low, &scene->world->horr);
 		copy_v3_v3(wd->background_color_high, &scene->world->horr);
 	}
-	else if (v3d->shading.background_type == V3D_SHADING_BACKGROUND_VIEWPORT) {
+	else if (v3d && (v3d->shading.background_type == V3D_SHADING_BACKGROUND_VIEWPORT)) {
 		copy_v3_v3(wd->background_color_low, v3d->shading.background_color);
 		copy_v3_v3(wd->background_color_high, v3d->shading.background_color);
 	}
@@ -161,7 +162,9 @@ void workbench_private_data_get_light_direction(WORKBENCH_PrivateData *wpd, floa
 	DRW_viewport_matrix_get(view_matrix, DRW_MAT_VIEW);
 
 	copy_v3_v3(r_light_direction, scene->display.light_direction);
-	negate_v3(r_light_direction);
+	SWAP(float, r_light_direction[2], r_light_direction[1]);
+	r_light_direction[2] = -r_light_direction[2];
+	r_light_direction[0] = -r_light_direction[0];
 
 	/* Shadow direction. */
 	mul_v3_mat3_m4v3(wd->shadow_direction_vs, view_matrix, r_light_direction);

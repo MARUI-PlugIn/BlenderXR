@@ -60,6 +60,20 @@ void BKE_mesh_runtime_reset(Mesh *mesh)
 	memset(&mesh->runtime, 0, sizeof(mesh->runtime));
 }
 
+/* Clear all pointers which we don't want to be shared on copying the datablock.
+ * However, keep all the flags which defines what the mesh is (for example, that
+ * it's deformed only, or that its custom data layers are out of date.) */
+void BKE_mesh_runtime_reset_on_copy(Mesh *mesh)
+{
+	Mesh_Runtime *runtime = &mesh->runtime;
+	runtime->edit_data = NULL;
+	runtime->batch_cache = NULL;
+	runtime->subdiv_ccg = NULL;
+	memset(&runtime->looptris, 0, sizeof(runtime->looptris));
+	runtime->bvh_cache = NULL;
+	runtime->shrinkwrap_data = NULL;
+}
+
 void BKE_mesh_runtime_clear_cache(Mesh *mesh)
 {
 	BKE_mesh_runtime_clear_geometry(mesh);
@@ -354,7 +368,10 @@ bool BKE_mesh_runtime_is_valid(Mesh *me_eval)
 	}
 
 	is_valid &= BKE_mesh_validate_all_customdata(
-	        &me_eval->vdata, &me_eval->edata, &me_eval->ldata, &me_eval->pdata,
+	        &me_eval->vdata, me_eval->totvert,
+	        &me_eval->edata, me_eval->totedge,
+	        &me_eval->ldata, me_eval->totloop,
+	        &me_eval->pdata, me_eval->totpoly,
 	        false,  /* setting mask here isn't useful, gives false positives */
 	        do_verbose, do_fixes,
 	        &changed);

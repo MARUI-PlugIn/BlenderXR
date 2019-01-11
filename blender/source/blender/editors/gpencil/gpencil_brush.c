@@ -109,8 +109,10 @@ typedef struct tGP_BrushEditData {
 	/* Brush Settings */
 	GP_Sculpt_Settings *settings;
 	GP_Sculpt_Data *gp_brush;
+	GP_Sculpt_Data *gp_brush_old;
 
 	eGP_Sculpt_Types brush_type;
+	eGP_Sculpt_Types brush_type_old;
 	eGP_Sculpt_Flag  flag;
 
 	/* Space Conversion Data */
@@ -119,6 +121,7 @@ typedef struct tGP_BrushEditData {
 
 	/* Is the brush currently painting? */
 	bool is_painting;
+	bool is_weight_mode;
 
 	/* Start of new sculpt stroke */
 	bool first;
@@ -135,7 +138,7 @@ typedef struct tGP_BrushEditData {
 	/* - position and pressure
 	 * - the *_prev variants are the previous values
 	 */
-	int   mval[2], mval_prev[2];
+	float   mval[2], mval_prev[2];
 	float pressure, pressure_prev;
 
 	/* - effect vector (e.g. 2D/3D translation for grab brush) */
@@ -258,7 +261,9 @@ static float gp_brush_influence_calc(tGP_BrushEditData *gso, const int radius, c
 
 	/* distance fading */
 	if (gp_brush->flag & GP_SCULPT_FLAG_USE_FALLOFF) {
-		float distance = (float)len_v2v2_int(gso->mval, co);
+		int mval_i[2];
+		round_v2i_v2fl(mval_i, gso->mval);
+		float distance = (float)len_v2v2_int(mval_i, co);
 		float fac;
 
 		CLAMP(distance, 0.0f, (float)radius);
@@ -591,7 +596,7 @@ static void gp_brush_calc_midpoint(tGP_BrushEditData *gso)
 		float zfac = ED_view3d_calc_zfac(rv3d, rvec, NULL);
 
 		float mval_f[2];
-		copy_v2fl_v2i(mval_f, gso->mval);
+		copy_v2_v2(mval_f, gso->mval);
 		float mval_prj[2];
 		float dvec[3];
 
@@ -1187,7 +1192,7 @@ static bool gpsculpt_brush_init(bContext *C, wmOperator *op)
 	ToolSettings *ts = CTX_data_tool_settings(C);
 	Object *ob = CTX_data_active_object(C);
 
-	const bool is_weight_mode = ob->mode == OB_MODE_GPENCIL_WEIGHT;
+	const bool is_weight_mode = ob->mode == OB_MODE_WEIGHT_GPENCIL;
 	/* set the brush using the tool */
 #if 0
 	GP_Sculpt_Settings *gset = &ts->gp_sculpt;
@@ -1203,6 +1208,7 @@ static bool gpsculpt_brush_init(bContext *C, wmOperator *op)
 	/* store state */
 	gso->settings = gpsculpt_get_settings(scene);
 	gso->gp_brush = gpsculpt_get_brush(scene, is_weight_mode);
+	gso->is_weight_mode = is_weight_mode;
 
 	if (is_weight_mode) {
 		gso->brush_type = gso->settings->weighttype;
@@ -1431,7 +1437,9 @@ static bool gpsculpt_brush_do_stroke(
 		/* do boundbox check first */
 		if ((!ELEM(V2D_IS_CLIPPED, pc1[0], pc1[1])) && BLI_rcti_isect_pt(rect, pc1[0], pc1[1])) {
 			/* only check if point is inside */
-			if (len_v2v2_int(gso->mval, pc1) <= radius) {
+			int mval_i[2];
+			round_v2i_v2fl(mval_i, gso->mval);
+			if (len_v2v2_int(mval_i, pc1) <= radius) {
 				/* apply operation to this point */
 				changed = apply(gso, gps, 0, radius, pc1);
 			}
@@ -1752,7 +1760,7 @@ static void gpsculpt_brush_apply(bContext *C, wmOperator *op, PointerRNA *itempt
 
 	/* Updates */
 	if (changed) {
-		DEG_id_tag_update(&gso->gpd->id, OB_RECALC_DATA);
+		DEG_id_tag_update(&gso->gpd->id, ID_RECALC_GEOMETRY);
 		WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
 	}
 
@@ -1769,6 +1777,8 @@ static void gpsculpt_brush_apply(bContext *C, wmOperator *op, PointerRNA *itempt
 static void gpsculpt_brush_apply_event(bContext *C, wmOperator *op, const wmEvent *event)
 {
 	tGP_BrushEditData *gso = op->customdata;
+	ToolSettings *ts = CTX_data_tool_settings(C);
+	GP_Sculpt_Settings *gset = &ts->gp_sculpt;
 	PointerRNA itemptr;
 	float mouse[2];
 	int tablet = 0;
@@ -1800,6 +1810,22 @@ static void gpsculpt_brush_apply_event(bContext *C, wmOperator *op, const wmEven
 	}
 	else {
 		RNA_float_set(&itemptr, "pressure", 1.0f);
+	}
+
+	if (!gso->is_weight_mode) {
+		if (event->shift) {
+			gso->gp_brush_old = gso->gp_brush;
+			gso->brush_type_old = gso->brush_type;
+
+			gso->gp_brush = &gset->brush[GP_SCULPT_TYPE_SMOOTH];
+			gso->brush_type = GP_SCULPT_TYPE_SMOOTH;
+		}
+		else {
+			if (gso->gp_brush_old != NULL) {
+				gso->gp_brush = gso->gp_brush_old;
+				gso->brush_type = gso->brush_type_old;
+			}
+		}
 	}
 
 	/* apply */
@@ -2085,7 +2111,7 @@ static int gpsculpt_brush_modal(bContext *C, wmOperator *op, const wmEvent *even
 
 	/* Redraw toolsettings (brush settings)? */
 	if (redraw_toolsettings) {
-		DEG_id_tag_update(&gso->gpd->id, OB_RECALC_DATA);
+		DEG_id_tag_update(&gso->gpd->id, ID_RECALC_GEOMETRY);
 		WM_event_add_notifier(C, NC_SCENE | ND_TOOLSETTINGS, NULL);
 	}
 

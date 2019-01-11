@@ -62,6 +62,7 @@
 #include "BKE_tracking.h"
 
 #include "WM_api.h"
+#include "WM_toolsystem.h"
 
 #include "RNA_access.h"
 #include "RNA_define.h"
@@ -427,23 +428,22 @@ const EnumPropertyItem *ED_gpencil_layers_with_new_enum_itemf(
 /**
  * Check whether a given stroke segment is inside a circular brush
  *
- * \param mval     The current screen-space coordinates (midpoint) of the brush
- * \param mvalo    The previous screen-space coordinates (midpoint) of the brush (NOT CURRENTLY USED)
- * \param rad      The radius of the brush
+ * \param mval: The current screen-space coordinates (midpoint) of the brush
+ * \param mvalo: The previous screen-space coordinates (midpoint) of the brush (NOT CURRENTLY USED)
+ * \param rad: The radius of the brush
  *
- * \param x0, y0   The screen-space x and y coordinates of the start of the stroke segment
- * \param x1, y1   The screen-space x and y coordinates of the end of the stroke segment
+ * \param x0, y0: The screen-space x and y coordinates of the start of the stroke segment
+ * \param x1, y1: The screen-space x and y coordinates of the end of the stroke segment
  */
 bool gp_stroke_inside_circle(
-        const int mval[2], const int UNUSED(mvalo[2]),
+        const float mval[2], const float UNUSED(mvalo[2]),
         int rad, int x0, int y0, int x1, int y1)
 {
 	/* simple within-radius check for now */
-	const float mval_fl[2]     = {mval[0], mval[1]};
 	const float screen_co_a[2] = {x0, y0};
 	const float screen_co_b[2] = {x1, y1};
 
-	if (edge_inside_circle(mval_fl, rad, screen_co_a, screen_co_b)) {
+	if (edge_inside_circle(mval, rad, screen_co_a, screen_co_b)) {
 		return true;
 	}
 
@@ -522,6 +522,9 @@ void gp_point_conversion_init(bContext *C, GP_SpaceConversion *r_gsc)
 	unit_m4(r_gsc->mat);
 
 	/* store settings */
+	r_gsc->scene = CTX_data_scene(C);
+	r_gsc->ob = CTX_data_active_object(C);
+
 	r_gsc->sa = sa;
 	r_gsc->ar = ar;
 	r_gsc->v2d = &ar->v2d;
@@ -738,8 +741,11 @@ void gp_point_to_xy_fl(
 bool gp_point_xy_to_3d(GP_SpaceConversion *gsc, Scene *scene, const float screen_co[2], float r_out[3])
 {
 	const RegionView3D *rv3d = gsc->ar->regiondata;
-	float *rvec = scene->cursor.location;
-	float ref[3] = {rvec[0], rvec[1], rvec[2]};
+	float rvec[3];
+
+	ED_gp_get_drawing_reference(scene, gsc->ob, gsc->gpl,
+		scene->toolsettings->gpencil_v3d_align, rvec);
+
 	float zfac = ED_view3d_calc_zfac(rv3d, rvec, NULL);
 
 	float mval_f[2], mval_prj[2];
@@ -747,7 +753,7 @@ bool gp_point_xy_to_3d(GP_SpaceConversion *gsc, Scene *scene, const float screen
 
 	copy_v2_v2(mval_f, screen_co);
 
-	if (ED_view3d_project_float_global(gsc->ar, ref, mval_prj, V3D_PROJ_TEST_NOP) == V3D_PROJ_RET_OK) {
+	if (ED_view3d_project_float_global(gsc->ar, rvec, mval_prj, V3D_PROJ_TEST_NOP) == V3D_PROJ_RET_OK) {
 		sub_v2_v2v2(mval_f, mval_prj, mval_f);
 		ED_view3d_win_to_delta(gsc->ar, mval_f, dvec, zfac);
 		sub_v3_v3v3(r_out, rvec, dvec);
@@ -776,15 +782,17 @@ void gp_stroke_convertcoords_tpoint(
         float r_out[3])
 {
 	ToolSettings *ts = scene->toolsettings;
-	const int mval[2] = {point2D->x, point2D->y};
 
-	if ((depth != NULL) && (ED_view3d_autodist_simple(ar, mval, r_out, 0, depth))) {
+	int mval_i[2];
+	round_v2i_v2fl(mval_i, &point2D->x);
+
+	if ((depth != NULL) && (ED_view3d_autodist_simple(ar, mval_i, r_out, 0, depth))) {
 		/* projecting onto 3D-Geometry
 		 * - nothing more needs to be done here, since view_autodist_simple() has already done it
 		 */
 	}
 	else {
-		float mval_f[2] = {(float)point2D->x, (float)point2D->y};
+		float mval_f[2] = {point2D->x, point2D->y};
 		float mval_prj[2];
 		float rvec[3], dvec[3];
 		float zfac;
@@ -836,6 +844,40 @@ void ED_gp_get_drawing_reference(
 	}
 }
 
+void ED_gpencil_project_stroke_to_view(bContext *C, bGPDlayer *gpl, bGPDstroke *gps)
+{
+	Scene *scene = CTX_data_scene(C);
+	Depsgraph *depsgraph = CTX_data_depsgraph(C);
+	Object *ob = CTX_data_active_object(C);
+	bGPdata *gpd = (bGPdata *)ob->data;
+	GP_SpaceConversion gsc = { NULL };
+
+	bGPDspoint *pt;
+	int i;
+	float diff_mat[4][4];
+	float inverse_diff_mat[4][4];
+
+	/* init space conversion stuff */
+	gp_point_conversion_init(C, &gsc);
+
+	ED_gpencil_parent_location(depsgraph, ob, gpd, gpl, diff_mat);
+	invert_m4_m4(inverse_diff_mat, diff_mat);
+
+	/* Adjust each point */
+	for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
+		float xy[2];
+
+		bGPDspoint pt2;
+		gp_point_to_parent_space(pt, diff_mat, &pt2);
+		gp_point_to_xy_fl(&gsc, gps, &pt2, &xy[0], &xy[1]);
+
+		/* Planar - All on same plane parallel to the viewplane */
+		gp_point_xy_to_3d(&gsc, scene, xy, &pt->x);
+
+		/* Unapply parent corrections */
+		mul_m4_v3(inverse_diff_mat, &pt->x);
+	}
+}
 
 /**
  * Reproject all points of the stroke to a plane locked to axis to avoid stroke offset
@@ -1170,11 +1212,11 @@ void ED_gpencil_reset_layers_parent(Depsgraph *depsgraph, Object *obact, bGPdata
 /* GP Object Stuff */
 
 /* Helper function to create new OB_GPENCIL Object */
-Object *ED_add_gpencil_object(bContext *C, Scene *UNUSED(scene), const float loc[3])
+Object *ED_gpencil_add_object(bContext *C, Scene *UNUSED(scene), const float loc[3], ushort local_view_bits)
 {
 	float rot[3] = {0.0f};
 
-	Object *ob = ED_object_add_type(C, OB_GPENCIL, NULL, loc, rot, false);
+	Object *ob = ED_object_add_type(C, OB_GPENCIL, NULL, loc, rot, false, local_view_bits);
 
 	/* define size */
 	BKE_object_obdata_size_init(ob, GP_OBGPENCIL_DEFAULT_SIZE);
@@ -1215,10 +1257,11 @@ void ED_gpencil_add_defaults(bContext *C)
 		ts->gp_sculpt.cur_falloff = curvemapping_add(1, 0.0f, 0.0f, 1.0f, 1.0f);
 		CurveMapping *gp_falloff_curve = ts->gp_sculpt.cur_falloff;
 		curvemapping_initialize(gp_falloff_curve);
-		curvemap_reset(gp_falloff_curve->cm,
-			&gp_falloff_curve->clipr,
-			CURVE_PRESET_GAUSS,
-			CURVEMAP_SLOPE_POSITIVE);
+		curvemap_reset(
+		        gp_falloff_curve->cm,
+		        &gp_falloff_curve->clipr,
+		        CURVE_PRESET_GAUSS,
+		        CURVEMAP_SLOPE_POSITIVE);
 	}
 }
 
@@ -1441,14 +1484,14 @@ void ED_gpencil_vgroup_deselect(bContext *C, Object *ob)
 /* Cursor drawing */
 
 /* check if cursor is in drawing region */
-static bool gp_check_cursor_region(bContext *C, int mval[2])
+static bool gp_check_cursor_region(bContext *C, int mval_i[2])
 {
 	ARegion *ar = CTX_wm_region(C);
 	ScrArea *sa = CTX_wm_area(C);
 	Object *ob = CTX_data_active_object(C);
 
 	if ((ob == NULL) ||
-	    (!ELEM(ob->mode, OB_MODE_GPENCIL_PAINT, OB_MODE_GPENCIL_SCULPT, OB_MODE_GPENCIL_WEIGHT)))
+	    (!ELEM(ob->mode, OB_MODE_PAINT_GPENCIL, OB_MODE_SCULPT_GPENCIL, OB_MODE_WEIGHT_GPENCIL)))
 	{
 		return false;
 	}
@@ -1461,7 +1504,7 @@ static bool gp_check_cursor_region(bContext *C, int mval[2])
 		return false;
 	}
 	else if (ar) {
-		return BLI_rcti_isect_pt_v(&ar->winrct, mval);
+		return BLI_rcti_isect_pt_v(&ar->winrct, mval_i);
 	}
 	else {
 		return false;
@@ -1509,8 +1552,16 @@ void ED_gpencil_brush_draw_eraser(Brush *brush, int x, int y)
 	glDisable(GL_LINE_SMOOTH);
 }
 
+static bool gp_brush_cursor_poll(bContext *C)
+{
+   if (WM_toolsystem_active_tool_is_brush(C)) {
+       return true;
+   }
+   return false;
+}
+
 /* Helper callback for drawing the cursor itself */
-static void gp_brush_drawcursor(bContext *C, int x, int y, void *customdata)
+static void gp_brush_cursor_draw(bContext *C, int x, int y, void *customdata)
 {
 	Main *bmain = CTX_data_main(C);
 	Scene *scene = CTX_data_scene(C);
@@ -1523,7 +1574,7 @@ static void gp_brush_drawcursor(bContext *C, int x, int y, void *customdata)
 	Brush *brush = NULL;
 	Material *ma = NULL;
 	MaterialGPencilStyle *gp_style = NULL;
-	int *last_mouse_position = customdata;
+	float *last_mouse_position = customdata;
 
 	if ((gpd) && (gpd->flag & GP_DATA_STROKE_WEIGHTMODE)) {
 		gp_brush = &gset->brush[gset->weighttype];
@@ -1537,9 +1588,9 @@ static void gp_brush_drawcursor(bContext *C, int x, int y, void *customdata)
 	float darkcolor[3];
 	float radius = 3.0f;
 
-	int mval[2] = {x, y};
+	int mval_i[2] = {x, y};
 	/* check if cursor is in drawing region and has valid datablock */
-	if ((!gp_check_cursor_region(C, mval)) || (gpd == NULL)) {
+	if ((!gp_check_cursor_region(C, mval_i)) || (gpd == NULL)) {
 		return;
 	}
 
@@ -1673,7 +1724,7 @@ void ED_gpencil_toggle_brush_cursor(bContext *C, bool enable, void *customdata)
 {
 	Scene *scene = CTX_data_scene(C);
 	GP_Sculpt_Settings *gset = &scene->toolsettings->gp_sculpt;
-	int *lastpost = customdata;
+	float *lastpost = customdata;
 
 	if (gset->paintcursor && !enable) {
 		/* clear cursor */
@@ -1691,8 +1742,8 @@ void ED_gpencil_toggle_brush_cursor(bContext *C, bool enable, void *customdata)
 		gset->paintcursor = WM_paint_cursor_activate(
 		        CTX_wm_manager(C),
 		        SPACE_TYPE_ANY, RGN_TYPE_ANY,
-		        NULL,
-		        gp_brush_drawcursor,
+		        gp_brush_cursor_poll,
+		        gp_brush_cursor_draw,
 		        (lastpost) ? customdata : NULL);
 	}
 }
@@ -1704,13 +1755,13 @@ static void gpencil_verify_brush_type(bContext *C, int newmode)
 	GP_Sculpt_Settings *gset = &ts->gp_sculpt;
 
 	switch (newmode) {
-		case OB_MODE_GPENCIL_SCULPT:
+		case OB_MODE_SCULPT_GPENCIL:
 			gset->flag &= ~GP_SCULPT_SETT_FLAG_WEIGHT_MODE;
 			if ((gset->brushtype < 0) || (gset->brushtype >= GP_SCULPT_TYPE_WEIGHT)) {
 				gset->brushtype = GP_SCULPT_TYPE_PUSH;
 			}
 			break;
-		case OB_MODE_GPENCIL_WEIGHT:
+		case OB_MODE_WEIGHT_GPENCIL:
 			gset->flag |= GP_SCULPT_SETT_FLAG_WEIGHT_MODE;
 			if ((gset->weighttype < GP_SCULPT_TYPE_WEIGHT) || (gset->weighttype >= GP_SCULPT_TYPE_MAX)) {
 				gset->weighttype = GP_SCULPT_TYPE_WEIGHT;
@@ -1729,34 +1780,34 @@ void ED_gpencil_setup_modes(bContext *C, bGPdata *gpd, int newmode)
 	}
 
 	switch (newmode) {
-		case OB_MODE_GPENCIL_EDIT:
+		case OB_MODE_EDIT_GPENCIL:
 			gpd->flag |= GP_DATA_STROKE_EDITMODE;
 			gpd->flag &= ~GP_DATA_STROKE_PAINTMODE;
 			gpd->flag &= ~GP_DATA_STROKE_SCULPTMODE;
 			gpd->flag &= ~GP_DATA_STROKE_WEIGHTMODE;
 			ED_gpencil_toggle_brush_cursor(C, false, NULL);
 			break;
-		case OB_MODE_GPENCIL_PAINT:
+		case OB_MODE_PAINT_GPENCIL:
 			gpd->flag &= ~GP_DATA_STROKE_EDITMODE;
 			gpd->flag |= GP_DATA_STROKE_PAINTMODE;
 			gpd->flag &= ~GP_DATA_STROKE_SCULPTMODE;
 			gpd->flag &= ~GP_DATA_STROKE_WEIGHTMODE;
 			ED_gpencil_toggle_brush_cursor(C, true, NULL);
 			break;
-		case OB_MODE_GPENCIL_SCULPT:
+		case OB_MODE_SCULPT_GPENCIL:
 			gpd->flag &= ~GP_DATA_STROKE_EDITMODE;
 			gpd->flag &= ~GP_DATA_STROKE_PAINTMODE;
 			gpd->flag |= GP_DATA_STROKE_SCULPTMODE;
 			gpd->flag &= ~GP_DATA_STROKE_WEIGHTMODE;
-			gpencil_verify_brush_type(C, OB_MODE_GPENCIL_SCULPT);
+			gpencil_verify_brush_type(C, OB_MODE_SCULPT_GPENCIL);
 			ED_gpencil_toggle_brush_cursor(C, true, NULL);
 			break;
-		case OB_MODE_GPENCIL_WEIGHT:
+		case OB_MODE_WEIGHT_GPENCIL:
 			gpd->flag &= ~GP_DATA_STROKE_EDITMODE;
 			gpd->flag &= ~GP_DATA_STROKE_PAINTMODE;
 			gpd->flag &= ~GP_DATA_STROKE_SCULPTMODE;
 			gpd->flag |= GP_DATA_STROKE_WEIGHTMODE;
-			gpencil_verify_brush_type(C, OB_MODE_GPENCIL_WEIGHT);
+			gpencil_verify_brush_type(C, OB_MODE_WEIGHT_GPENCIL);
 			ED_gpencil_toggle_brush_cursor(C, true, NULL);
 			break;
 		default:

@@ -34,6 +34,14 @@
 #ifndef __MESH_INTERN_H__
 #define __MESH_INTERN_H__
 
+#include "../vr/vr_build.h"
+#if WITH_VR
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+#endif
+
 struct BMEditMesh;
 struct BMOperator;
 struct BMElem;
@@ -271,5 +279,10 @@ void MESH_OT_customdata_skin_clear(struct wmOperatorType *ot);
 void MESH_OT_customdata_custom_splitnormals_add(struct wmOperatorType *ot);
 void MESH_OT_customdata_custom_splitnormals_clear(struct wmOperatorType *ot);
 
+#if WITH_VR
+#ifdef __cplusplus
+}
+#endif
+#endif
 
 #endif  /* __MESH_INTERN_H__ */

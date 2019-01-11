@@ -290,10 +290,41 @@ static void area_draw_azone(short UNUSED(x1), short UNUSED(y1), short UNUSED(x2)
 	/* No drawing needed since all corners are action zone, and visually distinguishable. */
 }
 
-static void draw_azone_plus(float x1, float y1, float x2, float y2)
+/**
+ * \brief Edge widgets to show hidden panels such as the toolbar and headers.
+ */
+static void draw_azone_arrow(float x1, float y1, float x2, float y2, AZEdge edge)
 {
-	float width = 0.1f * U.widget_unit;
-	float pad = 0.2f * U.widget_unit;
+	const float size =  0.2f * U.widget_unit;
+	const float l = 1.0f;     /* arrow length */
+	const float s = 0.25f;    /* arrow thickness */
+	const float hl = l / 2.0f;
+	const float points[6][2] = {{0, -hl}, {l, hl}, {l - s, hl + s}, {0, s + s - hl}, {s - l, hl + s}, {-l, hl}};
+	const float center[2] = {(x1 + x2) / 2, (y1 + y2) / 2};
+
+	int axis;
+	int sign;
+	switch (edge) {
+		case AE_BOTTOM_TO_TOPLEFT:
+			axis = 0;
+			sign = 1;
+			break;
+		case AE_TOP_TO_BOTTOMRIGHT:
+			axis = 0;
+			sign = -1;
+			break;
+		case AE_LEFT_TO_TOPRIGHT:
+			axis = 1;
+			sign = 1;
+			break;
+		case AE_RIGHT_TO_TOPLEFT:
+			axis = 1;
+			sign = -1;
+			break;
+		default:
+			BLI_assert(0);
+			return;
+	}
 
 	GPUVertFormat *format = immVertexFormat();
 	uint pos = GPU_vertformat_attr_add(format, "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
@@ -302,15 +333,22 @@ static void draw_azone_plus(float x1, float y1, float x2, float y2)
 	immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 	immUniformColor4f(0.8f, 0.8f, 0.8f, 0.4f);
 
-	immRectf(pos, (x1 + x2 - width) * 0.5f, y1 + pad, (x1 + x2 + width) * 0.5f, y2 - pad);
-	immRectf(pos, x1 + pad, (y1 + y2 - width) * 0.5f, (x1 + x2 - width) * 0.5f, (y1 + y2 + width) * 0.5f);
-	immRectf(pos, (x1 + x2 + width) * 0.5f, (y1 + y2 - width) * 0.5f, x2 - pad, (y1 + y2 + width) * 0.5f);
+	immBegin(GPU_PRIM_TRI_FAN, 6);
+	for (int i = 0; i < 6; i++) {
+		if (axis == 0) {
+			immVertex2f(pos, center[0] + points[i][0] * size, center[1] + points[i][1] * sign * size);
+		}
+		else {
+			immVertex2f(pos, center[0] + points[i][1] * sign * size, center[1] + points[i][0] * size);
+		}
+	}
+	immEnd();
 
 	immUnbindProgram();
 	GPU_blend(false);
 }
 
-static void region_draw_azone_tab_plus(AZone *az)
+static void region_draw_azone_tab_arrow(AZone *az)
 {
 	GPU_blend(true);
 
@@ -333,7 +371,7 @@ static void region_draw_azone_tab_plus(AZone *az)
 	float color[4] = {0.05f, 0.05f, 0.05f, 0.4f};
 	UI_draw_roundbox_aa(true, (float)az->x1, (float)az->y1, (float)az->x2, (float)az->y2, 4.0f, color);
 
-	draw_azone_plus((float)az->x1, (float)az->y1, (float)az->x2, (float)az->y2);
+	draw_azone_arrow((float)az->x1, (float)az->y1, (float)az->x2, (float)az->y2, az->edge);
 }
 
 static void area_azone_tag_update(ScrArea *sa)
@@ -368,7 +406,7 @@ static void region_draw_azones(ScrArea *sa, ARegion *ar)
 				if (az->ar) {
 					/* only display tab or icons when the region is hidden */
 					if (az->ar->flag & (RGN_FLAG_HIDDEN | RGN_FLAG_TOO_SMALL)) {
-						region_draw_azone_tab_plus(az);
+						region_draw_azone_tab_arrow(az);
 					}
 				}
 			}
@@ -778,20 +816,20 @@ static void area_azone_initialize(wmWindow *win, const bScreen *screen, ScrArea 
 	     sa->totrct.xmin + (AZONESPOT - 1),
 	     sa->totrct.ymin + (AZONESPOT - 1)},
 	    /* Bottom-right. */
-	    {sa->totrct.xmax,
+	    {sa->totrct.xmax - (AZONESPOT - 1),
 	     sa->totrct.ymin,
-	     sa->totrct.xmax - (AZONESPOT - 1),
+	     sa->totrct.xmax,
 	     sa->totrct.ymin + (AZONESPOT - 1)},
 	    /* Top-left. */
 	    {sa->totrct.xmin,
-	     sa->totrct.ymax,
+	     sa->totrct.ymax - (AZONESPOT - 1),
 	     sa->totrct.xmin + (AZONESPOT - 1),
-	     sa->totrct.ymax - (AZONESPOT - 1)},
+	     sa->totrct.ymax},
 	    /* Top-right. */
-	    {sa->totrct.xmax,
-	     sa->totrct.ymax,
-	     sa->totrct.xmax - (AZONESPOT - 1),
-	     sa->totrct.ymax - (AZONESPOT - 1)}};
+	    {sa->totrct.xmax - (AZONESPOT - 1),
+	     sa->totrct.ymax - (AZONESPOT - 1),
+	     sa->totrct.xmax,
+	     sa->totrct.ymax}};
 
 	for (int i = 0; i < 4; i++) {
 		/* can't click on bottom corners on OS X, already used for resizing */
@@ -881,7 +919,7 @@ static void region_azone_tab_plus(ScrArea *sa, AZone *az, ARegion *ar)
 
 	float edge_offset = 1.0f;
 	const float tab_size_x = 0.7f * U.widget_unit;
-	const float tab_size_y = 0.7f * U.widget_unit;
+	const float tab_size_y = 0.4f * U.widget_unit;
 
 
 	for (azt = sa->actionzones.first; azt; azt = azt->next) {
@@ -909,9 +947,9 @@ static void region_azone_tab_plus(ScrArea *sa, AZone *az, ARegion *ar)
 			az->y2 = ar->winrct.ymax - (edge_offset * tab_size_x);
 			break;
 		case AE_RIGHT_TO_TOPLEFT:
-			az->x1 = ar->winrct.xmax - 1;
+			az->x1 = ar->winrct.xmax;
 			az->y1 = ar->winrct.ymax - ((edge_offset + 1.0f) * tab_size_x);
-			az->x2 = ar->winrct.xmax - 1 + tab_size_y;
+			az->x2 = ar->winrct.xmax + tab_size_y;
 			az->y2 = ar->winrct.ymax - (edge_offset * tab_size_x);
 			break;
 	}
@@ -1354,7 +1392,7 @@ static void region_rect_recursive(ScrArea *sa, ARegion *ar, rcti *remainder, rct
 	if (ar->winy > 1) ar->sizey = (ar->winy + 0.5f) /  UI_DPI_FAC;
 
 	/* exception for multiple overlapping regions on same spot */
-	if (ar->overlap & (alignment != RGN_ALIGN_FLOAT)) {
+	if (ar->overlap && (alignment != RGN_ALIGN_FLOAT)) {
 		region_overlap_fix(sa, ar);
 	}
 
@@ -1801,7 +1839,7 @@ void ED_area_swapspace(bContext *C, ScrArea *sa1, ScrArea *sa2)
 }
 
 /**
- * \param skip_ar_exit  Skip calling area exit callback. Set for opening temp spaces.
+ * \param skip_ar_exit: Skip calling area exit callback. Set for opening temp spaces.
  */
 void ED_area_newspace(bContext *C, ScrArea *sa, int type, const bool skip_ar_exit)
 {
@@ -1813,7 +1851,20 @@ void ED_area_newspace(bContext *C, ScrArea *sa, int type, const bool skip_ar_exi
 		SpaceLink *sl;
 		/* store sa->type->exit callback */
 		void *sa_exit = sa->type ? sa->type->exit : NULL;
-		int header_alignment = ED_area_header_alignment(sa);
+		/* When the user switches between space-types from the type-selector,
+		 * changing the header-type is jarring (especially when using Ctrl-MouseWheel).
+		 *
+		 * However, add-on install for example, forces the header to the top which shouldn't
+		 * be applied back to the previous space type when closing - see: T57724
+		 *
+		 * Newly created windows wont have any space data, use the alignment
+		 * the space type defaults to in this case instead
+		 * (needed for preferences to have space-type on bottom).
+		 */
+		int header_alignment = ED_area_header_alignment_or_fallback(sa, -1);
+		const bool sync_header_alignment = (
+		        (header_alignment != -1) &&
+		        (sa->flag & AREA_FLAG_TEMP_TYPE) == 0);
 
 		/* in some cases (opening temp space) we don't want to
 		 * call area exit callback, so we temporarily unset it */
@@ -1862,15 +1913,6 @@ void ED_area_newspace(bContext *C, ScrArea *sa, int type, const bool skip_ar_exi
 			/* put in front of list */
 			BLI_remlink(&sa->spacedata, sl);
 			BLI_addhead(&sa->spacedata, sl);
-
-
-			/* Sync header alignment. */
-			for (ARegion *ar = sa->regionbase.first; ar; ar = ar->next) {
-				if (ar->regiontype == RGN_TYPE_HEADER) {
-					ar->alignment = header_alignment;
-					break;
-				}
-			}
 		}
 		else {
 			/* new space */
@@ -1885,6 +1927,16 @@ void ED_area_newspace(bContext *C, ScrArea *sa, int type, const bool skip_ar_exi
 					slold->regionbase = sa->regionbase;
 				sa->regionbase = sl->regionbase;
 				BLI_listbase_clear(&sl->regionbase);
+			}
+		}
+
+		/* Sync header alignment. */
+		if (sync_header_alignment) {
+			for (ARegion *ar = sa->regionbase.first; ar; ar = ar->next) {
+				if (ar->regiontype == RGN_TYPE_HEADER) {
+					ar->alignment = header_alignment;
+					break;
+				}
 			}
 		}
 
@@ -2489,16 +2541,20 @@ int ED_area_headersize(void)
 	return (int)(HEADERY * UI_DPI_FAC);
 }
 
-
-int ED_area_header_alignment(const ScrArea *area)
+int ED_area_header_alignment_or_fallback(const ScrArea *area, int fallback)
 {
 	for (ARegion *ar = area->regionbase.first; ar; ar = ar->next) {
 		if (ar->regiontype == RGN_TYPE_HEADER) {
 			return ar->alignment;
 		}
 	}
+	return fallback;
+}
 
-	return RGN_ALIGN_TOP;
+int ED_area_header_alignment(const ScrArea *area)
+{
+	return ED_area_header_alignment_or_fallback(
+	        area, (U.uiflag & USER_HEADER_BOTTOM) ? RGN_ALIGN_BOTTOM : RGN_ALIGN_TOP);
 }
 
 /**

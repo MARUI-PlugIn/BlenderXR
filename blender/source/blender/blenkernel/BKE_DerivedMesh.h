@@ -80,14 +80,6 @@
 #include "BKE_customdata.h"
 #include "BKE_bvhutils.h"
 
-#include "../vr/vr_build.h"
-#if WITH_VR
-#ifdef __cplusplus
-extern "C"
-{
-#endif
-#endif
-
 struct CCGElem;
 struct CCGKey;
 struct MVert;
@@ -512,16 +504,11 @@ DerivedMesh *mesh_create_derived_render(
 
 /* same as above but wont use render settings */
 DerivedMesh *mesh_create_derived(struct Mesh *me, float (*vertCos)[3]);
-DerivedMesh *mesh_create_derived_no_deform(
-        struct Depsgraph *depsgraph, struct Scene *scene,
-        struct Object *ob, float (*vertCos)[3],
-        CustomDataMask dataMask);
-DerivedMesh *mesh_create_derived_no_deform_render(
-        struct Depsgraph *depsgraph, struct Scene *scene,
-        struct Object *ob, float (*vertCos)[3],
-        CustomDataMask dataMask);
 
 struct Mesh *editbmesh_get_eval_cage(
+        struct Depsgraph *depsgraph, struct Scene *scene, struct Object *,
+        struct BMEditMesh *em, CustomDataMask dataMask);
+struct Mesh *editbmesh_get_eval_cage_from_orig(
         struct Depsgraph *depsgraph, struct Scene *scene, struct Object *,
         struct BMEditMesh *em, CustomDataMask dataMask);
 struct Mesh *editbmesh_get_eval_cage_and_final(
@@ -554,12 +541,6 @@ void DM_debug_print(DerivedMesh *dm);
 void DM_debug_print_cdlayers(CustomData *cdata);
 
 bool DM_is_valid(DerivedMesh *dm);
-#endif
-
-#if WITH_VR
-#ifdef __cplusplus
-}
-#endif
 #endif
 
 #endif  /* __BKE_DERIVEDMESH_H__ */

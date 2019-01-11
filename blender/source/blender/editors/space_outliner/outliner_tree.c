@@ -213,7 +213,7 @@ void outliner_cleanup_tree(SpaceOops *soops)
  * Free \a element and its sub-tree and remove its link in \a parent_subtree.
  *
  * \note Does not remove the TreeStoreElem of \a element!
- * \param parent_subtree Subtree of the parent element, so the list containing \a element.
+ * \param parent_subtree: Subtree of the parent element, so the list containing \a element.
  */
 void outliner_free_tree_element(TreeElement *element, ListBase *parent_subtree)
 {
@@ -831,7 +831,7 @@ static TreeElement *outliner_add_element(SpaceOops *soops, ListBase *lb, void *i
 
 					for (dvar = driver->variables.first; dvar; dvar = dvar->next) {
 						/* loop over all targets used here */
-						DRIVER_TARGETS_USED_LOOPER(dvar)
+						DRIVER_TARGETS_USED_LOOPER_BEGIN(dvar)
 						{
 							if (lastadded != dtar->id) {
 								// XXX this lastadded check is rather lame, and also fails quite badly...
@@ -839,7 +839,7 @@ static TreeElement *outliner_add_element(SpaceOops *soops, ListBase *lb, void *i
 								lastadded = dtar->id;
 							}
 						}
-						DRIVER_TARGETS_LOOPER_END
+						DRIVER_TARGETS_LOOPER_END;
 					}
 				}
 			}

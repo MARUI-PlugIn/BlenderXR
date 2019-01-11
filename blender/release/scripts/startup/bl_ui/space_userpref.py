@@ -28,29 +28,29 @@ from bpy.app.translations import contexts as i18n_contexts
 
 
 class USERPREF_HT_header(Header):
-    bl_space_type = 'USER_PREFERENCES'
+    bl_space_type = 'PREFERENCES'
 
     def draw(self, context):
         layout = self.layout
 
         layout.template_header()
 
-        userpref = context.user_preferences
+        prefs = context.preferences
 
-        if userpref.active_section == 'INPUT':
+        if prefs.active_section == 'INPUT':
             layout.operator("wm.keyconfig_import", icon='IMPORT')
             layout.operator("wm.keyconfig_export", icon='EXPORT')
-        elif userpref.active_section == 'ADDONS':
+        elif prefs.active_section == 'ADDONS':
             layout.operator("wm.addon_install", icon='FILEBROWSER')
             layout.operator("wm.addon_refresh", icon='FILE_REFRESH')
             layout.menu("USERPREF_MT_addons_online_resources")
-        elif userpref.active_section == 'LIGHTS':
-            layout.operator('wm.studiolight_install', text="Add MatCap").type = 'MATCAP'
-            layout.operator('wm.studiolight_install', text="Add LookDev HDRI").type = 'WORLD'
-            op = layout.operator('wm.studiolight_install', text="Add Studio Light")
+        elif prefs.active_section == 'LIGHTS':
+            layout.operator("wm.studiolight_install", text="Add MatCap").type = 'MATCAP'
+            layout.operator("wm.studiolight_install", text="Add LookDev HDRI").type = 'WORLD'
+            op = layout.operator("wm.studiolight_install", text="Add Studio Light")
             op.type = 'STUDIO'
             op.filter_glob = ".sl"
-        elif userpref.active_section == 'THEMES':
+        elif prefs.active_section == 'THEMES':
             layout.operator("wm.theme_install", icon='FILEBROWSER')
             layout.operator("ui.reset_default_theme", icon='LOOP_BACK')
 
@@ -62,38 +62,38 @@ class USERPREF_HT_header(Header):
 
 class USERPREF_PT_navigation(Panel):
     bl_label = ""
-    bl_space_type = 'USER_PREFERENCES'
+    bl_space_type = 'PREFERENCES'
     bl_region_type = 'NAVIGATION_BAR'
     bl_options = {'HIDE_HEADER'}
 
     def draw(self, context):
         layout = self.layout
 
-        userpref = context.user_preferences
+        prefs = context.preferences
 
         col = layout.column()
 
         col.scale_x = 1.3
         col.scale_y = 1.3
-        col.prop(userpref, "active_section", expand=True)
+        col.prop(prefs, "active_section", expand=True)
 
 
 class USERPREF_PT_interface(Panel):
-    bl_space_type = 'USER_PREFERENCES'
+    bl_space_type = 'PREFERENCES'
     bl_label = "Interface"
     bl_region_type = 'WINDOW'
     bl_options = {'HIDE_HEADER'}
 
     @classmethod
     def poll(cls, context):
-        userpref = context.user_preferences
-        return (userpref.active_section == 'INTERFACE')
+        prefs = context.preferences
+        return (prefs.active_section == 'INTERFACE')
 
     def draw(self, context):
         layout = self.layout
 
-        userpref = context.user_preferences
-        view = userpref.view
+        prefs = context.preferences
+        view = prefs.view
 
         split = layout.split()
         row = split.row()
@@ -194,6 +194,11 @@ class USERPREF_PT_interface(Panel):
         sub.prop(view, "pie_menu_confirm")
         col.separator()
 
+        col.label(text="Header:")
+        sub = col.split()
+        sub.label(text="Default Position")
+        sub.row().prop(view, "header_align_default", expand=True)
+
         col.prop(view, "show_splash")
 
         col.label(text="Warnings:")
@@ -207,21 +212,21 @@ class USERPREF_PT_interface(Panel):
 
 
 class USERPREF_PT_edit(Panel):
-    bl_space_type = 'USER_PREFERENCES'
+    bl_space_type = 'PREFERENCES'
     bl_label = "Edit"
     bl_region_type = 'WINDOW'
     bl_options = {'HIDE_HEADER'}
 
     @classmethod
     def poll(cls, context):
-        userpref = context.user_preferences
-        return (userpref.active_section == 'EDITING')
+        prefs = context.preferences
+        return (prefs.active_section == 'EDITING')
 
     def draw(self, context):
         layout = self.layout
 
-        userpref = context.user_preferences
-        edit = userpref.edit
+        prefs = context.preferences
+        edit = prefs.edit
 
         split = layout.split()
         row = split.row()
@@ -336,22 +341,22 @@ class USERPREF_PT_edit(Panel):
 
 
 class USERPREF_PT_system_general(Panel):
-    bl_space_type = 'USER_PREFERENCES'
+    bl_space_type = 'PREFERENCES'
     bl_label = "System General"
     bl_region_type = 'WINDOW'
     bl_options = {'HIDE_HEADER'}
 
     @classmethod
     def poll(cls, context):
-        userpref = context.user_preferences
-        return (userpref.active_section == 'SYSTEM_GENERAL')
+        prefs = context.preferences
+        return (prefs.active_section == 'SYSTEM_GENERAL')
 
     def draw(self, context):
         import sys
         layout = self.layout
 
-        userpref = context.user_preferences
-        system = userpref.system
+        prefs = context.preferences
+        system = prefs.system
 
         split = layout.split()
 
@@ -370,7 +375,6 @@ class USERPREF_PT_system_general(Panel):
         col.row().prop(system, "audio_device", expand=False)
         sub = col.column()
         sub.active = system.audio_device not in {'NONE', 'Null'}
-        #sub.prop(system, "use_preview_images")
         sub.prop(system, "audio_channels", text="Channels")
         sub.prop(system, "audio_mixing_buffer", text="Mixing Buffer")
         sub.prop(system, "audio_sample_rate", text="Sample Rate")
@@ -379,7 +383,7 @@ class USERPREF_PT_system_general(Panel):
         col.separator()
 
         if bpy.app.build_options.cycles:
-            addon = userpref.addons.get("cycles")
+            addon = prefs.addons.get("cycles")
             if addon is not None:
                 addon.preferences.draw_impl(col, context)
             del addon
@@ -486,8 +490,8 @@ class USERPREF_MT_interface_theme_presets(Menu):
     preset_operator = "script.execute_preset"
     preset_type = 'XML'
     preset_xml_map = (
-        ("user_preferences.themes[0]", "Theme"),
-        ("user_preferences.ui_styles[0]", "ThemeStyle"),
+        ("preferences.themes[0]", "Theme"),
+        ("preferences.ui_styles[0]", "ThemeStyle"),
     )
     draw = Menu.draw_preset
 
@@ -496,7 +500,7 @@ class USERPREF_MT_interface_theme_presets(Menu):
 
 
 class USERPREF_PT_theme(Panel):
-    bl_space_type = 'USER_PREFERENCES'
+    bl_space_type = 'PREFERENCES'
     bl_label = "Themes"
     bl_region_type = 'WINDOW'
     bl_options = {'HIDE_HEADER'}
@@ -636,13 +640,13 @@ class USERPREF_PT_theme(Panel):
 
     @classmethod
     def poll(cls, context):
-        userpref = context.user_preferences
-        return (userpref.active_section == 'THEMES')
+        prefs = context.preferences
+        return (prefs.active_section == 'THEMES')
 
     def draw(self, context):
         layout = self.layout
 
-        theme = context.user_preferences.themes[0]
+        theme = context.preferences.themes[0]
 
         split_themes = layout.split(factor=0.2)
 
@@ -754,6 +758,8 @@ class USERPREF_PT_theme(Panel):
             colsub.row().prop(ui_state, "inner_key_sel")
             colsub.row().prop(ui_state, "inner_overridden")
             colsub.row().prop(ui_state, "inner_overridden_sel")
+            colsub.row().prop(ui_state, "inner_changed")
+            colsub.row().prop(ui_state, "inner_changed_sel")
 
             col.separator()
             col.separator()
@@ -858,7 +864,7 @@ class USERPREF_PT_theme(Panel):
         elif theme.theme_area == 'STYLE':
             col = split.column()
 
-            style = context.user_preferences.ui_styles[0]
+            style = context.preferences.ui_styles[0]
 
             col.label(text="Panel Title:")
             self._ui_font_style(col, style.panel_title)
@@ -877,22 +883,22 @@ class USERPREF_PT_theme(Panel):
 
 
 class USERPREF_PT_file(Panel):
-    bl_space_type = 'USER_PREFERENCES'
+    bl_space_type = 'PREFERENCES'
     bl_label = "Files"
     bl_region_type = 'WINDOW'
     bl_options = {'HIDE_HEADER'}
 
     @classmethod
     def poll(cls, context):
-        userpref = context.user_preferences
-        return (userpref.active_section == 'SYSTEM_FILES')
+        prefs = context.preferences
+        return (prefs.active_section == 'SYSTEM_FILES')
 
     def draw(self, context):
         layout = self.layout
 
-        userpref = context.user_preferences
-        paths = userpref.filepaths
-        system = userpref.system
+        prefs = context.preferences
+        paths = prefs.filepaths
+        system = prefs.system
 
         split = layout.split(factor=0.7)
 
@@ -943,7 +949,7 @@ class USERPREF_PT_file(Panel):
             row = box.row()
             row.label(text="Excluded Paths:")
             row.operator("wm.userpref_autoexec_path_add", text="", icon='ADD', emboss=False)
-            for i, path_cmp in enumerate(userpref.autoexec_paths):
+            for i, path_cmp in enumerate(prefs.autoexec_paths):
                 row = box.row()
                 row.prop(path_cmp, "path", text="")
                 row.prop(path_cmp, "use_glob", text="", icon='FILTER')
@@ -996,7 +1002,7 @@ class USERPREF_MT_ndof_settings(Menu):
     def draw(self, context):
         layout = self.layout
 
-        input_prefs = context.user_preferences.inputs
+        input_prefs = context.preferences.inputs
 
         is_view3d = context.space_data.type == 'VIEW_3D'
 
@@ -1046,15 +1052,15 @@ class USERPREF_MT_keyconfigs(Menu):
 
 
 class USERPREF_PT_input(Panel):
-    bl_space_type = 'USER_PREFERENCES'
+    bl_space_type = 'PREFERENCES'
     bl_label = "Input"
     bl_region_type = 'WINDOW'
     bl_options = {'HIDE_HEADER'}
 
     @classmethod
     def poll(cls, context):
-        userpref = context.user_preferences
-        return (userpref.active_section == 'INPUT')
+        prefs = context.preferences
+        return (prefs.active_section == 'INPUT')
 
     @staticmethod
     def draw_input_prefs(inputs, layout):
@@ -1089,8 +1095,6 @@ class USERPREF_PT_input(Panel):
         if inputs.view_zoom_method in {'DOLLY', 'CONTINUE'}:
             sub.row().prop(inputs, "view_zoom_axis", expand=True)
             sub.prop(inputs, "invert_mouse_zoom", text="Invert Mouse Zoom Direction")
-
-        #sub.prop(inputs, "use_mouse_mmb_paste")
 
         # layout.separator()
 
@@ -1159,9 +1163,9 @@ class USERPREF_PT_input(Panel):
 
         #start = time.time()
 
-        userpref = context.user_preferences
+        prefs = context.preferences
 
-        inputs = userpref.inputs
+        inputs = prefs.inputs
 
         split = layout.split(factor=0.25)
 
@@ -1208,7 +1212,7 @@ class USERPREF_MT_addons_online_resources(Menu):
 
 
 class USERPREF_PT_addons(Panel):
-    bl_space_type = 'USER_PREFERENCES'
+    bl_space_type = 'PREFERENCES'
     bl_label = "Add-ons"
     bl_region_type = 'WINDOW'
     bl_options = {'HIDE_HEADER'}
@@ -1221,8 +1225,8 @@ class USERPREF_PT_addons(Panel):
 
     @classmethod
     def poll(cls, context):
-        userpref = context.user_preferences
-        return (userpref.active_section == 'ADDONS')
+        prefs = context.preferences
+        return (prefs.active_section == 'ADDONS')
 
     @staticmethod
     def is_user_addon(mod, user_addon_paths):
@@ -1257,12 +1261,12 @@ class USERPREF_PT_addons(Panel):
 
         layout = self.layout
 
-        userpref = context.user_preferences
-        used_ext = {ext.module for ext in userpref.addons}
+        prefs = context.preferences
+        used_ext = {ext.module for ext in prefs.addons}
 
         addon_user_dirs = tuple(
             p for p in (
-                os.path.join(userpref.filepaths.script_directory, "addons"),
+                os.path.join(prefs.filepaths.script_directory, "addons"),
                 bpy.utils.user_resource('SCRIPTS', "addons"),
             )
             if p
@@ -1439,9 +1443,9 @@ class USERPREF_PT_addons(Panel):
                         for _ in range(4 - tot_row):
                             split.separator()
 
-                    # Show addon user preferences
+                    # Show addon preferences
                     if is_enabled:
-                        addon_preferences = userpref.addons[module_name].preferences
+                        addon_preferences = prefs.addons[module_name].preferences
                         if addon_preferences is not None:
                             draw = getattr(addon_preferences, "draw", None)
                             if draw is not None:
@@ -1485,21 +1489,21 @@ class USERPREF_PT_addons(Panel):
 
 
 class StudioLightPanelMixin():
-    bl_space_type = 'USER_PREFERENCES'
+    bl_space_type = 'PREFERENCES'
     bl_region_type = 'WINDOW'
 
     @classmethod
     def poll(cls, context):
-        userpref = context.user_preferences
-        return (userpref.active_section == 'LIGHTS')
+        prefs = context.preferences
+        return (prefs.active_section == 'LIGHTS')
 
-    def _get_lights(self, userpref):
-        return [light for light in userpref.studio_lights if light.is_user_defined and light.type == self.sl_type]
+    def _get_lights(self, prefs):
+        return [light for light in prefs.studio_lights if light.is_user_defined and light.type == self.sl_type]
 
     def draw(self, context):
         layout = self.layout
-        userpref = context.user_preferences
-        lights = self._get_lights(userpref)
+        prefs = context.preferences
+        lights = self._get_lights(prefs)
 
         self.draw_light_list(layout, lights)
 
@@ -1516,8 +1520,13 @@ class StudioLightPanelMixin():
         row = box.row()
 
         row.template_icon(layout.icon(studio_light), scale=6.0)
-        op = row.operator('wm.studiolight_uninstall', text="", icon='REMOVE')
+        col = row.column()
+        op = col.operator("wm.studiolight_uninstall", text="", icon='REMOVE')
         op.index = studio_light.index
+
+        if studio_light.type == 'STUDIO':
+            op = col.operator("wm.studiolight_copy_settings", text="", icon='IMPORT')
+            op.index = studio_light.index
 
         box.label(text=studio_light.name)
 
@@ -1536,34 +1545,11 @@ class USERPREF_PT_studiolight_lights(Panel, StudioLightPanelMixin):
     bl_label = "Studio Lights"
     sl_type = 'STUDIO'
 
-    @classmethod
-    def poll(cls, context):
-        userpref = context.user_preferences
-        return (userpref.active_section == 'LIGHTS')
 
-    def opengl_light_buttons(self, layout, light):
-
-        col = layout.column()
-        col.active = light.use
-
-        col.prop(light, "use", text="Use Light")
-        col.prop(light, "diffuse_color", text="Diffuse")
-        col.prop(light, "specular_color", text="Specular")
-        col.prop(light, "smooth")
-        col.prop(light, "direction")
-
-    def draw(self, context):
-        userpref = context.user_preferences
-        lights = self._get_lights(userpref)
-        layout = self.layout
-
-        self.draw_light_list(layout, lights)
-
-
-class USERPREF_PT_studiolight_lights_editor(Panel):
-    bl_label = "Studio Lights Editor"
+class USERPREF_PT_studiolight_light_editor(Panel):
+    bl_label = "Studio Light Editor"
     bl_parent_id = "USERPREF_PT_studiolight_lights"
-    bl_space_type = 'USER_PREFERENCES'
+    bl_space_type = 'PREFERENCES'
     bl_region_type = 'WINDOW'
 
     def opengl_light_buttons(self, layout, light):
@@ -1580,18 +1566,18 @@ class USERPREF_PT_studiolight_lights_editor(Panel):
     def draw(self, context):
         layout = self.layout
 
-        userpref = context.user_preferences
-        system = userpref.system
+        prefs = context.preferences
+        system = prefs.system
 
         row = layout.row()
-        row.prop(system, "edit_solid_light", toggle=True)
-        row.operator('wm.studiolight_new', text="Save as Studio light", icon="FILE_TICK")
+        row.prop(system, "edit_studio_light", toggle=True)
+        row.operator("wm.studiolight_new", text="Save as Studio light", icon='FILE_TICK')
 
         layout.separator()
 
         layout.use_property_split = True
         column = layout.split()
-        column.active = system.edit_solid_light
+        column.active = system.edit_studio_light
 
         light = system.solid_lights[0]
         colsplit = column.split(factor=0.85)
@@ -1602,6 +1588,10 @@ class USERPREF_PT_studiolight_lights_editor(Panel):
         self.opengl_light_buttons(colsplit, light)
 
         light = system.solid_lights[2]
+        colsplit = column.split(factor=0.85)
+        self.opengl_light_buttons(colsplit, light)
+
+        light = system.solid_lights[3]
         self.opengl_light_buttons(column, light)
 
         layout.separator()
@@ -1624,7 +1614,7 @@ classes = (
     USERPREF_MT_addons_online_resources,
     USERPREF_PT_addons,
     USERPREF_PT_studiolight_lights,
-    USERPREF_PT_studiolight_lights_editor,
+    USERPREF_PT_studiolight_light_editor,
     USERPREF_PT_studiolight_matcaps,
     USERPREF_PT_studiolight_world,
 )

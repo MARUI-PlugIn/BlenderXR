@@ -44,6 +44,7 @@
 #include "UI_interface.h"
 
 #include "wm_cursors.h"
+#include "wm_event_types.h"
 
 #include "rna_internal.h"  /* own include */
 
@@ -70,7 +71,6 @@ const EnumPropertyItem rna_enum_window_cursor_items[] = {
 
 #ifdef RNA_RUNTIME
 
-#include "UI_interface.h"
 #include "BKE_context.h"
 
 #include "WM_types.h"
@@ -139,19 +139,19 @@ static wmGizmoGroupType *wm_gizmogrouptype_find_for_add_remove(ReportList *repor
 	return gzgt;
 }
 
-static void rna_gizmo_group_type_add(ReportList *reports, const char *idname)
+static void rna_gizmo_group_type_ensure(ReportList *reports, const char *idname)
 {
 	wmGizmoGroupType *gzgt = wm_gizmogrouptype_find_for_add_remove(reports, idname);
 	if (gzgt != NULL) {
-		WM_gizmo_group_type_add_ptr(gzgt);
+		WM_gizmo_group_type_ensure_ptr(gzgt);
 	}
 }
 
-static void rna_gizmo_group_type_remove(Main *bmain, ReportList *reports, const char *idname)
+static void rna_gizmo_group_type_unlink_delayed(ReportList *reports, const char *idname)
 {
 	wmGizmoGroupType *gzgt = wm_gizmogrouptype_find_for_add_remove(reports, idname);
 	if (gzgt != NULL) {
-		WM_gizmo_group_type_remove_ptr(bmain, gzgt);
+		WM_gizmo_group_type_unlink_delayed_ptr(gzgt);
 	}
 }
 
@@ -372,14 +372,15 @@ static PointerRNA rna_KeyConfig_find_item_from_operator(
         const char *idname,
         int opcontext,
         PointerRNA *properties,
-        bool is_hotkey,
+        int include_mask, int exclude_mask,
         PointerRNA *km_ptr)
 {
 	char idname_bl[OP_MAX_TYPENAME];
 	WM_operator_bl_idname(idname_bl, idname);
 
 	wmKeyMap *km = NULL;
-	wmKeyMapItem *kmi = WM_key_event_operator(C, idname_bl, opcontext, properties->data, (bool)is_hotkey, &km);
+	wmKeyMapItem *kmi = WM_key_event_operator(
+	        C, idname_bl, opcontext, properties->data, include_mask, exclude_mask, &km);
 	PointerRNA kmi_ptr;
 	RNA_pointer_create(&wm->id, &RNA_KeyMap, km, km_ptr);
 	RNA_pointer_create(&wm->id, &RNA_KeyMapItem, kmi, &kmi_ptr);
@@ -550,15 +551,15 @@ void RNA_api_wm(StructRNA *srna)
 	parm = RNA_def_pointer(func, "timer", "Timer", "", "");
 	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
 
-	func = RNA_def_function(srna, "gizmo_group_type_add", "rna_gizmo_group_type_add");
+	func = RNA_def_function(srna, "gizmo_group_type_ensure", "rna_gizmo_group_type_ensure");
 	RNA_def_function_ui_description(func, "Activate an existing widget group (when the persistent option isn't set)");
 	RNA_def_function_flag(func, FUNC_NO_SELF | FUNC_USE_REPORTS);
 	parm = RNA_def_string(func, "identifier", NULL, 0, "", "Gizmo group type name");
 	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 
-	func = RNA_def_function(srna, "gizmo_group_type_remove", "rna_gizmo_group_type_remove");
-	RNA_def_function_ui_description(func, "De-activate a widget group (when the persistent option isn't set)");
-	RNA_def_function_flag(func, FUNC_NO_SELF | FUNC_USE_MAIN | FUNC_USE_REPORTS);
+	func = RNA_def_function(srna, "gizmo_group_type_unlink_delayed", "rna_gizmo_group_type_unlink_delayed");
+	RNA_def_function_ui_description(func, "Unlink a widget group (when the persistent option is set)");
+	RNA_def_function_flag(func, FUNC_NO_SELF | FUNC_USE_REPORTS);
 	parm = RNA_def_string(func, "identifier", NULL, 0, "", "Gizmo group type name");
 	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 
@@ -973,7 +974,8 @@ void RNA_api_keyconfigs(StructRNA *srna)
 	RNA_def_property_enum_items(parm, rna_enum_operator_context_items);
 	parm = RNA_def_pointer(func, "properties", "OperatorProperties", "", "");
 	RNA_def_parameter_flags(parm, 0, PARM_RNAPTR);
-	RNA_def_boolean(func, "is_hotkey", 0, "Hotkey", "Event is not a modifier");
+	RNA_def_enum_flag(func, "include", rna_enum_event_type_mask_items, EVT_TYPE_MASK_ALL, "Include", "");
+	RNA_def_enum_flag(func, "exclude", rna_enum_event_type_mask_items, 0, "Exclude", "");
 	parm = RNA_def_pointer(func, "keymap", "KeyMap", "", "");
 	RNA_def_parameter_flags(parm, 0, PARM_RNAPTR | PARM_OUTPUT);
 	parm = RNA_def_pointer(func, "item", "KeyMapItem", "", "");

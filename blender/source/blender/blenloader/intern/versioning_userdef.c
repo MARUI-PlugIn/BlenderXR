@@ -97,6 +97,15 @@ static void do_versions_theme(UserDef *userdef, bTheme *btheme)
 		copy_v4_v4_char(btheme->tuserpref.navigation_bar, U_theme_default.tuserpref.navigation_bar);
 	}
 
+	if (!USER_VERSION_ATLEAST(280, 36)) {
+		copy_v4_v4_char(btheme->tui.wcol_state.inner_changed, U_theme_default.tui.wcol_state.inner_changed);
+		copy_v4_v4_char(btheme->tui.wcol_state.inner_changed_sel, U_theme_default.tui.wcol_state.inner_changed_sel);
+	}
+
+	if (!USER_VERSION_ATLEAST(280, 39)) {
+		copy_v4_v4_char(btheme->tclip.metadatabg, U_theme_default.tima.metadatabg);
+		copy_v4_v4_char(btheme->tclip.metadatatext, U_theme_default.tima.metadatatext);
+	}
 #undef USER_VERSION_ATLEAST
 }
 
@@ -355,7 +364,7 @@ void BLO_version_defaults_userpref_blend(Main *bmain, UserDef *userdef)
 		    USER_FLAG_DEPRECATED_6 | USER_FLAG_DEPRECATED_7 |
 		    USER_FLAG_DEPRECATED_9 | USER_DEVELOPER_UI);
 		userdef->uiflag &= ~(
-		    USER_UIFLAG_DEPRECATED_7);
+		    USER_HEADER_BOTTOM);
 		userdef->transopts &= ~(
 		    USER_TR_DEPRECATED_2 | USER_TR_DEPRECATED_3 | USER_TR_DEPRECATED_4 |
 		    USER_TR_DEPRECATED_6 | USER_TR_DEPRECATED_7);
@@ -416,27 +425,49 @@ void BLO_version_defaults_userpref_blend(Main *bmain, UserDef *userdef)
 		userdef->flag &= ~USER_LMOUSESELECT;
 	}
 
+	if (!USER_VERSION_ATLEAST(280, 38)) {
+
+		/* (keep this block even if it becomes empty). */
+		copy_v4_fl4(userdef->light_param[0].vec, -0.580952, 0.228571, 0.781185, 0.0);
+		copy_v4_fl4(userdef->light_param[0].col, 0.900000, 0.900000, 0.900000, 1.000000);
+		copy_v4_fl4(userdef->light_param[0].spec, 0.318547, 0.318547, 0.318547, 1.000000);
+		userdef->light_param[0].flag = 1;
+		userdef->light_param[0].smooth = 0.1;
+
+		copy_v4_fl4(userdef->light_param[1].vec, 0.788218, 0.593482, -0.162765, 0.0);
+		copy_v4_fl4(userdef->light_param[1].col, 0.267115, 0.269928, 0.358840, 1.000000);
+		copy_v4_fl4(userdef->light_param[1].spec, 0.090838, 0.090838, 0.090838, 1.000000);
+		userdef->light_param[1].flag = 1;
+		userdef->light_param[1].smooth = 0.25;
+
+		copy_v4_fl4(userdef->light_param[2].vec, 0.696472, -0.696472, -0.172785, 0.0);
+		copy_v4_fl4(userdef->light_param[2].col, 0.293216, 0.304662, 0.401968, 1.000000);
+		copy_v4_fl4(userdef->light_param[2].spec, 0.069399, 0.020331, 0.020331, 1.000000);
+		userdef->light_param[2].flag = 1;
+		userdef->light_param[2].smooth = 0.4;
+
+		copy_v4_fl4(userdef->light_param[3].vec, 0.021053, -0.989474, 0.143173, 0.0);
+		copy_v4_fl4(userdef->light_param[3].col, 0.0, 0.0, 0.0, 1.0);
+		copy_v4_fl4(userdef->light_param[3].spec, 0.072234, 0.082253, 0.162642, 1.000000);
+		userdef->light_param[3].flag = 1;
+		userdef->light_param[3].smooth = 0.7;
+
+		copy_v4_fl4(userdef->light_ambient, 0.025000, 0.025000, 0.025000, 1.000000);
+
+		userdef->flag &= ~(
+		        USER_FLAG_DEPRECATED_4);
+
+		userdef->uiflag &= ~(
+		        USER_UIFLAG_DEPRECATED_8 |
+		        USER_UIFLAG_DEPRECATED_12 |
+		        USER_UIFLAG_DEPRECATED_22);
+	}
+
 	/**
 	 * Include next version bump.
 	 */
 	{
 		/* (keep this block even if it becomes empty). */
-		copy_v4_fl4(userdef->light[0].vec, -0.580952, 0.228571, 0.781185, 0.0);
-		copy_v4_fl4(userdef->light[0].col, 0.900000, 0.900000, 0.900000, 1.000000);
-		copy_v4_fl4(userdef->light[0].spec, 0.318547, 0.318547, 0.318547, 1.000000);
-		userdef->light[0].smooth = 0.1;
-
-		copy_v4_fl4(userdef->light[1].vec, 0.788218, 0.593482, -0.162765, 0.0);
-		copy_v4_fl4(userdef->light[1].col, 0.267115, 0.269928, 0.358840, 1.000000);
-		copy_v4_fl4(userdef->light[1].spec, 0.090838, 0.090838, 0.090838, 1.000000);
-		userdef->light[1].smooth = 0.25;
-
-		copy_v4_fl4(userdef->light[2].vec, 0.696472, -0.696472, -0.172785, 0.0);
-		copy_v4_fl4(userdef->light[2].col, 0.293216, 0.304662, 0.401968, 1.000000);
-		copy_v4_fl4(userdef->light[2].spec, 0.069399, 0.020331, 0.020331, 1.000000);
-		userdef->light[2].smooth = 0.5;
-
-		copy_v4_fl4(userdef->light_ambient, 0.025000, 0.025000, 0.025000, 1.000000);
 	}
 
 	if (userdef->pixelsize == 0.0f)

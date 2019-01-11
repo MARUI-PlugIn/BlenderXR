@@ -98,13 +98,13 @@ int workbench_taa_calculate_num_iterations(WORKBENCH_Data *vedata)
 			result = (scene->r.mode & R_OSA) ? scene->r.osa : 1;
 		}
 		else if (IN_RANGE_INCL(
-		            wpd->user_preferences->gpu_viewport_quality,
+		            wpd->preferences->gpu_viewport_quality,
 		            GPU_VIEWPORT_QUALITY_TAA8, GPU_VIEWPORT_QUALITY_TAA16))
 		{
 			result = 8;
 		}
 		else if (IN_RANGE_INCL(
-		            wpd->user_preferences->gpu_viewport_quality,
+		            wpd->preferences->gpu_viewport_quality,
 		            GPU_VIEWPORT_QUALITY_TAA16, GPU_VIEWPORT_QUALITY_TAA32))
 		{
 			result = 16;
@@ -171,7 +171,8 @@ DRWPass *workbench_taa_create_pass(WORKBENCH_Data *vedata, GPUTexture **color_bu
 	int previous_jitter_index = effect_info->jitter_index;
 
 	{
-		DRW_texture_ensure_fullscreen_2D(&txl->history_buffer_tx, GPU_RGBA16F, 0);
+		const GPUTextureFormat hist_buffer_format = DRW_state_is_image_render() ? GPU_RGBA16F : GPU_RGBA8;
+		DRW_texture_ensure_fullscreen_2D(&txl->history_buffer_tx, hist_buffer_format, 0);
 		DRW_texture_ensure_fullscreen_2D(&txl->depth_buffer_tx, GPU_DEPTH24_STENCIL8, 0);
 	}
 

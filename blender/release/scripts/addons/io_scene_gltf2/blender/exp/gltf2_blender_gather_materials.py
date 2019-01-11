@@ -21,6 +21,7 @@ from io_scene_gltf2.blender.exp import gltf2_blender_gather_material_normal_text
 from io_scene_gltf2.blender.exp import gltf2_blender_gather_material_occlusion_texture_info_class
 
 from io_scene_gltf2.blender.exp import gltf2_blender_gather_materials_pbr_metallic_roughness
+from io_scene_gltf2.blender.exp import gltf2_blender_generate_extras
 from io_scene_gltf2.blender.exp import gltf2_blender_get
 
 
@@ -40,7 +41,7 @@ def gather_material(blender_material, export_settings):
         alpha_cutoff=__gather_alpha_cutoff(blender_material, export_settings),
         alpha_mode=__gather_alpha_mode(blender_material, export_settings),
         double_sided=__gather_double_sided(blender_material, export_settings),
-        emissive_factor=__gather_emmissive_factor(blender_material, export_settings),
+        emissive_factor=__gather_emissive_factor(blender_material, export_settings),
         emissive_texture=__gather_emissive_texture(blender_material, export_settings),
         extensions=__gather_extensions(blender_material, export_settings),
         extras=__gather_extras(blender_material, export_settings),
@@ -76,10 +77,16 @@ def __filter_material(blender_material, export_settings):
 
 
 def __gather_alpha_cutoff(blender_material, export_settings):
+    if blender_material.blend_method == 'CLIP':
+        return blender_material.alpha_threshold
     return None
 
 
 def __gather_alpha_mode(blender_material, export_settings):
+    if blender_material.blend_method == 'CLIP':
+        return 'MASK'
+    elif blender_material.blend_method == 'BLEND':
+        return 'BLEND'
     return None
 
 
@@ -87,15 +94,19 @@ def __gather_double_sided(blender_material, export_settings):
     return None
 
 
-def __gather_emmissive_factor(blender_material, export_settings):
-    emissive = gltf2_blender_get.get_socket_or_texture_slot(blender_material, "Emissive")
-    if isinstance(emissive, bpy.types.NodeSocket):
-        return emissive.default_value
+def __gather_emissive_factor(blender_material, export_settings):
+    emissive_socket = gltf2_blender_get.get_socket_or_texture_slot(blender_material, "Emissive")
+    if emissive_socket is None:
+        emissive_socket = gltf2_blender_get.get_socket_or_texture_slot_old(blender_material, "EmissiveFactor")
+    if isinstance(emissive_socket, bpy.types.NodeSocket) and not emissive_socket.is_linked:
+        return list(emissive_socket.default_value)[0:3]
     return None
 
 
 def __gather_emissive_texture(blender_material, export_settings):
     emissive = gltf2_blender_get.get_socket_or_texture_slot(blender_material, "Emissive")
+    if emissive is None:
+        emissive = gltf2_blender_get.get_socket_or_texture_slot_old(blender_material, "Emissive")
     return gltf2_blender_gather_texture_info.gather_texture_info((emissive,), export_settings)
 
 
@@ -108,26 +119,31 @@ def __gather_extensions(blender_material, export_settings):
     return extensions if extensions else None
 
 
-def __gather_extras(blender_material, export_setttings):
+def __gather_extras(blender_material, export_settings):
+    if export_settings['gltf_extras']:
+        return gltf2_blender_generate_extras.generate_extras(blender_material)
     return None
 
 
 def __gather_name(blender_material, export_settings):
-
-    return None
+    return blender_material.name
 
 
 def __gather_normal_texture(blender_material, export_settings):
     normal = gltf2_blender_get.get_socket_or_texture_slot(blender_material, "Normal")
+    if normal is None:
+        normal = gltf2_blender_get.get_socket_or_texture_slot_old(blender_material, "Normal")
     return gltf2_blender_gather_material_normal_texture_info_class.gather_material_normal_texture_info_class(
         (normal,),
         export_settings)
 
 
 def __gather_occlusion_texture(blender_material, export_settings):
-    emissive = gltf2_blender_get.get_socket_or_texture_slot(blender_material, "Occlusion")
+    occlusion = gltf2_blender_get.get_socket_or_texture_slot(blender_material, "Occlusion")
+    if occlusion is None:
+        occlusion = gltf2_blender_get.get_socket_or_texture_slot_old(blender_material, "Occlusion")
     return gltf2_blender_gather_material_occlusion_texture_info_class.gather_material_occlusion_texture_info_class(
-        (emissive,),
+        (occlusion,),
         export_settings)
 
 

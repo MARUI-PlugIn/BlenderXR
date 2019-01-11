@@ -50,6 +50,7 @@
 #include "BKE_camera.h"
 #include "BKE_constraint.h"
 #include "BKE_curve.h"
+#include "BKE_editmesh.h"
 #include "BKE_global.h"
 #include "BKE_mball.h"
 #include "BKE_mesh.h"
@@ -93,6 +94,7 @@ extern char datatoc_object_grid_vert_glsl[];
 extern char datatoc_object_empty_image_frag_glsl[];
 extern char datatoc_object_empty_image_vert_glsl[];
 extern char datatoc_object_lightprobe_grid_vert_glsl[];
+extern char datatoc_object_loose_points_frag_glsl[];
 extern char datatoc_object_particle_prim_vert_glsl[];
 extern char datatoc_object_particle_dot_vert_glsl[];
 extern char datatoc_object_particle_dot_frag_glsl[];
@@ -306,6 +308,7 @@ static struct {
 	GPUShader *part_prim_sh;
 	GPUShader *part_axis_sh;
 	GPUShader *lightprobe_grid_sh;
+	GPUShader *loose_points_sh;
 	float camera_pos[3];
 	float screenvecs[3][4];
 	float grid_settings[5];
@@ -457,6 +460,9 @@ static void OBJECT_engine_init(void *vedata)
 		/* Lightprobes */
 		e_data.lightprobe_grid_sh = DRW_shader_create(
 		        datatoc_object_lightprobe_grid_vert_glsl, NULL, datatoc_gpu_shader_flat_id_frag_glsl, NULL);
+
+		/* Loose Points */
+		e_data.loose_points_sh = DRW_shader_create_3D(datatoc_object_loose_points_frag_glsl, NULL);
 	}
 
 	{
@@ -686,6 +692,7 @@ static void OBJECT_engine_free(void)
 	DRW_SHADER_FREE_SAFE(e_data.part_axis_sh);
 	DRW_SHADER_FREE_SAFE(e_data.part_dot_sh);
 	DRW_SHADER_FREE_SAFE(e_data.lightprobe_grid_sh);
+	DRW_SHADER_FREE_SAFE(e_data.loose_points_sh);
 }
 
 static DRWShadingGroup *shgroup_outline(DRWPass *pass, const int *ofs, GPUShader *sh)
@@ -710,6 +717,7 @@ static DRWShadingGroup *shgroup_points(DRWPass *pass, const float col[4], GPUSha
 {
 	DRWShadingGroup *grp = DRW_shgroup_create(sh, pass);
 	DRW_shgroup_uniform_vec4(grp, "color", col, 1);
+	DRW_shgroup_uniform_vec4(grp, "innerColor", ts.colorEditMeshMiddle, 1);
 
 	return grp;
 }
@@ -820,14 +828,12 @@ static DRWShadingGroup *shgroup_theme_id_to_point_or(
 	}
 }
 
-static void image_calc_aspect(Image *ima, ImageUser *iuser, float r_image_aspect[2])
+static void image_calc_aspect(Image *ima, const int size[2], float r_image_aspect[2])
 {
 	float ima_x, ima_y;
 	if (ima) {
-		int w, h;
-		BKE_image_get_size(ima, iuser, &w, &h);
-		ima_x = w;
-		ima_y = h;
+		ima_x = size[0];
+		ima_y = size[1];
 	}
 	else {
 		/* if no image, make it a 1x1 empty square, honor scale & offset */
@@ -861,15 +867,27 @@ static void DRW_shgroup_empty_image(
 {
 	/* TODO: 'StereoViews', see draw_empty_image. */
 
-	if (!BKE_image_empty_visible_in_view3d(ob, rv3d))
+	if (!BKE_object_empty_image_is_visible_in_view3d(ob, rv3d))
 		return;
 
-	GPUTexture *tex = ob->data ?
-	        GPU_texture_from_blender(ob->data, ob->iuser, GL_TEXTURE_2D, false, 0.0f) :
-	        NULL;
+	/* Calling 'BKE_image_get_size' may free the texture. Get the size from 'tex' instead, see: T59347 */
+	int size[2] = {0};
+
+	GPUTexture *tex = NULL;
+
+	if (ob->data != NULL) {
+		tex = GPU_texture_from_blender(ob->data, ob->iuser, GL_TEXTURE_2D, false, 0.0f);
+		if (tex) {
+			size[0] = GPU_texture_width(tex);
+			size[1] = GPU_texture_height(tex);
+		}
+	}
+
+	CLAMP_MIN(size[0], 1);
+	CLAMP_MIN(size[1], 1);
 
 	float image_aspect[2];
-	image_calc_aspect(ob->data, ob->iuser, image_aspect);
+	image_calc_aspect(ob->data, size, image_aspect);
 
 	/* OPTI(fclem) We need sorting only for transparent images. If an image as no alpha channel and
 	 * ob->col[3] == 1.0f,  we could remove it from the sorting pass. */
@@ -895,7 +913,7 @@ static void DRW_shgroup_empty_image(
 		DRW_shgroup_uniform_int_copy(grp, "depthMode", ob->empty_image_depth);
 		DRW_shgroup_uniform_float(grp, "size", &ob->empty_drawsize, 1);
 		DRW_shgroup_uniform_vec2(grp, "offset", ob->ima_ofs, 1);
-		DRW_shgroup_uniform_vec4(grp, "color", color, 1);
+		DRW_shgroup_uniform_vec3(grp, "color", color, 1);
 		DRW_shgroup_call_add(grp, DRW_cache_image_plane_wire_get(), ob->obmat);
 	}
 }
@@ -1192,11 +1210,15 @@ static void OBJECT_cache_init(void *vedata)
 		sgl->wire_active = shgroup_wire(sgl->non_meshes, ts.colorActive, sh);
 
 		/* Points (loose points) */
-		sh = GPU_shader_get_builtin_shader(GPU_SHADER_3D_POINT_FIXED_SIZE_UNIFORM_COLOR);
+		sh = e_data.loose_points_sh;
 		sgl->points = shgroup_points(sgl->non_meshes, ts.colorWire, sh);
 		sgl->points_select = shgroup_points(sgl->non_meshes, ts.colorSelect, sh);
 		sgl->points_transform = shgroup_points(sgl->non_meshes, ts.colorTransform, sh);
 		sgl->points_active = shgroup_points(sgl->non_meshes, ts.colorActive, sh);
+		DRW_shgroup_state_disable(sgl->points, DRW_STATE_BLEND);
+		DRW_shgroup_state_disable(sgl->points_select, DRW_STATE_BLEND);
+		DRW_shgroup_state_disable(sgl->points_transform, DRW_STATE_BLEND);
+		DRW_shgroup_state_disable(sgl->points_active, DRW_STATE_BLEND);
 
 		/* Metaballs Handles */
 		sgl->mball_handle = shgroup_instance_mball_handles(sgl->non_meshes);
@@ -1663,7 +1685,7 @@ static void DRW_shgroup_camera(OBJECT_ShadingGroupList *sgl, Object *ob, ViewLay
 		UI_GetThemeColor4fv(TH_BUNDLE_SOLID, bundle_color_solid);
 
 		float camera_mat[4][4];
-		BKE_tracking_get_camera_object_matrix(draw_ctx->depsgraph, scene, ob, camera_mat);
+		BKE_tracking_get_camera_object_matrix(scene, ob, camera_mat);
 
 		float bundle_scale_mat[4][4];
 		if (is_solid_bundle) {
@@ -2250,7 +2272,7 @@ static void DRW_shgroup_relationship_lines(
         Object *ob)
 {
 	if (ob->parent && DRW_object_is_visible_in_active_context(ob->parent)) {
-		DRW_shgroup_call_dynamic_add(sgl->relationship_lines, ob->parent->obmat[3]);
+		DRW_shgroup_call_dynamic_add(sgl->relationship_lines, ob->orig);
 		DRW_shgroup_call_dynamic_add(sgl->relationship_lines, ob->obmat[3]);
 	}
 
@@ -2579,6 +2601,7 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 	OBJECT_StorageList *stl = ((OBJECT_Data *)vedata)->stl;
 	OBJECT_ShadingGroupList *sgl = (ob->dtx & OB_DRAWXRAY) ? &stl->g_data->sgl_ghost : &stl->g_data->sgl;
 	const DRWContextState *draw_ctx = DRW_context_state_get();
+	const bool is_edit_mode = (ob == draw_ctx->object_edit) || BKE_object_is_in_editmode(ob);
 	ViewLayer *view_layer = draw_ctx->view_layer;
 	Scene *scene = draw_ctx->scene;
 	View3D *v3d = draw_ctx->v3d;
@@ -2633,26 +2656,35 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 			if (hide_object_extra) {
 				break;
 			}
-			if (ob != draw_ctx->object_edit) {
-				Mesh *me = ob->data;
-				if (me->totedge == 0) {
-					struct GPUBatch *geom = DRW_cache_mesh_verts_get(ob);
+			Mesh *me = ob->data;
+			if (me->totedge == 0) {
+				if (!is_edit_mode) {
+					struct GPUBatch *geom = DRW_cache_mesh_all_verts_get(ob);
 					if (geom) {
 						if (theme_id == TH_UNDEFINED) {
 							theme_id = DRW_object_wire_theme_get(ob, view_layer, NULL);
 						}
-
 						DRWShadingGroup *shgroup = shgroup_theme_id_to_point_or(sgl, theme_id, sgl->points);
 						DRW_shgroup_call_object_add(shgroup, geom, ob);
 					}
 				}
-				else {
+			}
+			else {
+				/* Kind of expensive in edit mode. Only show if in wireframe mode. */
+				bool has_edit_mesh_cage = false;
+				/* TODO: Should be its own function. */
+				if (is_edit_mode) {
+					BMEditMesh *embm = me->edit_btmesh;
+					has_edit_mesh_cage = embm->mesh_eval_cage && (embm->mesh_eval_cage != embm->mesh_eval_final);
+				}
+				if (!is_edit_mode ||
+				    (((v3d->shading.type < OB_SOLID) || (ob->dt == OB_WIRE)) && has_edit_mesh_cage))
+				{
 					struct GPUBatch *geom = DRW_cache_mesh_loose_edges_get(ob);
 					if (geom) {
 						if (theme_id == TH_UNDEFINED) {
 							theme_id = DRW_object_wire_theme_get(ob, view_layer, NULL);
 						}
-
 						DRWShadingGroup *shgroup = shgroup_theme_id_to_wire_or(sgl, theme_id, sgl->wire);
 						DRW_shgroup_call_object_add(shgroup, geom, ob);
 					}
@@ -2661,10 +2693,24 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 			break;
 		}
 		case OB_SURF:
+		{
+			if (hide_object_extra) {
+				break;
+			}
+			struct GPUBatch *geom = DRW_cache_surf_edge_wire_get(ob);
+			if (geom == NULL) {
+				break;
+			}
+			if (theme_id == TH_UNDEFINED) {
+				theme_id = DRW_object_wire_theme_get(ob, view_layer, NULL);
+			}
+			DRWShadingGroup *shgroup = shgroup_theme_id_to_wire_or(sgl, theme_id, sgl->wire);
+			DRW_shgroup_call_object_add(shgroup, geom, ob);
 			break;
+		}
 		case OB_LATTICE:
 		{
-			if (ob != draw_ctx->object_edit && !BKE_object_is_in_editmode(ob)) {
+			if (is_edit_mode) {
 				if (hide_object_extra) {
 					break;
 				}
@@ -2680,7 +2726,7 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 		}
 		case OB_CURVE:
 		{
-			if (ob != draw_ctx->object_edit) {
+			if (is_edit_mode) {
 				if (hide_object_extra) {
 					break;
 				}
@@ -2695,7 +2741,7 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 		}
 		case OB_MBALL:
 		{
-			if (ob != draw_ctx->object_edit) {
+			if (is_edit_mode) {
 				DRW_shgroup_mball_handles(sgl, ob, view_layer);
 			}
 			break;
@@ -2742,7 +2788,9 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 			break;
 		case OB_ARMATURE:
 		{
-			if (v3d->overlay.flag & V3D_OVERLAY_HIDE_BONES) {
+			if ((v3d->flag2 & V3D_RENDER_OVERRIDE) ||
+			    (v3d->overlay.flag & V3D_OVERLAY_HIDE_BONES))
+			{
 				break;
 			}
 			bArmature *arm = ob->data;
@@ -2757,6 +2805,25 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 					    .relationship_lines = NULL, /* Don't draw relationship lines */
 					};
 					DRW_shgroup_armature_object(ob, view_layer, passes);
+				}
+			}
+			break;
+		}
+		case OB_FONT:
+		{
+			if (hide_object_extra) {
+				break;
+			}
+			Curve *cu = (Curve *)ob->data;
+			bool has_surface = (cu->flag & (CU_FRONT | CU_BACK)) || cu->ext1 != 0.0f || cu->ext2 != 0.0f;
+			if (!has_surface) {
+				struct GPUBatch *geom = DRW_cache_text_edge_wire_get(ob);
+				if (geom) {
+					if (theme_id == TH_UNDEFINED) {
+						theme_id = DRW_object_wire_theme_get(ob, view_layer, NULL);
+					}
+					DRWShadingGroup *shgroup = shgroup_theme_id_to_wire_or(sgl, theme_id, sgl->wire);
+					DRW_shgroup_call_object_add(shgroup, geom, ob);
 				}
 			}
 			break;
@@ -2862,17 +2929,17 @@ static void OBJECT_draw_scene(void *vedata)
 
 	MULTISAMPLE_SYNC_ENABLE(dfbl, dtxl);
 
-	/* This needs to be drawn after the oultine */
 	DRW_draw_pass(stl->g_data->sgl.spot_shapes);
 	DRW_draw_pass(stl->g_data->sgl.bone_solid);
 	DRW_draw_pass(stl->g_data->sgl.bone_wire);
 	DRW_draw_pass(stl->g_data->sgl.bone_outline);
 	DRW_draw_pass(stl->g_data->sgl.non_meshes);
 	DRW_draw_pass(psl->particle);
-	DRW_draw_pass(stl->g_data->sgl.image_empties);
 	DRW_draw_pass(stl->g_data->sgl.bone_axes);
 
 	MULTISAMPLE_SYNC_DISABLE(dfbl, dtxl)
+
+	DRW_draw_pass(stl->g_data->sgl.image_empties);
 
 	if (DRW_state_is_fbo() && outline_calls > 0) {
 		DRW_stats_group_start("Outlines");

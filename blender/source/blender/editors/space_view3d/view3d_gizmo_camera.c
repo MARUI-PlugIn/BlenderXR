@@ -70,12 +70,16 @@ static bool WIDGETGROUP_camera_poll(const bContext *C, wmGizmoGroupType *UNUSED(
 		return false;
 	}
 
-	Object *ob = CTX_data_active_object(C);
-	if (ob && ob->type == OB_CAMERA) {
-		Camera *camera = ob->data;
-		/* TODO: support overrides. */
-		if (camera->id.lib == NULL) {
-			return true;
+	ViewLayer *view_layer = CTX_data_view_layer(C);
+	Base *base = BASACT(view_layer);
+	if (base && BASE_VISIBLE(v3d, base)) {
+		Object *ob = base->object;
+		if (ob->type == OB_CAMERA) {
+			Camera *camera = ob->data;
+			/* TODO: support overrides. */
+			if (camera->id.lib == NULL) {
+				return true;
+			}
 		}
 	}
 	return false;
@@ -83,7 +87,8 @@ static bool WIDGETGROUP_camera_poll(const bContext *C, wmGizmoGroupType *UNUSED(
 
 static void WIDGETGROUP_camera_setup(const bContext *C, wmGizmoGroup *gzgroup)
 {
-	Object *ob = CTX_data_active_object(C);
+	ViewLayer *view_layer = CTX_data_view_layer(C);
+	Object *ob = OBACT(view_layer);
 	float dir[3];
 
 	const wmGizmoType *gzt_arrow = WM_gizmotype_find("GIZMO_GT_arrow_3d", true);
@@ -132,17 +137,11 @@ static void WIDGETGROUP_camera_refresh(const bContext *C, wmGizmoGroup *gzgroup)
 		return;
 
 	struct CameraWidgetGroup *cagzgroup = gzgroup->customdata;
-	Object *ob = CTX_data_active_object(C);
+	ViewLayer *view_layer = CTX_data_view_layer(C);
+	Object *ob = OBACT(view_layer);
 	Camera *ca = ob->data;
 	PointerRNA camera_ptr;
 	float dir[3];
-
-	const float ob_scale_inv[3] = {
-		1.0f / len_v3(ob->obmat[0]),
-		1.0f / len_v3(ob->obmat[1]),
-		1.0f / len_v3(ob->obmat[2]),
-	};
-	const float ob_scale_uniform_inv = (ob_scale_inv[0] + ob_scale_inv[1] + ob_scale_inv[2]) / 3.0f;
 
 	RNA_pointer_create(&ca->id, &RNA_Camera, ca, &camera_ptr);
 
@@ -194,7 +193,13 @@ static void WIDGETGROUP_camera_refresh(const bContext *C, wmGizmoGroup *gzgroup)
 			scale_matrix = ca->ortho_scale * 0.5f;
 		}
 		else {
-			scale_matrix = ca->drawsize / ob_scale_uniform_inv;
+			const float ob_scale_inv[3] = {
+				1.0f / len_v3(ob->obmat[0]),
+				1.0f / len_v3(ob->obmat[1]),
+				1.0f / len_v3(ob->obmat[2]),
+			};
+			const float ob_scale_uniform_inv = (ob_scale_inv[0] + ob_scale_inv[1] + ob_scale_inv[2]) / 3.0f;
+			scale_matrix = (ca->drawsize * 0.5f) / ob_scale_uniform_inv;
 		}
 		mul_v3_fl(widget->matrix_basis[0], scale_matrix);
 		mul_v3_fl(widget->matrix_basis[1], scale_matrix);
@@ -221,10 +226,10 @@ static void WIDGETGROUP_camera_refresh(const bContext *C, wmGizmoGroup *gzgroup)
 
 		ED_gizmo_arrow3d_set_range_fac(
 		        widget, is_ortho ?
-		        (ca->drawsize * range) :
+		        ((range / ca->ortho_scale) * ca->drawsize) :
 		        (scale_matrix * range /
 		         /* Half sensor, intentionally use sensor from camera and not calculated above. */
-		         (0.5f * ((ca->sensor_fit == CAMERA_SENSOR_FIT_HOR) ? ca->sensor_x : ca->sensor_x))));
+		         (0.5f * ((sensor_fit == CAMERA_SENSOR_FIT_HOR) ? ca->sensor_x : ca->sensor_y))));
 
 		WM_gizmo_target_property_def_rna_ptr(widget, gz_prop_type, &camera_ptr, prop, -1);
 	}
@@ -235,7 +240,8 @@ static void WIDGETGROUP_camera_message_subscribe(
         const bContext *C, wmGizmoGroup *gzgroup, struct wmMsgBus *mbus)
 {
 	ARegion *ar = CTX_wm_region(C);
-	Object *ob = CTX_data_active_object(C);
+	ViewLayer *view_layer = CTX_data_view_layer(C);
+	Object *ob = OBACT(view_layer);
 	Camera *ca = ob->data;
 
 	wmMsgSubscribeValue msg_sub_value_gz_tag_refresh = {

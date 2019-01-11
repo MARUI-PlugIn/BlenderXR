@@ -219,33 +219,3 @@ void VR_Math::orient_matrix_z(Mat44f& m, Coord3Df z)
 	m.m[1][0] = y.x;    m.m[1][1] = y.y;    m.m[1][2] = y.z;
 	m.m[2][0] = z.x;    m.m[2][1] = z.y;    m.m[2][2] = z.z;
 }
-
-Coord2Df VR_Math::project_plane_coordinates(const Mat44f& plane, Coord3Df eye, Coord3Df p, double* distance)
-{
-	/* Transform the viewpoint and pointer into the plane coordinate system */
-	const Mat44f& plane_inv = plane.inverse();
-	eye = Coord3Df(plane_inv.m[0][0]*eye.x + plane_inv.m[1][0]*eye.y + plane_inv.m[2][0]*eye.z + plane_inv.m[3][0],
-				   plane_inv.m[0][1]*eye.x + plane_inv.m[1][1]*eye.y + plane_inv.m[2][1]*eye.z + plane_inv.m[3][1],
-				   plane_inv.m[0][2]*eye.x + plane_inv.m[1][2]*eye.y + plane_inv.m[2][2]*eye.z + plane_inv.m[3][2]);
-	
-	p = Coord3Df(plane_inv.m[0][0] * p.x + plane_inv.m[1][0] * p.y + plane_inv.m[2][0] * p.z + plane_inv.m[3][0],
-				 plane_inv.m[0][1] * p.x + plane_inv.m[1][1] * p.y + plane_inv.m[2][1] * p.z + plane_inv.m[3][1],
-				 plane_inv.m[0][2] * p.x + plane_inv.m[1][2] * p.y + plane_inv.m[2][2] * p.z + plane_inv.m[3][2]);
-
-	Coord3Df v = p - eye;
-	if (v.z == 0) {
-		v.z = 0.000001f;
-	}
-	/* Normalize */
-	v.normalize_in_place();
-	/* Get the distance to the projection
-	 * = number of unit-length vector steps that have to be taken from p towards the plane
-	 * until z becomes zero. */
-	float d = p.z / -v.z; /* v is facing down on the plane -> negative z */
-	if (distance) {
-		*distance = d;
-	}
-	/* Now get x,y coordinates:
-	 * project by taking the calculated number of unit-vector steps until z=0 */
-	return Coord2Df(p.x + v.x * d, p.y + v.y * d);
-}

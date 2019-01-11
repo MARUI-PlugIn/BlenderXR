@@ -49,6 +49,9 @@
 
 #include "BLI_math.h"
 
+#include "DNA_vec_types.h"
+
+#include "ED_object.h"
 #include "ED_undo.h"
 
 #include "vr_api.h"
@@ -90,17 +93,12 @@ Mat44f VR_UI::navigation_matrix;
 Mat44f VR_UI::navigation_inverse;
 float VR_UI::navigation_scale(1.0f);
 
-VR_UI::NavigationMode VR_UI::navigation_mode(VR_UI::NAVIGATIONMODE_GRABAIR);
-bool VR_UI::navigation_lock_up(false);
-bool VR_UI::navigation_lock_rotation(false);
-bool VR_UI::navigation_lock_altitude(false);
-bool VR_UI::navigation_lock_translation(false);
-bool VR_UI::navigation_lock_scale(false);
+VR_UI::NavMode VR_UI::navigation_mode(VR_UI::NAVMODE_GRABAIR);
 
 bool VR_UI::hmd_position_current[VR_SPACES][2] = {0};
 bool VR_UI::eye_position_current[VR_SPACES][VR_SIDES][2] = {0};
 
-float VR_UI::eye_baseline(0.050f);
+float VR_UI::eye_baseline(0.5f);
 VR_Side VR_UI::eye_dominance = VR_SIDE_RIGHT;
 
 VR_Side VR_UI::hand_dominance(VR_SIDE_RIGHT);
@@ -132,6 +130,7 @@ ui64 VR_UI::fps_render(0);
 
 int VR_UI::undo_count(0);
 int VR_UI::redo_count(0);
+bool VR_UI::editmode_exit(false);
 
 bool VR_UI::pie_menu_active[VR_SIDES] = { 0 };
 const VR_Widget *VR_UI::pie_menu[VR_SIDES] = { &Widget_Menu::Left::obj, &Widget_Menu::Right::obj };
@@ -264,6 +263,7 @@ VR_UI::Cursor::Cursor()
 	, last_upd(0)
 	, last_buttons(0)
 	, trigger(0)
+	, grip(0)
 	, ctrl(CTRLSTATE_OFF)
 	, shift(SHIFTSTATE_OFF)
 	, alt(ALTSTATE_OFF)
@@ -274,11 +274,11 @@ VR_UI::Cursor::Cursor()
 	, interaction_shift(SHIFTSTATE_OFF)
 	, interaction_alt(ALTSTATE_OFF)
 	, interaction_widget(0)
-	, other_hand(0)
+	, offset_pos(0, 0, 0)
 	, bimanual(BIMANUAL_OFF)
 	, side(VR_SIDE_MONO)
+	, other_hand(0)
 	, target_obj(0)
-	, offset_pos(0, 0, 0)
 {
 	offset_rot.set_to_identity();
 }
@@ -320,6 +320,14 @@ bool VR_UI::cursor_trigger_get(VR_Side side)
 		side = VR_UI::hand_dominance;
 	}
 	return VR_UI::cursor[side].trigger;
+}
+
+bool VR_UI::cursor_grip_get(VR_Side side)
+{
+	if (side != VR_SIDE_LEFT && side != VR_SIDE_RIGHT) {
+		side = VR_UI::hand_dominance;
+	}
+	return VR_UI::cursor[side].grip;
 }
 
 bool VR_UI::cursor_active_get(VR_Side side)
@@ -494,12 +502,12 @@ void VR_UI::navigation_reset()
 	/* If Blender says the y-axis is up,
 	 * apply it as a navigation (just flip the content). */
 	if (!is_zaxis_up()) {
-		// Need to rotate +90deg around the x-axis
+		/* Need to rotate +90deg around the x-axis */
 		VR_UI::navigation_matrix.m[1][1] = 0;
 		VR_UI::navigation_matrix.m[2][2] = 0;
 		VR_UI::navigation_matrix.m[2][1] = 1;
 		VR_UI::navigation_matrix.m[1][2] = -1;
-		// Inverse:
+		/* Inverse: */
 		VR_UI::navigation_inverse.m[1][1] = 0;
 		VR_UI::navigation_inverse.m[2][2] = 0;
 		VR_UI::navigation_inverse.m[2][1] = -1;
@@ -524,7 +532,7 @@ const Mat44f& VR_UI::hmd_position_get(VR_Space space, bool inverse)
 			return *(Mat44f*)vr->t_hmd[VR_SPACE_REAL];
 		}
 	}
-	else { // VR_SPACE_BLENDER
+	else { /* VR_SPACE_BLENDER */
 		if (!VR_UI::hmd_position_current[VR_SPACE_BLENDER][0]) {
 			_va_mul_m4_series_3(vr->t_hmd[VR_SPACE_BLENDER], vr->t_hmd[VR_SPACE_REAL], VR_UI::navigation_matrix.m);
 			VR_UI::hmd_position_current[VR_SPACE_BLENDER][0] = true;
@@ -563,7 +571,7 @@ const Mat44f& VR_UI::eye_position_get(VR_Space space, VR_Side side, bool inverse
 			return *(Mat44f*)vr->t_eye[VR_SPACE_REAL][side];
 		}
 	}
-	else { // VR_SPACE_BLENDER
+	else { /* VR_SPACE_BLENDER */
 		if (!VR_UI::eye_position_current[VR_SPACE_BLENDER][side][0]) {
 			_va_mul_m4_series_3(vr->t_eye[VR_SPACE_BLENDER][side], vr->t_eye[VR_SPACE_REAL][side], VR_UI::navigation_matrix.m);
 			VR_UI::eye_position_current[VR_SPACE_BLENDER][side][0] = true;
@@ -602,7 +610,7 @@ const Mat44f& VR_UI::controller_position_get(VR_Space space, VR_Side side, bool 
 			return *(Mat44f*)vr->t_controller[VR_SPACE_REAL][side];
 		}
 	}
-	else { // VR_SPACE_BLENDER
+	else { /* VR_SPACE_BLENDER */
 		if (!VR_UI::controller_position_current[VR_SPACE_BLENDER][side][0]) {
 			_va_mul_m4_series_3(vr->t_controller[VR_SPACE_BLENDER][side], vr->t_controller[VR_SPACE_REAL][side], VR_UI::navigation_matrix.m);
 			VR_UI::controller_position_current[VR_SPACE_BLENDER][side][0] = true;
@@ -693,7 +701,7 @@ int VR_UI::get_screen_coordinates(const Coord3Df& c, float& x, float& y, VR_Side
 	/* x_t, y_t, z_t now in camera-relative coordinates */
 
 	/* 2: Projection: */
-	const Mat44f& p = VR_Draw::get_projection_matrix();
+	const Mat44f& p = VR_UI::viewport_projection[side];
 	float x_s = x_t * p.m[0][0] + y_t * p.m[1][0] + z_t * p.m[2][0] + p.m[3][0];
 	float y_s = x_t * p.m[0][1] + y_t * p.m[1][1] + z_t * p.m[2][1] + p.m[3][1];
 	//float z_s = x_t * p.m[0][2] + y_t * p.m[1][2] + z_t * p.m[2][2] + p.m[3][2];
@@ -722,7 +730,7 @@ int VR_UI::get_pixel_coordinates(const Coord3Df& c, int& x, int& y, VR_Side side
 	/* x_t, y_t, z_t now in camera-relative coordinates */
 
 	/* 2: Projection: */
-	const Mat44f& p = VR_Draw::get_projection_matrix();
+	const Mat44f& p = VR_UI::viewport_projection[side];
 	float x_s = x_t * p.m[0][0] + y_t * p.m[1][0] + z_t * p.m[2][0] + p.m[3][0];
 	float y_s = x_t * p.m[0][1] + y_t * p.m[1][1] + z_t * p.m[2][1] + p.m[3][1];
 	//float z_s = x_t * p.m[0][2] + y_t * p.m[1][2] + z_t * p.m[2][2] + p.m[3][2];
@@ -785,9 +793,6 @@ VR_UI::Error VR_UI::shutdown()
 		delete VR_UI::ui;
 		VR_UI::ui = 0;
 	}
-
-	/* Close all windows. */
-	//MenuWindow::shutdown();
 
 	return ERROR_NONE;
 }
@@ -1076,7 +1081,7 @@ VR_UI::Error VR_UI::execute_operations()
 			VR_UI::update_cursor(VR_UI::cursor[VR_SIDE_RIGHT]);
 			/* Save old position. */
 			VR_UI::cursor[VR_SIDE_RIGHT].last_position = VR_UI::cursor[VR_SIDE_RIGHT].position;
-VR_UI::cursor[VR_SIDE_RIGHT].last_buttons = vr->controller[VR_SIDE_RIGHT]->buttons;
+			VR_UI::cursor[VR_SIDE_RIGHT].last_buttons = vr->controller[VR_SIDE_RIGHT]->buttons;
 		}
 		else {
 		/* None available, no update. */
@@ -1129,10 +1134,15 @@ VR_UI::Error VR_UI::update_cursor(Cursor& c)
 
 	/* Special recognition for the trigger button. */
 	c.trigger = (buttons & VR_Widget_Layout::BUTTONBITS_TRIGGERS) ? true : false;
+	/* Special recognition for the grip button. */
+	c.grip = (buttons & VR_Widget_Layout::BUTTONBITS_GRIPS) ? true : false;
 
 	static bool pie_menu_init[VR_SIDES] = { true, true };
+	/* TODO_XR: Refactor this. Sometimes menus can stay open or be incorrect type
+	 * if both trigger and grip are pressed .*/
 	if (c.trigger) {
-		if (!(c.last_buttons & VR_Widget_Layout::BUTTONBITS_TRIGGERS)) {
+		if (!(c.last_buttons & VR_Widget_Layout::BUTTONBITS_TRIGGERS) && 
+			Widget_Menu::menu_type[c.side] != VR_Widget::MENUTYPE_AS_NAVI) {
 			/* First trigger interaction; close any open pie menus. */
 			pie_menu_init[c.side] = true;
 			/* Activate action settings menu. */
@@ -1146,6 +1156,10 @@ VR_UI::Error VR_UI::update_cursor(Cursor& c)
 				Widget_Menu::menu_type[c.side] = VR_Widget::MENUTYPE_AS_TRANSFORM;
 				break;
 			}
+			case VR_Widget::TYPE_EXTRUDE: {
+				Widget_Menu::menu_type[c.side] = VR_Widget::MENUTYPE_AS_EXTRUDE;
+				break;
+			}
 			default: {
 				break;
 			}
@@ -1154,10 +1168,59 @@ VR_UI::Error VR_UI::update_cursor(Cursor& c)
 			VR_UI::pie_menu_active[c.side] = true;
 		}
 	}
-	else {
-		if (c.last_buttons & VR_Widget_Layout::BUTTONBITS_TRIGGERS) {
+	else if (c.grip) {
+		if (!(c.last_buttons & VR_Widget_Layout::BUTTONBITS_GRIPS) &&
+			!VR_UI::pie_menu_active[c.side]) {
+			pie_menu_init[c.side] = true;
+			/* Activate action settings menu. */
+			Widget_Menu::menu_type[c.side] = VR_Widget::MENUTYPE_AS_NAVI;
+			Widget_Menu::action_settings[c.side] = true;
+			VR_UI::pie_menu_active[c.side] = true;
+		}
+		else if (Widget_Menu::menu_type[c.side] != VR_Widget::MENUTYPE_AS_NAVI && (c.last_buttons & VR_Widget_Layout::BUTTONBITS_TRIGGERS)) {
 			VR_UI::pie_menu_active[c.side] = false;
 			Widget_Menu::action_settings[c.side] = false;
+			pie_menu_init[c.side] = true;
+		}
+	}
+	else {
+		if (Widget_Menu::action_settings[c.side]) {
+			VR_UI::pie_menu_active[c.side] = false;
+			Widget_Menu::action_settings[c.side] = false;
+			Widget_Menu::highlight_index[c.side] = -1;
+			/* Restore menu type to tool settings. */
+			VR_Widget *tool = get_current_tool(c.side);
+			if (!tool) {
+				Widget_Menu::menu_type[c.side] = VR_Widget::MENUTYPE_MAIN_12;
+			}
+			else {
+				switch (tool->type()) {
+				case VR_Widget::TYPE_SELECT: {
+					Widget_Menu::menu_type[c.side] = VR_Widget::MENUTYPE_TS_SELECT;
+					break;
+				}
+				case VR_Widget::TYPE_TRANSFORM: {
+					Widget_Menu::menu_type[c.side] = VR_Widget::MENUTYPE_TS_TRANSFORM;
+					break;
+				}
+				case VR_Widget::TYPE_ANNOTATE: {
+					Widget_Menu::menu_type[c.side] = VR_Widget::MENUTYPE_TS_ANNOTATE;
+					break;
+				}
+				case VR_Widget::TYPE_MEASURE: {
+					Widget_Menu::menu_type[c.side] = VR_Widget::MENUTYPE_TS_MEASURE;
+					break;
+				}
+				case VR_Widget::TYPE_EXTRUDE: {
+					Widget_Menu::menu_type[c.side] = VR_Widget::MENUTYPE_TS_EXTRUDE;
+					break;
+				}
+				default: {
+					Widget_Menu::menu_type[c.side] = VR_Widget::MENUTYPE_MAIN_12;
+					break;
+				}
+				}
+			}
 			pie_menu_init[c.side] = true;
 		}
 	}
@@ -1185,7 +1248,7 @@ VR_UI::Error VR_UI::update_cursor(Cursor& c)
 				/* Special case for action settings on the Vive:
 				 * It's easy to accidentally hit the dpad so only
 				 * execute action on dpad press. */
-				bool pressed = ((buttons & (VR_UI::ui_type == VR_UI_TYPE_VIVE ? VR_Widget_Layout::BUTTONBITS_DPADANY : VR_Widget_Layout::BUTTONBITS_STICKANY)) != 0);
+				bool pressed = ((buttons & VR_Widget_Layout::BUTTONBITS_DPADANY) != 0);
 				static bool press_init[VR_SIDES] = { true, true };
 				if (press_init[c.side] && pressed) {
 					press_init[c.side] = false;
@@ -1193,7 +1256,7 @@ VR_UI::Error VR_UI::update_cursor(Cursor& c)
 				else if (!press_init[c.side] && !pressed) {
 					/* Stop drag (execute menu operation) when dpad was pressed and released. */
 					menu->drag_stop(c);
-					if (c.trigger) {
+					if (c.trigger || Widget_Menu::menu_type[c.side] == VR_Widget::MENUTYPE_AS_NAVI) {
 						VR_UI::pie_menu_active[c.side] = true;
 					}
 					pie_menu_init[c.side] = true;
@@ -1212,7 +1275,7 @@ VR_UI::Error VR_UI::update_cursor(Cursor& c)
 			}
 			else {
 				if (VR_UI::ui_type == VR_UI_TYPE_VIVE) {
-					bool stick_touched = ((buttons_touched & (VR_UI::ui_type == VR_UI_TYPE_OCULUS ? VR_Widget_Layout::BUTTONBITS_STICKS : VR_Widget_Layout::BUTTONBITS_DPADS)) != 0);
+					bool stick_touched = ((buttons_touched & VR_Widget_Layout::BUTTONBITS_DPADS) != 0);
 					if (stick_pressed) {
 						//
 					}
@@ -1220,10 +1283,24 @@ VR_UI::Error VR_UI::update_cursor(Cursor& c)
 						menu->drag_contd(c);
 					}
 					else {
-						if (!c.trigger) {
+						if (Widget_Menu::menu_type[c.side] == VR_Widget::MENUTYPE_AS_NAVI) {
+							if (!c.grip) {
+								/* Stop drag (execute menu operation) on stick release. */
+								menu->drag_stop(c);
+								if (c.trigger) {
+									VR_UI::pie_menu_active[c.side] = true;
+								}
+								pie_menu_init[c.side] = true;
+							}
+							else {
+								/* Turn off highlight index for action settings */
+								Widget_Menu::highlight_index[c.side] = -1;
+							}
+						}
+						else if (!c.trigger) {
 							/* Stop drag (execute menu operation) on stick release. */
 							menu->drag_stop(c);
-							if (c.trigger) {
+							if (c.grip) {
 								VR_UI::pie_menu_active[c.side] = true;
 							}
 							pie_menu_init[c.side] = true;
@@ -1244,7 +1321,7 @@ VR_UI::Error VR_UI::update_cursor(Cursor& c)
 					else {
 						/* Stop drag (execute menu operation) on stick release. */
 						menu->drag_stop(c);
-						if (c.trigger) {
+						if (c.trigger || Widget_Menu::menu_type[c.side] == VR_Widget::MENUTYPE_AS_NAVI) {
 							VR_UI::pie_menu_active[c.side] = true;
 						}
 						pie_menu_init[c.side] = true;
@@ -1440,13 +1517,21 @@ VR_UI::Error VR_UI::update_cursor(Cursor& c)
 
 VR_UI::Error VR_UI::update_menus()
 {
-	/* TODO_XR */
+	//
 
 	return ERROR_NONE;
 }
 
 VR_UI::Error VR_UI::execute_post_render_operations()
 {
+	if (editmode_exit) {
+		ED_object_editmode_exit(vr_get_obj()->ctx, EM_FREEDATA);
+		editmode_exit = false;
+		/* Update manipulators */
+		Widget_Transform::update_manipulator();
+		return ERROR_NONE;
+	}
+
 	if (undo_count == 0 && redo_count == 0) {
 		return ERROR_NONE;
 	}
@@ -1478,8 +1563,6 @@ VR_UI::Error VR_UI::post_render(VR_Side side)
 {
 	/* Apply widget render functions (if any). */
 	execute_widget_renders(side);
-
-	VR* vr = vr_get_obj();
 
 	if (VR_UI::ui_type == VR_UI_TYPE_FOVE) {
 		/* Render box for eye cursor (convergence) position. */
@@ -1543,19 +1626,6 @@ VR_UI::Error VR_UI::post_render(VR_Side side)
 		VR_Draw::update_projection_matrix(prior_projection_matrix.m);
 	}
 
-	/* Render warning if VR isn't tracking. */
-	if (!vr->tracking) {
-		/* Render a big warning over the screen. */
-		VR_Draw::update_projection_matrix(VR_Math::identity_f.m);
-		VR_Draw::update_view_matrix(VR_Math::identity_f.m);
-		VR_Draw::update_modelview_matrix(&VR_Math::identity_f, 0);
-		VR_Draw::set_color(0.8f, 0.0f, 0.0f, 1.0f);
-		static const char* tracking_lost_str = std::string("TRACKING LOST").c_str();
-		VR_Draw::render_string(tracking_lost_str, 0.03f, 0.03f, VR_HALIGN_CENTER, VR_VALIGN_TOP, 0.0f, 0.18f, 0.001f);
-
-		return ERROR_INTERNALFAILURE;
-	}
-
 	/* Render menus. */
 	//render_menus(0, 0);
 
@@ -1569,7 +1639,6 @@ VR_UI::Error VR_UI::render_controller(VR_Side controller_side)
 		const Mat44f& t_controller_right = VR_UI::cursor[VR_SIDE_RIGHT].position.position->mat;
 
 		if (VR_UI::ui_type == VR_UI_TYPE_MICROSOFT) {
-			/* Render controller models black until we get proper textures. */
 			VR_Draw::set_depth_test(false, false);
 			for (int i = 0; i < 2; ++i) {
 				VR_Draw::set_color(0.211f, 0.219f, 0.223f, 0.2f);
@@ -1580,7 +1649,7 @@ VR_UI::Error VR_UI::render_controller(VR_Side controller_side)
 					VR_Draw::controller_model[i]->render(t_controller_right);
 				}
 				VR_Draw::set_color(1.0f, 1.0f, 1.0f, 0.2f);
-				VR_Draw::cursor_model->render();
+				VR_Draw::vr_cursor_model->render();
 			}
 
 			VR_Draw::set_depth_test(true, true);
@@ -1593,16 +1662,20 @@ VR_UI::Error VR_UI::render_controller(VR_Side controller_side)
 					VR_Draw::controller_model[i]->render(t_controller_right);
 				}
 				VR_Draw::set_color(1.0f, 1.0f, 1.0f, 1.0f);
-				VR_Draw::cursor_model->render();
-				VR_Draw::set_depth_test(true, false);
-				/* Render crosshair cursor */
-				VR_Draw::render_rect(-0.005f, 0.005f, 0.005f, -0.005f, 0.001f, 1.0f, 1.0f, VR_Draw::crosshair_cursor_tex);
-				VR_Draw::set_depth_test(true, true);
+				/* Check if the cursor widget has been enabled.
+				 * If it has, stop drawing the cursor at the controller. */
+				if (!Widget_Cursor::obj.cursor_enabled) {
+					/* Render crosshair cursor */
+					VR_Draw::vr_cursor_model->render();
+					VR_Draw::set_depth_test(true, false);
+					VR_Draw::render_rect(-0.005f, 0.005f, 0.005f, -0.005f, 0.001f, 1.0f, 1.0f, VR_Draw::cursor_tex);
+					VR_Draw::set_depth_test(true, true);
+				}
 			}
 		}
 		else {
 			VR_Draw::set_depth_test(false, false);
-			VR_Draw::set_color(1, 1, 1, 0.2f);
+			VR_Draw::set_color(1.0f, 1.0f, 1.0f, 0.2f);
 			for (int i = 0; i < 2; ++i) {
 				if (i == VR_SIDE_LEFT) {
 					VR_Draw::controller_model[i]->render(t_controller_left);
@@ -1610,11 +1683,11 @@ VR_UI::Error VR_UI::render_controller(VR_Side controller_side)
 				else { /* VR_SIDE_RIGHT */
 					VR_Draw::controller_model[i]->render(t_controller_right);
 				}
-				VR_Draw::cursor_model->render();
+				VR_Draw::vr_cursor_model->render();
 			}
 
 			VR_Draw::set_depth_test(true, true);
-			VR_Draw::set_color(1, 1, 1, 1);
+			VR_Draw::set_color(1.0f, 1.0f, 1.0f, 1.0f);
 			for (int i = 0; i < 2; ++i) {
 				if (i == VR_SIDE_LEFT) {
 					VR_Draw::controller_model[i]->render(t_controller_left);
@@ -1622,11 +1695,15 @@ VR_UI::Error VR_UI::render_controller(VR_Side controller_side)
 				else { /* VR_SIDE_RIGHT */
 					VR_Draw::controller_model[i]->render(t_controller_right);
 				}
-				VR_Draw::cursor_model->render();
-				VR_Draw::set_depth_test(true, false);
-				/* Render crosshair cursor */
-				VR_Draw::render_rect(-0.005f, 0.005f, 0.005f, -0.005f, 0.001f, 1.0f, 1.0f, VR_Draw::crosshair_cursor_tex);
-				VR_Draw::set_depth_test(true, true);
+				/* Check if the cursor widget has been enabled.
+				 * If it has, stop drawing the cursor at the controller. */
+				if (!Widget_Cursor::obj.cursor_enabled) {
+					/* Render crosshair cursor */
+					VR_Draw::vr_cursor_model->render();
+					VR_Draw::set_depth_test(true, false);
+					VR_Draw::render_rect(-0.005f, 0.005f, 0.005f, -0.005f, 0.001f, 1.0f, 1.0f, VR_Draw::cursor_tex);
+					VR_Draw::set_depth_test(true, true);
+				}
 			}
 		}
 		render_widget_icons(VR_SIDE_LEFT, t_controller_left);
@@ -1639,19 +1716,34 @@ VR_UI::Error VR_UI::render_controller(VR_Side controller_side)
 	const Mat44f& t_controller = VR_UI::cursor[controller_side].position.position->mat;
 
 	VR_Draw::set_depth_test(false, false);
-	VR_Draw::set_color(1, 1, 1, 0.2f);
-	VR_Draw::controller_model[controller_side]->render(t_controller);
-	VR_Draw::cursor_model->render();
+	if (VR_UI::ui_type == VR_UI_TYPE_MICROSOFT) {
+		VR_Draw::set_color(0.211f, 0.219f, 0.223f, 0.2f);
+		VR_Draw::controller_model[controller_side]->render(t_controller);
+		VR_Draw::set_color(1.0f, 1.0f, 1.0f, 0.2f);
+	}
+	else {
+		VR_Draw::set_color(1.0f, 1.0f, 1.0f, 0.2f);
+		VR_Draw::controller_model[controller_side]->render(t_controller);
+	}
+	VR_Draw::vr_cursor_model->render();
 	
 	VR_Draw::set_depth_test(true, true);
-	VR_Draw::set_color(1, 1, 1, 1);
-	VR_Draw::controller_model[controller_side]->render();
-	VR_Draw::cursor_model->render();
-	VR_Draw::set_depth_test(true, false);
-	/* Render crosshair cursor */
-	VR_Draw::render_rect(-0.005f, 0.005f, 0.005f, -0.005f, 0.001f, 1.0f, 1.0f, VR_Draw::crosshair_cursor_tex);
-	VR_Draw::set_depth_test(true, true);
-
+	if (VR_UI::ui_type == VR_UI_TYPE_MICROSOFT) {
+		VR_Draw::set_color(0.211f, 0.219f, 0.223f, 1.0f);
+		VR_Draw::controller_model[controller_side]->render();
+		VR_Draw::set_color(1.0f, 1.0f, 1.0f, 1.0f);
+	}
+	else {
+		VR_Draw::set_color(1.0f, 1.0f, 1.0f, 1.0f);
+		VR_Draw::controller_model[controller_side]->render();
+	}
+	if (!Widget_Cursor::obj.cursor_enabled) {
+		/* Render crosshair cursor */
+		VR_Draw::vr_cursor_model->render();
+		VR_Draw::set_depth_test(true, false);
+		VR_Draw::render_rect(-0.005f, 0.005f, 0.005f, -0.005f, 0.001f, 1.0f, 1.0f, VR_Draw::cursor_tex);
+		VR_Draw::set_depth_test(true, true);
+	}
 	render_widget_icons(controller_side, t_controller);
 
 	return ERROR_NONE;
@@ -1718,6 +1810,19 @@ VR_UI::Error VR_UI::render_widget_icons(VR_Side controller_side, const Mat44f& t
 				VR_Widget *w = VR_Widget_Layout::current_layout->m[controller_side][btn][alt];
 				if (w) {
 					switch (w->type()) {
+					case VR_Widget::TYPE_NAVI: {
+						if (Widget_Menu::menu_type[controller_side] == VR_Widget::MENUTYPE_AS_NAVI) {
+							VR_Widget_Layout::ButtonBit btnbit = VR_Widget_Layout::buttonIDToBit(btn);
+							*((Coord3Df*)t_icon.m[3]) = VR_Widget_Layout::button_positions[VR_UI::ui_type][controller_side][btn];
+							VR_Widget_Layout::current_layout->m[controller_side][btn][alt]->render_icon(
+								t_icon * t_controller,
+								controller_side,
+								((buttons & btnbit) != 0),
+								((buttons_touched & btnbit) != 0)
+							);
+						}
+						break;
+					}
 					case VR_Widget::TYPE_CTRL:
 					case VR_Widget::TYPE_SHIFT: {
 						VR_Widget_Layout::ButtonBit btnbit = VR_Widget_Layout::buttonIDToBit(btn);
@@ -1807,15 +1912,39 @@ VR_UI::Error VR_UI::execute_widget_renders(VR_Side side)
 		}
 	}
 
+	if (Widget_Cursor::cursor_enabled) {
+		/* Cursor has been enabled and initialized. This means that the original cursor has been
+		 * moved from the controller's origin to the click location. From now on, instead of
+		 * drawing the cursor at the controller's top location, draw to wherever the cursor's
+		 * position is set at. */
+		Mat44f cursor_identity_local;
+		cursor_identity_local.set_to_identity();
+		
+		Coord3Df cursor_converted_position = VR_UI::convert_space(Widget_Cursor::cursor_current_location, 
+																	VR_SPACE_BLENDER, 
+																	VR_SPACE_REAL);
+		Mat44f current_HMD_pos = hmd_position_get(VR_SPACE_REAL);
+
+		memcpy(&cursor_identity_local.m[0], current_HMD_pos.m[0], sizeof(float) * 3);
+		memcpy(&cursor_identity_local.m[1], current_HMD_pos.m[1], sizeof(float) * 3);
+		memcpy(&cursor_identity_local.m[2], current_HMD_pos.m[2], sizeof(float) * 3);
+		memcpy(&cursor_identity_local.m[3], &cursor_converted_position, sizeof(float) * 3);
+
+		VR_Draw::update_modelview_matrix(&cursor_identity_local, 0);
+		VR_Draw::set_depth_test(true, false);
+		VR_Draw::render_rect(-0.005f, 0.005f, 0.005f, -0.005f, 0.001f, 1.0f, 1.0f, VR_Draw::cursor_tex);
+		VR_Draw::set_depth_test(true, true);
+	}
+
 	/* Apply widget render functions (if any). */
 	AltState alt = VR_UI::alt_key;
-	/* TODO_XR: Refactor this. */
 	bool manip_rendered = false;
 	for (VR_Widget_Layout::ButtonID btn = VR_Widget_Layout::ButtonID(0); btn < VR_Widget_Layout::BUTTONIDS; btn = VR_Widget_Layout::ButtonID(btn + 1)) {
 		for (int controller_side = 0; controller_side < VR_SIDES; ++controller_side) {
 			VR_Widget* widget = VR_Widget_Layout::current_layout->m[controller_side][btn][alt];
 			if (widget && widget->do_render[side]) {
-				if (widget->type() == VR_Widget::TYPE_TRANSFORM && !manip_rendered) {
+				if ((widget->type() == VR_Widget::TYPE_TRANSFORM 
+					|| widget->type() == VR_Widget::TYPE_EXTRUDE) && !manip_rendered) {
 					/* Manipulator */
 					VR_Draw::set_depth_test(false, false);
 					VR_Draw::set_color(1, 1, 1, 0.2f);
@@ -1836,7 +1965,7 @@ VR_UI::Error VR_UI::execute_widget_renders(VR_Side side)
 	return ERROR_NONE;
 }
 
-VR_UI::Error VR_UI::render_menus(const Mat44f* _model, const Mat44f* _view)
+VR_UI::Error VR_UI::render_menus(const Mat44f *_model, const Mat44f *_view)
 {
 	if (_model || _view) {
 		VR_Draw::update_modelview_matrix(_model, _view);
@@ -1861,12 +1990,6 @@ VR_UI::Error VR_UI::render_menus(const Mat44f* _model, const Mat44f* _view)
 		fps_str = std::to_string(VR_UI::fps_render);
 	}
 	VR_Draw::render_string(fps_str.c_str(), 0.03f, 0.03f, VR_HALIGN_CENTER, VR_VALIGN_TOP, 0.0f, 0.18f, 0.001f);
-
-	/* Zoom and close icons */
-	VR_Draw::set_color(0.0f, 1.0f, 0.7f, 1.0f);
-	VR_Draw::render_rect(0.1f, 0.13f, 0.187f, 0.157f, 0.001f, 1.0f, 1.0f, VR_Draw::zoom_tex);
-	VR_Draw::set_color(0.7f, 0.0f, 1.0f, 1.0f);
-	VR_Draw::render_rect(0.14f, 0.17f, 0.187f, 0.157f, 0.001f, 1.0f, 1.0f, VR_Draw::close_tex);
 
 	return ERROR_NONE;
 }

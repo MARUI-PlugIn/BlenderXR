@@ -2356,10 +2356,7 @@ void GHOST_SystemX11::refreshXInputDevices()
 
 				GHOST_TTabletMode tablet_mode = tablet_mode_from_name(device_info[i].name, device_type);
 
-				if ((m_xtablet.StylusDevice == NULL) &&
-				    ((tablet_mode == GHOST_kTabletModeStylus) && (device_info[i].type != m_atom.TABLET)))
-				    /* for libinput to work reliable, only lookup ValuatorClass in Tablet type:'STYLUS' */
-				{
+				if ((m_xtablet.StylusDevice == NULL) && (tablet_mode == GHOST_kTabletModeStylus)) {
 //					printf("\tfound stylus\n");
 					m_xtablet.StylusID = device_info[i].id;
 					m_xtablet.StylusDevice = XOpenDevice(m_display, m_xtablet.StylusID);
@@ -2367,6 +2364,8 @@ void GHOST_SystemX11::refreshXInputDevices()
 					if (m_xtablet.StylusDevice != NULL) {
 						/* Find how many pressure levels tablet has */
 						XAnyClassPtr ici = device_info[i].inputclassinfo;
+						bool found_valuator_class = false;
+
 						for (int j = 0; j < m_xtablet.StylusDevice->num_classes; ++j) {
 							if (ici->c_class == ValuatorClass) {
 //								printf("\t\tfound ValuatorClass\n");
@@ -2384,10 +2383,22 @@ void GHOST_SystemX11::refreshXInputDevices()
 									m_xtablet.YtiltLevels = 0;
 								}
 
+								found_valuator_class = (m_xtablet.PressureLevels > 0);
+
 								break;
 							}
 
 							ici = (XAnyClassPtr)(((char *)ici) + ici->length);
+						}
+
+						if (!found_valuator_class) {
+							/* In case our name matching detects a device that
+							 * isn't actually a stylus. For example there can
+							 * be "XPPEN Tablet" and "XPPEN Tablet Pen", but
+							 * only the latter is a stylus. */
+							XCloseDevice(m_display, m_xtablet.StylusDevice);
+							m_xtablet.StylusDevice = NULL;
+							m_xtablet.StylusID = 0;
 						}
 					}
 					else {

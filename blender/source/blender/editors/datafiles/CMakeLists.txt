@@ -684,8 +684,10 @@ set_property(GLOBAL PROPERTY ICON_GEOM_NAMES
 	ops.gpencil.edit_mirror
 	ops.gpencil.edit_shear
 	ops.gpencil.edit_to_sphere
+	ops.gpencil.primitive_arc
 	ops.gpencil.primitive_box
 	ops.gpencil.primitive_circle
+	ops.gpencil.primitive_curve
 	ops.gpencil.primitive_line
 	ops.gpencil.sculpt_clone
 	ops.gpencil.sculpt_grab

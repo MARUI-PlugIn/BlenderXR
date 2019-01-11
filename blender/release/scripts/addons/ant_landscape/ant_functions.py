@@ -142,8 +142,8 @@ class AntLandscapeRefresh(bpy.types.Operator):
 
     def execute(self, context):
         # turn off undo
-        undo = bpy.context.user_preferences.edit.use_global_undo
-        bpy.context.user_preferences.edit.use_global_undo = False
+        undo = bpy.context.preferences.edit.use_global_undo
+        bpy.context.preferences.edit.use_global_undo = False
 
         # ant object items
         obj = bpy.context.active_object
@@ -178,7 +178,7 @@ class AntLandscapeRefresh(bpy.types.Operator):
             pass
 
         # restore pre operator undo state
-        context.user_preferences.edit.use_global_undo = undo
+        context.preferences.edit.use_global_undo = undo
 
         return {'FINISHED'}
 
@@ -202,8 +202,8 @@ class AntLandscapeRegenerate(bpy.types.Operator):
     def execute(self, context):
 
         # turn off undo
-        undo = bpy.context.user_preferences.edit.use_global_undo
-        bpy.context.user_preferences.edit.use_global_undo = False
+        undo = bpy.context.preferences.edit.use_global_undo
+        bpy.context.preferences.edit.use_global_undo = False
 
         scene = bpy.context.scene
         # ant object items
@@ -329,7 +329,7 @@ class AntLandscapeRegenerate(bpy.types.Operator):
             scene.objects.active = new_ob
 
             # restore pre operator undo state
-            context.user_preferences.edit.use_global_undo = undo
+            context.preferences.edit.use_global_undo = undo
 
         return {'FINISHED'}
 
@@ -662,7 +662,7 @@ def draw_ant_displace(self, context, generate=True):
             if not self.sphere_mesh:
                 col = box.column()
                 col.prop(self, "edge_falloff")
-                if self.edge_falloff is not "0":
+                if self.edge_falloff != "0":
                     col = box.column(align=True)
                     col.prop(self, "edge_level")
                     if self.edge_falloff in ["2", "3"]:
@@ -672,7 +672,7 @@ def draw_ant_displace(self, context, generate=True):
 
         col = box.column()
         col.prop(self, "strata_type")
-        if self.strata_type is not "0":
+        if self.strata_type != "0":
             col = box.column()
             col.prop(self, "strata")
 
@@ -953,43 +953,43 @@ class Eroder(bpy.types.Operator):
         try:
             vg=ob.vertex_groups["rainmap"]
         except:
-            vg=ob.vertex_groups.new("rainmap")
+            vg=ob.vertex_groups.new(name="rainmap")
         try:
             vgscree=ob.vertex_groups["scree"]
         except:
-            vgscree=ob.vertex_groups.new("scree")
+            vgscree=ob.vertex_groups.new(name="scree")
         try:
             vgavalanced=ob.vertex_groups["avalanced"]
         except:
-            vgavalanced=ob.vertex_groups.new("avalanced")
+            vgavalanced=ob.vertex_groups.new(name="avalanced")
         try:
             vgw=ob.vertex_groups["water"]
         except:
-            vgw=ob.vertex_groups.new("water")
+            vgw=ob.vertex_groups.new(name="water")
         try:
             vgscour=ob.vertex_groups["scour"]
         except:
-            vgscour=ob.vertex_groups.new("scour")
+            vgscour=ob.vertex_groups.new(name="scour")
         try:
             vgdeposit=ob.vertex_groups["deposit"]
         except:
-            vgdeposit=ob.vertex_groups.new("deposit")
+            vgdeposit=ob.vertex_groups.new(name="deposit")
         try:
             vgflowrate=ob.vertex_groups["flowrate"]
         except:
-            vgflowrate=ob.vertex_groups.new("flowrate")
+            vgflowrate=ob.vertex_groups.new(name="flowrate")
         try:
             vgsediment=ob.vertex_groups["sediment"]
         except:
-            vgsediment=ob.vertex_groups.new("sediment")
+            vgsediment=ob.vertex_groups.new(name="sediment")
         try:
             vgsedimentpct=ob.vertex_groups["sedimentpct"]
         except:
-            vgsedimentpct=ob.vertex_groups.new("sedimentpct")
+            vgsedimentpct=ob.vertex_groups.new(name="sedimentpct")
         try:
             vgcapacity=ob.vertex_groups["capacity"]
         except:
-            vgcapacity=ob.vertex_groups.new("capacity")
+            vgcapacity=ob.vertex_groups.new(name="capacity")
 
         g = Grid.fromBlenderMesh(me, vg, self.Ef)
 

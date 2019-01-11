@@ -258,8 +258,8 @@ bool WM_gizmomap_minmax(
 /**
  * Creates and returns idname hash table for (visible) gizmos in \a gzmap
  *
- * \param poll  Polling function for excluding gizmos.
- * \param data  Custom data passed to \a poll
+ * \param poll: Polling function for excluding gizmos.
+ * \param data: Custom data passed to \a poll
  *
  * TODO(campbell): this uses unreliable order,
  * best we use an iterator function instead of a hash.
@@ -1039,7 +1039,9 @@ void WM_gizmomap_message_subscribe(
         bContext *C, wmGizmoMap *gzmap, ARegion *ar, struct wmMsgBus *mbus)
 {
 	for (wmGizmoGroup *gzgroup = gzmap->groups.first; gzgroup; gzgroup = gzgroup->next) {
-		if (!WM_gizmo_group_type_poll(C, gzgroup->type)) {
+		if ((gzgroup->init_flag & WM_GIZMOGROUP_INIT_SETUP) == 0 ||
+		    !WM_gizmo_group_type_poll(C, gzgroup->type))
+		{
 			continue;
 		}
 		for (wmGizmo *gz = gzgroup->gizmos.first; gz; gz = gz->next) {

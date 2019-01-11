@@ -33,6 +33,7 @@
 
 #include "BLF_api.h"
 
+#include "BKE_colortools.h"
 #include "BKE_global.h"
 #include "BKE_mesh.h"
 #include "BKE_object.h"
@@ -197,7 +198,7 @@ bool DRW_object_is_flat_normal(const Object *ob)
 bool DRW_object_use_hide_faces(const struct Object *ob)
 {
 	if (ob->type == OB_MESH) {
-		const Mesh *me = ob->data;
+		const Mesh *me = DEG_get_original_object((Object *)ob)->data;
 
 		switch (ob->mode) {
 			case OB_MODE_TEXTURE_PAINT:
@@ -274,10 +275,19 @@ void DRW_transform_to_display(GPUTexture *tex, bool use_view_settings)
 	if (!(DST.options.is_image_render && !DST.options.is_scene_render)) {
 		Scene *scene = DST.draw_ctx.scene;
 		ColorManagedDisplaySettings *display_settings = &scene->display_settings;
-		ColorManagedViewSettings *view_settings = (use_view_settings) ? &scene->view_settings : NULL;
-
+		ColorManagedViewSettings *active_view_settings;
+		ColorManagedViewSettings default_view_settings;
+		if (use_view_settings) {
+			active_view_settings = &scene->view_settings;
+		}
+		else {
+			BKE_color_managed_view_settings_init_render(
+			        &default_view_settings,
+			        display_settings);
+			active_view_settings = &default_view_settings;
+		}
 		use_ocio = IMB_colormanagement_setup_glsl_draw_from_space(
-		        view_settings, display_settings, NULL, dither, false);
+		        active_view_settings, display_settings, NULL, dither, false);
 	}
 
 	if (!use_ocio) {
@@ -1013,6 +1023,10 @@ static void drw_engines_cache_populate(Object *ob)
 		}
 	}
 
+	/* TODO: in the future it would be nice to generate once for all viewports.
+	 * But we need threaded DRW manager first. */
+	drw_batch_cache_generate_requested(ob);
+
 	/* ... and clearing it here too because theses draw data are
 	 * from a mempool and must not be free individually by depsgraph. */
 	drw_drawdata_unlink_dupli((ID *)ob);
@@ -1246,10 +1260,10 @@ static void drw_engines_enable_from_mode(int mode)
 		case CTX_MODE_PAINT_VERTEX:
 		case CTX_MODE_PAINT_TEXTURE:
 		case CTX_MODE_OBJECT:
-		case CTX_MODE_GPENCIL_PAINT:
-		case CTX_MODE_GPENCIL_EDIT:
-		case CTX_MODE_GPENCIL_SCULPT:
-		case CTX_MODE_GPENCIL_WEIGHT:
+		case CTX_MODE_PAINT_GPENCIL:
+		case CTX_MODE_EDIT_GPENCIL:
+		case CTX_MODE_SCULPT_GPENCIL:
+		case CTX_MODE_WEIGHT_GPENCIL:
 			break;
 		default:
 			BLI_assert(!"Draw mode invalid");
@@ -1458,10 +1472,10 @@ void DRW_draw_render_loop_ex(
 
 		const int object_type_exclude_viewport = v3d->object_type_exclude_viewport;
 		DEG_OBJECT_ITER_BEGIN(depsgraph, ob,
-		        DEG_ITER_OBJECT_FLAG_LINKED_DIRECTLY |
-		        DEG_ITER_OBJECT_FLAG_LINKED_VIA_SET |
-		        DEG_ITER_OBJECT_FLAG_VISIBLE |
-		        DEG_ITER_OBJECT_FLAG_DUPLI)
+			DEG_ITER_OBJECT_FLAG_LINKED_DIRECTLY |
+			DEG_ITER_OBJECT_FLAG_LINKED_VIA_SET |
+			DEG_ITER_OBJECT_FLAG_VISIBLE |
+			DEG_ITER_OBJECT_FLAG_DUPLI)
 		{
 			if ((object_type_exclude_viewport & (1 << ob->type)) != 0) {
 				continue;
@@ -1528,16 +1542,8 @@ void DRW_draw_render_loop_ex(
 	if (DST.draw_ctx.evil_C) {
 		ED_region_draw_cb_draw(DST.draw_ctx.evil_C, DST.draw_ctx.ar, REGION_DRAW_PRE_VIEW);
 	}
-	
+
 #if WITH_VR
-	/* Render VR controllers and menus. */
-	if (rv3d->rflag & RV3D_IS_VR) {
-		vr_post_scene_render(v3d->multiview_eye);
-	}
-#endif
-
-	drw_engines_draw_scene();
-
 	/* annotations - temporary drawing buffer (3d space) */
 	/* XXX: Or should we use a proper draw/overlay engine for this case? */
 	if (do_annotations) {
@@ -1546,6 +1552,30 @@ void DRW_draw_render_loop_ex(
 		ED_gpencil_draw_view3d_annotations(DEG_get_input_scene(depsgraph), depsgraph, v3d, ar, true);
 		glEnable(GL_DEPTH_TEST);
 	}
+
+	/* Render VR controllers and menus. */
+	if (rv3d->rflag & RV3D_IS_VR) {
+		vr_post_scene_render(v3d->multiview_eye);
+	}
+#endif
+	
+	drw_engines_draw_scene();
+
+#ifdef __APPLE__
+	/* Fix 3D view being "laggy" on macos. (See T56996) */
+	GPU_flush();
+#endif
+
+#if !WITH_VR
+	/* annotations - temporary drawing buffer (3d space) */
+	/* XXX: Or should we use a proper draw/overlay engine for this case? */
+	if (do_annotations) {
+		glDisable(GL_DEPTH_TEST);
+		/* XXX: as scene->gpd is not copied for COW yet */
+		ED_gpencil_draw_view3d_annotations(DEG_get_input_scene(depsgraph), depsgraph, v3d, ar, true);
+		glEnable(GL_DEPTH_TEST);
+	}
+#endif
 
 	DRW_draw_callbacks_post_scene();
 	if (DST.draw_ctx.evil_C) {
@@ -1920,6 +1950,8 @@ void DRW_render_object_iter(
 			DST.dupli_source = data_.dupli_object_current;
 			DST.ob_state = NULL;
 			callback(vedata, ob, engine, depsgraph);
+
+			drw_batch_cache_generate_requested(ob);
 		}
 	}
 	DEG_OBJECT_ITER_END
@@ -2109,7 +2141,7 @@ void DRW_draw_select_loop(
 #if 0
 			drw_engines_cache_populate(obact);
 #else
-			FOREACH_OBJECT_IN_MODE_BEGIN (view_layer, v3d, obact->mode, ob_iter) {
+			FOREACH_OBJECT_IN_MODE_BEGIN (view_layer, v3d, obact->type, obact->mode, ob_iter) {
 				drw_engines_cache_populate(ob_iter);
 			}
 			FOREACH_OBJECT_IN_MODE_END;
@@ -2280,7 +2312,9 @@ void DRW_draw_depth_loop(
 	/* Get list of enabled engines */
 	{
 		drw_engines_enable_basic();
-		drw_engines_enable_from_object_mode();
+		if (DRW_state_draw_support()) {
+			drw_engines_enable_from_object_mode();
+		}
 	}
 
 	/* Setup viewport */
@@ -2435,6 +2469,16 @@ bool DRW_state_is_opengl_render(void)
 {
 	return DST.options.is_image_render && !DST.options.is_scene_render;
 }
+
+bool DRW_state_is_playback(void)
+{
+	if (DST.draw_ctx.evil_C != NULL) {
+		struct wmWindowManager *wm = CTX_wm_manager(DST.draw_ctx.evil_C);
+		return ED_screen_animation_playing(wm) != NULL;
+	}
+	return false;
+}
+
 
 /**
  * Should text draw in this mode?
@@ -2675,7 +2719,7 @@ void DRW_opengl_context_disable_ex(bool restore)
 #ifdef __APPLE__
 		/* Need to flush before disabling draw context, otherwise it does not
 		 * always finish drawing and viewport can be empty or partially drawn */
-		glFlush();
+		GPU_flush();
 #endif
 
 		if (BLI_thread_is_main() && restore) {
@@ -2712,7 +2756,7 @@ void DRW_opengl_render_context_enable(void *re_gl_context)
 
 void DRW_opengl_render_context_disable(void *re_gl_context)
 {
-	glFlush();
+	GPU_flush();
 	WM_opengl_context_release(re_gl_context);
 	/* TODO get rid of the blocking. */
 	BLI_ticket_mutex_unlock(DST.gl_context_mutex);

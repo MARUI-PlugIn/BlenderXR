@@ -675,7 +675,7 @@ static void rna_BrushGpencilSettings_default_eraser_update(Main *bmain, Scene *s
 	/* disable default eraser in all brushes */
 	for (Brush *brush = bmain->brush.first; brush; brush = brush->id.next) {
 		if ((brush != brush_cur) &&
-		    (brush->ob_mode == OB_MODE_GPENCIL_PAINT) &&
+		    (brush->ob_mode == OB_MODE_PAINT_GPENCIL) &&
 		    (brush->gpencil_tool == GPAINT_TOOL_ERASE))
 		{
 			brush->gpencil_settings->flag &= ~GP_BRUSH_DEFAULT_ERASER;
@@ -1226,6 +1226,12 @@ static void rna_def_gpencil_options(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "show_lasso", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_negative_sdna(prop, NULL, "flag", GP_BRUSH_DISSABLE_LASSO);
 	RNA_def_property_ui_text(prop, "Show Lasso", "Do not draw fill color while drawing the stroke");
+	RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, 0);
+
+	prop = RNA_def_property(srna, "use_occlude_eraser", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_negative_sdna(prop, NULL, "flag", GP_BRUSH_OCCLUDE_ERASER);
+	RNA_def_property_ui_text(prop, "Occlude Eraser",
+		"Erase only strokes visible and not occluded");
 	RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, 0);
 }
 
@@ -1820,7 +1826,7 @@ static void rna_def_brush(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Use Texture", "Use this brush in texture paint mode");
 
 	prop = RNA_def_property(srna, "use_paint_grease_pencil", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "ob_mode", OB_MODE_GPENCIL_PAINT);
+	RNA_def_property_boolean_sdna(prop, NULL, "ob_mode", OB_MODE_PAINT_GPENCIL);
 	RNA_def_property_ui_text(prop, "Use Sculpt", "Use this brush in grease pencil drawing mode");
 
 	/* texture */

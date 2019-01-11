@@ -55,8 +55,13 @@ class BlenderMesh():
         """Set all data after mesh creation."""
         # Normals
         offset = 0
+        custom_normals = [[0.0, 0.0, 0.0]] * len(mesh.vertices)
+
+        if gltf.import_settings['import_shading'] == "NORMALS":
+            mesh.create_normals_split()
+
         for prim in pymesh.primitives:
-            offset = BlenderPrimitive.set_normals(gltf, prim, mesh, offset)
+            offset = BlenderPrimitive.set_normals(gltf, prim, mesh, offset, custom_normals)
 
         mesh.update()
 
@@ -67,9 +72,17 @@ class BlenderMesh():
 
         mesh.update()
 
+        # Normals, now that every update is done
+        if gltf.import_settings['import_shading'] == "NORMALS":
+            mesh.normals_split_custom_set_from_vertices(custom_normals)
+            mesh.use_auto_smooth = True
+
         # Object and UV are now created, we can set UVMap into material
         for prim in pymesh.primitives:
-            BlenderPrimitive.set_UV_in_mat(gltf, prim, obj)
+            vertex_color = None
+            if 'COLOR_0' in prim.attributes.keys():
+                vertex_color = 'COLOR_0'
+            BlenderPrimitive.set_UV_in_mat(gltf, prim, obj, vertex_color)
 
         # Assign materials to mesh
         offset = 0
@@ -143,7 +156,7 @@ class BlenderMesh():
             if 'COLOR_0' in prim.attributes.keys():
                 # Create vertex color, once only per object
                 if vertex_color is None:
-                    vertex_color = obj.data.vertex_colors.new("COLOR_0")
+                    vertex_color = obj.data.vertex_colors.new(name="COLOR_0")
 
                 color_data = BinaryData.get_data_from_accessor(gltf, prim.attributes['COLOR_0'])
 
@@ -152,7 +165,11 @@ class BlenderMesh():
                         vert_idx = mesh.loops[loop_idx].vertex_index
                         if vert_idx in range(offset, offset + prim.vertices_length):
                             cpt_idx = vert_idx - offset
-                            vertex_color.data[loop_idx].color = color_data[cpt_idx][0:3]
-                            # TODO : no alpha in vertex color
+                            # check dimension, and add alpha if needed
+                            if len(color_data[cpt_idx]) == 3:
+                                vertex_color_data = color_data[cpt_idx] + (1.0,)
+                            else:
+                                vertex_color_data = color_data[cpt_idx]
+                            vertex_color.data[loop_idx].color = vertex_color_data
             offset = offset + prim.vertices_length
 

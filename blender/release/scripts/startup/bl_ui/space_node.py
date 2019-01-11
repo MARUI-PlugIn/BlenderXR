@@ -27,6 +27,10 @@ from .properties_grease_pencil_common import (
     AnnotationDataPanel,
     GreasePencilToolsPanel,
 )
+from .properties_material import (
+    EEVEE_MATERIAL_PT_settings,
+    MATERIAL_PT_viewport
+)
 
 
 class NODE_HT_header(Header):
@@ -39,7 +43,7 @@ class NODE_HT_header(Header):
         snode = context.space_data
         snode_id = snode.id
         id_from = snode.id_from
-        toolsettings = context.tool_settings
+        tool_settings = context.tool_settings
 
         row = layout.row(align=True)
         row.template_header()
@@ -141,7 +145,6 @@ class NODE_HT_header(Header):
 
             layout.template_ID(snode, "node_tree", new="node.new_node_tree")
 
-
         layout.prop(snode, "pin", text="")
         layout.separator_spacer()
 
@@ -151,10 +154,10 @@ class NODE_HT_header(Header):
 
         # Snap
         row = layout.row(align=True)
-        row.prop(toolsettings, "use_snap", text="")
-        row.prop(toolsettings, "snap_node_element", icon_only=True)
-        if toolsettings.snap_node_element != 'GRID':
-            row.prop(toolsettings, "snap_target", text="")
+        row.prop(tool_settings, "use_snap", text="")
+        row.prop(tool_settings, "snap_node_element", icon_only=True)
+        if tool_settings.snap_node_element != 'GRID':
+            row.prop(tool_settings, "snap_target", text="")
 
 
 class NODE_MT_editor_menus(Menu):
@@ -162,10 +165,7 @@ class NODE_MT_editor_menus(Menu):
     bl_label = ""
 
     def draw(self, context):
-        self.draw_menus(self.layout, context)
-
-    @staticmethod
-    def draw_menus(layout, context):
+        layout = self.layout
         layout.menu("NODE_MT_view")
         layout.menu("NODE_MT_select")
         layout.menu("NODE_MT_add")
@@ -327,22 +327,39 @@ class NODE_MT_specials(Menu):
     def draw(self, context):
         layout = self.layout
 
+        selected_nodes_len = len(context.selected_nodes)
+
+        # If nothing is selected
+        # (disabled for now until it can be made more useful).
+        '''
+        if selected_nodes_len == 0:
+            layout.operator_context = 'INVOKE_DEFAULT'
+            layout.menu("NODE_MT_add")
+            layout.operator("node.clipboard_paste", text="Paste")
+            return
+        '''
+
+        # If something is selected
         layout.operator_context = 'INVOKE_DEFAULT'
         layout.operator("node.duplicate_move")
         layout.operator("node.delete")
+        layout.operator("node.clipboard_copy", text="Copy")
+        layout.operator("node.clipboard_paste", text="Paste")
         layout.operator_context = 'EXEC_DEFAULT'
 
         layout.operator("node.delete_reconnect")
 
-        layout.separator()
+        if selected_nodes_len > 1:
+            layout.separator()
 
-        layout.operator("node.link_make").replace = False
-        layout.operator("node.link_make", text="Make and Replace Links").replace = True
-        layout.operator("node.links_detach")
+            layout.operator("node.link_make").replace = False
+            layout.operator("node.link_make", text="Make and Replace Links").replace = True
+            layout.operator("node.links_detach")
 
-        layout.separator()
+            layout.separator()
 
-        layout.operator("node.group_make", text="Group")
+            layout.operator("node.group_make", text="Group")
+
         layout.operator("node.group_ungroup", text="Ungroup")
         layout.operator("node.group_edit").exit = False
 
@@ -552,6 +569,47 @@ class NODE_PT_grease_pencil_tools(GreasePencilToolsPanel, Panel):
     # toolbar, but which may not necessarily be open
 
 
+class EEVEE_NODE_PT_material_settings(Panel):
+    bl_space_type = 'NODE_EDITOR'
+    bl_region_type = 'UI'
+    bl_category = "Node"
+    bl_label = "Settings"
+    COMPAT_ENGINES = {'BLENDER_EEVEE'}
+
+    @classmethod
+    def poll(cls, context):
+        snode = context.space_data
+        return (
+            (context.engine in cls.COMPAT_ENGINES) and
+            (snode.tree_type == 'ShaderNodeTree' and snode.id) and
+            (snode.id.bl_rna.identifier == 'Material')
+        )
+
+    def draw(self, context):
+        material = context.space_data.id
+        EEVEE_MATERIAL_PT_settings.draw_shared(self, material)
+
+
+class NODE_PT_material_viewport(Panel):
+    bl_space_type = 'NODE_EDITOR'
+    bl_region_type = 'UI'
+    bl_category = "Node"
+    bl_label = "Viewport Display"
+    bl_options = {'DEFAULT_CLOSED'}
+
+    @classmethod
+    def poll(cls, context):
+        snode = context.space_data
+        return (
+            (snode.tree_type == 'ShaderNodeTree' and snode.id) and
+            (snode.id.bl_rna.identifier == "Material")
+        )
+
+    def draw(self, context):
+        material = context.space_data.id
+        MATERIAL_PT_viewport.draw_shared(self, material)
+
+
 def node_draw_tree_view(layout, context):
     pass
 
@@ -574,6 +632,8 @@ classes = (
     NODE_UL_interface_sockets,
     NODE_PT_grease_pencil,
     NODE_PT_grease_pencil_tools,
+    EEVEE_NODE_PT_material_settings,
+    NODE_PT_material_viewport,
 )
 
 

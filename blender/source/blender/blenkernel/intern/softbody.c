@@ -875,8 +875,9 @@ static void free_scratch(SoftBody *sb)
 	if (sb->scratch) {
 		/* todo make sure everything is cleaned up nicly */
 		if (sb->scratch->colliderhash) {
-			BLI_ghash_free(sb->scratch->colliderhash, NULL,
-					(GHashValFreeFP) ccd_mesh_free); /*this hoepfully will free all caches*/
+			BLI_ghash_free(
+			        sb->scratch->colliderhash, NULL,
+			        (GHashValFreeFP) ccd_mesh_free); /*this hoepfully will free all caches*/
 			sb->scratch->colliderhash = NULL;
 		}
 		if (sb->scratch->bodyface) {
@@ -3280,7 +3281,7 @@ SoftBody *sbNew(Scene *scene)
 	sb->shared->pointcache = BKE_ptcache_add(&sb->shared->ptcaches);
 
 	if (!sb->effector_weights)
-		sb->effector_weights = BKE_add_effector_weights(NULL);
+		sb->effector_weights = BKE_effector_add_weights(NULL);
 
 	sb->last_frame= MINFRAME-1;
 

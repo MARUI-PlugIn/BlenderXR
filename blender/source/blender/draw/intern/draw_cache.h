@@ -50,16 +50,14 @@ struct GPUBatch *DRW_cache_single_line_endpoints_get(void);
 struct GPUBatch *DRW_cache_screenspace_circle_get(void);
 
 /* Common Object */
-struct GPUBatch *DRW_cache_object_wire_outline_get(struct Object *ob);
+struct GPUBatch *DRW_cache_object_all_edges_get(struct Object *ob);
 struct GPUBatch *DRW_cache_object_edge_detection_get(struct Object *ob, bool *r_is_manifold);
 struct GPUBatch *DRW_cache_object_surface_get(struct Object *ob);
-struct GPUBatch *DRW_cache_object_surface_get_ex(struct Object *ob, bool use_hide);
 struct GPUBatch *DRW_cache_object_loose_edges_get(struct Object *ob);
 struct GPUBatch **DRW_cache_object_surface_material_get(
-        struct Object *ob, struct GPUMaterial **gpumat_array, uint gpumat_array_len, bool use_hide,
+        struct Object *ob, struct GPUMaterial **gpumat_array, uint gpumat_array_len,
         char **auto_layer_names, int **auto_layer_is_srgb, int *auto_layer_count);
-void DRW_cache_object_face_wireframe_get(
-        Object *ob, struct GPUTexture **r_vert_tx, struct GPUTexture **r_faceid_tx, int *r_tri_count);
+struct GPUBatch *DRW_cache_object_face_wireframe_get(Object *ob);
 
 /* Empties */
 struct GPUBatch *DRW_cache_plain_axes_get(void);
@@ -126,35 +124,20 @@ struct GPUBatch *DRW_cache_bone_dof_sphere_get(void);
 struct GPUBatch *DRW_cache_bone_dof_lines_get(void);
 
 /* Meshes */
-struct GPUBatch *DRW_cache_mesh_surface_overlay_get(struct Object *ob);
-void DRW_cache_mesh_wire_overlay_get(
-        struct Object *ob,
-        struct GPUBatch **r_tris, struct GPUBatch **r_ledges, struct GPUBatch **r_lverts,
-        struct GPUTexture **r_data_tex);
-void DRW_cache_mesh_normals_overlay_get(
-        struct Object *ob,
-        struct GPUBatch **r_tris, struct GPUBatch **r_tris_lnor,
-        struct GPUBatch **r_ledges, struct GPUBatch **r_lverts);
-struct GPUBatch *DRW_cache_face_centers_get(struct Object *ob);
-struct GPUBatch *DRW_cache_mesh_wire_outline_get(struct Object *ob);
-struct GPUBatch *DRW_cache_mesh_edge_detection_get(struct Object *ob, bool *r_is_manifold);
-struct GPUBatch *DRW_cache_mesh_surface_get(struct Object *ob, bool use_hide);
+struct GPUBatch *DRW_cache_mesh_all_verts_get(struct Object *ob);
+struct GPUBatch *DRW_cache_mesh_all_edges_get(struct Object *ob);
 struct GPUBatch *DRW_cache_mesh_loose_edges_get(struct Object *ob);
-struct GPUBatch *DRW_cache_mesh_surface_weights_get(struct Object *ob, struct ToolSettings *ts, bool paint_mode);
-struct GPUBatch *DRW_cache_mesh_surface_vert_colors_get(struct Object *ob);
-struct GPUBatch *DRW_cache_mesh_surface_verts_get(struct Object *ob);
-struct GPUBatch *DRW_cache_mesh_edges_get(struct Object *ob);
-struct GPUBatch *DRW_cache_mesh_verts_get(struct Object *ob);
-struct GPUBatch *DRW_cache_mesh_edges_paint_overlay_get(struct Object *ob, bool use_wire, bool use_sel);
-struct GPUBatch *DRW_cache_mesh_faces_weight_overlay_get(struct Object *ob);
-struct GPUBatch *DRW_cache_mesh_verts_weight_overlay_get(struct Object *ob);
+struct GPUBatch *DRW_cache_mesh_edge_detection_get(struct Object *ob, bool *r_is_manifold);
+struct GPUBatch *DRW_cache_mesh_surface_get(struct Object *ob);
+struct GPUBatch *DRW_cache_mesh_surface_edges_get(struct Object *ob);
 struct GPUBatch **DRW_cache_mesh_surface_shaded_get(
-        struct Object *ob, struct GPUMaterial **gpumat_array, uint gpumat_array_len, bool use_hide,
+        struct Object *ob, struct GPUMaterial **gpumat_array, uint gpumat_array_len,
         char **auto_layer_names, int **auto_layer_is_srgb, int *auto_layer_count);
-struct GPUBatch **DRW_cache_mesh_surface_texpaint_get(struct Object *ob, bool use_hide);
+struct GPUBatch **DRW_cache_mesh_surface_texpaint_get(struct Object *ob);
 struct GPUBatch *DRW_cache_mesh_surface_texpaint_single_get(struct Object *ob);
-void DRW_cache_mesh_face_wireframe_get(
-        Object *ob, struct GPUTexture **r_vert_tx, struct GPUTexture **r_faceid_tx, int *r_tri_count);
+struct GPUBatch *DRW_cache_mesh_surface_vertpaint_get(struct Object *ob);
+struct GPUBatch *DRW_cache_mesh_surface_weights_get(struct Object *ob);
+struct GPUBatch *DRW_cache_mesh_face_wireframe_get(struct Object *ob);
 
 void DRW_cache_mesh_sculpt_coords_ensure(struct Object *ob);
 
@@ -163,31 +146,32 @@ struct GPUBatch *DRW_cache_curve_surface_get(struct Object *ob);
 struct GPUBatch **DRW_cache_curve_surface_shaded_get(
         struct Object *ob, struct GPUMaterial **gpumat_array, uint gpumat_array_len);
 struct GPUBatch *DRW_cache_curve_surface_verts_get(struct Object *ob);
+struct GPUBatch *DRW_cache_curve_loose_edges_get(struct Object *ob);
 struct GPUBatch *DRW_cache_curve_edge_wire_get(struct Object *ob);
-void DRW_cache_curve_face_wireframe_get(
-        Object *ob, struct GPUTexture **r_vert_tx, struct GPUTexture **r_faceid_tx, int *r_tri_count);
+struct GPUBatch *DRW_cache_curve_face_wireframe_get(Object *ob);
 /* edit-mode */
-struct GPUBatch *DRW_cache_curve_edge_normal_get(struct Object *ob, float normal_size);
+struct GPUBatch *DRW_cache_curve_edge_normal_get(struct Object *ob);
 struct GPUBatch *DRW_cache_curve_edge_overlay_get(struct Object *ob);
 struct GPUBatch *DRW_cache_curve_vert_overlay_get(struct Object *ob, bool handles);
 
 /* Font */
-struct GPUBatch *DRW_cache_text_edge_wire_get(struct Object *ob);
 struct GPUBatch *DRW_cache_text_surface_get(struct Object *ob);
+struct GPUBatch *DRW_cache_text_loose_edges_get(struct Object *ob);
+struct GPUBatch *DRW_cache_text_edge_wire_get(struct Object *ob);
 struct GPUBatch **DRW_cache_text_surface_shaded_get(
         struct Object *ob, struct GPUMaterial **gpumat_array, uint gpumat_array_len);
-void DRW_cache_text_face_wireframe_get(
-        Object *ob, struct GPUTexture **r_vert_tx, struct GPUTexture **r_faceid_tx, int *r_tri_count);
+struct GPUBatch *DRW_cache_text_face_wireframe_get(Object *ob);
 /* edit-mode */
 struct GPUBatch *DRW_cache_text_cursor_overlay_get(struct Object *ob);
 struct GPUBatch *DRW_cache_text_select_overlay_get(struct Object *ob);
 
 /* Surface */
 struct GPUBatch *DRW_cache_surf_surface_get(struct Object *ob);
+struct GPUBatch *DRW_cache_surf_edge_wire_get(struct Object *ob);
+struct GPUBatch *DRW_cache_surf_loose_edges_get(struct Object *ob);
 struct GPUBatch **DRW_cache_surf_surface_shaded_get(
         struct Object *ob, struct GPUMaterial **gpumat_array, uint gpumat_array_len);
-void DRW_cache_surf_face_wireframe_get(
-        Object *ob, struct GPUTexture **r_vert_tx, struct GPUTexture **r_faceid_tx, int *r_tri_count);
+struct GPUBatch *DRW_cache_surf_face_wireframe_get(Object *ob);
 
 /* Lattice */
 struct GPUBatch *DRW_cache_lattice_verts_get(struct Object *ob);
@@ -210,7 +194,6 @@ struct GPUBatch *DRW_cache_particles_get_prim(int type);
 /* Metaball */
 struct GPUBatch *DRW_cache_mball_surface_get(struct Object *ob);
 struct GPUBatch **DRW_cache_mball_surface_shaded_get(struct Object *ob, struct GPUMaterial **gpumat_array, uint gpumat_array_len);
-void DRW_cache_mball_face_wireframe_get(
-        Object *ob, struct GPUTexture **r_vert_tx, struct GPUTexture **r_faceid_tx, int *r_tri_count);
+struct GPUBatch *DRW_cache_mball_face_wireframe_get(Object *ob);
 
 #endif /* __DRAW_CACHE_H__ */

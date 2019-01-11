@@ -369,8 +369,8 @@ int vr_init(bContext *C)
 	}
 
 	if (!vr.initialized) {
+		printf("Failed to initialize VR.");
 		return -1;
-		printf("vr_init() : Failed to initialize VR.");
 	}
 
 	return 0;
@@ -414,8 +414,8 @@ int vr_init_ui(void)
 	}
 
 	if (!vr.ui_initialized) {
-		return -1;
 		printf("vr_init_ui() : Failed to initialize VR UI.");
+		return -1;
 	}
 
 	return 0;
@@ -617,8 +617,7 @@ void vr_update_view_matrix(int side, const float view[4][4])
 	BLI_assert(vr.ui_initialized);
 
 	/* Take navigation into account. */
-	static float(*navinv)[4];
-	navinv = vr_api_get_navigation_matrix(1);
+	const float (*navinv)[4] = (float(*)[4])vr_api_get_navigation_matrix(1);
 	_va_mul_m4_series_3(vr.t_eye[VR_SPACE_REAL][side], navinv, view);
 	invert_m4_m4(vr.t_eye_inv[VR_SPACE_REAL][side], vr.t_eye[VR_SPACE_REAL][side]);
 	vr_api_update_view_matrix(vr.t_eye_inv[VR_SPACE_REAL][side]);
@@ -734,8 +733,7 @@ void vr_compute_viewmat(int side, float viewmat_out[4][4])
 
 	if (vr.ui_initialized) {
 		/* Take navigation into account. */
-		static float (*navmat)[4];
-		navmat = vr_api_get_navigation_matrix(0);
+		const float(*navmat)[4] = (float(*)[4])vr_api_get_navigation_matrix(0);
 		_va_mul_m4_series_3(vr.t_eye[VR_SPACE_BLENDER][side], navmat, vr.t_eye[VR_SPACE_REAL][side]);
 		invert_m4_m4(viewmat_out, vr.t_eye[VR_SPACE_BLENDER][side]);
 	}

@@ -36,14 +36,14 @@ from bpy.props import (CollectionProperty,
 
 bl_info = {
     'name': 'glTF 2.0 format',
-    'author': 'Julien Duroure, Norbert Nopper, Urs Hanselmann & Moritz Becher',
+    'author': 'Julien Duroure, Norbert Nopper, Urs Hanselmann Moritz Becher, Benjamin Schmithüsen',
     "version": (0, 0, 1),
     'blender': (2, 80, 0),
     'location': 'File > Import-Export',
     'description': 'Import-Export as glTF 2.0',
     'warning': '',
-    'wiki_url': ''
-                '',
+    'wiki_url': "https://github.com/KhronosGroup/glTF-Blender-IO",
+    'tracker_url': "https://github.com/KhronosGroup/glTF-Blender-IO/issues/",
     'support': 'OFFICIAL',
     'category': 'Import-Export'}
 
@@ -53,68 +53,44 @@ bl_info = {
 #
 
 
-class GLTF2ExportSettings(bpy.types.Operator):
-    """Save the export settings on export (saved in .blend). """
-    """Toggle off to clear settings"""
-    bl_label = "Save Settings"
-    bl_idname = "scene.gltf2_export_settings_set"
-
-    def execute(self, context):
-        operator = context.active_operator
-        operator.will_save_settings = not operator.will_save_settings
-        if not operator.will_save_settings:
-            # clear settings
-            context.scene.pop(operator.scene_key)
-        return {"FINISHED"}
-
-
 class ExportGLTF2_Base:
 
     # TODO: refactor to avoid boilerplate
+
+    bl_options = {'UNDO', 'PRESET'}
+
+    export_format: EnumProperty(
+        name='Format',
+        items=(('GLB', 'glTF Binary (.glb)',
+                'Exports a single file, with all data packed in binary form. '
+                'Most efficient and portable, but more difficult to edit later'),
+               ('GLTF_EMBEDDED', 'glTF Embedded (.gltf)',
+                'Exports a single file, with all data packed in JSON. '
+                'Less efficient than binary, but easier to edit later'),
+               ('GLTF_SEPARATE', 'glTF Separate (.gltf + .bin + textures)',
+                'Exports multiple files, with separate JSON, binary and texture data. '
+                'Easiest to edit later')),
+        description=(
+            'Output format and embedding options. Binary is most efficient, '
+            'but JSON (embedded or separate) may be easier to edit later'
+        ),
+        default='GLB'
+    )
+
+    ui_tab: EnumProperty(
+        items=(('GENERAL', "General", "General settings"),
+               ('MESHES', "Meshes", "Mesh settings"),
+               ('OBJECTS', "Objects", "Object settings"),
+               ('MATERIALS', "Materials", "Material settings"),
+               ('ANIMATION', "Animation", "Animation settings")),
+        name="ui_tab",
+        description="Export setting categories",
+    )
 
     export_copyright: StringProperty(
         name='Copyright',
         description='Legal rights and conditions for the model',
         default=''
-    )
-
-    export_embed_buffers: BoolProperty(
-        name='Embed Buffers',
-        description='Buffers (mesh, animation, and optionally image data) are' \
-            ' embedded in the asset, rather than in separate (.bin) files.' \
-            ' Total size will be slightly larger than when embedded within a ' \
-            ' binary glTF (.glb) file',
-        default=False
-    )
-
-    export_embed_images: BoolProperty(
-        name='Embed Images',
-        description='Images are embedded in asset buffers, rather than in' \
-            ' separate image files',
-        default=False
-    )
-
-    export_strip: BoolProperty(
-        name='Strip Whitespace',
-        description='Makes JSON portion of export more compact, but harder to' \
-            ' read and edit by hand',
-        default=False
-    )
-
-    export_indices: EnumProperty(
-        name='Maximum Indices Type',
-        items=(('UNSIGNED_BYTE', 'Unsigned Byte', ''),
-               ('UNSIGNED_SHORT', 'Unsigned Short', ''),
-               ('UNSIGNED_INT', 'Unsigned Integer', '')),
-        description='Largest data type allowed for indices',
-        default='UNSIGNED_INT'
-    )
-
-    export_force_indices: BoolProperty(
-        name='Force Maximum Indices',
-        description='Always use the selected indices data type, even if the' \
-            ' size of the mesh does not require it',
-        default=False
     )
 
     export_texcoords: BoolProperty(
@@ -132,7 +108,7 @@ class ExportGLTF2_Base:
     export_tangents: BoolProperty(
         name='Tangents',
         description='Export vertex tangents with meshes',
-        default=True
+        default=False
     )
 
     export_materials: BoolProperty(
@@ -150,13 +126,6 @@ class ExportGLTF2_Base:
     export_cameras: BoolProperty(
         name='Cameras',
         description='Export cameras',
-        default=False
-    )
-
-    export_camera_infinite: BoolProperty(
-        name='Infinite Perspective',
-        description='Sets perspective cameras to use infinite perspective' \
-            ' projections',
         default=False
     )
 
@@ -242,8 +211,7 @@ class ExportGLTF2_Base:
 
     export_all_influences: BoolProperty(
         name='Include All Bone Influences',
-        description='Allow >4 joint vertex influences. Models may appear' \
-            ' incorrectly in many viewers',
+        description='Allow >4 joint vertex influences. Models may appear incorrectly in many viewers',
         default=False
     )
 
@@ -262,27 +230,27 @@ class ExportGLTF2_Base:
     export_morph_tangent: BoolProperty(
         name='Shape Key Tangents',
         description='Export vertex tangents with shape keys (morph targets)',
-        default=True
+        default=False
     )
 
     export_lights: BoolProperty(
         name='Punctual Lights',
-        description='Export directional, point, and spot lights. Uses ' \
-            ' "KHR_lights_punctual" glTF extension',
+        description='Export directional, point, and spot lights. '
+                    'Uses "KHR_lights_punctual" glTF extension',
         default=False
     )
 
     export_texture_transform: BoolProperty(
         name='Texture Transforms',
-        description='Export texture or UV position, rotation, and scale.' \
-            ' Uses "KHR_texture_transform" glTF extension',
+        description='Export texture or UV position, rotation, and scale. '
+                    'Uses "KHR_texture_transform" glTF extension',
         default=False
     )
 
     export_displacement: BoolProperty(
         name='Displacement Textures (EXPERIMENTAL)',
-        description='EXPERIMENTAL: Export displacement textures. Uses' \
-            ' incomplete "KHR_materials_displacement" glTF extension',
+        description='EXPERIMENTAL: Export displacement textures. '
+                    'Uses incomplete "KHR_materials_displacement" glTF extension',
         default=False
     )
 
@@ -302,7 +270,7 @@ class ExportGLTF2_Base:
                     setattr(self, k, v)
                 self.will_save_settings = True
 
-            except AttributeError:
+            except (AttributeError, TypeError):
                 self.report({"ERROR"}, "Loading export settings failed. Removed corrupted settings")
                 del context.scene[self.scene_key]
 
@@ -311,7 +279,7 @@ class ExportGLTF2_Base:
     def save_settings(self, context):
         # find all export_ props
         all_props = self.properties
-        export_props = {x: all_props.get(x) for x in dir(all_props)
+        export_props = {x: getattr(self, x) for x in dir(all_props)
                         if x.startswith("export_") and all_props.get(x) is not None}
 
         context.scene[self.scene_key] = export_props
@@ -323,6 +291,11 @@ class ExportGLTF2_Base:
         if self.will_save_settings:
             self.save_settings(context)
 
+        if self.export_format == 'GLB':
+            self.filename_ext = '.glb'
+        else:
+            self.filename_ext = '.gltf'
+
         # All custom export settings are stored in this container.
         export_settings = {}
 
@@ -333,21 +306,12 @@ class ExportGLTF2_Base:
 
         export_settings['gltf_format'] = self.export_format
         export_settings['gltf_copyright'] = self.export_copyright
-        export_settings['gltf_embed_buffers'] = self.export_embed_buffers
-        export_settings['gltf_embed_images'] = self.export_embed_images
-        export_settings['gltf_strip'] = self.export_strip
-        export_settings['gltf_indices'] = self.export_indices
-        export_settings['gltf_force_indices'] = self.export_force_indices
         export_settings['gltf_texcoords'] = self.export_texcoords
         export_settings['gltf_normals'] = self.export_normals
         export_settings['gltf_tangents'] = self.export_tangents and self.export_normals
         export_settings['gltf_materials'] = self.export_materials
         export_settings['gltf_colors'] = self.export_colors
         export_settings['gltf_cameras'] = self.export_cameras
-        if self.export_cameras:
-            export_settings['gltf_camera_infinite'] = self.export_camera_infinite
-        else:
-            export_settings['gltf_camera_infinite'] = False
         export_settings['gltf_selected'] = self.export_selected
         export_settings['gltf_layers'] = True #self.export_layers
         export_settings['gltf_extras'] = self.export_extras
@@ -389,59 +353,50 @@ class ExportGLTF2_Base:
         export_settings['gltf_binary'] = bytearray()
         export_settings['gltf_binaryfilename'] = os.path.splitext(os.path.basename(self.filepath))[0] + '.bin'
 
-        return gltf2_blender_export.save(self, context, export_settings)
+        return gltf2_blender_export.save(context, export_settings)
 
     def draw(self, context):
-        layout = self.layout
+        self.layout.prop(self, 'ui_tab', expand=True)
+        if self.ui_tab == 'GENERAL':
+            self.draw_general_settings()
+        elif self.ui_tab == 'MESHES':
+            self.draw_mesh_settings()
+        elif self.ui_tab == 'OBJECTS':
+            self.draw_object_settings()
+        elif self.ui_tab == 'MATERIALS':
+            self.draw_material_settings()
+        elif self.ui_tab == 'ANIMATION':
+            self.draw_animation_settings()
 
-        #
-
-        col = layout.box().column()
-        col.label(text='Embedding:')  # , icon='PACKAGE')
-        col.prop(self, 'export_copyright')
-        if self.export_format == 'ASCII':
-            col.prop(self, 'export_embed_buffers')
-            col.prop(self, 'export_embed_images')
-            col.prop(self, 'export_strip')
-
-        col = layout.box().column()
-        col.label(text='Nodes:')  # , icon='OOPS')
+    def draw_general_settings(self):
+        col = self.layout.box().column()
+        col.prop(self, 'export_format')
         col.prop(self, 'export_selected')
-        #col.prop(self, 'export_layers')
-        col.prop(self, 'export_extras')
-        col.prop(self, 'export_yup')
-
-        col = layout.box().column()
-        col.label(text='Meshes:')  # , icon='MESH_DATA')
         col.prop(self, 'export_apply')
-        col.prop(self, 'export_indices')
-        col.prop(self, 'export_force_indices')
+        col.prop(self, 'export_yup')
+        col.prop(self, 'export_extras')
+        col.prop(self, 'export_copyright')
 
-        col = layout.box().column()
-        col.label(text='Attributes:')  # , icon='SURFACE_DATA')
+    def draw_mesh_settings(self):
+        col = self.layout.box().column()
         col.prop(self, 'export_texcoords')
         col.prop(self, 'export_normals')
         if self.export_normals:
             col.prop(self, 'export_tangents')
         col.prop(self, 'export_colors')
 
-        col = layout.box().column()
-        col.label(text='Objects:')  # , icon='OBJECT_DATA')
+    def draw_object_settings(self):
+        col = self.layout.box().column()
         col.prop(self, 'export_cameras')
-        if self.export_cameras:
-            col.prop(self, 'export_camera_infinite')
+        col.prop(self, 'export_lights')
 
-        col = layout.box().column()
-        col.label(text='Materials:')  # , icon='MATERIAL_DATA')
+    def draw_material_settings(self):
+        col = self.layout.box().column()
         col.prop(self, 'export_materials')
         col.prop(self, 'export_texture_transform')
 
-        col = layout.box().column()
-        col.label(text='Lights:')  # , icon='LIGHT_DATA')
-        col.prop(self, 'export_lights')
-
-        col = layout.box().column()
-        col.label(text='Animation:')  # , icon='OUTLINER_DATA_POSE')
+    def draw_animation_settings(self):
+        col = self.layout.box().column()
         col.prop(self, 'export_animations')
         if self.export_animations:
             col.prop(self, 'export_frame_range')
@@ -460,52 +415,36 @@ class ExportGLTF2_Base:
             if self.export_morph_normal:
                 col.prop(self, 'export_morph_tangent')
 
-        row = layout.row()
-        row.operator(
-            GLTF2ExportSettings.bl_idname,
-            text=GLTF2ExportSettings.bl_label,
-            icon="%s" % "PINNED" if self.will_save_settings else "UNPINNED")
 
-# TODO: refactor operators to single operator for both cases
-
-class ExportGLTF2_GLTF(bpy.types.Operator, ExportGLTF2_Base, ExportHelper):
+class ExportGLTF2(bpy.types.Operator, ExportGLTF2_Base, ExportHelper):
     """Export scene as glTF 2.0 file"""
     bl_idname = 'export_scene.gltf'
-    bl_label = 'Export glTF 2.0'
+    bl_label = 'glTF 2.0 (.glb/.gltf)'
 
-    filename_ext = '.gltf'
-    filter_glob: StringProperty(default='*.gltf', options={'HIDDEN'})
+    filename_ext = ''
 
-    export_format = 'ASCII'
-
-
-class ExportGLTF2_GLB(bpy.types.Operator, ExportGLTF2_Base, ExportHelper):
-    """Export scene as binary glTF 2.0 file"""
-    bl_idname = 'export_scene.glb'
-    bl_label = 'Export Binary glTF 2.0'
-
-    filename_ext = '.glb'
-    filter_glob: StringProperty(default='*.glb', options={'HIDDEN'})
-
-    export_format = 'BINARY'
+    filter_glob: StringProperty(default='*.glb;*.gltf', options={'HIDDEN'})
 
 
 def menu_func_export(self, context):
-    self.layout.operator(ExportGLTF2_GLTF.bl_idname, text='glTF 2.0 (.gltf)')
-    self.layout.operator(ExportGLTF2_GLB.bl_idname, text='Binary glTF 2.0 (.glb)')
+    self.layout.operator(ExportGLTF2.bl_idname, text='glTF 2.0 (.glb/.gltf)')
 
 
-class ImportglTF2(Operator, ImportHelper):
+class ImportGLTF2(Operator, ImportHelper):
     bl_idname = 'import_scene.gltf'
-    bl_label = "glTF 2.0 (.gltf/.glb)"
+    bl_label = 'glTF 2.0 (.glb/.gltf)'
 
-    filter_glob: StringProperty(default="*.gltf;*.glb", options={'HIDDEN'})
+    filter_glob: StringProperty(default="*.glb;*.gltf", options={'HIDDEN'})
 
-    loglevel: EnumProperty(items=Log.get_levels(), name="Log Level", default=Log.default())
+    loglevel: EnumProperty(
+        items=Log.get_levels(),
+        name="Log Level",
+        description="Set level of log to display",
+        default=Log.default())
 
     import_pack_images: BoolProperty(
         name='Pack images',
-        description='',
+        description='Pack all images into .blend file',
         default=True
     )
 
@@ -514,6 +453,7 @@ class ImportglTF2(Operator, ImportHelper):
         items=(("NORMALS", "Use Normal Data", ""),
                ("FLAT", "Flat Shading", ""),
                ("SMOOTH", "Smooth Shading", "")),
+        description="How normals are computed during import",
         default="NORMALS")
 
     def draw(self, context):
@@ -546,21 +486,16 @@ class ImportglTF2(Operator, ImportHelper):
         self.gltf_importer.log.critical("glTF import is now finished")
         self.gltf_importer.log.removeHandler(self.gltf_importer.log_handler)
 
-        # Switch to newly created main scene
-        bpy.context.window.scene = bpy.data.scenes[self.gltf_importer.blender_scene]
-
         return {'FINISHED'}
 
 
 def menu_func_import(self, context):
-    self.layout.operator(ImportglTF2.bl_idname, text=ImportglTF2.bl_label)
+    self.layout.operator(ImportGLTF2.bl_idname, text=ImportGLTF2.bl_label)
 
 
 classes = (
-    GLTF2ExportSettings,
-    ExportGLTF2_GLTF,
-    ExportGLTF2_GLB,
-    ImportglTF2
+    ExportGLTF2,
+    ImportGLTF2
 )
 
 
@@ -582,3 +517,4 @@ def unregister():
     # remove from the export / import menu
     bpy.types.TOPBAR_MT_file_export.remove(menu_func_export)
     bpy.types.TOPBAR_MT_file_import.remove(menu_func_import)
+

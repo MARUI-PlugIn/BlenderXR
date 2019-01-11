@@ -32,18 +32,12 @@
 
 #include "vr_ui.h"
 
-#define VR_WIDGET_TOOL_MOVE_AXISTHRES   0.020f	/* Threshold for locking/applying translation in an axis direction in meters. */
-#define VR_WIDGET_TOOL_ROTATE_AXISTHRES	0.020f	/* Threshold for locking/applying rotation in an axis direction in meters. */
-#define VR_WIDGET_TOOL_SCALE_AXISTHRES  0.030f	/* Threshold for locking/applying scaling in an axis direction in meters. */
-
 /* Widget base class. */
 class VR_Widget {
 public:
 	/* Type of Widget. */
 	typedef enum Type {
 		TYPE_INVALID	/* Invalid or unrecognized type of widget. */
-		,
-		TYPE_TRIGGER
 		,
 		TYPE_NAVI
 		,
@@ -59,19 +53,23 @@ public:
 		,
 		TYPE_ALT
 		,
-		TYPE_CURSOROFFSET
-		,
 		TYPE_SELECT
 		,
 		TYPE_SELECT_RAYCAST
 		,
 		TYPE_SELECT_PROXIMITY
 		,
+		TYPE_CURSOR
+		,
 		TYPE_TRANSFORM
 		,
 		TYPE_ANNOTATE
 		,
 		TYPE_MEASURE
+		,
+		TYPE_EXTRUDE
+		,
+		TYPE_CURSOROFFSET
 		,
 		TYPE_DELETE
 		,
@@ -80,6 +78,12 @@ public:
 		TYPE_UNDO
 		,
 		TYPE_REDO
+		,
+		TYPE_SWITCHLAYOUT
+		,
+		TYPE_SWITCHCOMPONENT
+		,
+		TYPE_SWITCHSPACE
 		,
 		TYPE_SWITCHTOOL
 		,
@@ -130,6 +134,8 @@ public:
 		,
 		MENUTYPE_MAIN_12	/* Main menu (12 items). */
 		,
+		MENUTYPE_SWITCHTOOL	/* Switch tool menu. */
+		,
 		MENUTYPE_TS_SELECT	/* Tool settings for the select widget. */
 		,
 		MENUTYPE_TS_TRANSFORM	/* Tool settings for the transform widget. */
@@ -138,92 +144,26 @@ public:
 		,
 		MENUTYPE_TS_MEASURE	/* Tool settings for the measure widget. */
 		,
-		MENUTYPE_AS_SELECT	/* Action settings for the select widget. */
+		MENUTYPE_TS_EXTRUDE	/* Tool settings for the extrude widget. */
+		,
+		MENUTYPE_AS_NAVI	/* Action settings for the navi widget. */
+		,
+		MENUTYPE_AS_SELECT	 /* Action settings for the select widget */
 		,
 		MENUTYPE_AS_TRANSFORM	/* Action settings for the transform widget. */
+		,
+		MENUTYPE_AS_EXTRUDE	/* Action settings for the extrude widget. */
 	} MenuType;
 };
 
-/* Interaction widget for the controller trigger (generalized). */
-class Widget_Trigger : public VR_Widget
-{
-public:
-	static Widget_Trigger obj;	/* Singleton implementation object. */
-	virtual std::string name() override { return "TRIGGER"; };	/* Get the name of this widget. */
-	virtual Type type() override { return TYPE_TRIGGER; };	/* Type of Widget. */
-
-	virtual bool has_click(VR_UI::Cursor& c) const override;	/* Test whether this widget supports "clicking". */
-	virtual void click(VR_UI::Cursor& c) override;	/* Click with the index finger / trigger. */
-	virtual bool allows_focus_steal(Type by) const override;	/* Whether this widget allows other widgets to steal its focus. */
-	virtual void drag_start(VR_UI::Cursor& c) override;	/* Start a drag/hold-motion with the index finger / trigger. */
-	virtual void drag_contd(VR_UI::Cursor& c) override;	/* Continue drag/hold with index finger / trigger. */
-	virtual void drag_stop(VR_UI::Cursor& c) override;	/* Stop drag/hold with index finger / trigger. */
-
-	virtual void render(VR_Side side) override;	/* Apply the widget's custom render function (if any). */
-};
-
-/* Interaction widget for object selection. (Default ray-casting mode). */
-class Widget_Select : public VR_Widget
-{
-public:
-	static Widget_Select obj;	/* Singleton implementation object. */
-	virtual std::string name() override { return "SELECT"; };	/* Get the name of this widget. */
-	virtual Type type() override { return TYPE_SELECT; };	/* Type of Widget. */
-
-	virtual bool has_click(VR_UI::Cursor& c) const override;	/* Test whether this widget supports "clicking". */
-	virtual void click(VR_UI::Cursor& c) override;	/* Click with the index finger / trigger. */
-	virtual void drag_start(VR_UI::Cursor& c) override;	/* Start a drag/hold-motion with the index finger / trigger. */
-	virtual void drag_contd(VR_UI::Cursor& c) override;	/* Continue drag/hold with index finger / trigger. */
-	virtual void drag_stop(VR_UI::Cursor& c) override;	/* Stop drag/hold with index finger / trigger. */
-
-	virtual void render(VR_Side side) override;	/* Apply the widget's custom render function (if any). */
-	
-	/* Interaction widget for object selection: Cursor ray-casting mode (default). */
-	class Raycast : public VR_Widget
-	{
-		static struct SelectionRect {
-			float x0;
-			float y0;
-			float x1;
-			float y1;
-		} selection_rect[VR_SIDES];
-	public:
-		static Raycast obj;	/* Singleton implementation object. */
-		virtual std::string name() override { return "SELECT_RAYCAST"; };	/* Get the name of this widget. */
-		virtual Type type() override { return TYPE_SELECT_RAYCAST; };	/* Type of Widget. */
-
-		virtual bool has_click(VR_UI::Cursor& c) const override;	/* Test whether this widget supports "clicking". */
-		virtual void click(VR_UI::Cursor& c) override;	/* Click with the index finger / trigger. */
-		virtual void drag_start(VR_UI::Cursor& c) override;	/* Start a drag/hold-motion with the index finger / trigger. */
-		virtual void drag_contd(VR_UI::Cursor& c) override;	/* Continue drag/hold with index finger / trigger. */
-		virtual void drag_stop(VR_UI::Cursor& c) override;	/* Stop drag/hold with index finger / trigger. */
-
-		virtual void render(VR_Side side) override;	/* Apply the widget's custom render function (if any). */
-	};
-
-	/* Interaction widget for object selection in proximity selection mode. */
-	class Proximity : public VR_Widget
-	{
-		static Coord3Df  p0;	/* Starting point of the selection volume. */
-		static Coord3Df  p1;	/* Current / end point of the selection volume. */
-	public:
-		static Proximity obj;	/* Singleton implementation object. */
-		virtual std::string name() override { return "SELECT_PROXIMITY"; };	/* Get the name of this widget. */
-		virtual Type type() override { return TYPE_SELECT_PROXIMITY; };	/* Type of Widget. */
-
-		virtual bool has_click(VR_UI::Cursor& c) const override;	/* Test whether this widget supports "clicking". */
-		virtual void click(VR_UI::Cursor& c) override;	/* Click with the index finger / trigger. */
-		virtual void drag_start(VR_UI::Cursor& c) override;	/* Start a drag/hold-motion with the index finger / trigger. */
-		virtual void drag_contd(VR_UI::Cursor& c) override;	/* Continue drag/hold with index finger / trigger. */
-		virtual void drag_stop(VR_UI::Cursor& c) override;	/* Stop drag/hold with index finger / trigger. */
-
-		virtual void render(VR_Side side) override;	/* Apply the widget's custom render function (if any). */
-	}; 
-};
+class Widget_Menu;
 
 /* Interaction widget for navigation: selects the respective sub-widget based on the setting VR_UI::navigation_mode. */
 class Widget_Navi : public VR_Widget
 {
+	friend class Widget_Menu;
+
+	static VR_UI::NavLock nav_lock[3];	/* The current navigation locks (if any). */
 public:
 	static Widget_Navi obj;	/* Singleton implementation object. */
 	virtual std::string name() override { return "NAVI"; };	/* Get the name of this widget. */
@@ -253,9 +193,9 @@ public:
 	/* Interaction widget for joystick-style navigation. */
 	class Joystick : public VR_Widget
 	{
-		static float	move_speed;	/* Speed multiplier for moving / translation. */
-		static float	turn_speed;	/* Speed multiplier for turning around (rotating around up-axis). */
-		static float	zoom_speed;	/* Speed multiplier for scaling / zooming. */
+		static float move_speed;	/* Speed multiplier for moving / translation. */
+		static float turn_speed;	/* Speed multiplier for turning around (rotating around up-axis). */
+		static float zoom_speed;	/* Speed multiplier for scaling / zooming. */
 	public:
 		static Joystick obj;	/* Singleton implementation object. */
 		virtual std::string name() override { return "NAVI_JOYSTICK"; };	/* Get the name of this widget. */
@@ -325,13 +265,13 @@ public:
 	virtual void render_icon(const Mat44f& t, VR_Side controller_side, bool active = false, bool touched = false) override;	/* Render the icon/indication of the widget. */
 };
 
-/* Interaction widget for manipulating the VR UI cursor offset. */
-class Widget_CursorOffset : public VR_Widget
+/* Interaction widget for object selection. (Default ray-casting mode). */
+class Widget_Select : public VR_Widget
 {
 public:
-	static Widget_CursorOffset obj;	/* Singleton implementation object. */
-	virtual std::string name() override { return "CURSOROFFSET"; };	/* Get the name of this widget. */
-	virtual Type type() override { return TYPE_CURSOROFFSET; };	/* Type of Widget. */
+	static Widget_Select obj;	/* Singleton implementation object. */
+	virtual std::string name() override { return "SELECT"; };	/* Get the name of this widget. */
+	virtual Type type() override { return TYPE_SELECT; };	/* Type of Widget. */
 
 	virtual bool has_click(VR_UI::Cursor& c) const override;	/* Test whether this widget supports "clicking". */
 	virtual void click(VR_UI::Cursor& c) override;	/* Click with the index finger / trigger. */
@@ -339,26 +279,93 @@ public:
 	virtual void drag_contd(VR_UI::Cursor& c) override;	/* Continue drag/hold with index finger / trigger. */
 	virtual void drag_stop(VR_UI::Cursor& c) override;	/* Stop drag/hold with index finger / trigger. */
 
-	virtual void render_icon(const Mat44f& t, VR_Side controller_side, bool active = false, bool touched = false) override;	/* Render the icon/indication of the widget. */
+	virtual void render(VR_Side side) override;	/* Apply the widget's custom render function (if any). */
+
+	/* Interaction widget for object selection: Cursor ray-casting mode (default). */
+	class Raycast : public VR_Widget
+	{
+		static struct SelectionRect {
+			float x0;
+			float y0;
+			float x1;
+			float y1;
+		} selection_rect[VR_SIDES];
+	public:
+		static Raycast obj;	/* Singleton implementation object. */
+		virtual std::string name() override { return "SELECT_RAYCAST"; };	/* Get the name of this widget. */
+		virtual Type type() override { return TYPE_SELECT_RAYCAST; };	/* Type of Widget. */
+
+		virtual bool has_click(VR_UI::Cursor& c) const override;	/* Test whether this widget supports "clicking". */
+		virtual void click(VR_UI::Cursor& c) override;	/* Click with the index finger / trigger. */
+		virtual void drag_start(VR_UI::Cursor& c) override;	/* Start a drag/hold-motion with the index finger / trigger. */
+		virtual void drag_contd(VR_UI::Cursor& c) override;	/* Continue drag/hold with index finger / trigger. */
+		virtual void drag_stop(VR_UI::Cursor& c) override;	/* Stop drag/hold with index finger / trigger. */
+
+		virtual void render(VR_Side side) override;	/* Apply the widget's custom render function (if any). */
+	};
+
+	/* Interaction widget for object selection in proximity selection mode. */
+	class Proximity : public VR_Widget
+	{
+		static Coord3Df  p0;	/* Starting point of the selection volume. */
+		static Coord3Df  p1;	/* Current / end point of the selection volume. */
+	public:
+		static Proximity obj;	/* Singleton implementation object. */
+		virtual std::string name() override { return "SELECT_PROXIMITY"; };	/* Get the name of this widget. */
+		virtual Type type() override { return TYPE_SELECT_PROXIMITY; };	/* Type of Widget. */
+
+		virtual bool has_click(VR_UI::Cursor& c) const override;	/* Test whether this widget supports "clicking". */
+		virtual void click(VR_UI::Cursor& c) override;	/* Click with the index finger / trigger. */
+		virtual void drag_start(VR_UI::Cursor& c) override;	/* Start a drag/hold-motion with the index finger / trigger. */
+		virtual void drag_contd(VR_UI::Cursor& c) override;	/* Continue drag/hold with index finger / trigger. */
+		virtual void drag_stop(VR_UI::Cursor& c) override;	/* Stop drag/hold with index finger / trigger. */
+
+		virtual void render(VR_Side side) override;	/* Apply the widget's custom render function (if any). */
+	};
 };
 
+/* Interaction widget for the Blender cursor. */
+class Widget_Cursor : public VR_Widget
+{
+public:
+	static bool cursor_enabled;	/* Whether the cursor is enabled. */
+	static Coord3Df cursor_current_location;	/* The current location of the cursor. */
+
+	void cursor_reset();	/* Handle the reset of cursor_current_location. */
+	void cursor_teleport();	/* Handle teleportation to cursor_current_location. */
+
+	static Widget_Cursor obj;	/* Singleton implementation object. */
+	virtual std::string name() override { return "CURSOR"; };	/* Get the name of this widget. */
+	virtual Type type() override { return TYPE_CURSOR; };	/* Type of Widget. */
+
+	virtual bool has_click(VR_UI::Cursor& c) const override;	/* Test whether this widget supports "clicking". */
+	virtual void click(VR_UI::Cursor& c) override;	/* Click with the index finger / trigger. */
+	virtual bool has_drag(VR_UI::Cursor& c) const override;	/* Test whether this widget supports "dragging". */
+};
+
+class Widget_SwitchLayout;
+class Widget_SwitchComponent;
+class Widget_SwitchSpace;
 class Widget_SwitchTool;
-class Widget_Menu;
 
 /* Interaction widget for the Transform tool. */
 class Widget_Transform : public VR_Widget
 {
+	friend class Widget_Extrude;
+	friend class Widget_SwitchLayout;
+	friend class Widget_SwitchComponent;
+	friend class Widget_SwitchSpace;
 	friend class Widget_SwitchTool;
 	friend class Widget_Menu;
 
 	typedef enum TransformMode {
-		TRANSFORMMODE_OMNI = 0	/* 9DoF transformation mode */
+		TRANSFORMMODE_OMNI = 0	/* 9DoF transformation mode. */
 		,
-		TRANSFORMMODE_MOVE = 1	/* Translation mode */
+		TRANSFORMMODE_MOVE = 1	/* Translation mode. */
 		,
-		TRANSFORMMODE_ROTATE = 2	/* Rotation mode */
+		TRANSFORMMODE_ROTATE = 2	/* Rotation mode. */
 		,
-		TRANSFORMMODE_SCALE = 3	/* Scale mode */
+		TRANSFORMMODE_SCALE = 3	/* Scale mode. */
 		,
 		TRANSFORMMODES /* Number of transform modes. */
 	} TransformMode;
@@ -372,18 +379,20 @@ class Widget_Transform : public VR_Widget
 	static std::vector<Mat44f*> nonsnap_t; /* The actual (non-snapped) transformations of the interaction objects. */
 	static bool snapped; /* Whether a snap was applied in the previous transformation. */
 
-	static bool local;	/* Whether the Transform tool is in world or local coordinates. */
-	static bool manipulator;	/* Whether the manipulator is active and visible. */
-	static Mat44f manip_t;	/* The transformation of the shared (world) manipulator. */
-	static std::vector<Mat44f*> manip_t_local;	/* The transformations of the local manipulators. */
-	static Coord3Df manip_angle;	/* The current manipulator angle (euler xyz) when constraining world rotation. */
-	static std::vector<Coord3Df*> manip_angle_local;	/* The current manipulator angle(s) when constraining local rotations. */
-	static float manip_scale_factor;	/* Scale factor for manipulator (relative to longest selected object axis). */
-	static int manip_interact_index;	/* The index of the manipulator currently being interacted with (for local coordinates). */
+	//static bool edit; /* Whether the Transform tool is in edit mode. */
+	static VR_UI::TransformSpace transform_space;	/* The current transform space for the Transform tool. */
+	static bool is_dragging; /* Whether the Transform tool is currently dragging. */
 
-	static void raycast_select_manipulator(const Coord3Df& p);	/* Select a manipulator component with raycast selection. */
+	static bool manipulator;	/* Whether the manipulator is active and visible. */
+	static Mat44f manip_t;	/* The transformation of the manipulator. */
+	static Mat44f manip_t_orig;	/* The original transformation of the manipulator on drag_start(). */
+	static Mat44f manip_t_snap;	/* The snapped trnasformation of the manipulator. */
+	static Coord3Df manip_angle[VR_UI::TRANSFORMSPACES];	/* The current manipulator angle (euler xyz) when constraining rotations. */
+	static float manip_scale_factor;	/* Scale factor for the manipulator (relative to longest selected object axis). */
+
+	static void raycast_select_manipulator(const Coord3Df& p, bool *extrude=0);	/* Select a manipulator component with raycast selection. */
 public:
-	static void update_manipulator(bool selection_changed=true);	/* Update the manipulator transform. */
+	static void update_manipulator();	/* Update the manipulator transform. */
 protected:
 	static void render_axes(const float length[3], int draw_style = 0); /* Render manipulator axes. */
 	static void render_planes(const float length[3]);	/* Render manipulator planes. */
@@ -494,6 +503,55 @@ public:
 	virtual void render(VR_Side side) override;	/* Apply the widget's custom render function (if any). */
 };
 
+/* Interaction widget for the Extrude tool. */
+class Widget_Extrude : public VR_Widget
+{
+	friend class Widget_Transform;
+	friend class Widget_SwitchTool;
+	friend class Widget_Menu;
+
+	typedef enum ExtrudeMode {
+		EXTRUDEMODE_REGION = 0	/* Region extrude mode. */
+		,
+		EXTRUDEMODE_INDIVIDUAL = 1	/* Individual extrude mode. */
+		,
+		EXTRUDEMODE_NORMALS = 2	/* Normals extrude mode. */
+		,
+		EXTRUDEMODES /* Number of extrude modes. */
+	} ExtrudeMode;
+
+	static ExtrudeMode extrude_mode;	/* The current extrude mode for the Extrude tool. */
+	static bool extrude; /* Whether the current interaction is an extrude operation. */
+	static bool flip_normals;	/* Whether to flip normals when extruding. */
+public:
+	static Widget_Extrude obj;	/* Singleton implementation object. */
+	virtual std::string name() override { return "EXTRUDE"; };	/* Get the name of this widget. */
+	virtual Type type() override { return TYPE_EXTRUDE; };	/* Type of Widget. */
+
+	virtual bool has_click(VR_UI::Cursor& c) const override;	/* Test whether this widget supports "clicking". */
+	virtual void click(VR_UI::Cursor& c) override;	/* Click with the index finger / trigger. */
+	virtual void drag_start(VR_UI::Cursor& c) override;	/* Start a drag/hold-motion with the index finger / trigger. */
+	virtual void drag_contd(VR_UI::Cursor& c) override;	/* Continue drag/hold with index finger / trigger. */
+	virtual void drag_stop(VR_UI::Cursor& c) override;	/* Stop drag/hold with index finger / trigger. */
+
+	virtual void render(VR_Side side) override;	/* Apply the widget's custom render function (if any). */
+};
+
+/* Interaction widget for manipulating the VR UI cursor offset. */
+class Widget_CursorOffset : public VR_Widget
+{
+public:
+	static Widget_CursorOffset obj;	/* Singleton implementation object. */
+	virtual std::string name() override { return "CURSOROFFSET"; };	/* Get the name of this widget. */
+	virtual Type type() override { return TYPE_CURSOROFFSET; };	/* Type of Widget. */
+
+	virtual bool has_click(VR_UI::Cursor& c) const override;	/* Test whether this widget supports "clicking". */
+	virtual void click(VR_UI::Cursor& c) override;	/* Click with the index finger / trigger. */
+	virtual void drag_start(VR_UI::Cursor& c) override;	/* Start a drag/hold-motion with the index finger / trigger. */
+	virtual void drag_contd(VR_UI::Cursor& c) override;	/* Continue drag/hold with index finger / trigger. */
+	virtual void drag_stop(VR_UI::Cursor& c) override;	/* Stop drag/hold with index finger / trigger. */
+};
+
 /* Interaction widget for performing a 'delete' operation. */
 class Widget_Delete : public VR_Widget
 {
@@ -554,10 +612,58 @@ public:
 	virtual void render_icon(const Mat44f& t, VR_Side controller_side, bool active = false, bool touched = false) override;	/* Render the icon/indication of the widget. */
 };
 
+/* Interaction widget for switching the currently active layout. */
+class Widget_SwitchLayout : public VR_Widget
+{
+public:
+	static Widget_SwitchLayout obj; /* Singleton implementation object. */
+	virtual std::string name() override { return "SWITCHLAYOUT"; };	/* Get the name of this widget. */
+	virtual Type type() override { return TYPE_SWITCHLAYOUT; };	/* Type of Widget. */
+
+	virtual bool has_click(VR_UI::Cursor& c) const override;	/* Test whether this widget supports "clicking". */
+	virtual void click(VR_UI::Cursor& c) override;	/* Click with the index finger / trigger. */
+	virtual bool has_drag(VR_UI::Cursor& c) const override;	/* Test whether this widget supports "dragging". */
+
+	virtual void render_icon(const Mat44f& t, VR_Side controller_side, bool active = false, bool touched = false) override;	/* Render the icon/indication of the widget. */
+};
+
+/* Interaction widget for switching the currently active component mode. */
+class Widget_SwitchComponent : public VR_Widget
+{
+	friend class Widget_SwitchLayout;
+
+	static short mode;	/* The current component mode. */
+public:
+	static Widget_SwitchComponent obj;	/* Singleton implementation object. */
+	virtual std::string name() override { return "SWITCHCOMPONENT"; };	/* Get the name of this widget. */
+	virtual Type type() override { return TYPE_SWITCHCOMPONENT; };	/* Type of Widget. */
+
+	virtual bool has_click(VR_UI::Cursor& c) const override;	/* Test whether this widget supports "clicking". */
+	virtual void click(VR_UI::Cursor& c) override;	/* Click with the index finger / trigger. */
+	virtual bool has_drag(VR_UI::Cursor& c) const override;	/* Test whether this widget supports "dragging". */
+
+	virtual void render_icon(const Mat44f& t, VR_Side controller_side, bool active = false, bool touched = false) override;	/* Render the icon/indication of the widget. */
+};
+
+/* Interaction widget for switching the currently active transform space. */
+class Widget_SwitchSpace : public VR_Widget
+{
+public:
+	static Widget_SwitchSpace obj; /* Singleton implementation object. */
+	virtual std::string name() override { return "SWITCHSPACE"; };	/* Get the name of this widget. */
+	virtual Type type() override { return TYPE_SWITCHSPACE; };	/* Type of Widget. */
+
+	virtual bool has_click(VR_UI::Cursor& c) const override;	/* Test whether this widget supports "clicking". */
+	virtual void click(VR_UI::Cursor& c) override;	/* Click with the index finger / trigger. */
+	virtual bool has_drag(VR_UI::Cursor& c) const override;	/* Test whether this widget supports "dragging". */
+
+	virtual void render_icon(const Mat44f& t, VR_Side controller_side, bool active = false, bool touched = false) override;	/* Render the icon/indication of the widget. */
+};
+
 /* Interaction widget for switching the currently active tool. */
 class Widget_SwitchTool : public VR_Widget
 {
-	friend class Widget_Alt;
+	friend class Widget_Menu;
 
 	static VR_Widget *curr_tool[VR_SIDES]; /* The current tool for each controller. */
 public:

@@ -109,6 +109,7 @@
 #include "BKE_library_remap.h"
 #include "BKE_linestyle.h"
 #include "BKE_mesh.h"
+#include "BKE_mesh_runtime.h"
 #include "BKE_material.h"
 #include "BKE_main.h"
 #include "BKE_mball.h"
@@ -373,7 +374,7 @@ void BKE_id_make_local_generic(Main *bmain, ID *id, const bool id_in_mainlist, c
  *
  * \note Always set ID->newid pointer in case it gets duplicated...
  *
- * \param lib_local Special flag used when making a whole library's content local, it needs specific handling.
+ * \param lib_local: Special flag used when making a whole library's content local, it needs specific handling.
  *
  * \return true if the block can be made local.
  */
@@ -517,6 +518,32 @@ static int id_copy_libmanagement_cb(void *user_data, ID *UNUSED(id_self), ID **i
 	return IDWALK_RET_NOP;
 }
 
+static void id_copy_clear_runtime_pointers(ID *id, int UNUSED(flag))
+{
+	if (id == NULL) {
+		return;
+	}
+	/* TODO(sergey): We might want to do a deep-copy of all the pointers inside.
+	 * This isn't currently needed, and is quite involved change (to cover all
+	 * things like batch cache and such). */
+	switch ((ID_Type)GS(id->name)) {
+		case ID_OB:
+		{
+			Object *object = (Object *)id;
+			BKE_object_runtime_reset_on_copy(object);
+			break;
+		}
+		case ID_ME:
+		{
+			Mesh *mesh = (Mesh *)id;
+			BKE_mesh_runtime_reset_on_copy(mesh);
+			break;
+		}
+		default:
+			break;
+	}
+}
+
 /**
  * Generic entry point for copying a datablock (new API).
  *
@@ -525,11 +552,11 @@ static int id_copy_libmanagement_cb(void *user_data, ID *UNUSED(id_self), ID **i
  *
  * \note Usercount of new copy is always set to 1.
  *
- * \param bmain Main database, may be NULL only if LIB_ID_CREATE_NO_MAIN is specified.
- * \param id Source datablock.
- * \param r_newid Pointer to new (copied) ID pointer.
- * \param flag Set of copy options, see DNA_ID.h enum for details (leave to zero for default, full copy).
- * \param test If set, do not do any copy, just test whether copy is supported.
+ * \param bmain: Main database, may be NULL only if LIB_ID_CREATE_NO_MAIN is specified.
+ * \param id: Source datablock.
+ * \param r_newid: Pointer to new (copied) ID pointer.
+ * \param flag: Set of copy options, see DNA_ID.h enum for details (leave to zero for default, full copy).
+ * \param test: If set, do not do any copy, just test whether copy is supported.
  * \return False when copying that ID type is not supported, true otherwise.
  */
 /* XXX TODO remove test thing, *all* IDs should be copyable that way! */
@@ -682,6 +709,8 @@ bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, con
 		(*r_newid)->lib = id->lib;
 	}
 
+	id_copy_clear_runtime_pointers(*r_newid, flag);
+
 	return true;
 }
 
@@ -787,8 +816,8 @@ bool id_single_user(bContext *C, ID *id, PointerRNA *ptr, PropertyRNA *prop)
 
 				/* tag grease pencil datablock and disable onion */
 				if (GS(id->name) == ID_GD) {
-					DEG_id_tag_update(id, OB_RECALC_OB | OB_RECALC_DATA);
-					DEG_id_tag_update(newid, OB_RECALC_OB | OB_RECALC_DATA);
+					DEG_id_tag_update(id, ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY);
+					DEG_id_tag_update(newid, ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY);
 					bGPdata *gpd = (bGPdata *)newid;
 					gpd->flag &= ~GP_DATA_SHOW_ONIONSKINS;
 				}
@@ -979,7 +1008,7 @@ void BKE_main_lib_objects_recalc_all(Main *bmain)
 	/* flag for full recalc */
 	for (ob = bmain->object.first; ob; ob = ob->id.next) {
 		if (ID_IS_LINKED(ob)) {
-			DEG_id_tag_update(&ob->id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
+			DEG_id_tag_update(&ob->id, ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY | ID_RECALC_ANIMATION);
 		}
 	}
 
@@ -1240,7 +1269,7 @@ void BKE_libblock_init_empty(ID *id)
 
 /** Generic helper to create a new empty datablock of given type in given \a bmain database.
  *
- * \param name can be NULL, in which case we get default name for this ID type. */
+ * \param name: can be NULL, in which case we get default name for this ID type. */
 void *BKE_id_new(Main *bmain, const short type, const char *name)
 {
 	BLI_assert(bmain != NULL);
@@ -1257,7 +1286,7 @@ void *BKE_id_new(Main *bmain, const short type, const char *name)
 
 /** Generic helper to create a new temporary empty datablock of given type, *outside* of any Main database.
  *
- * \param name can be NULL, in which case we get default name for this ID type. */
+ * \param name: can be NULL, in which case we get default name for this ID type. */
 void *BKE_id_new_nomain(const short type, const char *name)
 {
 	if (name == NULL) {
@@ -1359,6 +1388,16 @@ void *BKE_libblock_copy_nolib(const ID *id, const bool do_action)
 
 	BKE_libblock_copy_ex(NULL, id, &idn, LIB_ID_CREATE_NO_MAIN | LIB_ID_CREATE_NO_USER_REFCOUNT | (do_action ? LIB_ID_COPY_ACTIONS : 0));
 
+	return idn;
+}
+
+void *BKE_libblock_copy_for_localize(const ID *id)
+{
+	ID *idn;
+	BKE_libblock_copy_ex(NULL, id, &idn, (LIB_ID_CREATE_NO_MAIN |
+	                                      LIB_ID_CREATE_NO_USER_REFCOUNT |
+	                                      LIB_ID_COPY_ACTIONS |
+	                                      LIB_ID_COPY_NO_ANIMDATA));
 	return idn;
 }
 
@@ -1704,10 +1743,10 @@ static void library_make_local_copying_check(ID *id, GSet *loop_tags, MainIDRela
 
 /** Make linked datablocks local.
  *
- * \param bmain Almost certainly global main.
- * \param lib If not NULL, only make local datablocks from this library.
- * \param untagged_only If true, only make local datablocks not tagged with LIB_TAG_PRE_EXISTING.
- * \param set_fake If true, set fake user on all localized datablocks (except group and objects ones).
+ * \param bmain: Almost certainly global main.
+ * \param lib: If not NULL, only make local datablocks from this library.
+ * \param untagged_only: If true, only make local datablocks not tagged with LIB_TAG_PRE_EXISTING.
+ * \param set_fake: If true, set fake user on all localized datablocks (except group and objects ones).
  */
 /* Note: Old (2.77) version was simply making (tagging) datablocks as local, without actually making any check whether
  * they were also indirectly used or not...
@@ -2124,11 +2163,11 @@ void BKE_libblock_rename(Main *bmain, ID *id, const char *name)
 }
 
 /**
- * Generate full name of the data-block (without ID code, but with library is any)
+ * Generate full name of the data-block (without ID code, but with library if any).
  *
  * \note Result is unique to a given ID type in a given Main database.
  *
- * \param name An allocated string of minimal length MAX_ID_FULL_NAME, will be filled with generated string.
+ * \param name: An allocated string of minimal length MAX_ID_FULL_NAME, will be filled with generated string.
  */
 void BKE_id_full_name_get(char name[MAX_ID_FULL_NAME], const ID *id)
 {
@@ -2147,12 +2186,12 @@ void BKE_id_full_name_get(char name[MAX_ID_FULL_NAME], const ID *id)
 }
 
 /**
- * Generate full name of the data-block (without ID code, but with library is any), with a 3-character prefix prepended
+ * Generate full name of the data-block (without ID code, but with library if any), with a 3-character prefix prepended
  * indicating whether it comes from a library, is overriding, has a fake or no user, etc.
  *
  * \note Result is unique to a given ID type in a given Main database.
  *
- * \param name An allocated string of minimal length MAX_ID_FULL_NAME_UI, will be filled with generated string.
+ * \param name: An allocated string of minimal length MAX_ID_FULL_NAME_UI, will be filled with generated string.
  */
 void BKE_id_full_name_ui_prefix_get(char name[MAX_ID_FULL_NAME_UI], const ID *id)
 {
@@ -2170,12 +2209,16 @@ void BKE_id_full_name_ui_prefix_get(char name[MAX_ID_FULL_NAME_UI], const ID *id
  */
 char *BKE_id_to_unique_string_key(const struct ID *id)
 {
-	char name[MAX_ID_FULL_NAME + 2];
-	name[0] = id->name[0];
-	name[1] = id->name[1];
-	BKE_id_full_name_get(name + 2, id);
-
-	return BLI_strdup(name);
+	if (id->lib == NULL) {
+		return BLI_strdup(id->name);
+	}
+	else {
+		/* Prefix with an ascii character in the range of 32..96 (visible)
+		 * this ensures we can't have a library ID pair that collide.
+		 * Where 'LIfooOBbarOBbaz' could be ('LIfoo, OBbarOBbaz') or ('LIfooOBbar', 'OBbaz'). */
+		const char ascii_len = strlen(id->lib->id.name + 2) + 32;
+		return BLI_sprintfN("%c%s%s", ascii_len, id->lib->id.name, id->name);
+	}
 }
 
 void BKE_library_filepath_set(Main *bmain, Library *lib, const char *filepath)

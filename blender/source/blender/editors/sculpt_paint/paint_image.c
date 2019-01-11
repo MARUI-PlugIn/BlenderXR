@@ -1143,7 +1143,7 @@ static int texture_paint_toggle_exec(bContext *C, wmOperator *op)
 
 	Mesh *me = BKE_mesh_from_object(ob);
 	BLI_assert(me != NULL);
-	DEG_id_tag_update(&me->id, DEG_TAG_COPY_ON_WRITE);
+	DEG_id_tag_update(&me->id, ID_RECALC_COPY_ON_WRITE);
 
 	WM_event_add_notifier(C, NC_SCENE | ND_MODE, scene);
 
@@ -1166,7 +1166,7 @@ void PAINT_OT_texture_paint_toggle(wmOperatorType *ot)
 	ot->poll = texture_paint_toggle_poll;
 
 	/* flags */
-	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_USE_EVAL_DATA;
 }
 
 

@@ -325,7 +325,7 @@ typedef struct SculptProjectVector {
 } SculptProjectVector;
 
 /**
- * \param plane  Direction, can be any length.
+ * \param plane: Direction, can be any length.
  */
 static void sculpt_project_v3_cache_init(
         SculptProjectVector *spvc, const float plane[3])
@@ -4877,10 +4877,10 @@ static void sculpt_flush_update(bContext *C)
 		multires_mark_as_modified(ob_eval, MULTIRES_COORDS_MODIFIED);
 	}
 
-	DEG_id_tag_update(&ob->id, DEG_TAG_SHADING_UPDATE);
+	DEG_id_tag_update(&ob->id, ID_RECALC_SHADING);
 
 	if (ss->kb || ss->modifiers_active) {
-		DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+		DEG_id_tag_update(&ob->id, ID_RECALC_GEOMETRY);
 		ED_region_tag_redraw(ar);
 	}
 	else {
@@ -5071,7 +5071,7 @@ static void sculpt_stroke_done(const bContext *C, struct PaintStroke *UNUSED(str
 
 		/* try to avoid calling this, only for e.g. linked duplicates now */
 		if (((Mesh *)ob->data)->id.us > 1)
-			DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+			DEG_id_tag_update(&ob->id, ID_RECALC_GEOMETRY);
 
 		WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, ob);
 	}
@@ -5664,7 +5664,7 @@ void ED_object_sculptmode_enter_ex(
 	const int flush_recalc = ed_object_sculptmode_flush_recalc_flag(scene, ob, mmd);
 
 	if (flush_recalc)
-		DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+		DEG_id_tag_update(&ob->id, ID_RECALC_GEOMETRY);
 
 	/* Create sculpt mode session data */
 	if (ob->sculpt) {
@@ -5746,14 +5746,15 @@ void ED_object_sculptmode_enter_ex(
 	}
 
 	/* Flush object mode. */
-	DEG_id_tag_update(&ob->id, DEG_TAG_COPY_ON_WRITE);
+	DEG_id_tag_update(&ob->id, ID_RECALC_COPY_ON_WRITE);
 }
 
 void ED_object_sculptmode_enter(struct bContext *C, ReportList *reports)
 {
 	Main *bmain = CTX_data_main(C);
 	Scene *scene = CTX_data_scene(C);
-	Object *ob = CTX_data_active_object(C);
+	ViewLayer *view_layer = CTX_data_view_layer(C);
+	Object *ob = OBACT(view_layer);
 	Depsgraph *depsgraph = CTX_data_depsgraph(C);
 	ED_object_sculptmode_enter_ex(bmain, depsgraph, scene, ob, reports);
 }
@@ -5779,7 +5780,7 @@ void ED_object_sculptmode_exit_ex(
 	 * a consistent state.
 	 */
 	if (true || /* flush_recalc || */ (ob->sculpt && ob->sculpt->bm)) {
-		DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+		DEG_id_tag_update(&ob->id, ID_RECALC_GEOMETRY);
 	}
 
 	if (me->flag & ME_SCULPT_DYNAMIC_TOPOLOGY) {
@@ -5803,14 +5804,15 @@ void ED_object_sculptmode_exit_ex(
 	BKE_object_free_derived_caches(ob);
 
 	/* Flush object mode. */
-	DEG_id_tag_update(&ob->id, DEG_TAG_COPY_ON_WRITE);
+	DEG_id_tag_update(&ob->id, ID_RECALC_COPY_ON_WRITE);
 }
 
 void ED_object_sculptmode_exit(bContext *C)
 {
 	Depsgraph *depsgraph = CTX_data_depsgraph(C);
 	Scene *scene = CTX_data_scene(C);
-	Object *ob = CTX_data_active_object(C);
+	ViewLayer *view_layer = CTX_data_view_layer(C);
+	Object *ob = OBACT(view_layer);
 	ED_object_sculptmode_exit_ex(depsgraph, scene, ob);
 }
 
@@ -5821,7 +5823,8 @@ static int sculpt_mode_toggle_exec(bContext *C, wmOperator *op)
 	Depsgraph *depsgraph = CTX_data_depsgraph_on_load(C);
 	Scene *scene = CTX_data_scene(C);
 	ToolSettings *ts = scene->toolsettings;
-	Object *ob = CTX_data_active_object(C);
+	ViewLayer *view_layer = CTX_data_view_layer(C);
+	Object *ob = OBACT(view_layer);
 	const int mode_flag = OB_MODE_SCULPT;
 	const bool is_mode_set = (ob->mode & mode_flag) != 0;
 

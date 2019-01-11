@@ -538,7 +538,7 @@ void smokeModifier_createType(struct SmokeModifierData *smd)
 			smd->domain->flame_smoke_color[2] = 0.7f;
 
 			smd->domain->viewsettings = MOD_SMOKE_VIEW_SHOWBIG;
-			smd->domain->effector_weights = BKE_add_effector_weights(NULL);
+			smd->domain->effector_weights = BKE_effector_add_weights(NULL);
 
 #ifdef WITH_OPENVDB_BLOSC
 			smd->domain->openvdb_comp = VDB_COMPRESSION_BLOSC;
@@ -1310,6 +1310,7 @@ static void emit_from_particles(
 		sim.scene = scene;
 		sim.ob = flow_ob;
 		sim.psys = psys;
+		sim.psys->lattice_deform_data = psys_create_lattice_deform_data(&sim);
 
 		/* prepare curvemapping tables */
 		if ((psys->part->child_flag & PART_CHILD_USE_CLUMP_CURVE) && psys->part->clumpcurve)

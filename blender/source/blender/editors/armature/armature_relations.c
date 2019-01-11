@@ -166,7 +166,7 @@ static void joined_armature_fix_animdata_cb(ID *id, FCurve *fcu, void *user_data
 		/* Fix driver references to invalid ID's */
 		for (dvar = driver->variables.first; dvar; dvar = dvar->next) {
 			/* only change the used targets, since the others will need fixing manually anyway */
-			DRIVER_TARGETS_USED_LOOPER(dvar)
+			DRIVER_TARGETS_USED_LOOPER_BEGIN(dvar)
 			{
 				/* change the ID's used... */
 				if (dtar->id == src_id) {
@@ -199,7 +199,7 @@ static void joined_armature_fix_animdata_cb(ID *id, FCurve *fcu, void *user_data
 					}
 				}
 			}
-			DRIVER_TARGETS_LOOPER_END
+			DRIVER_TARGETS_LOOPER_END;
 		}
 	}
 }
@@ -403,7 +403,7 @@ int join_armature_exec(bContext *C, wmOperator *op)
 	ED_armature_from_edit(bmain, arm);
 	ED_armature_edit_free(arm);
 
-	DEG_id_tag_update(&scene->id, DEG_TAG_SELECT_UPDATE);
+	DEG_id_tag_update(&scene->id, ID_RECALC_SELECT);
 	WM_event_add_notifier(C, NC_SCENE | ND_OB_ACTIVE, scene);
 
 	return OPERATOR_FINISHED;
@@ -638,8 +638,8 @@ static int separate_armature_exec(bContext *C, wmOperator *op)
 		/* 4) fix links before depsgraph flushes */ // err... or after?
 		separated_armature_fix_links(bmain, oldob, newob);
 
-		DEG_id_tag_update(&oldob->id, OB_RECALC_DATA);  /* this is the original one */
-		DEG_id_tag_update(&newob->id, OB_RECALC_DATA);  /* this is the separated one */
+		DEG_id_tag_update(&oldob->id, ID_RECALC_GEOMETRY);  /* this is the original one */
+		DEG_id_tag_update(&newob->id, ID_RECALC_GEOMETRY);  /* this is the separated one */
 
 
 		/* 5) restore original conditions */

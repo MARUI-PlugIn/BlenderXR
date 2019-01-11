@@ -187,7 +187,7 @@ class VIEW3D_OT_select_or_deselect_all(Operator):
     def invoke(self, context, event):
         retval = bpy.ops.view3d.select(
             'INVOKE_DEFAULT',
-            True, # undo push
+            True,  # undo push
             extend=self.extend,
             deselect=self.deselect,
             toggle=self.toggle,
@@ -219,6 +219,8 @@ class VIEW3D_OT_select_or_deselect_all(Operator):
                     select_all = bpy.ops.mball.select_all
                 elif active_object.type == 'ARMATURE':
                     select_all = bpy.ops.armature.select_all
+                else:
+                    return retval
             elif active_object.mode == 'POSE':
                 select_all = bpy.ops.pose.select_all
             elif active_object.mode == 'PARTICLE_EDIT':

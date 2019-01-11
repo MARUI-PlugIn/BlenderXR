@@ -27,6 +27,12 @@
 #ifndef __BKE_MBALL_H__
 #define __BKE_MBALL_H__
 
+/** \file BKE_mball.h
+ *  \ingroup bke
+ *  \since March 2001
+ *  \author nzc
+ */
+ 
 #include "../vr/vr_build.h"
 #if WITH_VR
 #ifdef __cplusplus
@@ -34,12 +40,7 @@ extern "C"
 {
 #endif
 #endif
-
-/** \file BKE_mball.h
- *  \ingroup bke
- *  \since March 2001
- *  \author nzc
- */
+ 
 struct BoundBox;
 struct Depsgraph;
 struct Main;

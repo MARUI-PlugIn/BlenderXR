@@ -422,6 +422,63 @@ static void gpu_framebuffer_update_attachments(GPUFrameBuffer *fb)
 		glDrawBuffer(GL_NONE);
 }
 
+/**
+ * Hack to solve the problem of some bugged AMD GPUs (see `GPU_unused_fb_slot_workaround`).
+ * If there is an empty color slot between the color slots,
+ * all textures after this slot are apparently skipped/discarded.
+ **/
+static void gpu_framebuffer_update_attachments_and_fill_empty_slots(GPUFrameBuffer *fb)
+{
+	GLenum gl_attachments[GPU_FB_MAX_COLOR_ATTACHMENT];
+	int dummy_tex = 0;
+
+	BLI_assert(GPU_framebuffer_active_get() == fb);
+
+	/* Update attachments */
+	for (GPUAttachmentType type = GPU_FB_MAX_ATTACHEMENT; type--;) {
+		GPUTexture *tex = fb->attachments[type].tex;
+
+		if (type >= GPU_FB_COLOR_ATTACHMENT0) {
+			int slot = type - GPU_FB_COLOR_ATTACHMENT0;
+			if (tex != NULL || (dummy_tex != 0)) {
+				gl_attachments[slot] = convert_attachment_type_to_gl(type);
+
+				if (dummy_tex == 0) {
+					dummy_tex = GPU_texture_opengl_bindcode(tex);
+				}
+			}
+			else {
+				gl_attachments[slot] = GL_NONE;
+			}
+		}
+		else {
+			dummy_tex = 0;
+		}
+
+		if ((dummy_tex != 0) && tex == NULL) {
+			/* Fill empty slot */
+			glFramebufferTexture(GL_FRAMEBUFFER, convert_attachment_type_to_gl(type), dummy_tex, 0);
+		}
+		else if (GPU_FB_ATTACHEMENT_IS_DIRTY(fb->dirty_flag, type)) {
+			if (tex != NULL) {
+				gpu_framebuffer_attachment_attach(&fb->attachments[type], type);
+
+				fb->multisample = (GPU_texture_samples(tex) > 0);
+				fb->width = GPU_texture_width(tex);
+				fb->height = GPU_texture_height(tex);
+			}
+			else {
+				gpu_framebuffer_attachment_detach(&fb->attachments[type], type);
+			}
+		}
+	}
+	fb->dirty_flag = 0;
+
+	/* Update draw buffers (color targets)
+	 * This state is saved in the FBO */
+	glDrawBuffers(GPU_FB_MAX_COLOR_ATTACHMENT, gl_attachments);
+}
+
 
 #define FRAMEBUFFER_STACK_DEPTH 16
 
@@ -457,8 +514,15 @@ void GPU_framebuffer_bind(GPUFrameBuffer *fb)
 
 	gpu_framebuffer_current_set(fb);
 
-	if (fb->dirty_flag != 0)
-		gpu_framebuffer_update_attachments(fb);
+	if (fb->dirty_flag != 0) {
+		if (GPU_unused_fb_slot_workaround()) {
+			/* XXX: Please AMD, fix this. */
+			gpu_framebuffer_update_attachments_and_fill_empty_slots(fb);
+		}
+		else {
+			gpu_framebuffer_update_attachments(fb);
+		}
+	}
 
 	/* TODO manually check for errors? */
 #if 0

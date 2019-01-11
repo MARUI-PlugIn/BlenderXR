@@ -54,6 +54,7 @@ struct DerivedMesh;
 #endif
 
 void BKE_mesh_runtime_reset(struct Mesh *mesh);
+void BKE_mesh_runtime_reset_on_copy(struct Mesh *mesh);
 int BKE_mesh_runtime_looptri_len(const struct Mesh *mesh);
 void BKE_mesh_runtime_looptri_recalc(struct Mesh *mesh);
 const struct MLoopTri *BKE_mesh_runtime_looptri_ensure(struct Mesh *mesh);
@@ -108,6 +109,16 @@ struct DerivedMesh *mesh_create_derived_view(
 struct Mesh *mesh_create_eval_final_view(
         struct Depsgraph *depsgraph, struct Scene *scene,
         struct Object *ob, CustomDataMask dataMask);
+
+struct Mesh *mesh_create_eval_no_deform(
+        struct Depsgraph *depsgraph, struct Scene *scene,
+        struct Object *ob, float (*vertCos)[3],
+        CustomDataMask dataMask);
+struct Mesh *mesh_create_eval_no_deform_render(
+        struct Depsgraph *depsgraph, struct Scene *scene,
+        struct Object *ob, float (*vertCos)[3],
+        CustomDataMask dataMask);
+
 
 void BKE_mesh_runtime_eval_to_meshkey(struct Mesh *me_deformed, struct Mesh *me, struct KeyBlock *kb);
 

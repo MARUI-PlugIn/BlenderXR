@@ -42,9 +42,7 @@
 #include "vr_draw.h"
 
 #include "BLI_math.h"
-#include "BLI_linklist.h"
 #include "BLI_listbase.h"
-#include "BLI_rect.h"
 
 #include "BKE_action.h"
 #include "BKE_animsys.h"
@@ -52,7 +50,6 @@
 #include "BKE_camera.h"
 #include "BKE_context.h"
 #include "BKE_curve.h"
-#include "BKE_DerivedMesh.h"
 #include "BKE_editmesh.h"
 #include "BKE_gpencil.h"
 #include "BKE_key.h"
@@ -66,26 +63,17 @@
 #include "BKE_material.h"
 #include "BKE_mball.h"
 #include "BKE_mesh.h"
+#include "BKE_modifier.h"
 #include "BKE_object.h"
 #include "BKE_particle.h"
-#include "BKE_scene.h"
 #include "BKE_speaker.h"
-#include "BKE_tracking.h"
 
 #include "DNA_gpencil_types.h"
 #include "DNA_mesh_types.h"
-#include "DNA_modifier_types.h"
-#include "DNA_particle_types.h"
-#include "DNA_scene_types.h"
-
-#include "bmesh_class.h"
-#include "bmesh_inline.h"
-#include "bmesh_iterators.h"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_build.h"
 
-#include "ED_armature.h"
 #include "ED_gpencil.h"
 #include "ED_mesh.h"
 #include "ED_object.h"
@@ -105,8 +93,7 @@
 #include "gpencil_intern.h"
 
 #include "MEM_guardedalloc.h"
-
-#include "transform.h"
+#include "mesh_intern.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -121,8 +108,6 @@ static const Mat44f m_widget_touched = m_wt;
 VR_Widget* VR_Widget::get_widget(Type type, const char* ident)
 {
 	switch (type) {
-	case TYPE_TRIGGER:
-		return &Widget_Trigger::obj;
 	case TYPE_NAVI:
 		return &Widget_Navi::obj;
 	case TYPE_NAVI_GRABAIR:
@@ -137,20 +122,24 @@ VR_Widget* VR_Widget::get_widget(Type type, const char* ident)
 		return &Widget_Shift::obj;
 	case TYPE_ALT:
 		return &Widget_Alt::obj;
-	case TYPE_CURSOROFFSET:
-		return &Widget_CursorOffset::obj;
 	case TYPE_SELECT:
 		return &Widget_Select::obj;
 	case TYPE_SELECT_RAYCAST:
 		return &Widget_Select::Raycast::obj;
 	case TYPE_SELECT_PROXIMITY:
 		return &Widget_Select::Proximity::obj;
+	case TYPE_CURSOR:
+		return &Widget_Cursor::obj;
 	case TYPE_TRANSFORM:
 		return &Widget_Transform::obj;
 	case TYPE_ANNOTATE:
 		return &Widget_Annotate::obj;
 	case TYPE_MEASURE:
 		return &Widget_Measure::obj;
+	case TYPE_EXTRUDE:
+		return &Widget_Extrude::obj;
+	case TYPE_CURSOROFFSET:
+		return &Widget_CursorOffset::obj;
 	case TYPE_DELETE:
 		return &Widget_Delete::obj;
 	case TYPE_DUPLICATE:
@@ -159,6 +148,12 @@ VR_Widget* VR_Widget::get_widget(Type type, const char* ident)
 		return &Widget_Undo::obj;
 	case TYPE_REDO:
 		return &Widget_Redo::obj;
+	case TYPE_SWITCHLAYOUT:
+		return &Widget_SwitchLayout::obj;
+	case TYPE_SWITCHCOMPONENT:
+		return &Widget_SwitchComponent::obj;
+	case TYPE_SWITCHSPACE:
+		return &Widget_SwitchSpace::obj;
 	case TYPE_SWITCHTOOL:
 		return &Widget_SwitchTool::obj;
 	case TYPE_MENU:
@@ -174,9 +169,6 @@ VR_Widget* VR_Widget::get_widget(Type type, const char* ident)
 
 VR_Widget::Type VR_Widget::get_widget_type(const std::string& str)
 {
-	if (str == "TRIGGER") {
-		return TYPE_TRIGGER;
-	}
 	if (str == "NAVI") {
 		return TYPE_NAVI;
 	}
@@ -198,9 +190,6 @@ VR_Widget::Type VR_Widget::get_widget_type(const std::string& str)
 	if (str == "ALT") {
 		return TYPE_ALT;
 	}
-	if (str == "CURSOROFFSET") {
-		return TYPE_CURSOROFFSET;
-	}
 	if (str == "SELECT") {
 		return TYPE_SELECT;
 	}
@@ -210,6 +199,9 @@ VR_Widget::Type VR_Widget::get_widget_type(const std::string& str)
 	if (str == "SELECT_PROXIMITY") {
 		return TYPE_SELECT_PROXIMITY;
 	}
+	if (str == "CURSOR") {
+		return TYPE_CURSOR;
+	}
 	if (str == "TRANSFORM") {
 		return TYPE_TRANSFORM;
 	}
@@ -218,6 +210,12 @@ VR_Widget::Type VR_Widget::get_widget_type(const std::string& str)
 	}
 	if (str == "MEASURE") {
 		return TYPE_MEASURE;
+	}
+	if (str == "EXTRUDE") {
+		return TYPE_EXTRUDE;
+	}
+	if (str == "CURSOROFFSET") {
+		return TYPE_CURSOROFFSET;
 	}
 	if (str == "DELETE") {
 		return TYPE_DELETE;
@@ -230,6 +228,15 @@ VR_Widget::Type VR_Widget::get_widget_type(const std::string& str)
 	}
 	if (str == "REDO") {
 		return TYPE_REDO;
+	}
+	if (str == "SWITCHLAYOUT") {
+		return TYPE_SWITCHLAYOUT;
+	}
+	if (str == "SWITCHCOMPONENT") {
+		return TYPE_SWITCHCOMPONENT;
+	}
+	if (str == "SWITCHSPACE") {
+		return TYPE_SWITCHSPACE;
 	}
 	if (str == "SWITCHTOOL") {
 		return TYPE_SWITCHTOOL;
@@ -248,9 +255,6 @@ VR_Widget::Type VR_Widget::get_widget_type(const std::string& str)
 
 VR_Widget* VR_Widget::get_widget(const std::string& str)
 {
-	if (str == "TRIGGER") {
-		return &Widget_Trigger::obj;
-	}
 	if (str == "NAVI") {
 		return &Widget_Navi::obj;
 	}
@@ -272,9 +276,6 @@ VR_Widget* VR_Widget::get_widget(const std::string& str)
 	if (str == "ALT") {
 		return &Widget_Alt::obj;
 	}
-	if (str == "CURSOROFFSET") {
-		return &Widget_CursorOffset::obj;
-	}
 	if (str == "SELECT") {
 		return &Widget_Select::obj;
 	}
@@ -283,6 +284,9 @@ VR_Widget* VR_Widget::get_widget(const std::string& str)
 	}
 	if (str == "SELECT_PROXIMITY") {
 		return &Widget_Select::Proximity::obj;
+	}
+	if (str == "CURSOR") {
+		return &Widget_Cursor::obj;
 	}
 	if (str == "TRANSFORM") {
 		return &Widget_Transform::obj;
@@ -293,6 +297,12 @@ VR_Widget* VR_Widget::get_widget(const std::string& str)
 	if (str == "MEASURE") {
 		return &Widget_Measure::obj;
 	}
+	if (str == "EXTRUDE") {
+		return &Widget_Extrude::obj;
+	}
+	if (str == "CURSOROFFSET") {
+		return &Widget_CursorOffset::obj;
+	}
 	if (str == "DELETE") {
 		return &Widget_Delete::obj;
 	}
@@ -302,8 +312,17 @@ VR_Widget* VR_Widget::get_widget(const std::string& str)
 	if (str == "UNDO") {
 		return &Widget_Undo::obj;
 	}
-	if (str == "REDP") {
+	if (str == "REDO") {
 		return &Widget_Redo::obj;
+	}
+	if (str == "SWITCHLAYOUT") {
+		return &Widget_SwitchLayout::obj;
+	}
+	if (str == "SWITCHCOMPONENT") {
+		return &Widget_SwitchComponent::obj;
+	}
+	if (str == "SWITCHSPACE") {
+		return &Widget_SwitchSpace::obj;
 	}
 	if (str == "SWITCHTOOL") {
 		return &Widget_SwitchTool::obj;
@@ -324,7 +343,6 @@ VR_Widget* VR_Widget::get_widget(const std::string& str)
 std::vector<std::string> VR_Widget::list_widgets()
 {
 	std::vector<std::string> ret;
-	ret.push_back("TRIGGER");
 	ret.push_back("NAVI");
 	ret.push_back("NAVI_GRABAIR");
 	ret.push_back("NAVI_JOYSTICK");
@@ -332,17 +350,22 @@ std::vector<std::string> VR_Widget::list_widgets()
 	ret.push_back("CTRL");
 	ret.push_back("SHIFT");
 	ret.push_back("ALT");
-	ret.push_back("CURSOROFFSET");
 	ret.push_back("SELECT");
 	ret.push_back("SELECT_RAYCAST");
 	ret.push_back("SELECT_PROXIMITY");
+	ret.push_back("CURSOR");
 	ret.push_back("TRANSFORM");
 	ret.push_back("ANNOTATE");
 	ret.push_back("MEASURE");
+	ret.push_back("EXTRUDE");
+	ret.push_back("CURSOROFFSET");
 	ret.push_back("DELETE");
 	ret.push_back("DUPLICATE");
 	ret.push_back("UNDO");
 	ret.push_back("REDO");
+	ret.push_back("SWITCHLAYOUT");
+	ret.push_back("SWITCHCOMPONENT");
+	ret.push_back("SWITCHSPACE");
 	ret.push_back("SWITCHTOOL");
 	ret.push_back("MENU");
 	ret.push_back("MENU_LEFT");
@@ -354,8 +377,6 @@ std::vector<std::string> VR_Widget::list_widgets()
 std::string VR_Widget::type_to_string(Type type)
 {
 	switch (type) {
-	case TYPE_TRIGGER:
-		return "TRIGGER";
 	case TYPE_NAVI:
 		return "NAVI";
 	case TYPE_NAVI_GRABAIR:
@@ -370,20 +391,24 @@ std::string VR_Widget::type_to_string(Type type)
 		return "SHIFT";
 	case TYPE_ALT:
 		return "ALT";
-	case TYPE_CURSOROFFSET:
-		return "CURSOROFFSET";
 	case TYPE_SELECT:
 		return "SELECT";
 	case TYPE_SELECT_RAYCAST:
 		return "SELECT_RAYCAST";
 	case TYPE_SELECT_PROXIMITY:
 		return "SELECT_PROXIMITY";
+	case TYPE_CURSOR:
+		return "CURSOR";
 	case TYPE_TRANSFORM:
 		return "TRANSFORM";
 	case TYPE_ANNOTATE:
 		return "ANNOTATE";
 	case TYPE_MEASURE:
 		return "MEASURE";
+	case TYPE_EXTRUDE:
+		return "EXTRUDE";
+	case TYPE_CURSOROFFSET:
+		return "CURSOROFFSET";
 	case TYPE_DELETE:
 		return "DELETE";
 	case TYPE_DUPLICATE:
@@ -392,6 +417,12 @@ std::string VR_Widget::type_to_string(Type type)
 		return "UNDO";
 	case TYPE_REDO:
 		return "REDO";
+	case TYPE_SWITCHLAYOUT:
+		return "SWITCHLAYOUT";
+	case TYPE_SWITCHCOMPONENT:
+		return "SWITCHCOMPONENT";
+	case TYPE_SWITCHSPACE:
+		return "SWITCHSPACE";
 	case TYPE_SWITCHTOOL:
 		return "SWITCHTOOL";
 	case TYPE_MENU:
@@ -401,7 +432,7 @@ std::string VR_Widget::type_to_string(Type type)
 	case TYPE_MENU_RIGHT:
 		return "MENU_RIGHT";
 	default:
-		return "UNKNOWN";
+		return "INVALID";
 	}
 }
 
@@ -478,71 +509,6 @@ void VR_Widget::VR_Widget::render(VR_Side side)
 }
 
 /***********************************************************************************************//**
-* \class                               Widget_Trigger
-***************************************************************************************************
-* Interaction widget for the controller trigger (generalized).
-*
-**************************************************************************************************/
-Widget_Trigger Widget_Trigger::obj;
-
-bool Widget_Trigger::has_click(VR_UI::Cursor& c) const
-{
-	/* TODO_XR */
-
-	return true;
-}
-
-bool Widget_Trigger::allows_focus_steal(Type by) const
-{
-	/* TODO_XR */
-
-	return false;
-}
-
-void Widget_Trigger::click(VR_UI::Cursor& c)
-{
-	/* TODO_XR */
-
-	Widget_Select::obj.click(c);
-}
-
-void Widget_Trigger::drag_start(VR_UI::Cursor& c)
-{
-	/* TODO_XR */
-
-	Widget_Select::obj.drag_start(c);
-
-	for (int i = 0; i < VR_SIDES; ++i) {
-		Widget_Trigger::obj.do_render[i] = true;
-	}
-}
-
-void Widget_Trigger::drag_contd(VR_UI::Cursor& c)
-{
-	/* TODO_XR */
-
-	Widget_Select::obj.drag_contd(c);
-
-	for (int i = 0; i < VR_SIDES; ++i) {
-		Widget_Trigger::obj.do_render[i] = true;
-	}
-}
-
-void Widget_Trigger::drag_stop(VR_UI::Cursor& c)
-{
-	/* TODO_XR */
-
-	Widget_Select::obj.drag_stop(c);
-}
-
-void Widget_Trigger::render(VR_Side side)
-{
-	Widget_Select::obj.render(side);
-
-	Widget_Trigger::obj.do_render[side] = false;
-}
-
-/***********************************************************************************************//**
  * \class                                  Widget_Navi
  ***************************************************************************************************
  * Interaction widget for grabbing-the-air navigation.
@@ -550,16 +516,18 @@ void Widget_Trigger::render(VR_Side side)
  **************************************************************************************************/
 Widget_Navi Widget_Navi::obj;
 
+VR_UI::NavLock Widget_Navi::nav_lock[3] = { VR_UI::NAVLOCK_NONE };
+
 void Widget_Navi::drag_start(VR_UI::Cursor& c)
 {
 	switch (VR_UI::navigation_mode) {
-	case VR_UI::NAVIGATIONMODE_GRABAIR:
+	case VR_UI::NAVMODE_GRABAIR:
 		return GrabAir::obj.drag_start(c);
-	case VR_UI::NAVIGATIONMODE_JOYSTICK:
+	case VR_UI::NAVMODE_JOYSTICK:
 		return Joystick::obj.drag_start(c);
-	case VR_UI::NAVIGATIONMODE_TELEPORT:
+	case VR_UI::NAVMODE_TELEPORT:
 		return Teleport::obj.drag_start(c);
-	case VR_UI::NAVIGATIONMODE_NONE:
+	case VR_UI::NAVMODE_NONE:
 		return;
 	}
 }
@@ -567,13 +535,13 @@ void Widget_Navi::drag_start(VR_UI::Cursor& c)
 void Widget_Navi::drag_contd(VR_UI::Cursor& c)
 {
 	switch (VR_UI::navigation_mode) {
-	case VR_UI::NAVIGATIONMODE_GRABAIR:
+	case VR_UI::NAVMODE_GRABAIR:
 		return GrabAir::obj.drag_contd(c);
-	case VR_UI::NAVIGATIONMODE_JOYSTICK:
+	case VR_UI::NAVMODE_JOYSTICK:
 		return Joystick::obj.drag_contd(c);
-	case VR_UI::NAVIGATIONMODE_TELEPORT:
+	case VR_UI::NAVMODE_TELEPORT:
 		return Teleport::obj.drag_contd(c);
-	case VR_UI::NAVIGATIONMODE_NONE:
+	case VR_UI::NAVMODE_NONE:
 		return;
 	}
 }
@@ -581,13 +549,13 @@ void Widget_Navi::drag_contd(VR_UI::Cursor& c)
 void Widget_Navi::drag_stop(VR_UI::Cursor& c)
 {
 	switch (VR_UI::navigation_mode) {
-	case VR_UI::NAVIGATIONMODE_GRABAIR:
+	case VR_UI::NAVMODE_GRABAIR:
 		return GrabAir::obj.drag_stop(c);
-	case VR_UI::NAVIGATIONMODE_JOYSTICK:
+	case VR_UI::NAVMODE_JOYSTICK:
 		return Joystick::obj.drag_stop(c);
-	case VR_UI::NAVIGATIONMODE_TELEPORT:
+	case VR_UI::NAVMODE_TELEPORT:
 		return Teleport::obj.drag_stop(c);
-	case VR_UI::NAVIGATIONMODE_NONE:
+	case VR_UI::NAVMODE_NONE:
 		return;
 	}
 }
@@ -595,13 +563,13 @@ void Widget_Navi::drag_stop(VR_UI::Cursor& c)
 void Widget_Navi::render_icon(const Mat44f& t, VR_Side controller_side, bool active, bool touched)
 {
 	switch (VR_UI::navigation_mode) {
-	case VR_UI::NAVIGATIONMODE_GRABAIR:
+	case VR_UI::NAVMODE_GRABAIR:
 		return GrabAir::obj.render_icon(t, controller_side, active, touched);
-	case VR_UI::NAVIGATIONMODE_JOYSTICK:
+	case VR_UI::NAVMODE_JOYSTICK:
 		return Joystick::obj.render_icon(t, controller_side, active, touched);
-	case VR_UI::NAVIGATIONMODE_TELEPORT:
+	case VR_UI::NAVMODE_TELEPORT:
 		return Teleport::obj.render_icon(t, controller_side, active, touched);
-	case VR_UI::NAVIGATIONMODE_NONE:
+	case VR_UI::NAVMODE_NONE:
 		return;
 	}
 }
@@ -638,18 +606,18 @@ void Widget_Navi::GrabAir::drag_contd(VR_UI::Cursor& c)
 		/* Rotation
 		/* x-axis is the base line between the two pointers */
 		Coord3Df x_axis_prev(prev_h.m[3][0] - prev_o.m[3][0],
-							 prev_h.m[3][1] - prev_o.m[3][1],
-							 prev_h.m[3][2] - prev_o.m[3][2]);
+			prev_h.m[3][1] - prev_o.m[3][1],
+			prev_h.m[3][2] - prev_o.m[3][2]);
 		Coord3Df x_axis_curr(curr_h.m[3][0] - curr_o.m[3][0],
-							 curr_h.m[3][1] - curr_o.m[3][1],
-							 curr_h.m[3][2] - curr_o.m[3][2]);
+			curr_h.m[3][1] - curr_o.m[3][1],
+			curr_h.m[3][2] - curr_o.m[3][2]);
 		/* y-axis is the average of the pointers y-axis */
 		Coord3Df y_axis_prev((prev_h.m[1][0] + prev_o.m[1][0]) / 2.0f,
-							 (prev_h.m[1][1] + prev_o.m[1][1]) / 2.0f,
-							 (prev_h.m[1][2] + prev_o.m[1][2]) / 2.0f);
+			(prev_h.m[1][1] + prev_o.m[1][1]) / 2.0f,
+			(prev_h.m[1][2] + prev_o.m[1][2]) / 2.0f);
 		Coord3Df y_axis_curr((curr_h.m[1][0] + curr_o.m[1][0]) / 2.0f,
-							 (curr_h.m[1][1] + curr_o.m[1][1]) / 2.0f,
-							 (curr_h.m[1][2] + curr_o.m[1][2]) / 2.0f);
+			(curr_h.m[1][1] + curr_o.m[1][1]) / 2.0f,
+			(curr_h.m[1][2] + curr_o.m[1][2]) / 2.0f);
 
 		/* z-axis is the cross product of the two */
 		Coord3Df z_axis_prev = x_axis_prev ^ y_axis_prev;
@@ -692,50 +660,95 @@ void Widget_Navi::GrabAir::drag_contd(VR_UI::Cursor& c)
 		prev = c.interaction_position.get(VR_SPACE_BLENDER);
 	}
 
-	if (VR_UI::navigation_lock_rotation) {
-		float prev_scale = Coord3Df(prev.m[0][0], prev.m[0][1], prev.m[0][2]).length();
-		float curr_scale = Coord3Df(curr.m[0][0], curr.m[0][1], curr.m[0][2]).length();
-		float rot_ident[3][4] = { {prev_scale,0,0,0} , {0,prev_scale,0,0} , {0,0,prev_scale,0} };
-		std::memcpy(prev.m, rot_ident, sizeof(float) * 3 * 4);
-		rot_ident[0][0] = rot_ident[1][1] = rot_ident[2][2] = curr_scale;
-		std::memcpy(curr.m, rot_ident, sizeof(float) * 3 * 4);
-	}
-	else if (VR_UI::navigation_lock_up) {
-		Coord3Df z; /* (m.m[2][0], m.m[2][1], m.m[2][2]); // z-axis */
-		if (!VR_UI::is_zaxis_up()) {
-			z = Coord3Df(0, 1, 0); /* rectify z to point "up" */
+	if (VR_UI::ctrl_key_get() || Widget_Navi::nav_lock[1]) {
+		/* Lock rotation */
+		switch (Widget_Navi::nav_lock[1]) {
+		case VR_UI::NAVLOCK_ROT_UP: {
+			static Coord3Df up;
+			if (!VR_UI::is_zaxis_up()) {
+				up = Coord3Df(0.0f, 1.0f, 0.0f);
+			}
+			else { /* z is up : */
+				up = Coord3Df(0.0f, 0.0f, 1.0f);
+			}
+			VR_Math::orient_matrix_z(curr, up);
+			VR_Math::orient_matrix_z(prev, up);
+			break;
 		}
-		else { /* z is up : */
-			z = Coord3Df(0, 0, 1); /* rectify z to point up */
+		case VR_UI::NAVLOCK_ROT:
+		default: {
+			float prev_scale = Coord3Df(prev.m[0][0], prev.m[0][1], prev.m[0][2]).length();
+			float curr_scale = Coord3Df(curr.m[0][0], curr.m[0][1], curr.m[0][2]).length();
+			float rot_ident[3][4] = { {prev_scale,0,0,0} , {0,prev_scale,0,0} , {0,0,prev_scale,0} };
+			memcpy(prev.m, rot_ident, sizeof(float) * 3 * 4);
+			rot_ident[0][0] = rot_ident[1][1] = rot_ident[2][2] = curr_scale;
+			memcpy(curr.m, rot_ident, sizeof(float) * 3 * 4);
+			break;
 		}
-		VR_Math::orient_matrix_z(curr, z);
-		VR_Math::orient_matrix_z(prev, z);
+		}
 	}
-	if (VR_UI::navigation_lock_translation) {
-		prev = VR_UI::convert_space(prev, VR_SPACE_BLENDER, VR_SPACE_REAL);
-		curr = VR_UI::convert_space(curr, VR_SPACE_BLENDER, VR_SPACE_REAL); /* locked in real-world coodinates */
-		Coord3Df& t_prev = *(Coord3Df*)prev.m[3];
-		Coord3Df& t_curr = *(Coord3Df*)curr.m[3];
-		t_curr = t_prev;
-		prev = VR_UI::convert_space(prev, VR_SPACE_REAL, VR_SPACE_BLENDER);
-		curr = VR_UI::convert_space(curr, VR_SPACE_REAL, VR_SPACE_BLENDER); /* revert to Blender coordinates */
+	if (Widget_Navi::nav_lock[0]) {
+		/* Lock translation */
+		switch (Widget_Navi::nav_lock[0]) {
+		case VR_UI::NAVLOCK_TRANS_UP: {
+			prev = VR_UI::convert_space(prev, VR_SPACE_BLENDER, VR_SPACE_REAL);
+			curr = VR_UI::convert_space(curr, VR_SPACE_BLENDER, VR_SPACE_REAL); /* locked in real-world coordinates */
+			curr.m[3][2] = prev.m[3][2];
+			prev = VR_UI::convert_space(prev, VR_SPACE_REAL, VR_SPACE_BLENDER);
+			curr = VR_UI::convert_space(curr, VR_SPACE_REAL, VR_SPACE_BLENDER); /* revert to Blender coordinates */
+			break;
+		}
+		case VR_UI::NAVLOCK_TRANS:
+		default: {
+			prev = VR_UI::convert_space(prev, VR_SPACE_BLENDER, VR_SPACE_REAL);
+			curr = VR_UI::convert_space(curr, VR_SPACE_BLENDER, VR_SPACE_REAL); /* locked in real-world coodinates */
+			Coord3Df& t_prev = *(Coord3Df*)prev.m[3];
+			Coord3Df& t_curr = *(Coord3Df*)curr.m[3];
+			t_curr = t_prev;
+			prev = VR_UI::convert_space(prev, VR_SPACE_REAL, VR_SPACE_BLENDER);
+			curr = VR_UI::convert_space(curr, VR_SPACE_REAL, VR_SPACE_BLENDER); /* revert to Blender coordinates */
+			break;
+		}
+		}
 	}
-	else if (VR_UI::navigation_lock_altitude) {
-		prev = VR_UI::convert_space(prev, VR_SPACE_BLENDER, VR_SPACE_REAL);
-		curr = VR_UI::convert_space(curr, VR_SPACE_BLENDER, VR_SPACE_REAL); /* locked in real-world coordinates */
-		Coord3Df& t_prev = *(Coord3Df*)prev.m[3];
-		Coord3Df& t_curr = *(Coord3Df*)curr.m[3];
-		t_curr.z = t_prev.z;
-		prev = VR_UI::convert_space(prev, VR_SPACE_REAL, VR_SPACE_BLENDER);
-		curr = VR_UI::convert_space(curr, VR_SPACE_REAL, VR_SPACE_BLENDER); /* revert to Blender coordinates */
-	}
-	if (VR_UI::navigation_lock_scale) {
-		((Coord3Df*)prev.m[0])->normalize_in_place();
-		((Coord3Df*)prev.m[1])->normalize_in_place();
-		((Coord3Df*)prev.m[2])->normalize_in_place();
-		((Coord3Df*)curr.m[0])->normalize_in_place();
-		((Coord3Df*)curr.m[1])->normalize_in_place();
-		((Coord3Df*)curr.m[2])->normalize_in_place();
+	if (VR_UI::shift_key_get() || Widget_Navi::nav_lock[2]) {
+		/* Lock scale */
+		switch (Widget_Navi::nav_lock[2]) {
+		case VR_UI::NAVLOCK_SCALE_REAL: {
+			/* TODO_XR */
+			static Mat44f temp = VR_Math::identity_f;
+			//static Mat44f temp;
+			//temp = VR_UI::navigation_matrix_get();
+			////static Coord3Df up;
+			////if (!VR_UI::is_zaxis_up()) {
+			////	up = Coord3Df(0.0f, 1.0f, 0.0f);
+			////}
+			////else { /* z is up : */
+			////	up = Coord3Df(0.0f, 0.0f, 1.0f);
+			////}
+			////VR_Math::orient_matrix_z(temp, up);
+			//float scale = VR_UI::navigation_scale_get();
+			//for (int i = 0; i < 3 /*4*/; ++i) {
+			//	*(Coord3Df*)temp.m[i] /= scale;
+			//}
+			VR_UI::navigation_set(temp/*temp.inverse()*/);
+			c.position.set(temp.m, VR_SPACE_BLENDER);
+			c.interaction_position.set(temp.m, VR_SPACE_BLENDER);
+			prev = curr = temp;
+			Widget_Navi::nav_lock[2] = VR_UI::NAVLOCK_SCALE;
+			return;
+		}
+		case VR_UI::NAVLOCK_SCALE:
+		default: {
+			if (c.bimanual) {
+				for (int i = 0; i < 3; ++i) {
+					((Coord3Df*)prev.m[i])->normalize_in_place();
+					((Coord3Df*)curr.m[i])->normalize_in_place();
+				}
+			}
+			break;
+		}
+		}
 	}
 
 	VR_UI::navigation_set(VR_UI::navigation_matrix_get() * curr.inverse() * prev);
@@ -789,7 +802,6 @@ void Widget_Navi::Joystick::drag_start(VR_UI::Cursor& c)
 	/* Remember where we started from in navigation space. */
 	c.interaction_position = c.position;
 	c.reference = c.position.get(VR_SPACE_REAL);
-
 }
 
 void Widget_Navi::Joystick::drag_contd(VR_UI::Cursor& c)
@@ -828,7 +840,7 @@ void Widget_Navi::Joystick::drag_contd(VR_UI::Cursor& c)
 		v.z = 0;
 		hmd_right.z = 0;
 		float a = v.angle(hmd_right);
-		if (a < 0.36f * PI) { //0.32f*PI
+		if (a < 0.36f * PI) {
 			a *= -a * 0.1f * turn_speed;
 			float cos_a = cos(a);
 			float sin_a = sin(a);
@@ -841,7 +853,7 @@ void Widget_Navi::Joystick::drag_contd(VR_UI::Cursor& c)
 			delta.m[2][2] = 1;
 			delta.m[3][3] = 1;
 		}
-		else if (a > 0.64f * PI) { //0.68f*PI
+		else if (a > 0.64f * PI) {
 			a *= a * 0.02f * turn_speed;
 			float cos_a = cos(a);
 			float sin_a = sin(a);
@@ -958,12 +970,15 @@ void Widget_Navi::Teleport::drag_contd(VR_UI::Cursor& c)
 		static Mat44f delta = VR_Math::identity_f;
 		delta.m[3][0] = curr.m[3][0] - c.reference.m[3][0];
 		delta.m[3][0] = delta.m[3][0] * abs(delta.m[3][0]);
-
 		delta.m[3][1] = curr.m[3][1] - c.reference.m[3][1];
 		delta.m[3][1] = delta.m[3][1] * abs(delta.m[3][1]);
-
-		delta.m[3][2] = curr.m[3][2] - c.reference.m[3][2];
-		delta.m[3][2] = delta.m[3][2] * abs(delta.m[3][2]);
+		if (!VR_UI::shift_key_get()) {
+			delta.m[3][2] = curr.m[3][2] - c.reference.m[3][2];
+			delta.m[3][2] = delta.m[3][2] * abs(delta.m[3][2]);
+		}
+		else {
+			delta.m[3][2] = 0;
+		}
 
 		arrow = delta * arrow;
 
@@ -1094,69 +1109,6 @@ void Widget_Alt::click(VR_UI::Cursor& c)
 
 	/* Toggle the alt state. */
 	VR_UI::alt_key_set((VR_UI::AltState)!alt);
-
-	/* Update the SwitchTool widget and pie menus. */
-	VR_Widget *tool = VR_UI::get_current_tool(c.side);
-	if (tool) {
-		switch (tool->type()) {
-		case TYPE_SELECT: {
-			Widget_SwitchTool::curr_tool[c.side] = &Widget_Select::obj;
-			Widget_Menu::obj.menu_type[c.side] = MENUTYPE_TS_SELECT;
-			VR_UI::pie_menu_active[c.side] = false;
-			break;
-		}
-		case TYPE_TRANSFORM: {
-			Widget_SwitchTool::curr_tool[c.side] = &Widget_Transform::obj;
-			Widget_Menu::obj.menu_type[c.side] = MENUTYPE_TS_TRANSFORM;
-			break;
-		}
-		case TYPE_ANNOTATE: {
-			Widget_SwitchTool::curr_tool[c.side] = &Widget_Annotate::obj;
-			Widget_Menu::obj.menu_type[c.side] = MENUTYPE_TS_ANNOTATE;
-			break;
-		}
-		case TYPE_MEASURE: {
-			Widget_SwitchTool::curr_tool[c.side] = &Widget_Measure::obj;
-			Widget_Menu::obj.menu_type[c.side] = MENUTYPE_TS_MEASURE;
-			VR_UI::pie_menu_active[c.side] = false;
-			break;
-		}
-		default: {
-			break;
-		}
-		}
-	}
-	VR_Side side_other = (VR_Side)(1 - c.side);
-	VR_Widget *tool_other = VR_UI::get_current_tool(side_other);
-	if (tool_other) {
-		switch (tool_other->type()) {
-		case TYPE_SELECT: {
-			Widget_SwitchTool::curr_tool[side_other] = &Widget_Select::obj;
-			Widget_Menu::obj.menu_type[side_other] = MENUTYPE_TS_SELECT;
-			VR_UI::pie_menu_active[side_other] = false;
-			break;;
-		}
-		case TYPE_TRANSFORM: {
-			Widget_SwitchTool::curr_tool[side_other] = &Widget_Transform::obj;
-			Widget_Menu::obj.menu_type[side_other] = MENUTYPE_TS_TRANSFORM;
-			break;
-		}
-		case TYPE_ANNOTATE: {
-			Widget_SwitchTool::curr_tool[side_other] = &Widget_Annotate::obj;
-			Widget_Menu::obj.menu_type[side_other] = MENUTYPE_TS_ANNOTATE;
-			break;
-		}
-		case TYPE_MEASURE: {
-			Widget_SwitchTool::curr_tool[side_other] = &Widget_Measure::obj;
-			Widget_Menu::obj.menu_type[side_other] = MENUTYPE_TS_MEASURE;
-			VR_UI::pie_menu_active[side_other] = false;
-			break;
-		}
-		default: {
-			break;
-		}
-		}
-	}
 }
 
 bool Widget_Alt::has_drag(VR_UI::Cursor& c) const
@@ -1180,60 +1132,6 @@ void Widget_Alt::render_icon(const Mat44f& t, VR_Side controller_side, bool acti
 		VR_Draw::set_color(1.0f, 1.0f, 1.0f, 1.0f);
 	}
 	VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::alt_tex);
-}
-
-/***********************************************************************************************//**
- * \class                               Widget_CursorOffset
- ***************************************************************************************************
- * Interaction widget for manipulating the VR UI cursor offset.
- *
- **************************************************************************************************/
-Widget_CursorOffset Widget_CursorOffset::obj;
-
-bool Widget_CursorOffset::has_click(VR_UI::Cursor& c) const
-{
-	return true;
-}
-
-void Widget_CursorOffset::click(VR_UI::Cursor& c)
-{
-	VR_UI::cursor_offset_enabled = !VR_UI::cursor_offset_enabled;
-	VR_UI::cursor_offset_update = false;
-}
-
-void Widget_CursorOffset::drag_start(VR_UI::Cursor& c)
-{
-	VR_UI::cursor_offset_enabled = true;
-	VR_UI::cursor_offset_update = true;
-}
-
-void Widget_CursorOffset::drag_contd(VR_UI::Cursor& c)
-{
-	//
-}
-
-void Widget_CursorOffset::drag_stop(VR_UI::Cursor& c)
-{
-	VR_UI::cursor_offset_enabled = true;
-	VR_UI::cursor_offset_update = false;
-}
-
-void Widget_CursorOffset::render_icon(const Mat44f& t, VR_Side controller_side, bool active, bool touched)
-{
-	if (touched) {
-		const Mat44f& t_touched = m_widget_touched * t;
-		VR_Draw::update_modelview_matrix(&t_touched, 0);
-	}
-	else {
-		VR_Draw::update_modelview_matrix(&t, 0);
-	}
-	if (active) {
-		VR_Draw::set_color(1.0f, 0.0f, 0.0f, 1.0f);
-	}
-	else {
-		VR_Draw::set_color(1.0f, 1.0f, 1.0f, 1.0f);
-	}
-	VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::cursoroffset_tex);
 }
 
 /***********************************************************************************************//**
@@ -1334,7 +1232,7 @@ static void object_deselect_all_visible(ViewLayer *view_layer, View3D *v3d)
 }
 
 /* From view3d_select.c */
-static void deselectall_except(ViewLayer *view_layer, Base *b)   /* deselect all except b */
+static void deselectall_except(ViewLayer *view_layer, Base *b)
 {
 	for (Base *base = (Base*)view_layer->object_bases.first; base; base = base->next) {
 		if (base->flag & BASE_SELECTED) {
@@ -1346,34 +1244,34 @@ static void deselectall_except(ViewLayer *view_layer, Base *b)   /* deselect all
 }
 
 /* Adapted from	edbm_backbuf_check_and_select_verts() in view3d_select.c */
-static void deselectall_edit(BMEditMesh *em, int mode)
+static void deselectall_edit(BMesh *bm, int mode)
 {
 	BMIter iter;
 
 	switch (mode) {
 	case 0: { /* Vertex */
 		BMVert *eve;
-		BM_ITER_MESH(eve, &iter, em->bm, BM_VERTS_OF_MESH) {
+		BM_ITER_MESH(eve, &iter, bm, BM_VERTS_OF_MESH) {
 			if (!BM_elem_flag_test(eve, BM_ELEM_HIDDEN)) {
-				BM_vert_select_set(em->bm, eve, 0);
+				BM_vert_select_set(bm, eve, 0);
 			}
 		}
 		break;
 	}
 	case 1: { /* Edge */
 		BMEdge *eed;
-		BM_ITER_MESH(eed, &iter, em->bm, BM_EDGES_OF_MESH) {
+		BM_ITER_MESH(eed, &iter, bm, BM_EDGES_OF_MESH) {
 			if (!BM_elem_flag_test(eed, BM_ELEM_HIDDEN)) {
-				BM_edge_select_set(em->bm, eed, 0);
+				BM_edge_select_set(bm, eed, 0);
 			}
 		}
 		break;
 	}
 	case 2: { /* Face */
 		BMFace *efa;
-		BM_ITER_MESH(efa, &iter, em->bm, BM_FACES_OF_MESH) {
+		BM_ITER_MESH(efa, &iter, bm, BM_FACES_OF_MESH) {
 			if (!BM_elem_flag_test(efa, BM_ELEM_HIDDEN)) {
-				BM_face_select_set(em->bm, efa, 0);
+				BM_face_select_set(bm, efa, 0);
 			}
 		}
 		break;
@@ -1438,6 +1336,7 @@ static eV3DProjStatus view3d_project(const ARegion *ar,
 	return V3D_PROJ_RET_OK;
 }
 
+#if 0
 /* From view3d_select.c */
 static bool selectbuffer_has_bones(const uint *buffer, const uint hits)
 {
@@ -1679,13 +1578,14 @@ static void deselect_all_tracks(MovieTracking *tracking)
 		object = object->next;
 	}
 }
+#endif
 
 /* Select a single object with raycast selection.
  * Adapted from ed_object_select_pick() in view3d_select.c. */
 static void raycast_select_single(
 	const Coord3Df& p,
+	bool extend,
 	bool deselect,
-	bool extend = false,
 	bool toggle = false,
 	bool enumerate = false,
 	bool object = true,
@@ -1862,8 +1762,8 @@ static void raycast_select_single(
 								basact->flag |= BASE_SELECTED;
 								BKE_scene_object_base_flag_sync_from_base(basact);
 
-								DEG_id_tag_update(&scene->id, DEG_TAG_SELECT_UPDATE);
-								DEG_id_tag_update(&clip->id, DEG_TAG_SELECT_UPDATE);
+								DEG_id_tag_update(&scene->id, ID_RECALC_SELECT);
+								DEG_id_tag_update(&clip->id, ID_RECALC_SELECT);
 								WM_event_add_notifier(C, NC_MOVIECLIP | ND_SELECT, track);
 								WM_event_add_notifier(C, NC_SCENE | ND_OB_SELECT, scene);
 
@@ -1968,9 +1868,9 @@ static void raycast_select_single(
 			{
 				/* set cursor */
 				if (ELEM(basact->object->mode,
-					OB_MODE_GPENCIL_PAINT,
-					OB_MODE_GPENCIL_SCULPT,
-					OB_MODE_GPENCIL_WEIGHT))
+					OB_MODE_PAINT_GPENCIL,
+					OB_MODE_SCULPT_GPENCIL,
+					OB_MODE_WEIGHT_GPENCIL))
 				{
 					ED_gpencil_toggle_brush_cursor(C, true, NULL);
 				}
@@ -1981,27 +1881,28 @@ static void raycast_select_single(
 			}
 		}
 
-		DEG_id_tag_update(&scene->id, DEG_TAG_SELECT_UPDATE);
+		DEG_id_tag_update(&scene->id, ID_RECALC_SELECT);
 		WM_event_add_notifier(C, NC_SCENE | ND_OB_SELECT, scene);
 		ED_undo_push(C, "Select");
 	}
 	else {
-		if (deselect) {
+		if (!extend && !deselect) {
+			/* Empty space -> deselect all */
 			object_deselect_all_visible(view_layer, v3d);
-			DEG_id_tag_update(&scene->id, DEG_TAG_SELECT_UPDATE);
+			DEG_id_tag_update(&scene->id, ID_RECALC_SELECT);
 			WM_event_add_notifier(C, NC_SCENE | ND_OB_SELECT, scene);
 			ED_undo_push(C, "Select");
 		}
 	}
 }
-
+ 
 /* Select multiple objects with raycast selection.
  * p0 and p1 should be in screen coordinates (-1, 1). */
 static void raycast_select_multiple(
 	const float& x0, const float& y0,
 	const float& x1, const float& y1,
+	bool extend,
 	bool deselect,
-	bool extend = false,
 	bool toggle = false,
 	bool enumerate = false,
 	bool object = true,
@@ -2047,7 +1948,17 @@ static void raycast_select_multiple(
 	startbase = (Base*)FIRSTBASE(view_layer);
 	if (BASACT(view_layer) && BASACT(view_layer)->next) startbase = BASACT(view_layer)->next;
 
-	bool changed = false;
+	bool hit = false;
+
+	if (!extend && !deselect) {
+		/* Do pre-deselection. */
+		/* TODO_XR: Compare selection before and after for proper undo behavior. */
+		object_deselect_all_visible(view_layer, v3d);
+
+		DEG_id_tag_update(&scene->id, ID_RECALC_SELECT);
+		WM_event_add_notifier(C, NC_SCENE | ND_OB_SELECT, scene);
+		ED_undo_push(C, "Select");
+	}
 
 	/* This block uses the control key to make the object selected by its center point rather than its contents */
 	/* in editmode do not activate */
@@ -2081,11 +1992,10 @@ static void raycast_select_multiple(
 							}
 							/* also prevent making it active on mouse selection */
 							else if (BASE_SELECTABLE(v3d, basact)) {
-								//if (extend) {
-								//	ED_object_base_select(basact, BA_SELECT);
-								//}
-								//else
-								if (deselect) {
+								if (extend) {
+									ED_object_base_select(basact, BA_SELECT);
+								}
+								else if (deselect) {
 									ED_object_base_select(basact, BA_DESELECT);
 								}
 								else if (toggle) {
@@ -2121,9 +2031,9 @@ static void raycast_select_multiple(
 								{
 									/* set cursor */
 									if (ELEM(basact->object->mode,
-										OB_MODE_GPENCIL_PAINT,
-										OB_MODE_GPENCIL_SCULPT,
-										OB_MODE_GPENCIL_WEIGHT))
+										OB_MODE_PAINT_GPENCIL,
+										OB_MODE_SCULPT_GPENCIL,
+										OB_MODE_WEIGHT_GPENCIL))
 									{
 										ED_gpencil_toggle_brush_cursor(C, true, NULL);
 									}
@@ -2133,7 +2043,7 @@ static void raycast_select_multiple(
 									}
 								}
 							}
-							changed = true;
+							hit = true;
 						}
 					}
 				}
@@ -2247,8 +2157,8 @@ static void raycast_select_multiple(
 								basact->flag |= BASE_SELECTED;
 								BKE_scene_object_base_flag_sync_from_base(basact);
 
-								DEG_id_tag_update(&scene->id, DEG_TAG_SELECT_UPDATE);
-								DEG_id_tag_update(&clip->id, DEG_TAG_SELECT_UPDATE);
+								DEG_id_tag_update(&scene->id, ID_RECALC_SELECT);
+								DEG_id_tag_update(&clip->id, ID_RECALC_SELECT);
 								WM_event_add_notifier(C, NC_MOVIECLIP | ND_SELECT, track);
 								WM_event_add_notifier(C, NC_SCENE | ND_OB_SELECT, scene);
 
@@ -2306,16 +2216,15 @@ static void raycast_select_multiple(
 	}
 
 	/* so, do we have something selected? */
-	if (changed) {
-		DEG_id_tag_update(&scene->id, DEG_TAG_SELECT_UPDATE);
+	if (hit) {
+		DEG_id_tag_update(&scene->id, ID_RECALC_SELECT);
 		WM_event_add_notifier(C, NC_SCENE | ND_OB_SELECT, scene);
 		ED_undo_push(C, "Select");
 	}
 }
 
-#if 0
 /* Adapted from view3d_select.c */
-static void raycast_select_single_vertex(const Coord3Df& p, ViewContext *vc, bool deselect)
+static void raycast_select_single_vertex(const Coord3Df& p, ViewContext *vc, bool extend, bool deselect)
 {
 	/* TODO_XR: Use rv3d->persmat of dominant eye. */
 	bContext *C = vr_get_obj()->ctx;
@@ -2329,53 +2238,27 @@ static void raycast_select_single_vertex(const Coord3Df& p, ViewContext *vc, boo
 	float screen_co[2];
 	bool is_inside = false;
 
-	Mesh *mesh = editbmesh_get_eval_cage(vc->depsgraph, vc->scene, vc->obedit, vc->em, CD_MASK_BAREMESH);
 	BM_mesh_elem_table_ensure(vc->em->bm, BM_VERT);
-	//MeshForeachFlag flag = MESH_FOREACH_NOP;
-	const MVert *mv = mesh->mvert;
-	const int *index = (int*)CustomData_get_layer(&mesh->vdata, CD_ORIGINDEX);
 	BMVert *sv = NULL;
 
-	if (index) {
-		for (int i = 0; i < mesh->totvert; ++i, ++mv) {
-			//const short *no = (flag & MESH_FOREACH_USE_NORMAL) ? mv->no : NULL;
-			const int orig = *index++;
-			if (orig == ORIGINDEX_NONE) {
-				continue;
-			}
-			BMVert *eve = BM_vert_at_index(vc->em->bm, orig);
-			if (!BM_elem_flag_test(eve, BM_ELEM_HIDDEN)) {
-				if (view3d_project(
-					ar, rv3d->persmat, false, mv->co, screen_co,
-					(eV3DProjTest)(V3D_PROJ_TEST_CLIP_BB | V3D_PROJ_TEST_CLIP_NEAR)) == V3D_PROJ_RET_OK)
-				{
-					float dist_temp = len_manhattan_v2v2(mval_fl, screen_co);
-					dist_temp += 10.0f;
-					if (dist_temp < dist) {
-						dist = dist_temp;
-						sv = eve;
-						is_inside = true;
-					}
-				}
-			}
-		}
-	}
-	else {
-		for (int i = 0; i < mesh->totvert; ++i, ++mv) {
-			//const short *no = (flag & MESH_FOREACH_USE_NORMAL) ? mv->no : NULL;
-			BMVert *eve = BM_vert_at_index(vc->em->bm, i);
-			if (!BM_elem_flag_test(eve, BM_ELEM_HIDDEN)) {
-				if (view3d_project(
-					ar, rv3d->persmat, false, mv->co, screen_co,
-					(eV3DProjTest)(V3D_PROJ_TEST_CLIP_BB | V3D_PROJ_TEST_CLIP_NEAR)) == V3D_PROJ_RET_OK)
-				{
-					float dist_temp = len_manhattan_v2v2(mval_fl, screen_co);
-					dist_temp += 10.0f;
-					if (dist_temp < dist) {
-						dist = dist_temp;
-						sv = eve;
-						is_inside = true;
-					}
+	const Mat44f& offset = *(Mat44f*)vc->obedit->obmat;
+	static Coord3Df pos;
+	BMVert *v;
+	BMIter iter;
+	BMesh *bm = vc->em->bm;
+	BM_ITER_MESH(v, &iter, bm, BM_VERTS_OF_MESH) {
+		if (!BM_elem_flag_test(v, BM_ELEM_HIDDEN)) {
+			VR_Math::multiply_mat44_coord3D(pos, offset, *(Coord3Df*)v->co);
+			if (view3d_project(
+				ar, rv3d->persmat, false, (float*)&pos, screen_co,
+				(eV3DProjTest)(V3D_PROJ_TEST_CLIP_BB | V3D_PROJ_TEST_CLIP_NEAR)) == V3D_PROJ_RET_OK)
+			{
+				float dist_temp = len_manhattan_v2v2(mval_fl, screen_co);
+				dist_temp += 10.0f;
+				if (dist_temp < dist) {
+					dist = dist_temp;
+					sv = v;
+					is_inside = true;
 				}
 			}
 		}
@@ -2383,22 +2266,31 @@ static void raycast_select_single_vertex(const Coord3Df& p, ViewContext *vc, boo
 
 	if (is_inside && sv) {
 		const bool is_select = BM_elem_flag_test(sv, BM_ELEM_SELECT);
-		const int sel_op_result = ED_select_op_action_deselected(deselect ? SEL_OP_SUB : SEL_OP_ADD, is_select, is_inside);
+		const int sel_op_result = ED_select_op_action_deselected(deselect ? SEL_OP_SUB : SEL_OP_SET, is_select, is_inside);
 		if (sel_op_result != -1) {
-			if (!deselect) {
-				deselectall_edit(vc->em, 0);
+			if (!extend && !deselect) {
+				deselectall_edit(vc->em->bm, 0);
 			}
 			BM_vert_select_set(vc->em->bm, sv, sel_op_result);
+
+			DEG_id_tag_update((ID*)vc->obedit->data, ID_RECALC_SELECT);
+			WM_event_add_notifier(C, NC_GEOM | ND_SELECT, vc->obedit->data);
+			ED_undo_push(C, "Select");
 		}
 	}
 	else {
-		if (deselect) {
-			deselectall_edit(vc->em, 0);
+		if (!extend && !deselect) {
+			/* Empty space -> deselect all */
+			deselectall_edit(vc->em->bm, 0);
+
+			DEG_id_tag_update((ID*)vc->obedit->data, ID_RECALC_SELECT);
+			WM_event_add_notifier(C, NC_GEOM | ND_SELECT, vc->obedit->data);
+			ED_undo_push(C, "Select");
 		}
 	}
 }
 
-static void raycast_select_single_edge(const Coord3Df& p, ViewContext *vc, bool deselect)
+static void raycast_select_single_edge(const Coord3Df& p, ViewContext *vc, bool extend, bool deselect)
 {
 	/* TODO_XR: Use rv3d->persmat of dominant eye. */
 	bContext *C = vr_get_obj()->ctx;
@@ -2413,56 +2305,28 @@ static void raycast_select_single_edge(const Coord3Df& p, ViewContext *vc, bool 
 	float med_co[3];
 	bool is_inside = false;
 
-	Mesh *mesh = editbmesh_get_eval_cage(vc->depsgraph, vc->scene, vc->obedit, vc->em, CD_MASK_BAREMESH);
 	BM_mesh_elem_table_ensure(vc->em->bm, BM_EDGE);
-	//MeshForeachFlag flag = MESH_FOREACH_NOP;
-	const MVert *mv = mesh->mvert;
-	const MEdge *med = mesh->medge;
-	const int *index = (int*)CustomData_get_layer(&mesh->edata, CD_ORIGINDEX);
 	BMEdge *se = NULL;
 
-	if (index) {
-		for (int i = 0; i < mesh->totedge; ++i, ++med) {
-			//const short *no = (flag & MESH_FOREACH_USE_NORMAL) ? mv->no : NULL;
-			const int orig = *index++;
-			if (orig == ORIGINDEX_NONE) {
-				continue;
-			}
-			BMEdge *eed = BM_edge_at_index(vc->em->bm, orig);
-			if (!BM_elem_flag_test(eed, BM_ELEM_HIDDEN)) {
-				*(Coord3Df*)med_co = (*(Coord3Df*)mv[med->v1].co + *(Coord3Df*)mv[med->v2].co) / 2.0f;
-				if (view3d_project(
-					ar, rv3d->persmat, false, med_co, screen_co,
-					(eV3DProjTest)(V3D_PROJ_TEST_CLIP_BB | V3D_PROJ_TEST_CLIP_NEAR)) == V3D_PROJ_RET_OK)
-				{
-					float dist_temp = len_manhattan_v2v2(mval_fl, screen_co);
-					dist_temp += 10.0f;
-					if (dist_temp < dist) {
-						dist = dist_temp;
-						se = eed;
-						is_inside = true;
-					}
-				}
-			}
-		}
-	}
-	else {
-		for (int i = 0; i < mesh->totedge; ++i, ++med) {
-			//const short *no = (flag & MESH_FOREACH_USE_NORMAL) ? mv->no : NULL;
-			BMEdge *eed = BM_edge_at_index(vc->em->bm, i);
-			if (!BM_elem_flag_test(eed, BM_ELEM_HIDDEN)) {
-				*(Coord3Df*)med_co = (*(Coord3Df*)mv[med->v1].co + *(Coord3Df*)mv[med->v2].co) / 2.0f;
-				if (view3d_project(
-					ar, rv3d->persmat, false, med_co, screen_co,
-					(eV3DProjTest)(V3D_PROJ_TEST_CLIP_BB | V3D_PROJ_TEST_CLIP_NEAR)) == V3D_PROJ_RET_OK)
-				{
-					float dist_temp = len_manhattan_v2v2(mval_fl, screen_co);
-					dist_temp += 10.0f;
-					if (dist_temp < dist) {
-						dist = dist_temp;
-						se = eed;
-						is_inside = true;
-					}
+	const Mat44f& offset = *(Mat44f*)vc->obedit->obmat;
+	static Coord3Df pos;
+	BMEdge *e;
+	BMIter iter;
+	BMesh *bm = vc->em->bm;
+	BM_ITER_MESH(e, &iter, bm, BM_EDGES_OF_MESH) {
+		if (!BM_elem_flag_test(e, BM_ELEM_HIDDEN)) {
+			*(Coord3Df*)med_co = (*(Coord3Df*)e->v1->co + *(Coord3Df*)e->v2->co) / 2.0f;
+			VR_Math::multiply_mat44_coord3D(pos, offset, *(Coord3Df*)med_co);
+			if (view3d_project(
+				ar, rv3d->persmat, false, (float*)&pos, screen_co,
+				(eV3DProjTest)(V3D_PROJ_TEST_CLIP_BB | V3D_PROJ_TEST_CLIP_NEAR)) == V3D_PROJ_RET_OK)
+			{
+				float dist_temp = len_manhattan_v2v2(mval_fl, screen_co);
+				dist_temp += 10.0f;
+				if (dist_temp < dist) {
+					dist = dist_temp;
+					se = e;
+					is_inside = true;
 				}
 			}
 		}
@@ -2470,22 +2334,31 @@ static void raycast_select_single_edge(const Coord3Df& p, ViewContext *vc, bool 
 
 	if (is_inside && se) {
 		const bool is_select = BM_elem_flag_test(se, BM_ELEM_SELECT);
-		const int sel_op_result = ED_select_op_action_deselected(deselect ? SEL_OP_SUB : SEL_OP_ADD, is_select, is_inside);
+		const int sel_op_result = ED_select_op_action_deselected(deselect ? SEL_OP_SUB : SEL_OP_SET, is_select, is_inside);
 		if (sel_op_result != -1) {
-			if (!deselect) {
-				deselectall_edit(vc->em, 1);
+			if (!extend && !deselect) {
+				deselectall_edit(vc->em->bm, 1);
 			}
 			BM_edge_select_set(vc->em->bm, se, sel_op_result);
+
+			DEG_id_tag_update((ID*)vc->obedit->data, ID_RECALC_SELECT);
+			WM_event_add_notifier(C, NC_GEOM | ND_SELECT, vc->obedit->data);
+			ED_undo_push(C, "Select");
 		}
 	}
 	else {
-		if (deselect) {
-			deselectall_edit(vc->em, 1);
+		if (!extend && !deselect) {
+			/* Empty space -> deselect all */
+			deselectall_edit(vc->em->bm, 1);
+
+			DEG_id_tag_update((ID*)vc->obedit->data, ID_RECALC_SELECT);
+			WM_event_add_notifier(C, NC_GEOM | ND_SELECT, vc->obedit->data);
+			ED_undo_push(C, "Select");
 		}
 	}
 }
 
-static void raycast_select_single_face(const Coord3Df& p, ViewContext *vc, bool deselect)
+static void raycast_select_single_face(const Coord3Df& p, ViewContext *vc, bool extend, bool deselect)
 {
 	/* TODO_XR: Use rv3d->persmat of dominant eye. */
 	bContext *C = vr_get_obj()->ctx;
@@ -2499,67 +2372,35 @@ static void raycast_select_single_face(const Coord3Df& p, ViewContext *vc, bool 
 	float screen_co[2];
 	bool is_inside = false;
 
-	Mesh *mesh = editbmesh_get_eval_cage(vc->depsgraph, vc->scene, vc->obedit, vc->em, CD_MASK_BAREMESH);
 	BM_mesh_elem_table_ensure(vc->em->bm, BM_FACE);
-	//MeshForeachFlag flag = MESH_FOREACH_NOP;
-	const MVert *mvert = mesh->mvert;
-	const MPoly *mp = mesh->mpoly;
-	const MLoop *ml;
-	//float _no_buf[3];
-	//float *no = (flag & MESH_FOREACH_USE_NORMAL) ? _no_buf : NULL;
-	const int *index = (int*)CustomData_get_layer(&mesh->pdata, CD_ORIGINDEX);
 	BMFace *sf = NULL;
 
-	if (index) {
-		for (int i = 0; i < mesh->totpoly; ++i, ++mp) {
-			const int orig = *index++;
-			if (orig == ORIGINDEX_NONE) {
-				continue;
-			}
-			float cent[3];
-			ml = &mesh->mloop[mp->loopstart];
-			BKE_mesh_calc_poly_center(mp, ml, mvert, cent);
-			/*if (flag & MESH_FOREACH_USE_NORMAL) {
-				BKE_mesh_calc_poly_normal(mp, ml, mvert, no);
-			}*/
-			BMFace *efa = BM_face_at_index(vc->em->bm, orig);
-			if (!BM_elem_flag_test(efa, BM_ELEM_HIDDEN)) {
-				if (view3d_project(
-					ar, rv3d->persmat, false, cent, screen_co,
-					(eV3DProjTest)(V3D_PROJ_TEST_CLIP_BB | V3D_PROJ_TEST_CLIP_NEAR)) == V3D_PROJ_RET_OK)
-				{
-					float dist_temp = len_manhattan_v2v2(mval_fl, screen_co);
-					dist_temp += 10.0f;
-					if (dist_temp < dist) {
-						dist = dist_temp;
-						sf = efa;
-						is_inside = true;
-					}
-				}
-			}
+	const Mat44f& offset = *(Mat44f*)vc->obedit->obmat;
+	static Coord3Df pos;
+	static Coord3Df cent;
+	BMFace *f;
+	BMLoop *l;
+	BMIter iter;
+	BMesh *bm = vc->em->bm;
+	BM_ITER_MESH(f, &iter, bm, BM_FACES_OF_MESH) {
+		l = f->l_first;
+		memset(&cent, 0, sizeof(float) * 3);
+		for (int i = 0; i < f->len; ++i, l = l->next) {
+			cent += *(Coord3Df*)l->v->co;
 		}
-	}
-	else {
-		for (int i = 0; i < mesh->totpoly; ++i, ++mp) {
-			float cent[3];
-			ml = &mesh->mloop[mp->loopstart];
-			BKE_mesh_calc_poly_center(mp, ml, mvert, cent);
-			/*if (flag & MESH_FOREACH_USE_NORMAL) {
-				BKE_mesh_calc_poly_normal(mp, ml, mvert, no);
-			}*/
-			BMFace *efa = BM_face_at_index(vc->em->bm, i);
-			if (!BM_elem_flag_test(efa, BM_ELEM_HIDDEN)) {
-				if (view3d_project(
-					ar, rv3d->persmat, false, cent, screen_co,
-					(eV3DProjTest)(V3D_PROJ_TEST_CLIP_BB | V3D_PROJ_TEST_CLIP_NEAR)) == V3D_PROJ_RET_OK)
-				{
-					float dist_temp = len_manhattan_v2v2(mval_fl, screen_co);
-					dist_temp += 10.0f;
-					if (dist_temp < dist) {
-						dist = dist_temp;
-						sf = efa;
-						is_inside = true;
-					}
+		cent /= f->len;
+		if (!BM_elem_flag_test(f, BM_ELEM_HIDDEN)) {
+			VR_Math::multiply_mat44_coord3D(pos, offset, cent);
+			if (view3d_project(
+				ar, rv3d->persmat, false, (float*)&pos, screen_co,
+				(eV3DProjTest)(V3D_PROJ_TEST_CLIP_BB | V3D_PROJ_TEST_CLIP_NEAR)) == V3D_PROJ_RET_OK)
+			{
+				float dist_temp = len_manhattan_v2v2(mval_fl, screen_co);
+				dist_temp += 10.0f;
+				if (dist_temp < dist) {
+					dist = dist_temp;
+					sf = f;
+					is_inside = true;
 				}
 			}
 		}
@@ -2567,25 +2408,34 @@ static void raycast_select_single_face(const Coord3Df& p, ViewContext *vc, bool 
 
 	if (is_inside && sf) {
 		const bool is_select = BM_elem_flag_test(sf, BM_ELEM_SELECT);
-		const int sel_op_result = ED_select_op_action_deselected(deselect ? SEL_OP_SUB : SEL_OP_ADD, is_select, is_inside);
+		const int sel_op_result = ED_select_op_action_deselected(deselect ? SEL_OP_SUB : SEL_OP_SET, is_select, is_inside);
 		if (sel_op_result != -1) {
-			if (!deselect) {
-				deselectall_edit(vc->em, 2);
+			if (!extend && !deselect) {
+				deselectall_edit(vc->em->bm, 2);
 			}
 			BM_face_select_set(vc->em->bm, sf, sel_op_result);
+
+			DEG_id_tag_update((ID*)vc->obedit->data, ID_RECALC_SELECT);
+			WM_event_add_notifier(C, NC_GEOM | ND_SELECT, vc->obedit->data);
+			ED_undo_push(C, "Select");
 		}
 	}
 	else {
-		if (deselect) {
-			deselectall_edit(vc->em, 2);
+		if (!extend && !deselect) {
+			/* Empty space -> deselect all */
+			deselectall_edit(vc->em->bm, 2);
+
+			DEG_id_tag_update((ID*)vc->obedit->data, ID_RECALC_SELECT);
+			WM_event_add_notifier(C, NC_GEOM | ND_SELECT, vc->obedit->data);
+			ED_undo_push(C, "Select");
 		}
 	}
 }
 
 static void raycast_select_single_edit(
 	const Coord3Df& p,
+	bool extend,
 	bool deselect,
-	bool extend = false,
 	bool toggle = false,
 	bool enumerate = false) 
 {
@@ -2593,13 +2443,6 @@ static void raycast_select_single_edit(
 	VR *vr = vr_get_obj();
 	bContext *C = vr->ctx;
 	ViewContext vc;
-	/*eSelectOp sel_op;
-	if (deselect) {
-		sel_op = SEL_OP_SUB;
-	}
-	else {
-		sel_op = SEL_OP_ADD;
-	}*/
 
 	/* setup view context */
 	ED_view3d_viewcontext_init(C, &vc);
@@ -2608,25 +2451,21 @@ static void raycast_select_single_edit(
 	if (vc.obedit) {
 		ED_view3d_viewcontext_init_object(&vc, vc.obedit);
 		vc.em = BKE_editmesh_from_object(vc.obedit);
-
-		/*if (SEL_OP_USE_PRE_DESELECT(sel_op)) {
-			EDBM_flag_disable_all(vc.em, BM_ELEM_SELECT);
-		}*/
+		if (!vc.em) {
+			return;
+		}
 
 		if (ts->selectmode & SCE_SELECT_VERTEX) {
-			raycast_select_single_vertex(p, &vc, deselect);
+			raycast_select_single_vertex(p, &vc, extend, deselect);
 		}
-		if (ts->selectmode & SCE_SELECT_EDGE) {
-			raycast_select_single_edge(p, &vc, deselect);
+		else if (ts->selectmode & SCE_SELECT_EDGE) {
+			raycast_select_single_edge(p, &vc, extend, deselect);
 		}
-		if (ts->selectmode & SCE_SELECT_FACE) {
-			raycast_select_single_face(p, &vc, deselect);
+		else if (ts->selectmode & SCE_SELECT_FACE) {
+			raycast_select_single_face(p, &vc, extend, deselect);
 		}
 
 		EDBM_selectmode_flush(vc.em);
-
-		DEG_id_tag_update((ID*)vc.obedit->data, DEG_TAG_SELECT_UPDATE);
-		WM_event_add_notifier(C, NC_GEOM | ND_SELECT, vc.obedit->data);
 	}
 }
 
@@ -2634,7 +2473,7 @@ static void raycast_select_single_edit(
 static void raycast_select_multiple_vertex(
 	const float& x0, const float& y0,
 	const float& x1, const float& y1,
-	ViewContext *vc, bool deselect)
+	ViewContext *vc, bool extend, bool deselect)
 {
 	/* Find bounds and center of selection rectangle. */
 	float bounds_x = fabsf(x1 - x0) / 2.0f;
@@ -2643,7 +2482,8 @@ static void raycast_select_multiple_vertex(
 	float center_y = (y0 + y1) / 2.0f;
 	/* Convert from screen coordinates to pixel coordinates. */
 	VR *vr = vr_get_obj();
-	ARegion *ar = CTX_wm_region(vr->ctx);
+	bContext *C = vr->ctx;
+	ARegion *ar = CTX_wm_region(C);
 	RegionView3D *rv3d = (RegionView3D*)ar->regiondata;
 	bounds_x *= (float)vr->tex_width / 2.0f;
 	bounds_y *= (float)vr->tex_height / 2.0f;
@@ -2652,69 +2492,56 @@ static void raycast_select_multiple_vertex(
 	float screen_co[2];
 	bool is_inside = false;
 
-	Mesh *mesh = editbmesh_get_eval_cage(vc->depsgraph, vc->scene, vc->obedit, vc->em, CD_MASK_BAREMESH);
+	if (!extend && !deselect) {
+		/* Do pre-deselection. */
+		/* TODO_XR: Compare selection before and after for proper undo behavior. */
+		deselectall_edit(vc->em->bm, 0);
+
+		DEG_id_tag_update((ID*)vc->obedit->data, ID_RECALC_SELECT);
+		WM_event_add_notifier(C, NC_GEOM | ND_SELECT, vc->obedit->data);
+		ED_undo_push(C, "Select");
+	}
+
 	BM_mesh_elem_table_ensure(vc->em->bm, BM_VERT);
-	//MeshForeachFlag flag = MESH_FOREACH_NOP;
-	const MVert *mv = mesh->mvert;
-	const int *index = (int*)CustomData_get_layer(&mesh->vdata, CD_ORIGINDEX);
 	BMVert *sv = NULL;
 
-	if (index) {
-		for (int i = 0; i < mesh->totvert; ++i, ++mv) {
-			//const short *no = (flag & MESH_FOREACH_USE_NORMAL) ? mv->no : NULL;
-			const int orig = *index++;
-			if (orig == ORIGINDEX_NONE) {
-				continue;
-			}
-			BMVert *eve = BM_vert_at_index(vc->em->bm, orig);
-			if (!BM_elem_flag_test(eve, BM_ELEM_HIDDEN)) {
-				if (view3d_project(
-					ar, rv3d->persmat, false, mv->co, screen_co,
-					(eV3DProjTest)(V3D_PROJ_TEST_CLIP_BB | V3D_PROJ_TEST_CLIP_NEAR)) == V3D_PROJ_RET_OK)
-				{
-					if (fabsf(screen_co[0] - center_x) < bounds_x &&
-						fabsf(screen_co[1] - center_y) < bounds_y) {
-						sv = eve;
-						is_inside = true;
-						const bool is_select = BM_elem_flag_test(sv, BM_ELEM_SELECT);
-						const int sel_op_result = ED_select_op_action_deselected(deselect ? SEL_OP_SUB : SEL_OP_ADD, is_select, is_inside);
-						if (sel_op_result != -1) {
-							BM_vert_select_set(vc->em->bm, sv, sel_op_result);
-						}
+	const Mat44f& offset = *(Mat44f*)vc->obedit->obmat;
+	static Coord3Df pos;
+	BMVert *v;
+	BMIter iter;
+	BMesh *bm = vc->em->bm;
+	BM_ITER_MESH(v, &iter, bm, BM_VERTS_OF_MESH) {
+		if (!BM_elem_flag_test(v, BM_ELEM_HIDDEN)) {
+			VR_Math::multiply_mat44_coord3D(pos, offset, *(Coord3Df*)v->co);
+			if (view3d_project(
+				ar, rv3d->persmat, false, (float*)&pos, screen_co,
+				(eV3DProjTest)(V3D_PROJ_TEST_CLIP_BB | V3D_PROJ_TEST_CLIP_NEAR)) == V3D_PROJ_RET_OK)
+			{
+				if (fabsf(screen_co[0] - center_x) < bounds_x &&
+					fabsf(screen_co[1] - center_y) < bounds_y) {
+					sv = v;
+					is_inside = true;
+					const bool is_select = BM_elem_flag_test(sv, BM_ELEM_SELECT);
+					const int sel_op_result = ED_select_op_action_deselected(deselect ? SEL_OP_SUB : SEL_OP_ADD, is_select, is_inside);
+					if (sel_op_result != -1) {
+						BM_vert_select_set(vc->em->bm, sv, sel_op_result);
 					}
 				}
 			}
 		}
 	}
-	else {
-		for (int i = 0; i < mesh->totvert; ++i, ++mv) {
-			//const short *no = (flag & MESH_FOREACH_USE_NORMAL) ? mv->no : NULL;
-			BMVert *eve = BM_vert_at_index(vc->em->bm, i);
-			if (!BM_elem_flag_test(eve, BM_ELEM_HIDDEN)) {
-				if (view3d_project(
-					ar, rv3d->persmat, false, mv->co, screen_co,
-					(eV3DProjTest)(V3D_PROJ_TEST_CLIP_BB | V3D_PROJ_TEST_CLIP_NEAR)) == V3D_PROJ_RET_OK)
-				{
-					if (fabsf(screen_co[0] - center_x) < bounds_x &&
-						fabsf(screen_co[1] - center_y) < bounds_y) {
-						sv = eve;
-						is_inside = true;
-						const bool is_select = BM_elem_flag_test(sv, BM_ELEM_SELECT);
-						const int sel_op_result = ED_select_op_action_deselected(deselect ? SEL_OP_SUB : SEL_OP_ADD, is_select, is_inside);
-						if (sel_op_result != -1) {
-							BM_vert_select_set(vc->em->bm, sv, sel_op_result);
-						}
-					}
-				}
-			}
-		}
+
+	if (is_inside) {
+		DEG_id_tag_update((ID*)vc->obedit->data, ID_RECALC_SELECT);
+		WM_event_add_notifier(C, NC_GEOM | ND_SELECT, vc->obedit->data);
+		ED_undo_push(C, "Select");
 	}
 }
 
 static void raycast_select_multiple_edge(
 	const float& x0, const float& y0,
 	const float& x1, const float& y1,
-	ViewContext *vc, bool deselect)
+	ViewContext *vc, bool extend, bool deselect)
 {
 	/* Find bounds and center of selection rectangle. */
 	float bounds_x = fabsf(x1 - x0) / 2.0f;
@@ -2723,7 +2550,8 @@ static void raycast_select_multiple_edge(
 	float center_y = (y0 + y1) / 2.0f;
 	/* Convert from screen coordinates to pixel coordinates. */
 	VR *vr = vr_get_obj();
-	ARegion *ar = CTX_wm_region(vr->ctx);
+	bContext *C = vr->ctx;
+	ARegion *ar = CTX_wm_region(C);
 	RegionView3D *rv3d = (RegionView3D*)ar->regiondata;
 	bounds_x *= (float)vr->tex_width / 2.0f;
 	bounds_y *= (float)vr->tex_height / 2.0f;
@@ -2733,72 +2561,57 @@ static void raycast_select_multiple_edge(
 	float med_co[3];
 	bool is_inside = false;
 
-	Mesh *mesh = editbmesh_get_eval_cage(vc->depsgraph, vc->scene, vc->obedit, vc->em, CD_MASK_BAREMESH);
+	if (!extend && !deselect) {
+		/* Do pre-deselection. */
+		/* TODO_XR: Compare selection before and after for proper undo behavior. */
+		deselectall_edit(vc->em->bm, 1);
+
+		DEG_id_tag_update((ID*)vc->obedit->data, ID_RECALC_SELECT);
+		WM_event_add_notifier(C, NC_GEOM | ND_SELECT, vc->obedit->data);
+		ED_undo_push(C, "Select");
+	}
+
 	BM_mesh_elem_table_ensure(vc->em->bm, BM_EDGE);
-	//MeshForeachFlag flag = MESH_FOREACH_NOP;
-	const MVert *mv = mesh->mvert;
-	const MEdge *med = mesh->medge;
-	const int *index = (int*)CustomData_get_layer(&mesh->edata, CD_ORIGINDEX);
 	BMEdge *se = NULL;
 
-	if (index) {
-		for (int i = 0; i < mesh->totedge; ++i, ++med) {
-			//const short *no = (flag & MESH_FOREACH_USE_NORMAL) ? mv->no : NULL;
-			const int orig = *index++;
-			if (orig == ORIGINDEX_NONE) {
-				continue;
-			}
-			BMEdge *eed = BM_edge_at_index(vc->em->bm, orig);
-			if (!BM_elem_flag_test(eed, BM_ELEM_HIDDEN)) {
-				*(Coord3Df*)med_co = (*(Coord3Df*)mv[med->v1].co + *(Coord3Df*)mv[med->v2].co) / 2.0f;
-				if (view3d_project(
-					ar, rv3d->persmat, false, med_co, screen_co,
-					(eV3DProjTest)(V3D_PROJ_TEST_CLIP_BB | V3D_PROJ_TEST_CLIP_NEAR)) == V3D_PROJ_RET_OK)
-				{
-					if (fabsf(screen_co[0] - center_x) < bounds_x &&
-						fabsf(screen_co[1] - center_y) < bounds_y) {
-						se = eed;
-						is_inside = true;
-						const bool is_select = BM_elem_flag_test(se, BM_ELEM_SELECT);
-						const int sel_op_result = ED_select_op_action_deselected(deselect ? SEL_OP_SUB : SEL_OP_ADD, is_select, is_inside);
-						if (sel_op_result != -1) {
-							BM_edge_select_set(vc->em->bm, se, sel_op_result);
-						}
+	const Mat44f& offset = *(Mat44f*)vc->obedit->obmat;
+	static Coord3Df pos;
+	BMEdge *e;
+	BMIter iter;
+	BMesh *bm = vc->em->bm;
+	BM_ITER_MESH(e, &iter, bm, BM_EDGES_OF_MESH) {
+		if (!BM_elem_flag_test(e, BM_ELEM_HIDDEN)) {
+			*(Coord3Df*)med_co = (*(Coord3Df*)e->v1->co + *(Coord3Df*)e->v2->co) / 2.0f;
+			VR_Math::multiply_mat44_coord3D(pos, offset, *(Coord3Df*)med_co);
+			if (view3d_project(
+				ar, rv3d->persmat, false, (float*)&pos, screen_co,
+				(eV3DProjTest)(V3D_PROJ_TEST_CLIP_BB | V3D_PROJ_TEST_CLIP_NEAR)) == V3D_PROJ_RET_OK)
+			{
+				if (fabsf(screen_co[0] - center_x) < bounds_x &&
+					fabsf(screen_co[1] - center_y) < bounds_y) {
+					se = e;
+					is_inside = true;
+					const bool is_select = BM_elem_flag_test(se, BM_ELEM_SELECT);
+					const int sel_op_result = ED_select_op_action_deselected(deselect ? SEL_OP_SUB : SEL_OP_ADD, is_select, is_inside);
+					if (sel_op_result != -1) {
+						BM_edge_select_set(vc->em->bm, se, sel_op_result);
 					}
 				}
 			}
 		}
 	}
-	else {
-		for (int i = 0; i < mesh->totedge; ++i, ++med) {
-			//const short *no = (flag & MESH_FOREACH_USE_NORMAL) ? mv->no : NULL;
-			BMEdge *eed = BM_edge_at_index(vc->em->bm, i);
-			if (!BM_elem_flag_test(eed, BM_ELEM_HIDDEN)) {
-				*(Coord3Df*)med_co = (*(Coord3Df*)mv[med->v1].co + *(Coord3Df*)mv[med->v2].co) / 2.0f;
-				if (view3d_project(
-					ar, rv3d->persmat, false, med_co, screen_co,
-					(eV3DProjTest)(V3D_PROJ_TEST_CLIP_BB | V3D_PROJ_TEST_CLIP_NEAR)) == V3D_PROJ_RET_OK)
-				{
-					if (fabsf(screen_co[0] - center_x) < bounds_x &&
-						fabsf(screen_co[1] - center_y) < bounds_y) {
-						se = eed;
-						is_inside = true;
-						const bool is_select = BM_elem_flag_test(se, BM_ELEM_SELECT);
-						const int sel_op_result = ED_select_op_action_deselected(deselect ? SEL_OP_SUB : SEL_OP_ADD, is_select, is_inside);
-						if (sel_op_result != -1) {
-							BM_edge_select_set(vc->em->bm, se, sel_op_result);
-						}
-					}
-				}
-			}
-		}
+
+	if (is_inside) {
+		DEG_id_tag_update((ID*)vc->obedit->data, ID_RECALC_SELECT);
+		WM_event_add_notifier(C, NC_GEOM | ND_SELECT, vc->obedit->data);
+		ED_undo_push(C, "Select");
 	}
 }
 
 static void raycast_select_multiple_face(
 	const float& x0, const float& y0,
 	const float& x1, const float& y1, 
-	ViewContext *vc, bool deselect)
+	ViewContext *vc, bool extend, bool deselect)
 {
 	/* Find bounds and center of selection rectangle. */
 	float bounds_x = fabsf(x1 - x0) / 2.0f;
@@ -2807,7 +2620,8 @@ static void raycast_select_multiple_face(
 	float center_y = (y0 + y1) / 2.0f;
 	/* Convert from screen coordinates to pixel coordinates. */
 	VR *vr = vr_get_obj();
-	ARegion *ar = CTX_wm_region(vr->ctx);
+	bContext *C = vr->ctx;
+	ARegion *ar = CTX_wm_region(C);
 	RegionView3D *rv3d = (RegionView3D*)ar->regiondata;
 	bounds_x *= (float)vr->tex_width / 2.0f;
 	bounds_y *= (float)vr->tex_height / 2.0f;
@@ -2816,84 +2630,65 @@ static void raycast_select_multiple_face(
 	float screen_co[2];
 	bool is_inside = false;
 
-	Mesh *mesh = editbmesh_get_eval_cage(vc->depsgraph, vc->scene, vc->obedit, vc->em, CD_MASK_BAREMESH);
+	if (!extend && !deselect) {
+		/* Do pre-deselection. */
+		/* TODO_XR: Compare selection before and after for proper undo behavior. */
+		deselectall_edit(vc->em->bm, 2);
+
+		DEG_id_tag_update((ID*)vc->obedit->data, ID_RECALC_SELECT);
+		WM_event_add_notifier(C, NC_GEOM | ND_SELECT, vc->obedit->data);
+		ED_undo_push(C, "Select");
+	}
+
 	BM_mesh_elem_table_ensure(vc->em->bm, BM_FACE);
-	//MeshForeachFlag flag = MESH_FOREACH_NOP;
-	const MVert *mvert = mesh->mvert;
-	const MPoly *mp = mesh->mpoly;
-	const MLoop *ml;
-	//float _no_buf[3];
-	//float *no = (flag & MESH_FOREACH_USE_NORMAL) ? _no_buf : NULL;
-	const int *index = (int*)CustomData_get_layer(&mesh->pdata, CD_ORIGINDEX);
 	BMFace *sf = NULL;
 
-	if (index) {
-		for (int i = 0; i < mesh->totpoly; ++i, ++mp) {
-			const int orig = *index++;
-			if (orig == ORIGINDEX_NONE) {
-				continue;
-			}
-			float cent[3];
-			ml = &mesh->mloop[mp->loopstart];
-			BKE_mesh_calc_poly_center(mp, ml, mvert, cent);
-			/*if (flag & MESH_FOREACH_USE_NORMAL) {
-				BKE_mesh_calc_poly_normal(mp, ml, mvert, no);
-			}*/
-			BMFace *efa = BM_face_at_index(vc->em->bm, orig);
-			if (!BM_elem_flag_test(efa, BM_ELEM_HIDDEN)) {
-				if (view3d_project(
-					ar, rv3d->persmat, false, cent, screen_co,
-					(eV3DProjTest)(V3D_PROJ_TEST_CLIP_BB | V3D_PROJ_TEST_CLIP_NEAR)) == V3D_PROJ_RET_OK)
-				{
-					if (fabsf(screen_co[0] - center_x) < bounds_x &&
-						fabsf(screen_co[1] - center_y) < bounds_y) {
-						sf = efa;
-						is_inside = true;
-						const bool is_select = BM_elem_flag_test(sf, BM_ELEM_SELECT);
-						const int sel_op_result = ED_select_op_action_deselected(deselect ? SEL_OP_SUB : SEL_OP_ADD, is_select, is_inside);
-						if (sel_op_result != -1) {
-							BM_face_select_set(vc->em->bm, sf, sel_op_result);
-						}
+	const Mat44f& offset = *(Mat44f*)vc->obedit->obmat;
+	static Coord3Df pos;
+	static Coord3Df cent;
+	BMFace *f;
+	BMLoop *l;
+	BMIter iter;
+	BMesh *bm = vc->em->bm;
+	BM_ITER_MESH(f, &iter, bm, BM_FACES_OF_MESH) {
+		l = f->l_first;
+		memset(&cent, 0, sizeof(float) * 3);
+		for (int i = 0; i < f->len; ++i, l = l->next) {
+			cent += *(Coord3Df*)l->v->co;
+		}
+		cent /= f->len;
+		if (!BM_elem_flag_test(f, BM_ELEM_HIDDEN)) {
+			VR_Math::multiply_mat44_coord3D(pos, offset, cent);
+			if (view3d_project(
+				ar, rv3d->persmat, false, (float*)&pos, screen_co,
+				(eV3DProjTest)(V3D_PROJ_TEST_CLIP_BB | V3D_PROJ_TEST_CLIP_NEAR)) == V3D_PROJ_RET_OK)
+			{
+				if (fabsf(screen_co[0] - center_x) < bounds_x &&
+					fabsf(screen_co[1] - center_y) < bounds_y) {
+					sf = f;
+					is_inside = true;
+					const bool is_select = BM_elem_flag_test(sf, BM_ELEM_SELECT);
+					const int sel_op_result = ED_select_op_action_deselected(deselect ? SEL_OP_SUB : SEL_OP_ADD, is_select, is_inside);
+					if (sel_op_result != -1) {
+						BM_face_select_set(vc->em->bm, sf, sel_op_result);
 					}
 				}
 			}
 		}
 	}
-	else {
-		for (int i = 0; i < mesh->totpoly; ++i, ++mp) {
-			float cent[3];
-			ml = &mesh->mloop[mp->loopstart];
-			BKE_mesh_calc_poly_center(mp, ml, mvert, cent);
-			/*if (flag & MESH_FOREACH_USE_NORMAL) {
-				BKE_mesh_calc_poly_normal(mp, ml, mvert, no);
-			}*/
-			BMFace *efa = BM_face_at_index(vc->em->bm, i);
-			if (!BM_elem_flag_test(efa, BM_ELEM_HIDDEN)) {
-				if (view3d_project(
-					ar, rv3d->persmat, false, cent, screen_co,
-					(eV3DProjTest)(V3D_PROJ_TEST_CLIP_BB | V3D_PROJ_TEST_CLIP_NEAR)) == V3D_PROJ_RET_OK)
-				{
-					if (fabsf(screen_co[0] - center_x) < bounds_x &&
-						fabsf(screen_co[1] - center_y) < bounds_y) {
-						sf = efa;
-						is_inside = true;
-						const bool is_select = BM_elem_flag_test(sf, BM_ELEM_SELECT);
-						const int sel_op_result = ED_select_op_action_deselected(deselect ? SEL_OP_SUB : SEL_OP_ADD, is_select, is_inside);
-						if (sel_op_result != -1) {
-							BM_face_select_set(vc->em->bm, sf, sel_op_result);
-						}
-					}
-				}
-			}
-		}
+
+	if (is_inside) {
+		DEG_id_tag_update((ID*)vc->obedit->data, ID_RECALC_SELECT);
+		WM_event_add_notifier(C, NC_GEOM | ND_SELECT, vc->obedit->data);
+		ED_undo_push(C, "Select");
 	}
 }
 
 static void raycast_select_multiple_edit(
 	const float& x0, const float& y0,
 	const float& x1, const float& y1,
+	bool extend,
 	bool deselect,
-	bool extend = false,
 	bool toggle = false,
 	bool enumerate = false)
 {
@@ -2901,13 +2696,6 @@ static void raycast_select_multiple_edit(
 	VR *vr = vr_get_obj();
 	bContext *C = vr->ctx;
 	ViewContext vc;
-	//eSelectOp sel_op;
-	//if (deselect) {
-	//	sel_op = SEL_OP_SUB;
-	//}
-	//else {
-	//	sel_op = SEL_OP_ADD;
-	//}
 
 	/* setup view context */
 	ED_view3d_viewcontext_init(C, &vc);
@@ -2916,29 +2704,23 @@ static void raycast_select_multiple_edit(
 	if (vc.obedit) {
 		ED_view3d_viewcontext_init_object(&vc, vc.obedit);
 		vc.em = BKE_editmesh_from_object(vc.obedit);
-
-		/*if (SEL_OP_USE_PRE_DESELECT(sel_op)) {
-			EDBM_flag_disable_all(vc.em, BM_ELEM_SELECT);
-		}*/
+		if (!vc.em) {
+			return;
+		}
 
 		if (ts->selectmode & SCE_SELECT_VERTEX) {
-			raycast_select_multiple_vertex(x0, y0, x1, y1, &vc, deselect);
+			raycast_select_multiple_vertex(x0, y0, x1, y1, &vc, extend, deselect);
 		}
-		if (ts->selectmode & SCE_SELECT_EDGE) {
-			raycast_select_multiple_edge(x0, y0, x1, y1, &vc, deselect);
+		else if (ts->selectmode & SCE_SELECT_EDGE) {
+			raycast_select_multiple_edge(x0, y0, x1, y1, &vc, extend, deselect);
 		}
-		if (ts->selectmode & SCE_SELECT_FACE) {
-			raycast_select_multiple_face(x0, y0, x1, y1, &vc, deselect);
+		else if (ts->selectmode & SCE_SELECT_FACE) {
+			raycast_select_multiple_face(x0, y0, x1, y1, &vc, extend, deselect);
 		}
 
 		EDBM_selectmode_flush(vc.em);
-
-		DEG_id_tag_update((ID*)vc.obedit->data, DEG_TAG_SELECT_UPDATE);
-		WM_event_add_notifier(C, NC_GEOM | ND_SELECT, vc.obedit->data);
-		ED_undo_push(C, "Select");
 	}
 }
-#endif
 
 bool Widget_Select::Raycast::has_click(VR_UI::Cursor& c) const
 {
@@ -2948,12 +2730,12 @@ bool Widget_Select::Raycast::has_click(VR_UI::Cursor& c) const
 void Widget_Select::Raycast::click(VR_UI::Cursor& c)
 {
 	const Mat44f& m = c.position.get();
-	//if (CTX_data_edit_object(vr_get_obj()->ctx)) {
-	//	raycast_select_single_edit(*(Coord3Df*)m.m[3], VR_UI::ctrl_key_get());
-	//}
-	//else {
-		raycast_select_single(*(Coord3Df*)m.m[3], VR_UI::ctrl_key_get());
-	//}
+	if (CTX_data_edit_object(vr_get_obj()->ctx)) {
+		raycast_select_single_edit(*(Coord3Df*)m.m[3], VR_UI::shift_key_get(), VR_UI::ctrl_key_get());
+	}
+	else {
+		raycast_select_single(*(Coord3Df*)m.m[3], VR_UI::shift_key_get(), VR_UI::ctrl_key_get());
+	}
 	/* Update manipulators */
 	Widget_Transform::update_manipulator();
 }
@@ -2978,7 +2760,7 @@ void Widget_Select::Raycast::drag_contd(VR_UI::Cursor& c)
 	VR_Side side = VR_UI::eye_dominance_get();
 	VR_UI::get_screen_coordinates(*(Coord3Df*)m.m[3], selection_rect[side].x1, selection_rect[side].y1, side);
 	VR_UI::get_screen_coordinates(*(Coord3Df*)m_interaction.m[3], selection_rect[side].x0, selection_rect[side].y0, side);
-
+	
 	Widget_Select::Raycast::obj.do_render[side] = true;
 }
 
@@ -2988,12 +2770,12 @@ void Widget_Select::Raycast::drag_stop(VR_UI::Cursor& c)
 	VR_Side side = VR_UI::eye_dominance_get();
 	VR_UI::get_screen_coordinates(*(Coord3Df*)m.m[3], selection_rect[side].x1, selection_rect[side].y1, side);
 
-	//if (CTX_data_edit_object(vr_get_obj()->ctx)) {
-	//	raycast_select_multiple_edit(selection_rect[side].x0, selection_rect[side].y0, selection_rect[side].x1, selection_rect[side].y1, VR_UI::ctrl_key_get());
-	//}
-	//else {
-		raycast_select_multiple(selection_rect[side].x0, selection_rect[side].y0, selection_rect[side].x1, selection_rect[side].y1, VR_UI::ctrl_key_get());
-	//}
+	if (CTX_data_edit_object(vr_get_obj()->ctx)) {
+		raycast_select_multiple_edit(selection_rect[side].x0, selection_rect[side].y0, selection_rect[side].x1, selection_rect[side].y1, VR_UI::shift_key_get(), VR_UI::ctrl_key_get());
+	}
+	else {
+		raycast_select_multiple(selection_rect[side].x0, selection_rect[side].y0, selection_rect[side].x1, selection_rect[side].y1, VR_UI::shift_key_get(), VR_UI::ctrl_key_get());
+	}
 	/* Update manipulators */
 	Widget_Transform::update_manipulator();
 
@@ -3037,8 +2819,8 @@ Coord3Df Widget_Select::Proximity::p1;
 static void proximity_select_multiple(
 	const Coord3Df& p0,
 	const Coord3Df& p1,
+	bool extend,
 	bool deselect,
-	bool extend = false,
 	bool toggle = false,
 	bool enumerate = false,
 	bool object = true,
@@ -3077,7 +2859,17 @@ static void proximity_select_multiple(
 	startbase = (Base*)FIRSTBASE(view_layer);
 	if (BASACT(view_layer) && BASACT(view_layer)->next) startbase = BASACT(view_layer)->next;
 
-	bool changed = false;
+	bool hit = false;
+
+	if (!extend && !deselect) {
+		/* Do pre-deselection. */
+		/* TODO_XR: Compare selection before and after for proper undo behavior. */
+		object_deselect_all_visible(view_layer, v3d);
+
+		DEG_id_tag_update(&scene->id, ID_RECALC_SELECT);
+		WM_event_add_notifier(C, NC_SCENE | ND_OB_SELECT, scene);
+		ED_undo_push(C, "Select");
+	}
 
 	/* This block uses the control key to make the object selected by its center point rather than its contents */
 	/* in editmode do not activate */
@@ -3147,9 +2939,9 @@ static void proximity_select_multiple(
 							{
 								/* set cursor */
 								if (ELEM(basact->object->mode,
-									OB_MODE_GPENCIL_PAINT,
-									OB_MODE_GPENCIL_SCULPT,
-									OB_MODE_GPENCIL_WEIGHT))
+									OB_MODE_PAINT_GPENCIL,
+									OB_MODE_SCULPT_GPENCIL,
+									OB_MODE_WEIGHT_GPENCIL))
 								{
 									ED_gpencil_toggle_brush_cursor(C, true, NULL);
 								}
@@ -3159,7 +2951,7 @@ static void proximity_select_multiple(
 								}
 							}
 						}
-						changed = true;
+						hit = true;
 					}
 				}
 				base = base->next;
@@ -3272,8 +3064,8 @@ static void proximity_select_multiple(
 								basact->flag |= BASE_SELECTED;
 								BKE_scene_object_base_flag_sync_from_base(basact);
 
-								DEG_id_tag_update(&scene->id, DEG_TAG_SELECT_UPDATE);
-								DEG_id_tag_update(&clip->id, DEG_TAG_SELECT_UPDATE);
+								DEG_id_tag_update(&scene->id, ID_RECALC_SELECT);
+								DEG_id_tag_update(&clip->id, ID_RECALC_SELECT);
 								WM_event_add_notifier(C, NC_MOVIECLIP | ND_SELECT, track);
 								WM_event_add_notifier(C, NC_SCENE | ND_OB_SELECT, scene);
 
@@ -3331,20 +3123,20 @@ static void proximity_select_multiple(
 	}
 
 	/* so, do we have something selected? */
-	if (changed) {
-		DEG_id_tag_update(&scene->id, DEG_TAG_SELECT_UPDATE);
+	if (hit) {
+		DEG_id_tag_update(&scene->id, ID_RECALC_SELECT);
 		WM_event_add_notifier(C, NC_SCENE | ND_OB_SELECT, scene);
 		ED_undo_push(C, "Select");
 	}
 }
 
-#if 0
 /* Adapted from view3d_select.c */
 static void proximity_select_multiple_vertex(
 	const Coord3Df& p0,
 	const Coord3Df& p1,
-	ViewContext *vc, bool deselect)
+	ViewContext *vc, bool extend, bool deselect)
 {
+	bContext *C = vr_get_obj()->ctx;
 	/* Find bounds and center of selection box. */
 	float bounds_x = fabsf(p1.x - p0.x) / 2.0f;
 	float bounds_y = fabsf(p1.y - p0.y) / 2.0f;
@@ -3352,66 +3144,55 @@ static void proximity_select_multiple_vertex(
 	Coord3Df center = p0 + (p1 - p0) / 2.0f;
 	bool is_inside = false;
 
-	Mesh *mesh = editbmesh_get_eval_cage(vc->depsgraph, vc->scene, vc->obedit, vc->em, CD_MASK_BAREMESH);
+	if (!extend && !deselect) {
+		/* Do pre-deselection. */
+		/* TODO_XR: Compare selection before and after for proper undo behavior. */
+		deselectall_edit(vc->em->bm, 0);
+
+		DEG_id_tag_update((ID*)vc->obedit->data, ID_RECALC_SELECT);
+		WM_event_add_notifier(C, NC_GEOM | ND_SELECT, vc->obedit->data);
+		ED_undo_push(C, "Select");
+	}
+
 	BM_mesh_elem_table_ensure(vc->em->bm, BM_VERT);
-	//MeshForeachFlag flag = MESH_FOREACH_NOP;
-	const MVert *mv = mesh->mvert;
-	const int *index = (int*)CustomData_get_layer(&mesh->vdata, CD_ORIGINDEX);
 	BMVert *sv = NULL;
 
-	if (index) {
-		for (int i = 0; i < mesh->totvert; ++i, ++mv) {
-			//const short *no = (flag & MESH_FOREACH_USE_NORMAL) ? mv->no : NULL;
-			const int orig = *index++;
-			if (orig == ORIGINDEX_NONE) {
-				continue;
-			}
-			BMVert *eve = BM_vert_at_index(vc->em->bm, orig);
-			if (!BM_elem_flag_test(eve, BM_ELEM_HIDDEN)) {
-				const Coord3Df& elem_pos = *(Coord3Df*)mv->co;
-				if (fabs(elem_pos.x - center.x) < bounds_x &&
-					fabs(elem_pos.y - center.y) < bounds_y &&
-					fabs(elem_pos.z - center.z) < bounds_z)
-				{
-					sv = eve;
-					is_inside = true;
-					const bool is_select = BM_elem_flag_test(sv, BM_ELEM_SELECT);
-					const int sel_op_result = ED_select_op_action_deselected(deselect ? SEL_OP_SUB : SEL_OP_ADD, is_select, is_inside);
-					if (sel_op_result != -1) {
-						BM_vert_select_set(vc->em->bm, sv, sel_op_result);
-					}
+	const Mat44f& offset = *(Mat44f*)vc->obedit->obmat;
+	static Coord3Df pos;
+	BMVert *v;
+	BMIter iter;
+	BMesh *bm = vc->em->bm;
+	BM_ITER_MESH(v, &iter, bm, BM_VERTS_OF_MESH) {
+		if (!BM_elem_flag_test(v, BM_ELEM_HIDDEN)) {
+			VR_Math::multiply_mat44_coord3D(pos, offset, *(Coord3Df*)v->co);
+			if (fabs(pos.x - center.x) < bounds_x &&
+				fabs(pos.y - center.y) < bounds_y &&
+				fabs(pos.z - center.z) < bounds_z)
+			{
+				sv = v;
+				is_inside = true;
+				const bool is_select = BM_elem_flag_test(sv, BM_ELEM_SELECT);
+				const int sel_op_result = ED_select_op_action_deselected(deselect ? SEL_OP_SUB : SEL_OP_ADD, is_select, is_inside);
+				if (sel_op_result != -1) {
+					BM_vert_select_set(vc->em->bm, sv, sel_op_result);
 				}
 			}
 		}
 	}
-	else {
-		for (int i = 0; i < mesh->totvert; ++i, ++mv) {
-			//const short *no = (flag & MESH_FOREACH_USE_NORMAL) ? mv->no : NULL;
-			BMVert *eve = BM_vert_at_index(vc->em->bm, i);
-			if (!BM_elem_flag_test(eve, BM_ELEM_HIDDEN)) {
-				const Coord3Df& elem_pos = *(Coord3Df*)mv->co;
-				if (fabs(elem_pos.x - center.x) < bounds_x &&
-					fabs(elem_pos.y - center.y) < bounds_y &&
-					fabs(elem_pos.z - center.z) < bounds_z)
-				{
-					sv = eve;
-					is_inside = true;
-					const bool is_select = BM_elem_flag_test(sv, BM_ELEM_SELECT);
-					const int sel_op_result = ED_select_op_action_deselected(deselect ? SEL_OP_SUB : SEL_OP_ADD, is_select, is_inside);
-					if (sel_op_result != -1) {
-						BM_vert_select_set(vc->em->bm, sv, sel_op_result);
-					}
-				}
-			}
-		}
+
+	if (is_inside) {
+		DEG_id_tag_update((ID*)vc->obedit->data, ID_RECALC_SELECT);
+		WM_event_add_notifier(C, NC_GEOM | ND_SELECT, vc->obedit->data);
+		ED_undo_push(C, "Select");
 	}
 }
 
 static void proximity_select_multiple_edge(
 	const Coord3Df& p0,
 	const Coord3Df& p1,
-	ViewContext *vc, bool deselect)
+	ViewContext *vc, bool extend, bool deselect)
 {
+	bContext *C = vr_get_obj()->ctx;
 	/* Find bounds and center of selection box. */
 	float bounds_x = fabsf(p1.x - p0.x) / 2.0f;
 	float bounds_y = fabsf(p1.y - p0.y) / 2.0f;
@@ -3420,69 +3201,56 @@ static void proximity_select_multiple_edge(
 	float med_co[3];
 	bool is_inside = false;
 
-	Mesh *mesh = editbmesh_get_eval_cage(vc->depsgraph, vc->scene, vc->obedit, vc->em, CD_MASK_BAREMESH);
+	if (!extend && !deselect) {
+		/* Do pre-deselection. */
+		/* TODO_XR: Compare selection before and after for proper undo behavior. */
+		deselectall_edit(vc->em->bm, 1);
+
+		DEG_id_tag_update((ID*)vc->obedit->data, ID_RECALC_SELECT);
+		WM_event_add_notifier(C, NC_GEOM | ND_SELECT, vc->obedit->data);
+		ED_undo_push(C, "Select");
+	}
+
 	BM_mesh_elem_table_ensure(vc->em->bm, BM_EDGE);
-	//MeshForeachFlag flag = MESH_FOREACH_NOP;
-	const MVert *mv = mesh->mvert;
-	const MEdge *med = mesh->medge;
-	const int *index = (int*)CustomData_get_layer(&mesh->edata, CD_ORIGINDEX);
 	BMEdge *se = NULL;
 
-	if (index) {
-		for (int i = 0; i < mesh->totedge; ++i, ++med) {
-			//const short *no = (flag & MESH_FOREACH_USE_NORMAL) ? mv->no : NULL;
-			const int orig = *index++;
-			if (orig == ORIGINDEX_NONE) {
-				continue;
-			}
-			BMEdge *eed = BM_edge_at_index(vc->em->bm, orig);
-			if (!BM_elem_flag_test(eed, BM_ELEM_HIDDEN)) {
-				*(Coord3Df*)med_co = (*(Coord3Df*)mv[med->v1].co + *(Coord3Df*)mv[med->v2].co) / 2.0f;
-				const Coord3Df& elem_pos = *(Coord3Df*)med_co;
-				if (fabs(elem_pos.x - center.x) < bounds_x &&
-					fabs(elem_pos.y - center.y) < bounds_y &&
-					fabs(elem_pos.z - center.z) < bounds_z)
-				{
-					se = eed;
-					is_inside = true;
-					const bool is_select = BM_elem_flag_test(se, BM_ELEM_SELECT);
-					const int sel_op_result = ED_select_op_action_deselected(deselect ? SEL_OP_SUB : SEL_OP_ADD, is_select, is_inside);
-					if (sel_op_result != -1) {
-						BM_edge_select_set(vc->em->bm, se, sel_op_result);
-					}
+	const Mat44f& offset = *(Mat44f*)vc->obedit->obmat;
+	static Coord3Df pos;
+	BMEdge *e;
+	BMIter iter;
+	BMesh *bm = vc->em->bm;
+	BM_ITER_MESH(e, &iter, bm, BM_EDGES_OF_MESH) {
+		if (!BM_elem_flag_test(e, BM_ELEM_HIDDEN)) {
+			*(Coord3Df*)med_co = (*(Coord3Df*)e->v1->co + *(Coord3Df*)e->v2->co) / 2.0f;
+			VR_Math::multiply_mat44_coord3D(pos, offset, *(Coord3Df*)med_co);
+			if (fabs(pos.x - center.x) < bounds_x &&
+				fabs(pos.y - center.y) < bounds_y &&
+				fabs(pos.z - center.z) < bounds_z)
+			{
+				se = e;
+				is_inside = true;
+				const bool is_select = BM_elem_flag_test(se, BM_ELEM_SELECT);
+				const int sel_op_result = ED_select_op_action_deselected(deselect ? SEL_OP_SUB : SEL_OP_ADD, is_select, is_inside);
+				if (sel_op_result != -1) {
+					BM_edge_select_set(vc->em->bm, se, sel_op_result);
 				}
 			}
 		}
 	}
-	else {
-		for (int i = 0; i < mesh->totedge; ++i, ++med) {
-			//const short *no = (flag & MESH_FOREACH_USE_NORMAL) ? mv->no : NULL;
-			BMEdge *eed = BM_edge_at_index(vc->em->bm, i);
-			if (!BM_elem_flag_test(eed, BM_ELEM_HIDDEN)) {
-				*(Coord3Df*)med_co = (*(Coord3Df*)mv[med->v1].co + *(Coord3Df*)mv[med->v2].co) / 2.0f;
-				const Coord3Df& elem_pos = *(Coord3Df*)med_co;
-				if (fabs(elem_pos.x - center.x) < bounds_x &&
-					fabs(elem_pos.y - center.y) < bounds_y &&
-					fabs(elem_pos.z - center.z) < bounds_z)
-				{
-					se = eed;
-					is_inside = true;
-					const bool is_select = BM_elem_flag_test(se, BM_ELEM_SELECT);
-					const int sel_op_result = ED_select_op_action_deselected(deselect ? SEL_OP_SUB : SEL_OP_ADD, is_select, is_inside);
-					if (sel_op_result != -1) {
-						BM_edge_select_set(vc->em->bm, se, sel_op_result);
-					}
-				}
-			}
-		}
+
+	if (is_inside) {
+		DEG_id_tag_update((ID*)vc->obedit->data, ID_RECALC_SELECT);
+		WM_event_add_notifier(C, NC_GEOM | ND_SELECT, vc->obedit->data);
+		ED_undo_push(C, "Select");
 	}
 }
 
 static void proximity_select_multiple_face(
 	const Coord3Df& p0,
 	const Coord3Df& p1,
-	ViewContext *vc, bool deselect)
+	ViewContext *vc, bool extend, bool deselect)
 {
+	bContext *C = vr_get_obj()->ctx;
 	/* Find bounds and center of selection box. */
 	float bounds_x = fabsf(p1.x - p0.x) / 2.0f;
 	float bounds_y = fabsf(p1.y - p0.y) / 2.0f;
@@ -3490,80 +3258,62 @@ static void proximity_select_multiple_face(
 	Coord3Df center = p0 + (p1 - p0) / 2.0f;
 	bool is_inside = false;
 
-	Mesh *mesh = editbmesh_get_eval_cage(vc->depsgraph, vc->scene, vc->obedit, vc->em, CD_MASK_BAREMESH);
+	if (!extend && !deselect) {
+		/* Do pre-deselection. */
+		/* TODO_XR: Compare selection before and after for proper undo behavior. */
+		deselectall_edit(vc->em->bm, 2);
+
+		DEG_id_tag_update((ID*)vc->obedit->data, ID_RECALC_SELECT);
+		WM_event_add_notifier(C, NC_GEOM | ND_SELECT, vc->obedit->data);
+		ED_undo_push(C, "Select");
+	}
+
 	BM_mesh_elem_table_ensure(vc->em->bm, BM_FACE);
-	//MeshForeachFlag flag = MESH_FOREACH_NOP;
-	const MVert *mvert = mesh->mvert;
-	const MPoly *mp = mesh->mpoly;
-	const MLoop *ml;
-	//float _no_buf[3];
-	//float *no = (flag & MESH_FOREACH_USE_NORMAL) ? _no_buf : NULL;
-	const int *index = (int*)CustomData_get_layer(&mesh->pdata, CD_ORIGINDEX);
 	BMFace *sf = NULL;
 
-	if (index) {
-		for (int i = 0; i < mesh->totpoly; ++i, ++mp) {
-			const int orig = *index++;
-			if (orig == ORIGINDEX_NONE) {
-				continue;
-			}
-			float cent[3];
-			ml = &mesh->mloop[mp->loopstart];
-			BKE_mesh_calc_poly_center(mp, ml, mvert, cent);
-			/*if (flag & MESH_FOREACH_USE_NORMAL) {
-				BKE_mesh_calc_poly_normal(mp, ml, mvert, no);
-			}*/
-			BMFace *efa = BM_face_at_index(vc->em->bm, orig);
-			if (!BM_elem_flag_test(efa, BM_ELEM_HIDDEN)) {
-				const Coord3Df& elem_pos = *(Coord3Df*)cent;
-				if (fabs(elem_pos.x - center.x) < bounds_x &&
-					fabs(elem_pos.y - center.y) < bounds_y &&
-					fabs(elem_pos.z - center.z) < bounds_z)
-				{
-					sf = efa;
-					is_inside = true;
-					const bool is_select = BM_elem_flag_test(sf, BM_ELEM_SELECT);
-					const int sel_op_result = ED_select_op_action_deselected(deselect ? SEL_OP_SUB : SEL_OP_ADD, is_select, is_inside);
-					if (sel_op_result != -1) {
-						BM_face_select_set(vc->em->bm, sf, sel_op_result);
-					}
+	const Mat44f& offset = *(Mat44f*)vc->obedit->obmat;
+	static Coord3Df pos;
+	static Coord3Df cent;
+	BMFace *f;
+	BMLoop *l;
+	BMIter iter;
+	BMesh *bm = vc->em->bm;
+	BM_ITER_MESH(f, &iter, bm, BM_FACES_OF_MESH) {
+		l = f->l_first;
+		memset(&cent, 0, sizeof(float) * 3);
+		for (int i = 0; i < f->len; ++i, l = l->next) {
+			cent += *(Coord3Df*)l->v->co;
+		}
+		cent /= f->len;
+		if (!BM_elem_flag_test(f, BM_ELEM_HIDDEN)) {
+			VR_Math::multiply_mat44_coord3D(pos, offset, cent);
+			if (fabs(pos.x - center.x) < bounds_x &&
+				fabs(pos.y - center.y) < bounds_y &&
+				fabs(pos.z - center.z) < bounds_z)
+			{
+				sf = f;
+				is_inside = true;
+				const bool is_select = BM_elem_flag_test(sf, BM_ELEM_SELECT);
+				const int sel_op_result = ED_select_op_action_deselected(deselect ? SEL_OP_SUB : SEL_OP_ADD, is_select, is_inside);
+				if (sel_op_result != -1) {
+					BM_face_select_set(vc->em->bm, sf, sel_op_result);
 				}
 			}
 		}
 	}
-	else {
-		for (int i = 0; i < mesh->totpoly; ++i, ++mp) {
-			float cent[3];
-			ml = &mesh->mloop[mp->loopstart];
-			BKE_mesh_calc_poly_center(mp, ml, mvert, cent);
-			/*if (flag & MESH_FOREACH_USE_NORMAL) {
-				BKE_mesh_calc_poly_normal(mp, ml, mvert, no);
-			}*/
-			BMFace *efa = BM_face_at_index(vc->em->bm, i);
-			if (!BM_elem_flag_test(efa, BM_ELEM_HIDDEN)) {
-				const Coord3Df& elem_pos = *(Coord3Df*)cent;
-				if (fabs(elem_pos.x - center.x) < bounds_x &&
-					fabs(elem_pos.y - center.y) < bounds_y &&
-					fabs(elem_pos.z - center.z) < bounds_z)
-				{
-					sf = efa;
-					is_inside = true;
-					const bool is_select = BM_elem_flag_test(sf, BM_ELEM_SELECT);
-					const int sel_op_result = ED_select_op_action_deselected(deselect ? SEL_OP_SUB : SEL_OP_ADD, is_select, is_inside);
-					if (sel_op_result != -1) {
-						BM_face_select_set(vc->em->bm, sf, sel_op_result);
-					}
-				}
-			}
-		}
+
+	if (is_inside) {
+		DEG_id_tag_update((ID*)vc->obedit->data, ID_RECALC_SELECT);
+		WM_event_add_notifier(C, NC_GEOM | ND_SELECT, vc->obedit->data);
+		ED_undo_push(C, "Select");
 	}
 }
 
 static void proximity_select_multiple_edit(
 	const Coord3Df& p0,
 	const Coord3Df& p1,
+	bool extend,
 	bool deselect,
-	bool extend = false,
 	bool toggle = false,
 	bool enumerate = false)
 {
@@ -3571,13 +3321,6 @@ static void proximity_select_multiple_edit(
 	VR *vr = vr_get_obj();
 	bContext *C = vr->ctx;
 	ViewContext vc;
-	//eSelectOp sel_op;
-	//if (deselect) {
-	//	sel_op = SEL_OP_SUB;
-	//}
-	//else {
-	//	sel_op = SEL_OP_ADD;
-	//}
 
 	/* setup view context */
 	ED_view3d_viewcontext_init(C, &vc);
@@ -3587,28 +3330,19 @@ static void proximity_select_multiple_edit(
 		ED_view3d_viewcontext_init_object(&vc, vc.obedit);
 		vc.em = BKE_editmesh_from_object(vc.obedit);
 
-	/*	if (SEL_OP_USE_PRE_DESELECT(sel_op)) {
-			EDBM_flag_disable_all(vc.em, BM_ELEM_SELECT);
-		}*/
-
 		if (ts->selectmode & SCE_SELECT_VERTEX) {
-			proximity_select_multiple_vertex(p0, p1, &vc, deselect);
+			proximity_select_multiple_vertex(p0, p1, &vc, extend, deselect);
 		}
-		if (ts->selectmode & SCE_SELECT_EDGE) {
-			proximity_select_multiple_edge(p0, p1, &vc, deselect);
+		else if (ts->selectmode & SCE_SELECT_EDGE) {
+			proximity_select_multiple_edge(p0, p1, &vc, extend, deselect);
 		}
-		if (ts->selectmode & SCE_SELECT_FACE) {
-			proximity_select_multiple_face(p0, p1, &vc, deselect);
+		else if (ts->selectmode & SCE_SELECT_FACE) {
+			proximity_select_multiple_face(p0, p1, &vc, extend, deselect);
 		}
 
 		EDBM_selectmode_flush(vc.em);
-
-		DEG_id_tag_update((ID*)vc.obedit->data, DEG_TAG_SELECT_UPDATE);
-		WM_event_add_notifier(C, NC_GEOM | ND_SELECT, vc.obedit->data);
-		ED_undo_push(C, "Select");
 	}
 }
-#endif
 
 bool Widget_Select::Proximity::has_click(VR_UI::Cursor& c) const
 {
@@ -3623,36 +3357,34 @@ void Widget_Select::Proximity::click(VR_UI::Cursor& c)
 	View3D *v3d = CTX_wm_view3d(C);
 
 	/* For now, just use click to clear selection. */
-	if (VR_UI::ctrl_key_get()) {
-		/*Object *obedit = CTX_data_edit_object(C);
-		if (obedit) {
-			ToolSettings *ts = scene->toolsettings;
-			BMEditMesh *em = BKE_editmesh_from_object(obedit);
-			if (ts->selectmode & SCE_SELECT_VERTEX) {
-				deselectall_edit(em, 0);
-			}
-			if (ts->selectmode & SCE_SELECT_EDGE) {
-				deselectall_edit(em, 1);
-			}
-			if (ts->selectmode & SCE_SELECT_FACE) {
-				deselectall_edit(em, 2);
-			}
-
-			EDBM_selectmode_flush(em);
-
-			DEG_id_tag_update((ID*)obedit->data, DEG_TAG_SELECT_UPDATE);
-			WM_event_add_notifier(C, NC_GEOM | ND_SELECT, obedit->data);
+	Object *obedit = CTX_data_edit_object(C);
+	if (obedit) {
+		ToolSettings *ts = scene->toolsettings;
+		BMEditMesh *em = BKE_editmesh_from_object(obedit);
+		if (ts->selectmode & SCE_SELECT_VERTEX) {
+			deselectall_edit(em->bm, 0);
 		}
-		else {*/
-			object_deselect_all_visible(view_layer, v3d);
+		else if (ts->selectmode & SCE_SELECT_EDGE) {
+			deselectall_edit(em->bm, 1);
+		}
+		else if (ts->selectmode & SCE_SELECT_FACE) {
+			deselectall_edit(em->bm, 2);
+		}
 
-			DEG_id_tag_update(&scene->id, DEG_TAG_SELECT_UPDATE);
-			WM_event_add_notifier(C, NC_SCENE | ND_OB_SELECT, scene);
-		//}
-		/* Update manipulators */
-		Widget_Transform::update_manipulator();
-		ED_undo_push(C, "Select");
+		EDBM_selectmode_flush(em);
+
+		DEG_id_tag_update((ID*)obedit->data, ID_RECALC_SELECT);
+		WM_event_add_notifier(C, NC_GEOM | ND_SELECT, obedit->data);
 	}
+	else {
+		object_deselect_all_visible(view_layer, v3d);
+
+		DEG_id_tag_update(&scene->id, ID_RECALC_SELECT);
+		WM_event_add_notifier(C, NC_SCENE | ND_OB_SELECT, scene);
+	}
+	/* Update manipulators */
+	Widget_Transform::update_manipulator();
+	ED_undo_push(C, "Select");
 }
 
 void Widget_Select::Proximity::drag_start(VR_UI::Cursor& c)
@@ -3685,12 +3417,12 @@ void Widget_Select::Proximity::drag_stop(VR_UI::Cursor& c)
 	p0 = VR_UI::convert_space(p0, VR_SPACE_REAL, VR_SPACE_BLENDER);
 	p1 = VR_UI::convert_space(p1, VR_SPACE_REAL, VR_SPACE_BLENDER);
 
-	//if (CTX_data_edit_object(vr_get_obj()->ctx)) {
-	//	proximity_select_multiple_edit(p0, p1, VR_UI::ctrl_key_get());
-	//}
-	//else {
-		proximity_select_multiple(p0, p1, VR_UI::ctrl_key_get());
-	//}
+	if (CTX_data_edit_object(vr_get_obj()->ctx)) {
+		proximity_select_multiple_edit(p0, p1, VR_UI::shift_key_get(), VR_UI::ctrl_key_get());
+	}
+	else {
+		proximity_select_multiple(p0, p1, VR_UI::shift_key_get(), VR_UI::ctrl_key_get());
+	}
 	/* Update manipulators */
 	Widget_Transform::update_manipulator();
 
@@ -3729,6 +3461,62 @@ void Widget_Select::Proximity::render(VR_Side side)
 	Widget_Select::Proximity::obj.do_render[side] = false;
 }
 
+/**************************************************************************************************\
+ * \class                               Widget_Cursor											   *
+ ***************************************************************************************************
+ * Interaction widget for the Blender cursor.													   *
+ **************************************************************************************************/
+
+Widget_Cursor Widget_Cursor::obj;
+
+bool Widget_Cursor::cursor_enabled;
+Coord3Df Widget_Cursor::cursor_current_location;
+
+void Widget_Cursor::cursor_reset() 
+{ 
+	cursor_enabled = false; 
+}
+
+void Widget_Cursor::cursor_teleport()
+{
+	/* Convert cursor from blender to real space. */
+	Coord3Df current_cursor_pos_temp = VR_UI::convert_space(cursor_current_location,
+		VR_SPACE_BLENDER, VR_SPACE_REAL);
+
+	/* Save current HMD position && Create new identity matrix for the cursor location. */
+	Mat44f current_hmd_pos = VR_UI::hmd_position_get(VR_SPACE_REAL);
+	Mat44f current_cursor_pos = VR_Math::identity_f;
+	Mat44f ref = VR_Math::identity_f;
+	memcpy(ref.m[3], current_hmd_pos.m[3], sizeof(float) * 4);
+	/* Fill cursor identity matrix with current_cursor_position's location. */
+	memcpy(&current_cursor_pos.m[3], &current_cursor_pos_temp, sizeof(float) * 3);
+	VR_UI::navigation_apply_transformation(current_cursor_pos.inverse() * ref, VR_SPACE_REAL);
+}
+
+bool Widget_Cursor::has_click(VR_UI::Cursor& c) const
+{
+	return true;
+}
+
+void Widget_Cursor::click(VR_UI::Cursor& c)
+{
+	/* Cursor is seen as disabled when it's still stuck to the controller. */
+	if (VR_UI::ctrl_key_get() && cursor_enabled) {
+		/* Disable the world cursor, set back to controller. */
+		cursor_enabled = false;
+		return;
+	}
+	else if (!cursor_enabled)
+		cursor_enabled = true;
+
+	cursor_current_location = *(Coord3Df*)c.position.get(VR_SPACE_BLENDER).m[3];
+}
+
+bool Widget_Cursor::has_drag(VR_UI::Cursor& c) const 
+{
+	return false;  
+}
+
 /***********************************************************************************************//**
  * \class									Widget_Transform
  ***************************************************************************************************
@@ -3754,14 +3542,16 @@ bool Widget_Transform::snapped(false);
 #define WIDGET_TRANSFORM_ROT_PRECISION (PI/36.0f)
 #define WIDGET_TRANSFORM_SCALE_PRECISION 0.005f
 
-bool Widget_Transform::local(false);
+//bool Widget_Transform::edit(false);
+VR_UI::TransformSpace Widget_Transform::transform_space(VR_UI::TRANSFORMSPACE_GLOBAL);
+bool Widget_Transform::is_dragging(false);
+
 bool Widget_Transform::manipulator(false);
 Mat44f Widget_Transform::manip_t = VR_Math::identity_f;
-std::vector<Mat44f*> Widget_Transform::manip_t_local;
-Coord3Df Widget_Transform::manip_angle;
-std::vector<Coord3Df*> Widget_Transform::manip_angle_local;
+Mat44f Widget_Transform::manip_t_orig;
+Mat44f Widget_Transform::manip_t_snap;
+Coord3Df Widget_Transform::manip_angle[VR_UI::TRANSFORMSPACES];
 float Widget_Transform::manip_scale_factor(2.0f);
-int Widget_Transform::manip_interact_index(-1);
 
 /* Manipulator colors. */
 static const float c_manip[4][4] = { 1.0f, 0.2f, 0.322f, 0.4f,
@@ -3779,7 +3569,7 @@ static const float c_manip_select[4][4] = { 1.0f, 0.2f, 0.322f, 1.0f,
 #define WIDGET_TRANSFORM_DIAL_RESOLUTION 100
 
 /* Select a manipulator component with raycast selection. */
-void Widget_Transform::raycast_select_manipulator(const Coord3Df& p)
+void Widget_Transform::raycast_select_manipulator(const Coord3Df& p, bool *extrude)
 {
 	bContext *C = vr_get_obj()->ctx;
 	ARegion *ar = CTX_wm_region(C);
@@ -3801,363 +3591,212 @@ void Widget_Transform::raycast_select_manipulator(const Coord3Df& p)
 
 	bool hit = false;
 
-	if (local) {
-		/* Do hit / selection test for each local manipulator. */
-		for (int index = 0; index < manip_t_local.size(); ++index) {
-			const Mat44f& m = *manip_t_local[index];
-			for (int i = 0; i < 3; ++i) {
-				axis[i] = (*(Coord3Df*)m.m[i]).normalize();
-				axis_length[i] = (*(Coord3Df*)m.m[i]).length();
-			}
-			const Coord3Df& manip_pos = *(Coord3Df*)m.m[3];
-
-			for (int i = 0; i < 13; ++i) {
-				switch (i) {
-				case 0: { /* x-axis arrow */
-					if (transform_mode != TRANSFORMMODE_MOVE && !omni) {
-						i = 2;
-						continue;
-					}
-					length = axis_length[0] * manip_scale_factor;
-					pos = manip_pos + axis[0] * length;
-					break;
-				}
-				case 1: { /* y-axis arrow */
-					length = axis_length[1] * manip_scale_factor;
-					pos = manip_pos + axis[1] * length;
-					break;
-				}
-				case 2: { /* z-axis arrow */
-					length = axis_length[2] * manip_scale_factor;
-					pos = manip_pos + axis[2] * length;
-					break;
-				}
-				case 3: { /* x-axis box */
-					if (transform_mode != TRANSFORMMODE_SCALE && !omni) {
-						i = 5;
-						continue;
-					}
-					length = axis_length[0] * manip_scale_factor / 2.0f;
-					pos = manip_pos + axis[0] * length;
-					break;
-				}
-				case 4: { /* y-axis box */
-					length = axis_length[1] * manip_scale_factor / 2.0f;
-					pos = manip_pos + axis[1] * length;
-					break;
-				}
-				case 5: { /* z-axis box */
-					length = axis_length[2] * manip_scale_factor / 2.0f;
-					pos = manip_pos + axis[2] * length;
-					break;
-				}
-				case 6: { /* x-rotation ball */
-					if (transform_mode != TRANSFORMMODE_ROTATE && !omni) {
-						i = 8;
-						continue;
-					}
-					rotate_v3_v3v3fl((float*)&pos, (float*)&axis[1], (float*)&axis[0], PI / 4.0f);
-					length = axis_length[1] * manip_scale_factor / 2.0f;
-					pos = manip_pos + pos * length;
-					break;
-				}
-				case 7: { /* y-rotation ball */
-					rotate_v3_v3v3fl((float*)&pos, (float*)&axis[2], (float*)&axis[1], PI / 4.0f);
-					length = axis_length[2] * manip_scale_factor / 2.0f;
-					pos = manip_pos + pos * length;
-					break;
-				}
-				case 8: { /* z-rotation ball */
-					rotate_v3_v3v3fl((float*)&pos, (float*)&axis[0], (float*)&axis[2], PI / 4.0f);
-					length = axis_length[0] * manip_scale_factor / 2.0f;
-					pos = manip_pos + pos * length;
-					break;
-				}
-				case 9: { /* xy plane */
-					if (omni || (transform_mode != TRANSFORMMODE_MOVE && transform_mode != TRANSFORMMODE_SCALE)) {
-						i = 11;
-						continue;
-					};
-					pos = manip_pos + (axis[0] * axis_length[0] + axis[1] * axis_length[1]) * manip_scale_factor / 2.0f;
-					break;
-				}
-				case 10: { /* yz plane */
-					pos = manip_pos + (axis[1] * axis_length[1] + axis[2] * axis_length[2]) * manip_scale_factor / 2.0f;
-					break;
-				}
-				case 11: { /* zx plane */
-					pos = manip_pos + (axis[0] * axis_length[0] + axis[2] * axis_length[2]) * manip_scale_factor / 2.0f;
-					break;
-				}
-				case 12: { /* center box */
-					if (!omni) {
-						continue;
-					}
-					pos = manip_pos;
-					break;
-				}
-				}
-
-				if (view3d_project(
-					ar, rv3d->persmat, false, (float*)&pos, screen_co,
-					(eV3DProjTest)(V3D_PROJ_TEST_CLIP_BB | V3D_PROJ_TEST_CLIP_NEAR)) == V3D_PROJ_RET_OK)
-				{
-					float dist_temp = len_manhattan_v2v2(mval_fl, screen_co);
-					dist_temp += 50.0f; //40.0f; //10.0f
-					if (dist_temp < dist) {
-						hit = true;
-						switch (i) {
-						case 0: {
-							constraint_mode = VR_UI::CONSTRAINTMODE_TRANS_X;
-							break;
-						}
-						case 1: {
-							constraint_mode = VR_UI::CONSTRAINTMODE_TRANS_Y;
-							break;
-						}
-						case 2: {
-							constraint_mode = VR_UI::CONSTRAINTMODE_TRANS_Z;
-							break;
-						}
-						case 3: {
-							constraint_mode = VR_UI::CONSTRAINTMODE_SCALE_X;
-							break;
-						}
-						case 4: {
-							constraint_mode = VR_UI::CONSTRAINTMODE_SCALE_Y;
-							break;
-						}
-						case 5: {
-							constraint_mode = VR_UI::CONSTRAINTMODE_SCALE_Z;
-							break;
-						}
-						case 6: {
-							constraint_mode = VR_UI::CONSTRAINTMODE_ROT_X;
-							break;
-						}
-						case 7: {
-							constraint_mode = VR_UI::CONSTRAINTMODE_ROT_Y;
-							break;
-						}
-						case 8: {
-							constraint_mode = VR_UI::CONSTRAINTMODE_ROT_Z;
-							break;
-						}
-						case 9: {
-							if (transform_mode == TRANSFORMMODE_SCALE) {
-								constraint_mode = VR_UI::CONSTRAINTMODE_SCALE_XY;
-							}
-							else {
-								constraint_mode = VR_UI::CONSTRAINTMODE_TRANS_XY;
-							}
-							break;
-						}
-						case 10: {
-							if (transform_mode == TRANSFORMMODE_SCALE) {
-								constraint_mode = VR_UI::CONSTRAINTMODE_SCALE_YZ;
-							}
-							else {
-								constraint_mode = VR_UI::CONSTRAINTMODE_TRANS_YZ;
-							}
-							break;
-						}
-						case 11: {
-							if (transform_mode == TRANSFORMMODE_SCALE) {
-								constraint_mode = VR_UI::CONSTRAINTMODE_SCALE_ZX;
-							}
-							else {
-								constraint_mode = VR_UI::CONSTRAINTMODE_TRANS_ZX;
-							}
-							break;
-						}
-						case 12: {
-							transform_mode = TRANSFORMMODE_SCALE;
-							snap_mode = VR_UI::SNAPMODE_SCALE;
-							constraint_mode = VR_UI::CONSTRAINTMODE_NONE;
-							break;
-						}
-						}
-						manip_interact_index = index;
-						return;
-					}
-				}
-			}
-		}
+	for (int i = 0; i < 3; ++i) {
+		axis[i] = (*(Coord3Df*)manip_t.m[i]).normalize();
+		axis_length[i] = (*(Coord3Df*)manip_t.m[i]).length();
 	}
-	else {
-		for (int i = 0; i < 3; ++i) {
-			axis[i] = (*(Coord3Df*)manip_t.m[i]).normalize();
-			axis_length[i] = manip_t.m[i][i];
+	const Coord3Df& manip_pos = *(Coord3Df*)manip_t.m[3];
+
+	/* Do hit / selection test for shared manipulator. */
+	for (int i = 0; i < 16; ++i) {
+		switch (i) {
+		case 0: { /* x extrude ball */
+			if (!extrude) {
+				i += 2;
+				continue;
+			}
+			length = axis_length[0] * manip_scale_factor * 1.6f;
+			pos = manip_pos + axis[0] * length;
+			break;
 		}
-		const Coord3Df& manip_pos = *(Coord3Df*)manip_t.m[3];
+		case 1: { /* y extrude ball */
+			length = axis_length[1] * manip_scale_factor * 1.6f;
+			pos = manip_pos + axis[1] * length;
+			break;
+		}
+		case 2: { /* z extrude ball */
+			length = axis_length[2] * manip_scale_factor * 1.6f;
+			pos = manip_pos + axis[2] * length;
+			break;
+		}
+		case 3: { /* x-axis arrow */
+			if (transform_mode != TRANSFORMMODE_MOVE && !omni) {
+				i += 2;
+				continue;
+			}
+			length = axis_length[0] * manip_scale_factor;
+			pos = manip_pos + axis[0] * length;
+			break;
+		}
+		case 4: { /* y-axis arrow */
+			length = axis_length[1] * manip_scale_factor;
+			pos = manip_pos + axis[1] * length;
+			break;
+		}
+		case 5: { /* z-axis arrow */
+			length = axis_length[2] * manip_scale_factor;
+			pos = manip_pos + axis[2] * length;
+			break;
+		}
+		case 6: { /* x-axis box */
+			if (transform_mode != TRANSFORMMODE_SCALE && !omni) {
+				i += 2;
+				continue;
+			}
+			length = axis_length[0] * manip_scale_factor / 2.0f;
+			pos = manip_pos + axis[0] * length;
+			break;
+		}
+		case 7: { /* y-axis box */
+			length = axis_length[1] * manip_scale_factor / 2.0f;
+			pos = manip_pos + axis[1] * length;
+			break;
+		}
+		case 8: { /* z-axis box */
+			length = axis_length[2] * manip_scale_factor / 2.0f;
+			pos = manip_pos + axis[2] * length;
+			break;
+		}
+		case 9: { /* x-rotation ball */
+			if (transform_mode != TRANSFORMMODE_ROTATE && !omni) {
+				i += 2;
+				continue;
+			}
+			rotate_v3_v3v3fl((float*)&pos, (float*)&axis[1], (float*)&axis[0], PI / 4.0f);
+			length = axis_length[1] * manip_scale_factor / 2.0f;
+			pos = manip_pos + pos * length;
+			break;
+		}
+		case 10: { /* y-rotation ball */
+			rotate_v3_v3v3fl((float*)&pos, (float*)&axis[2], (float*)&axis[1], PI / 4.0f);
+			length = axis_length[2] * manip_scale_factor / 2.0f;
+			pos = manip_pos + pos * length;
+			break;
+		}
+		case 11: { /* z-rotation ball */
+			rotate_v3_v3v3fl((float*)&pos, (float*)&axis[0], (float*)&axis[2], PI / 4.0f);
+			length = axis_length[0] * manip_scale_factor / 2.0f;
+			pos = manip_pos + pos * length;
+			break;
+		}
+		case 12: { /* xy plane */
+			if (omni || (transform_mode != TRANSFORMMODE_MOVE && transform_mode != TRANSFORMMODE_SCALE)) {
+				i += 2;
+				continue;
+			};
+			pos = manip_pos + (axis[0] * axis_length[0] + axis[1] * axis_length[1]) * manip_scale_factor / 2.0f;
+			break;
+		}
+		case 13: { /* yz plane */
+			pos = manip_pos + (axis[1] * axis_length[1] + axis[2] * axis_length[2]) * manip_scale_factor / 2.0f;
+			break;
+		}
+		case 14: { /* zx plane */
+			pos = manip_pos + (axis[0] * axis_length[0] + axis[2] * axis_length[2]) * manip_scale_factor / 2.0f;
+			break;
+		}
+		case 15: { /* center box */
+			if (!omni) {
+				continue;
+			}
+			pos = manip_pos;
+			break;
+		}
+		}
 
-		/* Do hit / selection test for shared manipulator. */
-		for (int i = 0; i < 13; ++i) {
-			switch (i) {
-			case 0: { /* x-axis arrow */
-				if (transform_mode != TRANSFORMMODE_MOVE && !omni) {
-					i = 2;
-					continue;
+		if (view3d_project(
+			ar, rv3d->persmat, false, (float*)&pos, screen_co,
+			(eV3DProjTest)(V3D_PROJ_TEST_CLIP_BB | V3D_PROJ_TEST_CLIP_NEAR)) == V3D_PROJ_RET_OK)
+		{
+			float dist_temp = len_manhattan_v2v2(mval_fl, screen_co);
+			dist_temp += 150.0f; //50.0f;
+			if (dist_temp < dist) {
+				hit = true;
+				switch (i) {
+				case 0: {
+					constraint_mode = VR_UI::CONSTRAINTMODE_TRANS_X;
+					*extrude = true;
+					return;
 				}
-				length = axis_length[0] * manip_scale_factor;
-				pos = manip_pos + axis[0] * length;
-				break;
-			}
-			case 1: { /* y-axis arrow */
-				length = axis_length[1] * manip_scale_factor;
-				pos = manip_pos + axis[1] * length;
-				break;
-			}
-			case 2: { /* z-axis arrow */
-				length = axis_length[2] * manip_scale_factor;
-				pos = manip_pos + axis[2] * length;
-				break;
-			}
-			case 3: { /* x-axis box */
-				if (transform_mode != TRANSFORMMODE_SCALE && !omni) {
-					i = 5;
-					continue;
+				case 1: {
+					constraint_mode = VR_UI::CONSTRAINTMODE_TRANS_Y;
+					*extrude = true;
+					return;
 				}
-				length = axis_length[0] * manip_scale_factor / 2.0f;
-				pos = manip_pos + axis[0] * length;
-				break;
-			}
-			case 4: { /* y-axis box */
-				length = axis_length[1] * manip_scale_factor / 2.0f;
-				pos = manip_pos + axis[1] * length;
-				break;
-			}
-			case 5: { /* z-axis box */
-				length = axis_length[2] * manip_scale_factor / 2.0f;
-				pos = manip_pos + axis[2] * length;
-				break;
-			}
-			case 6: { /* x-rotation ball */
-				if (transform_mode != TRANSFORMMODE_ROTATE && !omni) {
-					i = 8;
-					continue;
+				case 2: {
+					constraint_mode = VR_UI::CONSTRAINTMODE_TRANS_Z;
+					*extrude = true;
+					return;
 				}
-				rotate_v3_v3v3fl((float*)&pos, (float*)&axis[1], (float*)&axis[0], PI / 4.0f);
-				length = axis_length[1] * manip_scale_factor / 2.0f;
-				pos = manip_pos + pos * length;
-				break;
-			}
-			case 7: { /* y-rotation ball */
-				rotate_v3_v3v3fl((float*)&pos, (float*)&axis[2], (float*)&axis[1], PI / 4.0f);
-				length = axis_length[2] * manip_scale_factor / 2.0f;
-				pos = manip_pos + pos * length;
-				break;
-			}
-			case 8: { /* z-rotation ball */
-				rotate_v3_v3v3fl((float*)&pos, (float*)&axis[0], (float*)&axis[2], PI / 4.0f);
-				length = axis_length[0] * manip_scale_factor / 2.0f;
-				pos = manip_pos + pos * length;
-				break;
-			}
-			case 9: { /* xy plane */
-				if (omni || (transform_mode != TRANSFORMMODE_MOVE && transform_mode != TRANSFORMMODE_SCALE)) {
-					i = 11;
-					continue;
-				};
-				pos = manip_pos + (axis[0] * axis_length[0] + axis[1] * axis_length[1]) * manip_scale_factor / 2.0f;
-				break;
-			}
-			case 10: { /* yz plane */
-				pos = manip_pos + (axis[1] * axis_length[1] + axis[2] * axis_length[2]) * manip_scale_factor / 2.0f;
-				break;
-			}
-			case 11: { /* zx plane */
-				pos = manip_pos + (axis[0] * axis_length[0] + axis[2] * axis_length[2]) * manip_scale_factor / 2.0f;
-				break;
-			}
-			case 12: { /* center box */
-				if (!omni) {
-					continue;
+				case 3: {
+					constraint_mode = VR_UI::CONSTRAINTMODE_TRANS_X;
+					return;
 				}
-				pos = manip_pos;
-				break;
-			}
-			}
-
-			if (view3d_project(
-				ar, rv3d->persmat, false, (float*)&pos, screen_co,
-				(eV3DProjTest)(V3D_PROJ_TEST_CLIP_BB | V3D_PROJ_TEST_CLIP_NEAR)) == V3D_PROJ_RET_OK)
-			{
-				float dist_temp = len_manhattan_v2v2(mval_fl, screen_co);
-				dist_temp += 50.0f;
-				if (dist_temp < dist) {
-					hit = true;
-					switch (i) {
-					case 0: {
-						constraint_mode = VR_UI::CONSTRAINTMODE_TRANS_X;
-						return;
+				case 4: {
+					constraint_mode = VR_UI::CONSTRAINTMODE_TRANS_Y;
+					return;
+				}
+				case 5: {
+					constraint_mode = VR_UI::CONSTRAINTMODE_TRANS_Z;
+					return;
+				}
+				case 6: {
+					constraint_mode = VR_UI::CONSTRAINTMODE_SCALE_X;
+					return;
+				}
+				case 7: {
+					constraint_mode = VR_UI::CONSTRAINTMODE_SCALE_Y;
+					return;
+				}
+				case 8: {
+					constraint_mode = VR_UI::CONSTRAINTMODE_SCALE_Z;
+					return;
+				}
+				case 9: {
+					constraint_mode = VR_UI::CONSTRAINTMODE_ROT_X;
+					return;
+				}
+				case 10: {
+					constraint_mode = VR_UI::CONSTRAINTMODE_ROT_Y;
+					return;
+				}
+				case 11: {
+					constraint_mode = VR_UI::CONSTRAINTMODE_ROT_Z;
+					return;
+				}
+				case 12: {
+					if (transform_mode == TRANSFORMMODE_SCALE) {
+						constraint_mode = VR_UI::CONSTRAINTMODE_SCALE_XY;
 					}
-					case 1: {
-						constraint_mode = VR_UI::CONSTRAINTMODE_TRANS_Y;
-						return;
+					else {
+						constraint_mode = VR_UI::CONSTRAINTMODE_TRANS_XY;
 					}
-					case 2: {
-						constraint_mode = VR_UI::CONSTRAINTMODE_TRANS_Z;
-						return;
+					return;
+				}
+				case 13: {
+					if (transform_mode == TRANSFORMMODE_SCALE) {
+						constraint_mode = VR_UI::CONSTRAINTMODE_SCALE_YZ;
 					}
-					case 3: {
-						constraint_mode = VR_UI::CONSTRAINTMODE_SCALE_X;
-						return;
+					else {
+						constraint_mode = VR_UI::CONSTRAINTMODE_TRANS_YZ;
 					}
-					case 4: {
-						constraint_mode = VR_UI::CONSTRAINTMODE_SCALE_Y;
-						return;
+					return;
+				}
+				case 14: {
+					if (transform_mode == TRANSFORMMODE_SCALE) {
+						constraint_mode = VR_UI::CONSTRAINTMODE_SCALE_ZX;
 					}
-					case 5: {
-						constraint_mode = VR_UI::CONSTRAINTMODE_SCALE_Z;
-						return;
+					else {
+						constraint_mode = VR_UI::CONSTRAINTMODE_TRANS_ZX;
 					}
-					case 6: {
-						constraint_mode = VR_UI::CONSTRAINTMODE_ROT_X;
-						return;
-					}
-					case 7: {
-						constraint_mode = VR_UI::CONSTRAINTMODE_ROT_Y;
-						return;
-					}
-					case 8: {
-						constraint_mode = VR_UI::CONSTRAINTMODE_ROT_Z;
-						return;
-					}
-					case 9: {
-						if (transform_mode == TRANSFORMMODE_SCALE) {
-							constraint_mode = VR_UI::CONSTRAINTMODE_SCALE_XY;
-						}
-						else {
-							constraint_mode = VR_UI::CONSTRAINTMODE_TRANS_XY;
-						}
-						return;
-					}
-					case 10: {
-						if (transform_mode == TRANSFORMMODE_SCALE) {
-							constraint_mode = VR_UI::CONSTRAINTMODE_SCALE_YZ;
-						}
-						else {
-							constraint_mode = VR_UI::CONSTRAINTMODE_TRANS_YZ;
-						}
-						return;
-					}
-					case 11: {
-						if (transform_mode == TRANSFORMMODE_SCALE) {
-							constraint_mode = VR_UI::CONSTRAINTMODE_SCALE_ZX;
-						}
-						else {
-							constraint_mode = VR_UI::CONSTRAINTMODE_TRANS_ZX;
-						}
-						return;
-					}
-					case 12: {
-						transform_mode = TRANSFORMMODE_SCALE;
-						snap_mode = VR_UI::SNAPMODE_SCALE;
-						constraint_mode = VR_UI::CONSTRAINTMODE_NONE;
-						return;
-					}
-					}
+					return;
+				}
+				case 15: {
+					transform_mode = TRANSFORMMODE_SCALE;
+					snap_mode = VR_UI::SNAPMODE_SCALE;
+					constraint_mode = VR_UI::CONSTRAINTMODE_NONE;
+					return;
+				}
 				}
 			}
 		}
@@ -4165,86 +3804,261 @@ void Widget_Transform::raycast_select_manipulator(const Coord3Df& p)
 
 	if (!hit) {
 		constraint_mode = VR_UI::CONSTRAINTMODE_NONE;
-		manip_interact_index = -1;
 	}
 }
 
-void Widget_Transform::update_manipulator(bool selection_changed)
+void Widget_Transform::update_manipulator()
 {
-	if (local && selection_changed) {
-		/* Clear local manipulator transforms vector */
-		for (int i = 0; i < manip_t_local.size(); ++i) {
-			delete manip_t_local[i];
-		}
-		manip_t_local.clear();
-	}
-
 	bContext *C = vr_get_obj()->ctx;
 	ListBase ctx_data_list;
 	CTX_data_selected_objects(C, &ctx_data_list);
 	CollectionPointerLink *ctx_link = (CollectionPointerLink *)ctx_data_list.first;
-	if (!ctx_link) {
-		if (!local) {
+	Object *obact = NULL;
+	Object *obedit = CTX_data_edit_object(C);
+	if (!obedit) {
+		if (!ctx_link) {
 			memset(manip_t.m, 0, sizeof(float) * 4 * 4);
+			return;
+		}
+		obact = (Object*)ctx_link->ptr.data;
+	}
+
+	static float rot[3][3];
+	static float z_axis[3] = { 0.0f, 0.0f, 1.0f };
+	if (obedit && obedit->type == OB_MESH) {
+		/* Edit mode */
+		Scene *scene = CTX_data_scene(C);
+		ToolSettings *ts = scene->toolsettings;
+		BMesh *bm = ((Mesh*)obedit->data)->edit_btmesh->bm;
+		if (bm) {
+			BMIter iter;
+			int count;
+
+			const Mat44f& offset = *(Mat44f*)obedit->obmat;
+			static Mat44f offset_no;
+			offset_no = offset;
+			memset(offset_no.m[3], 0, sizeof(float) * 3);
+			static Coord3Df pos, no, temp;
+			memset(&no, 0, sizeof(float) * 3);
+			memset(&pos, 0, sizeof(float) * 3);
+
+			switch (transform_space) {
+			case VR_UI::TRANSFORMSPACE_NORMAL: {
+				if (ts->selectmode & SCE_SELECT_VERTEX) {
+					BMVert *v;
+					count = 0;
+					BM_ITER_MESH(v, &iter, bm, BM_VERTS_OF_MESH) {
+						if (BM_elem_flag_test(v, BM_ELEM_SELECT)) {
+							no += *(Coord3Df*)v->no;
+
+							pos += *(Coord3Df*)v->co;
+							++count;
+						}
+					}
+
+					no /= (float)count;
+					VR_Math::multiply_mat44_coord3D(temp, offset_no, no);
+					temp.normalize_in_place();
+					rotation_between_vecs_to_mat3(rot, z_axis, (float*)&temp);
+					for (int i = 0; i < 3; ++i) {
+						memcpy(manip_t.m[i], rot[i], sizeof(float) * 3);
+					}
+
+					pos /= (float)count;
+					VR_Math::multiply_mat44_coord3D(*(Coord3Df*)manip_t.m[3], offset, pos);
+				}
+				else if (ts->selectmode & SCE_SELECT_EDGE) {
+					BMEdge *e;
+					count = 0;
+					BM_ITER_MESH(e, &iter, bm, BM_EDGES_OF_MESH) {
+						if (BM_elem_flag_test(e, BM_ELEM_SELECT)) {
+							no += *(Coord3Df*)e->v1->no + *(Coord3Df*)e->v2->no;
+
+							pos += *(Coord3Df*)e->v1->co + *(Coord3Df*)e->v2->co;
+							count += 2;
+						}
+					}
+					no /= (float)count;
+					VR_Math::multiply_mat44_coord3D(temp, offset_no, no);
+					temp.normalize_in_place();
+					rotation_between_vecs_to_mat3(rot, z_axis, (float*)&temp);
+					for (int i = 0; i < 3; ++i) {
+						memcpy(manip_t.m[i], rot[i], sizeof(float) * 3);
+					}
+
+					pos /= (float)count;
+					VR_Math::multiply_mat44_coord3D(*(Coord3Df*)manip_t.m[3], offset, pos);
+				}
+				else if (ts->selectmode & SCE_SELECT_FACE) {
+					BMFace *f;
+					BMLoop *l;
+					count = 0;
+					BM_ITER_MESH(f, &iter, bm, BM_FACES_OF_MESH) {
+						if (BM_elem_flag_test(f, BM_ELEM_SELECT)) {
+							l = f->l_first;
+							for (int i = 0; i < f->len; ++i, l = l->next) {
+								no += *(Coord3Df*)l->v->no;
+
+								pos += *(Coord3Df*)l->v->co;
+								++count;
+							}
+						}
+					}
+					no /= (float)count;
+					VR_Math::multiply_mat44_coord3D(temp, offset_no, no);
+					temp.normalize_in_place();
+					rotation_between_vecs_to_mat3(rot, z_axis, (float*)&temp);
+					for (int i = 0; i < 3; ++i) {
+						memcpy(manip_t.m[i], rot[i], sizeof(float) * 3);
+					}
+
+					pos /= (float)count;
+					VR_Math::multiply_mat44_coord3D(*(Coord3Df*)manip_t.m[3], offset, pos);
+				}
+				break;
+			}
+			case VR_UI::TRANSFORMSPACE_LOCAL: {
+				const Mat44f& obmat = *(Mat44f*)obedit->obmat;
+				for (int i = 0; i < 3; ++i) {
+					memcpy(manip_t.m[i], obmat.m[i], sizeof(float) * 3);
+				}
+				if (ts->selectmode & SCE_SELECT_VERTEX) {
+					BMVert *v;
+					count = 0;
+					BM_ITER_MESH(v, &iter, bm, BM_VERTS_OF_MESH) {
+						if (BM_elem_flag_test(v, BM_ELEM_SELECT)) {
+							pos += *(Coord3Df*)v->co;
+							++count;
+						}
+					}
+					pos /= (float)count;
+					VR_Math::multiply_mat44_coord3D(*(Coord3Df*)manip_t.m[3], offset, pos);
+				}
+				else if (ts->selectmode & SCE_SELECT_EDGE) {
+					BMEdge *e;
+					count = 0;
+					BM_ITER_MESH(e, &iter, bm, BM_EDGES_OF_MESH) {
+						if (BM_elem_flag_test(e, BM_ELEM_SELECT)) {
+							pos += *(Coord3Df*)e->v1->co + *(Coord3Df*)e->v2->co;
+							count += 2;
+						}
+					}
+					pos /= (float)count;
+					VR_Math::multiply_mat44_coord3D(*(Coord3Df*)manip_t.m[3], offset, pos);
+				}
+				else if (ts->selectmode & SCE_SELECT_FACE) {
+					BMFace *f;
+					BMLoop *l;
+					count = 0;
+					BM_ITER_MESH(f, &iter, bm, BM_FACES_OF_MESH) {
+						if (BM_elem_flag_test(f, BM_ELEM_SELECT)) {
+							l = f->l_first;
+							for (int i = 0; i < f->len; ++i, l = l->next) {
+								pos += *(Coord3Df*)l->v->co;
+								++count;
+							}
+						}
+					}
+					pos /= (float)count;
+					VR_Math::multiply_mat44_coord3D(*(Coord3Df*)manip_t.m[3], offset, pos);
+				}
+				break;
+			}
+			case VR_UI::TRANSFORMSPACE_GLOBAL:
+			default: {
+				manip_t.set_to_identity();
+				if (ts->selectmode & SCE_SELECT_VERTEX) {
+					BMVert *v;
+					count = 0;
+					BM_ITER_MESH(v, &iter, bm, BM_VERTS_OF_MESH) {
+						if (BM_elem_flag_test(v, BM_ELEM_SELECT)) {
+							pos += *(Coord3Df*)v->co;
+							++count;
+						}
+					}
+					pos /= (float)count;
+					VR_Math::multiply_mat44_coord3D(*(Coord3Df*)manip_t.m[3], offset, pos);
+				}
+				else if (ts->selectmode & SCE_SELECT_EDGE) {
+					BMEdge *e;
+					count = 0;
+					BM_ITER_MESH(e, &iter, bm, BM_EDGES_OF_MESH) {
+						if (BM_elem_flag_test(e, BM_ELEM_SELECT)) {
+							pos += *(Coord3Df*)e->v1->co + *(Coord3Df*)e->v2->co;
+							count += 2;
+						}
+					}
+					pos /= (float)count;
+					VR_Math::multiply_mat44_coord3D(*(Coord3Df*)manip_t.m[3], offset, pos);
+				}
+				else if (ts->selectmode & SCE_SELECT_FACE) {
+					BMFace *f;
+					BMLoop *l;
+					count = 0;
+					BM_ITER_MESH(f, &iter, bm, BM_FACES_OF_MESH) {
+						if (BM_elem_flag_test(f, BM_ELEM_SELECT)) {
+							l = f->l_first;
+							for (int i = 0; i < f->len; ++i, l = l->next) {
+								pos += *(Coord3Df*)l->v->co;
+								++count;
+							}
+						}
+					}
+					pos /= (float)count;
+					VR_Math::multiply_mat44_coord3D(*(Coord3Df*)manip_t.m[3], offset, pos);
+				}
+				break;
+			}
+			}
 		}
 		return;
+	} /* else, object mode */
+
+	manip_t.set_to_identity();
+	if (transform_space == VR_UI::TRANSFORMSPACE_LOCAL) {
+		manip_t.m[0][0] = manip_t.m[1][1] = manip_t.m[2][2] = 0.0f;
 	}
-	Object *obact = (Object*)ctx_link->ptr.data;
+	float manip_length = 0.0f;
+	int num_objects = 0;
+	for (; ctx_link; ctx_link = ctx_link->next) {
+		obact = (Object*)ctx_link->ptr.data;
+		if (!obact) {
+			continue;
+		}
 
-	if (local) {
-		int index = 0;
-		for (; ctx_link; ctx_link = ctx_link->next, ++index) {
-			obact = (Object*)ctx_link->ptr.data;
-			if (!obact) {
-				continue;
+		if (transform_space == VR_UI::TRANSFORMSPACE_LOCAL) {
+			/* Average object rotations (z-axis). */
+			*(Coord3Df*)manip_t.m[2] += *(Coord3Df*)obact->obmat[2];
+		}
+		/* Average object positions for manipulator location */
+		*(Coord3Df*)manip_t.m[3] += *(Coord3Df*)obact->obmat[3];
+		/* Use largest axis size (across all objects) for manipulator size */
+		for (int i = 0; i < 3; ++i) {
+			const float& len = (*(Coord3Df*)obact->obmat[i]).length();
+			if (len > manip_length) {
+				manip_length = len;
 			}
+		}
+		++num_objects;
+	}
 
-			if (selection_changed || manip_t_local.size() == index) {
-				manip_t_local.push_back(new Mat44f());
-			}
-			float manip_length = 0.0f;
-			/* Use largest axis size for manipulator size */
-			for (int i = 0; i < 3; ++i) {
-				const float& len = (*(Coord3Df*)obact->obmat[i]).length();
-				if (len > manip_length) {
-					manip_length = len;
-				}
-			}
-
-			memcpy(manip_t_local[index], obact->obmat, sizeof(float) * 4 * 4);
-			/* Apply uniform scaling to manipulator */
-			const Mat44f& m = *manip_t_local[index];
-			for (int i = 0; i < 3; ++i) {
-				(*(Coord3Df*)m.m[i]).normalize_in_place() *= manip_length;
-			}
+	*(Coord3Df*)manip_t.m[3] /= num_objects;
+	if (transform_space == VR_UI::TRANSFORMSPACE_LOCAL) {
+		*(Coord3Df*)manip_t.m[2] /= num_objects;
+		(*(Coord3Df*)manip_t.m[2]).normalize_in_place();
+		rotation_between_vecs_to_mat3(rot, z_axis, manip_t.m[2]);
+		for (int i = 0; i < 3; ++i) {
+			memcpy(manip_t.m[i], rot[i], sizeof(float) * 3);
+		}
+		/* Apply uniform scaling to manipulator */
+		for (int i = 0; i < 3; ++i) {
+			*(Coord3Df*)manip_t.m[i] *= manip_length;
 		}
 	}
 	else {
-		manip_t.set_to_identity();
-		float manip_length = 0.0f;
-		int num_objects = 0;
-		for (; ctx_link; ctx_link = ctx_link->next) {
-			obact = (Object*)ctx_link->ptr.data;
-			if (!obact) {
-				continue;
-			}
-
-			/* Average object positions for manipulator location */
-			*(Coord3Df*)manip_t.m[3] += *(Coord3Df*)obact->obmat[3];
-			/* Use largest axis size (across all objects) for manipulator size */
-			for (int i = 0; i < 3; ++i) {
-				const float& len = (*(Coord3Df*)obact->obmat[i]).length();
-				if (len > manip_length) {
-					manip_length = len;
-				}
-			}
-			++num_objects;
-		}
-
-		*(Coord3Df*)manip_t.m[3] /= num_objects;
 		/* Apply uniform scaling to manipulator */
 		for (int i = 0; i < 3; ++i) {
-			manip_t.m[i][i] = manip_length;
+			(*(Coord3Df*)manip_t.m[i]).normalize_in_place() *= manip_length;
 		}
 	}
 }
@@ -4257,12 +4071,12 @@ bool Widget_Transform::has_click(VR_UI::Cursor& c) const
 void Widget_Transform::click(VR_UI::Cursor& c)
 {
 	const Mat44f& m = c.position.get();
-	//if (CTX_data_edit_object(vr_get_obj()->ctx)) {
-	//	raycast_select_single_edit(*(Coord3Df*)m.m[3], VR_UI::ctrl_key_get());
-	//}
-	//else {
-		raycast_select_single(*(Coord3Df*)m.m[3], VR_UI::ctrl_key_get());
-	//}
+	if (CTX_data_edit_object(vr_get_obj()->ctx)) {
+		raycast_select_single_edit(*(Coord3Df*)m.m[3], VR_UI::shift_key_get(), VR_UI::ctrl_key_get());
+	}
+	else {
+		raycast_select_single(*(Coord3Df*)m.m[3], VR_UI::shift_key_get(), VR_UI::ctrl_key_get());
+	}
 	/* Update manipulator transform. */
 	update_manipulator();
 	
@@ -4275,10 +4089,6 @@ void Widget_Transform::click(VR_UI::Cursor& c)
 
 void Widget_Transform::drag_start(VR_UI::Cursor& c)
 {
-	//c.interaction_position.set(((Mat44f)(c.position.get(VR_SPACE_REAL))).m, VR_SPACE_REAL);
-	/* Set the current position to the interaction position for the dragContd() calculations. */
-	//c.position.set(((Mat44f)(c.interaction_position.get(VR_SPACE_REAL))).m, VR_SPACE_REAL);
-
 	/* If other hand is already dragging, don't change the current state of the Transform tool. */
 	if (c.bimanual) {
 		return;
@@ -4399,31 +4209,36 @@ void Widget_Transform::drag_start(VR_UI::Cursor& c)
 	ListBase ctx_data_list;
 	CTX_data_selected_objects(C, &ctx_data_list);
 	CollectionPointerLink *ctx_link = (CollectionPointerLink *)ctx_data_list.first;
-	if (!ctx_link) {
+	Object *obedit = CTX_data_edit_object(C);
+	if (!ctx_link && !obedit) {
 		return;
 	}
 	for (int i = 0; i < nonsnap_t.size(); ++i) {
 		delete nonsnap_t[i];
 	}
 	nonsnap_t.clear();
-	/* Reset manipulator angles */
-	memset(&manip_angle, 0, sizeof(float) * 3);
-	for (int i = 0; i < manip_angle_local.size(); ++i) {
-		delete manip_angle_local[i];
-	}
-	manip_angle_local.clear();
-
 	for (; ctx_link; ctx_link = ctx_link->next) {
 		nonsnap_t.push_back(new Mat44f());
-		manip_angle_local.push_back(new Coord3Df());
 	}
 	snapped = false;
+
+	/* Reset manipulator angles */
+	memset(&manip_angle, 0, sizeof(float) * 9);
+	/* Save original manipulator transformation */
+	if (obedit) {
+		manip_t_orig = manip_t * (*(Mat44f*)obedit->obmat).inverse();
+	}
+	else {
+		manip_t_orig = manip_t;
+	}
 
 	if (manipulator || constraint_mode != VR_UI::CONSTRAINTMODE_NONE) {
 		for (int i = 0; i < VR_SIDES; ++i) {
 			Widget_Transform::obj.do_render[i] = true;
 		}
 	}
+
+	//is_dragging = true;
 
 	/* Call drag_contd() immediately? */
 	Widget_Transform::obj.drag_contd(c);
@@ -4435,8 +4250,19 @@ void Widget_Transform::drag_contd(VR_UI::Cursor& c)
 	ListBase ctx_data_list;
 	CTX_data_selected_objects(C, &ctx_data_list);
 	CollectionPointerLink *ctx_link = (CollectionPointerLink *)ctx_data_list.first;
-	if (!ctx_link) {
+	Object *obedit = CTX_data_edit_object(C);
+	if (!ctx_link && !obedit) {
 		return;
+	}
+	ToolSettings *ts = NULL;
+	BMesh *bm = NULL;
+	if (obedit && obedit->type == OB_MESH) {
+		/* Edit mode */
+		ts = CTX_data_scene(C)->toolsettings;
+		bm = ((Mesh*)obedit->data)->edit_btmesh->bm;
+		if (!ts || !bm) {
+			return;
+		}
 	}
 
 	static Mat44f curr;
@@ -4491,7 +4317,7 @@ void Widget_Transform::drag_contd(VR_UI::Cursor& c)
 		prev.m[3][0] = (prev_h.m[3][0] + prev_o.m[3][0]) / 2.0f;    prev.m[3][1] = (prev_h.m[3][1] + prev_o.m[3][1]) / 2.0f;    prev.m[3][2] = (prev_h.m[3][2] + prev_o.m[3][2]) / 2.0f;	prev.m[3][3] = 1;
 		curr.m[3][0] = (curr_h.m[3][0] + curr_o.m[3][0]) / 2.0f;    curr.m[3][1] = (curr_h.m[3][1] + curr_o.m[3][1]) / 2.0f;    curr.m[3][2] = (curr_h.m[3][2] + curr_o.m[3][2]) / 2.0f;	curr.m[3][3] = 1;
 
-		if (transform_mode != TRANSFORMMODE_ROTATE) { //transformmode == TRANSFORMMODE_OMNI) {
+		if (transform_mode != TRANSFORMMODE_ROTATE) {
 			/* Scaling: distance between pointers */
 			float curr_s = sqrt(((curr_h.m[3][0] - curr_o.m[3][0])*(curr_h.m[3][0] - curr_o.m[3][0])) + ((curr_h.m[3][1]) - curr_o.m[3][1])*(curr_h.m[3][1] - curr_o.m[3][1])) + ((curr_h.m[3][2] - curr_o.m[3][2])*(curr_h.m[3][2] - curr_o.m[3][2]));
 			float start_s = sqrt(((prev_h.m[3][0] - prev_o.m[3][0])*(prev_h.m[3][0] - prev_o.m[3][0])) + ((prev_h.m[3][1]) - prev_o.m[3][1])*(prev_h.m[3][1] - prev_o.m[3][1])) + ((prev_h.m[3][2] - prev_o.m[3][2])*(prev_h.m[3][2] - prev_o.m[3][2]));
@@ -4514,8 +4340,7 @@ void Widget_Transform::drag_contd(VR_UI::Cursor& c)
 		c.interaction_position.set(curr.m, VR_SPACE_BLENDER);
 	}
 
-	/* Calculate delta based on transform mode. 
-	 * TODO_XR: Refactor this. */
+	/* Calculate delta based on transform mode. */
 	static Mat44f delta;
 	if (c.bimanual) {
 		delta = prev.inverse() * curr;
@@ -4531,16 +4356,9 @@ void Widget_Transform::drag_contd(VR_UI::Cursor& c)
 			delta = VR_Math::identity_f;
 			if (constraint_mode == VR_UI::CONSTRAINTMODE_NONE) {
 				/* Scaling based on distance from manipulator center. */
-				static Coord3Df prev_d, curr_d;
-				if (local && manip_interact_index != -1) {
-					const Coord3Df& manip_p = *(Coord3Df*)manip_t_local[manip_interact_index]->m[3];
-					prev_d = *(Coord3Df*)prev.m[3] - manip_p;
-					curr_d = *(Coord3Df*)curr.m[3] - manip_p;
-				}
-				else {
-					prev_d = *(Coord3Df*)prev.m[3] - *(Coord3Df*)manip_t.m[3];
-					curr_d = *(Coord3Df*)curr.m[3] - *(Coord3Df*)manip_t.m[3];
-				}
+				static Coord3Df prev_d, curr_d;		
+				prev_d = *(Coord3Df*)prev.m[3] - *(Coord3Df*)manip_t_orig.m[3];
+				curr_d = *(Coord3Df*)curr.m[3] - *(Coord3Df*)manip_t_orig.m[3];
 				float p_len = prev_d.length();
 				float s = (p_len == 0.0f) ? 1.0f : curr_d.length() / p_len;
 				if (s > 1.0f) {
@@ -4567,121 +4385,11 @@ void Widget_Transform::drag_contd(VR_UI::Cursor& c)
 		}
 	}
 
-	/* Constraints */
 	static Mat44f delta_orig;
 	static float scale[3];
 	static float eul[3];
 	static float rot[3][3];
 	static Coord3Df temp1, temp2;
-	if (constraint_mode != VR_UI::CONSTRAINTMODE_NONE && !local) {
-		delta_orig = delta;
-		delta = VR_Math::identity_f;
-
-		switch (constraint_mode) {
-		case VR_UI::CONSTRAINTMODE_TRANS_X: {
-			delta.m[3][0] = delta_orig.m[3][0];
-			break;
-		}
-		case VR_UI::CONSTRAINTMODE_TRANS_Y: {
-			delta.m[3][1] = delta_orig.m[3][1];
-			break;
-		}
-		case VR_UI::CONSTRAINTMODE_TRANS_Z: {
-			delta.m[3][2] = delta_orig.m[3][2];
-			break;
-		}
-		case VR_UI::CONSTRAINTMODE_TRANS_XY: {
-			delta.m[3][0] = delta_orig.m[3][0];
-			delta.m[3][1] = delta_orig.m[3][1];
-			break;
-		}
-		case VR_UI::CONSTRAINTMODE_TRANS_YZ: {
-			delta.m[3][1] = delta_orig.m[3][1];
-			delta.m[3][2] = delta_orig.m[3][2];
-			break;
-		}
-		case VR_UI::CONSTRAINTMODE_TRANS_ZX: {
-			delta.m[3][0] = delta_orig.m[3][0];
-			delta.m[3][2] = delta_orig.m[3][2];
-			break;
-		}
-		case VR_UI::CONSTRAINTMODE_ROT_X: {
-			mat4_to_eul(eul, delta_orig.m);
-			eul[1] = eul[2] = 0;
-			eul_to_mat3(rot, eul);
-			for (int i = 0; i < 3; ++i) {
-				memcpy(delta.m[i], rot[i], sizeof(float) * 3);
-			}
-			if (VR_UI::shift_key_get()) {
-				manip_angle.x += eul[0] * WIDGET_TRANSFORM_ROT_PRECISION;
-			}
-			else {
-				manip_angle.x += eul[0];
-			}
-			break;
-		}
-		case VR_UI::CONSTRAINTMODE_ROT_Y: {
-			mat4_to_eul(eul, delta_orig.m);
-			eul[0] = eul[2] = 0;
-			eul_to_mat3(rot, eul);
-			for (int i = 0; i < 3; ++i) {
-				memcpy(delta.m[i], rot[i], sizeof(float) * 3);
-			}
-			if (VR_UI::shift_key_get()) {
-				manip_angle.y += eul[1] * WIDGET_TRANSFORM_ROT_PRECISION;
-			}
-			else {
-				manip_angle.y += eul[1];
-			}
-			break;
-		}
-		case VR_UI::CONSTRAINTMODE_ROT_Z: {
-			mat4_to_eul(eul, delta_orig.m);
-			eul[0] = eul[1] = 0;
-			eul_to_mat3(rot, eul);
-			for (int i = 0; i < 3; ++i) {
-				memcpy(delta.m[i], rot[i], sizeof(float) * 3);
-			}
-			if (VR_UI::shift_key_get()) {
-				manip_angle.z += eul[2] * WIDGET_TRANSFORM_ROT_PRECISION;
-			}
-			else {
-				manip_angle.z += eul[2];
-			}
-			break;
-		}
-		case VR_UI::CONSTRAINTMODE_SCALE_X: {
-			delta.m[0][0] = (c.bimanual ? (*(Coord3Df*)delta_orig.m[0]).length() : 1.0f + delta_orig.m[3][0]);
-			break;
-		}
-		case VR_UI::CONSTRAINTMODE_SCALE_Y: {
-			delta.m[1][1] = (c.bimanual ? (*(Coord3Df*)delta_orig.m[1]).length() : 1.0f + delta_orig.m[3][1]);
-			break;
-		}
-		case VR_UI::CONSTRAINTMODE_SCALE_Z: {
-			delta.m[2][2] = (c.bimanual ? (*(Coord3Df*)delta_orig.m[2]).length() : 1.0f + delta_orig.m[3][2]);
-			break;
-		}
-		case VR_UI::CONSTRAINTMODE_SCALE_XY: {
-			delta.m[0][0] = delta.m[1][1] = (c.bimanual ? ((*(Coord3Df*)delta_orig.m[0]).length() + (*(Coord3Df*)delta_orig.m[1]).length()) / 2.0f :
-													  	  1.0f + (delta_orig.m[3][0] + delta_orig.m[3][1]) / 2.0f);
-			break;
-		}
-		case VR_UI::CONSTRAINTMODE_SCALE_YZ: {
-			delta.m[1][1] = delta.m[2][2] = (c.bimanual ? ((*(Coord3Df*)delta_orig.m[1]).length() + (*(Coord3Df*)delta_orig.m[2]).length()) / 2.0f :
-														  1.0f + (delta_orig.m[3][1] + delta_orig.m[3][2]) / 2.0f);
-			break;
-		}
-		case VR_UI::CONSTRAINTMODE_SCALE_ZX: {
-			delta.m[0][0] = delta.m[2][2] = (c.bimanual ? ((*(Coord3Df*)delta_orig.m[0]).length() + (*(Coord3Df*)delta_orig.m[2]).length()) / 2.0f :
-														  1.0f + (delta_orig.m[3][0] + delta_orig.m[3][2]) / 2.0f);
-			break;
-		}
-		default: {
-			break;
-		}
-		}
-	}
 
 	/* Precision */
 	if (VR_UI::shift_key_get()) {
@@ -4715,9 +4423,9 @@ void Widget_Transform::drag_contd(VR_UI::Cursor& c)
 		}
 	}
 
-	/* Constraints (local) */
+	/* Constraints */
 	bool constrain = false;
-	if (constraint_mode != VR_UI::CONSTRAINTMODE_NONE && local) {
+	if (constraint_mode != VR_UI::CONSTRAINTMODE_NONE) {
 		delta_orig = delta;
 		delta = VR_Math::identity_f;
 		constrain = true;
@@ -4729,156 +4437,98 @@ void Widget_Transform::drag_contd(VR_UI::Cursor& c)
 		snap = true;
 	}
 
-	/* Edit mode */
-	/*if (!local) {
-		Object *obedit = CTX_data_edit_object(C);
-		if (obedit) {
-			Scene *scene = CTX_data_scene(C);
-			ToolSettings *ts = scene->toolsettings;
-			BMEditMesh *em = BKE_editmesh_from_object(obedit);
-			if (em) {
-				BMIter iter;
-				BMesh *bm = em->bm;
-				static float temp1[3];
-				static float temp2[3];
-				if (ts->selectmode & SCE_SELECT_VERTEX) {
-					BMVert *v;
-					BM_ITER_MESH(v, &iter, bm, BM_VERTS_OF_MESH) {
-						if (BM_elem_flag_test(v, BM_ELEM_SELECT)) {
-							float *co = v->co;
-							memcpy(temp1, co, sizeof(float) * 3);
-							mul_v3_m4v3(co, delta.m, temp1);
-						}
-					}
-				}
-				if (ts->selectmode & SCE_SELECT_EDGE) {
-					BMEdge *e;
-					BM_ITER_MESH(e, &iter, bm, BM_EDGES_OF_MESH) {
-						if (BM_elem_flag_test(e, BM_ELEM_SELECT)) {
-							float *co1 = e->v1->co;
-							float *co2 = e->v2->co;
-							memcpy(temp1, co1, sizeof(float) * 3);
-							memcpy(temp2, co2, sizeof(float) * 3);
-							mul_v3_m4v3(co1, delta.m, temp1);
-							mul_v3_m4v3(co2, delta.m, temp2);
-							break;
-						}
-					}
-				}
-				if (ts->selectmode & SCE_SELECT_FACE) {
-					BMFace *f;
-					BMLoop *l;
-					BM_ITER_MESH(f, &iter, bm, BM_FACES_OF_MESH) {
-						if (BM_elem_flag_test(f, BM_ELEM_SELECT)) {
-							l = f->l_first;
-							for (int i = 0; i < f->len; ++i, l = l->next) {
-								float *co = l->v->co;
-								memcpy(temp1, co, sizeof(float) * 3);
-								mul_v3_m4v3(co, delta.m, temp1);
-							}
-							break;
-						}
-					}
-				}
-
-				DEG_id_tag_update((ID*)obedit->data, OB_RECALC_DATA);
-				return;
-			}
-		}
-	}*/
-
 	for (int index = 0; ctx_link; ctx_link = ctx_link->next, ++index) {
 		Object *obact = (Object*)ctx_link->ptr.data;
 		if (!obact) {
 			continue;
 		}
 
-		/* Constraints (local) */
+		/* Constraints */
 		if (constrain) {
 			static float axis[3];
 			static float angle;
 			static Coord3Df temp3;
 			switch (constraint_mode) {
 			case VR_UI::CONSTRAINTMODE_TRANS_X: {
-				project_v3_v3v3(delta.m[3], delta_orig.m[3], obact->obmat[0]);
+				project_v3_v3v3(delta.m[3], delta_orig.m[3], manip_t_orig.m[0]);
 				break;
 			}
 			case VR_UI::CONSTRAINTMODE_TRANS_Y: {
-				project_v3_v3v3(delta.m[3], delta_orig.m[3], obact->obmat[1]);
+				project_v3_v3v3(delta.m[3], delta_orig.m[3], manip_t_orig.m[1]);
 				break;
 			}
 			case VR_UI::CONSTRAINTMODE_TRANS_Z: {
-				project_v3_v3v3(delta.m[3], delta_orig.m[3], obact->obmat[2]);
+				project_v3_v3v3(delta.m[3], delta_orig.m[3], manip_t_orig.m[2]);
 				break;
 			}
 			case VR_UI::CONSTRAINTMODE_TRANS_XY: {
-				project_v3_v3v3(&temp1.x, delta_orig.m[3], obact->obmat[0]);
-				project_v3_v3v3(&temp2.x, delta_orig.m[3], obact->obmat[1]);
+				project_v3_v3v3(&temp1.x, delta_orig.m[3], manip_t_orig.m[0]);
+				project_v3_v3v3(&temp2.x, delta_orig.m[3], manip_t_orig.m[1]);
 				*(Coord3Df*)delta.m[3] = temp1 + temp2;
 				break;
 			}
 			case VR_UI::CONSTRAINTMODE_TRANS_YZ: {
-				project_v3_v3v3(&temp1.x, delta_orig.m[3], obact->obmat[1]);
-				project_v3_v3v3(&temp2.x, delta_orig.m[3], obact->obmat[2]);
+				project_v3_v3v3(&temp1.x, delta_orig.m[3], manip_t_orig.m[1]);
+				project_v3_v3v3(&temp2.x, delta_orig.m[3], manip_t_orig.m[2]);
 				*(Coord3Df*)delta.m[3] = temp1 + temp2;
 				break;
 			}
 			case VR_UI::CONSTRAINTMODE_TRANS_ZX: {
-				project_v3_v3v3(&temp1.x, delta_orig.m[3], obact->obmat[0]);
-				project_v3_v3v3(&temp2.x, delta_orig.m[3], obact->obmat[2]);
+				project_v3_v3v3(&temp1.x, delta_orig.m[3], manip_t_orig.m[0]);
+				project_v3_v3v3(&temp2.x, delta_orig.m[3], manip_t_orig.m[2]);
 				*(Coord3Df*)delta.m[3] = temp1 + temp2;
 				break;
 			}
 			case VR_UI::CONSTRAINTMODE_ROT_X: {
 				mat4_to_axis_angle(axis, &angle, delta_orig.m);
-				if ((*(Coord3Df*)axis) * (*(Coord3Df*)obact->obmat[0]) < 0) {
+				if ((*(Coord3Df*)axis) * (*(Coord3Df*)manip_t_orig.m[0]) < 0) {
 					angle = -angle;
 				}
-				axis_angle_to_mat4(delta.m, obact->obmat[0], angle);
+				axis_angle_to_mat4(delta.m, manip_t_orig.m[0], angle);
 				if (VR_UI::shift_key_get()) {
-					manip_angle_local[index]->x += angle * WIDGET_TRANSFORM_ROT_PRECISION;
+					manip_angle[transform_space].x += angle * WIDGET_TRANSFORM_ROT_PRECISION;
 				}
 				else {
-					manip_angle_local[index]->x += angle;
+					manip_angle[transform_space].x += angle;
 				}
 				break;
 			}
 			case VR_UI::CONSTRAINTMODE_ROT_Y: {
 				mat4_to_axis_angle(axis, &angle, delta_orig.m);
-				if ((*(Coord3Df*)axis) * (*(Coord3Df*)obact->obmat[1]) < 0) {
+				if ((*(Coord3Df*)axis) * (*(Coord3Df*)manip_t_orig.m[1]) < 0) {
 					angle = -angle;
 				}
-				axis_angle_to_mat4(delta.m, obact->obmat[1], angle);
+				axis_angle_to_mat4(delta.m, manip_t_orig.m[1], angle);
 				if (VR_UI::shift_key_get()) {
-					manip_angle_local[index]->y += angle * WIDGET_TRANSFORM_ROT_PRECISION;
+					manip_angle[transform_space].y += angle * WIDGET_TRANSFORM_ROT_PRECISION;
 				}
 				else {
-					manip_angle_local[index]->y += angle;
+					manip_angle[transform_space].y += angle;
 				}
 				break;
 			}
 			case VR_UI::CONSTRAINTMODE_ROT_Z: {
 				mat4_to_axis_angle(axis, &angle, delta_orig.m);
-				if ((*(Coord3Df*)axis) * (*(Coord3Df*)obact->obmat[2]) < 0) {
+				if ((*(Coord3Df*)axis) * (*(Coord3Df*)manip_t_orig.m[2]) < 0) {
 					angle = -angle;
 				}
-				axis_angle_to_mat4(delta.m, obact->obmat[2], angle);
+				axis_angle_to_mat4(delta.m, manip_t_orig.m[2], angle);
 				if (VR_UI::shift_key_get()) {
-					manip_angle_local[index]->z += angle * WIDGET_TRANSFORM_ROT_PRECISION;
+					manip_angle[transform_space].z += angle * WIDGET_TRANSFORM_ROT_PRECISION;
 				}
 				else {
-					manip_angle_local[index]->z += angle;
+					manip_angle[transform_space].z += angle;
 				}
 				break;
 			}
 			case VR_UI::CONSTRAINTMODE_SCALE_X: {
 				float length;
-				*(Coord3Df*)scale = (*(Coord3Df*)obact->obmat[0]).normalize();
+				*(Coord3Df*)scale = (*(Coord3Df*)manip_t_orig.m[0]).normalize();
 				if (c.bimanual) {
 					length = -delta_orig.m[3][0];
 				}
 				else {
-					project_v3_v3v3(&temp1.x, delta_orig.m[3], obact->obmat[0]);
+					project_v3_v3v3(&temp1.x, delta_orig.m[3], manip_t_orig.m[0]);
 					length = temp1.length();
 					temp2 = (*(Coord3Df*)delta_orig.m[3]).normalize();
 					if (dot_v3v3((float*)&temp2, scale) < 0) {
@@ -4892,12 +4542,12 @@ void Widget_Transform::drag_contd(VR_UI::Cursor& c)
 			}
 			case VR_UI::CONSTRAINTMODE_SCALE_Y: {
 				float length;
-				*(Coord3Df*)scale = (*(Coord3Df*)obact->obmat[1]).normalize();
+				*(Coord3Df*)scale = (*(Coord3Df*)manip_t_orig.m[1]).normalize();
 				if (c.bimanual) {
 					length = -delta_orig.m[3][1];
 				}
 				else {
-					project_v3_v3v3(&temp1.x, delta_orig.m[3], obact->obmat[1]);
+					project_v3_v3v3(&temp1.x, delta_orig.m[3], manip_t_orig.m[1]);
 					length = temp1.length();
 					temp2 = (*(Coord3Df*)delta_orig.m[3]).normalize();
 					if (dot_v3v3((float*)&temp2, scale) < 0) {
@@ -4911,12 +4561,12 @@ void Widget_Transform::drag_contd(VR_UI::Cursor& c)
 			}
 			case VR_UI::CONSTRAINTMODE_SCALE_Z: {
 				float length;
-				*(Coord3Df*)scale = (*(Coord3Df*)obact->obmat[2]).normalize();
+				*(Coord3Df*)scale = (*(Coord3Df*)manip_t_orig.m[2]).normalize();
 				if (c.bimanual) {
 					length = -delta_orig.m[3][2];
 				}
 				else {
-					project_v3_v3v3(&temp1.x, delta_orig.m[3], obact->obmat[2]);
+					project_v3_v3v3(&temp1.x, delta_orig.m[3], manip_t_orig.m[2]);
 					length = temp1.length();
 					temp2 = (*(Coord3Df*)delta_orig.m[3]).normalize();
 					if (dot_v3v3((float*)&temp2, scale) < 0) {
@@ -4932,18 +4582,18 @@ void Widget_Transform::drag_contd(VR_UI::Cursor& c)
 				float length;
 				if (c.bimanual) {
 					length = -(delta_orig.m[3][0] + delta_orig.m[3][1]) / 2.0f;
-					*(Coord3Df*)scale = ((*(Coord3Df*)obact->obmat[0]).normalize() + (*(Coord3Df*)obact->obmat[1]).normalize()) / 2.0f;
+					*(Coord3Df*)scale = ((*(Coord3Df*)manip_t_orig.m[0]).normalize() + (*(Coord3Df*)manip_t_orig.m[1]).normalize()) / 2.0f;
 				}
 				else {
-					project_v3_v3v3(&temp1.x, delta_orig.m[3], obact->obmat[0]);
+					project_v3_v3v3(&temp1.x, delta_orig.m[3], manip_t_orig.m[0]);
 					length = temp1.length();
 					(*(Coord3Df*)scale = (*(Coord3Df*)delta_orig.m[3]).normalize());
-					temp1 = (*(Coord3Df*)obact->obmat[0]).normalize();
+					temp1 = (*(Coord3Df*)manip_t_orig.m[0]).normalize();
 					if (dot_v3v3((float*)&temp1, scale) < 0) {
 						length = -length;
 					}
-					project_v3_v3v3(&temp3.x, delta_orig.m[3], obact->obmat[1]);
-					temp2 = (*(Coord3Df*)obact->obmat[1]).normalize();
+					project_v3_v3v3(&temp3.x, delta_orig.m[3], manip_t_orig.m[1]);
+					temp2 = (*(Coord3Df*)manip_t_orig.m[1]).normalize();
 					if (dot_v3v3((float*)&temp2, scale) < 0) {
 						length -= temp3.length();
 					}
@@ -4962,18 +4612,18 @@ void Widget_Transform::drag_contd(VR_UI::Cursor& c)
 				float length;
 				if (c.bimanual) {
 					length = -(delta_orig.m[3][1] + delta_orig.m[3][2]) / 2.0f;
-					*(Coord3Df*)scale = ((*(Coord3Df*)obact->obmat[1]).normalize() + (*(Coord3Df*)obact->obmat[2]).normalize()) / 2.0f;
+					*(Coord3Df*)scale = ((*(Coord3Df*)manip_t_orig.m[1]).normalize() + (*(Coord3Df*)manip_t_orig.m[2]).normalize()) / 2.0f;
 				}
 				else {
-					project_v3_v3v3(&temp1.x, delta_orig.m[3], obact->obmat[1]);
+					project_v3_v3v3(&temp1.x, delta_orig.m[3], manip_t_orig.m[1]);
 					length = temp1.length();
 					(*(Coord3Df*)scale = (*(Coord3Df*)delta_orig.m[3]).normalize());
-					temp1 = (*(Coord3Df*)obact->obmat[1]).normalize();
+					temp1 = (*(Coord3Df*)manip_t_orig.m[1]).normalize();
 					if (dot_v3v3((float*)&temp1, scale) < 0) {
 						length = -length;
 					}
-					project_v3_v3v3(&temp3.x, delta_orig.m[3], obact->obmat[2]);
-					temp2 = (*(Coord3Df*)obact->obmat[2]).normalize();
+					project_v3_v3v3(&temp3.x, delta_orig.m[3], manip_t_orig.m[2]);
+					temp2 = (*(Coord3Df*)manip_t_orig.m[2]).normalize();
 					if (dot_v3v3((float*)&temp2, scale) < 0) {
 						length -= temp3.length();
 					}
@@ -4992,18 +4642,18 @@ void Widget_Transform::drag_contd(VR_UI::Cursor& c)
 				float length;
 				if (c.bimanual) {
 					length = -(delta_orig.m[3][0] + delta_orig.m[3][2]) / 2.0f;
-					*(Coord3Df*)scale = ((*(Coord3Df*)obact->obmat[0]).normalize() + (*(Coord3Df*)obact->obmat[2]).normalize()) / 2.0f;
+					*(Coord3Df*)scale = ((*(Coord3Df*)manip_t_orig.m[0]).normalize() + (*(Coord3Df*)manip_t_orig.m[2]).normalize()) / 2.0f;
 				}
 				else {
-					project_v3_v3v3(&temp1.x, delta_orig.m[3], obact->obmat[0]);
+					project_v3_v3v3(&temp1.x, delta_orig.m[3], manip_t_orig.m[0]);
 					length = temp1.length();
 					(*(Coord3Df*)scale = (*(Coord3Df*)delta_orig.m[3]).normalize());
-					temp1 = (*(Coord3Df*)obact->obmat[0]).normalize();
+					temp1 = (*(Coord3Df*)manip_t_orig.m[0]).normalize();
 					if (dot_v3v3((float*)&temp1, scale) < 0) {
 						length = -length;
 					}
-					project_v3_v3v3(&temp3.x, delta_orig.m[3], obact->obmat[2]);
-					temp2 = (*(Coord3Df*)obact->obmat[2]).normalize();
+					project_v3_v3v3(&temp3.x, delta_orig.m[3], manip_t_orig.m[2]);
+					temp2 = (*(Coord3Df*)manip_t_orig.m[2]).normalize();
 					if (dot_v3v3((float*)&temp2, scale) < 0) {
 						length -= temp3.length();
 					}
@@ -5026,194 +4676,472 @@ void Widget_Transform::drag_contd(VR_UI::Cursor& c)
 		/* Snapping */
 		static Mat44f m;
 		if (snap) {
-			/* Save actual position. */
-			Mat44f& nonsnap_m = *nonsnap_t[index];
-			Mat44f& obmat = *(Mat44f*)obact->obmat;
-			if (!snapped) {
-				nonsnap_m = obmat;
-			}
-			else {
-				m = nonsnap_m;
-				nonsnap_m = m * delta;
-			}
-
-			/* Apply snapping. */
-			float precision, iter_fac, val;
-			for (int i = 0; i < 3; ++i) {
-				scale[i] = (*(Coord3Df*)nonsnap_m.m[i]).length();
-			}
-			switch (snap_mode) {
-			case VR_UI::SNAPMODE_TRANSLATION: {
-				/* Translation */
-				if (VR_UI::shift_key_get()) {
-					precision = WIDGET_TRANSFORM_TRANS_PRECISION;
+			if (obedit) { /* Edit mode */
+				Mat44f& nonsnap_m = *nonsnap_t[index];
+				if (!snapped) {
+					nonsnap_m = manip_t;
+					manip_t_snap = manip_t;
 				}
 				else {
-					precision = 1.0f;
+					m = nonsnap_m;
+					nonsnap_m = m * delta;
 				}
-				float *pos = (float*)nonsnap_m.m[3];
-				for (int i = 0; i < 3; ++i, ++pos) {
-					if (!snap_flag[i]) {
-						continue;
+				static Mat44f manip_t_prev;
+				manip_t_prev = manip_t_snap;
+
+				/* Apply snapping. */
+				float precision, iter_fac, val;
+				for (int i = 0; i < 3; ++i) {
+					scale[i] = (*(Coord3Df*)nonsnap_m.m[i]).length();
+				}
+				switch (snap_mode) {
+				case VR_UI::SNAPMODE_TRANSLATION: {
+					/* Translation */
+					if (VR_UI::shift_key_get()) {
+						precision = WIDGET_TRANSFORM_TRANS_PRECISION;
 					}
-					iter_fac = precision * scale[i];
-					val = roundf(*pos / iter_fac);
-					obmat.m[3][i] = iter_fac * val;
-				}
-				if (local) {
+					else {
+						precision = 1.0f;
+					}
+					float *pos = (float*)nonsnap_m.m[3];
+					for (int i = 0; i < 3; ++i, ++pos) {
+						if (!snap_flag[i]) {
+							continue;
+						}
+						iter_fac = precision * scale[i];
+						val = roundf(*pos / iter_fac);
+						manip_t_snap.m[3][i] = iter_fac * val;
+					}
 					switch (constraint_mode) {
 					case VR_UI::CONSTRAINTMODE_TRANS_X: {
-						temp1 = *(Coord3Df*)obmat.m[3] - *(Coord3Df*)nonsnap_m.m[3];
-						project_v3_v3v3(&temp2.x, &temp1.x, obmat.m[0]);
-						*(Coord3Df*)obmat.m[3] = *(Coord3Df*)nonsnap_m.m[3] + temp2;
+						temp1 = *(Coord3Df*)manip_t_snap.m[3] - *(Coord3Df*)nonsnap_m.m[3];
+						project_v3_v3v3(&temp2.x, &temp1.x, manip_t_orig.m[0]);
+						*(Coord3Df*)manip_t_snap.m[3] = *(Coord3Df*)nonsnap_m.m[3] + temp2;
 						break;
 					}
 					case VR_UI::CONSTRAINTMODE_TRANS_Y: {
-						temp1 = *(Coord3Df*)obmat.m[3] - *(Coord3Df*)nonsnap_m.m[3];
-						project_v3_v3v3(&temp2.x, &temp1.x, obmat.m[1]);
-						*(Coord3Df*)obmat.m[3] = *(Coord3Df*)nonsnap_m.m[3] + temp2;
+						temp1 = *(Coord3Df*)manip_t_snap.m[3] - *(Coord3Df*)nonsnap_m.m[3];
+						project_v3_v3v3(&temp2.x, &temp1.x, manip_t_orig.m[1]);
+						*(Coord3Df*)manip_t_snap.m[3] = *(Coord3Df*)nonsnap_m.m[3] + temp2;
 						break;
 					}
 					case VR_UI::CONSTRAINTMODE_TRANS_Z: {
-						temp1 = *(Coord3Df*)obmat.m[3] - *(Coord3Df*)nonsnap_m.m[3];
-						project_v3_v3v3(&temp2.x, &temp1.x, obmat.m[2]);
-						*(Coord3Df*)obmat.m[3] = *(Coord3Df*)nonsnap_m.m[3] + temp2;
+						temp1 = *(Coord3Df*)manip_t_snap.m[3] - *(Coord3Df*)nonsnap_m.m[3];
+						project_v3_v3v3(&temp2.x, &temp1.x, manip_t_orig.m[2]);
+						*(Coord3Df*)manip_t_snap.m[3] = *(Coord3Df*)nonsnap_m.m[3] + temp2;
 						break;
 					}
 					case VR_UI::CONSTRAINTMODE_TRANS_XY: {
-						temp1 = *(Coord3Df*)obmat.m[3] - *(Coord3Df*)nonsnap_m.m[3];
-						project_v3_v3v3(&temp2.x, &temp1.x, obmat.m[0]);
-						*(Coord3Df*)obmat.m[3] = *(Coord3Df*)nonsnap_m.m[3] + temp2;
-						project_v3_v3v3(&temp2.x, &temp1.x, obmat.m[1]);
-						*(Coord3Df*)obmat.m[3] += temp2;
+						temp1 = *(Coord3Df*)manip_t_snap.m[3] - *(Coord3Df*)nonsnap_m.m[3];
+						project_v3_v3v3(&temp2.x, &temp1.x, manip_t_orig.m[0]);
+						*(Coord3Df*)manip_t_snap.m[3] = *(Coord3Df*)nonsnap_m.m[3] + temp2;
+						project_v3_v3v3(&temp2.x, &temp1.x, manip_t_orig.m[1]);
+						*(Coord3Df*)manip_t_snap.m[3] += temp2;
 						break;
 					}
 					case VR_UI::CONSTRAINTMODE_TRANS_YZ: {
-						temp1 = *(Coord3Df*)obmat.m[3] - *(Coord3Df*)nonsnap_m.m[3];
-						project_v3_v3v3(&temp2.x, &temp1.x, obmat.m[1]);
-						*(Coord3Df*)obmat.m[3] = *(Coord3Df*)nonsnap_m.m[3] + temp2;
-						project_v3_v3v3(&temp2.x, &temp1.x, obmat.m[2]);
-						*(Coord3Df*)obmat.m[3] += temp2;
+						temp1 = *(Coord3Df*)manip_t_snap.m[3] - *(Coord3Df*)nonsnap_m.m[3];
+						project_v3_v3v3(&temp2.x, &temp1.x, manip_t_orig.m[1]);
+						*(Coord3Df*)manip_t_snap.m[3] = *(Coord3Df*)nonsnap_m.m[3] + temp2;
+						project_v3_v3v3(&temp2.x, &temp1.x, manip_t_orig.m[2]);
+						*(Coord3Df*)manip_t_snap.m[3] += temp2;
 						break;
 					}
 					case VR_UI::CONSTRAINTMODE_TRANS_ZX: {
-						temp1 = *(Coord3Df*)obmat.m[3] - *(Coord3Df*)nonsnap_m.m[3];
-						project_v3_v3v3(&temp2.x, &temp1.x, obmat.m[0]);
-						*(Coord3Df*)obmat.m[3] = *(Coord3Df*)nonsnap_m.m[3] + temp2;
-						project_v3_v3v3(&temp2.x, &temp1.x, obmat.m[2]);
-						*(Coord3Df*)obmat.m[3] += temp2;
+						temp1 = *(Coord3Df*)manip_t_snap.m[3] - *(Coord3Df*)nonsnap_m.m[3];
+						project_v3_v3v3(&temp2.x, &temp1.x, manip_t_orig.m[0]);
+						*(Coord3Df*)manip_t_snap.m[3] = *(Coord3Df*)nonsnap_m.m[3] + temp2;
+						project_v3_v3v3(&temp2.x, &temp1.x, manip_t_orig.m[2]);
+						*(Coord3Df*)manip_t_snap.m[3] += temp2;
 						break;
 					}
 					default: {
-						/* TODO_XR: Local translation snappping (no constraints) */
+						/* TODO_XR: Local / normal translation snappping (no constraints) */
 						break;
 					}
 					}
-				}
-				break;
-			}
-			case VR_UI::SNAPMODE_ROTATION: {
-				/* Rotation */
-				if (VR_UI::shift_key_get()) {
-					precision = PI / 180.0f;
-				}
-				else {
-					precision = WIDGET_TRANSFORM_ROT_PRECISION;
-				}
-				/* TODO_XR: Local rotation snapping (no constraints). */
-				mat4_to_eul(eul, nonsnap_m.m);
-				//static float eul_orig[3];
-				//memcpy(eul_orig, eul, sizeof(float) * 3);
-				for (int i = 0; i < 3; ++i) {
-					if (!snap_flag[i]) {
-						continue;
-					}
-					val = roundf(eul[i] / precision);
-					eul[i] = precision * val;
-				}
-				eul_to_mat3(rot, eul);
-				for (int i = 0; i < 3; ++i) {
-					memcpy(obmat.m[i], rot[i], sizeof(float) * 3);
-					*(Coord3Df*)obmat.m[i] *= scale[i];
-				}
-				/* Update manipulator angles. */
-				/* TODO_XR */
-				/*for (int i = 0; i < 3; ++i) {
-					if (!snap_flag[i]) {
-						continue;
-					}
-					switch (i) {
-					case 0: {
-						float& m_angle = (local ? manip_angle_local[index]->x : manip_angle.x);
-						m_angle += eul[i] - eul_orig[i];
-						val = roundf(m_angle / precision);
-						m_angle = precision * val;
-						break;
-					}
-					case 1: {
-						float& m_angle = (local ? manip_angle_local[index]->y : manip_angle.y);
-						m_angle += eul[i] - eul_orig[i];
-						val = roundf(m_angle / precision);
-						m_angle = precision * val;
-						break;
-					}
-					case 2: {
-						float& m_angle = (local ? manip_angle_local[index]->z : manip_angle.z);
-						m_angle += eul[i] - eul_orig[i];
-						val = roundf(m_angle / precision);
-						m_angle = precision * val;
-						break;
-					}
-					}
-				}*/
-				break;
-			}
-			case VR_UI::SNAPMODE_SCALE: {
-				/* Scale */
-				if (!local && constraint_mode != VR_UI::CONSTRAINTMODE_NONE) {
-					/* TODO_XR */
 					break;
-					/*for (int i = 0; i < 3; ++i) {
-						if (snap_flag[i]) {
-							continue;
-						}
-						(*(Coord3Df*)obmat.m[i]).normalize_in_place() *= (*(Coord3Df*)nonsnap_m.m[i]).length();
-					}
-					static Mat44f t;
-					transpose_m4_m4(t.m, nonsnap_m.m);
-					for (int i = 0; i < 3; ++i) {
-						scale[i] = (*(Coord3Df*)t.m[i]).length();
-					}*/
 				}
-				for (int i = 0; i < 3; ++i) {
-					if (!snap_flag[i]) {
-						continue;
-					}
+				case VR_UI::SNAPMODE_ROTATION: {
+					/* Rotation */
 					if (VR_UI::shift_key_get()) {
-						/* Snap scale based on the power of ten magnitude of the curent scale */
-						precision = 0.1f * powf(10.0f, floor(log10(scale[i])));
+						precision = PI / 180.0f;
 					}
 					else {
-						precision = 0.5f * powf(10.0f, floor(log10(scale[i])));
+						precision = WIDGET_TRANSFORM_ROT_PRECISION;
 					}
-					val = roundf(scale[i] / precision);
-					if (val == 0.0f) {
-						val = 1.0f;
+					/* TODO_XR: Local / normal rotation snapping (no constraints). */
+					mat4_to_eul(eul, nonsnap_m.m);
+					//static float eul_orig[3];
+					//memcpy(eul_orig, eul, sizeof(float) * 3);
+					for (int i = 0; i < 3; ++i) {
+						if (!snap_flag[i]) {
+							continue;
+						}
+						val = roundf(eul[i] / precision);
+						eul[i] = precision * val;
 					}
-					(*(Coord3Df*)obmat.m[i]).normalize_in_place() *= (precision * val);
+					eul_to_mat3(rot, eul);
+					for (int i = 0; i < 3; ++i) {
+						memcpy(manip_t_snap.m[i], rot[i], sizeof(float) * 3);
+						*(Coord3Df*)manip_t_snap.m[i] *= scale[i];
+					}
+					/* Update manipulator angles. */
+					/* TODO_XR */
+					//for (int i = 0; i < 3; ++i) {
+					//	if (!snap_flag[i]) {
+					//		continue;
+					//	}
+					//	switch (i) {
+					//	case 0: {
+					//		float& m_angle = manip_angle[transform_space].x;
+					//		m_angle += eul[i] - eul_orig[i];
+					//		val = roundf(m_angle / precision);
+					//		m_angle = precision * val;
+					//		break;
+					//	}
+					//	case 1: {
+					//		float& m_angle = manip_angle[transform_space].y;
+					//		m_angle += eul[i] - eul_orig[i];
+					//		val = roundf(m_angle / precision);
+					//		m_angle = precision * val;
+					//		break;
+					//	}
+					//	case 2: {
+					//		float& m_angle = manip_angle[transform_space].z;
+					//		m_angle += eul[i] - eul_orig[i];
+					//		val = roundf(m_angle / precision);
+					//		m_angle = precision * val;
+					//		break;
+					//	}
+					//	}
+					//}
+					break;
 				}
+				case VR_UI::SNAPMODE_SCALE: {
+					/* Scale */
+					if (transform_space == VR_UI::TRANSFORMSPACE_GLOBAL && constraint_mode != VR_UI::CONSTRAINTMODE_NONE) {
+						/* TODO_XR */
+						break;
+						/*for (int i = 0; i < 3; ++i) {
+							if (snap_flag[i]) {
+								continue;
+							}
+							(*(Coord3Df*)manip_t_snap.m[i]).normalize_in_place() *= (*(Coord3Df*)nonsnap_m.m[i]).length();
+						}
+						static Mat44f t;
+						transpose_m4_m4(t.m, nonsnap_m.m);
+						for (int i = 0; i < 3; ++i) {
+							scale[i] = (*(Coord3Df*)t.m[i]).length();
+						}*/
+					}
+					for (int i = 0; i < 3; ++i) {
+						if (!snap_flag[i]) {
+							continue;
+						}
+						if (VR_UI::shift_key_get()) {
+							/* Snap scale based on the power of ten magnitude of the curent scale */
+							precision = 0.1f * powf(10.0f, floor(log10(scale[i])));
+						}
+						else {
+							precision = 0.5f * powf(10.0f, floor(log10(scale[i])));
+						}
+						val = roundf(scale[i] / precision);
+						if (val == 0.0f) {
+							val = 1.0f;
+						}
+						(*(Coord3Df*)manip_t_snap.m[i]).normalize_in_place() *= (precision * val);
+					}
+					break;
+				}
+				default: {
+					break;
+				}
+				}
+
+				delta = manip_t_prev.inverse() * manip_t_snap;
+				BMIter iter;
+
+				if (ts->selectmode & SCE_SELECT_VERTEX) {
+					BMVert *v;
+					BM_ITER_MESH(v, &iter, bm, BM_VERTS_OF_MESH) {
+						if (BM_elem_flag_test(v, BM_ELEM_SELECT)) {
+							float *co = v->co;
+							memcpy((float*)&temp1, co, sizeof(float) * 3);
+							mul_v3_m4v3(co, delta.m, (float*)&temp1);
+						}
+					}
+				}
+				else if (ts->selectmode & SCE_SELECT_EDGE) {
+					BMEdge *e;
+					BM_ITER_MESH(e, &iter, bm, BM_EDGES_OF_MESH) {
+						if (BM_elem_flag_test(e, BM_ELEM_SELECT)) {
+							float *co1 = e->v1->co;
+							float *co2 = e->v2->co;
+							memcpy((float*)&temp1, co1, sizeof(float) * 3);
+							memcpy((float*)&temp2, co2, sizeof(float) * 3);
+							mul_v3_m4v3(co1, delta.m, (float*)&temp1);
+							mul_v3_m4v3(co2, delta.m, (float*)&temp2);
+						}
+					}
+				}
+				else if (ts->selectmode & SCE_SELECT_FACE) {
+					BMFace *f;
+					BMLoop *l;
+					BM_ITER_MESH(f, &iter, bm, BM_FACES_OF_MESH) {
+						if (BM_elem_flag_test(f, BM_ELEM_SELECT)) {
+							l = f->l_first;
+							for (int i = 0; i < f->len; ++i, l = l->next) {
+								float *co = l->v->co;
+								memcpy((float*)&temp1, co, sizeof(float) * 3);
+								mul_v3_m4v3(co, delta.m, (float*)&temp1);
+							}
+						}
+					}
+				}
+
+				/* Set recalc flags. */
+				DEG_id_tag_update((ID*)obedit->data, ID_RECALC_GEOMETRY);
+				/* Exit object iteration loop. */
 				break;
 			}
-			default: {
-				break;
-			}
+			else { /* Object mode */
+				/* Save actual position. */
+				Mat44f& nonsnap_m = *nonsnap_t[index];
+				Mat44f& obmat = *(Mat44f*)obact->obmat;
+				if (!snapped) {
+					nonsnap_m = obmat;
+				}
+				else {
+					m = nonsnap_m;
+					nonsnap_m = m * delta;
+				}
+
+				/* Apply snapping. */
+				float precision, iter_fac, val;
+				for (int i = 0; i < 3; ++i) {
+					scale[i] = (*(Coord3Df*)nonsnap_m.m[i]).length();
+				}
+				switch (snap_mode) {
+				case VR_UI::SNAPMODE_TRANSLATION: {
+					/* Translation */
+					if (VR_UI::shift_key_get()) {
+						precision = WIDGET_TRANSFORM_TRANS_PRECISION;
+					}
+					else {
+						precision = 1.0f;
+					}
+					float *pos = (float*)nonsnap_m.m[3];
+					for (int i = 0; i < 3; ++i, ++pos) {
+						if (!snap_flag[i]) {
+							continue;
+						}
+						iter_fac = precision * scale[i];
+						val = roundf(*pos / iter_fac);
+						obmat.m[3][i] = iter_fac * val;
+					}
+					if (transform_space == VR_UI::TRANSFORMSPACE_LOCAL) {
+						switch (constraint_mode) {
+						case VR_UI::CONSTRAINTMODE_TRANS_X: {
+							temp1 = *(Coord3Df*)obmat.m[3] - *(Coord3Df*)nonsnap_m.m[3];
+							project_v3_v3v3(&temp2.x, &temp1.x, obmat.m[0]);
+							*(Coord3Df*)obmat.m[3] = *(Coord3Df*)nonsnap_m.m[3] + temp2;
+							break;
+						}
+						case VR_UI::CONSTRAINTMODE_TRANS_Y: {
+							temp1 = *(Coord3Df*)obmat.m[3] - *(Coord3Df*)nonsnap_m.m[3];
+							project_v3_v3v3(&temp2.x, &temp1.x, obmat.m[1]);
+							*(Coord3Df*)obmat.m[3] = *(Coord3Df*)nonsnap_m.m[3] + temp2;
+							break;
+						}
+						case VR_UI::CONSTRAINTMODE_TRANS_Z: {
+							temp1 = *(Coord3Df*)obmat.m[3] - *(Coord3Df*)nonsnap_m.m[3];
+							project_v3_v3v3(&temp2.x, &temp1.x, obmat.m[2]);
+							*(Coord3Df*)obmat.m[3] = *(Coord3Df*)nonsnap_m.m[3] + temp2;
+							break;
+						}
+						case VR_UI::CONSTRAINTMODE_TRANS_XY: {
+							temp1 = *(Coord3Df*)obmat.m[3] - *(Coord3Df*)nonsnap_m.m[3];
+							project_v3_v3v3(&temp2.x, &temp1.x, obmat.m[0]);
+							*(Coord3Df*)obmat.m[3] = *(Coord3Df*)nonsnap_m.m[3] + temp2;
+							project_v3_v3v3(&temp2.x, &temp1.x, obmat.m[1]);
+							*(Coord3Df*)obmat.m[3] += temp2;
+							break;
+						}
+						case VR_UI::CONSTRAINTMODE_TRANS_YZ: {
+							temp1 = *(Coord3Df*)obmat.m[3] - *(Coord3Df*)nonsnap_m.m[3];
+							project_v3_v3v3(&temp2.x, &temp1.x, obmat.m[1]);
+							*(Coord3Df*)obmat.m[3] = *(Coord3Df*)nonsnap_m.m[3] + temp2;
+							project_v3_v3v3(&temp2.x, &temp1.x, obmat.m[2]);
+							*(Coord3Df*)obmat.m[3] += temp2;
+							break;
+						}
+						case VR_UI::CONSTRAINTMODE_TRANS_ZX: {
+							temp1 = *(Coord3Df*)obmat.m[3] - *(Coord3Df*)nonsnap_m.m[3];
+							project_v3_v3v3(&temp2.x, &temp1.x, obmat.m[0]);
+							*(Coord3Df*)obmat.m[3] = *(Coord3Df*)nonsnap_m.m[3] + temp2;
+							project_v3_v3v3(&temp2.x, &temp1.x, obmat.m[2]);
+							*(Coord3Df*)obmat.m[3] += temp2;
+							break;
+						}
+						default: {
+							/* TODO_XR: Local translation snappping (no constraints) */
+							break;
+						}
+						}
+					}
+					break;
+				}
+				case VR_UI::SNAPMODE_ROTATION: {
+					/* Rotation */
+					if (VR_UI::shift_key_get()) {
+						precision = PI / 180.0f;
+					}
+					else {
+						precision = WIDGET_TRANSFORM_ROT_PRECISION;
+					}
+					/* TODO_XR: Local rotation snapping (no constraints). */
+					mat4_to_eul(eul, nonsnap_m.m);
+					//static float eul_orig[3];
+					//memcpy(eul_orig, eul, sizeof(float) * 3);
+					for (int i = 0; i < 3; ++i) {
+						if (!snap_flag[i]) {
+							continue;
+						}
+						val = roundf(eul[i] / precision);
+						eul[i] = precision * val;
+					}
+					eul_to_mat3(rot, eul);
+					for (int i = 0; i < 3; ++i) {
+						memcpy(obmat.m[i], rot[i], sizeof(float) * 3);
+						*(Coord3Df*)obmat.m[i] *= scale[i];
+					}
+					/* Update manipulator angles. */
+					/* TODO_XR */
+					/*for (int i = 0; i < 3; ++i) {
+						if (!snap_flag[i]) {
+							continue;
+						}
+						switch (i) {
+						case 0: {
+							float& m_angle = manip_angle[transform_space].x;
+							m_angle += eul[i] - eul_orig[i];
+							val = roundf(m_angle / precision);
+							m_angle = precision * val;
+							break;
+						}
+						case 1: {
+							float& m_angle = manip_angle[transform_space].y;
+							m_angle += eul[i] - eul_orig[i];
+							val = roundf(m_angle / precision);
+							m_angle = precision * val;
+							break;
+						}
+						case 2: {
+							float& m_angle = manip_angle[transform_space].z;
+							m_angle += eul[i] - eul_orig[i];
+							val = roundf(m_angle / precision);
+							m_angle = precision * val;
+							break;
+						}
+						}
+					}*/
+					break;
+				}
+				case VR_UI::SNAPMODE_SCALE: {
+					/* Scale */
+					if (transform_space == VR_UI::TRANSFORMSPACE_GLOBAL && constraint_mode != VR_UI::CONSTRAINTMODE_NONE) {
+						/* TODO_XR */
+						break;
+						/*for (int i = 0; i < 3; ++i) {
+							if (snap_flag[i]) {
+								continue;
+							}
+							(*(Coord3Df*)obmat.m[i]).normalize_in_place() *= (*(Coord3Df*)nonsnap_m.m[i]).length();
+						}
+						static Mat44f t;
+						transpose_m4_m4(t.m, nonsnap_m.m);
+						for (int i = 0; i < 3; ++i) {
+							scale[i] = (*(Coord3Df*)t.m[i]).length();
+						}*/
+					}
+					for (int i = 0; i < 3; ++i) {
+						if (!snap_flag[i]) {
+							continue;
+						}
+						if (VR_UI::shift_key_get()) {
+							/* Snap scale based on the power of ten magnitude of the curent scale */
+							precision = 0.1f * powf(10.0f, floor(log10(scale[i])));
+						}
+						else {
+							precision = 0.5f * powf(10.0f, floor(log10(scale[i])));
+						}
+						val = roundf(scale[i] / precision);
+						if (val == 0.0f) {
+							val = 1.0f;
+						}
+						(*(Coord3Df*)obmat.m[i]).normalize_in_place() *= (precision * val);
+					}
+					break;
+				}
+				default: {
+					break;
+				}
+				}
+				/* Set recalc flags. */
+				DEG_id_tag_update((ID*)obact->data, 0);
 			}
 		}
 		else {
-			m = *(Mat44f*)obact->obmat * delta;
+			if (obedit) { /* Edit mode */
+				BMIter iter;
+				if (ts->selectmode & SCE_SELECT_VERTEX) {
+					BMVert *v;
+					BM_ITER_MESH(v, &iter, bm, BM_VERTS_OF_MESH) {
+						if (BM_elem_flag_test(v, BM_ELEM_SELECT)) {
+							float *co = v->co;
+							memcpy((float*)&temp1, co, sizeof(float) * 3);
+							mul_v3_m4v3(co, delta.m, (float*)&temp1);
+						}
+					}
+				}
+				else if (ts->selectmode & SCE_SELECT_EDGE) {
+					BMEdge *e;
+					BM_ITER_MESH(e, &iter, bm, BM_EDGES_OF_MESH) {
+						if (BM_elem_flag_test(e, BM_ELEM_SELECT)) {
+							float *co1 = e->v1->co;
+							float *co2 = e->v2->co;
+							memcpy((float*)&temp1, co1, sizeof(float) * 3);
+							memcpy((float*)&temp2, co2, sizeof(float) * 3);
+							mul_v3_m4v3(co1, delta.m, (float*)&temp1);
+							mul_v3_m4v3(co2, delta.m, (float*)&temp2);
+						}
+					}
+				}
+				else if (ts->selectmode & SCE_SELECT_FACE) {
+					BMFace *f;
+					BMLoop *l;
+					BM_ITER_MESH(f, &iter, bm, BM_FACES_OF_MESH) {
+						if (BM_elem_flag_test(f, BM_ELEM_SELECT)) {
+							l = f->l_first;
+							for (int i = 0; i < f->len; ++i, l = l->next) {
+								float *co = l->v->co;
+								memcpy((float*)&temp1, co, sizeof(float) * 3);
+								mul_v3_m4v3(co, delta.m, (float*)&temp1);
+							}
+						}
+					}
+				}
 
-			/* Transform mode */
-			if (transform_mode != TRANSFORMMODE_OMNI) {
+				/* Set recalc flags. */
+				DEG_id_tag_update((ID*)obedit->data, ID_RECALC_GEOMETRY);
+				/* Exit object iteration loop. */
+				break;
+			}
+			else { /* Object mode */
+				m = *(Mat44f*)obact->obmat * delta;
+
+				/* Transform mode */
 				switch (transform_mode) {
 				case TRANSFORMMODE_MOVE: {
 					memcpy(obact->obmat[3], m.m[3], sizeof(float) * 3);
@@ -5229,7 +5157,7 @@ void Widget_Transform::drag_contd(VR_UI::Cursor& c)
 					break;
 				}
 				case TRANSFORMMODE_SCALE: {
-					if (local && constraint_mode != VR_UI::CONSTRAINTMODE_NONE) {
+					if (transform_space == VR_UI::TRANSFORMSPACE_LOCAL && constraint_mode != VR_UI::CONSTRAINTMODE_NONE) {
 						for (int i = 0; i < 3; ++i) {
 							if (!constraint_flag[i]) {
 								continue;
@@ -5244,17 +5172,17 @@ void Widget_Transform::drag_contd(VR_UI::Cursor& c)
 					}
 					break;
 				}
+				case TRANSFORMMODE_OMNI: {
+					memcpy(obact->obmat, m.m, sizeof(float) * 4 * 4);
+				}
 				default: {
 					break;
 				}
 				}
-			}
-			else {
-				memcpy(obact->obmat, m.m, sizeof(float) * 4 * 4);
+				/* Set recalc flags. */
+				DEG_id_tag_update((ID*)obact->data, 0);
 			}
 		}
-
-		DEG_id_tag_update((ID*)obact->data, 0);  /* sets recalc flags */
 	}
 
 	if (snap) {
@@ -5266,20 +5194,25 @@ void Widget_Transform::drag_contd(VR_UI::Cursor& c)
 
 	if (manipulator || constraint_mode != VR_UI::CONSTRAINTMODE_NONE) {
 		/* Update manipulator transform (also used when rendering constraints). */
-		static bool is_local = false;
-		if (is_local != local) {
-			is_local = local;
+		static VR_UI::TransformSpace prev_space = VR_UI::TRANSFORMSPACE_GLOBAL;
+		if (prev_space != transform_space) {
+			prev_space = transform_space;
+			if (obedit) {
+				BMEditMesh *em = BKE_editmesh_from_object(obedit);
+				EDBM_mesh_normals_update(em);
+			}
 			update_manipulator();
-		}
-		else {
-			if (local && transform_mode == TRANSFORMMODE_ROTATE) {
-				if (manipulator && constraint_mode == VR_UI::CONSTRAINTMODE_NONE) {
-					update_manipulator(false);
-				} 
-				/* Else: Don't update the manipulator transforms for local rotation constraints */
+			if (obedit) {
+				manip_t_orig = manip_t * (*(Mat44f*)obedit->obmat).inverse();
 			}
 			else {
-				update_manipulator(false);
+				manip_t_orig = manip_t;
+			}
+		}
+		else {
+			/* Don't update manipulator transformation for rotations. */
+			if (transform_mode != TRANSFORMMODE_ROTATE) {
+				update_manipulator();
 			}
 		}
 
@@ -5287,6 +5220,8 @@ void Widget_Transform::drag_contd(VR_UI::Cursor& c)
 			Widget_Transform::obj.do_render[i] = true;
 		}
 	}
+
+	is_dragging = true;
 }
 
 void Widget_Transform::drag_stop(VR_UI::Cursor& c)
@@ -5303,13 +5238,7 @@ void Widget_Transform::drag_stop(VR_UI::Cursor& c)
 		return;
 	}
 
-	update_manipulator(false);
-	/* TODO_XR: Avoid doing this twice (already done in dragStart() */
-	manip_interact_index = -1;
-	memset(&manip_angle, 0, sizeof(float) * 3);
-	for (int i = 0; i < manip_angle_local.size(); ++i) {
-		memset(manip_angle_local[i], 0, sizeof(float) * 3);
-	}
+	/* TODO_XR: Avoid doing this twice (already done in drag_start() */
 	if (manipulator) {
 		constraint_mode = VR_UI::CONSTRAINTMODE_NONE;
 		memset(constraint_flag, 0, sizeof(int) * 3);
@@ -5325,43 +5254,49 @@ void Widget_Transform::drag_stop(VR_UI::Cursor& c)
 		snap_mode = VR_UI::SNAPMODE_TRANSLATION;
 	}
 
+	is_dragging = false;
+
 	bContext *C = vr_get_obj()->ctx;
-	/* Edit mode */
-	/*Object *obedit = CTX_data_edit_object(C);
-	if (obedit) {
-		DEG_id_tag_update((ID*)obedit->data, OB_RECALC_DATA);
+	Object *obedit = CTX_data_edit_object(C);
+	if (obedit) { /* Edit mode */
+		BMEditMesh *em = BKE_editmesh_from_object(obedit);
+		EDBM_mesh_normals_update(em);
+		update_manipulator();
+
+		DEG_id_tag_update((ID*)obedit->data, ID_RECALC_GEOMETRY);
 		WM_main_add_notifier(NC_GEOM | ND_DATA, obedit->data);
 		ED_undo_push(C, "Transform");
-		return;
-	}*/
-	Scene *scene = CTX_data_scene(C);
-	ListBase ctx_data_list;
-	CTX_data_selected_objects(C, &ctx_data_list);
-	CollectionPointerLink *ctx_link = (CollectionPointerLink *)ctx_data_list.first;
-	if (!ctx_link) {
-		return;
 	}
-	for (; ctx_link; ctx_link = ctx_link->next) {
-		Object *obact = (Object*)ctx_link->ptr.data;
-		if (!obact) {
-			continue;
+	else { /* Object mode */
+		Scene *scene = CTX_data_scene(C);
+		ListBase ctx_data_list;
+		CTX_data_selected_objects(C, &ctx_data_list);
+		CollectionPointerLink *ctx_link = (CollectionPointerLink *)ctx_data_list.first;
+		if (!ctx_link) {
+			return;
 		}
+		for (; ctx_link; ctx_link = ctx_link->next) {
+			Object *obact = (Object*)ctx_link->ptr.data;
+			if (!obact) {
+				continue;
+			}
 
-		/* Translation */
-		Mat44f& t = *(Mat44f*)obact->obmat;
-		memcpy(obact->loc, t.m[3], sizeof(float) * 3);
-		/* Rotation */
-		mat4_to_eul(obact->rot, t.m);
-		/* Scale */
-		obact->size[0] = (*(Coord3Df*)(t.m[0])).length();
-		obact->size[1] = (*(Coord3Df*)(t.m[1])).length();
-		obact->size[2] = (*(Coord3Df*)(t.m[2])).length();
+			/* Translation */
+			Mat44f& t = *(Mat44f*)obact->obmat;
+			memcpy(obact->loc, t.m[3], sizeof(float) * 3);
+			/* Rotation */
+			mat4_to_eul(obact->rot, t.m);
+			/* Scale */
+			obact->size[0] = (*(Coord3Df*)(t.m[0])).length();
+			obact->size[1] = (*(Coord3Df*)(t.m[1])).length();
+			obact->size[2] = (*(Coord3Df*)(t.m[2])).length();
+		}
+		update_manipulator();
+
+		DEG_id_tag_update(&scene->id, ID_RECALC_SELECT);
+		WM_event_add_notifier(C, NC_SCENE | ND_OB_SELECT, scene);
+		ED_undo_push(C, "Transform");
 	}
-
-	DEG_id_tag_update(&scene->id, DEG_TAG_SELECT_UPDATE);
-	WM_event_add_notifier(C, NC_SCENE | ND_OB_SELECT, scene);
-
-	ED_undo_push(C, "Transform");
 }
 
 void Widget_Transform::render_axes(const float length[3], int draw_style)
@@ -5427,6 +5362,46 @@ void Widget_Transform::render_axes(const float length[3], int draw_style)
 	GPU_matrix_push();
 
 	switch (draw_style) {
+	case 3: { /* Extrude Ball */
+		unbind_shader = true;
+		GPU_line_width(1.0f);
+		GPUBatch *sphere = GPU_batch_preset_sphere(0);
+		GPU_batch_program_set_builtin(sphere, GPU_SHADER_3D_UNIFORM_COLOR);
+		float offset[3];
+		for (int i = 0; i < 3; ++i) {
+			if (Widget_Extrude::extrude && constraint_flag[i]) {
+				GPU_batch_uniform_4fv(sphere, "color", c_manip_select[i]);
+			}
+			else {
+				GPU_batch_uniform_4fv(sphere, "color", c_manip[i]);
+			}
+			float scale = length[i] * WIDGET_TRANSFORM_BALL_SCALE_FACTOR * 2.0f;
+			switch (i) {
+			case 0: { /* x-axis */
+				offset[0] = length[0] + scale * 3.0f; offset[1] = 0.0f; offset[2] = 0.0f;
+				break;
+			}
+			case 1: { /* y-axis */
+				offset[0] = 0.0f; offset[1] = length[1] + scale * 3.0f; offset[2] = 0.0f;
+				break;
+			}
+			case 2: { /* z-axis */
+				offset[0] = 0.0f; offset[1] = 0.0f; offset[2] = length[2] + scale * 3.0f; 
+				break;
+			}
+			}
+
+			GPU_matrix_translate_3fv(offset);
+			GPU_matrix_scale_1f(scale);
+
+			GPU_batch_draw(sphere);
+
+			GPU_matrix_scale_1f(1.0f / (scale));
+			*(Coord3Df*)offset *= -1.0f;
+			GPU_matrix_translate_3fv(offset);
+		}
+		break;
+	}
 	case 2: { /* Ball */
 		unbind_shader = true;
 		GPU_line_width(1.0f);
@@ -5616,11 +5591,12 @@ void Widget_Transform::render_axes(const float length[3], int draw_style)
 
 void Widget_Transform::render_planes(const float length[3])
 {
+	/* Adapated from gizmo_primitive_draw_geom() in primitive3d_gizmo.c */
+
 	if (!manipulator) {
 		return;
 	}
 
-	/* Adapated from gizmo_primitive_draw_geom() in primitive3d_gizmo.c */
 	uint pos = GPU_vertformat_attr_add(immVertexFormat(), "pos", GPU_COMP_F32, 3, GPU_FETCH_FLOAT);
 	immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 
@@ -5751,7 +5727,7 @@ void Widget_Transform::render_gimbal(
 					float arc_partial_deg = RAD2DEGF((M_PI * 2) - arc_partial_angle);
 					imm_draw_circle_partial_wire_2d(
 						pos, 0, 0, rad, WIDGET_TRANSFORM_DIAL_RESOLUTION,
-						/*-arc_partial_deg / 2*/ 0.0f, arc_partial_deg);
+						0.0f, arc_partial_deg);
 				}
 			}
 
@@ -5902,315 +5878,17 @@ void Widget_Transform::render(VR_Side side)
 	}
 	static float clip_plane[4] = { 0.0f };
 
-	if (local) {
-		static float length[3];
-		for (int index = 0; index < manip_t_local.size(); ++index) {
-			const Mat44f& m = *manip_t_local[index];
-			memcpy(length, manip_length, sizeof(float) * 3);
-			if (omni && manipulator) {
-				/* Dial and Gimbal */
-				/*ARegion *ar = CTX_wm_region(C);
-				RegionView3D *rv3d = (RegionView3D*)ar->regiondata;
-				copy_v3_v3(clip_plane, rv3d->viewinv[2]);
-				clip_plane[3] = -dot_v3v3(rv3d->viewinv[2], m.m[3]);
-				clip_plane[3] += 0.02f;*/
-				GPU_blend(true);
-				GPU_matrix_push();
-				GPU_matrix_mul(m.m);
-				GPU_polygon_smooth(false);
-				if (transform_mode == TRANSFORMMODE_ROTATE) {
-					switch (constraint_mode) {
-					case VR_UI::CONSTRAINTMODE_ROT_X: {
-						GPU_matrix_rotate_axis(-90.0f, 'Y');
-						render_dial(PI / 4.0f, manip_angle_local[index]->x, 0.0f, length[0] / 4.0f);
-						if (VR_UI::ctrl_key_get()) {
-							if (VR_UI::shift_key_get()) {
-								render_incremental_angles(PI / 180.0f, 0.0f, length[0] / 4.0f);
-							}
-							else {
-								render_incremental_angles(WIDGET_TRANSFORM_ROT_PRECISION, 0.0f, length[0] / 4.0f);
-							}
-						}
-						GPU_matrix_rotate_axis(90.0f, 'Y');
-						break;
-					}
-					case VR_UI::CONSTRAINTMODE_ROT_Y: {
-						GPU_matrix_rotate_axis(90.0f, 'X');
-						render_dial(PI / 4.0f, manip_angle_local[index]->y, 0.0f, length[1] / 4.0f);
-						if (VR_UI::ctrl_key_get()) {
-							if (VR_UI::shift_key_get()) {
-								render_incremental_angles(PI / 180.0f, 0.0f, length[1] / 4.0f);
-							}
-							else {
-								render_incremental_angles(WIDGET_TRANSFORM_ROT_PRECISION, 0.0f, length[1] / 4.0f);
-							}
-						}
-						GPU_matrix_rotate_axis(-90.0f, 'X');
-						break;
-					}
-					case VR_UI::CONSTRAINTMODE_ROT_Z: {
-						GPU_matrix_rotate_axis(-90.0f, 'Z');
-						render_dial(-PI / 4.0f, -manip_angle_local[index]->z, 0.0f, length[2] / 4.0f);
-						if (VR_UI::ctrl_key_get()) {
-							if (VR_UI::shift_key_get()) {
-								render_incremental_angles(PI / 180.0f, 0.0f, length[2] / 4.0f);
-							}
-							else {
-								render_incremental_angles(WIDGET_TRANSFORM_ROT_PRECISION, 0.0f, length[2] / 4.0f);
-							}
-						}
-						GPU_matrix_rotate_axis(90.0f, 'Z');
-						break;
-					}
-					default: {
-						break;
-					}
-					}
-				}
-				render_gimbal(manip_length, false, m.m, clip_plane, 3 * PI / 2.0f, 0.0f);
-				/* Arrow */
-				*((Coord3Df*)length) /= 2.0f;
-				render_axes(length, 0);
-				/* Box */
-				*((Coord3Df*)length) /= 2.0f;
-				render_axes(length, 1);
-				/* Ball */
-				render_axes(length, 2);
-				GPU_blend(false);
-				GPU_matrix_pop();
-				continue;
-			}
-
-			switch (transform_mode) {
-			case TRANSFORMMODE_OMNI: {
-				/* Arrow */
-				*((Coord3Df*)length) /= 2.0f;
-				GPU_matrix_push();
-				GPU_matrix_mul(m.m);
-				GPU_blend(true);
-				render_axes(length, 0);
-				GPU_blend(false);
-				GPU_matrix_pop();
-				break;
-			}
-			case TRANSFORMMODE_MOVE: {
-				/* Plane */
-				GPU_matrix_push();
-				GPU_matrix_mul(m.m);
-				GPU_blend(true);
-				render_planes(length);
-				/* Arrow */
-				*((Coord3Df*)length) /= 2.0f;
-				render_axes(length, 0);
-				GPU_blend(false);
-				GPU_matrix_pop();
-				break;
-			}
-			case TRANSFORMMODE_ROTATE: {
-				/* Dial and Gimbal */
-				/*ARegion *ar = CTX_wm_region(C);
-				RegionView3D *rv3d = (RegionView3D*)ar->regiondata;
-				copy_v3_v3(clip_plane, rv3d->viewinv[2]);
-				clip_plane[3] = -dot_v3v3(rv3d->viewinv[2], m.m[3]);
-				clip_plane[3] += 0.02f;*/
-				GPU_blend(true);
-				GPU_matrix_push();
-				GPU_matrix_mul(m.m);
-				GPU_polygon_smooth(false);
-				switch (constraint_mode) {
-				case VR_UI::CONSTRAINTMODE_ROT_X: {
-					GPU_matrix_rotate_axis(-90.0f, 'Y');
-					render_dial(PI / 4.0f, manip_angle_local[index]->x, 0.0f, length[0] / 4.0f);
-					if (VR_UI::ctrl_key_get()) {
-						if (VR_UI::shift_key_get()) {
-							render_incremental_angles(PI / 180.0f, 0.0f, length[0] / 4.0f);
-						}
-						else {
-							render_incremental_angles(WIDGET_TRANSFORM_ROT_PRECISION, 0.0f, length[0] / 4.0f);
-						}
-					}
-					GPU_matrix_rotate_axis(90.0f, 'Y');
-					break;
-				}
-				case VR_UI::CONSTRAINTMODE_ROT_Y: {
-					GPU_matrix_rotate_axis(90.0f, 'X');
-					render_dial(PI / 4.0f, manip_angle_local[index]->y, 0.0f, length[1] / 4.0f);
-					if (VR_UI::ctrl_key_get()) {
-						if (VR_UI::shift_key_get()) {
-							render_incremental_angles(PI / 180.0f, 0.0f, length[1] / 4.0f);
-						}
-						else {
-							render_incremental_angles(WIDGET_TRANSFORM_ROT_PRECISION, 0.0f, length[1] / 4.0f);
-						}
-					}
-					GPU_matrix_rotate_axis(-90.0f, 'X');
-					break;
-				}
-				case VR_UI::CONSTRAINTMODE_ROT_Z: {
-					GPU_matrix_rotate_axis(-90.0f, 'Z');
-					render_dial(-PI / 4.0f, -manip_angle_local[index]->z, 0.0f, length[2] / 4.0f);
-					if (VR_UI::ctrl_key_get()) {
-						if (VR_UI::shift_key_get()) {
-							render_incremental_angles(PI / 180.0f, 0.0f, length[2] / 4.0f);
-						}
-						else {
-							render_incremental_angles(WIDGET_TRANSFORM_ROT_PRECISION, 0.0f, length[2] / 4.0f);
-						}
-					}
-					GPU_matrix_rotate_axis(90.0f, 'Z');
-					break;
-				}
-				default: {
-					break;
-				}
-				}
-				if (!manipulator) {
-					render_gimbal(manip_length, false, m.m, clip_plane, 0.0f, 0.0f);
-				}
-				else {
-					render_gimbal(manip_length, false, m.m, clip_plane, 3 * PI / 2.0f, 0.0f);
-				}
-				/* Ball */
-				*((Coord3Df*)length) /= 4.0f;
-				render_axes(length, 2);
-				GPU_blend(false);
-				GPU_matrix_pop();
-				break;
-			}
-			case TRANSFORMMODE_SCALE: {
-				/* Plane */
-				GPU_matrix_push();
-				GPU_matrix_mul(m.m);
-				GPU_blend(true);
-				render_planes(length);
-				/* Box */
-				*((Coord3Df*)length) /= 4.0f;
-				render_axes(length, 1);
-				GPU_blend(false);
-				GPU_matrix_pop();
-				break;
-			}
-			default: {
-				break;
-			}
-			}
-		}
-	}
-	else { /* World transformation */
-		if (omni && manipulator) {
-			/* Dial and Gimbal */
-			/*ARegion *ar = CTX_wm_region(C);
-			RegionView3D *rv3d = (RegionView3D*)ar->regiondata;
-			copy_v3_v3(clip_plane, rv3d->viewinv[2]);
-			clip_plane[3] = -dot_v3v3(rv3d->viewinv[2], m.m[3]);
-			clip_plane[3] += 0.02f;*/
-			GPU_blend(true);
-			GPU_matrix_push();
-			GPU_matrix_mul(manip_t.m);
-			GPU_polygon_smooth(false);
-			if (transform_mode == TRANSFORMMODE_ROTATE) {
-				switch (constraint_mode) {
-				case VR_UI::CONSTRAINTMODE_ROT_X: {
-					GPU_matrix_rotate_axis(-90.0f, 'Y');
-					render_dial(PI / 4.0f, manip_angle.x, 0.0f, manip_length[0] / 4.0f);
-					if (VR_UI::ctrl_key_get()) {
-						if (VR_UI::shift_key_get()) {
-							render_incremental_angles(PI / 180.0f, 0.0f, manip_length[0] / 4.0f);
-						}
-						else {
-							render_incremental_angles(WIDGET_TRANSFORM_ROT_PRECISION, 0.0f, manip_length[0] / 4.0f);
-						}
-					}
-					GPU_matrix_rotate_axis(90.0f, 'Y');
-					break;
-				}
-				case VR_UI::CONSTRAINTMODE_ROT_Y: {
-					GPU_matrix_rotate_axis(90.0f, 'X');
-					render_dial(PI / 4.0f, manip_angle.y, 0.0f, manip_length[1] / 4.0f);
-					if (VR_UI::ctrl_key_get()) {
-						if (VR_UI::shift_key_get()) {
-							render_incremental_angles(PI / 180.0f, 0.0f, manip_length[1] / 4.0f);
-						}
-						else {
-							render_incremental_angles(WIDGET_TRANSFORM_ROT_PRECISION, 0.0f, manip_length[1] / 4.0f);
-						}
-					}
-					GPU_matrix_rotate_axis(-90.0f, 'X');
-					break;
-				}
-				case VR_UI::CONSTRAINTMODE_ROT_Z: {
-					GPU_matrix_rotate_axis(-90.0f, 'Z');
-					render_dial(-PI / 4.0f, -manip_angle.z, 0.0f, manip_length[2] / 4.0f);
-					if (VR_UI::ctrl_key_get()) {
-						if (VR_UI::shift_key_get()) {
-							render_incremental_angles(PI / 180.0f, 0.0f, manip_length[2] / 4.0f);
-						}
-						else {
-							render_incremental_angles(WIDGET_TRANSFORM_ROT_PRECISION, 0.0f, manip_length[2] / 4.0f);
-						}
-					}
-					GPU_matrix_rotate_axis(90.0f, 'Z');
-					break;
-				}
-				default: {
-					break;
-				}
-				}
-			}
-			render_gimbal(manip_length, false, manip_t.m, clip_plane, 3 * PI / 2.0f, 0.0f);
-			/* Arrow */
-			*((Coord3Df*)manip_length) /= 2.0f;
-			render_axes(manip_length, 0);
-			/* Box */
-			*((Coord3Df*)manip_length) /= 2.0f;
-			render_axes(manip_length, 1);
-			/* Ball */
-			render_axes(manip_length, 2);
-			GPU_blend(false);
-			GPU_matrix_pop();
-			return;
-		}
-
-		switch (transform_mode) {
-		case TRANSFORMMODE_OMNI: {
-			/* Arrow */
-			*((Coord3Df*)manip_length) /= 2.0f;
-			GPU_matrix_push();
-			GPU_matrix_mul(manip_t.m);
-			GPU_blend(true);
-			render_axes(manip_length, 0);
-			GPU_blend(false);
-			GPU_matrix_pop();
-			break;
-		}
-		case TRANSFORMMODE_MOVE: {
-			/* Plane */
-			GPU_matrix_push();
-			GPU_matrix_mul(manip_t.m);
-			GPU_blend(true);
-			render_planes(manip_length);
-			/* Arrow */
-			*((Coord3Df*)manip_length) /= 2.0f;
-			render_axes(manip_length, 0);
-			GPU_blend(false);
-			GPU_matrix_pop();
-			break;
-		}
-		case TRANSFORMMODE_ROTATE: {
-			/* Dial and Gimbal */
-			/*ARegion *ar = CTX_wm_region(C);
-			RegionView3D *rv3d = (RegionView3D*)ar->regiondata;
-			copy_v3_v3(clip_plane, rv3d->viewinv[2]);
-			clip_plane[3] = -dot_v3v3(rv3d->viewinv[2], m.m[3]);
-			clip_plane[3] += 0.02f;*/
-			GPU_blend(true);
-			GPU_matrix_push();
-			GPU_matrix_mul(manip_t.m);
-			GPU_polygon_smooth(false);
+	if (omni && manipulator) {
+		/* Dial and Gimbal */
+		GPU_blend(true);
+		GPU_matrix_push();
+		GPU_matrix_mul(manip_t.m);
+		GPU_polygon_smooth(false);
+		if (transform_mode == TRANSFORMMODE_ROTATE) {
 			switch (constraint_mode) {
 			case VR_UI::CONSTRAINTMODE_ROT_X: {
 				GPU_matrix_rotate_axis(-90.0f, 'Y');
-				render_dial(PI / 4.0f, manip_angle.x, 0.0f, manip_length[0] / 4.0f);
+				render_dial(PI / 4.0f, manip_angle[transform_space].x, 0.0f, manip_length[0] / 4.0f);
 				if (VR_UI::ctrl_key_get()) {
 					if (VR_UI::shift_key_get()) {
 						render_incremental_angles(PI / 180.0f, 0.0f, manip_length[0] / 4.0f);
@@ -6224,7 +5902,7 @@ void Widget_Transform::render(VR_Side side)
 			}
 			case VR_UI::CONSTRAINTMODE_ROT_Y: {
 				GPU_matrix_rotate_axis(90.0f, 'X');
-				render_dial(PI / 4.0f, manip_angle.y, 0.0f, manip_length[1] / 4.0f);
+				render_dial(PI / 4.0f, manip_angle[transform_space].y, 0.0f, manip_length[1] / 4.0f);
 				if (VR_UI::ctrl_key_get()) {
 					if (VR_UI::shift_key_get()) {
 						render_incremental_angles(PI / 180.0f, 0.0f, manip_length[1] / 4.0f);
@@ -6238,7 +5916,7 @@ void Widget_Transform::render(VR_Side side)
 			}
 			case VR_UI::CONSTRAINTMODE_ROT_Z: {
 				GPU_matrix_rotate_axis(-90.0f, 'Z');
-				render_dial(-PI / 4.0f, -manip_angle.z, 0.0f, manip_length[2] / 4.0f);
+				render_dial(-PI / 4.0f, -manip_angle[transform_space].z, 0.0f, manip_length[2] / 4.0f);
 				if (VR_UI::ctrl_key_get()) {
 					if (VR_UI::shift_key_get()) {
 						render_incremental_angles(PI / 180.0f, 0.0f, manip_length[2] / 4.0f);
@@ -6254,36 +5932,135 @@ void Widget_Transform::render(VR_Side side)
 				break;
 			}
 			}
-			if (!manipulator) {
-				render_gimbal(manip_length, false, manip_t.m, clip_plane, 0.0f, 0.0f);
+		}
+		render_gimbal(manip_length, false, manip_t.m, clip_plane, 3 * PI / 2.0f, 0.0f);
+		/* Arrow */
+		*((Coord3Df*)manip_length) /= 2.0f;
+		render_axes(manip_length, 0);
+		/* Box */
+		*((Coord3Df*)manip_length) /= 2.0f;
+		render_axes(manip_length, 1);
+		/* Ball */
+		render_axes(manip_length, 2);
+		GPU_blend(false);
+		GPU_matrix_pop();
+		return;
+	}
+
+	switch (transform_mode) {
+	case TRANSFORMMODE_OMNI: {
+		/* Arrow */
+		*((Coord3Df*)manip_length) /= 2.0f;
+		GPU_matrix_push();
+		GPU_matrix_mul(manip_t.m);
+		GPU_blend(true);
+		render_axes(manip_length, 0);
+		GPU_blend(false);
+		GPU_matrix_pop();
+		break;
+	}
+	case TRANSFORMMODE_MOVE: {
+		/* Plane */
+		GPU_matrix_push();
+		GPU_matrix_mul(manip_t.m);
+		GPU_blend(true);
+		render_planes(manip_length);
+		/* Arrow */
+		*((Coord3Df*)manip_length) /= 2.0f;
+		render_axes(manip_length, 0);
+		GPU_blend(false);
+		GPU_matrix_pop();
+		break;
+	}
+	case TRANSFORMMODE_ROTATE: {
+		/* Dial and Gimbal */
+		GPU_blend(true);
+		GPU_matrix_push();
+		GPU_matrix_mul(manip_t.m);
+		GPU_polygon_smooth(false);
+		switch (constraint_mode) {
+		case VR_UI::CONSTRAINTMODE_ROT_X: {
+			GPU_matrix_rotate_axis(-90.0f, 'Y');
+			render_dial(PI / 4.0f, manip_angle[transform_space].x, 0.0f, manip_length[0] / 4.0f);
+			if (VR_UI::ctrl_key_get()) {
+				if (VR_UI::shift_key_get()) {
+					render_incremental_angles(PI / 180.0f, 0.0f, manip_length[0] / 4.0f);
+				}
+				else {
+					render_incremental_angles(WIDGET_TRANSFORM_ROT_PRECISION, 0.0f, manip_length[0] / 4.0f);
+				}
 			}
-			else {
-				render_gimbal(manip_length, false, manip_t.m, clip_plane, 3 * PI / 2.0f, 0.0f);
-			}
-			/* Ball */
-			*((Coord3Df*)manip_length) /= 4.0f;
-			render_axes(manip_length, 2);
-			GPU_blend(false);
-			GPU_matrix_pop();
+			GPU_matrix_rotate_axis(90.0f, 'Y');
 			break;
 		}
-		case TRANSFORMMODE_SCALE: {
-			/* Plane */
-			GPU_matrix_push();
-			GPU_matrix_mul(manip_t.m);
-			GPU_blend(true);
-			render_planes(manip_length);
-			/* Box */
-			*((Coord3Df*)manip_length) /= 4.0f;
-			render_axes(manip_length, 1);
-			GPU_blend(false);
-			GPU_matrix_pop();
+		case VR_UI::CONSTRAINTMODE_ROT_Y: {
+			GPU_matrix_rotate_axis(90.0f, 'X');
+			render_dial(PI / 4.0f, manip_angle[transform_space].y, 0.0f, manip_length[1] / 4.0f);
+			if (VR_UI::ctrl_key_get()) {
+				if (VR_UI::shift_key_get()) {
+					render_incremental_angles(PI / 180.0f, 0.0f, manip_length[1] / 4.0f);
+				}
+				else {
+					render_incremental_angles(WIDGET_TRANSFORM_ROT_PRECISION, 0.0f, manip_length[1] / 4.0f);
+				}
+			}
+			GPU_matrix_rotate_axis(-90.0f, 'X');
+			break;
+		}
+		case VR_UI::CONSTRAINTMODE_ROT_Z: {
+			GPU_matrix_rotate_axis(-90.0f, 'Z');
+			render_dial(-PI / 4.0f, -manip_angle[transform_space].z, 0.0f, manip_length[2] / 4.0f);
+			if (VR_UI::ctrl_key_get()) {
+				if (VR_UI::shift_key_get()) {
+					render_incremental_angles(PI / 180.0f, 0.0f, manip_length[2] / 4.0f);
+				}
+				else {
+					render_incremental_angles(WIDGET_TRANSFORM_ROT_PRECISION, 0.0f, manip_length[2] / 4.0f);
+				}
+			}
+			GPU_matrix_rotate_axis(90.0f, 'Z');
 			break;
 		}
 		default: {
 			break;
 		}
 		}
+		if (!manipulator) {
+			render_gimbal(manip_length, false, manip_t.m, clip_plane, 0.0f, 0.0f);
+		}
+		else {
+			render_gimbal(manip_length, false, manip_t.m, clip_plane, 3 * PI / 2.0f, 0.0f);
+		}
+		/* Ball */
+		*((Coord3Df*)manip_length) /= 4.0f;
+		render_axes(manip_length, 2);
+		GPU_blend(false);
+		GPU_matrix_pop();
+		break;
+	}
+	case TRANSFORMMODE_SCALE: {
+		/* Plane */
+		GPU_matrix_push();
+		GPU_matrix_mul(manip_t.m);
+		GPU_blend(true);
+		render_planes(manip_length);
+		/* Box */
+		*((Coord3Df*)manip_length) /= 4.0f;
+		render_axes(manip_length, 1);
+		/* TODO_XR */
+		static float zero[4][4] = { 0 };
+		GPU_matrix_mul(zero);
+		GPUBatch *sphere = GPU_batch_preset_sphere(0);
+		GPU_batch_program_set_builtin(sphere, GPU_SHADER_3D_UNIFORM_COLOR);
+		GPU_batch_draw(sphere);
+		/**/
+		GPU_blend(false);
+		GPU_matrix_pop();
+		break;
+	}
+	default: {
+		break;
+	}
 	}
 }
 
@@ -6453,8 +6230,7 @@ void Widget_Annotate::erase_stroke(bGPDstroke *gps, bGPDframe *gp_frame) {
 //		eraser = true;
 //		cursor_side = c.side;
 //		if (gpf) {
-//			/* Loop over VR strokes and check if they should be erased.
-//			 * Maybe there's a better way to do this? */
+//			/* Loop over VR strokes and check if they should be erased. */
 //			bGPDstroke *gpn;
 //			for (bGPDstroke *gps = (bGPDstroke*)gpf->strokes.first; gps; gps = gpn) {
 //				gpn = gps->next;
@@ -6499,7 +6275,7 @@ void Widget_Annotate::erase_stroke(bGPDstroke *gps, bGPDframe *gp_frame) {
 //}
 
 void Widget_Annotate::drag_start(VR_UI::Cursor& c)
-{
+{	
 	/* Eraser */
 	if (VR_UI::ctrl_key_get() == VR_UI::CTRLSTATE_ON) {
 		eraser = true;
@@ -6516,8 +6292,7 @@ void Widget_Annotate::drag_start(VR_UI::Cursor& c)
 
 		uint tot_layers = gpl.size();
 		if (tot_layers > 0) {
-			/* Loop over VR strokes and check if they should be erased.
-			 * Maybe there's a better way to do this? */
+			/* Loop over VR strokes and check if they should be erased. */
 			bGPDstroke *gpn;
 			for (int i = 0; i < tot_layers; ++i) {
 				if (gpf[i]) {
@@ -6590,6 +6365,13 @@ void Widget_Annotate::drag_contd(VR_UI::Cursor& c)
 
 void Widget_Annotate::drag_stop(VR_UI::Cursor& c)
 {
+	if (c.bimanual) {
+		VR_UI::Cursor *other = c.other_hand;
+		c.bimanual = VR_UI::Cursor::BIMANUAL_OFF;
+		other->bimanual = VR_UI::Cursor::BIMANUAL_OFF;
+		return; /* calculations are only performed by the second hand */
+	}
+	
 	bContext *C = vr_get_obj()->ctx;
 
 	/* Eraser */
@@ -6613,7 +6395,7 @@ void Widget_Annotate::drag_stop(VR_UI::Cursor& c)
 
 	/* Add new stroke. */
 	int tot_points = points.size();
-	bGPDstroke *gps = BKE_gpencil_add_stroke(gpf[active_layer], 0, tot_points, line_thickness /*/25.0f*/);
+	bGPDstroke *gps = BKE_gpencil_add_stroke(gpf[active_layer], 0, tot_points, line_thickness);
 
 	/* Could probably avoid the memcpy by allocating the stroke in drag_start()
 	 * but it's nice to store the points in a vector. */
@@ -7205,6 +6987,1668 @@ void Widget_Measure::render(VR_Side side)
 }
 
 /***********************************************************************************************//**
+ * \class									Widget_Extrude
+ ***************************************************************************************************
+ * Interaction widget for the Extrude tool.
+ *
+ **************************************************************************************************/
+Widget_Extrude Widget_Extrude::obj;
+
+Widget_Extrude::ExtrudeMode Widget_Extrude::extrude_mode(Widget_Extrude::EXTRUDEMODE_REGION);
+bool Widget_Extrude::extrude(false);
+bool Widget_Extrude::flip_normals(false);
+
+/* Dummy op to pass to EDBM_op_init() and EDBM_op_finish() */
+static wmOperator dummy_op;
+
+/* From editmesh_extrude.c */
+static void edbm_extrude_edge_exclude_mirror(
+	Object *obedit, BMEditMesh *em,
+	const char hflag,
+	BMOperator *op, BMOpSlot *slot_edges_exclude)
+{
+	BMesh *bm = em->bm;
+	ModifierData *md;
+
+	/* If a mirror modifier with clipping is on, we need to adjust some
+	 * of the cases above to handle edges on the line of symmetry.
+	 */
+	for (md = (ModifierData*)obedit->modifiers.first; md; md = md->next) {
+		if ((md->type == eModifierType_Mirror) && (md->mode & eModifierMode_Realtime)) {
+			MirrorModifierData *mmd = (MirrorModifierData *)md;
+
+			if (mmd->flag & MOD_MIR_CLIPPING) {
+				BMIter iter;
+				BMEdge *edge;
+
+				float mtx[4][4];
+				if (mmd->mirror_ob) {
+					float imtx[4][4];
+					invert_m4_m4(imtx, mmd->mirror_ob->obmat);
+					mul_m4_m4m4(mtx, imtx, obedit->obmat);
+				}
+
+				BM_ITER_MESH(edge, &iter, bm, BM_EDGES_OF_MESH) {
+					if (BM_elem_flag_test(edge, hflag) &&
+						BM_edge_is_boundary(edge) &&
+						BM_elem_flag_test(edge->l->f, hflag))
+					{
+						float co1[3], co2[3];
+
+						copy_v3_v3(co1, edge->v1->co);
+						copy_v3_v3(co2, edge->v2->co);
+
+						if (mmd->mirror_ob) {
+							mul_v3_m4v3(co1, mtx, co1);
+							mul_v3_m4v3(co2, mtx, co2);
+						}
+
+						if (mmd->flag & MOD_MIR_AXIS_X) {
+							if ((fabsf(co1[0]) < mmd->tolerance) &&
+								(fabsf(co2[0]) < mmd->tolerance))
+							{
+								BMO_slot_map_empty_insert(op, slot_edges_exclude, edge);
+							}
+						}
+						if (mmd->flag & MOD_MIR_AXIS_Y) {
+							if ((fabsf(co1[1]) < mmd->tolerance) &&
+								(fabsf(co2[1]) < mmd->tolerance))
+							{
+								BMO_slot_map_empty_insert(op, slot_edges_exclude, edge);
+							}
+						}
+						if (mmd->flag & MOD_MIR_AXIS_Z) {
+							if ((fabsf(co1[2]) < mmd->tolerance) &&
+								(fabsf(co2[2]) < mmd->tolerance))
+							{
+								BMO_slot_map_empty_insert(op, slot_edges_exclude, edge);
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+static bool edbm_extrude_verts_indiv(BMEditMesh *em, const char hflag)
+{
+	BMOperator bmop;
+
+	EDBM_op_init(
+		em, &bmop, &dummy_op,
+		"extrude_vert_indiv verts=%hv use_select_history=%b",
+		hflag, true);
+
+	/* deselect original verts */
+	BMO_slot_buffer_hflag_disable(em->bm, bmop.slots_in, "verts", BM_VERT, BM_ELEM_SELECT, true);
+
+	BMO_op_exec(em->bm, &bmop);
+	BMO_slot_buffer_hflag_enable(em->bm, bmop.slots_out, "verts.out", BM_VERT, BM_ELEM_SELECT, true);
+
+	if (!EDBM_op_finish(em, &bmop, &dummy_op, true)) {
+		return false;
+	}
+
+	return true;
+}
+
+static bool edbm_extrude_edges_indiv(BMEditMesh *em, const char hflag, const bool use_normal_flip)
+{
+	BMesh *bm = em->bm;
+	BMOperator bmop;
+
+	EDBM_op_init(
+		em, &bmop, &dummy_op,
+		"extrude_edge_only edges=%he use_normal_flip=%b use_select_history=%b",
+		hflag, use_normal_flip, true);
+
+	/* deselect original verts */
+	BM_SELECT_HISTORY_BACKUP(bm);
+	EDBM_flag_disable_all(em, BM_ELEM_SELECT);
+	BM_SELECT_HISTORY_RESTORE(bm);
+
+	BMO_op_exec(em->bm, &bmop);
+	BMO_slot_buffer_hflag_enable(em->bm, bmop.slots_out, "geom.out", BM_VERT | BM_EDGE, BM_ELEM_SELECT, true);
+
+	if (!EDBM_op_finish(em, &bmop, &dummy_op, true)) {
+		return false;
+	}
+
+	return true;
+}
+
+static bool edbm_extrude_discrete_faces(BMEditMesh *em, const char hflag)
+{
+	BMOIter siter;
+	BMIter liter;
+	BMFace *f;
+	BMLoop *l;
+	BMOperator bmop;
+
+	EDBM_op_init(
+		em, &bmop, &dummy_op,
+		"extrude_discrete_faces faces=%hf use_select_history=%b",
+		hflag, true);
+
+	/* deselect original verts */
+	EDBM_flag_disable_all(em, BM_ELEM_SELECT);
+
+	BMO_op_exec(em->bm, &bmop);
+
+	BMO_ITER(f, &siter, bmop.slots_out, "faces.out", BM_FACE) {
+		BM_face_select_set(em->bm, f, true);
+
+		/* set face vertex normals to face normal */
+		BM_ITER_ELEM(l, &liter, f, BM_LOOPS_OF_FACE) {
+			copy_v3_v3(l->v->no, f->no);
+		}
+	}
+
+	if (!EDBM_op_finish(em, &bmop, &dummy_op, true)) {
+		return false;
+	}
+
+	return true;
+}
+
+static char edbm_extrude_htype_from_em_select(BMEditMesh *em)
+{
+	char htype = BM_ALL_NOLOOP;
+
+	if (em->selectmode & SCE_SELECT_VERTEX) {
+		/* pass */
+	}
+	else if (em->selectmode & SCE_SELECT_EDGE) {
+		htype &= ~BM_VERT;
+	}
+	else {
+		htype &= ~(BM_VERT | BM_EDGE);
+	}
+
+	if (em->bm->totedgesel == 0) {
+		htype &= ~(BM_EDGE | BM_FACE);
+	}
+	else if (em->bm->totfacesel == 0) {
+		htype &= ~BM_FACE;
+	}
+
+	return htype;
+}
+
+static bool edbm_extrude_ex(
+	Object *obedit, BMEditMesh *em,
+	char htype, const char hflag,
+	const bool use_normal_flip,
+	const bool use_mirror,
+	const bool use_select_history)
+{
+	BMesh *bm = em->bm;
+	BMOIter siter;
+	BMOperator extop;
+	BMElem *ele;
+
+	/* needed to remove the faces left behind */
+	if (htype & BM_FACE) {
+		htype |= BM_EDGE;
+	}
+
+	BMO_op_init(bm, &extop, BMO_FLAG_DEFAULTS, "extrude_face_region");
+	BMO_slot_bool_set(extop.slots_in, "use_normal_flip", use_normal_flip);
+	BMO_slot_bool_set(extop.slots_in, "use_select_history", use_select_history);
+	BMO_slot_buffer_from_enabled_hflag(bm, &extop, extop.slots_in, "geom", htype, hflag);
+
+	if (use_mirror) {
+		BMOpSlot *slot_edges_exclude;
+		slot_edges_exclude = BMO_slot_get(extop.slots_in, "edges_exclude");
+
+		edbm_extrude_edge_exclude_mirror(obedit, em, hflag, &extop, slot_edges_exclude);
+	}
+
+	BM_SELECT_HISTORY_BACKUP(bm);
+	EDBM_flag_disable_all(em, BM_ELEM_SELECT);
+	BM_SELECT_HISTORY_RESTORE(bm);
+
+	BMO_op_exec(bm, &extop);
+
+	BMO_ITER(ele, &siter, extop.slots_out, "geom.out", BM_ALL_NOLOOP) {
+		BM_elem_select_set(bm, ele, true);
+	}
+
+	BMO_op_finish(bm, &extop);
+
+	return true;
+}
+
+static bool edbm_extrude_mesh(Object *obedit, BMEditMesh *em, const bool use_normal_flip)
+{
+	const char htype = edbm_extrude_htype_from_em_select(em);
+	enum { NONE = 0, ELEM_FLAG, VERT_ONLY, EDGE_ONLY } nr;
+	bool changed = false;
+
+	if (em->selectmode & SCE_SELECT_VERTEX) {
+		if (em->bm->totvertsel == 0) nr = NONE;
+		else if (em->bm->totvertsel == 1) nr = VERT_ONLY;
+		else if (em->bm->totedgesel == 0) nr = VERT_ONLY;
+		else                              nr = ELEM_FLAG;
+	}
+	else if (em->selectmode & SCE_SELECT_EDGE) {
+		if (em->bm->totedgesel == 0) nr = NONE;
+		else if (em->bm->totfacesel == 0) nr = EDGE_ONLY;
+		else                              nr = ELEM_FLAG;
+	}
+	else {
+		if (em->bm->totfacesel == 0) nr = NONE;
+		else                              nr = ELEM_FLAG;
+	}
+
+	switch (nr) {
+	case NONE:
+		return false;
+	case ELEM_FLAG:
+		changed = edbm_extrude_ex(obedit, em, htype, BM_ELEM_SELECT, use_normal_flip, true, true);
+		break;
+	case VERT_ONLY:
+		changed = edbm_extrude_verts_indiv(em, BM_ELEM_SELECT);
+		break;
+	case EDGE_ONLY:
+		changed = edbm_extrude_edges_indiv(em, BM_ELEM_SELECT, use_normal_flip);
+		break;
+	}
+
+	if (changed) {
+		return true;
+	}
+	else {
+		return false;
+	}
+}
+
+static int edbm_extrude_region_exec(bContext *C, bool use_normal_flip = false)
+{
+	ViewLayer *view_layer = CTX_data_view_layer(C);
+	uint objects_len = 0;
+	static ObjectsInModeParams params = { OB_MODE_EDIT, true };
+	Object **objects = BKE_view_layer_array_from_objects_in_mode_params(view_layer, CTX_wm_view3d(C), &objects_len, &params);
+
+	for (uint ob_index = 0; ob_index < objects_len; ++ob_index) {
+		Object *obedit = objects[ob_index];
+		BMEditMesh *em = BKE_editmesh_from_object(obedit);
+		if (!em || em->bm->totvertsel == 0) {
+			continue;
+		}
+
+		if (!edbm_extrude_mesh(obedit, em, use_normal_flip)) {
+			continue;
+		}
+		/* This normally happens when pushing undo but modal operators
+		 * like this one don't push undo data until after modal mode is
+		 * done.*/
+
+		EDBM_mesh_normals_update(em);
+
+		EDBM_update_generic(em, true, true);
+	}
+	MEM_freeN(objects);
+	
+	return OPERATOR_FINISHED;
+}
+
+static int edbm_extrude_verts_exec(bContext *C)
+{
+	ViewLayer *view_layer = CTX_data_view_layer(C);
+	uint objects_len = 0;
+	static ObjectsInModeParams params = { OB_MODE_EDIT, true };
+	Object **objects = BKE_view_layer_array_from_objects_in_mode_params(view_layer, CTX_wm_view3d(C), &objects_len, &params);
+
+	for (uint ob_index = 0; ob_index < objects_len; ++ob_index) {
+		Object *obedit = objects[ob_index];
+		BMEditMesh *em = BKE_editmesh_from_object(obedit);
+		if (!em || em->bm->totvertsel == 0) {
+			continue;
+		}
+
+		edbm_extrude_verts_indiv(em, BM_ELEM_SELECT);
+
+		EDBM_update_generic(em, true, true);
+	}
+	MEM_freeN(objects);
+
+	return OPERATOR_FINISHED;
+}
+
+static int edbm_extrude_edges_exec(bContext *C, const bool use_normal_flip)
+{
+	ViewLayer *view_layer = CTX_data_view_layer(C);
+	uint objects_len = 0;
+	static ObjectsInModeParams params = { OB_MODE_EDIT, true };
+	Object **objects = BKE_view_layer_array_from_objects_in_mode_params(view_layer, CTX_wm_view3d(C), &objects_len, &params);
+
+	for (uint ob_index = 0; ob_index < objects_len; ++ob_index) {
+		Object *obedit = objects[ob_index];
+		BMEditMesh *em = BKE_editmesh_from_object(obedit);
+		if (!em || em->bm->totedgesel == 0) {
+			continue;
+		}
+
+		edbm_extrude_edges_indiv(em, BM_ELEM_SELECT, use_normal_flip);
+
+		EDBM_update_generic(em, true, true);
+	}
+	MEM_freeN(objects);
+
+	return OPERATOR_FINISHED;
+}
+
+static int edbm_extrude_faces_exec(bContext *C)
+{
+	ViewLayer *view_layer = CTX_data_view_layer(C);
+	uint objects_len = 0;
+	static ObjectsInModeParams params = { OB_MODE_EDIT, true };
+	Object **objects = BKE_view_layer_array_from_objects_in_mode_params(view_layer, CTX_wm_view3d(C), &objects_len, &params);
+
+	for (uint ob_index = 0; ob_index < objects_len; ++ob_index) {
+		Object *obedit = objects[ob_index];
+		BMEditMesh *em = BKE_editmesh_from_object(obedit);
+		if (!em || em->bm->totfacesel == 0) {
+			continue;
+		}
+
+		edbm_extrude_discrete_faces(em, BM_ELEM_SELECT);
+
+		EDBM_update_generic(em, true, true);
+	}
+	MEM_freeN(objects);
+
+	return OPERATOR_FINISHED;
+}
+
+static int edbm_extrude_indiv_exec(bContext *C, bool use_normal_flip)
+{ 
+	ToolSettings *ts = CTX_data_scene(C)->toolsettings;
+	if (ts->selectmode & SCE_SELECT_VERTEX) {
+		edbm_extrude_verts_exec(C);
+	}
+	else if (ts->selectmode & SCE_SELECT_EDGE) {
+		edbm_extrude_edges_exec(C, use_normal_flip);
+	}
+	else if (ts->selectmode & SCE_SELECT_FACE) {
+		edbm_extrude_faces_exec(C);
+	}
+
+	return OPERATOR_FINISHED;
+}
+
+bool Widget_Extrude::has_click(VR_UI::Cursor& c) const
+{
+	return true;
+}
+
+void Widget_Extrude::click(VR_UI::Cursor& c)
+{
+	const Mat44f& m = c.position.get();
+	if (CTX_data_edit_object(vr_get_obj()->ctx)) {
+		raycast_select_single_edit(*(Coord3Df*)m.m[3], VR_UI::shift_key_get(), VR_UI::ctrl_key_get());
+	}
+	else {
+		for (int i = 0; i < VR_SIDES; ++i) {
+			Widget_Extrude::obj.do_render[i] = false;
+		}
+		return;
+	}
+	/* Update manipulator transform. */
+	Widget_Transform::manipulator = true;
+	Widget_Transform::update_manipulator();
+
+	for (int i = 0; i < VR_SIDES; ++i) {
+		Widget_Extrude::do_render[i] = true;
+	}
+}
+
+void Widget_Extrude::drag_start(VR_UI::Cursor& c)
+{
+	bContext *C = vr_get_obj()->ctx;
+	Object *obedit = CTX_data_edit_object(C);
+	if (!obedit) {
+		for (int i = 0; i < VR_SIDES; ++i) {
+			Widget_Extrude::obj.do_render[i] = false;
+		}
+		return;
+	}
+
+	/* If other hand is already dragging, don't change the current state of the Extrude/Transform tool. */
+	if (c.bimanual) {
+		return;
+	}
+
+	Widget_Transform::omni = true;
+	Widget_Transform::transform_mode = Widget_Transform::TRANSFORMMODE_OMNI;
+	Widget_Transform::snap_mode = VR_UI::SNAPMODE_TRANSLATION;
+
+	/* Test for manipulator selection and set constraints. */
+	const Mat44f& m = c.position.get();
+	extrude = false;
+	Widget_Transform::raycast_select_manipulator(*(Coord3Df*)m.m[3], &extrude);
+	if (extrude) {
+		/* Manipulator extrude region was hit, do extrude operation. */
+		switch (extrude_mode) {
+		case EXTRUDEMODE_NORMALS: {
+			/* TODO_XR */
+			//edbm_extrude_indiv_exec(C, flip_normals);
+			break;
+		}
+		case EXTRUDEMODE_INDIVIDUAL: {
+			edbm_extrude_indiv_exec(C, flip_normals);
+			break;
+		}
+		case EXTRUDEMODE_REGION: 
+		default: {
+			edbm_extrude_indiv_exec(C, flip_normals);
+			//edbm_extrude_region_exec(C, flip_normals);
+			break;
+		}
+		}
+	}
+
+	/* Set transform/snapping modes based on constraints */
+	memset(Widget_Transform::constraint_flag, 0, sizeof(int) * 3);
+	if (Widget_Transform::constraint_mode != VR_UI::CONSTRAINTMODE_NONE) {
+		switch (Widget_Transform::constraint_mode) {
+		case VR_UI::CONSTRAINTMODE_TRANS_X: {
+			Widget_Transform::transform_mode = Widget_Transform::TRANSFORMMODE_MOVE;
+			Widget_Transform::snap_mode = VR_UI::SNAPMODE_TRANSLATION;
+			Widget_Transform::constraint_flag[0] = 1;
+			break;
+		}
+		case VR_UI::CONSTRAINTMODE_TRANS_Y: {
+			Widget_Transform::transform_mode = Widget_Transform::TRANSFORMMODE_MOVE;
+			Widget_Transform::snap_mode = VR_UI::SNAPMODE_TRANSLATION;
+			Widget_Transform::constraint_flag[1] = 1;
+			break;
+		}
+		case VR_UI::CONSTRAINTMODE_TRANS_Z: {
+			Widget_Transform::transform_mode = Widget_Transform::TRANSFORMMODE_MOVE;
+			Widget_Transform::snap_mode = VR_UI::SNAPMODE_TRANSLATION;
+			Widget_Transform::constraint_flag[2] = 1;
+			break;
+		}
+		case VR_UI::CONSTRAINTMODE_TRANS_XY: {
+			Widget_Transform::transform_mode = Widget_Transform::TRANSFORMMODE_MOVE;
+			Widget_Transform::snap_mode = VR_UI::SNAPMODE_TRANSLATION;
+			Widget_Transform::constraint_flag[0] = Widget_Transform::constraint_flag[1] = 1;
+			break;
+		}
+		case VR_UI::CONSTRAINTMODE_TRANS_YZ: {
+			Widget_Transform::transform_mode = Widget_Transform::TRANSFORMMODE_MOVE;
+			Widget_Transform::snap_mode = VR_UI::SNAPMODE_TRANSLATION;
+			Widget_Transform::constraint_flag[1] = Widget_Transform::constraint_flag[2] = 1;
+			break;
+		}
+		case VR_UI::CONSTRAINTMODE_TRANS_ZX: {
+			Widget_Transform::transform_mode = Widget_Transform::TRANSFORMMODE_MOVE;
+			Widget_Transform::snap_mode = VR_UI::SNAPMODE_TRANSLATION;
+			Widget_Transform::constraint_flag[0] = Widget_Transform::constraint_flag[2] = 1;
+			break;
+		}
+		case VR_UI::CONSTRAINTMODE_ROT_X: {
+			Widget_Transform::transform_mode = Widget_Transform::TRANSFORMMODE_ROTATE;
+			Widget_Transform::snap_mode = VR_UI::SNAPMODE_ROTATION;
+			Widget_Transform::constraint_flag[0] = 1;
+			break;
+		}
+		case VR_UI::CONSTRAINTMODE_ROT_Y: {
+			Widget_Transform::transform_mode = Widget_Transform::TRANSFORMMODE_ROTATE;
+			Widget_Transform::snap_mode = VR_UI::SNAPMODE_ROTATION;
+			Widget_Transform::constraint_flag[1] = 1;
+			break;
+		}
+		case VR_UI::CONSTRAINTMODE_ROT_Z: {
+			Widget_Transform::transform_mode = Widget_Transform::TRANSFORMMODE_ROTATE;
+			Widget_Transform::snap_mode = VR_UI::SNAPMODE_ROTATION;
+			Widget_Transform::constraint_flag[2] = 1;
+			break;
+		}
+		case VR_UI::CONSTRAINTMODE_SCALE_X: {
+			Widget_Transform::transform_mode = Widget_Transform::TRANSFORMMODE_SCALE;
+			Widget_Transform::snap_mode = VR_UI::SNAPMODE_SCALE;
+			Widget_Transform::constraint_flag[0] = 1;
+			break;
+		}
+		case VR_UI::CONSTRAINTMODE_SCALE_Y: {
+			Widget_Transform::transform_mode = Widget_Transform::TRANSFORMMODE_SCALE;
+			Widget_Transform::snap_mode = VR_UI::SNAPMODE_SCALE;
+			Widget_Transform::constraint_flag[1] = 1;
+			break;
+		}
+		case VR_UI::CONSTRAINTMODE_SCALE_Z: {
+			Widget_Transform::transform_mode = Widget_Transform::TRANSFORMMODE_SCALE;
+			Widget_Transform::snap_mode = VR_UI::SNAPMODE_SCALE;
+			Widget_Transform::constraint_flag[2] = 1;
+			break;
+		}
+		case VR_UI::CONSTRAINTMODE_SCALE_XY: {
+			Widget_Transform::transform_mode = Widget_Transform::TRANSFORMMODE_SCALE;
+			Widget_Transform::snap_mode = VR_UI::SNAPMODE_SCALE;
+			Widget_Transform::constraint_flag[0] = Widget_Transform::constraint_flag[1] = 1;
+			break;
+		}
+		case VR_UI::CONSTRAINTMODE_SCALE_YZ: {
+			Widget_Transform::transform_mode = Widget_Transform::TRANSFORMMODE_SCALE;
+			Widget_Transform::snap_mode = VR_UI::SNAPMODE_SCALE;
+			Widget_Transform::constraint_flag[1] = Widget_Transform::constraint_flag[2] = 1;
+			break;
+		}
+		case VR_UI::CONSTRAINTMODE_SCALE_ZX: {
+			Widget_Transform::transform_mode = Widget_Transform::TRANSFORMMODE_SCALE;
+			Widget_Transform::snap_mode = VR_UI::SNAPMODE_SCALE;
+			Widget_Transform::constraint_flag[0] = Widget_Transform::constraint_flag[2] = 1;
+			break;
+		}
+		default: {
+			break;
+		}
+		}
+		memcpy(Widget_Transform::snap_flag, Widget_Transform::constraint_flag, sizeof(int) * 3);
+	}
+	else {
+		memset(Widget_Transform::snap_flag, 1, sizeof(int) * 3);
+	}
+
+	/* Set up snapping positions vector */
+	for (int i = 0; i < Widget_Transform::nonsnap_t.size(); ++i) {
+		delete Widget_Transform::nonsnap_t[i];
+	}
+	Widget_Transform::nonsnap_t.clear();
+	Widget_Transform::nonsnap_t.push_back(new Mat44f());
+	Widget_Transform::snapped = false;
+
+	/* Reset manipulator angles */
+	memset(&Widget_Transform::manip_angle, 0, sizeof(float) * 9);
+	/* Save original manipulator transformation */
+	Widget_Transform::manip_t_orig = Widget_Transform::manip_t * (*(Mat44f*)obedit->obmat).inverse();
+
+	for (int i = 0; i < VR_SIDES; ++i) {
+		Widget_Extrude::obj.do_render[i] = true;
+	}
+
+	//Widget_Transform::is_dragging = true;
+
+	/* Call drag_contd() immediately? */
+	Widget_Extrude::obj.drag_contd(c);
+}
+
+void Widget_Extrude::drag_contd(VR_UI::Cursor& c)
+{
+	bContext *C = vr_get_obj()->ctx;
+	Object *obedit = CTX_data_edit_object(C);
+	if (!obedit) {
+		return;
+	}
+	ToolSettings *ts = NULL;
+	BMesh *bm = NULL;
+	if (obedit->type == OB_MESH) {
+		/* Edit mode */
+		ts = CTX_data_scene(C)->toolsettings;
+		bm = ((Mesh*)obedit->data)->edit_btmesh->bm;
+		if (!ts || !bm) {
+			return;
+		}
+	}
+	else {
+		return;
+	}
+
+	static Mat44f curr;
+	static Mat44f prev;
+	/* Check if we're two-hand dragging */
+	if (c.bimanual) {
+		if (c.bimanual == VR_UI::Cursor::BIMANUAL_SECOND)
+			return; /* calculations are only performed by first hand */
+
+		const Mat44f& curr_h = VR_UI::cursor_position_get(VR_SPACE_BLENDER, c.side);
+		const Mat44f& curr_o = VR_UI::cursor_position_get(VR_SPACE_BLENDER, (VR_Side)(1 - c.side));
+		const Mat44f& prev_h = c.interaction_position.get(VR_SPACE_BLENDER);
+		const Mat44f& prev_o = c.other_hand->interaction_position.get(VR_SPACE_BLENDER);
+
+		/* Rotation
+		/* x-axis is the base line between the two pointers */
+		Coord3Df x_axis_prev(prev_h.m[3][0] - prev_o.m[3][0],
+			prev_h.m[3][1] - prev_o.m[3][1],
+			prev_h.m[3][2] - prev_o.m[3][2]);
+		Coord3Df x_axis_curr(curr_h.m[3][0] - curr_o.m[3][0],
+			curr_h.m[3][1] - curr_o.m[3][1],
+			curr_h.m[3][2] - curr_o.m[3][2]);
+		/* y-axis is the average of the pointers y-axis */
+		Coord3Df y_axis_prev((prev_h.m[1][0] + prev_o.m[1][0]) / 2.0f,
+			(prev_h.m[1][1] + prev_o.m[1][1]) / 2.0f,
+			(prev_h.m[1][2] + prev_o.m[1][2]) / 2.0f);
+		Coord3Df y_axis_curr((curr_h.m[1][0] + curr_o.m[1][0]) / 2.0f,
+			(curr_h.m[1][1] + curr_o.m[1][1]) / 2.0f,
+			(curr_h.m[1][2] + curr_o.m[1][2]) / 2.0f);
+
+		/* z-axis is the cross product of the two */
+		Coord3Df z_axis_prev = x_axis_prev ^ y_axis_prev;
+		Coord3Df z_axis_curr = x_axis_curr ^ y_axis_curr;
+		/* fix the y-axis to be orthogonal */
+		y_axis_prev = z_axis_prev ^ x_axis_prev;
+		y_axis_curr = z_axis_curr ^ x_axis_curr;
+		/* normalize and apply */
+		x_axis_prev.normalize_in_place();
+		x_axis_curr.normalize_in_place();
+		y_axis_prev.normalize_in_place();
+		y_axis_curr.normalize_in_place();
+		z_axis_prev.normalize_in_place();
+		z_axis_curr.normalize_in_place();
+		prev.m[0][0] = x_axis_prev.x;    prev.m[0][1] = x_axis_prev.y;    prev.m[0][2] = x_axis_prev.z;
+		prev.m[1][0] = y_axis_prev.x;    prev.m[1][1] = y_axis_prev.y;    prev.m[1][2] = y_axis_prev.z;
+		prev.m[2][0] = z_axis_prev.x;    prev.m[2][1] = z_axis_prev.y;    prev.m[2][2] = z_axis_prev.z;
+		curr.m[0][0] = x_axis_curr.x;    curr.m[0][1] = x_axis_curr.y;    curr.m[0][2] = x_axis_curr.z;
+		curr.m[1][0] = y_axis_curr.x;    curr.m[1][1] = y_axis_curr.y;    curr.m[1][2] = y_axis_curr.z;
+		curr.m[2][0] = z_axis_curr.x;    curr.m[2][1] = z_axis_curr.y;    curr.m[2][2] = z_axis_curr.z;
+
+		/* Translation: translation of the averaged pointer positions */
+		prev.m[3][0] = (prev_h.m[3][0] + prev_o.m[3][0]) / 2.0f;    prev.m[3][1] = (prev_h.m[3][1] + prev_o.m[3][1]) / 2.0f;    prev.m[3][2] = (prev_h.m[3][2] + prev_o.m[3][2]) / 2.0f;	prev.m[3][3] = 1;
+		curr.m[3][0] = (curr_h.m[3][0] + curr_o.m[3][0]) / 2.0f;    curr.m[3][1] = (curr_h.m[3][1] + curr_o.m[3][1]) / 2.0f;    curr.m[3][2] = (curr_h.m[3][2] + curr_o.m[3][2]) / 2.0f;	curr.m[3][3] = 1;
+
+		if (Widget_Transform::transform_mode != Widget_Transform::TRANSFORMMODE_ROTATE) {
+			/* Scaling: distance between pointers */
+			float curr_s = sqrt(((curr_h.m[3][0] - curr_o.m[3][0])*(curr_h.m[3][0] - curr_o.m[3][0])) + ((curr_h.m[3][1]) - curr_o.m[3][1])*(curr_h.m[3][1] - curr_o.m[3][1])) + ((curr_h.m[3][2] - curr_o.m[3][2])*(curr_h.m[3][2] - curr_o.m[3][2]));
+			float start_s = sqrt(((prev_h.m[3][0] - prev_o.m[3][0])*(prev_h.m[3][0] - prev_o.m[3][0])) + ((prev_h.m[3][1]) - prev_o.m[3][1])*(prev_h.m[3][1] - prev_o.m[3][1])) + ((prev_h.m[3][2] - prev_o.m[3][2])*(prev_h.m[3][2] - prev_o.m[3][2]));
+
+			prev.m[0][0] *= start_s; prev.m[1][0] *= start_s; prev.m[2][0] *= start_s;
+			prev.m[0][1] *= start_s; prev.m[1][1] *= start_s; prev.m[2][1] *= start_s;
+			prev.m[0][2] *= start_s; prev.m[1][2] *= start_s; prev.m[2][2] *= start_s;
+
+			curr.m[0][0] *= curr_s; curr.m[1][0] *= curr_s; curr.m[2][0] *= curr_s;
+			curr.m[0][1] *= curr_s; curr.m[1][1] *= curr_s; curr.m[2][1] *= curr_s;
+			curr.m[0][2] *= curr_s; curr.m[1][2] *= curr_s; curr.m[2][2] *= curr_s;
+		}
+
+		c.interaction_position.set(curr_h.m, VR_SPACE_BLENDER);
+		c.other_hand->interaction_position.set(curr_o.m, VR_SPACE_BLENDER);
+	}
+	else { /* one-handed drag */
+		curr = c.position.get(VR_SPACE_BLENDER);
+		prev = c.interaction_position.get(VR_SPACE_BLENDER);
+		c.interaction_position.set(curr.m, VR_SPACE_BLENDER);
+	}
+
+	/* Calculate delta based on transform mode. */
+	static Mat44f delta;
+	if (c.bimanual) {
+		delta = prev.inverse() * curr;
+	}
+	else {
+		switch (Widget_Transform::transform_mode) {
+		case Widget_Transform::TRANSFORMMODE_MOVE: {
+			delta = VR_Math::identity_f;
+			*(Coord3Df*)delta.m[3] = *(Coord3Df*)curr.m[3] - *(Coord3Df*)prev.m[3];
+			break;
+		}
+		case Widget_Transform::TRANSFORMMODE_SCALE: {
+			delta = VR_Math::identity_f;
+			if (Widget_Transform::constraint_mode == VR_UI::CONSTRAINTMODE_NONE) {
+				/* Scaling based on distance from manipulator center. */
+				static Coord3Df prev_d, curr_d;
+				prev_d = *(Coord3Df*)prev.m[3] - *(Coord3Df*)Widget_Transform::manip_t.m[3];
+				curr_d = *(Coord3Df*)curr.m[3] - *(Coord3Df*)Widget_Transform::manip_t.m[3];
+				float p_len = prev_d.length();
+				float s = (p_len == 0.0f) ? 1.0f : curr_d.length() / p_len;
+				if (s > 1.0f) {
+					s = 1.0f + (s - 1.0f) * WIDGET_TRANSFORM_SCALING_SENSITIVITY;
+				}
+				else if (s < 1.0f) {
+					s = 1.0f - (1.0f - s) * WIDGET_TRANSFORM_SCALING_SENSITIVITY;
+				}
+				delta.m[0][0] = delta.m[1][1] = delta.m[2][2] = s;
+			}
+			else {
+				*(Coord3Df*)delta.m[3] = *(Coord3Df*)curr.m[3] - *(Coord3Df*)prev.m[3];
+				float s = (*(Coord3Df*)delta.m[3]).length();
+				(*(Coord3Df*)delta.m[3]).normalize_in_place() *= s * WIDGET_TRANSFORM_SCALING_SENSITIVITY;
+			}
+			break;
+		}
+		case Widget_Transform::TRANSFORMMODE_ROTATE:
+		case Widget_Transform::TRANSFORMMODE_OMNI:
+		default: {
+			delta = prev.inverse() * curr;
+			break;
+		}
+		}
+	}
+
+	static Mat44f delta_orig;
+	static float scale[3];
+	static float eul[3];
+	static float rot[3][3];
+	static Coord3Df temp1, temp2;
+
+	/* Precision */
+	if (VR_UI::shift_key_get()) {
+		/* Translation */
+		for (int i = 0; i < 3; ++i) {
+			scale[i] = (*(Coord3Df*)delta.m[i]).length();
+		}
+		*(Coord3Df*)delta.m[3] *= WIDGET_TRANSFORM_TRANS_PRECISION;
+		/*for (int i = 0; i < 3; ++i) {
+			delta.m[3][i] *= (scale[i] * WIDGET_TRANSFORM_TRANS_PRECISION);
+		}*/
+
+		/* Rotation */
+		mat4_to_eul(eul, delta.m);
+		for (int i = 0; i < 3; ++i) {
+			eul[i] *= WIDGET_TRANSFORM_ROT_PRECISION;
+		}
+		eul_to_mat3(rot, eul);
+		for (int i = 0; i < 3; ++i) {
+			memcpy(delta.m[i], rot[i], sizeof(float) * 3);
+		}
+
+		/* Scale */
+		for (int i = 0; i < 3; ++i) {
+			if (scale[i] > 1.0001f) { /* Take numerical instability into account */
+				*(Coord3Df*)delta.m[i] *= (1.0f + WIDGET_TRANSFORM_SCALE_PRECISION);
+			}
+			else if (scale[i] < 0.9999f) {
+				*(Coord3Df*)delta.m[i] *= (1.0f - WIDGET_TRANSFORM_SCALE_PRECISION);
+			}
+		}
+	}
+
+	/* Constraints */
+	bool constrain = false;
+	if (Widget_Transform::constraint_mode != VR_UI::CONSTRAINTMODE_NONE) {
+		delta_orig = delta;
+		delta = VR_Math::identity_f;
+		constrain = true;
+	}
+
+	/* Snapping */
+	bool snap = false;
+	if (VR_UI::ctrl_key_get()) {
+		snap = true;
+	}
+
+	/* Constraints */
+	if (constrain) {
+		static float axis[3];
+		static float angle;
+		static Coord3Df temp3;
+		switch (Widget_Transform::constraint_mode) {
+		case VR_UI::CONSTRAINTMODE_TRANS_X: {
+			project_v3_v3v3(delta.m[3], delta_orig.m[3], Widget_Transform::manip_t_orig.m[0]);
+			break;
+		}
+		case VR_UI::CONSTRAINTMODE_TRANS_Y: {
+			project_v3_v3v3(delta.m[3], delta_orig.m[3], Widget_Transform::manip_t_orig.m[1]);
+			break;
+		}
+		case VR_UI::CONSTRAINTMODE_TRANS_Z: {
+			project_v3_v3v3(delta.m[3], delta_orig.m[3], Widget_Transform::manip_t_orig.m[2]);
+			break;
+		}
+		case VR_UI::CONSTRAINTMODE_TRANS_XY: {
+			project_v3_v3v3(&temp1.x, delta_orig.m[3], Widget_Transform::manip_t_orig.m[0]);
+			project_v3_v3v3(&temp2.x, delta_orig.m[3], Widget_Transform::manip_t_orig.m[1]);
+			*(Coord3Df*)delta.m[3] = temp1 + temp2;
+			break;
+		}
+		case VR_UI::CONSTRAINTMODE_TRANS_YZ: {
+			project_v3_v3v3(&temp1.x, delta_orig.m[3], Widget_Transform::manip_t_orig.m[1]);
+			project_v3_v3v3(&temp2.x, delta_orig.m[3], Widget_Transform::manip_t_orig.m[2]);
+			*(Coord3Df*)delta.m[3] = temp1 + temp2;
+			break;
+		}
+		case VR_UI::CONSTRAINTMODE_TRANS_ZX: {
+			project_v3_v3v3(&temp1.x, delta_orig.m[3], Widget_Transform::manip_t_orig.m[0]);
+			project_v3_v3v3(&temp2.x, delta_orig.m[3], Widget_Transform::manip_t_orig.m[2]);
+			*(Coord3Df*)delta.m[3] = temp1 + temp2;
+			break;
+		}
+		case VR_UI::CONSTRAINTMODE_ROT_X: {
+			mat4_to_axis_angle(axis, &angle, delta_orig.m);
+			if ((*(Coord3Df*)axis) * (*(Coord3Df*)Widget_Transform::manip_t_orig.m[0]) < 0) {
+				angle = -angle;
+			}
+			axis_angle_to_mat4(delta.m, Widget_Transform::manip_t_orig.m[0], angle);
+			if (VR_UI::shift_key_get()) {
+				Widget_Transform::manip_angle[Widget_Transform::transform_space].x += angle * WIDGET_TRANSFORM_ROT_PRECISION;
+			}
+			else {
+				Widget_Transform::manip_angle[Widget_Transform::transform_space].x += angle;
+			}
+			break;
+		}
+		case VR_UI::CONSTRAINTMODE_ROT_Y: {
+			mat4_to_axis_angle(axis, &angle, delta_orig.m);
+			if ((*(Coord3Df*)axis) * (*(Coord3Df*)Widget_Transform::manip_t_orig.m[1]) < 0) {
+				angle = -angle;
+			}
+			axis_angle_to_mat4(delta.m, Widget_Transform::manip_t_orig.m[1], angle);
+			if (VR_UI::shift_key_get()) {
+				Widget_Transform::manip_angle[Widget_Transform::transform_space].y += angle * WIDGET_TRANSFORM_ROT_PRECISION;
+			}
+			else {
+				Widget_Transform::manip_angle[Widget_Transform::transform_space].y += angle;
+			}
+			break;
+		}
+		case VR_UI::CONSTRAINTMODE_ROT_Z: {
+			mat4_to_axis_angle(axis, &angle, delta_orig.m);
+			if ((*(Coord3Df*)axis) * (*(Coord3Df*)Widget_Transform::manip_t_orig.m[2]) < 0) {
+				angle = -angle;
+			}
+			axis_angle_to_mat4(delta.m, Widget_Transform::manip_t_orig.m[2], angle);
+			if (VR_UI::shift_key_get()) {
+				Widget_Transform::manip_angle[Widget_Transform::transform_space].z += angle * WIDGET_TRANSFORM_ROT_PRECISION;
+			}
+			else {
+				Widget_Transform::manip_angle[Widget_Transform::transform_space].z += angle;
+			}
+			break;
+		}
+		case VR_UI::CONSTRAINTMODE_SCALE_X: {
+			float length;
+			*(Coord3Df*)scale = (*(Coord3Df*)Widget_Transform::manip_t_orig.m[0]).normalize();
+			if (c.bimanual) {
+				length = -delta_orig.m[3][0];
+			}
+			else {
+				project_v3_v3v3(&temp1.x, delta_orig.m[3], Widget_Transform::manip_t_orig.m[0]);
+				length = temp1.length();
+				temp2 = (*(Coord3Df*)delta_orig.m[3]).normalize();
+				if (dot_v3v3((float*)&temp2, scale) < 0) {
+					length = -length;
+				}
+			}
+			for (int i = 0; i < 3; ++i) {
+				delta.m[i][i] = 1.0f + fabsf(scale[i]) * length;
+			}
+			break;
+		}
+		case VR_UI::CONSTRAINTMODE_SCALE_Y: {
+			float length;
+			*(Coord3Df*)scale = (*(Coord3Df*)Widget_Transform::manip_t_orig.m[1]).normalize();
+			if (c.bimanual) {
+				length = -delta_orig.m[3][1];
+			}
+			else {
+				project_v3_v3v3(&temp1.x, delta_orig.m[3], Widget_Transform::manip_t_orig.m[1]);
+				length = temp1.length();
+				temp2 = (*(Coord3Df*)delta_orig.m[3]).normalize();
+				if (dot_v3v3((float*)&temp2, scale) < 0) {
+					length = -length;
+				}
+			}
+			for (int i = 0; i < 3; ++i) {
+				delta.m[i][i] = 1.0f + fabsf(scale[i]) * length;
+			}
+			break;
+		}
+		case VR_UI::CONSTRAINTMODE_SCALE_Z: {
+			float length;
+			*(Coord3Df*)scale = (*(Coord3Df*)Widget_Transform::manip_t_orig.m[2]).normalize();
+			if (c.bimanual) {
+				length = -delta_orig.m[3][2];
+			}
+			else {
+				project_v3_v3v3(&temp1.x, delta_orig.m[3], Widget_Transform::manip_t_orig.m[2]);
+				length = temp1.length();
+				temp2 = (*(Coord3Df*)delta_orig.m[3]).normalize();
+				if (dot_v3v3((float*)&temp2, scale) < 0) {
+					length = -length;
+				}
+			}
+			for (int i = 0; i < 3; ++i) {
+				delta.m[i][i] = 1.0f + fabsf(scale[i]) * length;
+			}
+			break;
+		}
+		case VR_UI::CONSTRAINTMODE_SCALE_XY: {
+			float length;
+			if (c.bimanual) {
+				length = -(delta_orig.m[3][0] + delta_orig.m[3][1]) / 2.0f;
+				*(Coord3Df*)scale = ((*(Coord3Df*)Widget_Transform::manip_t_orig.m[0]).normalize() + (*(Coord3Df*)Widget_Transform::manip_t_orig.m[1]).normalize()) / 2.0f;
+			}
+			else {
+				project_v3_v3v3(&temp1.x, delta_orig.m[3], Widget_Transform::manip_t_orig.m[0]);
+				length = temp1.length();
+				(*(Coord3Df*)scale = (*(Coord3Df*)delta_orig.m[3]).normalize());
+				temp1 = (*(Coord3Df*)Widget_Transform::manip_t_orig.m[0]).normalize();
+				if (dot_v3v3((float*)&temp1, scale) < 0) {
+					length = -length;
+				}
+				project_v3_v3v3(&temp3.x, delta_orig.m[3], Widget_Transform::manip_t_orig.m[1]);
+				temp2 = (*(Coord3Df*)Widget_Transform::manip_t_orig.m[1]).normalize();
+				if (dot_v3v3((float*)&temp2, scale) < 0) {
+					length -= temp3.length();
+				}
+				else {
+					length += temp3.length();
+				}
+				length /= 2.0f;
+			}
+			*(Coord3Df*)scale = (temp1 + temp2) / 2.0f;
+			for (int i = 0; i < 3; ++i) {
+				delta.m[i][i] = 1.0f + fabsf(scale[i]) * length;
+			}
+			break;
+		}
+		case VR_UI::CONSTRAINTMODE_SCALE_YZ: {
+			float length;
+			if (c.bimanual) {
+				length = -(delta_orig.m[3][1] + delta_orig.m[3][2]) / 2.0f;
+				*(Coord3Df*)scale = ((*(Coord3Df*)Widget_Transform::manip_t_orig.m[1]).normalize() + (*(Coord3Df*)Widget_Transform::manip_t_orig.m[2]).normalize()) / 2.0f;
+			}
+			else {
+				project_v3_v3v3(&temp1.x, delta_orig.m[3], Widget_Transform::manip_t_orig.m[1]);
+				length = temp1.length();
+				(*(Coord3Df*)scale = (*(Coord3Df*)delta_orig.m[3]).normalize());
+				temp1 = (*(Coord3Df*)Widget_Transform::manip_t_orig.m[1]).normalize();
+				if (dot_v3v3((float*)&temp1, scale) < 0) {
+					length = -length;
+				}
+				project_v3_v3v3(&temp3.x, delta_orig.m[3], Widget_Transform::manip_t_orig.m[2]);
+				temp2 = (*(Coord3Df*)Widget_Transform::manip_t_orig.m[2]).normalize();
+				if (dot_v3v3((float*)&temp2, scale) < 0) {
+					length -= temp3.length();
+				}
+				else {
+					length += temp3.length();
+				}
+				length /= 2.0f;
+			}
+			*(Coord3Df*)scale = (temp1 + temp2) / 2.0f;
+			for (int i = 0; i < 3; ++i) {
+				delta.m[i][i] = 1.0f + fabsf(scale[i]) * length;
+			}
+			break;
+		}
+		case VR_UI::CONSTRAINTMODE_SCALE_ZX: {
+			float length;
+			if (c.bimanual) {
+				length = -(delta_orig.m[3][0] + delta_orig.m[3][2]) / 2.0f;
+				*(Coord3Df*)scale = ((*(Coord3Df*)Widget_Transform::manip_t_orig.m[0]).normalize() + (*(Coord3Df*)Widget_Transform::manip_t_orig.m[2]).normalize()) / 2.0f;
+			}
+			else {
+				project_v3_v3v3(&temp1.x, delta_orig.m[3], Widget_Transform::manip_t_orig.m[0]);
+				length = temp1.length();
+				(*(Coord3Df*)scale = (*(Coord3Df*)delta_orig.m[3]).normalize());
+				temp1 = (*(Coord3Df*)Widget_Transform::manip_t_orig.m[0]).normalize();
+				if (dot_v3v3((float*)&temp1, scale) < 0) {
+					length = -length;
+				}
+				project_v3_v3v3(&temp3.x, delta_orig.m[3], Widget_Transform::manip_t_orig.m[2]);
+				temp2 = (*(Coord3Df*)Widget_Transform::manip_t_orig.m[2]).normalize();
+				if (dot_v3v3((float*)&temp2, scale) < 0) {
+					length -= temp3.length();
+				}
+				else {
+					length += temp3.length();
+				}
+				length /= 2.0f;
+			}
+			for (int i = 0; i < 3; ++i) {
+				delta.m[i][i] = 1.0f + fabsf(scale[i]) * length;
+			}
+			break;
+		}
+		default: {
+			break;
+		}
+		}
+	}
+
+	/* Snapping */
+	static Mat44f m;
+	if (snap) {
+		Mat44f& nonsnap_m = *Widget_Transform::nonsnap_t[0];
+		if (!Widget_Transform::snapped) {
+			nonsnap_m = Widget_Transform::manip_t;
+			Widget_Transform::manip_t_snap = Widget_Transform::manip_t;
+		}
+		else {
+			m = nonsnap_m;
+			nonsnap_m = m * delta;
+		}
+		static Mat44f manip_t_prev;
+		manip_t_prev = Widget_Transform::manip_t_snap;
+
+		/* Apply snapping. */
+		float precision, iter_fac, val;
+		for (int i = 0; i < 3; ++i) {
+			scale[i] = (*(Coord3Df*)nonsnap_m.m[i]).length();
+		}
+		switch (Widget_Transform::snap_mode) {
+		case VR_UI::SNAPMODE_TRANSLATION: {
+			/* Translation */
+			if (VR_UI::shift_key_get()) {
+				precision = WIDGET_TRANSFORM_TRANS_PRECISION;
+			}
+			else {
+				precision = 1.0f;
+			}
+			float *pos = (float*)nonsnap_m.m[3];
+			for (int i = 0; i < 3; ++i, ++pos) {
+				if (!Widget_Transform::snap_flag[i]) {
+					continue;
+				}
+				iter_fac = precision * scale[i];
+				val = roundf(*pos / iter_fac);
+				Widget_Transform::manip_t_snap.m[3][i] = iter_fac * val;
+			}
+			switch (Widget_Transform::constraint_mode) {
+			case VR_UI::CONSTRAINTMODE_TRANS_X: {
+				temp1 = *(Coord3Df*)Widget_Transform::manip_t_snap.m[3] - *(Coord3Df*)nonsnap_m.m[3];
+				project_v3_v3v3(&temp2.x, &temp1.x, Widget_Transform::manip_t_orig.m[0]);
+				*(Coord3Df*)Widget_Transform::manip_t_snap.m[3] = *(Coord3Df*)nonsnap_m.m[3] + temp2;
+				break;
+			}
+			case VR_UI::CONSTRAINTMODE_TRANS_Y: {
+				temp1 = *(Coord3Df*)Widget_Transform::manip_t_snap.m[3] - *(Coord3Df*)nonsnap_m.m[3];
+				project_v3_v3v3(&temp2.x, &temp1.x, Widget_Transform::manip_t_orig.m[1]);
+				*(Coord3Df*)Widget_Transform::manip_t_snap.m[3] = *(Coord3Df*)nonsnap_m.m[3] + temp2;
+				break;
+			}
+			case VR_UI::CONSTRAINTMODE_TRANS_Z: {
+				temp1 = *(Coord3Df*)Widget_Transform::manip_t_snap.m[3] - *(Coord3Df*)nonsnap_m.m[3];
+				project_v3_v3v3(&temp2.x, &temp1.x, Widget_Transform::manip_t_orig.m[2]);
+				*(Coord3Df*)Widget_Transform::manip_t_snap.m[3] = *(Coord3Df*)nonsnap_m.m[3] + temp2;
+				break;
+			}
+			case VR_UI::CONSTRAINTMODE_TRANS_XY: {
+				temp1 = *(Coord3Df*)Widget_Transform::manip_t_snap.m[3] - *(Coord3Df*)nonsnap_m.m[3];
+				project_v3_v3v3(&temp2.x, &temp1.x, Widget_Transform::manip_t_orig.m[0]);
+				*(Coord3Df*)Widget_Transform::manip_t_snap.m[3] = *(Coord3Df*)nonsnap_m.m[3] + temp2;
+				project_v3_v3v3(&temp2.x, &temp1.x, Widget_Transform::manip_t_orig.m[1]);
+				*(Coord3Df*)Widget_Transform::manip_t_snap.m[3] += temp2;
+				break;
+			}
+			case VR_UI::CONSTRAINTMODE_TRANS_YZ: {
+				temp1 = *(Coord3Df*)Widget_Transform::manip_t_snap.m[3] - *(Coord3Df*)nonsnap_m.m[3];
+				project_v3_v3v3(&temp2.x, &temp1.x, Widget_Transform::manip_t_orig.m[1]);
+				*(Coord3Df*)Widget_Transform::manip_t_snap.m[3] = *(Coord3Df*)nonsnap_m.m[3] + temp2;
+				project_v3_v3v3(&temp2.x, &temp1.x, Widget_Transform::manip_t_orig.m[2]);
+				*(Coord3Df*)Widget_Transform::manip_t_snap.m[3] += temp2;
+				break;
+			}
+			case VR_UI::CONSTRAINTMODE_TRANS_ZX: {
+				temp1 = *(Coord3Df*)Widget_Transform::manip_t_snap.m[3] - *(Coord3Df*)nonsnap_m.m[3];
+				project_v3_v3v3(&temp2.x, &temp1.x, Widget_Transform::manip_t_orig.m[0]);
+				*(Coord3Df*)Widget_Transform::manip_t_snap.m[3] = *(Coord3Df*)nonsnap_m.m[3] + temp2;
+				project_v3_v3v3(&temp2.x, &temp1.x, Widget_Transform::manip_t_orig.m[2]);
+				*(Coord3Df*)Widget_Transform::manip_t_snap.m[3] += temp2;
+				break;
+			}
+			default: {
+				/* TODO_XR: Local / normal translation snappping (no constraints) */
+				break;
+			}
+			}
+			break;
+		}
+		case VR_UI::SNAPMODE_ROTATION: {
+			/* Rotation */
+			if (VR_UI::shift_key_get()) {
+				precision = PI / 180.0f;
+			}
+			else {
+				precision = WIDGET_TRANSFORM_ROT_PRECISION;
+			}
+			/* TODO_XR: Local rotation snapping (no constraints). */
+			mat4_to_eul(eul, nonsnap_m.m);
+			//static float eul_orig[3];
+			//memcpy(eul_orig, eul, sizeof(float) * 3);
+			for (int i = 0; i < 3; ++i) {
+				if (!Widget_Transform::snap_flag[i]) {
+					continue;
+				}
+				val = roundf(eul[i] / precision);
+				eul[i] = precision * val;
+			}
+			eul_to_mat3(rot, eul);
+			for (int i = 0; i < 3; ++i) {
+				memcpy(Widget_Transform::manip_t_snap.m[i], rot[i], sizeof(float) * 3);
+				*(Coord3Df*)Widget_Transform::manip_t_snap.m[i] *= scale[i];
+			}
+			/* Update manipulator angles. */
+			/* TODO_XR */
+			/*for (int i = 0; i < 3; ++i) {
+				if (!Widget_Transform::snap_flag[i]) {
+					continue;
+				}
+				switch (i) {
+				case 0: {
+					float& m_angle = Widget_Transform::manip_angle[Widget_Transform::transform_space].x;
+					m_angle += eul[i] - eul_orig[i];
+					val = roundf(m_angle / precision);
+					m_angle = precision * val;
+					break;
+				}
+				case 1: {
+					float& m_angle = Widget_Transform::manip_angle[Widget_Transform::transform_space].y;
+					m_angle += eul[i] - eul_orig[i];
+					val = roundf(m_angle / precision);
+					m_angle = precision * val;
+					break;
+				}
+				case 2: {
+					float& m_angle = Widget_Transform::manip_angle[Widget_Transform::transform_space].z;
+					m_angle += eul[i] - eul_orig[i];
+					val = roundf(m_angle / precision);
+					m_angle = precision * val;
+					break;
+				}
+				}
+			}*/
+			break;
+		}
+		case VR_UI::SNAPMODE_SCALE: {
+			/* Scale */
+			if (Widget_Transform::transform_space == VR_UI::TRANSFORMSPACE_GLOBAL && Widget_Transform::constraint_mode != VR_UI::CONSTRAINTMODE_NONE) {
+				/* TODO_XR */
+				break;
+				/*for (int i = 0; i < 3; ++i) {
+					if (Widget_Transform::snap_flag[i]) {
+						continue;
+					}
+					(*(Coord3Df*)Widget_Transform::manip_t_snap.m[i]).normalize_in_place() *= (*(Coord3Df*)nonsnap_m.m[i]).length();
+				}
+				static Mat44f t;
+				transpose_m4_m4(t.m, nonsnap_m.m);
+				for (int i = 0; i < 3; ++i) {
+					scale[i] = (*(Coord3Df*)t.m[i]).length();
+				}*/
+			}
+			for (int i = 0; i < 3; ++i) {
+				if (!Widget_Transform::snap_flag[i]) {
+					continue;
+				}
+				if (VR_UI::shift_key_get()) {
+					/* Snap scale based on the power of ten magnitude of the curent scale */
+					precision = 0.1f * powf(10.0f, floor(log10(scale[i])));
+				}
+				else {
+					precision = 0.5f * powf(10.0f, floor(log10(scale[i])));
+				}
+				val = roundf(scale[i] / precision);
+				if (val == 0.0f) {
+					val = 1.0f;
+				}
+				(*(Coord3Df*)Widget_Transform::manip_t_snap.m[i]).normalize_in_place() *= (precision * val);
+			}
+			break;
+		}
+		default: {
+			break;
+		}
+		}
+
+		delta = manip_t_prev.inverse() * Widget_Transform::manip_t_snap;
+		BMIter iter;
+
+		if (ts->selectmode & SCE_SELECT_VERTEX) {
+			BMVert *v;
+			BM_ITER_MESH(v, &iter, bm, BM_VERTS_OF_MESH) {
+				if (BM_elem_flag_test(v, BM_ELEM_SELECT)) {
+					float *co = v->co;
+					memcpy((float*)&temp1, co, sizeof(float) * 3);
+					mul_v3_m4v3(co, delta.m, (float*)&temp1);
+				}
+			}
+		}
+		else if (ts->selectmode & SCE_SELECT_EDGE) {
+			BMEdge *e;
+			BM_ITER_MESH(e, &iter, bm, BM_EDGES_OF_MESH) {
+				if (BM_elem_flag_test(e, BM_ELEM_SELECT)) {
+					float *co1 = e->v1->co;
+					float *co2 = e->v2->co;
+					memcpy((float*)&temp1, co1, sizeof(float) * 3);
+					memcpy((float*)&temp2, co2, sizeof(float) * 3);
+					mul_v3_m4v3(co1, delta.m, (float*)&temp1);
+					mul_v3_m4v3(co2, delta.m, (float*)&temp2);
+				}
+			}
+		}
+		else if (ts->selectmode & SCE_SELECT_FACE) {
+			BMFace *f;
+			BMLoop *l;
+			BM_ITER_MESH(f, &iter, bm, BM_FACES_OF_MESH) {
+				if (BM_elem_flag_test(f, BM_ELEM_SELECT)) {
+					l = f->l_first;
+					for (int i = 0; i < f->len; ++i, l = l->next) {
+						float *co = l->v->co;
+						memcpy((float*)&temp1, co, sizeof(float) * 3);
+						mul_v3_m4v3(co, delta.m, (float*)&temp1);
+					}
+				}
+			}
+		}
+	}
+	else {
+		/* Extrude mode */
+		BMIter iter;
+		switch (extrude_mode) {
+		case EXTRUDEMODE_NORMALS: {
+			/* TODO_XR */
+			break;
+		}
+		case EXTRUDEMODE_INDIVIDUAL: {
+			/* Extrude along each average normal with the magnitude of the original manipulator delta. */
+			float mag = (*(Coord3Df*)delta.m[3]).length();
+			temp1 = (*(Coord3Df*)delta.m[3]).normalize();
+			temp2 = (*(Coord3Df*)Widget_Transform::manip_t_orig.m[3]).normalize();
+			if (temp1 * temp2 < 0) {
+				mag = -mag;
+			}
+
+			if (ts->selectmode & SCE_SELECT_VERTEX) {
+				BMVert *v;
+				BM_ITER_MESH(v, &iter, bm, BM_VERTS_OF_MESH) {
+					if (BM_elem_flag_test(v, BM_ELEM_SELECT)) {
+						memcpy(delta.m[3], v->no, sizeof(float) * 3);
+						(*(Coord3Df*)delta.m[3]) *= mag;
+
+						float *co = v->co;
+						memcpy((float*)&temp1, co, sizeof(float) * 3);
+						mul_v3_m4v3(co, delta.m, (float*)&temp1);
+					}
+				}
+			}
+			else if (ts->selectmode & SCE_SELECT_EDGE) {
+				BMEdge *e;
+				BM_ITER_MESH(e, &iter, bm, BM_EDGES_OF_MESH) {
+					if (BM_elem_flag_test(e, BM_ELEM_SELECT)) {
+						float *co1 = e->v1->co;
+						float *co2 = e->v2->co;
+						memcpy((float*)&temp1, co1, sizeof(float) * 3);
+						memcpy((float*)&temp2, co2, sizeof(float) * 3);
+
+						*(Coord3Df*)delta.m[3] = (*(Coord3Df*)e->v1->no + *(Coord3Df*)e->v2->no) / 2.0f;
+						(*(Coord3Df*)delta.m[3]) *= mag;
+						mul_v3_m4v3(co1, delta.m, (float*)&temp1);
+						mul_v3_m4v3(co2, delta.m, (float*)&temp2);
+					}
+				}
+			}
+			else if (ts->selectmode & SCE_SELECT_FACE) {
+				BMFace *f;
+				BMLoop *l;
+				BM_ITER_MESH(f, &iter, bm, BM_FACES_OF_MESH) {
+					if (BM_elem_flag_test(f, BM_ELEM_SELECT)) {
+						int len = f->len;
+						l = f->l_first;
+						for (int i = 0; i < len; ++i, l = l->next) {
+							*(Coord3Df*)delta.m[3] += *(Coord3Df*)l->v->no;
+						}
+						*(Coord3Df*)delta.m[3] *= (mag / (float)len);
+
+						l = f->l_first;
+						for (int i = 0; i < len; ++i, l = l->next) {
+							float *co = l->v->co;
+							memcpy((float*)&temp1, co, sizeof(float) * 3);
+							mul_v3_m4v3(co, delta.m, (float*)&temp1);
+						}
+					}
+				}
+			}
+			break;
+		}
+		case EXTRUDEMODE_REGION:
+		default: {
+			if (ts->selectmode & SCE_SELECT_VERTEX) {
+				BMVert *v;
+				BM_ITER_MESH(v, &iter, bm, BM_VERTS_OF_MESH) {
+					if (BM_elem_flag_test(v, BM_ELEM_SELECT)) {
+						float *co = v->co;
+						memcpy((float*)&temp1, co, sizeof(float) * 3);
+						mul_v3_m4v3(co, delta.m, (float*)&temp1);
+					}
+				}
+			}
+			else if (ts->selectmode & SCE_SELECT_EDGE) {
+				BMEdge *e;
+				BM_ITER_MESH(e, &iter, bm, BM_EDGES_OF_MESH) {
+					if (BM_elem_flag_test(e, BM_ELEM_SELECT)) {
+						float *co1 = e->v1->co;
+						float *co2 = e->v2->co;
+						memcpy((float*)&temp1, co1, sizeof(float) * 3);
+						memcpy((float*)&temp2, co2, sizeof(float) * 3);
+						mul_v3_m4v3(co1, delta.m, (float*)&temp1);
+						mul_v3_m4v3(co2, delta.m, (float*)&temp2);
+					}
+				}
+			}
+			else if (ts->selectmode & SCE_SELECT_FACE) {
+				BMFace *f;
+				BMLoop *l;
+				BM_ITER_MESH(f, &iter, bm, BM_FACES_OF_MESH) {
+					if (BM_elem_flag_test(f, BM_ELEM_SELECT)) {
+						l = f->l_first;
+						for (int i = 0; i < f->len; ++i, l = l->next) {
+							float *co = l->v->co;
+							memcpy((float*)&temp1, co, sizeof(float) * 3);
+							mul_v3_m4v3(co, delta.m, (float*)&temp1);
+						}
+					}
+				}
+			}
+			break;
+		}
+		}
+	}
+	/* Set recalc flags. */
+	DEG_id_tag_update((ID*)obedit->data, ID_RECALC_GEOMETRY);
+
+	if (snap) {
+		Widget_Transform::snapped = true;
+	}
+	else {
+		Widget_Transform::snapped = false;
+	}
+
+	/* Update manipulator transform (also used when rendering constraints). */
+	static VR_UI::TransformSpace prev_space = VR_UI::TRANSFORMSPACE_GLOBAL;
+	if (prev_space != Widget_Transform::transform_space) {
+		prev_space = Widget_Transform::transform_space;
+		BMEditMesh *em = BKE_editmesh_from_object(obedit);
+		EDBM_mesh_normals_update(em);
+		Widget_Transform::update_manipulator();
+		Widget_Transform::manip_t_orig = Widget_Transform::manip_t * (*(Mat44f*)obedit->obmat).inverse();
+	}
+	else {	
+		/* Don't update manipulator transformation for rotations. */
+		if (Widget_Transform::transform_mode != Widget_Transform::TRANSFORMMODE_ROTATE) {
+			Widget_Transform::update_manipulator();
+		}
+	}
+
+	for (int i = 0; i < VR_SIDES; ++i) {
+		Widget_Extrude::obj.do_render[i] = true;
+	}
+
+	Widget_Transform::is_dragging = true;
+}
+
+void Widget_Extrude::drag_stop(VR_UI::Cursor& c)
+{
+	/* Check if we're two-hand navi dragging */
+	if (c.bimanual) {
+		VR_UI::Cursor *other = c.other_hand;
+		c.bimanual = VR_UI::Cursor::BIMANUAL_OFF;
+		/* the other hand is still dragging - we're leaving a two-hand drag. */
+		other->bimanual = VR_UI::Cursor::BIMANUAL_OFF;
+		/* ALSO: the other hand should start one-hand manipulating from here: */
+		c.other_hand->interaction_position.set(((Mat44f)VR_UI::cursor_position_get(VR_SPACE_REAL, other->side)).m, VR_SPACE_REAL);
+		/* Calculations are only performed by the second hand. */
+		return;
+	}
+
+	/* TODO_XR: Avoid doing this twice (already done in drag_start() */
+	Widget_Transform::constraint_mode = VR_UI::CONSTRAINTMODE_NONE;
+	memset(Widget_Transform::constraint_flag, 0, sizeof(int) * 3);
+	memset(Widget_Transform::snap_flag, 1, sizeof(int) * 3);
+
+	Widget_Transform::transform_mode = Widget_Transform::TRANSFORMMODE_OMNI;
+	Widget_Transform::snap_mode = VR_UI::SNAPMODE_TRANSLATION;
+
+	Widget_Transform::is_dragging = false;
+	extrude = false;
+
+	bContext *C = vr_get_obj()->ctx;
+	Object *obedit = CTX_data_edit_object(C);
+	if (!obedit) {
+		return;
+	}
+	BMEditMesh *em = BKE_editmesh_from_object(obedit);
+	EDBM_mesh_normals_update(em);
+	Widget_Transform::update_manipulator();
+
+	DEG_id_tag_update((ID*)obedit->data, ID_RECALC_GEOMETRY);
+	WM_main_add_notifier(NC_GEOM | ND_DATA, obedit->data);
+	ED_undo_push(C, "Transform");
+}
+
+void Widget_Extrude::render(VR_Side side) 
+{
+	bContext *C = vr_get_obj()->ctx;
+	Object *obedit = CTX_data_edit_object(C);
+	if (!obedit) {
+		Widget_Extrude::obj.do_render[side] = false;
+	}
+
+	static float manip_length[3];
+	for (int i = 0; i < 3; ++i) {
+		manip_length[i] = Widget_Transform::manip_scale_factor * 2.0f;
+	}
+	static float clip_plane[4] = { 0.0f };
+
+	if (Widget_Transform::omni && Widget_Transform::manipulator) {
+		/* Dial and Gimbal */
+		GPU_blend(true);
+		GPU_matrix_push();
+		GPU_matrix_mul(Widget_Transform::manip_t.m);
+		GPU_polygon_smooth(false);
+		if (Widget_Transform::transform_mode == Widget_Transform::TRANSFORMMODE_ROTATE) {
+			switch (Widget_Transform::constraint_mode) {
+			case VR_UI::CONSTRAINTMODE_ROT_X: {
+				GPU_matrix_rotate_axis(-90.0f, 'Y');
+				Widget_Transform::render_dial(PI / 4.0f, Widget_Transform::manip_angle[Widget_Transform::transform_space].x, 0.0f, manip_length[0] / 4.0f);
+				if (VR_UI::ctrl_key_get()) {
+					if (VR_UI::shift_key_get()) {
+						Widget_Transform::render_incremental_angles(PI / 180.0f, 0.0f, manip_length[0] / 4.0f);
+					}
+					else {
+						Widget_Transform::render_incremental_angles(WIDGET_TRANSFORM_ROT_PRECISION, 0.0f, manip_length[0] / 4.0f);
+					}
+				}
+				GPU_matrix_rotate_axis(90.0f, 'Y');
+				break;
+			}
+			case VR_UI::CONSTRAINTMODE_ROT_Y: {
+				GPU_matrix_rotate_axis(90.0f, 'X');
+				Widget_Transform::render_dial(PI / 4.0f, Widget_Transform::manip_angle[Widget_Transform::transform_space].y, 0.0f, manip_length[1] / 4.0f);
+				if (VR_UI::ctrl_key_get()) {
+					if (VR_UI::shift_key_get()) {
+						Widget_Transform::render_incremental_angles(PI / 180.0f, 0.0f, manip_length[1] / 4.0f);
+					}
+					else {
+						Widget_Transform::render_incremental_angles(WIDGET_TRANSFORM_ROT_PRECISION, 0.0f, manip_length[1] / 4.0f);
+					}
+				}
+				GPU_matrix_rotate_axis(-90.0f, 'X');
+				break;
+			}
+			case VR_UI::CONSTRAINTMODE_ROT_Z: {
+				GPU_matrix_rotate_axis(-90.0f, 'Z');
+				Widget_Transform::render_dial(-PI / 4.0f, -Widget_Transform::manip_angle[Widget_Transform::transform_space].z, 0.0f, manip_length[2] / 4.0f);
+				if (VR_UI::ctrl_key_get()) {
+					if (VR_UI::shift_key_get()) {
+						Widget_Transform::render_incremental_angles(PI / 180.0f, 0.0f, manip_length[2] / 4.0f);
+					}
+					else {
+						Widget_Transform::render_incremental_angles(WIDGET_TRANSFORM_ROT_PRECISION, 0.0f, manip_length[2] / 4.0f);
+					}
+				}
+				GPU_matrix_rotate_axis(90.0f, 'Z');
+				break;
+			}
+			default: {
+				break;
+			}
+			}
+		}
+		Widget_Transform::render_gimbal(manip_length, false, Widget_Transform::manip_t.m, clip_plane, 3 * PI / 2.0f, 0.0f);
+		/* Extrude Ball and Arrow */
+		*((Coord3Df*)manip_length) /= 2.0f;
+		Widget_Transform::render_axes(manip_length, 3);
+		Widget_Transform::render_axes(manip_length, 0);
+		/* Box */
+		*((Coord3Df*)manip_length) /= 2.0f;
+		Widget_Transform::render_axes(manip_length, 1);
+		/* Ball */
+		Widget_Transform::render_axes(manip_length, 2);
+		GPU_blend(false);
+		GPU_matrix_pop();
+		return;
+	}
+
+	switch (Widget_Transform::transform_mode) {
+	case Widget_Transform::TRANSFORMMODE_OMNI: {
+		/* Extrude Ball and Arrow */
+		*((Coord3Df*)manip_length) /= 2.0f;
+		GPU_matrix_push();
+		GPU_matrix_mul(Widget_Transform::manip_t.m);
+		GPU_blend(true);
+		Widget_Transform::render_axes(manip_length, 3);
+		Widget_Transform::render_axes(manip_length, 0);
+		GPU_blend(false);
+		GPU_matrix_pop();
+		break;
+	}
+	case Widget_Transform::TRANSFORMMODE_MOVE: {
+		/* Plane */
+		GPU_matrix_push();
+		GPU_matrix_mul(Widget_Transform::manip_t.m);
+		GPU_blend(true);
+		Widget_Transform::render_planes(manip_length);
+		/* Extrude Ball and Arrow */
+		*((Coord3Df*)manip_length) /= 2.0f;
+		Widget_Transform::render_axes(manip_length, 3);
+		Widget_Transform::render_axes(manip_length, 0);
+		GPU_blend(false);
+		GPU_matrix_pop();
+		break;
+	}
+	case Widget_Transform::TRANSFORMMODE_ROTATE: {
+		/* Dial and Gimbal */
+		GPU_blend(true);
+		GPU_matrix_push();
+		GPU_matrix_mul(Widget_Transform::manip_t.m);
+		GPU_polygon_smooth(false);
+		switch (Widget_Transform::constraint_mode) {
+		case VR_UI::CONSTRAINTMODE_ROT_X: {
+			GPU_matrix_rotate_axis(-90.0f, 'Y');
+			Widget_Transform::render_dial(PI / 4.0f, Widget_Transform::manip_angle[Widget_Transform::transform_space].x, 0.0f, manip_length[0] / 4.0f);
+			if (VR_UI::ctrl_key_get()) {
+				if (VR_UI::shift_key_get()) {
+					Widget_Transform::render_incremental_angles(PI / 180.0f, 0.0f, manip_length[0] / 4.0f);
+				}
+				else {
+					Widget_Transform::render_incremental_angles(WIDGET_TRANSFORM_ROT_PRECISION, 0.0f, manip_length[0] / 4.0f);
+				}
+			}
+			GPU_matrix_rotate_axis(90.0f, 'Y');
+			break;
+		}
+		case VR_UI::CONSTRAINTMODE_ROT_Y: {
+			GPU_matrix_rotate_axis(90.0f, 'X');
+			Widget_Transform::render_dial(PI / 4.0f, Widget_Transform::manip_angle[Widget_Transform::transform_space].y, 0.0f, manip_length[1] / 4.0f);
+			if (VR_UI::ctrl_key_get()) {
+				if (VR_UI::shift_key_get()) {
+					Widget_Transform::render_incremental_angles(PI / 180.0f, 0.0f, manip_length[1] / 4.0f);
+				}
+				else {
+					Widget_Transform::render_incremental_angles(WIDGET_TRANSFORM_ROT_PRECISION, 0.0f, manip_length[1] / 4.0f);
+				}
+			}
+			GPU_matrix_rotate_axis(-90.0f, 'X');
+			break;
+		}
+		case VR_UI::CONSTRAINTMODE_ROT_Z: {
+			GPU_matrix_rotate_axis(-90.0f, 'Z');
+			Widget_Transform::render_dial(-PI / 4.0f, -Widget_Transform::manip_angle[Widget_Transform::transform_space].z, 0.0f, manip_length[2] / 4.0f);
+			if (VR_UI::ctrl_key_get()) {
+				if (VR_UI::shift_key_get()) {
+					Widget_Transform::render_incremental_angles(PI / 180.0f, 0.0f, manip_length[2] / 4.0f);
+				}
+				else {
+					Widget_Transform::render_incremental_angles(WIDGET_TRANSFORM_ROT_PRECISION, 0.0f, manip_length[2] / 4.0f);
+				}
+			}
+			GPU_matrix_rotate_axis(90.0f, 'Z');
+			break;
+		}
+		default: {
+			break;
+		}
+		}
+		if (!Widget_Transform::manipulator) {
+			Widget_Transform::render_gimbal(manip_length, false, Widget_Transform::manip_t.m, clip_plane, 0.0f, 0.0f);
+		}
+		else {
+			Widget_Transform::render_gimbal(manip_length, false, Widget_Transform::manip_t.m, clip_plane, 3 * PI / 2.0f, 0.0f);
+		}
+		/* Extrude Ball */
+		*((Coord3Df*)manip_length) /= 2.0f;
+		Widget_Transform::render_axes(manip_length, 3);
+		/* Ball */
+		*((Coord3Df*)manip_length) /= 2.0f;
+		Widget_Transform::render_axes(manip_length, 2);
+		GPU_blend(false);
+		GPU_matrix_pop();
+		break;
+	}
+	case Widget_Transform::TRANSFORMMODE_SCALE: {
+		/* Plane */
+		GPU_matrix_push();
+		GPU_matrix_mul(Widget_Transform::manip_t.m);
+		GPU_blend(true);
+		Widget_Transform::render_planes(manip_length);
+		/* Extrude Ball */
+		*((Coord3Df*)manip_length) /= 2.0f;
+		Widget_Transform::render_axes(manip_length, 3);
+		/* Box */
+		*((Coord3Df*)manip_length) /= 2.0f;
+		Widget_Transform::render_axes(manip_length, 1);
+		GPU_blend(false);
+		GPU_matrix_pop();
+		break;
+	}
+	default: {
+		break;
+	}
+	}
+}
+
+/***********************************************************************************************//**
+ * \class                               Widget_CursorOffset
+ ***************************************************************************************************
+ * Interaction widget for manipulating the VR UI cursor offset.
+ *
+ **************************************************************************************************/
+Widget_CursorOffset Widget_CursorOffset::obj;
+
+bool Widget_CursorOffset::has_click(VR_UI::Cursor& c) const
+{
+	return true;
+}
+
+void Widget_CursorOffset::click(VR_UI::Cursor& c)
+{
+	VR_UI::cursor_offset_enabled = !VR_UI::cursor_offset_enabled;
+	VR_UI::cursor_offset_update = false;
+}
+
+void Widget_CursorOffset::drag_start(VR_UI::Cursor& c)
+{
+	VR_UI::cursor_offset_enabled = true;
+	VR_UI::cursor_offset_update = true;
+}
+
+void Widget_CursorOffset::drag_contd(VR_UI::Cursor& c)
+{
+	//
+}
+
+void Widget_CursorOffset::drag_stop(VR_UI::Cursor& c)
+{
+	VR_UI::cursor_offset_enabled = true;
+	VR_UI::cursor_offset_update = false;
+}
+
+/***********************************************************************************************//**
  * \class                               Widget_Delete
  ***************************************************************************************************
  * Interaction widget for performing a 'delete' operation.
@@ -7243,7 +8687,7 @@ static int delete_selected_objects(bool use_global = true)
 		/* if grease pencil object, set cache as dirty */
 		if (ob->type == OB_GPENCIL) {
 			bGPdata *gpd = (bGPdata *)ob->data;
-			DEG_id_tag_update(&gpd->id, OB_RECALC_OB | OB_RECALC_DATA);
+			DEG_id_tag_update(&gpd->id, ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY);
 		}
 
 		/* This is sort of a quick hack to address T51243 - Proper thing to do here would be to nuke most of all this
@@ -7303,7 +8747,7 @@ static int delete_selected_objects(bool use_global = true)
 
 			DEG_relations_tag_update(bmain);
 
-			DEG_id_tag_update(&scene->id, DEG_TAG_SELECT_UPDATE);
+			DEG_id_tag_update(&scene->id, ID_RECALC_SELECT);
 			WM_event_add_notifier(C, NC_SCENE | ND_OB_ACTIVE, scene);
 			WM_event_add_notifier(C, NC_SCENE | ND_LAYER_CONTENT, scene);
 		}
@@ -7313,6 +8757,106 @@ static int delete_selected_objects(bool use_global = true)
 	return 0;
 }
 
+/* Note, these values must match delete_mesh() event values */
+enum {
+	MESH_DELETE_VERT = 0,
+	MESH_DELETE_EDGE = 1,
+	MESH_DELETE_FACE = 2,
+	MESH_DELETE_EDGE_FACE = 3,
+	MESH_DELETE_ONLY_FACE = 4,
+};
+
+/* From editmesh_tools.c */
+static int edbm_delete_exec(bContext *C)
+{
+	ViewLayer *view_layer = CTX_data_view_layer(C);
+	uint objects_len = 0;
+	static ObjectsInModeParams params = { OB_MODE_EDIT, true };
+	Object **objects = BKE_view_layer_array_from_objects_in_mode_params(view_layer, CTX_wm_view3d(C), &objects_len, &params);
+	bool changed_multi = false;
+
+	ToolSettings *ts = CTX_data_scene(C)->toolsettings;
+	int type;
+	/* TODO_XR: Multi-select mode. */
+	switch (ts->selectmode) {
+	case SCE_SELECT_VERTEX: {
+		type = MESH_DELETE_VERT;
+		break;
+	}
+	case SCE_SELECT_EDGE: {
+		type = MESH_DELETE_EDGE;
+		break;
+	}
+	case SCE_SELECT_FACE: {
+		type = MESH_DELETE_FACE;
+		break;
+	}
+	default: {
+		break;
+	}
+	}
+
+	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
+		Object *obedit = objects[ob_index];
+		BMEditMesh *em = BKE_editmesh_from_object(obedit);
+
+		switch (type) {
+		case MESH_DELETE_VERT: /* Erase Vertices */
+			if (!(em->bm->totvertsel &&
+				EDBM_op_callf(em, &dummy_op, "delete geom=%hv context=%i", BM_ELEM_SELECT, DEL_VERTS)))
+			{
+				continue;
+			}
+			break;
+		case MESH_DELETE_EDGE: /* Erase Edges */
+			if (!(em->bm->totedgesel &&
+				EDBM_op_callf(em, &dummy_op, "delete geom=%he context=%i", BM_ELEM_SELECT, DEL_EDGES)))
+			{
+				continue;
+			}
+			break;
+		case MESH_DELETE_FACE: /* Erase Faces */
+			if (!(em->bm->totfacesel &&
+				EDBM_op_callf(em, &dummy_op, "delete geom=%hf context=%i", BM_ELEM_SELECT, DEL_FACES)))
+			{
+				continue;
+			}
+			break;
+		case MESH_DELETE_EDGE_FACE:
+			/* Edges and Faces */
+			if (!((em->bm->totedgesel || em->bm->totfacesel) &&
+				EDBM_op_callf(em, &dummy_op, "delete geom=%hef context=%i", BM_ELEM_SELECT, DEL_EDGESFACES)))
+			{
+				continue;
+			}
+			break;
+		case MESH_DELETE_ONLY_FACE:
+			/* Only faces. */
+			if (!(em->bm->totfacesel &&
+				EDBM_op_callf(em, &dummy_op, "delete geom=%hf context=%i", BM_ELEM_SELECT, DEL_ONLYFACES)))
+			{
+				continue;
+			}
+			break;
+		default:
+			BLI_assert(0);
+			break;
+		}
+
+		changed_multi = true;
+
+		EDBM_flag_disable_all(em, BM_ELEM_SELECT);
+
+		EDBM_update_generic(em, true, true);
+	}
+
+	MEM_freeN(objects);
+	if (changed_multi) {
+		ED_undo_push(C, "Delete");
+	}
+	return changed_multi ? OPERATOR_FINISHED : OPERATOR_CANCELLED;
+}
+
 bool Widget_Delete::has_click(VR_UI::Cursor& c) const
 {
 	return true;
@@ -7320,7 +8864,14 @@ bool Widget_Delete::has_click(VR_UI::Cursor& c) const
 
 void Widget_Delete::click(VR_UI::Cursor& c)
 {
-	delete_selected_objects();
+	bContext *C = vr_get_obj()->ctx;
+	Object *obedit = CTX_data_edit_object(C);
+	if (obedit) {
+		edbm_delete_exec(C);
+	}
+	else {
+		delete_selected_objects();
+	}
 
 	/* Update manipulators */
 	Widget_Transform::update_manipulator();
@@ -7348,7 +8899,6 @@ void Widget_Delete::render_icon(const Mat44f& t, VR_Side controller_side,  bool 
 	}
 	VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::delete_tex);
 }
-
 
 /***********************************************************************************************//**
  * \class                               Widget_Duplicate
@@ -7395,7 +8945,7 @@ static Base *object_add_duplicate_internal(Main *bmain, Scene *scene, ViewLayer 
 	}
 	else {
 		obn = (Object*)ID_NEW_SET(ob, BKE_object_copy(bmain, ob));
-		DEG_id_tag_update(&obn->id, OB_RECALC_OB | OB_RECALC_DATA);
+		DEG_id_tag_update(&obn->id, ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY);
 
 		base = BKE_view_layer_base_find(view_layer, ob);
 		if ((base != NULL) && (base->flag & BASE_VISIBLE)) {
@@ -7528,7 +9078,7 @@ static Base *object_add_duplicate_internal(Main *bmain, Scene *scene, ViewLayer 
 			}
 			break;
 		case OB_ARMATURE:
-			DEG_id_tag_update(&obn->id, OB_RECALC_DATA);
+			DEG_id_tag_update(&obn->id, ID_RECALC_GEOMETRY);
 			if (obn->pose)
 				BKE_pose_tag_recalc(bmain, obn->pose);
 			if (dupflag & USER_DUP_ARM) {
@@ -7663,12 +9213,58 @@ static int duplicate_selected_objects(bool linked = true)
 	BKE_main_id_clear_newpoins(bmain);
 
 	DEG_relations_tag_update(bmain);
-	DEG_id_tag_update(&scene->id, DEG_TAG_COPY_ON_WRITE | DEG_TAG_SELECT_UPDATE);
+	DEG_id_tag_update(&scene->id, ID_RECALC_COPY_ON_WRITE | ID_RECALC_SELECT);
 
 	WM_event_add_notifier(C, NC_SCENE | ND_OB_SELECT, scene);
 	ED_undo_push(C, "Duplicate");
 
 	return 0;
+}
+
+/* From editmesh_tools.c */
+static int edbm_duplicate_exec(bContext *C, wmOperator *op)
+{
+	ViewLayer *view_layer = CTX_data_view_layer(C);
+	uint objects_len = 0;
+	static ObjectsInModeParams params = { OB_MODE_EDIT, true };
+	Object **objects = BKE_view_layer_array_from_objects_in_mode_params(view_layer, CTX_wm_view3d(C), &objects_len, &params);
+
+	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
+		Object *obedit = objects[ob_index];
+		BMEditMesh *em = BKE_editmesh_from_object(obedit);
+		if (em->bm->totvertsel == 0) {
+			continue;
+		}
+
+		BMOperator bmop;
+		BMesh *bm = em->bm;
+
+		EDBM_op_init(
+			em, &bmop, op,
+			"duplicate geom=%hvef use_select_history=%b",
+			BM_ELEM_SELECT, true);
+
+		BMO_op_exec(bm, &bmop);
+
+		/* de-select all would clear otherwise */
+		BM_SELECT_HISTORY_BACKUP(bm);
+
+		EDBM_flag_disable_all(em, BM_ELEM_SELECT);
+
+		BMO_slot_buffer_hflag_enable(bm, bmop.slots_out, "geom.out", BM_ALL_NOLOOP, BM_ELEM_SELECT, true);
+
+		/* rebuild editselection */
+		BM_SELECT_HISTORY_RESTORE(bm);
+
+		if (!EDBM_op_finish(em, &bmop, op, true)) {
+			continue;
+		}
+		EDBM_update_generic(em, true, true);
+	}
+	MEM_freeN(objects);
+	ED_undo_push(C, "Duplicate");
+
+	return OPERATOR_FINISHED;
 }
 
 bool Widget_Duplicate::has_click(VR_UI::Cursor& c) const
@@ -7678,7 +9274,14 @@ bool Widget_Duplicate::has_click(VR_UI::Cursor& c) const
 
 void Widget_Duplicate::click(VR_UI::Cursor& c)
 {
-	duplicate_selected_objects();
+	bContext *C = vr_get_obj()->ctx;
+	Object *obedit = CTX_data_edit_object(C);
+	if (obedit) {
+		edbm_duplicate_exec(C, &dummy_op);
+	}
+	else {
+		duplicate_selected_objects();
+	}
 
 	/* Update manipulators */
 	Widget_Transform::update_manipulator();
@@ -7790,6 +9393,272 @@ void Widget_Redo::render_icon(const Mat44f& t, VR_Side controller_side, bool act
 }
 
 /***********************************************************************************************//**
+ * \class                               Widget_SwitchLayout
+ ***************************************************************************************************
+ * Interaction widget for switching the currently active layout.
+ *
+ **************************************************************************************************/
+Widget_SwitchLayout Widget_SwitchLayout::obj;
+
+bool Widget_SwitchLayout::has_click(VR_UI::Cursor& c) const
+{
+	return true;
+}
+
+void Widget_SwitchLayout::click(VR_UI::Cursor& c)
+{
+	if (Widget_Transform::is_dragging) {
+		/* Don't switch layouts if object data is currently being modified. */
+		return;
+	}
+
+	/* Toggle object / edit mode. */
+	bContext *C = vr_get_obj()->ctx;
+	if (CTX_data_edit_object(C)) {
+		ED_object_editmode_exit(C, EM_FREEDATA);
+		/* Set transform space to normal by default. */
+		Widget_Transform::transform_space = VR_UI::TRANSFORMSPACE_NORMAL;
+	}
+	else {
+		ED_object_editmode_enter(C, EM_NO_CONTEXT);
+		/* Set transform space to local by default. */
+		Widget_Transform::transform_space = VR_UI::TRANSFORMSPACE_LOCAL;
+	}
+
+	/* Update manipulators. */
+	Widget_Transform::update_manipulator();
+}
+
+bool Widget_SwitchLayout::has_drag(VR_UI::Cursor& c) const
+{
+	return false;
+}
+
+void Widget_SwitchLayout::render_icon(const Mat44f& t, VR_Side controller_side, bool active, bool touched)
+{
+	if (touched) {
+		const Mat44f& t_touched = m_widget_touched * t;
+		VR_Draw::update_modelview_matrix(&t_touched, 0);
+	}
+	else {
+		VR_Draw::update_modelview_matrix(&t, 0);
+	}
+	if (active) {
+		VR_Draw::set_color(1.0f, 0.0f, 0.0f, 1.0f);
+	}
+	else {
+		VR_Draw::set_color(1.0f, 1.0f, 1.0f, 1.0f);
+	}
+	if (CTX_data_edit_object(vr_get_obj()->ctx)) {
+		VR_Draw::render_rect(-0.008f, 0.008f, 0.008f, -0.008f, 0.001f, 1.0f, 1.0f, VR_Draw::editmode_tex);
+	}
+	else { 
+		VR_Draw::render_rect(-0.008f, 0.008f, 0.008f, -0.008f, 0.001f, 1.0f, 1.0f, VR_Draw::objectmode_tex);
+	}
+}
+
+/***********************************************************************************************//**
+ * \class                               Widget_SwitchComponent
+ ***************************************************************************************************
+ * Interaction widget for switching the currently active component mode.
+ *
+ **************************************************************************************************/
+Widget_SwitchComponent Widget_SwitchComponent::obj;
+
+short Widget_SwitchComponent::mode(SCE_SELECT_VERTEX);
+
+bool Widget_SwitchComponent::has_click(VR_UI::Cursor& c) const
+{
+	return true;
+}
+
+void Widget_SwitchComponent::click(VR_UI::Cursor& c)
+{
+	if (Widget_Transform::is_dragging) {
+		/* Don't switch component modes if object data is currently being modified. */
+		return;
+	}
+
+	bContext *C = vr_get_obj()->ctx;
+	ToolSettings *ts = CTX_data_scene(C)->toolsettings;
+	short& select_mode = ts->selectmode;
+
+	/* Cycle through component modes. */
+	if (CTX_data_edit_object(C)) {
+		if (select_mode == SCE_SELECT_VERTEX) {
+			select_mode = SCE_SELECT_EDGE;
+		}
+		else if (select_mode == SCE_SELECT_EDGE) {
+			select_mode = SCE_SELECT_FACE;
+		}
+		else if (select_mode == SCE_SELECT_FACE) {
+			/* Exit edit mode */
+			select_mode = SCE_SELECT_VERTEX;
+			/* Execute operation and update manipulator on post-render */
+			VR_UI::editmode_exit = true;
+			//ED_object_editmode_exit(C, EM_FREEDATA);
+			/* Set transform space to local by default. */
+			Widget_Transform::transform_space = VR_UI::TRANSFORMSPACE_LOCAL;
+			mode = select_mode;
+			return;
+		}
+		else { /* Multi mode */
+			/* TODO_XR */
+		}
+	}
+	else {
+		/* Enter object mode */
+		ED_object_editmode_enter(C, EM_NO_CONTEXT);
+		/* Set transform space to local by default. */
+		Widget_Transform::transform_space = VR_UI::TRANSFORMSPACE_NORMAL;
+		select_mode = SCE_SELECT_VERTEX;
+	}
+
+	mode = select_mode;
+	/* Update manipulators. */
+	Widget_Transform::update_manipulator();
+}
+
+bool Widget_SwitchComponent::has_drag(VR_UI::Cursor& c) const
+{
+	return false;
+}
+
+void Widget_SwitchComponent::render_icon(const Mat44f& t, VR_Side controller_side, bool active, bool touched)
+{
+	if (touched) {
+		const Mat44f& t_touched = m_widget_touched * t;
+		VR_Draw::update_modelview_matrix(&t_touched, 0);
+	}
+	else {
+		VR_Draw::update_modelview_matrix(&t, 0);
+	}
+	if (active) {
+		VR_Draw::set_color(1.0f, 0.0f, 0.0f, 1.0f);
+	}
+	else {
+		VR_Draw::set_color(1.0f, 1.0f, 1.0f, 1.0f);
+	}
+	
+	bContext *C = vr_get_obj()->ctx;
+	if (CTX_data_edit_object(C)) {
+		switch (mode) {
+		case SCE_SELECT_VERTEX: {
+			VR_Draw::render_rect(-0.008f, 0.008f, 0.008f, -0.008f, 0.001f, 1.0f, 1.0f, VR_Draw::vertex_tex);
+			break;
+		}
+		case SCE_SELECT_EDGE: {
+			VR_Draw::render_rect(-0.008f, 0.008f, 0.008f, -0.008f, 0.001f, 1.0f, 1.0f, VR_Draw::edge_tex);
+			break;
+		}
+		case SCE_SELECT_FACE: {
+			VR_Draw::render_rect(-0.008f, 0.008f, 0.008f, -0.008f, 0.001f, 1.0f, 1.0f, VR_Draw::face_tex);
+			break;
+		}
+		default: {
+			//
+			break;
+		}
+		}
+	}
+	else {
+		VR_Draw::render_rect(-0.008f, 0.008f, 0.008f, -0.008f, 0.001f, 1.0f, 1.0f, VR_Draw::object_tex);
+	}
+}
+
+/***********************************************************************************************//**
+ * \class                               Widget_SwitchSpace
+ ***************************************************************************************************
+ * Interaction widget for switching the currently active transform space.
+ *
+ **************************************************************************************************/
+Widget_SwitchSpace Widget_SwitchSpace::obj;
+
+bool Widget_SwitchSpace::has_click(VR_UI::Cursor& c) const
+{
+	return true;
+}
+
+void Widget_SwitchSpace::click(VR_UI::Cursor& c)
+{
+	/* Cycle through transform spaces. */
+	bContext *C = vr_get_obj()->ctx;
+	if (CTX_data_edit_object(C)) {
+		/* Edit mode */
+		switch (Widget_Transform::transform_space) {
+		case VR_UI::TRANSFORMSPACE_NORMAL: {
+			Widget_Transform::transform_space = VR_UI::TRANSFORMSPACE_GLOBAL;
+			break;
+		}
+		case VR_UI::TRANSFORMSPACE_GLOBAL: {
+			Widget_Transform::transform_space = VR_UI::TRANSFORMSPACE_LOCAL;
+			break;
+		}
+		case VR_UI::TRANSFORMSPACE_LOCAL:
+		default: {
+			Widget_Transform::transform_space = VR_UI::TRANSFORMSPACE_NORMAL;
+			break;
+		}
+		}
+	}
+	else {
+		/* Object mode */
+		switch (Widget_Transform::transform_space) {
+		case VR_UI::TRANSFORMSPACE_LOCAL: {
+			Widget_Transform::transform_space = VR_UI::TRANSFORMSPACE_GLOBAL;
+			break;
+		}
+		case VR_UI::TRANSFORMSPACE_GLOBAL:
+		default: {
+			Widget_Transform::transform_space = VR_UI::TRANSFORMSPACE_LOCAL;
+			break;
+		}
+		}
+	}
+
+	/* Update manipulators. */
+	Widget_Transform::update_manipulator();
+}
+
+bool Widget_SwitchSpace::has_drag(VR_UI::Cursor& c) const
+{
+	return false;
+}
+
+void Widget_SwitchSpace::render_icon(const Mat44f& t, VR_Side controller_side, bool active, bool touched)
+{
+	if (touched) {
+		const Mat44f& t_touched = m_widget_touched * t;
+		VR_Draw::update_modelview_matrix(&t_touched, 0);
+	}
+	else {
+		VR_Draw::update_modelview_matrix(&t, 0);
+	}
+	if (active) {
+		VR_Draw::set_color(1.0f, 0.0f, 0.0f, 1.0f);
+	}
+	else {
+		VR_Draw::set_color(1.0f, 1.0f, 1.0f, 1.0f);
+	}
+
+	switch (Widget_Transform::transform_space) {
+	case VR_UI::TRANSFORMSPACE_NORMAL: {
+		VR_Draw::render_rect(-0.008f, 0.008f, 0.008f, -0.008f, 0.001f, 1.0f, 1.0f, VR_Draw::manip_normal_tex);
+		break;
+	}
+	case VR_UI::TRANSFORMSPACE_LOCAL: {
+		VR_Draw::render_rect(-0.008f, 0.008f, 0.008f, -0.008f, 0.001f, 1.0f, 1.0f, VR_Draw::manip_local_tex);
+		break;
+	}
+	case VR_UI::TRANSFORMSPACE_GLOBAL:
+	default: {
+		VR_Draw::render_rect(-0.008f, 0.008f, 0.008f, -0.008f, 0.001f, 1.0f, 1.0f, VR_Draw::manip_global_tex);
+		break;
+	}
+	}
+}
+
+/***********************************************************************************************//**
  * \class                               Widget_SwitchTool
  ***************************************************************************************************
  * Interaction widget for switching the currently active tool.
@@ -7806,40 +9675,8 @@ bool Widget_SwitchTool::has_click(VR_UI::Cursor& c) const
 
 void Widget_SwitchTool::click(VR_UI::Cursor& c)
 {
-	if (!curr_tool) {
-		return;
-	}
-
-	/* Switch tools and update the custom menus. */
-	VR_Widget *new_tool;
-	switch (curr_tool[c.side]->type()) {
-		case TYPE_SELECT: {
-			new_tool = &Widget_Transform::obj;
-			Widget_Menu::obj.menu_type[c.side] = MENUTYPE_TS_TRANSFORM;
-			break;
-		}
-		case TYPE_TRANSFORM: {
-			new_tool = &Widget_Select::obj;
-			Widget_Menu::obj.menu_type[c.side] = MENUTYPE_TS_SELECT;
-			break;
-		}
-		case TYPE_ANNOTATE: {
-			new_tool = &Widget_Measure::obj;
-			Widget_Menu::obj.menu_type[c.side] = MENUTYPE_TS_MEASURE;
-			break;
-		}
-		case TYPE_MEASURE: {
-			new_tool = &Widget_Annotate::obj;
-			Widget_Menu::obj.menu_type[c.side] = MENUTYPE_TS_ANNOTATE;
-			break;
-		}
-		default: {
-			return;
-		}
-	}
-
-	VR_UI::set_current_tool(new_tool, c.side);
-	curr_tool[c.side] = new_tool;
+	Widget_Menu::obj.menu_type[c.side] = MENUTYPE_SWITCHTOOL;
+	VR_UI::pie_menu_active[c.side] = true;
 }
 
 bool Widget_SwitchTool::has_drag(VR_UI::Cursor& c) const
@@ -7865,25 +9702,25 @@ void Widget_SwitchTool::render_icon(const Mat44f& t, VR_Side controller_side, bo
 
 	switch (((VR_Widget*)curr_tool[controller_side])->type()) {
 		case TYPE_SELECT: {
-			VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::select_tex);
+			VR_Draw::render_rect(-0.007f, 0.007f, 0.007f, -0.007f, 0.001f, 1.0f, 1.0f, VR_Draw::select_tex);
 			break;
 		}
 		case TYPE_TRANSFORM: {
 			switch (Widget_Transform::transform_mode) {
 				case Widget_Transform::TRANSFORMMODE_OMNI: {
-					VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::transform_tex);
+					VR_Draw::render_rect(-0.007f, 0.007f, 0.007f, -0.007f, 0.001f, 1.0f, 1.0f, VR_Draw::transform_tex);
 					break;
 				}
 				case Widget_Transform::TRANSFORMMODE_MOVE: {
-					VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::move_tex);
+					VR_Draw::render_rect(-0.007f, 0.007f, 0.007f, -0.007f, 0.001f, 1.0f, 1.0f, VR_Draw::move_tex);
 					break;
 				}
 				case Widget_Transform::TRANSFORMMODE_ROTATE: {
-					VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::rotate_tex);
+					VR_Draw::render_rect(-0.007f, 0.007f, 0.007f, -0.007f, 0.001f, 1.0f, 1.0f, VR_Draw::rotate_tex);
 					break;
 				}
 				case Widget_Transform::TRANSFORMMODE_SCALE: {
-					VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::scale_tex);
+					VR_Draw::render_rect(-0.007f, 0.007f, 0.007f, -0.007f, 0.001f, 1.0f, 1.0f, VR_Draw::scale_tex);
 					break;
 				}
 				default: {
@@ -7893,11 +9730,31 @@ void Widget_SwitchTool::render_icon(const Mat44f& t, VR_Side controller_side, bo
 			break;
 		}
 		case TYPE_ANNOTATE: {
-			VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::annotate_tex);
+			VR_Draw::render_rect(-0.007f, 0.007f, 0.007f, -0.007f, 0.001f, 1.0f, 1.0f, VR_Draw::annotate_tex);
 			break;
 		}
 		case TYPE_MEASURE: {
-			VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::measure_tex);
+			VR_Draw::render_rect(-0.007f, 0.007f, 0.007f, -0.007f, 0.001f, 1.0f, 1.0f, VR_Draw::measure_tex);
+			break;
+		}
+		case TYPE_EXTRUDE: {
+			switch (Widget_Extrude::extrude_mode) {
+			case Widget_Extrude::EXTRUDEMODE_REGION: {
+				VR_Draw::render_rect(-0.007f, 0.007f, 0.007f, -0.007f, 0.001f, 1.0f, 1.0f, VR_Draw::extrude_tex);
+				break;
+			}
+			case Widget_Extrude::EXTRUDEMODE_INDIVIDUAL: {
+				VR_Draw::render_rect(-0.007f, 0.007f, 0.007f, -0.007f, 0.001f, 1.0f, 1.0f, VR_Draw::extrude_individual_tex);
+				break;
+			}
+			case Widget_Extrude::EXTRUDEMODE_NORMALS: {
+				VR_Draw::render_rect(-0.007f, 0.007f, 0.007f, -0.007f, 0.001f, 1.0f, 1.0f, VR_Draw::extrude_normals_tex);
+				break;
+			}
+			default: {
+				break;
+			}
+			}
 			break;
 		}
 		default: {
@@ -7927,20 +9784,35 @@ bool Widget_Menu::action_settings[VR_SIDES] = { false };
 
 /* Highlight colors */
 static const float c_menu_white[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
-static const float c_menu_red[4] = { 1.0f, 0.337f, 0.337f, 1.0f };
-static const float c_menu_green[4] = { 0.337f, 1.0f, 0.337f, 1.0f };
-static const float c_menu_blue[4] = { 0.337f, 0.502f, 1.0f, 1.0f };
+static const float c_menu_red[4] = { 0.926f, 0.337f, 0.337f, 1.0f };
+static const float c_menu_green[4] = { 0.337f, 0.926f, 0.337f, 1.0f };
+static const float c_menu_blue[4] = { 0.337f, 0.502f, 0.761f, 1.0f };
+
+/* Colorwheel colors */
+static const float c_wheel[11][4] = { 
+	{ 0.95f, 0.95f, 0.95f,1.0f },
+	{ 0.05f, 0.05f, 0.05f,1.0f },
+	{ 0.6f,  0.2f,  1.0f, 1.0f },
+	{ 0.72f, 0.46f, 1.0f, 1.0f },
+	{ 0.2f,  0.6f,  1.0f, 1.0f },
+	{ 0.2f,  1.0f,  1.0f, 1.0f },
+	{ 0.6f,  1.0f,  0.2f, 1.0f },
+	{ 0.4f,  0.8,   0.2f, 1.0f },
+	{ 1.0f,  1.0f,  0.2f, 1.0f },
+	{ 1.0f,  0.6f,  0.2f, 1.0f },
+	{ 1.0f,  0.2f,  0.2f, 1.0f }
+};
 
 /* Icon positions (8 items) */
 static const Coord3Df p8_stick(0.0f, 0.0f, 0.001f);
-static const Coord3Df p8_0(0.0f, 0.065f, 0.0f);
-static const Coord3Df p8_1(-0.065f, 0.0f, 0.0f);
-static const Coord3Df p8_2(0.065f, 0.0f, 0.0f);
-static const Coord3Df p8_3(-0.0455f, 0.0455f, 0.0f);
-static const Coord3Df p8_4(0.0455f, 0.0455f, 0.0f);
-static const Coord3Df p8_5(-0.0455f, -0.0455f, 0.0f);
-static const Coord3Df p8_6(0.0455f, -0.0455f, 0.0f);
-static const Coord3Df p8_7(0.0f, -0.065f, 0.0f);
+static const Coord3Df p8_0(0.0f, 0.06f, 0.0f);
+static const Coord3Df p8_1(-0.06f, 0.0f, 0.0f);
+static const Coord3Df p8_2(0.06f, 0.0f, 0.0f);
+static const Coord3Df p8_3(-0.043f, 0.043f, 0.0f);
+static const Coord3Df p8_4(0.043f, 0.043f, 0.0f);
+static const Coord3Df p8_5(-0.043f, -0.043f, 0.0f);
+static const Coord3Df p8_6(0.043f, -0.043f, 0.0f);
+static const Coord3Df p8_7(0.0f, -0.06f, 0.0f);
 /* Icon positions (12 items) */
 static const Coord3Df p12_stick(0.0f, 0.0f, 0.001f);
 static const Coord3Df p12_0(0.0f, 0.065f, 0.0f);
@@ -7956,7 +9828,7 @@ static const Coord3Df p12_9(-0.03f, -0.06, 0.0f);
 static const Coord3Df p12_10(0.03f, -0.06, 0.0f);
 static const Coord3Df p12_11(0.0f, -0.065f, 0.0f);
 /* Icon positions (action settings) */
-static const Coord3Df p_as_stick(0.0f, 0.0025f, 0.0f);
+static const Coord3Df p_as_stick(0.0f, 0.0f, 0.0f);
 static const Coord3Df p_as_0(0.0f, 0.02f, 0.0f);
 static const Coord3Df p_as_1(-0.02f, 0.0f, 0.0f);
 static const Coord3Df p_as_2(0.02f, 0.0f, 0.0f);
@@ -7969,17 +9841,44 @@ static const Coord3Df p_as_7(0.0f, -0.02f, 0.0f);
 void Widget_Menu::stick_center_click(VR_UI::Cursor& c)
 {
 	switch (menu_type[c.side]) {
-	case MENUTYPE_AS_SELECT: {
-		VR_UI::mouse_cursor_enabled = !VR_UI::mouse_cursor_enabled;
-		break;
-	}
-	case MENUTYPE_AS_TRANSFORM: {
-		Widget_Transform::local = !Widget_Transform::local;
-		break;
-	}
-	default: {
-		break;
-	}
+		case MENUTYPE_AS_SELECT: {
+			VR_UI::mouse_cursor_enabled = !VR_UI::mouse_cursor_enabled;
+			break;
+		}
+		case MENUTYPE_AS_TRANSFORM: 
+		case MENUTYPE_AS_EXTRUDE: {
+			bContext *C = vr_get_obj()->ctx;
+			Object *obedit = CTX_data_edit_object(C);
+			if (obedit) {
+				switch (Widget_Transform::transform_space) {
+				case VR_UI::TRANSFORMSPACE_NORMAL: {
+					Widget_Transform::transform_space = VR_UI::TRANSFORMSPACE_GLOBAL;
+					break;
+				}
+				case VR_UI::TRANSFORMSPACE_GLOBAL: {
+					Widget_Transform::transform_space = VR_UI::TRANSFORMSPACE_LOCAL;
+					break;
+				}
+				case VR_UI::TRANSFORMSPACE_LOCAL:
+				default: {
+					Widget_Transform::transform_space = VR_UI::TRANSFORMSPACE_NORMAL;
+					break;
+				}
+				}
+			}
+			else {
+				if (Widget_Transform::transform_space == VR_UI::TRANSFORMSPACE_LOCAL) {
+					Widget_Transform::transform_space = VR_UI::TRANSFORMSPACE_GLOBAL;
+				}
+				else {
+					Widget_Transform::transform_space = VR_UI::TRANSFORMSPACE_LOCAL;
+				}
+			}
+			break;
+		}
+		default: {
+			break;
+		}
 	}
 }
 
@@ -8020,6 +9919,10 @@ void Widget_Menu::click(VR_UI::Cursor& c)
 		menu_type[c.side] = MENUTYPE_TS_MEASURE;
 		return;
 	}
+	case TYPE_EXTRUDE: {
+		menu_type[c.side] = MENUTYPE_TS_EXTRUDE;
+		break;
+	}
 	default: {
 		menu_type[c.side] = MENUTYPE_MAIN_12;
 		break;
@@ -8040,33 +9943,39 @@ void Widget_Menu::drag_start(VR_UI::Cursor& c)
 		return;
 	}
 
-	if (!action_settings[c.side] && depth[c.side] == 0) {
-		VR_Widget *tool = VR_UI::get_current_tool(c.side);
-		if (!tool) {
-			menu_type[c.side] = MENUTYPE_MAIN_12;
-			return;
-		}
-		switch (tool->type()) {
-		case TYPE_SELECT: {
-			menu_type[c.side] = MENUTYPE_TS_SELECT;
-			return;
-		}
-		case TYPE_TRANSFORM: {
-			menu_type[c.side] = MENUTYPE_TS_TRANSFORM;
-			break;
-		}
-		case TYPE_ANNOTATE: {
-			menu_type[c.side] = MENUTYPE_TS_ANNOTATE;
-			break;
-		}
-		case TYPE_MEASURE: {
-			menu_type[c.side] = MENUTYPE_TS_MEASURE;
-			return;
-		}
-		default: {
-			menu_type[c.side] = MENUTYPE_MAIN_12;
-			break;
-		}
+	if (menu_type[c.side] != MENUTYPE_SWITCHTOOL) {
+		if (!action_settings[c.side] && depth[c.side] == 0) {
+			VR_Widget *tool = VR_UI::get_current_tool(c.side);
+			if (!tool) {
+				menu_type[c.side] = MENUTYPE_MAIN_12;
+				return;
+			}
+			switch (tool->type()) {
+			case TYPE_SELECT: {
+				menu_type[c.side] = MENUTYPE_TS_SELECT;
+				return;
+			}
+			case TYPE_TRANSFORM: {
+				menu_type[c.side] = MENUTYPE_TS_TRANSFORM;
+				break;
+			}
+			case TYPE_ANNOTATE: {
+				menu_type[c.side] = MENUTYPE_TS_ANNOTATE;
+				break;
+			}
+			case TYPE_MEASURE: {
+				menu_type[c.side] = MENUTYPE_TS_MEASURE;
+				return;
+			}
+			case TYPE_EXTRUDE: {
+				menu_type[c.side] = MENUTYPE_TS_EXTRUDE;
+				break;
+			}
+			default: {
+				menu_type[c.side] = MENUTYPE_MAIN_12;
+				break;
+			}
+			}
 		}
 	}
 
@@ -8079,8 +9988,8 @@ void Widget_Menu::drag_start(VR_UI::Cursor& c)
 		menu_items.push_back(&Widget_Alt::obj);
 		menu_items.push_back(&Widget_Undo::obj);
 		menu_items.push_back(&Widget_Redo::obj);
-		menu_items.push_back(&Widget_SwitchTool::obj);
-		menu_items.push_back(&Widget_SwitchTool::obj);
+		menu_items.push_back(&Widget_SwitchLayout::obj);
+		menu_items.push_back(&Widget_SwitchComponent::obj);
 		menu_items.push_back(&Widget_Delete::obj);
 		menu_items.push_back(&Widget_Duplicate::obj);
 		num_items[c.side] = 7;
@@ -8090,15 +9999,24 @@ void Widget_Menu::drag_start(VR_UI::Cursor& c)
 		menu_items.push_back(&Widget_Menu::obj);
 		menu_items.push_back(&Widget_Undo::obj);
 		menu_items.push_back(&Widget_Redo::obj);
-		menu_items.push_back(&Widget_SwitchTool::obj);
-		menu_items.push_back(&Widget_SwitchTool::obj);
+		menu_items.push_back(&Widget_SwitchLayout::obj);
+		menu_items.push_back(&Widget_SwitchComponent::obj);
 		menu_items.push_back(&Widget_Delete::obj);
 		menu_items.push_back(&Widget_Duplicate::obj);
 		menu_items.push_back(&Widget_Delete::obj);
 		menu_items.push_back(&Widget_Duplicate::obj);
-		menu_items.push_back(&Widget_SwitchTool::obj);
-		menu_items.push_back(&Widget_SwitchTool::obj);
+		menu_items.push_back(&Widget_SwitchLayout::obj);
+		menu_items.push_back(&Widget_SwitchComponent::obj);
 		num_items[c.side] = 11;
+		break;
+	}
+	case MENUTYPE_SWITCHTOOL: {
+		// Transform
+		// Select
+		// Measure
+		// Extrude
+		// Annotate
+		num_items[c.side] = 5;
 		break;
 	}
 	case MENUTYPE_TS_TRANSFORM: {
@@ -8107,22 +10025,50 @@ void Widget_Menu::drag_start(VR_UI::Cursor& c)
 		// Transform
 		// Rotate
 		// Scale
-		num_items[c.side] = 5;
+		// Delete (Vive only)
+		// Duplicate (Vive only)
+		num_items[c.side] = 7;
+		break;
+	}
+	case MENUTYPE_TS_EXTRUDE: {
+		// Flip normals
+		// Region
+		// Individual
+		num_items[c.side] = 3;
 		break;
 	}
 	case MENUTYPE_TS_ANNOTATE: {
-		num_items[c.side] = 9;
+		num_items[c.side] = 11;
+		break;
+	}
+	case MENUTYPE_AS_NAVI: {
+		// Lock rotation
+		// Lock translation
+		// Lock scale
+		// Lock up-translation
+		// Lock up-direction
+		// Off 
+		// Set/lock scale 1:1 with real world
+		num_items[c.side] = 7;
 		break;
 	}
 	case MENUTYPE_AS_TRANSFORM: {
+		// Stick: Switch transform space
 		// Y
 		// X / Decrease manip size
 		// Z / Increase manip size
 		// XY
 		// YZ
-		// OFF
+		// Off
 		// ZX
 		num_items[c.side] = 7;
+		break;
+	}
+	case MENUTYPE_AS_EXTRUDE: {
+		// Stick: Switch transform space
+		// Decrease manip size
+		// Increase manip size
+		num_items[c.side] = 2;
 		break;
 	}
 	default: {
@@ -8130,18 +10076,33 @@ void Widget_Menu::drag_start(VR_UI::Cursor& c)
 	}
 	}
 
-	VR *vr = vr_get_obj();
-	VR_Controller *controller = vr->controller[c.side];
+	VR_Controller *controller = vr_get_obj()->controller[c.side];
 	if (!controller) {
 		return;
 	}
-	if (vr->ui_type == VR_UI_TYPE_VIVE) {
+	switch (VR_UI::ui_type) {
+	case VR_UI_TYPE_FOVE: {
+		const Coord3Df& c_pos = *(Coord3Df*)c.position.get(VR_SPACE_REAL).m[3];
+		const Coord3Df& hmd_pos = *(Coord3Df*)VR_UI::hmd_position_get(VR_SPACE_REAL).m[3];
+		const Mat44f& hmd_inv = VR_UI::hmd_position_get(VR_SPACE_REAL, true);
+		static Coord3Df v;
+		VR_Math::multiply_mat44_coord3D(v, hmd_inv, c_pos - hmd_pos);
+		stick[c.side].x = v.x;
+		stick[c.side].y = v.y;
+		break;
+	}
+	case VR_UI_TYPE_VIVE: {
 		stick[c.side].x = controller->dpad[0];
 		stick[c.side].y = controller->dpad[1];
+		break;
 	}
-	else {
+	case VR_UI_TYPE_MICROSOFT:
+	case VR_UI_TYPE_OCULUS:
+	default: {
 		stick[c.side].x = controller->stick[0];
 		stick[c.side].y = controller->stick[1];
+		break;
+	}
 	}
 	float angle2 = angle[c.side] = stick[c.side].angle(Coord2Df(0, 1));
 	if (stick[c.side].x < 0) {
@@ -8238,22 +10199,40 @@ void Widget_Menu::drag_start(VR_UI::Cursor& c)
 
 void Widget_Menu::drag_contd(VR_UI::Cursor& c)
 {
-	if (!VR_UI::pie_menu_active[c.side] || menu_type[c.side] == MENUTYPE_TS_SELECT || menu_type[c.side] == MENUTYPE_TS_MEASURE) {
+	const MenuType& type = menu_type[c.side];
+	if (!VR_UI::pie_menu_active[c.side] ||
+		type == MENUTYPE_TS_SELECT ||
+		type == MENUTYPE_TS_MEASURE) {
 		return;
 	}
 
-	VR *vr = vr_get_obj();
-	VR_Controller *controller = vr->controller[c.side];
+	VR_Controller *controller = vr_get_obj()->controller[c.side];
 	if (!controller) {
 		return;
 	}
-	if (vr->ui_type == VR_UI_TYPE_VIVE) {
+	switch (VR_UI::ui_type) {
+	case VR_UI_TYPE_FOVE: {
+		const Coord3Df& c_pos = *(Coord3Df*)c.position.get(VR_SPACE_REAL).m[3];
+		const Coord3Df& hmd_pos = *(Coord3Df*)VR_UI::hmd_position_get(VR_SPACE_REAL).m[3];
+		const Mat44f& hmd_inv = VR_UI::hmd_position_get(VR_SPACE_REAL, true);
+		static Coord3Df v;
+		VR_Math::multiply_mat44_coord3D(v, hmd_inv, c_pos - hmd_pos);
+		stick[c.side].x = v.x;
+		stick[c.side].y = v.y;
+		break;
+	}
+	case VR_UI_TYPE_VIVE: {
 		stick[c.side].x = controller->dpad[0];
 		stick[c.side].y = controller->dpad[1];
+		break;
 	}
-	else {
+	case VR_UI_TYPE_MICROSOFT:
+	case VR_UI_TYPE_OCULUS:
+	default: {
 		stick[c.side].x = controller->stick[0];
 		stick[c.side].y = controller->stick[1];
+		break;
+	}
 	}
 	float angle2 = angle[c.side] = stick[c.side].angle(Coord2Df(0, 1));
 	if (stick[c.side].x < 0) {
@@ -8350,7 +10329,8 @@ void Widget_Menu::drag_contd(VR_UI::Cursor& c)
 
 void Widget_Menu::drag_stop(VR_UI::Cursor& c)
 {
-	if (menu_type[c.side] == MENUTYPE_TS_SELECT) {
+	const MenuType& type = menu_type[c.side];
+	if (type == MENUTYPE_TS_SELECT) {
 		/* Toggle raycast/proximity selection. */
 		VR_UI::SelectionMode& mode = VR_UI::selection_mode;
 		if (mode == VR_UI::SELECTIONMODE_RAYCAST) {
@@ -8362,7 +10342,7 @@ void Widget_Menu::drag_stop(VR_UI::Cursor& c)
 		VR_UI::pie_menu_active[c.side] = false;
 		return;
 	}
-	else if (menu_type[c.side] == MENUTYPE_TS_MEASURE) {
+	else if (type == MENUTYPE_TS_MEASURE) {
 		VR_UI::pie_menu_active[c.side] = false;
 		return;
 	}
@@ -8380,7 +10360,7 @@ void Widget_Menu::drag_stop(VR_UI::Cursor& c)
 	if (!controller) {
 		return;
 	}
-	//if (vr->ui_type == VR_UI_TYPE_VIVE) {
+	//if (VR_UI::ui_type == VR_UI_TYPE_VIVE) {
 	//	stick[c.side].x = controller->dpad[0];
 	//	stick[c.side].y = controller->dpad[1];
 	//}
@@ -8410,6 +10390,48 @@ void Widget_Menu::drag_stop(VR_UI::Cursor& c)
 	}
 
 	switch (menu_type[c.side]) {
+	case MENUTYPE_AS_NAVI: {
+		if (angle2 >= 0 && angle2 < PI) {
+			/* Lock rotation */
+			Widget_Navi::obj.nav_lock[1] = ((Widget_Navi::obj.nav_lock[1] == VR_UI::NAVLOCK_ROT) ? VR_UI::NAVLOCK_NONE : VR_UI::NAVLOCK_ROT);
+			return;
+		}
+		else if (angle2 >= PI && angle2 < 2 * PI) {
+			/* Set/lock up-axis to Blender up-axis */
+			Widget_Navi::obj.nav_lock[1] = ((Widget_Navi::obj.nav_lock[1] == VR_UI::NAVLOCK_ROT_UP) ? VR_UI::NAVLOCK_NONE : VR_UI::NAVLOCK_ROT_UP);
+			return;
+		}
+		else if (angle2 >= 2 * PI && angle2 < 3 * PI) {
+			/* Lock scale */
+			Widget_Navi::obj.nav_lock[2] = ((Widget_Navi::obj.nav_lock[2] == VR_UI::NAVLOCK_SCALE) ? VR_UI::NAVLOCK_NONE : VR_UI::NAVLOCK_SCALE);
+			return;
+		}
+		else if (angle2 >= 3 * PI && angle2 < 4 * PI) {
+			/* Set/lock scale 1:1 with real world */
+			Widget_Navi::obj.nav_lock[2] = ((Widget_Navi::obj.nav_lock[2] == VR_UI::NAVLOCK_SCALE_REAL) ? VR_UI::NAVLOCK_NONE : VR_UI::NAVLOCK_SCALE_REAL);
+			return;
+		}
+		else if (angle2 >= 4 * PI || (angle2 < -3 * PI && angle2 >= -4 * PI)) {
+			/* exit region */
+			return;
+		}
+		else if (angle2 < -2 * PI && angle2 >= -3 * PI) {
+			/* Off */
+			memset(Widget_Navi::nav_lock, 0, sizeof(int) * 3);
+			return;
+		}
+		else if (angle2 < -PI && angle2 >= -2 * PI) {
+			/* Lock translation */
+			Widget_Navi::obj.nav_lock[0] = ((Widget_Navi::obj.nav_lock[0] == VR_UI::NAVLOCK_TRANS) ? VR_UI::NAVLOCK_NONE : VR_UI::NAVLOCK_TRANS);
+			return;
+		}
+		else if (angle2 < 0 && angle2 >= -PI) {
+			/* Lock up-translation */
+			Widget_Navi::obj.nav_lock[0] = ((Widget_Navi::obj.nav_lock[0] == VR_UI::NAVLOCK_TRANS_UP) ? VR_UI::NAVLOCK_NONE : VR_UI::NAVLOCK_TRANS_UP);
+			return;
+		}
+		return;
+	}
 	case MENUTYPE_AS_TRANSFORM: {
 		if (Widget_Transform::manipulator) {
 			if (angle2 >= 2 * PI && angle2 < 3 * PI) {
@@ -8448,7 +10470,7 @@ void Widget_Menu::drag_stop(VR_UI::Cursor& c)
 			}
 			case Widget_Transform::TRANSFORMMODE_ROTATE: {
 				Widget_Transform::constraint_mode = VR_UI::CONSTRAINTMODE_ROT_Y;
-				Widget_Transform::update_manipulator(false);
+				Widget_Transform::update_manipulator();
 				return;
 			}
 			case Widget_Transform::TRANSFORMMODE_SCALE: {
@@ -8500,7 +10522,7 @@ void Widget_Menu::drag_stop(VR_UI::Cursor& c)
 			}
 			case Widget_Transform::TRANSFORMMODE_ROTATE: {
 				Widget_Transform::constraint_mode = VR_UI::CONSTRAINTMODE_ROT_Z;
-				Widget_Transform::update_manipulator(false);
+				Widget_Transform::update_manipulator();
 				return;
 			}
 			case Widget_Transform::TRANSFORMMODE_SCALE: {
@@ -8567,7 +10589,7 @@ void Widget_Menu::drag_stop(VR_UI::Cursor& c)
 			}
 			case Widget_Transform::TRANSFORMMODE_ROTATE: {
 				Widget_Transform::constraint_mode = VR_UI::CONSTRAINTMODE_ROT_X;
-				Widget_Transform::update_manipulator(false);
+				Widget_Transform::update_manipulator();
 				return;
 			}
 			case Widget_Transform::TRANSFORMMODE_SCALE: {
@@ -8606,6 +10628,23 @@ void Widget_Menu::drag_stop(VR_UI::Cursor& c)
 		}
 		return;
 	}
+	case MENUTYPE_AS_EXTRUDE: {
+		if (angle2 >= 2 * PI && angle2 < 3 * PI) {
+			/* Increase manipulator size */
+			Widget_Transform::manip_scale_factor *= 1.2f;
+			if (Widget_Transform::manip_scale_factor > 5.0f) {
+				Widget_Transform::manip_scale_factor = 5.0f;
+			}
+		}
+		else if (angle2 < -PI && angle2 >= -2 * PI) {
+			/* Decrease manipulator size */
+			Widget_Transform::manip_scale_factor *= 0.8f;
+			if (Widget_Transform::manip_scale_factor < 0.05f) {
+				Widget_Transform::manip_scale_factor = 0.05f;
+			}
+		}
+		return;
+	}
 	case MENUTYPE_TS_TRANSFORM: {
 		if (angle2 >= 0 && angle2 < PI) {
 			/* Manipulator toggle */
@@ -8639,12 +10678,30 @@ void Widget_Menu::drag_stop(VR_UI::Cursor& c)
 			Widget_Transform::constraint_mode = VR_UI::CONSTRAINTMODE_NONE;
 			memset(Widget_Transform::constraint_flag, 0, sizeof(int) * 3);
 		}
-		else if (angle2 >= 3 * PI || (angle2 < -2 * PI && angle2 >= -3 * PI)) {
+		else if (angle2 >= 3 * PI && angle2 < 4 * PI) {
+			if (VR_UI::ui_type == VR_UI_TYPE_VIVE) {
+				/* Duplicate */
+				Widget_Duplicate::obj.click(c);
+			}
+			else {
+				return;
+			}
+		}
+		else if (angle2 >= 4 * PI || (angle2 < -3 * PI && angle2 >= -4 * PI)) {
 			/* exit region */
 			if (depth[c.side] > 0) {
 				--depth[c.side];
 			}
 			return;
+		}
+		else if (angle2 < -2 * PI && angle2 >= -3 * PI) {
+			if (VR_UI::ui_type == VR_UI_TYPE_VIVE) {
+				/* Delete */
+				Widget_Delete::obj.click(c);
+			}
+			else {
+				return;
+			}
 		}
 		else if (angle2 < -PI && angle2 >= -2 * PI) {
 			/* Move */
@@ -8705,7 +10762,7 @@ void Widget_Menu::drag_stop(VR_UI::Cursor& c)
 			Widget_Annotate::active_layer = 7;
 		}
 		else if (angle2 < -3 * PI && angle2 >= -4 * PI) {
-			color[0] = 0.4f; color[1] = 0.8/*0.86f*/; color[2] = 0.2f;
+			color[0] = 0.4f; color[1] = 0.8; color[2] = 0.2f;
 			Widget_Annotate::active_layer = 8;
 		}
 		else if (angle2 < -2 * PI && angle2 >= -3 * PI) {
@@ -8723,7 +10780,96 @@ void Widget_Menu::drag_stop(VR_UI::Cursor& c)
 
 		memcpy(Widget_Annotate::color, color, sizeof(float) * 3);
 		return;
-	}		
+	}	
+	case MENUTYPE_TS_EXTRUDE: {
+		if (angle2 >= 0 && angle2 < PI) {
+			/* Flip normals */
+			Widget_Extrude::flip_normals = !Widget_Extrude::flip_normals;
+		}
+		else if (angle2 >= 2 * PI && angle2 < 3 * PI) {
+			/* Individual */
+			Widget_Extrude::extrude_mode = Widget_Extrude::EXTRUDEMODE_INDIVIDUAL;
+		}
+		else if (angle2 >= 3 * PI || (angle2 < -2 * PI && angle2 >= -3 * PI)) {
+			/* exit region */
+			if (depth[c.side] > 0) {
+				--depth[c.side];
+			}
+			return;
+		}
+		else if (angle2 < -PI && angle2 >= -2 * PI) {
+			/* Region */
+			Widget_Extrude::extrude_mode = Widget_Extrude::EXTRUDEMODE_REGION;
+		}
+		return;
+	}
+	case MENUTYPE_SWITCHTOOL: {
+		if (angle2 >= 0 && angle2 < PI) {
+			/* Transform */
+			VR_UI::set_current_tool(&Widget_Transform::obj, c.side);
+			Widget_SwitchTool::obj.curr_tool[c.side] = &Widget_Transform::obj;
+		}
+		else if (angle2 >= PI && angle2 < 2 * PI) {
+			/* Annotate */
+			VR_UI::set_current_tool(&Widget_Annotate::obj, c.side);
+			Widget_SwitchTool::obj.curr_tool[c.side] = &Widget_Annotate::obj;
+		}
+		else if (angle2 >= 2 * PI && angle2 < 3 * PI) {
+			/* Measure */
+			VR_UI::set_current_tool(&Widget_Measure::obj, c.side);
+			Widget_SwitchTool::obj.curr_tool[c.side] = &Widget_Measure::obj;
+		}
+		else if (angle2 >= 3 * PI || (angle2 < -2 * PI && angle2 >= -3 * PI)) {
+			/* exit region */
+			if (depth[c.side] > 0) {
+				--depth[c.side];
+			}
+			return;
+		}
+		else if (angle2 < -PI && angle2 >= -2 * PI) {
+			/* Select */
+			VR_UI::set_current_tool(&Widget_Select::obj, c.side);
+			Widget_SwitchTool::obj.curr_tool[c.side] = &Widget_Select::obj;
+		}
+		else if (angle2 < 0 && angle2 >= -PI) {
+			/* Extrude */
+			VR_UI::set_current_tool(&Widget_Extrude::obj, c.side);
+			Widget_SwitchTool::obj.curr_tool[c.side] = &Widget_Extrude::obj;
+		}
+
+		VR_Widget *tool = VR_UI::get_current_tool(c.side);
+		if (!tool) {
+			menu_type[c.side] = MENUTYPE_MAIN_12;
+			return;
+		}
+		switch (tool->type()) {
+		case TYPE_SELECT: {
+			menu_type[c.side] = MENUTYPE_TS_SELECT;
+			return;
+		}
+		case TYPE_TRANSFORM: {
+			menu_type[c.side] = MENUTYPE_TS_TRANSFORM;
+			return;
+		}
+		case TYPE_ANNOTATE: {
+			menu_type[c.side] = MENUTYPE_TS_ANNOTATE;
+			return;
+		}
+		case TYPE_MEASURE: {
+			menu_type[c.side] = MENUTYPE_TS_MEASURE;
+			return;
+		}
+		case TYPE_EXTRUDE: {
+			menu_type[c.side] = MENUTYPE_TS_EXTRUDE;
+			return;
+		}
+		default: {
+			menu_type[c.side] = MENUTYPE_MAIN_12;
+			return;
+		}
+		}
+		return;
+	}
 	default: {
 		uint index;
 		if (num_items[c.side] < 8) { /* MENUTYPE_MAIN_8 */ 
@@ -8802,7 +10948,6 @@ void Widget_Menu::drag_stop(VR_UI::Cursor& c)
 		if (items[c.side].size() > index && items[c.side][index]) {
 			if (items[c.side][index]->type() == TYPE_MENU) {
 				/* Open a new menu / submenu. */
-				/* TODO_XR */
 				menu_type[c.side] = MENUTYPE_MAIN_8;
 				++depth[c.side];
 				VR_UI::pie_menu_active[c.side] = true;
@@ -8820,8 +10965,10 @@ void Widget_Menu::drag_stop(VR_UI::Cursor& c)
 
 void Widget_Menu::render_icon(const Mat44f& t, VR_Side controller_side, bool active, bool touched)
 {
+	const MenuType& type = menu_type[controller_side];
+
 	if (!VR_UI::pie_menu_active[controller_side]) {
-		if (menu_type[controller_side] == MENUTYPE_TS_MEASURE) {
+		if (type == MENUTYPE_TS_MEASURE) {
 			return;
 		}
 
@@ -8844,43 +10991,205 @@ void Widget_Menu::render_icon(const Mat44f& t, VR_Side controller_side, bool act
 			}
 		}
 
-		if (menu_type[controller_side] == MENUTYPE_TS_SELECT) {
+		if (type == MENUTYPE_TS_SELECT) {
 			VR_UI::SelectionMode& mode = VR_UI::selection_mode;
 			if (mode == VR_UI::SELECTIONMODE_RAYCAST) {
-				VR_Draw::render_rect(-0.018f, 0.018f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::raycast_str_tex);
+				VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::select_raycast_tex);
 			}
 			else {
-				VR_Draw::render_rect(-0.018f, 0.018f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::proximity_str_tex);
+				VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::select_proximity_tex);
 			}
 		}
 		else {
-			VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::triangle_menu_tex);
+			VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::toolsettings_tex);
 		}
 		return;
 	}
 
 	VR_Draw::update_modelview_matrix(&t, 0);
-	VR_Draw::set_color(1.0f, 1.0f, 1.0f, 1.0f);
 
 	if (!action_settings[controller_side]) {
 		/* Background */
-		if (menu_type[controller_side] == MENUTYPE_TS_ANNOTATE) {
-			VR_Draw::render_rect(-0.078f, 0.078f, 0.078f, -0.078f, -0.015f, 1.0f, 1.0f, VR_Draw::colorwheel_menu_tex);
+		if (type == MENUTYPE_TS_ANNOTATE) {
+			VR_Draw::set_color(1.0f, 1.0f, 1.0f, 0.9f);
+			VR_Draw::render_rect(-0.0728f, 0.0728f, 0.0728f, -0.0728f, -0.005f, 1.0f, 1.0f, VR_Draw::colorwheel_menu_tex);
 		}
 		else {
-			VR_Draw::render_rect(-0.12f, 0.12f, 0.12f, -0.12f, -0.015f, 1.0f, 1.0f, VR_Draw::background_menu_tex);
+			VR_Draw::set_color(1.0f, 1.0f, 1.0f, 0.9f);
+			VR_Draw::render_rect(-0.1121f, 0.1121f, 0.1121f, -0.1121f, -0.005f, 1.0f, 1.0f, VR_Draw::background_menu_tex);
 		}
 	}
+	VR_Draw::set_color(1.0f, 1.0f, 1.0f, 1.0f);
 
 	/* Render icons for menu items. */
 	static Mat44f t_icon = VR_Math::identity_f;
 	static Mat44f m;
-	static std::string icon_str;
+	static std::string menu_str;
 
 	int& menu_highlight_index = highlight_index[controller_side];
 
 	if (action_settings[controller_side]) {
-		switch (menu_type[controller_side]) {
+		switch (type) {
+		case MENUTYPE_AS_NAVI: {
+			/* Center */
+			/* index = 0 */
+			if (Widget_Navi::nav_lock[1] == VR_UI::NAVLOCK_ROT) {
+				VR_Draw::set_color(c_menu_green);
+			}
+			else if (menu_highlight_index == 0) {
+				VR_Draw::set_color(c_menu_blue);
+			}
+			*((Coord3Df*)t_icon.m[3]) = p_as_0;
+			if (menu_highlight_index == 0) {
+				m = m_widget_touched * t_icon * t;
+			}
+			else {
+				m = t_icon * t;
+			}
+			VR_Draw::update_modelview_matrix(&m, 0);
+			VR_Draw::render_rect(-0.006f, 0.006f, 0.006f, -0.006f, 0.001f, 1.0f, 1.0f, VR_Draw::nav_lockrot_tex);
+			if (Widget_Navi::nav_lock[1] == VR_UI::NAVLOCK_ROT) {
+				VR_Draw::set_color(c_menu_white);
+			}
+			else if (menu_highlight_index == 0) {
+				VR_Draw::set_color(c_menu_white);
+			}
+			/* index = 4 */
+			if (Widget_Navi::nav_lock[1] == VR_UI::NAVLOCK_ROT_UP) {
+				VR_Draw::set_color(c_menu_green);
+			}
+			else if (menu_highlight_index == 4) {
+				VR_Draw::set_color(c_menu_blue);
+			}
+			*((Coord3Df*)t_icon.m[3]) = p_as_4;
+			if (menu_highlight_index == 4) {
+				m = m_widget_touched * t_icon * t;
+			}
+			else {
+				m = t_icon * t;
+			}
+			VR_Draw::update_modelview_matrix(&m, 0);
+			VR_Draw::render_rect(-0.006f, 0.006f, 0.006f, -0.006f, 0.001f, 1.0f, 1.0f, VR_Draw::nav_lockrotup_tex);
+			if (Widget_Navi::nav_lock[1] == VR_UI::NAVLOCK_ROT_UP) {
+				VR_Draw::set_color(c_menu_white);
+			}
+			else if (menu_highlight_index == 4) {
+				VR_Draw::set_color(c_menu_white);
+			}
+			/* index = 2 */
+			if (Widget_Navi::nav_lock[2] == VR_UI::NAVLOCK_SCALE) {
+				VR_Draw::set_color(c_menu_green);
+			}
+			else if (menu_highlight_index == 2) {
+				VR_Draw::set_color(c_menu_blue);
+			}
+			*((Coord3Df*)t_icon.m[3]) = p_as_2;
+			if (menu_highlight_index == 2) {
+				m = m_widget_touched * t_icon * t;
+			}
+			else {
+				m = t_icon * t;
+			}
+			VR_Draw::update_modelview_matrix(&m, 0);
+			VR_Draw::render_rect(-0.006f, 0.006f, 0.006f, -0.006f, 0.001f, 1.0f, 1.0f, VR_Draw::nav_lockscale_tex);
+			if (Widget_Navi::nav_lock[2] == VR_UI::NAVLOCK_SCALE) {
+				VR_Draw::set_color(c_menu_white);
+			}
+			else if (menu_highlight_index == 2) {
+				VR_Draw::set_color(c_menu_white);
+			}
+			/* index = 6 */
+			if (Widget_Navi::nav_lock[2] == VR_UI::NAVLOCK_SCALE_REAL) {
+				VR_Draw::set_color(c_menu_green);
+			}
+			else if (menu_highlight_index == 6) {
+				VR_Draw::set_color(c_menu_blue);
+			}
+			*((Coord3Df*)t_icon.m[3]) = p_as_6;
+			if (menu_highlight_index == 6) {
+				m = m_widget_touched * t_icon * t;
+			}
+			else {
+				m = t_icon * t;
+			}
+			VR_Draw::update_modelview_matrix(&m, 0);
+			VR_Draw::render_rect(-0.006f, 0.006f, 0.006f, -0.006f, 0.001f, 1.0f, 1.0f, VR_Draw::nav_lockscalereal_tex);
+			if (Widget_Navi::nav_lock[2] == VR_UI::NAVLOCK_SCALE_REAL) {
+				VR_Draw::set_color(c_menu_white);
+			}
+			else if (menu_highlight_index == 6) {
+				VR_Draw::set_color(c_menu_white);
+			}
+			/* index = 7 (exit region) */
+			/* index = 5 */
+			bool lock = (Widget_Navi::nav_lock[0] | Widget_Navi::nav_lock[1] || Widget_Navi::nav_lock[2]);
+			if (!lock) {
+				VR_Draw::set_color(c_menu_green);
+			}
+			else if (menu_highlight_index == 5) {
+				VR_Draw::set_color(c_menu_blue);
+			}
+			*((Coord3Df*)t_icon.m[3]) = p_as_5;
+			if (menu_highlight_index == 5) {
+				m = m_widget_touched * t_icon * t;
+			}
+			else {
+				m = t_icon * t;
+			}
+			VR_Draw::update_modelview_matrix(&m, 0);
+			VR_Draw::render_rect(-0.006f, 0.006f, 0.005f, -0.007f, 0.001f, 1.0f, 1.0f, VR_Draw::off_str_tex);
+			if (!lock) {
+				VR_Draw::set_color(c_menu_white);
+			}
+			else if (menu_highlight_index == 5) {
+				VR_Draw::set_color(c_menu_white);
+			}
+			/* index = 1 */
+			if (Widget_Navi::nav_lock[0] == VR_UI::NAVLOCK_TRANS) {
+				VR_Draw::set_color(c_menu_green);
+			}
+			else if (menu_highlight_index == 1) {
+				VR_Draw::set_color(c_menu_blue);
+			}
+			*((Coord3Df*)t_icon.m[3]) = p_as_1;
+			if (menu_highlight_index == 1) {
+				m = m_widget_touched * t_icon * t;
+			}
+			else {
+				m = t_icon * t;
+			}
+			VR_Draw::update_modelview_matrix(&m, 0);
+			VR_Draw::render_rect(-0.006f, 0.006f, 0.006f, -0.006f, 0.001f, 1.0f, 1.0f, VR_Draw::nav_locktrans_tex);
+			if (Widget_Navi::nav_lock[0] == VR_UI::NAVLOCK_TRANS) {
+				VR_Draw::set_color(c_menu_white);
+			}
+			else if (menu_highlight_index == 1) {
+				VR_Draw::set_color(c_menu_white);
+			}
+			/* index = 3 */
+			if (Widget_Navi::nav_lock[0] == VR_UI::NAVLOCK_TRANS_UP) {
+				VR_Draw::set_color(c_menu_green);
+			}
+			else if (menu_highlight_index == 3) {
+				VR_Draw::set_color(c_menu_blue);
+			}
+			*((Coord3Df*)t_icon.m[3]) = p_as_3;
+			if (menu_highlight_index == 3) {
+				m = m_widget_touched * t_icon * t;
+			}
+			else {
+				m = t_icon * t;
+			}
+			VR_Draw::update_modelview_matrix(&m, 0);
+			VR_Draw::render_rect(-0.006f, 0.006f, 0.006f, -0.006f, 0.001f, 1.0f, 1.0f, VR_Draw::nav_locktransup_tex);
+			if (Widget_Navi::nav_lock[0] == VR_UI::NAVLOCK_TRANS_UP) {
+				VR_Draw::set_color(c_menu_white);
+			}
+			else if (menu_highlight_index == 3) {
+				VR_Draw::set_color(c_menu_white);
+			}
+			break;
+		}
 		case MENUTYPE_AS_SELECT: {
 			/* Center */
 			if (VR_UI::mouse_cursor_enabled) {
@@ -8933,9 +11242,6 @@ void Widget_Menu::render_icon(const Mat44f& t, VR_Side controller_side, bool act
 		}
 		case MENUTYPE_AS_TRANSFORM: {
 			/* Center */
-			if (Widget_Transform::local) {
-				VR_Draw::set_color(c_menu_red);
-			}
 			VR_Widget_Layout::ButtonBit btnbit = VR_UI::ui_type == VR_UI_TYPE_OCULUS ? VR_Widget_Layout::BUTTONBITS_STICKS : VR_Widget_Layout::BUTTONBITS_DPADS;
 			bool center_touched = ((vr_get_obj()->controller[controller_side]->buttons_touched & btnbit) != 0);
 			if (VR_UI::ui_type == VR_UI_TYPE_MICROSOFT) {
@@ -8951,7 +11257,21 @@ void Widget_Menu::render_icon(const Mat44f& t, VR_Side controller_side, bool act
 					m = t_icon * t_controller;
 				}
 				VR_Draw::update_modelview_matrix(&m, 0);
-				VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::manip_local_tex);
+				switch (Widget_Transform::transform_space) {
+				case VR_UI::TRANSFORMSPACE_NORMAL: {
+					VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::manip_normal_tex);
+					break;
+				}
+				case VR_UI::TRANSFORMSPACE_LOCAL: {
+					VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::manip_local_tex);
+					break;
+				}
+				case VR_UI::TRANSFORMSPACE_GLOBAL:
+				default: {
+					VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::manip_global_tex);
+					break;
+				}
+				}
 				t_icon.m[1][1] = t_icon.m[2][2] = 1;
 				t_icon.m[1][2] = t_icon.m[2][1] = 0;
 			}
@@ -8974,10 +11294,21 @@ void Widget_Menu::render_icon(const Mat44f& t, VR_Side controller_side, bool act
 					}
 				}
 				VR_Draw::update_modelview_matrix(&m, 0);
-				VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::manip_local_tex);
-			}
-			if (Widget_Transform::local) {
-				VR_Draw::set_color(c_menu_white);
+				switch (Widget_Transform::transform_space) {
+				case VR_UI::TRANSFORMSPACE_NORMAL: {
+					VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::manip_normal_tex);
+					break;
+				}
+				case VR_UI::TRANSFORMSPACE_LOCAL: {
+					VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::manip_local_tex);
+					break;
+				}
+				case VR_UI::TRANSFORMSPACE_GLOBAL:
+				default: {
+					VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::manip_global_tex);
+					break;
+				}
+				}
 			}
 
 			/* "Manipulator mode" action settings */
@@ -9198,6 +11529,117 @@ void Widget_Menu::render_icon(const Mat44f& t, VR_Side controller_side, bool act
 			}
 			break;
 		}
+		case MENUTYPE_AS_EXTRUDE: {
+			/* Center */
+			VR_Widget_Layout::ButtonBit btnbit = VR_UI::ui_type == VR_UI_TYPE_OCULUS ? VR_Widget_Layout::BUTTONBITS_STICKS : VR_Widget_Layout::BUTTONBITS_DPADS;
+			bool center_touched = ((vr_get_obj()->controller[controller_side]->buttons_touched & btnbit) != 0);
+			if (VR_UI::ui_type == VR_UI_TYPE_MICROSOFT) {
+				/* Special case for WindowsMR (with SteamVR): replace stick press with dpad press. */
+				t_icon.m[1][1] = t_icon.m[2][2] = (float)cos(QUARTPI);
+				t_icon.m[1][2] = -(t_icon.m[2][1] = (float)sin(QUARTPI));
+				*((Coord3Df*)t_icon.m[3]) = VR_Widget_Layout::button_positions[vr_get_obj()->ui_type][controller_side][VR_Widget_Layout::BUTTONID_DPAD];
+				const Mat44f& t_controller = VR_UI::cursor_position_get(VR_SPACE_REAL, controller_side);
+				if (center_touched) {
+					m = m_widget_touched * t_icon * t_controller;
+				}
+				else {
+					m = t_icon * t_controller;
+				}
+				VR_Draw::update_modelview_matrix(&m, 0);
+				switch (Widget_Transform::transform_space) {
+				case VR_UI::TRANSFORMSPACE_NORMAL: {
+					VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::manip_normal_tex);
+					break;
+				}
+				case VR_UI::TRANSFORMSPACE_LOCAL: {
+					VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::manip_local_tex);
+					break;
+				}
+				case VR_UI::TRANSFORMSPACE_GLOBAL:
+				default: {
+					VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::manip_global_tex);
+					break;
+				}
+				}
+				t_icon.m[1][1] = t_icon.m[2][2] = 1;
+				t_icon.m[1][2] = t_icon.m[2][1] = 0;
+			}
+			else {
+				*((Coord3Df*)t_icon.m[3]) = p_as_stick;
+				if (VR_UI::ui_type == VR_UI_TYPE_OCULUS) {
+					if (center_touched && menu_highlight_index < 0) {
+						m = m_widget_touched * t_icon * t;
+					}
+					else {
+						m = t_icon * t;
+					}
+				}
+				else {
+					if (center_touched) {
+						m = m_widget_touched * t_icon * t;
+					}
+					else {
+						m = t_icon * t;
+					}
+				}
+				VR_Draw::update_modelview_matrix(&m, 0);
+				switch (Widget_Transform::transform_space) {
+				case VR_UI::TRANSFORMSPACE_NORMAL: {
+					VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::manip_normal_tex);
+					break;
+				}
+				case VR_UI::TRANSFORMSPACE_LOCAL: {
+					VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::manip_local_tex);
+					break;
+				}
+				case VR_UI::TRANSFORMSPACE_GLOBAL:
+				default: {
+					VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::manip_global_tex);
+					break;
+				}
+				}
+			}
+
+			/* index = 0 */
+			/* index = 4 */
+			/* index = 2 */
+			if (menu_highlight_index == 2) {
+				VR_Draw::set_color(c_menu_blue);
+			}
+			*((Coord3Df*)t_icon.m[3]) = p_as_2;
+			if (menu_highlight_index == 2) {
+				m = m_widget_touched * t_icon * t;
+			}
+			else {
+				m = t_icon * t;
+			}
+			VR_Draw::update_modelview_matrix(&m, 0);
+			VR_Draw::render_rect(-0.006f, 0.006f, 0.006f, -0.006f, 0.001f, 1.0f, 1.0f, VR_Draw::manip_plus_tex);
+			if (menu_highlight_index == 2) {
+				VR_Draw::set_color(c_menu_white);
+			}
+			/* index = 6 */
+			/* index = 7 (exit region) */
+			/* index = 5 */
+			/* index = 1 */
+			if (menu_highlight_index == 1) {
+				VR_Draw::set_color(c_menu_blue);
+			}
+			*((Coord3Df*)t_icon.m[3]) = p_as_1;
+			if (menu_highlight_index == 1) {
+				m = m_widget_touched * t_icon * t;
+			}
+			else {
+				m = t_icon * t;
+			}
+			VR_Draw::update_modelview_matrix(&m, 0);
+			VR_Draw::render_rect(-0.006f, 0.006f, 0.006f, -0.006f, 0.001f, 1.0f, 1.0f, VR_Draw::manip_minus_tex);
+			if (menu_highlight_index == 1) {
+				VR_Draw::set_color(c_menu_white);
+			}
+			/* index = 3*/
+			break;
+		}
 		default: {
 			break;
 		}
@@ -9208,28 +11650,390 @@ void Widget_Menu::render_icon(const Mat44f& t, VR_Side controller_side, bool act
 			/* Render sphere to represent stick direction. */
 			static Mat44f m = VR_Math::identity_f;
 			Coord3Df temp = (*(Coord3Df*)t.m[1]).normalize();
-			temp *= 0.065f;
+			temp *= 0.06f;
 			rotate_v3_v3v3fl(m.m[3], (float*)&temp, t.m[2], -angle[controller_side]);
 			*(Coord3Df*)m.m[3] += *(Coord3Df*)t.m[3];
 			VR_Draw::update_modelview_matrix(&m, 0);
-			VR_Draw::set_color(1.0f, 1.0f, 1.0f, 1.0f);
 			VR_Draw::render_ball(0.005f, false);
 		}
+		menu_str = "";
 
 		switch (menu_type[controller_side]) {
-		case MENUTYPE_MAIN_8: {
+		case MENUTYPE_TS_TRANSFORM: {
+			/* index = 0 */
+			if (Widget_Transform::manipulator) {
+				VR_Draw::set_color(c_menu_red);
+			}
+			else if (menu_highlight_index == 0) {
+				VR_Draw::set_color(c_menu_blue);
+			}
+			*((Coord3Df*)t_icon.m[3]) = p8_0;
+			if (menu_highlight_index == 0) {
+				menu_str = "MANIPULATOR";
+				m = m_widget_touched * t_icon * t;
+			}
+			else {
+				m = t_icon * t;
+			}
+			VR_Draw::update_modelview_matrix(&m, 0);
+			VR_Draw::render_rect(-0.007f, 0.007f, 0.007f, -0.007f, 0.001f, 1.0f, 1.0f, VR_Draw::manip_tex);
+			if (Widget_Transform::manipulator) {
+				VR_Draw::set_color(c_menu_white);
+			}
+			else if (menu_highlight_index == 0) {
+				VR_Draw::set_color(c_menu_white);
+			}
+			/* index = 4 */
+			if (Widget_Transform::transform_mode == Widget_Transform::TRANSFORMMODE_SCALE) {
+				VR_Draw::set_color(c_menu_green);
+			}
+			else if (menu_highlight_index == 4) {
+				VR_Draw::set_color(c_menu_blue);
+			}
+			*((Coord3Df*)t_icon.m[3]) = p8_4;
+			if (menu_highlight_index == 4) {
+				menu_str = "SCALE";
+				m = m_widget_touched * t_icon * t;
+			}
+			else {
+				m = t_icon * t;
+			}
+			VR_Draw::update_modelview_matrix(&m, 0);
+			VR_Draw::render_rect(-0.007f, 0.007f, 0.007f, -0.007f, 0.001f, 1.0f, 1.0f, VR_Draw::scale_tex);
+			if (Widget_Transform::transform_mode == Widget_Transform::TRANSFORMMODE_SCALE) {
+				VR_Draw::set_color(c_menu_white);
+			}
+			else if (menu_highlight_index == 4) {
+				VR_Draw::set_color(c_menu_white);
+			}
+			/* index = 2 */
+			if (Widget_Transform::transform_mode == Widget_Transform::TRANSFORMMODE_OMNI) {
+				VR_Draw::set_color(c_menu_green);
+			}
+			else if (menu_highlight_index == 2) {
+				VR_Draw::set_color(c_menu_blue);
+			}
+			*((Coord3Df*)t_icon.m[3]) = p8_2;
+			if (menu_highlight_index == 2) {
+				menu_str = "TRANSFORM";
+				m = m_widget_touched * t_icon * t;
+			}
+			else {
+				m = t_icon * t;
+			}
+			VR_Draw::update_modelview_matrix(&m, 0);
+			VR_Draw::render_rect(-0.007f, 0.007f, 0.007f, -0.007f, 0.001f, 1.0f, 1.0f, VR_Draw::transform_tex);
+			if (Widget_Transform::transform_mode == Widget_Transform::TRANSFORMMODE_OMNI) {
+				VR_Draw::set_color(c_menu_white);
+			}
+			else if (menu_highlight_index == 2) {
+				VR_Draw::set_color(c_menu_white);
+			}
+			if (VR_UI::ui_type == VR_UI_TYPE_VIVE) {
+				/* index = 6 */
+				if (menu_highlight_index == 6) {
+					VR_Draw::set_color(c_menu_blue);
+				}
+				*((Coord3Df*)t_icon.m[3]) = p8_6;
+				if (menu_highlight_index == 6) {
+					menu_str = "DUPLICATE";
+					m = m_widget_touched * t_icon * t;
+				}
+				else {
+					m = t_icon * t;
+				}
+				VR_Draw::update_modelview_matrix(&m, 0);
+				VR_Draw::render_rect(-0.007f, 0.007f, 0.007f, -0.007f, 0.001f, 1.0f, 1.0f, VR_Draw::duplicate_tex);
+				if (menu_highlight_index == 6) {
+					VR_Draw::set_color(c_menu_white);
+				}
+				/* index = 7 (exit region) */
+				/* index = 5 */
+				if (menu_highlight_index == 5) {
+					VR_Draw::set_color(c_menu_blue);
+				}
+				*((Coord3Df*)t_icon.m[3]) = p8_5;
+				if (menu_highlight_index == 5) {
+					menu_str = "DELETE";
+					m = m_widget_touched * t_icon * t;
+				}
+				else {
+					m = t_icon * t;
+				}
+				VR_Draw::update_modelview_matrix(&m, 0);
+				VR_Draw::render_rect(-0.007f, 0.007f, 0.007f, -0.007f, 0.001f, 1.0f, 1.0f, VR_Draw::delete_tex);
+				if (menu_highlight_index == 5) {
+					VR_Draw::set_color(c_menu_white);
+				}
+			}
+			else {
+				/* index = 6 */
+				/* index = 7 (exit region) */
+				/* index = 5 */
+			}
+			/* index = 1 */
+			if (Widget_Transform::transform_mode == Widget_Transform::TRANSFORMMODE_MOVE) {
+				VR_Draw::set_color(c_menu_green);
+			}
+			else if (menu_highlight_index == 1) {
+				VR_Draw::set_color(c_menu_blue);
+			}
+			*((Coord3Df*)t_icon.m[3]) = p8_1;
+			if (menu_highlight_index == 1) {
+				menu_str = "MOVE";
+				m = m_widget_touched * t_icon * t;
+			}
+			else {
+				m = t_icon * t;
+			}
+			VR_Draw::update_modelview_matrix(&m, 0);
+			VR_Draw::render_rect(-0.007f, 0.007f, 0.007f, -0.007f, 0.001f, 1.0f, 1.0f, VR_Draw::move_tex);
+			if (Widget_Transform::transform_mode == Widget_Transform::TRANSFORMMODE_MOVE) {
+				VR_Draw::set_color(c_menu_white);
+			}
+			else if (menu_highlight_index == 1) {
+				VR_Draw::set_color(c_menu_white);
+			}
+			/* index = 3 */
+			if (Widget_Transform::transform_mode == Widget_Transform::TRANSFORMMODE_ROTATE) {
+				VR_Draw::set_color(c_menu_green);
+			}
+			else if (menu_highlight_index == 3) {
+				VR_Draw::set_color(c_menu_blue);
+			}
+			*((Coord3Df*)t_icon.m[3]) = p8_3;
+			if (menu_highlight_index == 3) {
+				menu_str = "ROTATE";
+				m = m_widget_touched * t_icon  * t;
+			}
+			else {
+				m = t_icon * t;
+			}
+			VR_Draw::update_modelview_matrix(&m, 0);
+			VR_Draw::render_rect(-0.007f, 0.007f, 0.007f, -0.007f, 0.001f, 1.0f, 1.0f, VR_Draw::rotate_tex);
+			if (Widget_Transform::transform_mode == Widget_Transform::TRANSFORMMODE_ROTATE) {
+				VR_Draw::set_color(c_menu_white);
+			}
+			else if (menu_highlight_index == 3) {
+				VR_Draw::set_color(c_menu_white);
+			}
 			/* Center */
 			*((Coord3Df*)t_icon.m[3]) = p8_stick;
-			//if (touched) {
-			//	m = m_widget_touched * t_icon * t;
-			//}
-			//else {
 			m = t_icon * t;
-			//}
 			VR_Draw::update_modelview_matrix(&m, 0);
-			//VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::cursoroffset_tex);
-			icon_str = "MAIN";
-			VR_Draw::render_string(icon_str.c_str(), 0.009f, 0.012f, VR_HALIGN_CENTER, VR_VALIGN_TOP, 0.0f, 0.0f, 0.001f);
+			VR_Draw::render_string(menu_str.c_str(), 0.009f, 0.012f, VR_HALIGN_CENTER, VR_VALIGN_TOP, 0.0f, 0.005f, 0.001f);
+			break;
+		}
+		case MENUTYPE_TS_EXTRUDE: {
+			/* index = 0 */
+			if (Widget_Extrude::flip_normals) {
+				VR_Draw::set_color(c_menu_red);
+			}
+			else if (menu_highlight_index == 0) {
+				VR_Draw::set_color(c_menu_blue);
+			}
+			*((Coord3Df*)t_icon.m[3]) = p8_0;
+			if (menu_highlight_index == 0) {
+				menu_str = "FLIP EDGES";
+				m = m_widget_touched * t_icon * t;
+			}
+			else {
+				m = t_icon * t;
+			}
+			VR_Draw::update_modelview_matrix(&m, 0);
+			VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::flip_normals_tex);
+			if (Widget_Extrude::flip_normals) {
+				VR_Draw::set_color(c_menu_white);
+			}
+			if (menu_highlight_index == 0) {
+				VR_Draw::set_color(c_menu_white);
+			}
+			/* index = 4 */
+			/* index = 2 */
+			if (Widget_Extrude::extrude_mode == Widget_Extrude::EXTRUDEMODE_INDIVIDUAL) {
+				VR_Draw::set_color(c_menu_green);
+			}
+			else if (menu_highlight_index == 2) {
+				VR_Draw::set_color(c_menu_blue);
+			}
+			*((Coord3Df*)t_icon.m[3]) = p8_2;
+			if (menu_highlight_index == 2) {
+				menu_str = "INDIVIDUAL";
+				m = m_widget_touched * t_icon * t;
+			}
+			else {
+				m = t_icon * t;
+			}
+			VR_Draw::update_modelview_matrix(&m, 0);
+			VR_Draw::render_rect(-0.007f, 0.007f, 0.007f, -0.007f, 0.001f, 1.0f, 1.0f, VR_Draw::extrude_individual_tex);
+			if (Widget_Extrude::extrude_mode == Widget_Extrude::EXTRUDEMODE_INDIVIDUAL) {
+				VR_Draw::set_color(c_menu_white);
+			}
+			else if (menu_highlight_index == 2) {
+				VR_Draw::set_color(c_menu_white);
+			}
+			/* index = 6 */
+			/* index = 7 (exit region) */
+			/* index = 5 */
+			/* index = 1 */
+			if (Widget_Extrude::extrude_mode == Widget_Extrude::EXTRUDEMODE_REGION) {
+				VR_Draw::set_color(c_menu_green);
+			}
+			else if (menu_highlight_index == 1) {
+				VR_Draw::set_color(c_menu_blue);
+			}
+			*((Coord3Df*)t_icon.m[3]) = p8_1;
+			if (menu_highlight_index == 1) {
+				menu_str = "REGION";
+				m = m_widget_touched * t_icon * t;
+			}
+			else {
+				m = t_icon * t;
+			}
+			VR_Draw::update_modelview_matrix(&m, 0);
+			VR_Draw::render_rect(-0.007f, 0.007f, 0.007f, -0.007f, 0.001f, 1.0f, 1.0f, VR_Draw::extrude_tex);
+			if (Widget_Extrude::extrude_mode == Widget_Extrude::EXTRUDEMODE_REGION) {
+				VR_Draw::set_color(c_menu_white);
+			}
+			else if (menu_highlight_index == 1) {
+				VR_Draw::set_color(c_menu_white);
+			}
+			/* index = 3 */
+			/* Center */
+			*((Coord3Df*)t_icon.m[3]) = p8_stick;
+			m = t_icon * t;
+			VR_Draw::update_modelview_matrix(&m, 0);
+			VR_Draw::render_string(menu_str.c_str(), 0.009f, 0.012f, VR_HALIGN_CENTER, VR_VALIGN_TOP, 0.0f, 0.005f, 0.001f);
+			break;
+		}
+		case MENUTYPE_SWITCHTOOL: {
+			Type type = VR_UI::get_current_tool(controller_side)->type();
+			/* index = 0 */
+			if (type == TYPE_TRANSFORM) {
+				VR_Draw::set_color(c_menu_green);
+			}
+			else if (menu_highlight_index == 0) {
+				VR_Draw::set_color(c_menu_blue);
+			}
+			*((Coord3Df*)t_icon.m[3]) = p8_0;
+			if (menu_highlight_index == 0) {
+				menu_str = "TRANSFORM";
+				m = m_widget_touched * t_icon * t;
+			}
+			else {
+				m = t_icon * t;
+			}
+			VR_Draw::update_modelview_matrix(&m, 0);
+			VR_Draw::render_rect(-0.007f, 0.007f, 0.007f, -0.007f, 0.001f, 1.0f, 1.0f, VR_Draw::transform_tex);
+			if (type == TYPE_TRANSFORM) {
+				VR_Draw::set_color(c_menu_white);
+			}
+			else if (menu_highlight_index == 0) {
+				VR_Draw::set_color(c_menu_white);
+			}
+			/* index = 4 */
+			if (type == TYPE_ANNOTATE) {
+				VR_Draw::set_color(c_menu_green);
+			}
+			else if (menu_highlight_index == 4) {
+				VR_Draw::set_color(c_menu_blue);
+			}
+			*((Coord3Df*)t_icon.m[3]) = p8_4;
+			if (menu_highlight_index == 4) {
+				menu_str = "ANNOTATE";
+				m = m_widget_touched * t_icon * t;
+			}
+			else {
+				m = t_icon * t;
+			}
+			VR_Draw::update_modelview_matrix(&m, 0);
+			VR_Draw::render_rect(-0.007f, 0.007f, 0.007f, -0.007f, 0.001f, 1.0f, 1.0f, VR_Draw::annotate_tex);
+			if (type == TYPE_ANNOTATE) {
+				VR_Draw::set_color(c_menu_white);
+			}
+			else if (menu_highlight_index == 4) {
+				VR_Draw::set_color(c_menu_white);
+			}
+			/* index = 2 */
+			if (type == TYPE_MEASURE) {
+				VR_Draw::set_color(c_menu_green);
+			}
+			else if (menu_highlight_index == 2) {
+				VR_Draw::set_color(c_menu_blue);
+			}
+			*((Coord3Df*)t_icon.m[3]) = p8_2;
+			if (menu_highlight_index == 2) {
+				menu_str = "MEASURE";
+				m = m_widget_touched * t_icon * t;
+			}
+			else {
+				m = t_icon * t;
+			}
+			VR_Draw::update_modelview_matrix(&m, 0);
+			VR_Draw::render_rect(-0.007f, 0.007f, 0.007f, -0.007f, 0.001f, 1.0f, 1.0f, VR_Draw::measure_tex);
+			if (type == TYPE_MEASURE) {
+				VR_Draw::set_color(c_menu_white);
+			}
+			else if (menu_highlight_index == 2) {
+				VR_Draw::set_color(c_menu_white);
+			}
+			/* index = 6 */
+			/* index = 7 (exit region) */
+			/* index = 5 */
+			/* index = 1 */
+			if (type == TYPE_SELECT) {
+				VR_Draw::set_color(c_menu_green);
+			}
+			else if (menu_highlight_index == 1) {
+				VR_Draw::set_color(c_menu_blue);
+			}
+			*((Coord3Df*)t_icon.m[3]) = p8_1;
+			if (menu_highlight_index == 1) {
+				menu_str = "SELECT";
+				m = m_widget_touched * t_icon * t;
+			}
+			else {
+				m = t_icon * t;
+			}
+			VR_Draw::update_modelview_matrix(&m, 0);
+			VR_Draw::render_rect(-0.007f, 0.007f, 0.007f, -0.007f, 0.001f, 1.0f, 1.0f, VR_Draw::select_tex);
+			if (type == TYPE_SELECT) {
+				VR_Draw::set_color(c_menu_white);
+			}
+			else if (menu_highlight_index == 1) {
+				VR_Draw::set_color(c_menu_white);
+			}
+			/* index = 3 */
+			if (type == TYPE_EXTRUDE) {
+				VR_Draw::set_color(c_menu_green);
+			}
+			else if (menu_highlight_index == 3) {
+				VR_Draw::set_color(c_menu_blue);
+			}
+			*((Coord3Df*)t_icon.m[3]) = p8_3;
+			if (menu_highlight_index == 3) {
+				menu_str = "EXTRUDE";
+				m = m_widget_touched * t_icon  * t;
+			}
+			else {
+				m = t_icon * t;
+			}
+			VR_Draw::update_modelview_matrix(&m, 0);
+			VR_Draw::render_rect(-0.007f, 0.007f, 0.007f, -0.007f, 0.001f, 1.0f, 1.0f, VR_Draw::extrude_tex);
+			if (type == TYPE_EXTRUDE) {
+				VR_Draw::set_color(c_menu_white);
+			}
+			else if (menu_highlight_index == 3) {
+				VR_Draw::set_color(c_menu_white);
+			}
+			/* Center */
+			*((Coord3Df*)t_icon.m[3]) = p8_stick;
+			m = t_icon * t;
+			VR_Draw::update_modelview_matrix(&m, 0);
+			VR_Draw::render_string(menu_str.c_str(), 0.009f, 0.012f, VR_HALIGN_CENTER, VR_VALIGN_TOP, 0.0f, 0.005f, 0.001f);
+			break;
+		}
+		case MENUTYPE_MAIN_8: {
 			/* index = 0 */
 			if (menu_highlight_index == 0) {
 				VR_Draw::set_color(c_menu_blue);
@@ -9258,7 +12062,7 @@ void Widget_Menu::render_icon(const Mat44f& t, VR_Side controller_side, bool act
 				m = t_icon * t;
 			}
 			VR_Draw::update_modelview_matrix(&m, 0);
-			VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::cursoroffset_tex);
+			VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::object_tex);
 			if (menu_highlight_index == 4) {
 				VR_Draw::set_color(c_menu_white);
 			}
@@ -9339,25 +12143,18 @@ void Widget_Menu::render_icon(const Mat44f& t, VR_Side controller_side, bool act
 				m = t_icon * t;
 			}
 			VR_Draw::update_modelview_matrix(&m, 0);
-			VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::cursoroffset_tex);
+			VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::objectmode_tex);
 			if (menu_highlight_index == 3) {
 				VR_Draw::set_color(c_menu_white);
 			}
+			/* Center */
+			*((Coord3Df*)t_icon.m[3]) = p8_stick;
+			m = t_icon * t;
+			VR_Draw::update_modelview_matrix(&m, 0);
+			VR_Draw::render_string(menu_str.c_str(), 0.009f, 0.012f, VR_HALIGN_CENTER, VR_VALIGN_TOP, 0.0f, 0.0f, 0.001f);
 			break;
 		}
 		case MENUTYPE_MAIN_12: {
-			/* Center */
-			*((Coord3Df*)t_icon.m[3]) = p12_stick;
-			//if (touched) {
-			//	m = m_widget_touched * t_icon * t;
-			//}
-			//else {
-			m = t_icon * t;
-			//}
-			VR_Draw::update_modelview_matrix(&m, 0);
-			//VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::cursoroffset_tex);
-			icon_str = "MAIN";
-			VR_Draw::render_string(icon_str.c_str(), 0.009f, 0.012f, VR_HALIGN_CENTER, VR_VALIGN_TOP, 0.0f, 0.0f, 0.001f);
 			/* index = 0 */
 			if (menu_highlight_index == 0) {
 				VR_Draw::set_color(c_menu_blue);
@@ -9386,7 +12183,7 @@ void Widget_Menu::render_icon(const Mat44f& t, VR_Side controller_side, bool act
 				m = t_icon * t;
 			}
 			VR_Draw::update_modelview_matrix(&m, 0);
-			VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::cursoroffset_tex);
+			VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::object_tex);
 			if (menu_highlight_index == 4) {
 				VR_Draw::set_color(c_menu_white);
 			}
@@ -9450,7 +12247,7 @@ void Widget_Menu::render_icon(const Mat44f& t, VR_Side controller_side, bool act
 				m = t_icon * t;
 			}
 			VR_Draw::update_modelview_matrix(&m, 0);
-			VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::cursoroffset_tex);
+			VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::object_tex);
 			if (menu_highlight_index == 10) {
 				VR_Draw::set_color(c_menu_white);
 			}
@@ -9467,7 +12264,7 @@ void Widget_Menu::render_icon(const Mat44f& t, VR_Side controller_side, bool act
 				m = t_icon * t;
 			}
 			VR_Draw::update_modelview_matrix(&m, 0);
-			VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::cursoroffset_tex);
+			VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::objectmode_tex);
 			if (menu_highlight_index == 9) {
 				VR_Draw::set_color(c_menu_white);
 			}
@@ -9531,138 +12328,20 @@ void Widget_Menu::render_icon(const Mat44f& t, VR_Side controller_side, bool act
 				m = t_icon * t;
 			}
 			VR_Draw::update_modelview_matrix(&m, 0);
-			VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::cursoroffset_tex);
+			VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::objectmode_tex);
 			if (menu_highlight_index == 3) {
 				VR_Draw::set_color(c_menu_white);
 			}
-			break;
-		}
-		case MENUTYPE_TS_TRANSFORM: {
 			/* Center */
-			*((Coord3Df*)t_icon.m[3]) = p8_stick;
-			//if (touched) {
-			//	m = m_widget_touched * t_icon * t;
-			//}
-			//else {
+			*((Coord3Df*)t_icon.m[3]) = p12_stick;
 			m = t_icon * t;
-			//}
 			VR_Draw::update_modelview_matrix(&m, 0);
-			VR_Draw::render_rect(-0.04f, 0.04f, 0.004f, -0.01f, 0.002f, 1.0f, 1.0f, VR_Draw::transform_str_tex);
-			/* index = 0 */
-			if (Widget_Transform::manipulator) {
-				VR_Draw::set_color(c_menu_red);
-			}
-			else if (menu_highlight_index == 0) {
-				VR_Draw::set_color(c_menu_blue);
-			}
-			*((Coord3Df*)t_icon.m[3]) = p8_0;
-			if (menu_highlight_index == 0) {
-				m = m_widget_touched * t_icon * t;
-			}
-			else {
-				m = t_icon * t;
-			}
-			VR_Draw::update_modelview_matrix(&m, 0);
-			VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::manip_tex);
-			if (Widget_Transform::manipulator) {
-				VR_Draw::set_color(c_menu_white);
-			}
-			else if (menu_highlight_index == 0) {
-				VR_Draw::set_color(c_menu_white);
-			}
-			/* index = 4 */
-			if (Widget_Transform::transform_mode == Widget_Transform::TRANSFORMMODE_SCALE) {
-				VR_Draw::set_color(c_menu_green);
-			}
-			else if (menu_highlight_index == 4) {
-				VR_Draw::set_color(c_menu_blue);
-			}
-			*((Coord3Df*)t_icon.m[3]) = p8_4;
-			if (menu_highlight_index == 4) {
-				m = m_widget_touched * t_icon * t;
-			}
-			else {
-				m = t_icon * t;
-			}
-			VR_Draw::update_modelview_matrix(&m, 0);
-			VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::scale_tex);
-			if (Widget_Transform::transform_mode == Widget_Transform::TRANSFORMMODE_SCALE) {
-				VR_Draw::set_color(c_menu_white);
-			}
-			else if (menu_highlight_index == 4) {
-				VR_Draw::set_color(c_menu_white);
-			}
-			/* index = 2 */
-			if (Widget_Transform::transform_mode == Widget_Transform::TRANSFORMMODE_OMNI) {
-				VR_Draw::set_color(c_menu_green);
-			}
-			else if (menu_highlight_index == 2) {
-				VR_Draw::set_color(c_menu_blue);
-			}
-			*((Coord3Df*)t_icon.m[3]) = p8_2;
-			if (menu_highlight_index == 2) {
-				m = m_widget_touched * t_icon * t;
-			}
-			else {
-				m = t_icon * t;
-			}
-			VR_Draw::update_modelview_matrix(&m, 0);
-			VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::transform_tex);
-			if (Widget_Transform::transform_mode == Widget_Transform::TRANSFORMMODE_OMNI) {
-				VR_Draw::set_color(c_menu_white);
-			}
-			else if (menu_highlight_index == 2) {
-				VR_Draw::set_color(c_menu_white);
-			}
-			/* index = 6 */
-			/* index = 7 (exit region) */
-			/* index = 5 */
-			/* index = 1 */
-			if (Widget_Transform::transform_mode == Widget_Transform::TRANSFORMMODE_MOVE) {
-				VR_Draw::set_color(c_menu_green);
-			}
-			else if (menu_highlight_index == 1) {
-				VR_Draw::set_color(c_menu_blue);
-			}
-			*((Coord3Df*)t_icon.m[3]) = p8_1;
-			if (menu_highlight_index == 1) {
-				m = m_widget_touched * t_icon * t;
-			}
-			else {
-				m = t_icon * t;
-			}
-			VR_Draw::update_modelview_matrix(&m, 0);
-			VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::move_tex);
-			if (Widget_Transform::transform_mode == Widget_Transform::TRANSFORMMODE_MOVE) {
-				VR_Draw::set_color(c_menu_white);
-			}
-			else if (menu_highlight_index == 1) {
-				VR_Draw::set_color(c_menu_white);
-			}
-			/* index = 3 */
-			if (Widget_Transform::transform_mode == Widget_Transform::TRANSFORMMODE_ROTATE) {
-				VR_Draw::set_color(c_menu_green);
-			}
-			else if (menu_highlight_index == 3) {
-				VR_Draw::set_color(c_menu_blue);
-			}
-			*((Coord3Df*)t_icon.m[3]) = p8_3;
-			if (menu_highlight_index == 3) {
-				m = m_widget_touched * t_icon  * t;
-			}
-			else {
-				m = t_icon * t;
-			}
-			VR_Draw::update_modelview_matrix(&m, 0);
-			VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::rotate_tex);
-			if (Widget_Transform::transform_mode == Widget_Transform::TRANSFORMMODE_ROTATE) {
-				VR_Draw::set_color(c_menu_white);
-			}
-			else if (menu_highlight_index == 3) {
-				VR_Draw::set_color(c_menu_white);
-			}
+			VR_Draw::render_string(menu_str.c_str(), 0.009f, 0.012f, VR_HALIGN_CENTER, VR_VALIGN_TOP, 0.0f, 0.0f, 0.001f);
 			break;
 		}
+		case MENUTYPE_TS_SELECT:
+		case MENUTYPE_TS_ANNOTATE:
+		case MENUTYPE_TS_MEASURE:
 		default: {
 			return;
 		}

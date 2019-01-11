@@ -269,7 +269,7 @@ void DocumentImporter::finish()
 	delete objects_to_scale;
 
 	// update scene
-	DEG_id_tag_update(&sce->id, DEG_TAG_COPY_ON_WRITE);
+	DEG_id_tag_update(&sce->id, ID_RECALC_COPY_ON_WRITE);
 	DEG_relations_tag_update(bmain);
 	WM_event_add_notifier(mContext, NC_OBJECT | ND_TRANSFORM, NULL);
 }
@@ -406,7 +406,7 @@ Object *DocumentImporter::create_instance_node(Object *source_ob, COLLADAFW::Nod
 
 	Main *bmain = CTX_data_main(mContext);
 	Object *obn = BKE_object_copy(bmain, source_ob);
-	DEG_id_tag_update(&obn->id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
+	DEG_id_tag_update(&obn->id, ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY | ID_RECALC_ANIMATION);
 	BKE_collection_object_add_from(bmain, sce, source_ob, obn);
 
 	if (instance_node) {
@@ -1147,6 +1147,19 @@ bool DocumentImporter::writeAnimationList(const COLLADAFW::AnimationList *animat
 	// return true;
 	return anim_importer.write_animation_list(animationList);
 }
+
+#if WITH_OPENCOLLADA_ANIMATION_CLIP
+// Since opencollada 1.6.68
+// called on post-process stage after writeVisualScenes
+bool DocumentImporter::writeAnimationClip(const COLLADAFW::AnimationClip *animationClip)
+{
+	if (mImportStage == Fetching_Controller_data)
+		return true;
+
+	return true;
+	//return animation_clip_importer.write_animation_clip(animationClip); // TODO: implement import of AnimationClips
+}
+#endif
 
 /** When this method is called, the writer must write the skin controller data.
  * \return The writer should return true, if writing succeeded, false otherwise.*/

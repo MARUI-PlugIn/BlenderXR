@@ -156,6 +156,13 @@ typedef struct Object_Runtime {
 	struct GpencilBatchCache *gpencil_cache;
 
 	struct ObjectBBoneDeform *cached_bbone_deformation;
+
+	/* The custom data layer mask that was last used to calculate mesh_eval and mesh_deform_eval. */
+	uint64_t last_data_mask;
+
+	/* Did last modifier stack generation need mapping support? */
+	char last_need_mapping;
+	char pad[7];
 } Object_Runtime;
 
 typedef struct Object {
@@ -236,8 +243,7 @@ typedef struct Object {
 	short nlaflag;				/* used for DopeSheet filtering settings (expanded/collapsed) */
 	short pad[2];
 
-	/* did last modifier stack generation need mapping support? */
-	char lastNeedMapping;  /* bool */
+	char pad12;
 	char duplicator_visibility_flag;
 
 	/* dupli-frame settings */
@@ -293,8 +299,6 @@ typedef struct Object {
 
 	struct DerivedMesh *derivedDeform, *derivedFinal;
 	void *pad7;
-	uint64_t lastDataMask;   /* the custom data layer mask that was last used to calculate derivedDeform and derivedFinal */
-	uint64_t customdata_mask; /* (extra) custom data layer mask to use for creating derivedmesh, set by depsgraph */
 
 	ListBase pc_ids;
 
@@ -417,8 +421,9 @@ enum {
 };
 
 /* (short) transflag */
-/* flags 1 and 2 were unused or relics from past features */
 enum {
+	OB_TRANSFLAG_DEPRECATED_0 = 1 << 0,
+	OB_TRANSFLAG_DEPRECATED_1 = 1 << 1,
 	OB_NEG_SCALE        = 1 << 2,
 	OB_DUPLIFRAMES      = 1 << 3,
 	OB_DUPLIVERTS       = 1 << 4,
@@ -520,7 +525,7 @@ enum {
 	/* NOTE: BA_HAS_RECALC_DATA can be re-used later if freed in readfile.c. */
 	// BA_HAS_RECALC_OB = (1 << 2),  /* DEPRECATED */
 	// BA_HAS_RECALC_DATA =  (1 << 3),  /* DEPRECATED */
-	BA_SNAP_FIX_DEPS_FIASCO = (1 << 2),  /* Yes, re-use deprecated bit, all fine since it's runtime only. */
+	BA_SNAP_FIX_DEPS_FIASCO = (1 << 2),  /* DEPRECATED, was runtime only, but was reusing an older flag. */
 };
 
 	/* NOTE: this was used as a proper setting in past, so nullify before using */
@@ -533,19 +538,10 @@ enum {
 
 #define OB_FROMDUPLI        (1 << 9)
 #define OB_DONE             (1 << 10)  /* unknown state, clear before use */
-/* #define OB_RADIO            (1 << 11) */  /* deprecated */
-/* #define OB_FROMGROUP        (1 << 12) */  /* deprecated */
-
-/* WARNING - when adding flags check on PSYS_RECALC */
-/* ob->recalc (flag bits!) */
-enum {
-	OB_RECALC_OB        = 1 << 0,
-	OB_RECALC_DATA      = 1 << 1,
-/* time flag is set when time changes need recalc, so baked systems can ignore it */
-	OB_RECALC_TIME      = 1 << 2,
-/* only use for matching any flag, NOT as an argument since more flags may be added. */
-	OB_RECALC_ALL       = OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME,
-};
+#ifdef DNA_DEPRECATED_ALLOW
+#  define OB_FLAG_DEPRECATED_11        (1 << 11)  /* cleared */
+#  define OB_FLAG_DEPRECATED_12        (1 << 12)  /* cleared */
+#endif
 
 /* controller state */
 #define OB_MAX_STATES       30
@@ -563,7 +559,9 @@ enum {
 /* ob->shapeflag */
 enum {
 	OB_SHAPE_LOCK       = 1 << 0,
-	// OB_SHAPE_TEMPLOCK   = 1 << 1,  /* deprecated */
+#ifdef DNA_DEPRECATED_ALLOW
+	OB_SHAPE_FLAG_DEPRECATED_1   = 1 << 1,  /* cleared */
+#endif
 	OB_SHAPE_EDIT_MODE  = 1 << 2,
 };
 
@@ -611,11 +609,12 @@ enum {
 #define OB_EMPTY_IMAGE_DEPTH_FRONT 1
 #define OB_EMPTY_IMAGE_DEPTH_BACK 2
 
-/* ob->empty_image_visibility_flag */
+/** #Object.empty_image_visibility_flag */
 enum {
-	OB_EMPTY_IMAGE_VISIBLE_PERSPECTIVE  = 1 << 0,
-	OB_EMPTY_IMAGE_VISIBLE_ORTHOGRAPHIC = 1 << 1,
-	OB_EMPTY_IMAGE_VISIBLE_BACKSIDE     = 1 << 2,
+	OB_EMPTY_IMAGE_HIDE_PERSPECTIVE  = 1 << 0,
+	OB_EMPTY_IMAGE_HIDE_ORTHOGRAPHIC = 1 << 1,
+	OB_EMPTY_IMAGE_HIDE_BACK         = 1 << 2,
+	OB_EMPTY_IMAGE_HIDE_FRONT        = 1 << 3,
 };
 
 #define MAX_DUPLI_RECUR 8

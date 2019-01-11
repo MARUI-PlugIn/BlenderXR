@@ -289,13 +289,16 @@ bool DepsgraphRelationBuilder::has_node(const OperationKey &key) const
 	return find_node(key) != NULL;
 }
 
-void DepsgraphRelationBuilder::add_customdata_mask(const ComponentKey &key, uint64_t mask)
+void DepsgraphRelationBuilder::add_customdata_mask(Object *object, uint64_t mask)
 {
-	if (mask != 0) {
-		OperationDepsNode *node = find_operation_node(key);
+	if (mask != 0 && object != NULL && object->type == OB_MESH) {
+		DEG::IDDepsNode *id_node = graph_->find_id_node(&object->id);
 
-		if (node != NULL) {
-			node->customdata_mask |= mask;
+		if (id_node == NULL) {
+			BLI_assert(!"ID should always be valid");
+		}
+		else {
+			id_node->customdata_mask |= mask;
 		}
 	}
 }
@@ -407,7 +410,8 @@ void DepsgraphRelationBuilder::add_forcefield_relations(
 		}
 		if (relation->psys) {
 			if (relation->ob != object) {
-				ComponentKey eff_key(&relation->ob->id, DEG_NODE_TYPE_EVAL_PARTICLES);
+				ComponentKey eff_key(&relation->ob->id,
+				                     DEG_NODE_TYPE_PARTICLE_SYSTEM);
 				add_relation(eff_key, key, name);
 				/* TODO: remove this when/if EVAL_PARTICLES is sufficient
 				 * for up to date particles.
@@ -417,7 +421,7 @@ void DepsgraphRelationBuilder::add_forcefield_relations(
 			}
 			else if (relation->psys != psys) {
 				OperationKey eff_key(&relation->ob->id,
-				                     DEG_NODE_TYPE_EVAL_PARTICLES,
+				                     DEG_NODE_TYPE_PARTICLE_SYSTEM,
 				                     DEG_OPCODE_PARTICLE_SYSTEM_EVAL,
 				                     relation->psys->name);
 				add_relation(eff_key, key, name);
@@ -496,6 +500,9 @@ void DepsgraphRelationBuilder::build_id(ID *id)
 			break;
 		case ID_TXT:
 			/* Not a part of dependency graph. */
+			break;
+		case ID_CF:
+			build_cachefile((CacheFile *)id);
 			break;
 		default:
 			fprintf(stderr, "Unhandled ID %s\n", id->name);
@@ -655,7 +662,7 @@ void DepsgraphRelationBuilder::build_object(Base *base, Object *object)
 	build_object_data(object);
 	/* Particle systems. */
 	if (object->particlesystem.first != NULL) {
-		build_particles(object);
+		build_particle_systems(object);
 	}
 	/* Proxy object to copy from. */
 	if (object->proxy_from != NULL) {
@@ -677,6 +684,12 @@ void DepsgraphRelationBuilder::build_object(Base *base, Object *object)
 	}
 	/* Point caches. */
 	build_object_pointcache(object);
+	/* Syncronization back to original object. */
+	OperationKey synchronize_key(&object->id,
+	                             DEG_NODE_TYPE_SYNCHRONIZE,
+	                             DEG_OPCODE_SYNCHRONIZE_TO_ORIGINAL);
+	add_relation(
+	        final_transform_key, synchronize_key, "Synchronize to Original");
 }
 
 void DepsgraphRelationBuilder::build_object_flags(Base *base, Object *object)
@@ -691,6 +704,12 @@ void DepsgraphRelationBuilder::build_object_flags(Base *base, Object *object)
 	                              DEG_NODE_TYPE_OBJECT_FROM_LAYER,
 	                              DEG_OPCODE_OBJECT_BASE_FLAGS);
 	add_relation(view_layer_done_key, object_flags_key, "Base flags flush");
+	/* Syncronization back to original object. */
+	OperationKey synchronize_key(&object->id,
+	                             DEG_NODE_TYPE_SYNCHRONIZE,
+	                             DEG_OPCODE_SYNCHRONIZE_TO_ORIGINAL);
+	add_relation(
+	        object_flags_key, synchronize_key, "Synchronize to Original");
 }
 
 void DepsgraphRelationBuilder::build_object_data(Object *object)
@@ -825,7 +844,7 @@ void DepsgraphRelationBuilder::build_object_parent(Object *object)
 			add_relation(parent_key, ob_key, "Vertex Parent");
 
 			/* XXX not sure what this is for or how you could be done properly - lukas */
-			add_customdata_mask(parent_key, CD_MASK_ORIGINDEX);
+			add_customdata_mask(object->parent, CD_MASK_ORIGINDEX);
 
 			ComponentKey transform_key(&object->parent->id, DEG_NODE_TYPE_TRANSFORM);
 			add_relation(transform_key, ob_key, "Vertex Parent TFM");
@@ -1053,9 +1072,7 @@ void DepsgraphRelationBuilder::build_constraints(ID *id,
 					 */
 					ComponentKey target_key(&ct->tar->id, DEG_NODE_TYPE_GEOMETRY);
 					add_relation(target_key, constraint_op_key, cti->name);
-					if (ct->tar->type == OB_MESH) {
-						add_customdata_mask(target_key, CD_MASK_MDEFORMVERT);
-					}
+					add_customdata_mask(ct->tar, CD_MASK_MDEFORMVERT);
 				}
 				else if (con->type == CONSTRAINT_TYPE_SHRINKWRAP) {
 					bShrinkwrapConstraint *scon = (bShrinkwrapConstraint *) con->data;
@@ -1068,7 +1085,7 @@ void DepsgraphRelationBuilder::build_constraints(ID *id,
 					if (ct->tar->type == OB_MESH && scon->shrinkType != MOD_SHRINKWRAP_NEAREST_VERTEX) {
 						bool track = (scon->flag & CON_SHRINKWRAP_TRACK_NORMAL) != 0;
 						if (track || BKE_shrinkwrap_needs_normals(scon->shrinkType, scon->shrinkMode)) {
-							add_customdata_mask(target_key, CD_MASK_NORMAL | CD_MASK_CUSTOMLOOPNORMAL);
+							add_customdata_mask(ct->tar, CD_MASK_NORMAL | CD_MASK_CUSTOMLOOPNORMAL);
 						}
 						if (scon->shrinkType == MOD_SHRINKWRAP_TARGET_PROJECT) {
 							add_special_eval_flag(&ct->tar->id, DAG_EVAL_NEED_SHRINKWRAP_BOUNDARY);
@@ -1469,7 +1486,7 @@ void DepsgraphRelationBuilder::build_driver_variables(ID *id, FCurve *fcu)
 
 	LISTBASE_FOREACH (DriverVar *, dvar, &driver->variables) {
 		/* Only used targets. */
-		DRIVER_TARGETS_USED_LOOPER(dvar)
+		DRIVER_TARGETS_USED_LOOPER_BEGIN(dvar)
 		{
 			if (dtar->id == NULL) {
 				continue;
@@ -1543,7 +1560,7 @@ void DepsgraphRelationBuilder::build_driver_variables(ID *id, FCurve *fcu)
 				 * is an incomplete target reference, so nothing to do here. */
 			}
 		}
-		DRIVER_TARGETS_LOOPER_END
+		DRIVER_TARGETS_LOOPER_END;
 	}
 }
 
@@ -1580,6 +1597,14 @@ void DepsgraphRelationBuilder::build_rigidbody(Scene *scene)
 
 	/* set up dependencies between these operations and other builtin nodes --------------- */
 
+	/* effectors */
+	ListBase *relations = deg_build_effector_relations(graph_, rbw->effector_weights->group);
+	LISTBASE_FOREACH (EffectorRelation *, relation, relations) {
+		ComponentKey eff_key(&relation->ob->id, DEG_NODE_TYPE_TRANSFORM);
+		add_relation(eff_key, init_key, "RigidBody Field");
+		// FIXME add relations so pointache is marked as outdated when effectors are modified
+	}
+
 	/* time dependency */
 	TimeSourceKey time_src_key;
 	add_relation(time_src_key, init_key, "TimeSrc -> Rigidbody Reset/Rebuild (Optional)");
@@ -1611,7 +1636,7 @@ void DepsgraphRelationBuilder::build_rigidbody(Scene *scene)
 
 			/* Geometry must be known to create the rigid body. RBO_MESH_BASE uses the non-evaluated
 			 * mesh, so then the evaluation is unnecessary. */
-			if (object->rigidbody_object->mesh_source != RBO_MESH_BASE) {
+			if (object->rigidbody_object != NULL && object->rigidbody_object->mesh_source != RBO_MESH_BASE) {
 				ComponentKey geom_key(&object->id, DEG_NODE_TYPE_GEOMETRY);
 				add_relation(geom_key, init_key, "Object Geom Eval -> Rigidbody Rebuild");
 			}
@@ -1676,16 +1701,23 @@ void DepsgraphRelationBuilder::build_rigidbody(Scene *scene)
 	}
 }
 
-void DepsgraphRelationBuilder::build_particles(Object *object)
+void DepsgraphRelationBuilder::build_particle_systems(Object *object)
 {
 	TimeSourceKey time_src_key;
 	OperationKey obdata_ubereval_key(&object->id,
 	                                 DEG_NODE_TYPE_GEOMETRY,
 	                                 DEG_OPCODE_GEOMETRY_UBEREVAL);
 	OperationKey eval_init_key(&object->id,
-	                           DEG_NODE_TYPE_EVAL_PARTICLES,
-	                           DEG_OPCODE_PARTICLE_SYSTEM_EVAL_INIT);
-
+	                           DEG_NODE_TYPE_PARTICLE_SYSTEM,
+	                           DEG_OPCODE_PARTICLE_SYSTEM_INIT);
+	OperationKey eval_done_key(&object->id,
+	                           DEG_NODE_TYPE_PARTICLE_SYSTEM,
+	                           DEG_OPCODE_PARTICLE_SYSTEM_DONE);
+	ComponentKey eval_key(&object->id, DEG_NODE_TYPE_PARTICLE_SYSTEM);
+	if (BKE_ptcache_object_has(scene_, object, 0)) {
+		ComponentKey point_cache_key(&object->id, DEG_NODE_TYPE_POINT_CACHE);
+		add_relation(eval_key, point_cache_key, "Particle Point Cache");
+	}
 	/* Particle systems. */
 	LISTBASE_FOREACH (ParticleSystem *, psys, &object->particlesystem) {
 		ParticleSettings *part = psys->part;
@@ -1698,16 +1730,17 @@ void DepsgraphRelationBuilder::build_particles(Object *object)
 
 		/* This particle system. */
 		OperationKey psys_key(&object->id,
-		                      DEG_NODE_TYPE_EVAL_PARTICLES,
+		                      DEG_NODE_TYPE_PARTICLE_SYSTEM,
 		                      DEG_OPCODE_PARTICLE_SYSTEM_EVAL,
 		                      psys->name);
 
 		/* Update particle system when settings changes. */
 		OperationKey particle_settings_key(&part->id,
-		                                   DEG_NODE_TYPE_PARAMETERS,
+		                                   DEG_NODE_TYPE_PARTICLE_SETTINGS,
 		                                   DEG_OPCODE_PARTICLE_SETTINGS_EVAL);
 		add_relation(particle_settings_key, eval_init_key, "Particle Settings Change");
 		add_relation(eval_init_key, psys_key, "Init -> PSys");
+		add_relation(psys_key, eval_done_key, "PSys -> Done");
 		/* TODO(sergey): Currently particle update is just a placeholder,
 		 * hook it to the ubereval node so particle system is getting updated
 		 * on playback.
@@ -1761,18 +1794,16 @@ void DepsgraphRelationBuilder::build_particles(Object *object)
 					/* Make sure object's relations are all built.  */
 					build_object(NULL, part->dup_ob);
 					/* Build relation for the particle visualization. */
-					build_particles_visualization_object(object,
-					                                     psys,
-					                                     part->dup_ob);
+					build_particle_system_visualization_object(
+					        object,  psys, part->dup_ob);
 				}
 				break;
 			case PART_DRAW_GR:
 				if (part->dup_group != NULL) {
 					build_collection(NULL, NULL, part->dup_group);
 					LISTBASE_FOREACH (CollectionObject *, go, &part->dup_group->gobject) {
-						build_particles_visualization_object(object,
-						                                     psys,
-						                                     go->ob);
+						build_particle_system_visualization_object(
+						        object, psys, go->ob);
 					}
 				}
 				break;
@@ -1786,7 +1817,7 @@ void DepsgraphRelationBuilder::build_particles(Object *object)
 	 * is implemented.
 	 */
 	ComponentKey transform_key(&object->id, DEG_NODE_TYPE_TRANSFORM);
-	add_relation(transform_key, obdata_ubereval_key, "Partcile Eval");
+	add_relation(transform_key, obdata_ubereval_key, "Particle Eval");
 }
 
 void DepsgraphRelationBuilder::build_particle_settings(ParticleSettings *part)
@@ -1796,15 +1827,51 @@ void DepsgraphRelationBuilder::build_particle_settings(ParticleSettings *part)
 	}
 	/* Animation data relations. */
 	build_animdata(&part->id);
+	OperationKey particle_settings_init_key(&part->id,
+	                                        DEG_NODE_TYPE_PARTICLE_SETTINGS,
+	                                        DEG_OPCODE_PARTICLE_SETTINGS_INIT);
+	OperationKey particle_settings_eval_key(&part->id,
+	                                        DEG_NODE_TYPE_PARTICLE_SETTINGS,
+	                                        DEG_OPCODE_PARTICLE_SETTINGS_EVAL);
+	OperationKey particle_settings_reset_key(
+	        &part->id,
+	        DEG_NODE_TYPE_PARTICLE_SETTINGS,
+	        DEG_OPCODE_PARTICLE_SETTINGS_RESET);
+	add_relation(particle_settings_init_key,
+	             particle_settings_eval_key,
+	             "Particle Settings Init Order");
+	add_relation(particle_settings_reset_key,
+	             particle_settings_eval_key,
+	             "Particle Settings Reset");
+	/* Texture slots. */
+	for (int mtex_index = 0; mtex_index < MAX_MTEX; ++mtex_index) {
+		MTex *mtex = part->mtex[mtex_index];
+		if (mtex == NULL || mtex->tex == NULL) {
+			continue;
+		}
+		build_texture(mtex->tex);
+		ComponentKey texture_key(&mtex->tex->id,
+		                         DEG_NODE_TYPE_GENERIC_DATABLOCK);
+		add_relation(texture_key,
+		             particle_settings_reset_key,
+		             "Particle Texture",
+		             DEPSREL_FLAG_FLUSH_USER_EDIT_ONLY);
+	}
+	if (check_id_has_anim_component(&part->id)) {
+		ComponentKey animation_key(&part->id, DEG_NODE_TYPE_ANIMATION);
+		add_relation(animation_key,
+		             particle_settings_eval_key,
+		             "Particle Settings Animation");
+	}
 }
 
-void DepsgraphRelationBuilder::build_particles_visualization_object(
+void DepsgraphRelationBuilder::build_particle_system_visualization_object(
         Object *object,
         ParticleSystem *psys,
         Object *draw_object)
 {
 	OperationKey psys_key(&object->id,
-	                      DEG_NODE_TYPE_EVAL_PARTICLES,
+	                      DEG_NODE_TYPE_PARTICLE_SYSTEM,
 	                      DEG_OPCODE_PARTICLE_SYSTEM_EVAL,
 	                      psys->name);
 	OperationKey obdata_ubereval_key(&object->id,
@@ -2019,6 +2086,13 @@ void DepsgraphRelationBuilder::build_object_data_geometry(Object *object)
 			}
 		}
 	}
+	/* Syncronization back to original object. */
+	ComponentKey final_geometry_jey(&object->id, DEG_NODE_TYPE_GEOMETRY);
+	OperationKey synchronize_key(&object->id,
+	                             DEG_NODE_TYPE_SYNCHRONIZE,
+	                             DEG_OPCODE_SYNCHRONIZE_TO_ORIGINAL);
+	add_relation(
+	        final_geometry_jey, synchronize_key, "Synchronize to Original");
 }
 
 void DepsgraphRelationBuilder::build_object_data_geometry_datablock(ID *obdata)
@@ -2262,6 +2336,12 @@ void DepsgraphRelationBuilder::build_texture(Tex *texture)
 	/* texture's nodetree */
 	build_nodetree(texture->nodetree);
 	build_nested_nodetree(&texture->id, texture->nodetree);
+	if (check_id_has_anim_component(&texture->id)) {
+		ComponentKey animation_key(&texture->id, DEG_NODE_TYPE_ANIMATION);
+		ComponentKey datablock_key(&texture->id,
+		                           DEG_NODE_TYPE_GENERIC_DATABLOCK);
+		add_relation(animation_key, datablock_key, "Datablock Animation");
+	}
 }
 
 void DepsgraphRelationBuilder::build_compositor(Scene *scene)
