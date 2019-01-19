@@ -390,6 +390,8 @@ class Widget_Transform : public VR_Widget
 	static Coord3Df manip_angle[VR_UI::TRANSFORMSPACES];	/* The current manipulator angle (euler xyz) when constraining rotations. */
 	static float manip_scale_factor;	/* Scale factor for the manipulator (relative to longest selected object axis). */
 
+	static Mat44f obmat_inv;	/* The inverse of the selected object's transformation (edit mode). */
+
 	static void raycast_select_manipulator(const Coord3Df& p, bool *extrude=0);	/* Select a manipulator component with raycast selection. */
 public:
 	static void update_manipulator();	/* Update the manipulator transform. */

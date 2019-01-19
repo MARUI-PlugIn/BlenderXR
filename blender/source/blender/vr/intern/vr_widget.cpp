@@ -2447,10 +2447,10 @@ static void raycast_select_single_edit(
 	/* setup view context */
 	ED_view3d_viewcontext_init(C, &vc);
 	ToolSettings *ts = vc.scene->toolsettings;
-
-	if (vc.obedit) {
-		ED_view3d_viewcontext_init_object(&vc, vc.obedit);
-		vc.em = BKE_editmesh_from_object(vc.obedit);
+	Object *obedit = vc.obedit;
+	if (obedit && BKE_object_is_in_editmode(obedit)) {
+		ED_view3d_viewcontext_init_object(&vc, obedit);
+		vc.em = BKE_editmesh_from_object(obedit);
 		if (!vc.em) {
 			return;
 		}
@@ -3553,6 +3553,8 @@ Mat44f Widget_Transform::manip_t_snap;
 Coord3Df Widget_Transform::manip_angle[VR_UI::TRANSFORMSPACES];
 float Widget_Transform::manip_scale_factor(2.0f);
 
+Mat44f Widget_Transform::obmat_inv;
+
 /* Manipulator colors. */
 static const float c_manip[4][4] = { 1.0f, 0.2f, 0.322f, 0.4f,
 									 0.545f, 0.863f, 0.0f, 0.4f,
@@ -4226,7 +4228,8 @@ void Widget_Transform::drag_start(VR_UI::Cursor& c)
 	memset(&manip_angle, 0, sizeof(float) * 9);
 	/* Save original manipulator transformation */
 	if (obedit) {
-		manip_t_orig = manip_t * (*(Mat44f*)obedit->obmat).inverse();
+		obmat_inv = (*(Mat44f*)obedit->obmat).inverse();
+		manip_t_orig = manip_t * obmat_inv;
 	}
 	else {
 		manip_t_orig = manip_t;
@@ -4256,12 +4259,17 @@ void Widget_Transform::drag_contd(VR_UI::Cursor& c)
 	}
 	ToolSettings *ts = NULL;
 	BMesh *bm = NULL;
-	if (obedit && obedit->type == OB_MESH) {
+	if (obedit) {
 		/* Edit mode */
 		ts = CTX_data_scene(C)->toolsettings;
-		bm = ((Mesh*)obedit->data)->edit_btmesh->bm;
-		if (!ts || !bm) {
+		if (!ts) {
 			return;
+		}
+		if (obedit->type == OB_MESH) {
+			bm = ((Mesh*)obedit->data)->edit_btmesh->bm;
+			if (!bm) {
+				return;
+			}
 		}
 	}
 
@@ -4338,6 +4346,11 @@ void Widget_Transform::drag_contd(VR_UI::Cursor& c)
 		curr = c.position.get(VR_SPACE_BLENDER);
 		prev = c.interaction_position.get(VR_SPACE_BLENDER);
 		c.interaction_position.set(curr.m, VR_SPACE_BLENDER);
+	}
+
+	if (obedit) {
+		curr = curr * obmat_inv;
+		prev = prev * obmat_inv;
 	}
 
 	/* Calculate delta based on transform mode. */
@@ -4679,8 +4692,8 @@ void Widget_Transform::drag_contd(VR_UI::Cursor& c)
 			if (obedit) { /* Edit mode */
 				Mat44f& nonsnap_m = *nonsnap_t[index];
 				if (!snapped) {
-					nonsnap_m = manip_t;
-					manip_t_snap = manip_t;
+					nonsnap_m = manip_t * obmat_inv;
+					manip_t_snap = manip_t * obmat_inv;
 				}
 				else {
 					m = nonsnap_m;
@@ -4820,38 +4833,39 @@ void Widget_Transform::drag_contd(VR_UI::Cursor& c)
 				}
 				case VR_UI::SNAPMODE_SCALE: {
 					/* Scale */
-					if (transform_space == VR_UI::TRANSFORMSPACE_GLOBAL && constraint_mode != VR_UI::CONSTRAINTMODE_NONE) {
-						/* TODO_XR */
-						break;
-						/*for (int i = 0; i < 3; ++i) {
-							if (snap_flag[i]) {
-								continue;
-							}
-							(*(Coord3Df*)manip_t_snap.m[i]).normalize_in_place() *= (*(Coord3Df*)nonsnap_m.m[i]).length();
-						}
-						static Mat44f t;
-						transpose_m4_m4(t.m, nonsnap_m.m);
-						for (int i = 0; i < 3; ++i) {
-							scale[i] = (*(Coord3Df*)t.m[i]).length();
-						}*/
-					}
-					for (int i = 0; i < 3; ++i) {
-						if (!snap_flag[i]) {
-							continue;
-						}
-						if (VR_UI::shift_key_get()) {
-							/* Snap scale based on the power of ten magnitude of the curent scale */
-							precision = 0.1f * powf(10.0f, floor(log10(scale[i])));
-						}
-						else {
-							precision = 0.5f * powf(10.0f, floor(log10(scale[i])));
-						}
-						val = roundf(scale[i] / precision);
-						if (val == 0.0f) {
-							val = 1.0f;
-						}
-						(*(Coord3Df*)manip_t_snap.m[i]).normalize_in_place() *= (precision * val);
-					}
+					/* TODO_XR */
+					//if (transform_space == VR_UI::TRANSFORMSPACE_GLOBAL && constraint_mode != VR_UI::CONSTRAINTMODE_NONE) {
+					//	/* TODO_XR */
+					//	break;
+					//	/*for (int i = 0; i < 3; ++i) {
+					//		if (snap_flag[i]) {
+					//			continue;
+					//		}
+					//		(*(Coord3Df*)manip_t_snap.m[i]).normalize_in_place() *= (*(Coord3Df*)nonsnap_m.m[i]).length();
+					//	}
+					//	static Mat44f t;
+					//	transpose_m4_m4(t.m, nonsnap_m.m);
+					//	for (int i = 0; i < 3; ++i) {
+					//		scale[i] = (*(Coord3Df*)t.m[i]).length();
+					//	}*/
+					//}
+					//for (int i = 0; i < 3; ++i) {
+					//	if (!snap_flag[i]) {
+					//		continue;
+					//	}
+					//	if (VR_UI::shift_key_get()) {
+					//		/* Snap scale based on the power of ten magnitude of the curent scale */
+					//		precision = 0.1f * powf(10.0f, floor(log10(scale[i])));
+					//	}
+					//	else {
+					//		precision = 0.5f * powf(10.0f, floor(log10(scale[i])));
+					//	}
+					//	val = roundf(scale[i] / precision);
+					//	if (val == 0.0f) {
+					//		val = 1.0f;
+					//	}
+					//	(*(Coord3Df*)manip_t_snap.m[i]).normalize_in_place() *= (precision * val);
+					//}
 					break;
 				}
 				default: {
@@ -4860,6 +4874,9 @@ void Widget_Transform::drag_contd(VR_UI::Cursor& c)
 				}
 
 				delta = manip_t_prev.inverse() * manip_t_snap;
+				if (snap_mode == VR_UI::SNAPMODE_ROTATION) {
+					memset(delta.m[3], 0, sizeof(float) * 3);
+				}
 				BMIter iter;
 
 				if (ts->selectmode & SCE_SELECT_VERTEX) {
@@ -4901,7 +4918,7 @@ void Widget_Transform::drag_contd(VR_UI::Cursor& c)
 				}
 
 				/* Set recalc flags. */
-				DEG_id_tag_update((ID*)obedit->data, ID_RECALC_GEOMETRY);
+				DEG_id_tag_update((ID*)obedit->data, 0);
 				/* Exit object iteration loop. */
 				break;
 			}
@@ -5094,6 +5111,28 @@ void Widget_Transform::drag_contd(VR_UI::Cursor& c)
 		}
 		else {
 			if (obedit) { /* Edit mode */
+				/* Transform mode */
+				switch (transform_mode) {
+				case TRANSFORMMODE_MOVE: {
+					for (int i = 0; i < 3; ++i) {
+						memcpy(delta.m[i], VR_Math::identity_f.m[i], sizeof(float) * 3);
+					}
+					break;
+				}
+				case TRANSFORMMODE_ROTATE: {
+					memset(delta.m[3], 0, sizeof(float) * 3);
+					break;
+				}
+				case TRANSFORMMODE_SCALE: {
+					memset(delta.m[3], 0, sizeof(float) * 3);
+					break;
+				}
+				case TRANSFORMMODE_OMNI: 
+				default: {
+					break;
+				}
+				}
+
 				BMIter iter;
 				if (ts->selectmode & SCE_SELECT_VERTEX) {
 					BMVert *v;
@@ -5134,7 +5173,7 @@ void Widget_Transform::drag_contd(VR_UI::Cursor& c)
 				}
 
 				/* Set recalc flags. */
-				DEG_id_tag_update((ID*)obedit->data, ID_RECALC_GEOMETRY);
+				DEG_id_tag_update((ID*)obedit->data, 0);
 				/* Exit object iteration loop. */
 				break;
 			}
@@ -5368,28 +5407,51 @@ void Widget_Transform::render_axes(const float length[3], int draw_style)
 		GPUBatch *sphere = GPU_batch_preset_sphere(0);
 		GPU_batch_program_set_builtin(sphere, GPU_SHADER_3D_UNIFORM_COLOR);
 		float offset[3];
-		for (int i = 0; i < 3; ++i) {
-			if (Widget_Extrude::extrude && constraint_flag[i]) {
-				GPU_batch_uniform_4fv(sphere, "color", c_manip_select[i]);
+		if (Widget_Extrude::extrude_mode == Widget_Extrude::EXTRUDEMODE_REGION) {
+			/* xyz extrude balls */
+			for (int i = 0; i < 3; ++i) {
+				if (Widget_Extrude::extrude && constraint_flag[i]) {
+					GPU_batch_uniform_4fv(sphere, "color", c_manip_select[i]);
+				}
+				else {
+					GPU_batch_uniform_4fv(sphere, "color", c_manip[i]);
+				}
+				float scale = length[i] * WIDGET_TRANSFORM_BALL_SCALE_FACTOR * 2.0f;
+				switch (i) {
+				case 0: { /* x-axis */
+					offset[0] = length[0] + scale * 3.0f; offset[1] = 0.0f; offset[2] = 0.0f;
+					break;
+				}
+				case 1: { /* y-axis */
+					offset[0] = 0.0f; offset[1] = length[1] + scale * 3.0f; offset[2] = 0.0f;
+					break;
+				}
+				case 2: { /* z-axis */
+					offset[0] = 0.0f; offset[1] = 0.0f; offset[2] = length[2] + scale * 3.0f;
+					break;
+				}
+				}
+
+				GPU_matrix_translate_3fv(offset);
+				GPU_matrix_scale_1f(scale);
+
+				GPU_batch_draw(sphere);
+
+				GPU_matrix_scale_1f(1.0f / (scale));
+				*(Coord3Df*)offset *= -1.0f;
+				GPU_matrix_translate_3fv(offset);
+			}
+		}
+		else {
+			/* extrude ball */
+			if (Widget_Extrude::extrude && constraint_flag[2]) {
+				GPU_batch_uniform_4fv(sphere, "color", c_manip_select[3]);
 			}
 			else {
-				GPU_batch_uniform_4fv(sphere, "color", c_manip[i]);
+				GPU_batch_uniform_4fv(sphere, "color", c_manip[3]);
 			}
-			float scale = length[i] * WIDGET_TRANSFORM_BALL_SCALE_FACTOR * 2.0f;
-			switch (i) {
-			case 0: { /* x-axis */
-				offset[0] = length[0] + scale * 3.0f; offset[1] = 0.0f; offset[2] = 0.0f;
-				break;
-			}
-			case 1: { /* y-axis */
-				offset[0] = 0.0f; offset[1] = length[1] + scale * 3.0f; offset[2] = 0.0f;
-				break;
-			}
-			case 2: { /* z-axis */
-				offset[0] = 0.0f; offset[1] = 0.0f; offset[2] = length[2] + scale * 3.0f; 
-				break;
-			}
-			}
+			float scale = length[2] * WIDGET_TRANSFORM_BALL_SCALE_FACTOR * 2.0f;
+			offset[0] = 0.0f; offset[1] = 0.0f; offset[2] = length[2] + scale * 3.0f;
 
 			GPU_matrix_translate_3fv(offset);
 			GPU_matrix_scale_1f(scale);
@@ -7565,7 +7627,8 @@ void Widget_Extrude::drag_start(VR_UI::Cursor& c)
 	/* Reset manipulator angles */
 	memset(&Widget_Transform::manip_angle, 0, sizeof(float) * 9);
 	/* Save original manipulator transformation */
-	Widget_Transform::manip_t_orig = Widget_Transform::manip_t * (*(Mat44f*)obedit->obmat).inverse();
+	Widget_Transform::obmat_inv = (*(Mat44f*)obedit->obmat).inverse();
+	Widget_Transform::manip_t_orig = Widget_Transform::manip_t * Widget_Transform::obmat_inv;
 
 	for (int i = 0; i < VR_SIDES; ++i) {
 		Widget_Extrude::obj.do_render[i] = true;
@@ -7586,12 +7649,17 @@ void Widget_Extrude::drag_contd(VR_UI::Cursor& c)
 	}
 	ToolSettings *ts = NULL;
 	BMesh *bm = NULL;
-	if (obedit->type == OB_MESH) {
+	if (obedit) {
 		/* Edit mode */
 		ts = CTX_data_scene(C)->toolsettings;
-		bm = ((Mesh*)obedit->data)->edit_btmesh->bm;
-		if (!ts || !bm) {
+		if (!ts) {
 			return;
+		}
+		if (obedit->type == OB_MESH) {
+			bm = ((Mesh*)obedit->data)->edit_btmesh->bm;
+			if (!bm) {
+				return;
+			}
 		}
 	}
 	else {
@@ -7672,6 +7740,9 @@ void Widget_Extrude::drag_contd(VR_UI::Cursor& c)
 		prev = c.interaction_position.get(VR_SPACE_BLENDER);
 		c.interaction_position.set(curr.m, VR_SPACE_BLENDER);
 	}
+
+	curr = curr * Widget_Transform::obmat_inv;
+	prev = prev * Widget_Transform::obmat_inv;
 
 	/* Calculate delta based on transform mode. */
 	static Mat44f delta;
@@ -8005,8 +8076,8 @@ void Widget_Extrude::drag_contd(VR_UI::Cursor& c)
 	if (snap) {
 		Mat44f& nonsnap_m = *Widget_Transform::nonsnap_t[0];
 		if (!Widget_Transform::snapped) {
-			nonsnap_m = Widget_Transform::manip_t;
-			Widget_Transform::manip_t_snap = Widget_Transform::manip_t;
+			nonsnap_m = Widget_Transform::manip_t * Widget_Transform::obmat_inv;
+			Widget_Transform::manip_t_snap = Widget_Transform::manip_t * Widget_Transform::obmat_inv;
 		}
 		else {
 			m = nonsnap_m;
@@ -8096,7 +8167,7 @@ void Widget_Extrude::drag_contd(VR_UI::Cursor& c)
 			else {
 				precision = WIDGET_TRANSFORM_ROT_PRECISION;
 			}
-			/* TODO_XR: Local rotation snapping (no constraints). */
+			/* TODO_XR: Local / normal rotation snapping (no constraints). */
 			mat4_to_eul(eul, nonsnap_m.m);
 			//static float eul_orig[3];
 			//memcpy(eul_orig, eul, sizeof(float) * 3);
@@ -8114,70 +8185,71 @@ void Widget_Extrude::drag_contd(VR_UI::Cursor& c)
 			}
 			/* Update manipulator angles. */
 			/* TODO_XR */
-			/*for (int i = 0; i < 3; ++i) {
-				if (!Widget_Transform::snap_flag[i]) {
-					continue;
-				}
-				switch (i) {
-				case 0: {
-					float& m_angle = Widget_Transform::manip_angle[Widget_Transform::transform_space].x;
-					m_angle += eul[i] - eul_orig[i];
-					val = roundf(m_angle / precision);
-					m_angle = precision * val;
-					break;
-				}
-				case 1: {
-					float& m_angle = Widget_Transform::manip_angle[Widget_Transform::transform_space].y;
-					m_angle += eul[i] - eul_orig[i];
-					val = roundf(m_angle / precision);
-					m_angle = precision * val;
-					break;
-				}
-				case 2: {
-					float& m_angle = Widget_Transform::manip_angle[Widget_Transform::transform_space].z;
-					m_angle += eul[i] - eul_orig[i];
-					val = roundf(m_angle / precision);
-					m_angle = precision * val;
-					break;
-				}
-				}
-			}*/
+			//for (int i = 0; i < 3; ++i) {
+			//	if (!Widget_Transform::snap_flag[i]) {
+			//		continue;
+			//	}
+			//	switch (i) {
+			//	case 0: {
+			//		float& m_angle = Widget_Transform::manip_angle[transform_space].x;
+			//		m_angle += eul[i] - eul_orig[i];
+			//		val = roundf(m_angle / precision);
+			//		m_angle = precision * val;
+			//		break;
+			//	}
+			//	case 1: {
+			//		float& m_angle = Widget_Transform::manip_angle[transform_space].y;
+			//		m_angle += eul[i] - eul_orig[i];
+			//		val = roundf(m_angle / precision);
+			//		m_angle = precision * val;
+			//		break;
+			//	}
+			//	case 2: {
+			//		float& m_angle = Widget_Transform::manip_angle[transform_space].z;
+			//		m_angle += eul[i] - eul_orig[i];
+			//		val = roundf(m_angle / precision);
+			//		m_angle = precision * val;
+			//		break;
+			//	}
+			//	}
+			//}
 			break;
 		}
 		case VR_UI::SNAPMODE_SCALE: {
 			/* Scale */
-			if (Widget_Transform::transform_space == VR_UI::TRANSFORMSPACE_GLOBAL && Widget_Transform::constraint_mode != VR_UI::CONSTRAINTMODE_NONE) {
-				/* TODO_XR */
-				break;
-				/*for (int i = 0; i < 3; ++i) {
-					if (Widget_Transform::snap_flag[i]) {
-						continue;
-					}
-					(*(Coord3Df*)Widget_Transform::manip_t_snap.m[i]).normalize_in_place() *= (*(Coord3Df*)nonsnap_m.m[i]).length();
-				}
-				static Mat44f t;
-				transpose_m4_m4(t.m, nonsnap_m.m);
-				for (int i = 0; i < 3; ++i) {
-					scale[i] = (*(Coord3Df*)t.m[i]).length();
-				}*/
-			}
-			for (int i = 0; i < 3; ++i) {
-				if (!Widget_Transform::snap_flag[i]) {
-					continue;
-				}
-				if (VR_UI::shift_key_get()) {
-					/* Snap scale based on the power of ten magnitude of the curent scale */
-					precision = 0.1f * powf(10.0f, floor(log10(scale[i])));
-				}
-				else {
-					precision = 0.5f * powf(10.0f, floor(log10(scale[i])));
-				}
-				val = roundf(scale[i] / precision);
-				if (val == 0.0f) {
-					val = 1.0f;
-				}
-				(*(Coord3Df*)Widget_Transform::manip_t_snap.m[i]).normalize_in_place() *= (precision * val);
-			}
+			/* TODO_XR */
+			//if (Widget_Transform::transform_space == VR_UI::TRANSFORMSPACE_GLOBAL && Widget_Transform::constraint_mode != VR_UI::CONSTRAINTMODE_NONE) {
+			//	/* TODO_XR */
+			//	break;
+			//	/*for (int i = 0; i < 3; ++i) {
+			//		if (snap_flag[i]) {
+			//			continue;
+			//		}
+			//		(*(Coord3Df*)Widget_Transform::manip_t_snap.m[i]).normalize_in_place() *= (*(Coord3Df*)nonsnap_m.m[i]).length();
+			//	}
+			//	static Mat44f t;
+			//	transpose_m4_m4(t.m, nonsnap_m.m);
+			//	for (int i = 0; i < 3; ++i) {
+			//		scale[i] = (*(Coord3Df*)t.m[i]).length();
+			//	}*/
+			//}
+			//for (int i = 0; i < 3; ++i) {
+			//	if (!snap_flag[i]) {
+			//		continue;
+			//	}
+			//	if (VR_UI::shift_key_get()) {
+			//		/* Snap scale based on the power of ten magnitude of the curent scale */
+			//		precision = 0.1f * powf(10.0f, floor(log10(scale[i])));
+			//	}
+			//	else {
+			//		precision = 0.5f * powf(10.0f, floor(log10(scale[i])));
+			//	}
+			//	val = roundf(scale[i] / precision);
+			//	if (val == 0.0f) {
+			//		val = 1.0f;
+			//	}
+			//	(*(Coord3Df*)Widget_Transform::manip_t_snap.m[i]).normalize_in_place() *= (precision * val);
+			//}
 			break;
 		}
 		default: {
@@ -8186,6 +8258,9 @@ void Widget_Extrude::drag_contd(VR_UI::Cursor& c)
 		}
 
 		delta = manip_t_prev.inverse() * Widget_Transform::manip_t_snap;
+		if (Widget_Transform::snap_mode == VR_UI::SNAPMODE_ROTATION) {
+			memset(delta.m[3], 0, sizeof(float) * 3);
+		}
 		BMIter iter;
 
 		if (ts->selectmode & SCE_SELECT_VERTEX) {
@@ -8227,6 +8302,28 @@ void Widget_Extrude::drag_contd(VR_UI::Cursor& c)
 		}
 	}
 	else {
+		/* Transform mode */
+		switch (Widget_Transform::transform_mode) {
+		case Widget_Transform::TRANSFORMMODE_MOVE: {
+			for (int i = 0; i < 3; ++i) {
+				memcpy(delta.m[i], VR_Math::identity_f.m[i], sizeof(float) * 3);
+			}
+			break;
+		}
+		case Widget_Transform::TRANSFORMMODE_ROTATE: {
+			memset(delta.m[3], 0, sizeof(float) * 3);
+			break;
+		}
+		case Widget_Transform::TRANSFORMMODE_SCALE: {
+			memset(delta.m[3], 0, sizeof(float) * 3);
+			break;
+		}
+		case Widget_Transform::TRANSFORMMODE_OMNI:
+		default: {
+			break;
+		}
+		}
+
 		/* Extrude mode */
 		BMIter iter;
 		switch (extrude_mode) {
@@ -8339,7 +8436,7 @@ void Widget_Extrude::drag_contd(VR_UI::Cursor& c)
 		}
 	}
 	/* Set recalc flags. */
-	DEG_id_tag_update((ID*)obedit->data, ID_RECALC_GEOMETRY);
+	DEG_id_tag_update((ID*)obedit->data, 0);
 
 	if (snap) {
 		Widget_Transform::snapped = true;
