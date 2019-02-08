@@ -16,11 +16,6 @@
 #
 # The Original Code is Copyright (C) 2006, Blender Foundation
 # All rights reserved.
-#
-# The Original Code is: all of this file.
-#
-# Contributor(s): Jacques Beaurain.
-#
 # ***** END GPL LICENSE BLOCK *****
 
 set(INC
@@ -86,10 +81,10 @@ set(SRC
 	intern/bmesh_construct.h
 	intern/bmesh_core.c
 	intern/bmesh_core.h
-	intern/bmesh_edgeloop.c
-	intern/bmesh_edgeloop.h
 	intern/bmesh_delete.c
 	intern/bmesh_delete.h
+	intern/bmesh_edgeloop.c
+	intern/bmesh_edgeloop.h
 	intern/bmesh_inline.h
 	intern/bmesh_interp.c
 	intern/bmesh_interp.h
@@ -129,8 +124,8 @@ set(SRC
 	intern/bmesh_walkers_impl.c
 	intern/bmesh_walkers_private.h
 
-	intern/bmesh_operator_api.h
 	intern/bmesh_error.h
+	intern/bmesh_operator_api.h
 
 	tools/bmesh_beautify.c
 	tools/bmesh_beautify.h
@@ -138,10 +133,10 @@ set(SRC
 	tools/bmesh_bevel.h
 	tools/bmesh_bisect_plane.c
 	tools/bmesh_bisect_plane.h
+	tools/bmesh_decimate.h
 	tools/bmesh_decimate_collapse.c
 	tools/bmesh_decimate_dissolve.c
 	tools/bmesh_decimate_unsubdivide.c
-	tools/bmesh_decimate.h
 	tools/bmesh_edgenet.c
 	tools/bmesh_edgenet.h
 	tools/bmesh_edgesplit.c

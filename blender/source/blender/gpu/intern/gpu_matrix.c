@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2012 Blender Foundation.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): Alexandr Kuznetsov, Jason Wilkins, Mike Erwin
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file source/blender/gpu/intern/gpu_matrix.c
- *  \ingroup gpu
+/** \file \ingroup gpu
  */
 
 #include "GPU_shader_interface.h"
@@ -75,7 +66,7 @@ typedef struct {
 static MatrixState state = {
 	.model_view_stack = {{MATRIX_4X4_IDENTITY}, 0},
 	.projection_stack = {{MATRIX_4X4_IDENTITY}, 0},
-	.dirty = true
+	.dirty = true,
 };
 
 #undef MATRIX_4X4_IDENTITY
@@ -629,7 +620,6 @@ bool GPU_matrix_dirty_get(void)
 
 
 /* -------------------------------------------------------------------- */
-
 /** \name Python API Helpers
  * \{ */
 BLI_STATIC_ASSERT(GPU_PY_MATRIX_STACK_LEN + 1 == MATRIX_STACK_DEPTH, "define mismatch");

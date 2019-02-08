@@ -1,6 +1,4 @@
 /*
- * Copyright 2016, Blender Foundation.
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,29 +13,24 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * Contributor(s): Blender Institute
- *
+ * Copyright 2016, Blender Foundation.
  */
 
-/** \file eevee_motion_blur.c
- *  \ingroup draw_engine
+/** \file \ingroup draw_engine
  *
  * Gather all screen space effects technique such as Bloom, Motion Blur, DoF, SSAO, SSR, ...
  */
 
 #include "DRW_render.h"
 
-#include "BKE_global.h" /* for G.debug_value */
 #include "BKE_camera.h"
 #include "BKE_object.h"
 #include "BKE_animsys.h"
-#include "BKE_screen.h"
 
 #include "DNA_anim_types.h"
 #include "DNA_camera_types.h"
 #include "DNA_screen_types.h"
 
-#include "ED_screen.h"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_query.h"
@@ -72,7 +65,6 @@ static void eevee_motion_blur_camera_get_matrix_at_time(
 	/* Past matrix */
 	/* FIXME : This is a temporal solution that does not take care of parent animations */
 	/* Recalc Anim manually */
-	BKE_animsys_evaluate_animdata(draw_ctx->depsgraph, scene, &cam_cpy.id, cam_cpy.adt, time, ADT_RECALC_ALL);
 	BKE_animsys_evaluate_animdata(draw_ctx->depsgraph, scene, &camdata_cpy.id, camdata_cpy.adt, time, ADT_RECALC_ALL);
 	BKE_object_where_is_calc_time(draw_ctx->depsgraph, scene, &cam_cpy, time);
 

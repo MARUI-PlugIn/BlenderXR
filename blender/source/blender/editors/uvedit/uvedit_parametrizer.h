@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,17 +12,12 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s):
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
 #ifndef __UVEDIT_PARAMETRIZER_H__
 #define __UVEDIT_PARAMETRIZER_H__
 
-/** \file blender/editors/uvedit/uvedit_parametrizer.h
- *  \ingroup eduv
+/** \file \ingroup eduv
  */
 
 #ifdef __cplusplus
@@ -37,7 +30,7 @@ typedef void ParamHandle;	/* handle to a set of charts */
 typedef intptr_t ParamKey;		/* (hash) key for identifying verts and faces */
 typedef enum ParamBool {
 	PARAM_TRUE = 1,
-	PARAM_FALSE = 0
+	PARAM_FALSE = 0,
 } ParamBool;
 
 /* Chart construction:
@@ -98,11 +91,11 @@ void param_smooth_area(ParamHandle *handle);
 
 /* Packing */
 
-void param_pack(ParamHandle *handle, float margin, bool do_rotate);
+void param_pack(ParamHandle *handle, float margin, bool do_rotate, bool ignore_pinned);
 
 /* Average area for all charts */
 
-void param_average(ParamHandle *handle);
+void param_average(ParamHandle *handle, bool ignore_pinned);
 
 /* Simple x,y scale */
 

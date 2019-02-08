@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenlib/intern/BLI_ghash_utils.c
- *  \ingroup bli
+/** \file \ingroup bli
  *
  * Helper functions and implementations of standard data types for #GHash
  * (not it's implementation).
@@ -203,8 +194,8 @@ bool BLI_ghashutil_paircmp(const void *a, const void *b)
 	const GHashPair *A = a;
 	const GHashPair *B = b;
 
-	return (BLI_ghashutil_ptrcmp(A->first, B->first) ||
-	        BLI_ghashutil_ptrcmp(A->second, B->second));
+	return ((A->first != B->first) ||
+	        (A->second != B->second));
 }
 
 void BLI_ghashutil_pairfree(void *ptr)

@@ -1,9 +1,26 @@
+/*
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software  Foundation,
+ * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * Copyright 2017, Blender Foundation.
+ */
+
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 
-#include "BLI_alloca.h"
 #include "BLI_math.h"
 #include "BLI_math_geom.h"
 #include "BLI_task.h"
@@ -269,7 +286,7 @@ BLI_INLINE void sortPolyVertsTri(unsigned int *indices, const MLoop * const mloo
 
 BLI_INLINE unsigned int nearestVert(SDefBindCalcData * const data, const float point_co[3])
 {
-	BVHTreeNearest nearest = {.dist_sq = FLT_MAX, .index = -1};
+	BVHTreeNearest nearest = { .dist_sq = FLT_MAX, .index = -1, };
 	const MPoly *poly;
 	const MEdge *edge;
 	const MLoop *loop;
@@ -976,18 +993,20 @@ static bool surfacedeformBind(
 	smd->numverts = numverts;
 	smd->numpoly = tnumpoly;
 
-	SDefBindCalcData data = {.treeData = &treeData,
-		                     .vert_edges = vert_edges,
-		                     .edge_polys = edge_polys,
-		                     .mpoly = mpoly,
-		                     .medge = medge,
-		                     .mloop = mloop,
-		                     .looptri = BKE_mesh_runtime_looptri_ensure(target),
-		                     .targetCos = MEM_malloc_arrayN(tnumverts, sizeof(float[3]), "SDefTargetBindVertArray"),
-		                     .bind_verts = smd->verts,
-		                     .vertexCos = vertexCos,
-		                     .falloff = smd->falloff,
-		                     .success = MOD_SDEF_BIND_RESULT_SUCCESS};
+	SDefBindCalcData data = {
+		.treeData = &treeData,
+		.vert_edges = vert_edges,
+		.edge_polys = edge_polys,
+		.mpoly = mpoly,
+		.medge = medge,
+		.mloop = mloop,
+		.looptri = BKE_mesh_runtime_looptri_ensure(target),
+		.targetCos = MEM_malloc_arrayN(tnumverts, sizeof(float[3]), "SDefTargetBindVertArray"),
+		.bind_verts = smd->verts,
+		.vertexCos = vertexCos,
+		.falloff = smd->falloff,
+		.success = MOD_SDEF_BIND_RESULT_SUCCESS,
+	};
 
 	if (data.targetCos == NULL) {
 		modifier_setError((ModifierData *)smd, "Out of memory");

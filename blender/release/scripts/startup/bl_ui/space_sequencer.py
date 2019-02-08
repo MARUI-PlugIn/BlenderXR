@@ -35,11 +35,11 @@ def act_strip(context):
         return None
 
 
-def sel_sequences(context):
-    try:
-        return len(context.selected_sequences) if context.selected_sequences else 0
-    except AttributeError:
+def selected_sequences_len(context):
+    selected_sequences = getattr(context, "selected_sequences", None)
+    if not selected_sequences:
         return 0
+    return len(selected_sequences)
 
 
 def draw_color_balance(layout, color_balance):
@@ -282,6 +282,30 @@ class SEQUENCER_MT_marker(Menu):
             layout.prop(st, "use_marker_sync")
 
 
+class SEQUENCER_MT_change(Menu):
+    bl_label = "Change"
+
+    def draw(self, context):
+        layout = self.layout
+        strip = act_strip(context)
+
+        layout.operator_context = 'INVOKE_REGION_WIN'
+
+        layout.operator_menu_enum("sequencer.change_effect_input", "swap")
+        layout.operator_menu_enum("sequencer.change_effect_type", "type")
+        prop = layout.operator("sequencer.change_path", text="Path/Files")
+
+        if strip:
+            stype = strip.type
+
+            if stype == 'IMAGE':
+                prop.filter_image = True
+            elif stype == 'MOVIE':
+                prop.filter_movie = True
+            elif stype == 'SOUND':
+                prop.filter_sound = True
+
+
 class SEQUENCER_MT_frame(Menu):
     bl_label = "Frame"
 
@@ -318,29 +342,35 @@ class SEQUENCER_MT_add(Menu):
         layout = self.layout
         layout.operator_context = 'INVOKE_REGION_WIN'
 
-        if len(bpy.data.scenes) > 10:
+        bpy_data_scenes_len = len(bpy.data.scenes)
+        if bpy_data_scenes_len > 10:
             layout.operator_context = 'INVOKE_DEFAULT'
             layout.operator("sequencer.scene_strip_add", text="Scene...", icon='SCENE_DATA')
-        elif len(bpy.data.scenes) > 1:
+        elif bpy_data_scenes_len > 1:
             layout.operator_menu_enum("sequencer.scene_strip_add", "scene", text="Scene", icon='SCENE_DATA')
         else:
             layout.menu("SEQUENCER_MT_add_empty", text="Scene", icon='SCENE_DATA')
+        del bpy_data_scenes_len
 
-        if len(bpy.data.movieclips) > 10:
+        bpy_data_movieclips_len = len(bpy.data.movieclips)
+        if bpy_data_movieclips_len > 10:
             layout.operator_context = 'INVOKE_DEFAULT'
-            layout.operator("sequencer.movieclip_strip_add", text="Clip...", icon='CLIP')
-        elif len(bpy.data.movieclips) > 1:
-            layout.operator_menu_enum("sequencer.movieclip_strip_add", "clip", text="Clip", icon='CLIP')
+            layout.operator("sequencer.movieclip_strip_add", text="Clip...", icon='TRACKER')
+        elif bpy_data_movieclips_len > 0:
+            layout.operator_menu_enum("sequencer.movieclip_strip_add", "clip", text="Clip", icon='TRACKER')
         else:
-            layout.menu("SEQUENCER_MT_add_empty", text="Clip", icon='CLIP')
+            layout.menu("SEQUENCER_MT_add_empty", text="Clip", icon='TRACKER')
+        del bpy_data_movieclips_len
 
-        if len(bpy.data.masks) > 10:
+        bpy_data_masks_len = len(bpy.data.masks)
+        if bpy_data_masks_len > 10:
             layout.operator_context = 'INVOKE_DEFAULT'
             layout.operator("sequencer.mask_strip_add", text="Mask...", icon='MOD_MASK')
-        elif len(bpy.data.masks) > 1:
+        elif bpy_data_masks_len > 0:
             layout.operator_menu_enum("sequencer.mask_strip_add", "mask", text="Mask", icon='MOD_MASK')
         else:
             layout.menu("SEQUENCER_MT_add_empty", text="Mask", icon='MOD_MASK')
+        del bpy_data_masks_len
 
         layout.separator()
 
@@ -363,7 +393,7 @@ class SEQUENCER_MT_add(Menu):
 
         col = layout.column()
         col.menu("SEQUENCER_MT_add_transitions")
-        col.enabled = sel_sequences(context) >= 2
+        col.enabled = selected_sequences_len(context) >= 2
 
 
 class SEQUENCER_MT_add_empty(Menu):
@@ -389,7 +419,7 @@ class SEQUENCER_MT_add_transitions(Menu):
         col.separator()
 
         col.operator("sequencer.effect_strip_add", text="Wipe").type = 'WIPE'
-        col.enabled = sel_sequences(context) >= 2
+        col.enabled = selected_sequences_len(context) >= 2
 
 
 class SEQUENCER_MT_add_effect(Menu):
@@ -408,7 +438,7 @@ class SEQUENCER_MT_add_effect(Menu):
         col.operator("sequencer.effect_strip_add", text="Alpha Over").type = 'ALPHA_OVER'
         col.operator("sequencer.effect_strip_add", text="Alpha Under").type = 'ALPHA_UNDER'
         col.operator("sequencer.effect_strip_add", text="Color Mix").type = 'COLORMIX'
-        col.enabled = sel_sequences(context) >= 2
+        col.enabled = selected_sequences_len(context) >= 2
 
         layout.separator()
 
@@ -424,7 +454,7 @@ class SEQUENCER_MT_add_effect(Menu):
 
         col.operator("sequencer.effect_strip_add", text="Glow").type = 'GLOW'
         col.operator("sequencer.effect_strip_add", text="Gaussian Blur").type = 'GAUSSIAN_BLUR'
-        col.enabled = sel_sequences(context) != 0
+        col.enabled = selected_sequences_len(context) != 0
 
 
 class SEQUENCER_MT_strip_transform(Menu):
@@ -783,6 +813,7 @@ class SEQUENCER_PT_effect(SequencerButtonsPanel, Panel):
         elif strip.type == 'TEXT':
             col = layout.column()
             col.prop(strip, "text")
+            col.template_ID(strip, "font", open="font.open", unlink="font.unlink")
             col.prop(strip, "font_size")
 
             row = col.row()
@@ -1361,6 +1392,7 @@ class SEQUENCER_PT_custom_props(SequencerButtonsPanel, PropertyPanel, Panel):
 
 
 classes = (
+    SEQUENCER_MT_change,
     SEQUENCER_HT_header,
     SEQUENCER_MT_editor_menus,
     SEQUENCER_MT_view,

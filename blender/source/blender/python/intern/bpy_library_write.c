@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,12 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/python/intern/bpy_library_write.c
- *  \ingroup pythonintern
+/** \file \ingroup pythonintern
  *
  * Python API for writing a set of data-blocks into a file.
  * Useful for writing out asset-libraries, defines: `bpy.data.libraries.write(...)`.
@@ -134,7 +129,7 @@ static PyObject *bpy_lib_write(PyObject *UNUSED(self), PyObject *args, PyObject 
 
 			if (!pyrna_id_FromPyObject(key, &id_store->id)) {
 				PyErr_Format(PyExc_TypeError,
-				             "Expected and ID type, not %.200s",
+				             "Expected an ID type, not %.200s",
 				             Py_TYPE(key)->tp_name);
 				ret = NULL;
 				goto finally;

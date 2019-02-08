@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2004-2005 by Blender Foundation
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file DNA_object_fluidsim_types.h
- *  \ingroup DNA
+/** \file \ingroup DNA
  */
 
 #ifndef __DNA_OBJECT_FLUIDSIM_TYPES_H__
@@ -39,15 +30,16 @@
 extern "C" {
 #endif
 
-struct Mesh;
 struct Ipo;
+struct Mesh;
 
 typedef struct FluidVertexVelocity {
 	float vel[3];
 } FluidVertexVelocity;
 
 typedef struct FluidsimSettings {
-	struct FluidsimModifierData *fmd; /* for fast RNA access */
+	/** For fast RNA access. */
+	struct FluidsimModifierData *fmd;
 	/* threadcont the calculation is done with */
 	int threads;
 	int pad1;
@@ -102,7 +94,10 @@ typedef struct FluidsimSettings {
 	/* additional flags depending on the type, lower short contains flags
 	 * to check validity, higher short additional flags */
 	short typeFlags;
-	/* switch off velocity generation, volume init type for fluid/obstacles (volume=1, shell=2, both=3) */
+	/**
+	 * Switch off velocity generation,
+	 * volume init type for fluid/obstacles (volume=1, shell=2, both=3).
+	 */
 	char  domainNovecgen, volumeInitType;
 
 	/* boundary "stickiness" for part slip values */
@@ -114,18 +109,19 @@ typedef struct FluidsimSettings {
 	float generateParticles;
 	/* smooth fluid surface? */
 	float surfaceSmoothing;
-	/* number of surface subdivisions*/
+	/** Number of surface subdivisions. */
 	int surfaceSubdivs;
-	int flag; /* GUI flags */
+	/** GUI flags. */
+	int flag;
 
-	/* particle display - size scaling, and alpha influence */
+	/** Particle display - size scaling, and alpha influence. */
 	float particleInfSize, particleInfAlpha;
 	/* testing vars */
 	float farFieldSize;
 
-	/* vertex velocities of simulated fluid mesh */
+	/** Vertex velocities of simulated fluid mesh. */
 	struct FluidVertexVelocity *meshVelocities;
-	/* number of vertices in simulated fluid mesh */
+	/** Number of vertices in simulated fluid mesh. */
 	int totvert;
 
 	/* Fluid control settings */
@@ -140,7 +136,7 @@ typedef struct FluidsimSettings {
 
 	int lastgoodframe;
 
-	/* Simulation/flow rate control (i.e. old "Fac-Time") */
+	/** Simulation/flow rate control (i.e. old "Fac-Time"). */
 	float animRate;
 } FluidsimSettings;
 
@@ -161,7 +157,8 @@ typedef struct FluidsimSettings {
 #define OB_FSBND_FREESLIP       (1<<(OB_TYPEFLAG_START+4))
 #define OB_FSINFLOW_LOCALCOORD  (1<<(OB_TYPEFLAG_START+5))
 
-/* surface generation flag (part of enabling chapter 6 of "Free Surface Flows with Moving and Deforming Objects for LBM") */
+/* surface generation flag (part of enabling chapter 6 of
+ * "Free Surface Flows with Moving and Deforming Objects for LBM") */
 #define OB_FSSG_NOOBS			(1<<(OB_TYPEFLAG_START+6))
 
 // guiDisplayMode particle flags

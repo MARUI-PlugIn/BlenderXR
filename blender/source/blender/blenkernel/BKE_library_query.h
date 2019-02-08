@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,20 +15,10 @@
  *
  * The Original Code is Copyright (C) 2014 by Blender Foundation.
  * All rights reserved.
- *
- * Contributor(s): Sergey SHarybin.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 #ifndef __BKE_LIBRARY_QUERY_H__
 #define __BKE_LIBRARY_QUERY_H__
 
-/** \file BKE_library_query.h
- *  \ingroup bke
- *  \since March 2014
- *  \author sergey
- */
- 
 #include "../vr/vr_build.h"
 #if WITH_VR
 #ifdef __cplusplus
@@ -38,6 +26,9 @@ extern "C"
 {
 #endif
 #endif
+
+/** \file \ingroup bke
+ */
 
 struct ID;
 struct Main;

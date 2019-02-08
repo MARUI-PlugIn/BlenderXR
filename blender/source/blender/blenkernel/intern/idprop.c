@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,14 +15,9 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * Contributor(s): Joseph Eagar
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenkernel/intern/idprop.c
- *  \ingroup bke
+/** \file \ingroup bke
  */
 
 #include <stdio.h>
@@ -40,6 +33,8 @@
 #include "BKE_idprop.h"
 #include "BKE_library.h"
 
+#include "CLG_log.h"
+
 #include "MEM_guardedalloc.h"
 
 #include "BLI_strict_flags.h"
@@ -52,6 +47,8 @@
  */
 #define IDP_ARRAY_REALLOC_LIMIT 200
 
+static CLG_LogRef LOG = {"bke.idprop"};
+
 /*local size table.*/
 static size_t idp_size_table[] = {
 	1, /*strings*/
@@ -62,7 +59,7 @@ static size_t idp_size_table[] = {
 	0, /*arrays don't have a fixed size*/
 	sizeof(ListBase), /*Group type*/
 	sizeof(void *),
-	sizeof(double)
+	sizeof(double),
 };
 
 
@@ -986,7 +983,7 @@ IDProperty *IDP_New(const char type, const IDPropertyTemplate *val, const char *
 				prop->len = prop->totallen = val->array.len;
 				break;
 			}
-			printf("%s: bad array type.\n", __func__);
+			CLOG_ERROR(&LOG, "bad array type.");
 			return NULL;
 		}
 		case IDP_STRING:

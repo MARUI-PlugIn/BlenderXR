@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,14 +15,9 @@
  *
  * The Original Code is Copyright (C) 2009 Blender Foundation.
  * All rights reserved.
- *
- * Contributor(s): Blender Foundation
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/interface/interface_utils.c
- *  \ingroup edinterface
+/** \file \ingroup edinterface
  */
 
 
@@ -278,7 +271,8 @@ void ui_rna_collection_search_cb(const struct bContext *C, void *arg, const char
 			iconid = ui_id_icon_get(C, itemptr.data, false);
 		}
 		else {
-			name = RNA_struct_name_get_alloc(&itemptr, NULL, 0, NULL); /* could use the string length here */
+			/* could use the string length here */
+			name = RNA_struct_name_get_alloc(&itemptr, NULL, 0, NULL);
 		}
 
 		if (name) {

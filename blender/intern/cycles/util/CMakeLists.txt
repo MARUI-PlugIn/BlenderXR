@@ -25,13 +25,20 @@ set(SRC
 	util_thread.cpp
 	util_time.cpp
 	util_transform.cpp
-	util_windows.cpp
 )
 
-if(WITH_CYCLES_STANDALONE AND WITH_CYCLES_STANDALONE_GUI)
-	list(APPEND SRC
-		util_view.cpp
-	)
+if(WITH_CYCLES_STANDALONE)
+	if (WITH_CYCLES_STANDALONE_GUI)
+		list(APPEND SRC
+			util_view.cpp
+		)
+	endif()
+endif()
+
+if(CYCLES_STANDALONE_REPOSITORY)
+	list(APPEND INC_SYS ../../third_party/numaapi/include)
+else()
+	list(APPEND INC_SYS ../../numaapi/include)
 endif()
 
 set(SRC_HEADERS

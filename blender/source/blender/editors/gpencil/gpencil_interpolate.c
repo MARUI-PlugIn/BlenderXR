@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,10 @@
  *
  * The Original Code is Copyright (C) 2016, Blender Foundation
  * This is a new part of Blender
- *
- * Contributor(s): Antonio Vazquez, Joshua Leung
- *
- * ***** END GPL LICENSE BLOCK *****
- *
  * Operators for interpolating new Grease Pencil frames from existing strokes
  */
 
-/** \file blender/editors/gpencil/gpencil_interpolate.c
- *  \ingroup edgpencil
+/** \file \ingroup edgpencil
  */
 
 
@@ -57,10 +49,8 @@
 #include "BKE_colortools.h"
 #include "BKE_context.h"
 #include "BKE_deform.h"
-#include "BKE_global.h"
 #include "BKE_gpencil.h"
 #include "BKE_report.h"
-#include "BKE_screen.h"
 
 #include "UI_interface.h"
 #include "UI_resources.h"
@@ -306,7 +296,7 @@ static void gp_interpolate_set_points(bContext *C, tGPDinterpolate *tgpi)
 					}
 					new_stroke->totpoints = gps_to->totpoints;
 					new_stroke->tot_triangles = 0;
-					new_stroke->flag |= GP_STROKE_RECALC_CACHES;
+					new_stroke->flag |= GP_STROKE_RECALC_GEOMETRY;
 				}
 				/* update points position */
 				gp_interpolate_update_points(gps_from, gps_to, new_stroke, tgpil->factor);
@@ -320,7 +310,7 @@ static void gp_interpolate_set_points(bContext *C, tGPDinterpolate *tgpi)
 				}
 				new_stroke->tot_triangles = 0;
 				new_stroke->triangles = MEM_recallocN(new_stroke->triangles, sizeof(*new_stroke->triangles));
-				new_stroke->flag |= GP_STROKE_RECALC_CACHES;
+				new_stroke->flag |= GP_STROKE_RECALC_GEOMETRY;
 			}
 
 			/* add to strokes */
@@ -596,7 +586,7 @@ static int gpencil_interpolate_modal(bContext *C, wmOperator *op, const wmEvent 
 						BKE_gpencil_stroke_weights_duplicate(gps_src, gps_dst);
 					}
 					gps_dst->triangles = MEM_dupallocN(gps_src->triangles);
-					gps_dst->flag |= GP_STROKE_RECALC_CACHES;
+					gps_dst->flag |= GP_STROKE_RECALC_GEOMETRY;
 					BLI_addtail(&gpf_dst->strokes, gps_dst);
 				}
 			}
@@ -1033,7 +1023,7 @@ static int gpencil_interpolate_seq_exec(bContext *C, wmOperator *op)
 					}
 					new_stroke->totpoints = gps_to->totpoints;
 					new_stroke->tot_triangles = 0;
-					new_stroke->flag |= GP_STROKE_RECALC_CACHES;
+					new_stroke->flag |= GP_STROKE_RECALC_GEOMETRY;
 				}
 
 				/* update points position */
@@ -1112,7 +1102,8 @@ static int gpencil_interpolate_reverse_exec(bContext *C, wmOperator *UNUSED(op))
 				gpf = gpf->prev;
 			}
 			else {
-				/* Not a breakdown (may be a key, or an extreme, or something else that wasn't generated)... stop */
+				/* Not a breakdown (may be a key, or an extreme,
+				 * or something else that wasn't generated)... stop */
 				break;
 			}
 		}

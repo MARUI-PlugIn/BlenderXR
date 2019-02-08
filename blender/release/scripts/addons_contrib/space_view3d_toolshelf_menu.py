@@ -22,7 +22,7 @@ bl_info = {
     "name": "Dynamic Toolshelf Menu",
     "author": "meta-androcto",
     "version": (3, 0, 2),
-    "blender": (2, 7, 7),
+    "blender": (2, 77, 0),
     "location": "View3D > Spacebar Key, Dynamic Tab",
     "description": "Context Sensitive Toolshelf Menu",
     "warning": "",
@@ -2830,7 +2830,7 @@ class SetObjectMode2(Operator):
     bl_description = "I set the interactive mode of object"
     bl_options = {'REGISTER'}
 
-    mode = bpy.props.StringProperty(name="Interactive mode", default="OBJECT")
+    mode: bpy.props.StringProperty(name="Interactive mode", default="OBJECT")
 
     def execute(self, context):
         if (context.active_object):
@@ -2902,7 +2902,7 @@ class SnapCursSelToCenter2(Operator):
 
 # Draw Separator #
 def UseSeparator(operator, context):
-    useSep = bpy.context.user_preferences.addons[__name__].preferences.use_separators
+    useSep = bpy.context.preferences.addons[__name__].preferences.use_separators
     if useSep:
         operator.layout.separator()
 
@@ -2910,7 +2910,7 @@ def UseSeparator(operator, context):
 # Use compact brushes menus #
 def UseBrushesLists():
     # separate function just for more convience
-    useLists = bpy.context.user_preferences.addons[__name__].preferences.use_brushes_lists
+    useLists = bpy.context.preferences.addons[__name__].preferences.use_brushes_lists
 
     return bool(useLists)
 
@@ -2919,14 +2919,14 @@ def UseBrushesLists():
 class VIEW3D_MT_Space_Dynamic_Menu_Pref2(bpy.types.AddonPreferences):
     bl_idname = __name__
 
-    use_separators = bpy.props.BoolProperty(
+    use_separators: bpy.props.BoolProperty(
         name="Use Separators in the menus",
         default=True,
         description=("Use separators in the menus, a trade-off between \n"
                      "readability vs. using more space for displaying items")
     )
 
-    use_brushes_lists = bpy.props.BoolProperty(
+    use_brushes_lists: bpy.props.BoolProperty(
         name="Use compact menus for brushes",
         default=False,
         description=("Use more compact menus instead  \n"
@@ -2946,12 +2946,12 @@ def update_panel(self, context):
         bpy.utils.unregister_class(VIEW3D_PT_Toolshelf_menu)
     except:
         pass
-    VIEW3D_PT_Toolshelf_menu.bl_category = context.user_preferences.addons[__name__].preferences.category
+    VIEW3D_PT_Toolshelf_menu.bl_category = context.preferences.addons[__name__].preferences.category
     bpy.utils.register_class(VIEW3D_PT_Toolshelf_menu)
 
 # Draw Separator #
 def UseSeparator(operator, context):
-    useSep = bpy.context.user_preferences.addons[__name__].preferences.use_separators
+    useSep = bpy.context.preferences.addons[__name__].preferences.use_separators
     if useSep:
         operator.layout.separator()
 
@@ -2959,7 +2959,7 @@ def UseSeparator(operator, context):
 # Use compact brushes menus #
 def UseBrushesLists():
     # separate function just for more convience
-    useLists = bpy.context.user_preferences.addons[__name__].preferences.use_brushes_lists
+    useLists = bpy.context.preferences.addons[__name__].preferences.use_brushes_lists
 
     return bool(useLists)
 
@@ -2969,20 +2969,20 @@ class ToolshelfMenuAddonPreferences(AddonPreferences):
     bl_idname = __name__
 
 
-    category = bpy.props.StringProperty(
+    category: bpy.props.StringProperty(
             name="Category",
             description="Choose a name for the category of the panel",
             default="Dynamic",
             update=update_panel)
 
-    use_separators = bpy.props.BoolProperty(
+    use_separators: bpy.props.BoolProperty(
         name="Use Separators in the menus",
         default=False,
         description=("Use separators in the menus, a trade-off between \n"
                      "readability vs. using more space for displaying items")
     )
 
-    use_brushes_lists = bpy.props.BoolProperty(
+    use_brushes_lists: bpy.props.BoolProperty(
         name="Use compact menus for brushes",
         default=True,
         description=("Use more compact menus instead  \n"

@@ -13,9 +13,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software Foundation,
 # Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-# Contributor(s): Jacques Beaurain.
-#
 # ***** END GPL LICENSE BLOCK *****
 
 set(INC
@@ -56,9 +53,9 @@ set(SRC
 	paint_vertex.c
 	paint_vertex_color_ops.c
 	paint_vertex_color_utils.c
+	paint_vertex_proj.c
 	paint_vertex_weight_ops.c
 	paint_vertex_weight_utils.c
-	paint_vertex_proj.c
 	sculpt.c
 	sculpt_undo.c
 	sculpt_uv.c

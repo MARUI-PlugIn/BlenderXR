@@ -411,8 +411,8 @@ class RENDER_PT_eevee_sampling(RenderButtonsPanel, Panel):
         props = scene.eevee
 
         col = layout.column()
-        col.prop(props, "taa_samples")
-        col.prop(props, "taa_render_samples")
+        col.prop(props, "taa_render_samples", text="Render")
+        col.prop(props, "taa_samples", text="Viewport")
         col.prop(props, "use_taa_reprojection")
 
 
@@ -436,7 +436,7 @@ class RENDER_PT_eevee_indirect_lighting(RenderButtonsPanel, Panel):
         col = layout.column()
         col.operator("scene.light_cache_bake", text="Bake Indirect Lighting", icon='RENDER_STILL')
         col.operator("scene.light_cache_bake", text="Bake Cubemap Only", icon='LIGHTPROBE_CUBEMAP').subset = 'CUBEMAPS'
-        col.operator("scene.light_cache_free", text="Free Lighting Cache")
+        col.operator("scene.light_cache_free", text="Delete Lighting Cache")
 
         cache_info = scene.eevee.gi_cache_info
         if cache_info:

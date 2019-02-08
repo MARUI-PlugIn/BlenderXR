@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,15 +15,13 @@
  *
  * The Original Code is Copyright (C) 2016 Kévin Dietrich.
  * All rights reserved.
- *
- * ***** END GPL LICENSE BLOCK *****
- *
  */
 
 #ifndef __ABC_CURVES_H__
 #define __ABC_CURVES_H__
 
 #include "abc_object.h"
+#include "abc_mesh.h"
 
 struct Curve;
 
@@ -41,7 +37,19 @@ public:
 	               uint32_t time_sampling,
 	               ExportSettings &settings);
 
+protected:
 	void do_write();
+};
+
+class AbcCurveMeshWriter : public AbcGenericMeshWriter {
+public:
+	AbcCurveMeshWriter(Object *ob,
+	                   AbcTransformWriter *parent,
+	                   uint32_t time_sampling,
+	                   ExportSettings &settings);
+
+protected:
+	Mesh *getEvaluatedMesh(Scene *scene_eval, Object *ob_eval, bool &r_needsfree);
 };
 
 /* ************************************************************************** */

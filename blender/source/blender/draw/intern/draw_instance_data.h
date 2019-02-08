@@ -1,6 +1,4 @@
 /*
- * Copyright 2016, Blender Foundation.
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,12 +13,10 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * Contributor(s): Blender Institute
- *
+ * Copyright 2016, Blender Foundation.
  */
 
-/** \file draw_instance_data.h
- *  \ingroup draw
+/** \file \ingroup draw
  */
 
 #ifndef __DRAW_INSTANCE_DATA_H__
@@ -40,7 +36,7 @@ struct DRWShadingGroup;
 
 void *DRW_instance_data_next(DRWInstanceData *idata);
 DRWInstanceData *DRW_instance_data_request(
-        DRWInstanceDataList *idatalist, uint attrib_size);
+        DRWInstanceDataList *idatalist, uint attr_size);
 
 void DRW_batching_buffer_request(
         DRWInstanceDataList *idatalist, GPUVertFormat *format, GPUPrimType type, struct DRWShadingGroup *shgroup,

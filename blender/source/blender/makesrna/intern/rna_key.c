@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,14 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Blender Foundation (2008).
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/makesrna/intern/rna_key.c
- *  \ingroup RNA
+/** \file \ingroup RNA
  */
 
 #include <stdlib.h>
@@ -33,7 +26,6 @@
 #include "DNA_lattice_types.h"
 #include "DNA_mesh_types.h"
 
-#include "BLI_string_utils.h"
 #include "BLI_utildefines.h"
 #include "BLI_math.h"
 
@@ -52,6 +44,8 @@
 #include <stddef.h>
 
 #include "DNA_object_types.h"
+
+#include "BLI_string_utils.h"
 
 #include "BKE_animsys.h"
 #include "BKE_key.h"
@@ -760,7 +754,7 @@ const EnumPropertyItem rna_enum_keyblock_type_items[] = {
 	{KEY_CARDINAL, "KEY_CARDINAL", 0, "Cardinal", ""},
 	{KEY_CATMULL_ROM, "KEY_CATMULL_ROM", 0, "Catmull-Rom", ""},
 	{KEY_BSPLINE, "KEY_BSPLINE", 0, "BSpline", ""},
-	{0, NULL, 0, NULL, NULL}
+	{0, NULL, 0, NULL, NULL},
 };
 
 static const float tilt_limit = DEG2RADF(21600.0f);

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,14 +15,9 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * Contributor(s): Blender Foundation
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file ED_armature.h
- *  \ingroup editors
+/** \file \ingroup editors
  */
 
 #ifndef __ED_ARMATURE_H__
@@ -34,50 +27,56 @@
 extern "C" {
 #endif
 
-struct bArmature;
 struct Base;
-struct bContext;
 struct Bone;
-struct bPoseChannel;
 struct Depsgraph;
 struct IDProperty;
 struct ListBase;
 struct Main;
-struct MeshDeformModifierData;
+struct Main;
 struct Mesh;
+struct MeshDeformModifierData;
 struct Object;
 struct ReportList;
 struct Scene;
+struct UndoType;
 struct View3D;
-struct ViewLayer;
 struct ViewContext;
+struct ViewLayer;
+struct bArmature;
+struct bContext;
+struct bPoseChannel;
 struct wmKeyConfig;
 struct wmOperator;
-struct Main;
-struct UndoType;
 
 typedef struct EditBone {
 	struct EditBone *next, *prev;
-	struct IDProperty *prop; /* User-Defined Properties on this Bone */
-	struct EditBone *parent; /* Editbones have a one-way link  (i.e. children refer
-	                          * to parents.  This is converted to a two-way link for
-	                          * normal bones when leaving editmode. */
-	char    name[64];       /* MAXBONENAME */
-	float   roll;           /* Roll along axis.  We'll ultimately use the axis/angle method
-	                         * for determining the transformation matrix of the bone.  The axis
-	                         * is tail-head while roll provides the angle. Refer to Graphics
-	                         * Gems 1 p. 466 (section IX.6) if it's not already in here somewhere*/
+	/** User-Defined Properties on this Bone */
+	struct IDProperty *prop;
+	/** Editbones have a one-way link  (i.e. children refer
+	 * to parents.  This is converted to a two-way link for
+	 * normal bones when leaving editmode. */
+	struct EditBone *parent;
+	/** (64 == MAXBONENAME) */
+	char    name[64];
+	/** Roll along axis.  We'll ultimately use the axis/angle method
+	 * for determining the transformation matrix of the bone.  The axis
+	 * is tail-head while roll provides the angle. Refer to Graphics
+	 * Gems 1 p. 466 (section IX.6) if it's not already in here somewhere*/
+	float   roll;
 
-	float head[3];          /* Orientation and length is implicit during editing */
+	/** Orientation and length is implicit during editing */
+	float head[3];
 	float tail[3];
-	/* All joints are considered to have zero rotation with respect to
+	/** All joints are considered to have zero rotation with respect to
 	 * their parents. Therefore any rotations specified during the
 	 * animation are automatically relative to the bones' rest positions*/
 	int flag;
 	int layer;
 
 	float dist, weight;
-	float xwidth, length, zwidth;  /* put them in order! transform uses this as scale */
+	/** put them in order! transform uses this as scale */
+	float xwidth, length, zwidth;
 	float rad_head, rad_tail;
 
 	/* Bendy-Bone parameters */
@@ -87,22 +86,28 @@ typedef struct EditBone {
 	float ease1, ease2;
 	float scaleIn, scaleOut;
 
-	float oldlength;        /* for envelope scaling */
+	/** for envelope scaling */
+	float oldlength;
 
 	short segments;
 
-	char bbone_prev_type;	/* Type of next/prev bone handles */
+	/** Type of next/prev bone handles */
+	char bbone_prev_type;
 	char bbone_next_type;
-	struct EditBone *bbone_prev;	/* Next/prev bones to use as handle references when calculating bbones (optional) */
+	/** Next/prev bones to use as handle references when calculating bbones (optional) */
+	struct EditBone *bbone_prev;
 	struct EditBone *bbone_next;
 
 	/* Used for display */
-	float disp_mat[4][4];  /*  in Armature space, rest pos matrix */
-	float disp_tail_mat[4][4];  /*  in Armature space, rest pos matrix */
-	/* 32 == MAX_BBONE_SUBDIV */
-	float disp_bbone_mat[32][4][4]; /*  in Armature space, rest pos matrix */
+	/** in Armature space, rest pos matrix */
+	float disp_mat[4][4];
+	/** in Armature space, rest pos matrix */
+	float disp_tail_mat[4][4];
+	/** in Armature space, rest pos matrix (32 == MAX_BBONE_SUBDIV) */
+	float disp_bbone_mat[32][4][4];
 
-	struct EditBone *bbone_child;	/* connected child temporary during drawing */
+	/** connected child temporary during drawing */
+	struct EditBone *bbone_child;
 
 	/* Used to store temporary data */
 	union {
@@ -194,7 +199,7 @@ void ED_armature_ebone_from_mat3(EditBone *ebone, float mat[3][3]);
 void ED_armature_ebone_from_mat4(EditBone *ebone, float mat[4][4]);
 
 void ED_armature_edit_transform_mirror_update(struct Object *obedit);
-void ED_armature_origin_set(struct Main *bmain, struct Object *ob, float cursor[3], int centermode, int around);
+void ED_armature_origin_set(struct Main *bmain, struct Object *ob, const float cursor[3], int centermode, int around);
 
 void ED_armature_transform_bones(struct bArmature *arm, float mat[4][4], const bool do_props);
 void ED_armature_transform_apply(struct Main *bmain, struct Object *ob, float mat[4][4], const bool do_props);

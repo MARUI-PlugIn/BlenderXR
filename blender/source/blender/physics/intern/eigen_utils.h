@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,19 +15,12 @@
  *
  * The Original Code is Copyright (C) Blender Foundation
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): Lukas Toenne
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
 #ifndef __EIGEN_UTILS_H__
 #define __EIGEN_UTILS_H__
 
-/** \file blender/physics/intern/eigen_utils.h
- *  \ingroup bph
+/** \file \ingroup bph
  */
 
 #if defined(__GNUC__) && !defined(__clang__)

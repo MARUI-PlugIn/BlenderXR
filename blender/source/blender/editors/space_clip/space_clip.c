@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2011 Blender Foundation.
  * All rights reserved.
- *
- *
- * Contributor(s): Blender Foundation,
- *                 Sergey Sharybin
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/space_clip/space_clip.c
- *  \ingroup spclip
+/** \file \ingroup spclip
  */
 
 #include <string.h>
@@ -227,6 +218,12 @@ static void clip_scopes_check_gpencil_change(ScrArea *sa)
 	}
 }
 
+static void clip_area_sync_frame_from_scene(ScrArea *sa, Scene *scene)
+{
+	SpaceClip *space_clip = (SpaceClip *)sa->spacedata.first;
+	BKE_movieclip_user_set_frame(&space_clip->user, scene->r.cfra);
+}
+
 /* ******************** default callbacks for clip space ***************** */
 
 static SpaceLink *clip_new(const ScrArea *sa, const Scene *scene)
@@ -324,7 +321,7 @@ static SpaceLink *clip_duplicate(SpaceLink *sl)
 	return (SpaceLink *)scn;
 }
 
-static void clip_listener(wmWindow *UNUSED(win), ScrArea *sa, wmNotifier *wmn, Scene *UNUSED(scene))
+static void clip_listener(wmWindow *UNUSED(win), ScrArea *sa, wmNotifier *wmn, Scene *scene)
 {
 	/* context changes */
 	switch (wmn->category) {
@@ -388,6 +385,9 @@ static void clip_listener(wmWindow *UNUSED(win), ScrArea *sa, wmNotifier *wmn, S
 			switch (wmn->data) {
 				case ND_ANIMPLAY:
 					ED_area_tag_redraw(sa);
+					break;
+				case ND_LAYOUTSET:
+					clip_area_sync_frame_from_scene(sa, scene);
 					break;
 			}
 			break;
@@ -581,9 +581,12 @@ static int clip_context(const bContext *C, const char *member, bContextDataResul
 /* dropboxes */
 static bool clip_drop_poll(bContext *UNUSED(C), wmDrag *drag, const wmEvent *UNUSED(event), const char **UNUSED(tooltip))
 {
-	if (drag->type == WM_DRAG_PATH)
-		if (ELEM(drag->icon, 0, ICON_FILE_IMAGE, ICON_FILE_MOVIE, ICON_FILE_BLANK)) /* rule might not work? */
+	if (drag->type == WM_DRAG_PATH) {
+		/* rule might not work? */
+		if (ELEM(drag->icon, 0, ICON_FILE_IMAGE, ICON_FILE_MOVIE, ICON_FILE_BLANK)) {
 			return true;
+		}
+	}
 
 	return false;
 }

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,12 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/python/generic/py_capi_utils.c
- *  \ingroup pygen
+/** \file \ingroup pygen
  *
  * Extend upon CPython's API, filling in some gaps, these functions use PyC_
  * prefix to distinguish them apart from CPython.
@@ -436,23 +431,35 @@ PyObject *PyC_Err_Format_Prefix(PyObject *exception_type_prefix, const char *for
 	if (PyErr_Occurred()) {
 		PyObject *error_type, *error_value, *error_traceback;
 		PyErr_Fetch(&error_type, &error_value, &error_traceback);
-		PyErr_Format(exception_type_prefix,
-		             "%S, %.200s(%S)",
-		             error_value_prefix,
-		             Py_TYPE(error_value)->tp_name,
-		             error_value
-		             );
+
+		if (PyUnicode_Check(error_value)) {
+			PyErr_Format(exception_type_prefix,
+			             "%S, %S",
+			             error_value_prefix,
+			             error_value);
+		}
+		else {
+			PyErr_Format(exception_type_prefix,
+			             "%S, %.200s(%S)",
+			             error_value_prefix,
+			             Py_TYPE(error_value)->tp_name,
+			             error_value);
+		}
 	}
 	else {
 		PyErr_SetObject(exception_type_prefix,
-		                error_value_prefix
-		                );
+		                error_value_prefix);
 	}
 
 	Py_XDECREF(error_value_prefix);
 
 	/* dumb to always return NULL but matches PyErr_Format */
 	return NULL;
+}
+
+PyObject *PyC_Err_SetString_Prefix(PyObject *exception_type_prefix, const char *str)
+{
+	return PyC_Err_Format_Prefix(exception_type_prefix, "%s", str);
 }
 
 /**
@@ -1236,7 +1243,6 @@ bool PyC_RunString_AsString(const char *imports[], const char *expr, const char 
 #endif  /* #ifndef MATH_STANDALONE */
 
 /* -------------------------------------------------------------------- */
-
 /** \name Int Conversion
  *
  * \note Python doesn't provide overflow checks for specific bit-widths.
@@ -1328,7 +1334,6 @@ uint32_t PyC_Long_AsU32(PyObject *value)
  */
 
 /* -------------------------------------------------------------------- */
-
 /** \name Py_buffer Utils
  *
  * \{ */

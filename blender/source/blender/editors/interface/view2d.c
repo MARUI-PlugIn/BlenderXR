@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,14 +15,9 @@
  *
  * The Original Code is Copyright (C) 2008 Blender Foundation.
  * All rights reserved.
- *
- * Contributor(s): Blender Foundation, Joshua Leung
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/interface/view2d.c
- *  \ingroup edinterface
+/** \file \ingroup edinterface
  */
 
 
@@ -234,7 +227,8 @@ void UI_view2d_region_reinit(View2D *v2d, short type, int winx, int winy)
 		 */
 		case V2D_COMMONVIEW_STANDARD:
 		{
-			/* for now, aspect ratio should be maintained, and zoom is clamped within sane default limits */
+			/* for now, aspect ratio should be maintained,
+			 * and zoom is clamped within sane default limits */
 			v2d->keepzoom = (V2D_KEEPASPECT | V2D_LIMITZOOM);
 			v2d->minzoom = 0.01f;
 			v2d->maxzoom = 1000.0f;
@@ -289,7 +283,8 @@ void UI_view2d_region_reinit(View2D *v2d, short type, int winx, int winy)
 			/* scroller settings are currently not set here... that is left for regions... */
 			break;
 		}
-		/* 'header' regions - zoom, aspect ratio, alignment, and panning restrictions are set here */
+		/* 'header' regions - zoom, aspect ratio,
+		 * alignment, and panning restrictions are set here */
 		case V2D_COMMONVIEW_HEADER:
 		{
 			/* zoom + aspect ratio are locked */
@@ -322,7 +317,8 @@ void UI_view2d_region_reinit(View2D *v2d, short type, int winx, int winy)
 		case V2D_COMMONVIEW_PANELS_UI:
 		{
 
-			/* for now, aspect ratio should be maintained, and zoom is clamped within sane default limits */
+			/* for now, aspect ratio should be maintained,
+			 * and zoom is clamped within sane default limits */
 			v2d->keepzoom = (V2D_KEEPASPECT | V2D_LIMITZOOM | V2D_KEEPZOOM);
 			v2d->minzoom = 0.5f;
 			v2d->maxzoom = 2.0f;
@@ -357,7 +353,8 @@ void UI_view2d_region_reinit(View2D *v2d, short type, int winx, int winy)
 		}
 		/* other view types are completely defined using their own settings already */
 		default:
-			/* we don't do anything here, as settings should be fine, but just make sure that rect */
+			/* we don't do anything here,
+			 * as settings should be fine, but just make sure that rect */
 			break;
 	}
 
@@ -377,7 +374,8 @@ void UI_view2d_region_reinit(View2D *v2d, short type, int winx, int winy)
 	}
 
 	/* set 'tot' rect before setting cur? */
-	/* XXX confusing stuff here still - I made this function not check scroller hide - that happens in totrect_set */
+	/* XXX confusing stuff here still -
+	 * I made this function not check scroller hide - that happens in totrect_set */
 	if (tot_changed)
 		UI_view2d_totRect_set_resize(v2d, winx, winy, !do_init);
 	else
@@ -486,7 +484,8 @@ static void ui_view2d_curRect_validate_resize(View2D *v2d, bool resize, bool mas
 		}
 	}
 	else {
-		/* make sure sizes don't exceed that of the min/max sizes (even though we're not doing zoom clamping) */
+		/* make sure sizes don't exceed that of the min/max sizes
+		 * (even though we're not doing zoom clamping) */
 		CLAMP(width, v2d->min[0], v2d->max[0]);
 		CLAMP(height, v2d->min[1], v2d->max[1]);
 	}
@@ -576,7 +575,8 @@ static void ui_view2d_curRect_validate_resize(View2D *v2d, bool resize, bool mas
 		v2d->oldwiny = (short)winy;
 	}
 
-	/* Step 2: apply new sizes to cur rect, but need to take into account alignment settings here... */
+	/* Step 2: apply new sizes to cur rect,
+	 * but need to take into account alignment settings here... */
 	if ((width != curwidth) || (height != curheight)) {
 		float temp, dh;
 
@@ -675,7 +675,8 @@ static void ui_view2d_curRect_validate_resize(View2D *v2d, bool resize, bool mas
 			 * (XXX - in the past, max was favored... if there are bugs, swap!)
 			 */
 			if ((cur->xmin < tot->xmin) && (cur->xmax > tot->xmax)) {
-				/* outside boundaries on both sides, so take middle-point of tot, and place in balanced way */
+				/* outside boundaries on both sides,
+				 * so take middle-point of tot, and place in balanced way */
 				temp = BLI_rctf_cent_x(tot);
 				diff = curwidth * 0.5f;
 
@@ -725,7 +726,8 @@ static void ui_view2d_curRect_validate_resize(View2D *v2d, bool resize, bool mas
 			 * We favour moving the 'minimum' across, as that's origin for most things
 			 */
 			if ((cur->ymin < tot->ymin) && (cur->ymax > tot->ymax)) {
-				/* outside boundaries on both sides, so take middle-point of tot, and place in balanced way */
+				/* outside boundaries on both sides,
+				 * so take middle-point of tot, and place in balanced way */
 				temp = BLI_rctf_cent_y(tot);
 				diff = curheight * 0.5f;
 
@@ -803,7 +805,8 @@ void UI_view2d_curRect_validate(View2D *v2d)
 
 /* ------------------ */
 
-/* Called by menus to activate it, or by view2d operators to make sure 'related' views stay in synchrony */
+/* Called by menus to activate it, or by view2d operators
+ * to make sure 'related' views stay in synchrony */
 void UI_view2d_sync(bScreen *screen, ScrArea *area, View2D *v2dcur, int flag)
 {
 	ScrArea *sa;
@@ -992,7 +995,8 @@ void UI_view2d_totRect_set(View2D *v2d, int width, int height)
 
 	UI_view2d_totRect_set_resize(v2d, width, height, 0);
 
-	/* solve bad recursion... if scroller state changed, mask is different, so you get different rects */
+	/* solve bad recursion... if scroller state changed,
+	 * mask is different, so you get different rects */
 	if (scroll != view2d_scroll_mapped(v2d->scroll)) {
 		UI_view2d_totRect_set_resize(v2d, width, height, 0);
 	}
@@ -1046,7 +1050,7 @@ bool UI_view2d_tab_set(View2D *v2d, int tab)
 
 void UI_view2d_zoom_cache_reset(void)
 {
-	/* TODO(sergey): This way we avoid threading conflict with VSE rendering
+	/* TODO(sergey): This way we avoid threading conflict with sequencer rendering
 	 * text strip. But ideally we want to make glyph cache to be fully safe
 	 * for threading.
 	 */
@@ -1072,7 +1076,8 @@ static void view2d_map_cur_using_mask(View2D *v2d, rctf *curmasked)
 		float sizex = BLI_rcti_size_x(&v2d->mask);
 		float sizey = BLI_rcti_size_y(&v2d->mask);
 
-		/* prevent tiny or narrow regions to get invalid coordinates - mask can get negative even... */
+		/* prevent tiny or narrow regions to get
+		 * invalid coordinates - mask can get negative even... */
 		if (sizex > 0.0f && sizey > 0.0f) {
 			float dx = BLI_rctf_size_x(&v2d->cur) / (sizex + 1);
 			float dy = BLI_rctf_size_y(&v2d->cur) / (sizey + 1);
@@ -1109,7 +1114,8 @@ void UI_view2d_view_ortho(View2D *v2d)
 	if (sizey > 0)
 		yofs = eps * BLI_rctf_size_y(&v2d->cur) / sizey;
 
-	/* apply mask-based adjustments to cur rect (due to scrollers), to eliminate scaling artifacts */
+	/* apply mask-based adjustments to cur rect (due to scrollers),
+	 * to eliminate scaling artifacts */
 	view2d_map_cur_using_mask(v2d, &curmasked);
 
 	BLI_rctf_translate(&curmasked, -xofs, -yofs);
@@ -1145,7 +1151,8 @@ void UI_view2d_view_orthoSpecial(ARegion *ar, View2D *v2d, const bool xaxis)
 	xofs = 0.0f; // (v2d->flag & V2D_PIXELOFS_X) ? GLA_PIXEL_OFS : 0.0f;
 	yofs = 0.0f; // (v2d->flag & V2D_PIXELOFS_Y) ? GLA_PIXEL_OFS : 0.0f;
 
-	/* apply mask-based adjustments to cur rect (due to scrollers), to eliminate scaling artifacts */
+	/* apply mask-based adjustments to cur rect (due to scrollers),
+	 * to eliminate scaling artifacts */
 	view2d_map_cur_using_mask(v2d, &curmasked);
 
 	/* only set matrix with 'cur' coordinates on relevant axes */
@@ -1202,7 +1209,9 @@ static void step_to_grid(float *step, int *power, int unit)
 		/* for frames, we want 1.0 frame intervals only */
 		if (unit == V2D_UNIT_FRAMES) {
 			rem = 1.0f;
-			*step = 2.0f; /* use 2 since there are grid lines drawn in between, this way to get 1 line per frame */
+			/* use 2 since there are grid lines drawn in between,
+			 * this way to get 1 line per frame */
+			*step = 2.0f;
 		}
 
 		/* prevents printing 1.0 2.0 3.0 etc */
@@ -1320,7 +1329,7 @@ void UI_view2d_grid_draw(View2D *v2d, View2DGrid *grid, int flag)
 	int a, step;
 	int vertical_minor_step = (BLI_rcti_size_x(&v2d->mask) + 1) / (U.v2d_min_gridsize * UI_DPI_FAC),
 		horizontal_major_step = (BLI_rcti_size_y(&v2d->mask) + 1) / (U.v2d_min_gridsize * UI_DPI_FAC);
-	unsigned char grid_line_color[3];
+	uchar grid_line_color[3];
 
 	/* check for grid first, as it may not exist */
 	if (grid == NULL)
@@ -1537,7 +1546,7 @@ void UI_view2d_multi_grid_draw(View2D *v2d, int colorid, float step, int level_s
 
 	int offset = -10;
 	float lstep = step;
-	unsigned char grid_line_color[3];
+	uchar grid_line_color[3];
 
 	/* Make an estimate of at least how many vertices will be needed */
 	unsigned vertex_count = 4;
@@ -1666,10 +1675,14 @@ View2DScrollers *UI_view2d_scrollers_calc(
 	vert = v2d->vert;
 	hor = v2d->hor;
 
-	/* slider rects need to be smaller than region */
+	/* slider rects need to be smaller than region and not interfere with splitter areas */
+	hor.xmin += UI_HEADER_OFFSET;
+	hor.xmax -= UI_HEADER_OFFSET;
+	vert.ymin += UI_HEADER_OFFSET;
+	vert.ymax -= UI_HEADER_OFFSET;
+
+	/* width of sliders */
 	smaller = (int)(0.1f * U.widget_unit);
-	hor.xmin += smaller;
-	hor.xmax -= smaller;
 	if (scroll & V2D_SCROLL_BOTTOM)
 		hor.ymin += smaller;
 	else
@@ -1679,8 +1692,6 @@ View2DScrollers *UI_view2d_scrollers_calc(
 		vert.xmin += smaller;
 	else
 		vert.xmax -= smaller;
-	vert.ymin += smaller;
-	vert.ymax -= smaller;
 
 	CLAMP(vert.ymin, vert.ymin, vert.ymax - V2D_SCROLLER_HANDLE_SIZE);
 	CLAMP(hor.xmin, hor.xmin, hor.xmax - V2D_SCROLLER_HANDLE_SIZE);
@@ -1804,7 +1815,8 @@ static void scroll_printstr(Scene *scene, float x, float y, float val, int power
 		BLI_timecode_string_from_time_seconds(timecode_str, sizeof(timecode_str), power, val);
 	}
 
-	/* get length of string, and adjust printing location to fit it into the horizontal scrollbar */
+	/* get length of string,
+	 * and adjust printing location to fit it into the horizontal scrollbar */
 	len = strlen(timecode_str);
 	if (dir == 'h') {
 		/* seconds/timecode display has slightly longer strings... */
@@ -1832,7 +1844,7 @@ void UI_view2d_scrollers_draw(const bContext *C, View2D *v2d, View2DScrollers *v
 	rcti vert, hor;
 	const int scroll = view2d_scroll_mapped(v2d->scroll);
 	const char emboss_alpha = btheme->tui.widget_emboss[3];
-	unsigned char scrollers_back_color[4];
+	uchar scrollers_back_color[4];
 
 	/* Color for scrollbar backs */
 	UI_GetThemeColor4ubv(TH_BACK, scrollers_back_color);
@@ -1933,7 +1945,8 @@ void UI_view2d_scrollers_draw(const bContext *C, View2D *v2d, View2DScrollers *v
 							break;
 
 						case V2D_UNIT_DEGREES:      /* Graph Editor for rotation Drivers */
-							/* HACK: although we're drawing horizontal, we make this draw as 'vertical', just to get degree signs */
+							/* HACK: although we're drawing horizontal,
+							 * we make this draw as 'vertical', just to get degree signs */
 							scroll_printstr(scene, fac, h, val, grid->powerx, V2D_UNIT_DEGREES, 'v');
 							break;
 					}
@@ -2002,7 +2015,8 @@ void UI_view2d_scrollers_draw(const bContext *C, View2D *v2d, View2DScrollers *v
 			UI_FontThemeColor(font_id, TH_TEXT);
 			val = grid->starty;
 
-			/* if vertical clamping (to whole numbers) is used (i.e. in Sequencer), apply correction */
+			/* if vertical clamping (to whole numbers) is used (i.e. in Sequencer),
+			 * apply correction */
 			if (vs->yclamp == V2D_GRID_CLAMP)
 				fac += 0.5f * dfac;
 
@@ -2472,7 +2486,7 @@ char UI_view2d_mouse_in_scrollers(
 typedef struct View2DString {
 	struct View2DString *next;
 	union {
-		unsigned char ub[4];
+		uchar ub[4];
 		int pack;
 	} col;
 	rcti rect;

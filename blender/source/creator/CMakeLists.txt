@@ -16,11 +16,6 @@
 #
 # The Original Code is Copyright (C) 2006, Blender Foundation
 # All rights reserved.
-#
-# The Original Code is: all of this file.
-#
-# Contributor(s): Jacques Beaurain.
-#
 # ***** END GPL LICENSE BLOCK *****
 
 setup_libdirs()
@@ -907,6 +902,13 @@ elseif(APPLE)
 		${OSX_APP_SOURCEDIR}/Contents/Resources
 		blender.app/Contents/
 	)
+
+	if(WITH_OPENMP AND OPENMP_CUSTOM)
+		install(
+			FILES ${LIBDIR}/openmp/lib/libomp.dylib
+			DESTINATION blender.app/Contents/Resources/lib
+		)
+	endif()
 
 	if(WITH_LLVM AND NOT LLVM_STATIC)
 		install(

@@ -13,9 +13,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software Foundation,
 # Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-# Contributor(s): Jacques Beaurain.
-#
 # ***** END GPL LICENSE BLOCK *****
 
 set(INC
@@ -50,23 +47,23 @@ set(SRC
 	object_bake_api.c
 	object_collection.c
 	object_constraint.c
+	object_data_transfer.c
 	object_edit.c
 	object_facemap_ops.c
+	object_gpencil_modifier.c
 	object_hook.c
 	object_modes.c
 	object_modifier.c
-	object_gpencil_modifier.c
-	object_shader_fx.c
 	object_ops.c
 	object_random.c
 	object_relations.c
 	object_select.c
+	object_shader_fx.c
 	object_shapekey.c
-	object_data_transfer.c
 	object_transform.c
 	object_utils.c
-	object_warp.c
 	object_vgroup.c
+	object_warp.c
 
 	object_intern.h
 )

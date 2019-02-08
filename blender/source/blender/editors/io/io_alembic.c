@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,13 +15,9 @@
  *
  * The Original Code is Copyright (C) 2016 Blender Foundation.
  * All rights reserved.
- *
- * ***** END GPL LICENSE BLOCK *****
- *
  */
 
-/** \file blender/editors/io/io_alembic.c
- *  \ingroup editor/io
+/** \file \ingroup editor/io
  */
 
 #ifdef WITH_ALEMBIC
@@ -77,6 +71,10 @@
 
 static int wm_alembic_export_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
+	if (!RNA_struct_property_is_set(op->ptr, "as_background_job")) {
+		RNA_boolean_set(op->ptr, "as_background_job", true);
+	}
+
 	RNA_boolean_set(op->ptr, "init_scene_frame_range", true);
 
 	if (!RNA_struct_property_is_set(op->ptr, "filepath")) {
@@ -126,6 +124,7 @@ static int wm_alembic_export_exec(bContext *C, wmOperator *op)
 	    .normals = RNA_boolean_get(op->ptr, "normals"),
 	    .vcolors = RNA_boolean_get(op->ptr, "vcolors"),
 	    .apply_subdiv = RNA_boolean_get(op->ptr, "apply_subdiv"),
+	    .curves_as_mesh = RNA_boolean_get(op->ptr, "curves_as_mesh"),
 	    .flatten_hierarchy = RNA_boolean_get(op->ptr, "flatten"),
 	    .visible_layers_only = RNA_boolean_get(op->ptr, "visible_layers_only"),
 	    .renderable_only = RNA_boolean_get(op->ptr, "renderable_only"),
@@ -240,6 +239,9 @@ static void ui_alembic_export_settings(uiLayout *layout, PointerRNA *imfptr)
 
 	row = uiLayoutRow(box, false);
 	uiItemR(row, imfptr, "apply_subdiv", 0, NULL, ICON_NONE);
+
+	row = uiLayoutRow(box, false);
+	uiItemR(row, imfptr, "curves_as_mesh", 0, NULL, ICON_NONE);
 
 	row = uiLayoutRow(box, false);
 	uiItemR(row, imfptr, "triangulate", 0, NULL, ICON_NONE);
@@ -369,6 +371,9 @@ void WM_OT_alembic_export(wmOperatorType *ot)
 	RNA_def_boolean(ot->srna, "apply_subdiv", 0,
 	                "Apply Subsurf", "Export subdivision surfaces as meshes");
 
+	RNA_def_boolean(ot->srna, "curves_as_mesh", false,
+	                "Curves as Mesh", "Export curves and NURBS surfaces as meshes");
+
 	RNA_def_enum(ot->srna, "compression_type", rna_enum_abc_compression_items,
 	             ABC_ARCHIVE_OGAWA, "Compression", "");
 
@@ -388,8 +393,10 @@ void WM_OT_alembic_export(wmOperatorType *ot)
 	RNA_def_boolean(ot->srna, "export_hair", 1, "Export Hair", "Exports hair particle systems as animated curves");
 	RNA_def_boolean(ot->srna, "export_particles", 1, "Export Particles", "Exports non-hair particle systems");
 
-	RNA_def_boolean(ot->srna, "as_background_job", true, "Run as Background Job",
-	                "Enable this to run the import in the background, disable to block Blender while importing");
+	RNA_def_boolean(ot->srna, "as_background_job", false, "Run as Background Job",
+	                "Enable this to run the import in the background, disable to block Blender while importing. "
+	                "This option is deprecated; EXECUTE this operator to run in the foreground, and INVOKE it "
+	                "to run as a background job");
 
 	/* This dummy prop is used to check whether we need to init the start and
 	 * end frame values to that of the scene's, otherwise they are reset at
@@ -522,6 +529,17 @@ static void wm_alembic_import_draw(bContext *UNUSED(C), wmOperator *op)
 	ui_alembic_import_settings(op->layout, &ptr);
 }
 
+
+/* op->invoke, opens fileselect if path property not set, otherwise executes */
+static int wm_alembic_import_invoke(bContext *C, wmOperator *op, const wmEvent *event)
+{
+	if (!RNA_struct_property_is_set(op->ptr, "as_background_job")) {
+		RNA_boolean_set(op->ptr, "as_background_job", true);
+	}
+	return WM_operator_filesel(C, op, event);
+}
+
+
 static int wm_alembic_import_exec(bContext *C, wmOperator *op)
 {
 	if (!RNA_struct_property_is_set(op->ptr, "filepath")) {
@@ -568,7 +586,7 @@ void WM_OT_alembic_import(wmOperatorType *ot)
 	ot->description = "Load an Alembic archive";
 	ot->idname = "WM_OT_alembic_import";
 
-	ot->invoke = WM_operator_filesel;
+	ot->invoke = wm_alembic_import_invoke;
 	ot->exec = wm_alembic_import_exec;
 	ot->poll = WM_operator_winactive;
 	ot->ui = wm_alembic_import_draw;
@@ -591,8 +609,10 @@ void WM_OT_alembic_import(wmOperatorType *ot)
 	RNA_def_boolean(ot->srna, "is_sequence", false, "Is Sequence",
 	                "Set to true if the cache is split into separate files");
 
-	RNA_def_boolean(ot->srna, "as_background_job", true, "Run as Background Job",
-	                "Enable this to run the export in the background, disable to block Blender while exporting");
+	RNA_def_boolean(ot->srna, "as_background_job", false, "Run as Background Job",
+	                "Enable this to run the export in the background, disable to block Blender while exporting. "
+	                "This option is deprecated; EXECUTE this operator to run in the foreground, and INVOKE it "
+	                "to run as a background job");
 }
 
 #endif

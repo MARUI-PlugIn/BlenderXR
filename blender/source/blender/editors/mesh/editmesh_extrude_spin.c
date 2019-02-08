@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2004 by Blender Foundation.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): Joseph Eagar
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/mesh/editmesh_extrude_spin.c
- *  \ingroup edmesh
+/** \file \ingroup edmesh
  */
 
 #include "DNA_object_types.h"
@@ -71,7 +62,7 @@ static int edbm_spin_exec(bContext *C, wmOperator *op)
 	RNA_float_get_array(op->ptr, "axis", axis);
 	const int steps = RNA_int_get(op->ptr, "steps");
 	const float angle = RNA_float_get(op->ptr, "angle");
-	const bool use_normal_flip = RNA_boolean_get(op->ptr, "use_normal_flip") ^ (angle < 0.0f);
+	const bool use_normal_flip = RNA_boolean_get(op->ptr, "use_normal_flip");
 	const bool dupli = RNA_boolean_get(op->ptr, "dupli");
 	const bool use_auto_merge = (
 	        RNA_boolean_get(op->ptr, "use_auto_merge") &&
@@ -208,8 +199,8 @@ void MESH_OT_spin(wmOperatorType *ot)
 	RNA_def_boolean(ot->srna, "use_auto_merge", true, "Auto Merge", "Merge first/last when the angle is a full revolution");
 	RNA_def_boolean(ot->srna, "use_normal_flip", 0, "Flip Normals", "");
 
-	RNA_def_float_vector(ot->srna, "center", 3, NULL, -1e12f, 1e12f,
-	                     "Center", "Center in global view space", -1e4f, 1e4f);
+	RNA_def_float_vector_xyz(ot->srna, "center", 3, NULL, -1e12f, 1e12f,
+	                         "Center", "Center in global view space", -1e4f, 1e4f);
 	RNA_def_float_vector(ot->srna, "axis", 3, NULL, -1.0f, 1.0f, "Axis", "Axis in global view space", -1.0f, 1.0f);
 
 	WM_gizmogrouptype_append(MESH_GGT_spin);

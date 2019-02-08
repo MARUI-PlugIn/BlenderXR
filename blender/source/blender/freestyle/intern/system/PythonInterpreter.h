@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,18 +12,13 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
 #ifndef __FREESTYLE_PYTHON_INTERPRETER_H__
 #define __FREESTYLE_PYTHON_INTERPRETER_H__
 
-/** \file blender/freestyle/intern/system/PythonInterpreter.h
- *  \ingroup freestyle
+/** \file \ingroup freestyle
  *  \brief Python Interpreter
- *  \author Emmanuel Turquin
- *  \date 17/04/2003
  */
 
 #include <iostream>
@@ -84,7 +77,7 @@ public:
 		Text *text = BKE_text_load(&_freestyle_bmain, fn, G_MAIN->name);
 		if (text) {
 			ok = BPY_execute_text(_context, text, reports, false);
-			BKE_libblock_delete(&_freestyle_bmain, text);
+			BKE_id_delete(&_freestyle_bmain, text);
 		}
 		else {
 			BKE_reportf(reports, RPT_ERROR, "Cannot open file: %s", fn);

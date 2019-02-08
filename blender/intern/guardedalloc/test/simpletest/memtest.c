@@ -1,5 +1,4 @@
 /**
- * ***** BEGIN GPL LICENSE BLOCK *****
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -17,12 +16,6 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
 /**
@@ -60,10 +53,10 @@ int main(int argc, char *argv[])
 
 	/* ----------------------------------------------------------------- */
 	switch (argc) {
-	case 2:		
+	case 2:
 		verbose = atoi(argv[1]);
 		if (verbose < 0) verbose = 0;
-		break;		
+		break;
 	case 1:
 	default:
 		verbose = 0;
@@ -77,7 +70,7 @@ int main(int argc, char *argv[])
 	/* ----------------------------------------------------------------- */
 	/* flush mem lib output to stderr */
 	MEM_set_error_callback(mem_error_cb);
-	
+
 	for (i = 0; i < NUM_BLOCKS; i++) {
 		int blocksize = 10000;
 		char tagstring[1000];
@@ -99,7 +92,7 @@ int main(int argc, char *argv[])
 		else {
 			fprintf(stderr, "|--* Memory tested as good (as it should be)\n|\n");
 		}
-	} 
+	}
 
 	for (i = 0; i < NUM_BLOCKS; i++) {
 		MEM_freeN(p[i]);
@@ -124,11 +117,11 @@ int main(int argc, char *argv[])
 	for (i = 0; i< 1000; i++,ip++) *ip = i+1;
 	ip = (int*) p[6];
 	*(ip+10005) = 0;
-	
+
 	retval = MEM_consistency_check();
 
 	/* the test should have failed */
-	error_status |= !retval;		
+	error_status |= !retval;
 	if (verbose) {
 		if (retval) {
 			fprintf(stderr, "|--* Memory test failed (as it should be)\n");
@@ -136,8 +129,8 @@ int main(int argc, char *argv[])
 		else {
 			fprintf(stderr, "|--* Memory test FAILED to find corrupted blocks \n");
 		}
-	} 
-	
+	}
+
 	for (i = 0; i < NUM_BLOCKS; i++) {
 		MEM_freeN(p[i]);
 	}
@@ -146,7 +139,7 @@ int main(int argc, char *argv[])
 	if (verbose && error_status) {
 		fprintf(stderr,"|--* Memory was corrupted\n");
 	}
-	/* ----------------------------------------------------------------- */	
+	/* ----------------------------------------------------------------- */
 	if (verbose) {
 		if (error_status) {
 			fprintf(stderr,"|\n|--* Errors were detected\n");
@@ -154,10 +147,8 @@ int main(int argc, char *argv[])
 		else {
 			fprintf(stderr,"|\n|--* Test exited succesfully\n");
 		}
-		
+
 		fprintf(stderr,"|\n*** Finished test\n\n");
 	}
 	return error_status;
 }
-
-

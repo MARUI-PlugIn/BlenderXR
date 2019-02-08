@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,12 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/python/intern/bpy_gizmo_wrap.c
- *  \ingroup pythonintern
+/** \file \ingroup pythonintern
  *
  * This file is so Python can define widget-group's that C can call into.
  * The generic callback functions for Python widget-group are defines in
@@ -48,7 +43,6 @@
 /* we may want to add, but not now */
 
 /* -------------------------------------------------------------------- */
-
 /** \name Gizmo
  * \{ */
 
@@ -186,7 +180,6 @@ void BPY_RNA_gizmo_wrapper(wmGizmoType *gzt, void *userdata)
 
 
 /* -------------------------------------------------------------------- */
-
 /** \name Gizmo Group
  * \{ */
 

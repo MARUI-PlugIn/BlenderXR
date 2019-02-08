@@ -5,7 +5,7 @@ bl_info = {
     "name": "HDRI lighting Shortcut",
     "author": "Nicolas Priniotakis (Nikos)",
     "version": (1, 3, 2, 0),
-    "blender": (2, 7, 6, 0),
+    "blender": (2, 76, 0),
     "api": 44539,
     "category": "Material",
     "location": "Properties > World",
@@ -508,7 +508,7 @@ class hdri_map(bpy.types.Panel):
             row = layout.row()
             box = layout.box()
             row = box.row()
-            row.label("Light sources")
+            row.label(text="Light sources")
             row = box.row()
             row.prop(scene, "light_strength")
             row.prop(scene, "main_light_strength")
@@ -535,9 +535,9 @@ class OBJECT_OT_load_img(bpy.types.Operator):
     bl_description = "Load Image"
     bl_options = {'REGISTER'}
 
-    filter_glob = bpy.props.StringProperty(default="*.tif;*.png;*.jpeg;*.jpg;*.exr;*.hdr", options={'HIDDEN'})
-    filepath = bpy.props.StringProperty(name="File Path", description="Filepath used for importing files", maxlen=1024, default="")
-    files = bpy.props.CollectionProperty(
+    filter_glob: bpy.props.StringProperty(default="*.tif;*.png;*.jpeg;*.jpg;*.exr;*.hdr", options={'HIDDEN'})
+    filepath: bpy.props.StringProperty(name="File Path", description="Filepath used for importing files", maxlen=1024, default="")
+    files: bpy.props.CollectionProperty(
         name="File Path",
         type=bpy.types.OperatorFileListElement,
     )
@@ -553,8 +553,8 @@ class OBJECT_OT_load_img(bpy.types.Operator):
         global folder_path
         folder_path = '//'
         try:
-            user_preferences = bpy.context.user_preferences
-            addon_prefs = user_preferences.addons['lighting_hdri_shortcut'].preferences
+            preferences = bpy.context.preferences
+            addon_prefs = preferences.addons['lighting_hdri_shortcut'].preferences
             folder_path = addon_prefs.folder_path
         except:
             pass
@@ -604,7 +604,7 @@ class OBJECT_OT_Visible(bpy.types.Operator):
 class HDRI_Preferences(AddonPreferences):
     bl_idname = __name__
 
-    folder_path = bpy.props.StringProperty(
+    folder_path: bpy.props.StringProperty(
         name="HDRI Folder",
         subtype='DIR_PATH',
     )
@@ -621,8 +621,8 @@ class OBJECT_OT_addon_prefs(Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
-        user_preferences = context.user_preferences
-        addon_prefs = user_preferences.addons[__name__].preferences
+        preferences = context.preferences
+        addon_prefs = preferences.addons[__name__].preferences
 
         info = ("Path: %s" %
                 (addon_prefs.folder_path))

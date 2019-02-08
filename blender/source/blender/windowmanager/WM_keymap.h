@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,17 +15,12 @@
  *
  * The Original Code is Copyright (C) 2007 Blender Foundation.
  * All rights reserved.
- *
- * Contributor(s): Blender Foundation
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
 #ifndef __WM_KEYMAP_H__
 #define __WM_KEYMAP_H__
 
-/** \file blender/windowmanager/WM_keymap.h
- *  \ingroup wm
+/** \file \ingroup wm
  */
 
 /* dna-savable wmStructs here */
@@ -151,6 +144,10 @@ char *WM_key_event_operator_string(
         const struct bContext *C, const char *opname, int opcontext,
         struct IDProperty *properties, const bool is_strict,
         char *result, const int result_len);
+
+wmKeyMapItem *WM_key_event_operator_from_keymap(
+        struct wmKeyMap *keymap, const char *opname, struct IDProperty *properties,
+        const short include_mask, const short exclude_mask);
 
 const char *WM_bool_as_string(bool test);
 

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,18 +12,13 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/windowmanager/gizmo/intern/wm_gizmo_target_props.c
- *  \ingroup wm
+/** \file \ingroup wm
  */
 
 #include "BLI_listbase.h"
 #include "BLI_math.h"
-#include "BLI_string.h"
-#include "BLI_string_utils.h"
 
 #include "BKE_context.h"
 
@@ -47,7 +40,6 @@
 #include "wm_gizmo_intern.h"
 
 /* -------------------------------------------------------------------- */
-
 /** \name Property Definition
  * \{ */
 
@@ -167,7 +159,6 @@ void WM_gizmo_target_property_clear_rna(
 
 
 /* -------------------------------------------------------------------- */
-
 /** \name Property Access
  * \{ */
 
@@ -284,7 +275,6 @@ int WM_gizmo_target_property_array_length(
 
 
 /* -------------------------------------------------------------------- */
-
 /** \name Property Define
  * \{ */
 
@@ -314,7 +304,6 @@ void WM_gizmotype_target_property_def(
 /** \} */
 
 /* -------------------------------------------------------------------- */
-
 /** \name Property Utilities
  * \{ */
 

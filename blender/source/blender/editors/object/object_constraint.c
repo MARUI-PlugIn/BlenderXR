@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): Joshua Leung, Blender Foundation
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/object/object_constraint.c
- *  \ingroup edobj
+/** \file \ingroup edobj
  */
 
 
@@ -54,7 +45,6 @@
 #include "BKE_constraint.h"
 #include "BKE_context.h"
 #include "BKE_fcurve.h"
-#include "BKE_global.h"
 #include "BKE_main.h"
 #include "BKE_object.h"
 #include "BKE_report.h"
@@ -105,7 +95,8 @@ ListBase *get_active_constraints(Object *ob)
 	return NULL;
 }
 
-/* Find the list that a given constraint belongs to, and/or also get the posechannel this is from (if applicable) */
+/* Find the list that a given constraint belongs to,
+ * and/or also get the posechannel this is from (if applicable) */
 ListBase *get_constraint_lb(Object *ob, bConstraint *con, bPoseChannel **r_pchan)
 {
 	if (r_pchan)
@@ -592,7 +583,8 @@ static void object_test_constraint(Main *bmain, Object *owner, bConstraint *con)
 static const EnumPropertyItem constraint_owner_items[] = {
 	{EDIT_CONSTRAINT_OWNER_OBJECT, "OBJECT", 0, "Object", "Edit a constraint on the active object"},
 	{EDIT_CONSTRAINT_OWNER_BONE, "BONE", 0, "Bone", "Edit a constraint on the active bone"},
-	{0, NULL, 0, NULL, NULL}};
+	{0, NULL, 0, NULL, NULL},
+};
 
 
 static bool edit_constraint_poll_generic(bContext *C, StructRNA *rna_type)
@@ -1242,7 +1234,7 @@ static void object_pose_tag_update(Main *bmain, Object *ob)
 		 * Note that this is a bit wide here, since we cannot be sure whether there are some locked proxy bones
 		 * or not...
 		 * XXX Temp hack until new depsgraph hopefully solves this. */
-		ob->adt->recalc |= ADT_RECALC_ANIM;
+		DEG_id_tag_update(&ob->id, ID_RECALC_ANIMATION);
 	}
 }
 
@@ -1306,7 +1298,8 @@ static int constraint_delete_exec(bContext *C, wmOperator *UNUSED(op))
 	if (BKE_constraint_remove_ex(lb, ob, con, true)) {
 		/* there's no active constraint now, so make sure this is the case */
 		BKE_constraints_active_set(&ob->constraints, NULL);
-		ED_object_constraint_update(bmain, ob); /* needed to set the flags on posebones correctly */
+		/* needed to set the flags on posebones correctly */
+		ED_object_constraint_update(bmain, ob);
 
 		/* relatiols */
 		DEG_relations_tag_update(CTX_data_main(C));
@@ -1637,7 +1630,8 @@ static bool get_new_constraint_target(bContext *C, int con_type, Object **tar_ob
 			return false;
 
 		/* restricted target-type constraints -------------- */
-		/* NOTE: for these, we cannot try to add a target object if no valid ones are found, since that doesn't work */
+		/* NOTE: for these, we cannot try to add a target object if no valid ones are found,
+		 * since that doesn't work */
 		/* curve-based constraints - set the only_curve and only_ob flags */
 		case CONSTRAINT_TYPE_CLAMPTO:
 		case CONSTRAINT_TYPE_FOLLOWPATH:
@@ -1854,7 +1848,7 @@ static int constraint_add_exec(bContext *C, wmOperator *op, Object *ob, ListBase
 			/* We need to make use of ugly POSE_ANIMATION_WORKAROUND here too, else anim data are not reloaded
 			 * after calling `BKE_pose_rebuild()`, which causes T43872.
 			 * XXX Temp hack until new depsgraph hopefully solves this. */
-			ob->adt->recalc |= ADT_RECALC_ANIM;
+			DEG_id_tag_update(&ob->id, ID_RECALC_ANIMATION);
 		}
 		DEG_id_tag_update(&ob->id, ID_RECALC_GEOMETRY | ID_RECALC_TRANSFORM);
 	}

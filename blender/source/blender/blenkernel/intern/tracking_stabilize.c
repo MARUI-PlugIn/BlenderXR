@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,17 +15,9 @@
  *
  * The Original Code is Copyright (C) 2011 Blender Foundation.
  * All rights reserved.
- *
- * Contributor(s): Blender Foundation,
- *                 Sergey Sharybin
- *                 Keir Mierle
- *                 Ichthyostega
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenkernel/intern/tracking_stabilize.c
- *  \ingroup bke
+/** \file \ingroup bke
  *
  * This file contains implementation of 2D image stabilization.
  */
@@ -1598,7 +1588,7 @@ ImBuf *BKE_tracking_stabilize_frame(MovieClip *clip,
 
 	TrackingStabilizeFrameInterpolationData data = {
 		.ibuf = ibuf, .tmpibuf = tmpibuf, .mat = mat,
-		.interpolation = interpolation
+		.interpolation = interpolation,
 	};
 
 	ParallelRangeSettings settings;

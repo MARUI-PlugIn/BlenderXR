@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -20,11 +18,9 @@
 
  * The Original Code is: some of this file.
  *
- * ***** END GPL LICENSE BLOCK *****
  * */
 
-/** \file blender/blenlib/intern/math_rotation.c
- *  \ingroup bli
+/** \file \ingroup bli
  */
 
 #include <assert.h>
@@ -193,10 +189,12 @@ void sub_qt_qtqt(float q[4], const float q1[4], const float q2[4])
 	mul_qt_qtqt(q, q1, nq2);
 }
 
-/* angular mult factor */
-void mul_fac_qt_fl(float q[4], const float fac)
+/* raise a unit quaternion to the specified power */
+void pow_qt_fl_normalized(float q[4], const float fac)
 {
-	const float angle = fac * saacos(q[0]); /* quat[0] = cos(0.5 * angle), but now the 0.5 and 2.0 rule out */
+	BLI_ASSERT_UNIT_QUAT(q);
+	const float angle = fac * saacos(q[0]); /* quat[0] = cos(0.5 * angle),
+	                                         * but now the 0.5 and 2.0 rule out */
 	const float co = cosf(angle);
 	const float si = sinf(angle);
 	q[0] = co;
@@ -1797,9 +1795,6 @@ void eulO_to_gimbal_axis(float gmat[3][3], const float eul[3], const short order
  * 2. Altered source versions must be plainly marked as such, and must not be
  *    misrepresented as being the original software.
  * 3. This notice may not be removed or altered from any source distribution.
- *
- * \author Ladislav Kavan, kavanl@cs.tcd.ie
- *
  * Changes for Blender:
  * - renaming, style changes and optimization's
  * - added support for scaling
@@ -2010,12 +2005,18 @@ void quat_apply_track(float quat[4], short axis, short upflag)
 	/* rotations are hard coded to match vec_to_quat */
 	const float sqrt_1_2 = (float)M_SQRT1_2;
 	const float quat_track[][4] = {
-		{sqrt_1_2, 0.0, -sqrt_1_2, 0.0}, /* pos-y90 */
-		{0.5, 0.5, 0.5, 0.5}, /* Quaternion((1,0,0), radians(90)) * Quaternion((0,1,0), radians(90)) */
-		{sqrt_1_2, 0.0, 0.0, sqrt_1_2}, /* pos-z90 */
-		{sqrt_1_2, 0.0, sqrt_1_2, 0.0}, /* neg-y90 */
-		{0.5, -0.5, -0.5, 0.5}, /* Quaternion((1,0,0), radians(-90)) * Quaternion((0,1,0), radians(-90)) */
-		{0.0, sqrt_1_2, sqrt_1_2, 0.0} /* no rotation */
+		/* pos-y90 */
+		{sqrt_1_2, 0.0, -sqrt_1_2, 0.0},
+		/* Quaternion((1,0,0), radians(90)) * Quaternion((0,1,0), radians(90)) */
+		{0.5, 0.5, 0.5, 0.5},
+		/* pos-z90 */
+		{sqrt_1_2, 0.0, 0.0, sqrt_1_2},
+		/* neg-y90 */
+		{sqrt_1_2, 0.0, sqrt_1_2, 0.0},
+		/* Quaternion((1,0,0), radians(-90)) * Quaternion((0,1,0), radians(-90)) */
+		{0.5, -0.5, -0.5, 0.5},
+		/* no rotation */
+		{0.0, sqrt_1_2, sqrt_1_2, 0.0},
 	};
 
 	assert(axis >= 0 && axis <= 5);

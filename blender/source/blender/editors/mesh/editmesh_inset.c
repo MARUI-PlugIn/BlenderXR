@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,14 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Campbell Barton
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/mesh/editmesh_inset.c
- *  \ingroup edmesh
+/** \file \ingroup edmesh
  */
 
 #include "MEM_guardedalloc.h"
@@ -124,7 +117,7 @@ static bool edbm_inset_init(bContext *C, wmOperator *op, const bool is_modal)
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 
 	if (is_modal) {
-		RNA_float_set(op->ptr, "thickness", 0.01f);
+		RNA_float_set(op->ptr, "thickness", 0.0f);
 		RNA_float_set(op->ptr, "depth", 0.0f);
 	}
 
@@ -148,7 +141,7 @@ static bool edbm_inset_init(bContext *C, wmOperator *op, const bool is_modal)
 		opdata->ob_store_len = objects_used_len;
 	}
 
-	opdata->old_thickness = 0.01;
+	opdata->old_thickness = 0.0;
 	opdata->old_depth = 0.0;
 	opdata->modify_depth = false;
 	opdata->shift = false;
@@ -241,7 +234,8 @@ static bool edbm_inset_calc(wmOperator *op)
 	const float thickness          = RNA_float_get(op->ptr,   "thickness");
 	const float depth              = RNA_float_get(op->ptr,   "depth");
 	const bool use_outset          = RNA_boolean_get(op->ptr, "use_outset");
-	const bool use_select_inset    = RNA_boolean_get(op->ptr, "use_select_inset"); /* not passed onto the BMO */
+	/* not passed onto the BMO */
+	const bool use_select_inset    = RNA_boolean_get(op->ptr, "use_select_inset");
 	const bool use_individual      = RNA_boolean_get(op->ptr, "use_individual");
 	const bool use_interpolate     = RNA_boolean_get(op->ptr, "use_interpolate");
 
@@ -565,7 +559,7 @@ void MESH_OT_inset(wmOperatorType *ot)
 	        ot->srna, "use_edge_rail",
 	        false, "Edge Rail", "Inset the region along existing edges");
 
-	prop = RNA_def_float_distance(ot->srna, "thickness", 0.01f, 0.0f, 1e12f, "Thickness", "", 0.0f, 10.0f);
+	prop = RNA_def_float_distance(ot->srna, "thickness", 0.0f, 0.0f, 1e12f, "Thickness", "", 0.0f, 10.0f);
 	/* use 1 rather then 10 for max else dragging the button moves too far */
 	RNA_def_property_ui_range(prop, 0.0, 1.0, 0.01, 4);
 

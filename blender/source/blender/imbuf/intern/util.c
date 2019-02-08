@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,18 +15,10 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  * util.c
- *
  */
 
-/** \file blender/imbuf/intern/util.c
- *  \ingroup imbuf
+/** \file \ingroup imbuf
  */
 
 
@@ -41,7 +31,6 @@
 #include "BLI_utildefines.h"
 #include "BLI_path_util.h"
 #include "BLI_fileops.h"
-#include "BLI_string.h"
 
 #include "imbuf.h"
 #include "IMB_imbuf_types.h"
@@ -51,14 +40,16 @@
 #include "IMB_anim.h"
 
 #ifdef WITH_FFMPEG
-#include "BKE_global.h"  /* G.debug */
-#include <libavcodec/avcodec.h>
-#include <libavformat/avformat.h>
-#include <libavdevice/avdevice.h>
-#include <libavutil/log.h>
+#  include "BLI_string.h"  /* BLI_vsnprintf */
 
-#include "ffmpeg_compat.h"
+#  include "BKE_global.h"  /* G.debug */
 
+#  include <libavcodec/avcodec.h>
+#  include <libavformat/avformat.h>
+#  include <libavdevice/avdevice.h>
+#  include <libavutil/log.h>
+
+#  include "ffmpeg_compat.h"
 #endif
 
 #define UTIL_DEBUG 0
@@ -92,14 +83,14 @@ const char *imb_ext_image[] = {
 #ifdef WITH_OPENIMAGEIO
 	".psd", ".pdd", ".psb",
 #endif
-	NULL
+	NULL,
 };
 
 const char *imb_ext_image_filepath_only[] = {
 #ifdef WITH_OPENIMAGEIO
 	".psd", ".pdd", ".psb",
 #endif
-	NULL
+	NULL,
 };
 
 const char *imb_ext_movie[] = {
@@ -131,7 +122,7 @@ const char *imb_ext_movie[] = {
 	".xvid",
 	".mxf",
 	".webm",
-	NULL
+	NULL,
 };
 
 /* sort of wrong being here... */
@@ -150,7 +141,7 @@ const char *imb_ext_audio[] = {
 	".aiff",
 	".m4a",
 	".mka",
-	NULL
+	NULL,
 };
 
 int IMB_ispic_type(const char *name)

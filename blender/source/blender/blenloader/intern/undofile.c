@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,17 +15,10 @@
  *
  * The Original Code is Copyright (C) 2004 Blender Foundation
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  * .blend file reading entry point
  */
 
-/** \file blender/blenloader/intern/undofile.c
- *  \ingroup blenloader
+/** \file \ingroup blenloader
  */
 
 #include <stdlib.h>
@@ -53,7 +44,6 @@
 #include "BLO_undofile.h"
 #include "BLO_readfile.h"
 
-#include "BKE_library.h"
 #include "BKE_main.h"
 
 /* keep last */

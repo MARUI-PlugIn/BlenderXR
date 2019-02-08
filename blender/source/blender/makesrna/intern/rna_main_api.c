@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,15 +15,9 @@
  *
  * The Original Code is Copyright (C) 2009 Blender Foundation.
  * All rights reserved.
- *
- *
- * Contributor(s): Blender Foundation
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/makesrna/intern/rna_main_api.c
- *  \ingroup RNA
+/** \file \ingroup RNA
  */
 
 
@@ -39,7 +31,6 @@
 #include "DNA_object_types.h"
 
 #include "BLI_utildefines.h"
-#include "BLI_path_util.h"
 
 #include "RNA_define.h"
 #include "RNA_access.h"
@@ -118,6 +109,7 @@
 #endif
 
 #include "WM_api.h"
+#include "WM_types.h"
 
 
 static void rna_idname_validate(const char *name, char *r_name)
@@ -133,11 +125,16 @@ static void rna_Main_ID_remove(
 {
 	ID *id = id_ptr->data;
 	if (do_unlink) {
-		BKE_libblock_delete(bmain, id);
+		BKE_id_delete(bmain, id);
 		RNA_POINTER_INVALIDATE(id_ptr);
+		/* Force full redraw, mandatory to avoid crashes when running this from UI... */
+		WM_main_add_notifier(NC_WINDOW, NULL);
 	}
 	else if (ID_REAL_USERS(id) <= 0) {
-		BKE_libblock_free_ex(bmain, id, do_id_user, do_ui_user);
+		const int flag = (do_id_user ? 0 : LIB_ID_FREE_NO_USER_REFCOUNT) |
+		                 (do_ui_user ? 0 : LIB_ID_FREE_NO_UI_USER);
+		/* Still using ID flags here, this is in-between commit anyway... */
+		BKE_id_free_ex(bmain, id, flag, true);
 		RNA_POINTER_INVALIDATE(id_ptr);
 	}
 	else {
@@ -167,7 +164,7 @@ static Scene *rna_Main_scenes_new(Main *bmain, const char *name)
 }
 static void rna_Main_scenes_remove(Main *bmain, bContext *C, ReportList *reports, PointerRNA *scene_ptr, bool do_unlink)
 {
-	/* don't call BKE_libblock_free(...) directly */
+	/* don't call BKE_id_free(...) directly */
 	Scene *scene = scene_ptr->data;
 	Scene *scene_new;
 
@@ -828,7 +825,7 @@ void RNA_def_main_node_groups(BlenderRNA *brna, PropertyRNA *cprop)
 
 	static const EnumPropertyItem dummy_items[] = {
 		{0, "DUMMY", 0, "", ""},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	RNA_def_property_srna(cprop, "BlendDataNodeTrees");

@@ -48,6 +48,9 @@ def get_socket_or_texture_slot(blender_material: bpy.types.Material, name: str):
         if name == "Emissive":
             type = bpy.types.ShaderNodeEmission
             name = "Color"
+        elif name == "Background":
+            type = bpy.types.ShaderNodeBackground
+            name = "Color"
         else:
             type = bpy.types.ShaderNodeBsdfPrincipled
         nodes = [n for n in blender_material.node_tree.nodes if isinstance(n, type)]
@@ -368,6 +371,9 @@ def get_texture_transform_from_texture_node(texture_node):
         del(texture_transform["scale"])
     if texture_transform["rotation"] == 0:
         del(texture_transform["rotation"])
+
+    if len(texture_transform) == 0:
+        return None
 
     return texture_transform
 

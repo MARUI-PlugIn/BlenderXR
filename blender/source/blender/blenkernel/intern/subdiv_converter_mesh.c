@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,14 +15,9 @@
  *
  * The Original Code is Copyright (C) 2018 by Blender Foundation.
  * All rights reserved.
- *
- * Contributor(s): Sergey Sharybin.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenkernel/intern/subdiv_converter_mesh.c
- *  \ingroup bke
+/** \file \ingroup bke
  */
 
 #include "subdiv_converter.h"
@@ -36,7 +29,6 @@
 
 #include "BLI_utildefines.h"
 #include "BLI_bitmap.h"
-#include "BLI_math_vector.h"
 
 #include "BKE_customdata.h"
 #include "BKE_mesh_mapping.h"

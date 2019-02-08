@@ -67,8 +67,18 @@ int numaAPI_GetNumNodes(void);
 // Returns truth if the given node is available for compute.
 bool numaAPI_IsNodeAvailable(int node);
 
-// Getnumber of available processors on a given node.
+// Get number of available processors on a given node.
 int numaAPI_GetNumNodeProcessors(int node);
+
+////////////////////////////////////////////////////////////////////////////////
+// Topology helpers.
+//
+// Those are a bit higher level queries, but is still rather platform-specific
+// and generally useful.
+
+// Get number of processors within the NUMA nodes on which current thread is
+// set affinity on.
+int numaAPI_GetNumCurrentNodesProcessors(void);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Affinities.

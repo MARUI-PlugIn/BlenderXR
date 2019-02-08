@@ -16,11 +16,6 @@
 #
 # The Original Code is Copyright (C) 2006, Blender Foundation
 # All rights reserved.
-#
-# The Original Code is: all of this file.
-#
-# Contributor(s): Jacques Beaurain.
-#
 # ***** END GPL LICENSE BLOCK *****
 
 set(INC
@@ -36,18 +31,18 @@ set(INC_SYS
 
 set(SRC
 	intern/avi.c
-	intern/avi_rgb.c
 	intern/avi_codecs.c
 	intern/avi_endian.c
 	intern/avi_mjpeg.c
 	intern/avi_options.c
+	intern/avi_rgb.c
 	intern/avi_rgb32.c
 
 	AVI_avi.h
-	intern/avi_intern.h
-	intern/avi_rgb.h
 	intern/avi_endian.h
+	intern/avi_intern.h
 	intern/avi_mjpeg.h
+	intern/avi_rgb.h
 	intern/avi_rgb32.h
 )
 

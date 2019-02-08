@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,13 +15,9 @@
  *
  * The Original Code is Copyright (C) 2008 Blender Foundation.
  * All rights reserved.
- *
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/screen/screen_context.c
- *  \ingroup edscr
+/** \file \ingroup edscr
  */
 
 #include <stdio.h>
@@ -51,10 +45,8 @@
 #include "BKE_action.h"
 #include "BKE_armature.h"
 #include "BKE_paint.h"
-#include "BKE_main.h"
 #include "BKE_gpencil.h"
 #include "BKE_layer.h"
-#include "BKE_screen.h"
 #include "BKE_sequencer.h"
 #include "BKE_workspace.h"
 
@@ -111,26 +103,17 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
 		return 1;
 	}
 	else if (CTX_data_equals(member, "visible_objects")) {
-		FOREACH_VISIBLE_OBJECT_BEGIN(view_layer, v3d, ob)
-		{
-			CTX_data_id_list_add(result, &ob->id);
+		for (Base *base = view_layer->object_bases.first; base; base = base->next) {
+			if (BASE_VISIBLE(v3d, base)) {
+				CTX_data_id_list_add(result, &base->object->id);
+			}
 		}
-		FOREACH_VISIBLE_BASE_END;
 		CTX_data_type_set(result, CTX_DATA_TYPE_COLLECTION);
 		return 1;
 	}
 	else if (CTX_data_equals(member, "selectable_objects")) {
 		for (Base *base = view_layer->object_bases.first; base; base = base->next) {
-			if (v3d && v3d->localvd && ((base->local_view_bits & v3d->local_view_uuid) == 0)) {
-				continue;
-			}
-			if (v3d && ((v3d->object_type_exclude_viewport & (1 << base->object->type)) != 0)) {
-				continue;
-			}
-			if (v3d && ((v3d->object_type_exclude_select & (1 << base->object->type)) != 0)) {
-				continue;
-			}
-			if (((base->flag & BASE_VISIBLE) != 0) && ((base->flag & BASE_SELECTABLE) != 0)) {
+			if (BASE_SELECTABLE(v3d, base)) {
 				CTX_data_id_list_add(result, &base->object->id);
 			}
 		}
@@ -138,58 +121,45 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
 		return 1;
 	}
 	else if (CTX_data_equals(member, "selected_objects")) {
-		FOREACH_SELECTED_OBJECT_BEGIN(view_layer, v3d, ob)
-		{
-			CTX_data_id_list_add(result, &ob->id);
+		for (Base *base = view_layer->object_bases.first; base; base = base->next) {
+			if (BASE_SELECTED(v3d, base)) {
+				CTX_data_id_list_add(result, &base->object->id);
+			}
 		}
-		FOREACH_SELECTED_OBJECT_END;
 		CTX_data_type_set(result, CTX_DATA_TYPE_COLLECTION);
 		return 1;
 	}
 	else if (CTX_data_equals(member, "selected_editable_objects")) {
-		FOREACH_SELECTED_OBJECT_BEGIN(view_layer, v3d, ob)
-		{
-			if (0 == BKE_object_is_libdata(ob)) {
-				CTX_data_id_list_add(result, &ob->id);
+		for (Base *base = view_layer->object_bases.first; base; base = base->next) {
+			if (BASE_SELECTED_EDITABLE(v3d, base)) {
+				CTX_data_id_list_add(result, &base->object->id);
 			}
 		}
-		FOREACH_SELECTED_OBJECT_END;
 		CTX_data_type_set(result, CTX_DATA_TYPE_COLLECTION);
 		return 1;
 	}
 	else if (CTX_data_equals(member, "editable_objects")) {
 		/* Visible + Editable, but not necessarily selected */
-		FOREACH_VISIBLE_OBJECT_BEGIN(view_layer, v3d, ob)
-		{
-			if (0 == BKE_object_is_libdata(ob)) {
-				CTX_data_id_list_add(result, &ob->id);
+		for (Base *base = view_layer->object_bases.first; base; base = base->next) {
+			if (BASE_EDITABLE(v3d, base)) {
+				CTX_data_id_list_add(result, &base->object->id);
 			}
 		}
-		FOREACH_VISIBLE_OBJECT_END;
 		CTX_data_type_set(result, CTX_DATA_TYPE_COLLECTION);
 		return 1;
 	}
 	else if ( CTX_data_equals(member, "visible_bases")) {
-		FOREACH_VISIBLE_BASE_BEGIN(view_layer, v3d, base)
-		{
-			CTX_data_list_add(result, &scene->id, &RNA_ObjectBase, base);
+		for (Base *base = view_layer->object_bases.first; base; base = base->next) {
+			if (BASE_VISIBLE(v3d, base)) {
+				CTX_data_list_add(result, &scene->id, &RNA_ObjectBase, base);
+			}
 		}
-		FOREACH_VISIBLE_BASE_END;
 		CTX_data_type_set(result, CTX_DATA_TYPE_COLLECTION);
 		return 1;
 	}
 	else if (CTX_data_equals(member, "selectable_bases")) {
 		for (Base *base = view_layer->object_bases.first; base; base = base->next) {
-			if (v3d && v3d->localvd && ((base->local_view_bits & v3d->local_view_uuid) == 0)) {
-				continue;
-			}
-			if (v3d && ((v3d->object_type_exclude_viewport & (1 << base->object->type)) != 0)) {
-				continue;
-			}
-			if (v3d && ((v3d->object_type_exclude_select & (1 << base->object->type)) != 0)) {
-				continue;
-			}
-			if ((base->flag & BASE_VISIBLE) && (base->flag & BASE_SELECTABLE) != 0) {
+			if (BASE_SELECTABLE(v3d, base)) {
 				CTX_data_list_add(result, &scene->id, &RNA_ObjectBase, base);
 			}
 		}
@@ -198,13 +168,7 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
 	}
 	else if (CTX_data_equals(member, "selected_bases")) {
 		for (Base *base = view_layer->object_bases.first; base; base = base->next) {
-			if (v3d && v3d->localvd && ((base->local_view_bits & v3d->local_view_uuid) == 0)) {
-				continue;
-			}
-			if (v3d && ((v3d->object_type_exclude_viewport & (1 << base->object->type)) != 0)) {
-				continue;
-			}
-			if ((base->flag & BASE_SELECTED) != 0) {
+			if (BASE_SELECTED(v3d, base)) {
 				CTX_data_list_add(result, &scene->id, &RNA_ObjectBase, base);
 			}
 		}
@@ -213,16 +177,8 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
 	}
 	else if (CTX_data_equals(member, "selected_editable_bases")) {
 		for (Base *base = view_layer->object_bases.first; base; base = base->next) {
-			if (v3d && v3d->localvd && ((base->local_view_bits & v3d->local_view_uuid) == 0)) {
-				continue;
-			}
-			if (v3d && ((v3d->object_type_exclude_viewport & (1 << base->object->type)) != 0)) {
-				continue;
-			}
-			if ((base->flag & BASE_SELECTED) != 0) {
-				if (0 == BKE_object_is_libdata(base->object)) {
-					CTX_data_list_add(result, &scene->id, &RNA_ObjectBase, base);
-				}
+			if (BASE_SELECTED_EDITABLE(v3d, base)) {
+				CTX_data_list_add(result, &scene->id, &RNA_ObjectBase, base);
 			}
 		}
 		CTX_data_type_set(result, CTX_DATA_TYPE_COLLECTION);
@@ -231,16 +187,8 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
 	else if (CTX_data_equals(member, "editable_bases")) {
 		/* Visible + Editable, but not necessarily selected */
 		for (Base *base = view_layer->object_bases.first; base; base = base->next) {
-			if (v3d && v3d->localvd && ((base->local_view_bits & v3d->local_view_uuid) == 0)) {
-				continue;
-			}
-			if (v3d && ((v3d->object_type_exclude_viewport & (1 << base->object->type)) != 0)) {
-				continue;
-			}
-			if ((base->flag & BASE_VISIBLE) != 0) {
-				if (0 == BKE_object_is_libdata(base->object)) {
-					CTX_data_list_add(result, &scene->id, &RNA_ObjectBase, base);
-				}
+			if (BASE_EDITABLE(v3d, base)) {
+				CTX_data_list_add(result, &scene->id, &RNA_ObjectBase, base);
 			}
 		}
 		CTX_data_type_set(result, CTX_DATA_TYPE_COLLECTION);
@@ -295,7 +243,8 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
 						if (arm->flag & ARM_MIRROR_EDIT)
 							flipbone = ED_armature_ebone_get_mirrored(arm->edbo, ebone);
 
-						/* if we're filtering for editable too, use the check for that instead, as it has selection check too */
+						/* if we're filtering for editable too, use the check for that instead,
+						 * as it has selection check too */
 						if (editable_bones) {
 							/* only selected + editable */
 							if (EBONE_EDITABLE(ebone)) {
@@ -346,7 +295,8 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
 						if (arm->flag & ARM_MIRROR_EDIT)
 							flipbone = ED_armature_ebone_get_mirrored(arm->edbo, ebone);
 
-						/* if we're filtering for editable too, use the check for that instead, as it has selection check too */
+						/* if we're filtering for editable too, use the check for that instead,
+						 * as it has selection check too */
 						if (selected_editable_bones) {
 							/* only selected + editable */
 							if (EBONE_EDITABLE(ebone)) {

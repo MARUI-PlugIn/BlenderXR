@@ -236,11 +236,10 @@ class _draw_left_context_mode:
             if brush is None:
                 return
 
-            from .properties_paint_common import UnifiedPaintPanel
-
-            UnifiedPaintPanel.prop_unified_size(layout, context, brush, "size", slider=True, text="Radius")
-            UnifiedPaintPanel.prop_unified_strength(layout, context, brush, "strength", slider=True, text="Strength")
-            layout.prop(brush, "direction", text="", expand=True)
+            from .properties_paint_common import (
+                brush_basic_sculpt_settings,
+            )
+            brush_basic_sculpt_settings(layout, context, brush, compact=True)
 
         @staticmethod
         def PAINT_TEXTURE(context, layout, tool):
@@ -254,12 +253,14 @@ class _draw_left_context_mode:
             if brush is None:
                 return
 
-            from .properties_paint_common import UnifiedPaintPanel
-
-            UnifiedPaintPanel.prop_unified_color(layout, context, brush, "color", text="")
-            UnifiedPaintPanel.prop_unified_size(layout, context, brush, "size", slider=True, text="Radius")
-            UnifiedPaintPanel.prop_unified_strength(layout, context, brush, "strength", slider=True, text="Strength")
-            layout.prop(brush, "blend", text="")
+            from .properties_paint_common import (
+                UnifiedPaintPanel,
+                brush_basic_texpaint_settings,
+            )
+            capabilities = brush.image_paint_capabilities
+            if capabilities.has_color:
+                UnifiedPaintPanel.prop_unified_color(layout, context, brush, "color", text="")
+            brush_basic_texpaint_settings(layout, context, brush, compact=True)
 
         @staticmethod
         def PAINT_VERTEX(context, layout, tool):
@@ -273,12 +274,14 @@ class _draw_left_context_mode:
             if brush is None:
                 return
 
-            from .properties_paint_common import UnifiedPaintPanel
-
-            UnifiedPaintPanel.prop_unified_color(layout, context, brush, "color", text="")
-            UnifiedPaintPanel.prop_unified_size(layout, context, brush, "size", slider=True, text="Radius")
-            UnifiedPaintPanel.prop_unified_strength(layout, context, brush, "strength", slider=True, text="Strength")
-            layout.prop(brush, "blend", text="")
+            from .properties_paint_common import (
+                UnifiedPaintPanel,
+                brush_basic_vpaint_settings,
+            )
+            capabilities = brush.vertex_paint_capabilities
+            if capabilities.has_color:
+                UnifiedPaintPanel.prop_unified_color(layout, context, brush, "color", text="")
+            brush_basic_vpaint_settings(layout, context, brush, compact=True)
 
         @staticmethod
         def PAINT_WEIGHT(context, layout, tool):
@@ -291,12 +294,8 @@ class _draw_left_context_mode:
             if brush is None:
                 return
 
-            from .properties_paint_common import UnifiedPaintPanel
-
-            UnifiedPaintPanel.prop_unified_weight(layout, context, brush, "weight", slider=True, text="Weight")
-            UnifiedPaintPanel.prop_unified_size(layout, context, brush, "size", slider=True, text="Radius")
-            UnifiedPaintPanel.prop_unified_strength(layout, context, brush, "strength", slider=True, text="Strength")
-            layout.prop(brush, "blend", text="")
+            from .properties_paint_common import brush_basic_wpaint_settings
+            brush_basic_wpaint_settings(layout, context, brush, compact=True)
 
         @staticmethod
         def PAINT_GPENCIL(context, layout, tool):
@@ -304,9 +303,13 @@ class _draw_left_context_mode:
                 return
 
             is_paint = True
-            if (tool.name in {"Line", "Box", "Circle", "Arc", "Curve"}):
+            if tool.name in {"Line", "Box", "Circle", "Arc", "Curve"}:
                 is_paint = False
-            elif (not tool.has_datablock):
+            elif tool.name == "Cutter":
+                row = layout.row(align=True)
+                row.prop(context.tool_settings.gpencil_sculpt, "intersection_threshold")
+                return
+            elif not tool.has_datablock:
                 return
 
             paint = context.tool_settings.gpencil_paint
@@ -346,49 +349,24 @@ class _draw_left_context_mode:
             settings = tool_settings.gpencil_paint
             row.template_ID_preview(settings, "brush", rows=3, cols=8, hide_buttons=True)
 
-            if brush.gpencil_tool == 'ERASE':
-                row = layout.row(align=True)
-                row.prop(brush, "size", text="Radius")
-                row.prop(gp_settings, "use_pressure", text="", icon='STYLUS_PRESSURE')
-                row.prop(gp_settings, "use_occlude_eraser", text="", icon='XRAY')
-                if gp_settings.eraser_mode == 'SOFT':
-                    row = layout.row(align=True)
-                    row.prop(gp_settings, "pen_strength", slider=True)
-                    row.prop(gp_settings, "use_strength_pressure", text="", icon='STYLUS_PRESSURE')
-            elif brush.gpencil_tool == 'FILL':
-                row = layout.row()
-                row.prop(gp_settings, "fill_leak", text="Leak Size")
-                row.prop(brush, "size", text="Thickness")
-                row.prop(gp_settings, "fill_simplify_level", text="Simplify")
-
+            if brush.gpencil_tool in {'FILL', 'DRAW'}:
                 draw_color_selector()
 
-                row = layout.row(align=True)
-                row.prop(gp_settings, "fill_draw_mode", text="")
-                row.prop(gp_settings, "show_fill_boundary", text="", icon='GRID')
+            from .properties_paint_common import (
+                brush_basic_gpencil_paint_settings,
+            )
+            brush_basic_gpencil_paint_settings(layout, context, brush, compact=True)
 
-            else:  # brush.gpencil_tool == 'DRAW':
+            if tool.name in {"Arc", "Curve", "Line", "Box", "Circle"}:
+                settings = context.tool_settings.gpencil_sculpt
                 row = layout.row(align=True)
-                row.prop(brush, "size", text="Radius")
-                if is_paint:
-                    row.prop(gp_settings, "use_pressure", text="", icon='STYLUS_PRESSURE')
-                row = layout.row(align=True)
-                row.prop(gp_settings, "pen_strength", slider=True)
-                if is_paint:
-                    row.prop(gp_settings, "use_strength_pressure", text="", icon='STYLUS_PRESSURE')
-
-                draw_color_selector()
-
-                if tool.name in {"Arc", "Curve", "Line", "Box", "Circle"}:
-                    settings = context.tool_settings.gpencil_sculpt
-                    row = layout.row(align=True)
-                    row.prop(settings, "use_thickness_curve", text="", icon='CURVE_DATA')
-                    sub = row.row(align=True)
-                    sub.active = settings.use_thickness_curve
-                    sub.popover(
-                        panel="TOPBAR_PT_gpencil_primitive",
-                        text="Thickness Profile"
-                    )
+                row.prop(settings, "use_thickness_curve", text="", icon='CURVE_DATA')
+                sub = row.row(align=True)
+                sub.active = settings.use_thickness_curve
+                sub.popover(
+                    panel="TOPBAR_PT_gpencil_primitive",
+                    text="Thickness Profile"
+                )
 
         @staticmethod
         def SCULPT_GPENCIL(context, layout, tool):
@@ -396,22 +374,12 @@ class _draw_left_context_mode:
                 return
             tool_settings = context.tool_settings
             settings = tool_settings.gpencil_sculpt
-            tool = settings.sculpt_tool
             brush = settings.brush
 
-            row = layout.row(align=True)
-            row.prop(brush, "size", slider=True)
-            sub = row.row(align=True)
-            sub.enabled = tool not in {'GRAB', 'CLONE'}
-            sub.prop(brush, "use_pressure_radius", text="")
-
-            row = layout.row(align=True)
-            row.prop(brush, "strength", slider=True)
-            row.prop(brush, "use_pressure_strength", text="")
-
-            if tool in {'THICKNESS', 'STRENGTH', 'PINCH', 'TWIST'}:
-                row.separator()
-                row.prop(brush, "direction", expand=True, text="")
+            from .properties_paint_common import (
+                brush_basic_gpencil_sculpt_settings,
+            )
+            brush_basic_gpencil_sculpt_settings(layout, context, brush, compact=True)
 
         @staticmethod
         def WEIGHT_GPENCIL(context, layout, tool):
@@ -421,13 +389,10 @@ class _draw_left_context_mode:
             settings = tool_settings.gpencil_sculpt
             brush = settings.brush
 
-            layout.prop(brush, "size", slider=True)
-
-            row = layout.row(align=True)
-            row.prop(brush, "strength", slider=True)
-            row.prop(brush, "use_pressure_strength", text="")
-
-            layout.prop(brush, "target_weight", slider=True)
+            from .properties_paint_common import (
+                brush_basic_gpencil_weight_settings,
+            )
+            brush_basic_gpencil_weight_settings(layout, context, brush, compact=True)
 
         @staticmethod
         def PARTICLE(context, layout, tool):
@@ -492,12 +457,14 @@ class _draw_left_context_mode:
             if brush is None:
                 return
 
-            from .properties_paint_common import UnifiedPaintPanel
-
-            UnifiedPaintPanel.prop_unified_color(layout, context, brush, "color", text="")
-            UnifiedPaintPanel.prop_unified_size(layout, context, brush, "size", slider=True, text="Radius")
-            UnifiedPaintPanel.prop_unified_strength(layout, context, brush, "strength", slider=True, text="Strength")
-            layout.prop(brush, "blend", text="")
+            from .properties_paint_common import (
+                UnifiedPaintPanel,
+                brush_basic_texpaint_settings,
+            )
+            capabilities = brush.image_paint_capabilities
+            if capabilities.has_color:
+                UnifiedPaintPanel.prop_unified_color(layout, context, brush, "color", text="")
+            brush_basic_texpaint_settings(layout, context, brush, compact=True)
 
 
 class TOPBAR_PT_gpencil_layers(Panel):
@@ -534,7 +501,7 @@ class TOPBAR_PT_gpencil_layers(Panel):
         col = row.column()
         layer_rows = 10
         col.template_list("GPENCIL_UL_layer", "", gpd, "layers", gpd.layers, "active_index",
-                          rows=layer_rows, reverse=True)
+                          rows=layer_rows, sort_reverse=True, sort_lock=True)
 
         gpl = context.active_gpencil_layer
         if gpl:
@@ -545,6 +512,9 @@ class TOPBAR_PT_gpencil_layers(Panel):
             srow.prop(gpl, "opacity", text="Opacity", slider=True)
             srow.prop(gpl, "clamp_layer", text="",
                       icon='MOD_MASK' if gpl.clamp_layer else 'LAYER_ACTIVE')
+
+            srow = col.row(align=True)
+            srow.prop(gpl, "use_solo_mode", text="Show Only On Keyframed")
 
         col = row.column()
 
@@ -618,7 +588,7 @@ class TOPBAR_MT_file(Menu):
             app_template = None
 
         if app_template:
-            layout.label(text=bpy.path.display_name(app_template))
+            layout.label(text=bpy.path.display_name(app_template, has_ext=False))
             layout.operator("wm.save_homefile")
             layout.operator(
                 "wm.read_factory_settings",

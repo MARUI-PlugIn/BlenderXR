@@ -1,6 +1,4 @@
 /*
- * Copyright 2016, Blender Foundation.
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,12 +13,10 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * Contributor(s): Blender Institute
- *
+ * Copyright 2016, Blender Foundation.
  */
 
-/** \file eevee_lookdev.c
- *  \ingroup draw_engine
+/** \file \ingroup draw_engine
  */
 #include "DRW_render.h"
 
@@ -111,7 +107,7 @@ void EEVEE_lookdev_cache_init(
 			stl->g_data->light_cache = stl->lookdev_lightcache;
 
 			static float background_color[4];
-			UI_GetThemeColor4fv(TH_HIGH_GRAD, background_color);
+			UI_GetThemeColor4fv(TH_BACK, background_color);
 			/* XXX: Really quick conversion to avoid washed out background.
 			 * Needs to be addressed properly (color managed using ocio). */
 			srgb_to_linearrgb_v4(background_color, background_color);
@@ -140,7 +136,7 @@ void EEVEE_lookdev_cache_init(
 				static bool update_other = false;
 				if (update_other ||
 					((pinfo->studiolight_index != sl->index) ||
-					    (pinfo->studiolight_rot_z != v3d->shading.studiolight_rot_z)))
+					 (pinfo->studiolight_rot_z != v3d->shading.studiolight_rot_z)))
 				{
 					stl->lookdev_lightcache->flag |= LIGHTCACHE_UPDATE_WORLD;
 					pinfo->studiolight_index = sl->index;

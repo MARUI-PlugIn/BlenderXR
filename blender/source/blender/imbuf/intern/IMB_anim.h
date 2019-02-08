@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/imbuf/intern/IMB_anim.h
- *  \ingroup imbuf
+/** \file \ingroup imbuf
  */
 
 
@@ -86,14 +77,13 @@
 #define ANIM_SEQUENCE   (1 << 0)
 #define ANIM_MOVIE      (1 << 4)
 #define ANIM_AVI        (1 << 6)
-#define ANIM_QTIME      (1 << 7)
 #define ANIM_FFMPEG     (1 << 8)
 
 #define MAXNUMSTREAMS       50
 
+struct IDProperty;
 struct _AviMovie;
 struct anim_index;
-struct IDProperty;
 
 struct anim {
 	int ib_flags;

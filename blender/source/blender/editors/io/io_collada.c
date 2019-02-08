@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,15 +15,9 @@
  *
  * The Original Code is Copyright (C) 2008 Blender Foundation.
  * All rights reserved.
- *
- *
- * Contributor(s): Blender Foundation
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/io/io_collada.c
- *  \ingroup collada
+/** \file \ingroup collada
  */
 #ifdef WITH_COLLADA
 #include "DNA_space_types.h"
@@ -98,6 +90,7 @@ static int wm_collada_export_exec(bContext *C, wmOperator *op)
 	int sampling_rate;
 	int keep_smooth_curves;
 	int keep_keyframes;
+	int keep_flat_curves;
 
 	int export_animation_type;
 	int use_texture_copies;
@@ -157,6 +150,7 @@ static int wm_collada_export_exec(bContext *C, wmOperator *op)
 	sampling_rate            = (sample_animations) ? RNA_int_get(op->ptr, "sampling_rate") : 0;
 	keep_smooth_curves       = RNA_boolean_get(op->ptr, "keep_smooth_curves");
 	keep_keyframes           = RNA_boolean_get(op->ptr, "keep_keyframes");
+	keep_flat_curves         = RNA_boolean_get(op->ptr, "keep_flat_curves");
 
 	deform_bones_only        = RNA_boolean_get(op->ptr, "deform_bones_only");
 
@@ -195,6 +189,7 @@ static int wm_collada_export_exec(bContext *C, wmOperator *op)
 	export_settings.include_all_actions = include_all_actions != 0;
 	export_settings.sampling_rate = sampling_rate;
 	export_settings.keep_keyframes = keep_keyframes != 0 || sampling_rate < 1;
+	export_settings.keep_flat_curves = keep_flat_curves != 0;
 
 	export_settings.active_uv_only = active_uv_only != 0;
 	export_settings.export_animation_type = export_animation_type;
@@ -357,6 +352,9 @@ static void uiCollada_exportSettings(uiLayout *layout, PointerRNA *imfptr)
 		uiItemR(row, imfptr, "keep_keyframes", 0, NULL, ICON_NONE);
 		uiLayoutSetEnabled(row, sampling && include_animations);
 
+		row = uiLayoutColumn(box, false);
+		uiItemR(row, imfptr, "keep_flat_curves", 0, NULL, ICON_NONE);
+
 		row = uiLayoutRow(box, false);
 		uiItemR(row, imfptr, "include_all_actions", 0, NULL, ICON_NONE);
 		uiLayoutSetEnabled(row, include_animations);
@@ -413,7 +411,7 @@ void WM_OT_collada_export(wmOperatorType *ot)
 	static const EnumPropertyItem prop_bc_export_mesh_type[] = {
 		{BC_MESH_TYPE_VIEW, "view", 0, "View", "Apply modifier's view settings"},
 		{BC_MESH_TYPE_RENDER, "render", 0, "Render", "Apply modifier's render settings"},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	static const EnumPropertyItem prop_bc_export_transformation_type[] = {
@@ -424,7 +422,7 @@ void WM_OT_collada_export(wmOperatorType *ot)
 
 	static const EnumPropertyItem prop_bc_export_animation_type[] = {
 	{ BC_ANIMATION_EXPORT_SAMPLES, "sample", 0, "Samples", "Export Sampled points guided by sampling rate" },
-	{ BC_ANIMATION_EXPORT_KEYS, "keys", 0, "Curves", "Export Curves\n Note: guided by curve keys" },
+	{ BC_ANIMATION_EXPORT_KEYS, "keys", 0, "Curves", "Export Curves (note: guided by curve keys)" },
 	{ 0, NULL, 0, NULL, NULL }
 	};
 
@@ -456,10 +454,9 @@ void WM_OT_collada_export(wmOperatorType *ot)
 	        WM_FILESEL_FILEPATH, FILE_DEFAULTDISPLAY, FILE_SORT_ALPHA);
 
 	RNA_def_enum(func, "prop_bc_export_ui_section", prop_bc_export_ui_section, 0,
-		"Export Section", "Only for User Interface Organisation");
+	             "Export Section", "Only for User Interface organization");
 
-	RNA_def_boolean(func,
-	                "apply_modifiers", 0, "Apply Modifiers",
+	RNA_def_boolean(func, "apply_modifiers", 0, "Apply Modifiers",
 	                "Apply modifiers to exported mesh (non destructive))");
 
 	RNA_def_int(func, "export_mesh_type", 0, INT_MIN, INT_MAX,
@@ -481,27 +478,32 @@ void WM_OT_collada_export(wmOperatorType *ot)
 	                "Export all Shape Keys from Mesh Objects");
 
 	RNA_def_boolean(func, "deform_bones_only", false, "Deform Bones only",
-	            	"Only export deforming bones with armatures");
+	                "Only export deforming bones with armatures");
 
 
 
-	RNA_def_boolean(func, "include_animations", true,
-		"Include Animations", "Export Animations if available.\nExporting Animations will enforce the decomposition of node transforms\ninto  <translation> <rotation> and <scale> components");
+	RNA_def_boolean(func, "include_animations", true, "Include Animations",
+	                "Export animations if available (exporting animations will enforce the decomposition of "
+	                "node transforms into  <translation> <rotation> and <scale> components)");
 
-	RNA_def_boolean(func, "include_all_actions", true,
-		"Include all Actions", "Export also unassigned actions.\nThis allows you to export entire animation libraries for your charater(s)");
+	RNA_def_boolean(func, "include_all_actions", true, "Include all Actions",
+	                "Export also unassigned actions (this allows you to export entire animation libraries for your character(s))");
 
-	RNA_def_enum(func, "export_animation_type_selection", prop_bc_export_animation_type, 0,
-		"Key Type", "Type for exported animations (use sample keys or Curve keys)");
+	RNA_def_enum(func, "export_animation_type_selection", prop_bc_export_animation_type, 0, "Key Type",
+	             "Type for exported animations (use sample keys or Curve keys)");
 
-	RNA_def_int(func, "sampling_rate", 1, 1, INT_MAX,
-		"Sampling Rate", "The distance between 2 keyframes. 1 means: Every frame is keyed", 1, INT_MAX);
+	RNA_def_int(func, "sampling_rate", 1, 1, INT_MAX, "Sampling Rate",
+	            "The distance between 2 keyframes (1 to key every frame)", 1, INT_MAX);
 
-	RNA_def_boolean(func, "keep_smooth_curves", 0,
-		"Keep Smooth curves", "Export also the curve handles (if available).\nThis does only work when the inverse parent matrix is the Unity matrix\nOtherwise you may end up with odd results\n");
+	RNA_def_boolean(func, "keep_smooth_curves", 0, "Keep Smooth curves",
+	                "Export also the curve handles (if available) (this does only work when the inverse parent matrix "
+	                "is the unity matrix, otherwise you may end up with odd results)");
 
-	RNA_def_boolean(func, "keep_keyframes", 0,
-		"Keep Keyframes", "Use existing keyframes as additional sample points.\nThis helps when you want to keep manual tweeks");
+	RNA_def_boolean(func, "keep_keyframes", 0, "Keep Keyframes",
+		"Use existing keyframes as additional sample points (this helps when you want to keep manual tweaks)");
+
+	RNA_def_boolean(func, "keep_flat_curves", 0, "All keyed curves",
+		"Export also curves which have only one key or are totally flat");
 
 	RNA_def_boolean(func, "active_uv_only", 0, "Only Selected UV Map",
 	                "Export only the selected UV Map");
@@ -514,29 +516,28 @@ void WM_OT_collada_export(wmOperatorType *ot)
 	                "Export Polygons (Quads & NGons) as Triangles");
 
 	RNA_def_boolean(func, "use_object_instantiation", 1, "Use Object Instances",
-		"Instantiate multiple Objects from same Data");
+	                "Instantiate multiple Objects from same Data");
 
 	RNA_def_boolean(func, "use_blender_profile", 1, "Use Blender Profile",
-		"Export additional Blender specific information (for material, shaders, bones, etc.)");
+	                "Export additional Blender specific information (for material, shaders, bones, etc.)");
 
 	RNA_def_boolean(func, "sort_by_name", 0, "Sort by Object name",
 	                "Sort exported data by Object name");
 
-	RNA_def_int(func, "export_transformation_type", 0, INT_MIN, INT_MAX,
-	            "Transform", "Transformation type for translation, scale and rotation", INT_MIN, INT_MAX);
+	RNA_def_int(func, "export_transformation_type", 0, INT_MIN, INT_MAX, "Transform",
+	            "Transformation type for translation, scale and rotation", INT_MIN, INT_MAX);
 
-	RNA_def_enum(func, "export_transformation_type_selection", prop_bc_export_transformation_type, 0,
-	             "Transform", "Transformation type for translation, scale and rotation");
+	RNA_def_enum(func, "export_transformation_type_selection", prop_bc_export_transformation_type, 0, "Transform",
+	             "Transformation type for translation, scale and rotation");
 
 	RNA_def_boolean(func, "open_sim", 0, "Export to SL/OpenSim",
 	                "Compatibility mode for SL, OpenSim and other compatible online worlds");
 
-	RNA_def_boolean(func, "limit_precision", 0,
-		"Limit Precision", "Reduce the precision of the exported data to 6 digits");
+	RNA_def_boolean(func, "limit_precision", 0, "Limit Precision",
+	                "Reduce the precision of the exported data to 6 digits");
 
-	RNA_def_boolean(func, "keep_bind_info", 0,
-		"Keep Bind Info", "Store Bindpose information in custom bone properties for later use during Collada export");
-
+	RNA_def_boolean(func, "keep_bind_info", 0, "Keep Bind Info",
+	                "Store Bindpose information in custom bone properties for later use during Collada export");
 }
 
 

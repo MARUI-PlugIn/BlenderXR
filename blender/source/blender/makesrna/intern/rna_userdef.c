@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,14 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Blender Foundation (2008).
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/makesrna/intern/rna_userdef.c
- *  \ingroup RNA
+/** \file \ingroup RNA
  */
 
 #include <limits.h>
@@ -36,7 +29,6 @@
 
 #include "BLI_utildefines.h"
 #include "BLI_math_base.h"
-#include "BLI_math_vector.h"
 
 #include "BKE_appdir.h"
 #include "BKE_sound.h"
@@ -63,19 +55,19 @@ static const EnumPropertyItem opensubdiv_compute_type_items[] = {
 	{USER_OPENSUBDIV_COMPUTE_CUDA, "CUDA", 0, "CUDA", ""},
 	{USER_OPENSUBDIV_COMPUTE_GLSL_TRANSFORM_FEEDBACK, "GLSL_TRANSFORM_FEEDBACK", 0, "GLSL Transform Feedback", ""},
 	{USER_OPENSUBDIV_COMPUTE_GLSL_COMPUTE, "GLSL_COMPUTE", 0, "GLSL Compute", ""},
-	{ 0, NULL, 0, NULL, NULL}
+	{0, NULL, 0, NULL, NULL},
 };
 #endif
 
 static const EnumPropertyItem audio_device_items[] = {
 	{0, "Null", 0, "None", "Null device - there will be no audio output"},
-	{0, NULL, 0, NULL, NULL}
+	{0, NULL, 0, NULL, NULL},
 };
 
 const EnumPropertyItem rna_enum_navigation_mode_items[] = {
 	{VIEW_NAVIGATION_WALK, "WALK", 0, "Walk", "Interactively walk or free navigate around the scene"},
 	{VIEW_NAVIGATION_FLY, "FLY", 0, "Fly", "Use fly dynamics to navigate the scene"},
-	{0, NULL, 0, NULL, NULL}
+	{0, NULL, 0, NULL, NULL},
 };
 
 
@@ -83,7 +75,7 @@ const EnumPropertyItem rna_enum_navigation_mode_items[] = {
 static const EnumPropertyItem rna_enum_language_default_items[] = {
 	{0, "DEFAULT", 0, "Automatic (Automatic)",
 	 "Automatically choose system's defined language if available, or fall-back to English"},
-	{0, NULL, 0, NULL, NULL}
+	{0, NULL, 0, NULL, NULL},
 };
 #endif
 
@@ -91,11 +83,13 @@ static const EnumPropertyItem rna_enum_studio_light_type_items[] = {
 	{STUDIOLIGHT_TYPE_STUDIO,     "STUDIO", 0, "Studio", ""},
 	{STUDIOLIGHT_TYPE_WORLD,      "WORLD",  0, "World",  ""},
 	{STUDIOLIGHT_TYPE_MATCAP,     "MATCAP", 0, "MatCap", ""},
-	{0, NULL, 0, NULL, NULL}
+	{0, NULL, 0, NULL, NULL},
 };
 
 
 #ifdef RNA_RUNTIME
+
+#include "BLI_math_vector.h"
 
 #include "DNA_object_types.h"
 #include "DNA_screen_types.h"
@@ -107,6 +101,7 @@ static const EnumPropertyItem rna_enum_studio_light_type_items[] = {
 #include "BKE_mesh_runtime.h"
 #include "BKE_pbvh.h"
 #include "BKE_paint.h"
+#include "BKE_screen.h"
 
 #include "DEG_depsgraph.h"
 
@@ -158,6 +153,16 @@ static void rna_userdef_update_ui(Main *UNUSED(bmain), Scene *UNUSED(scene), Poi
 	WM_main_add_notifier(NC_SCREEN | NA_EDITED, NULL);    /* refresh region sizes */
 }
 
+static void rna_userdef_update_ui_header_default(Main *bmain, Scene *scene, PointerRNA *ptr)
+{
+	if (U.uiflag & USER_HEADER_FROM_PREF) {
+		for (bScreen *screen = bmain->screen.first; screen; screen = screen->id.next) {
+			BKE_screen_header_alignment_reset(screen);
+		}
+		rna_userdef_update_ui(bmain, scene, ptr);
+	}
+}
+
 static void rna_userdef_language_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *UNUSED(ptr))
 {
 	BLF_cache_clear();
@@ -168,8 +173,8 @@ static void rna_userdef_language_update(Main *UNUSED(bmain), Scene *UNUSED(scene
 static void rna_userdef_script_autoexec_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *ptr)
 {
 	UserDef *userdef = (UserDef *)ptr->data;
-	if (userdef->flag & USER_SCRIPT_AUTOEXEC_DISABLE) G.f &= ~G_SCRIPT_AUTOEXEC;
-	else G.f |=  G_SCRIPT_AUTOEXEC;
+	if (userdef->flag & USER_SCRIPT_AUTOEXEC_DISABLE) G.f &= ~G_FLAG_SCRIPT_AUTOEXEC;
+	else G.f |=  G_FLAG_SCRIPT_AUTOEXEC;
 }
 
 static void rna_userdef_load_ui_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *ptr)
@@ -185,19 +190,7 @@ static void rna_userdef_anisotropic_update(Main *bmain, Scene *scene, PointerRNA
 	rna_userdef_update(bmain, scene, ptr);
 }
 
-static void rna_userdef_gl_gpu_mipmaps(Main *bmain, Scene *scene, PointerRNA *ptr)
-{
-	GPU_set_gpu_mipmapping(bmain, U.use_gpu_mipmap);
-	rna_userdef_update(bmain, scene, ptr);
-}
-
 static void rna_userdef_gl_texture_limit_update(Main *bmain, Scene *scene, PointerRNA *ptr)
-{
-	GPU_free_images(bmain);
-	rna_userdef_update(bmain, scene, ptr);
-}
-
-static void rna_userdef_gl_use_16bit_textures(Main *bmain, Scene *scene, PointerRNA *ptr)
 {
 	GPU_free_images(bmain);
 	rna_userdef_update(bmain, scene, ptr);
@@ -234,6 +227,11 @@ static void rna_userdef_autokeymode_set(PointerRNA *ptr, int value)
 		userdef->autokey_mode |= (AUTOKEY_MODE_EDITKEYS - AUTOKEY_ON);
 		userdef->autokey_mode &= ~(AUTOKEY_MODE_NORMAL - AUTOKEY_ON);
 	}
+}
+
+static void rna_userdef_tablet_api_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *UNUSED(ptr))
+{
+	WM_init_tablet_api();
 }
 
 #ifdef WITH_INPUT_NDOF
@@ -296,6 +294,11 @@ static PointerRNA rna_UserDef_edit_get(PointerRNA *ptr)
 static PointerRNA rna_UserDef_input_get(PointerRNA *ptr)
 {
 	return rna_pointer_inherit_refine(ptr, &RNA_PreferencesInput, ptr->data);
+}
+
+static PointerRNA rna_UserDef_keymap_get(PointerRNA *ptr)
+{
+	return rna_pointer_inherit_refine(ptr, &RNA_PreferencesKeymap, ptr->data);
 }
 
 static PointerRNA rna_UserDef_filepaths_get(PointerRNA *ptr)
@@ -413,6 +416,11 @@ static PointerRNA rna_Theme_space_generic_get(PointerRNA *ptr)
 	return rna_pointer_inherit_refine(ptr, &RNA_ThemeSpaceGeneric, ptr->data);
 }
 
+static PointerRNA rna_Theme_gradient_colors_get(PointerRNA *ptr)
+{
+	return rna_pointer_inherit_refine(ptr, &RNA_ThemeGradientColors, ptr->data);
+}
+
 static PointerRNA rna_Theme_space_gradient_get(PointerRNA *ptr)
 {
 	return rna_pointer_inherit_refine(ptr, &RNA_ThemeSpaceGradient, ptr->data);
@@ -425,8 +433,9 @@ static PointerRNA rna_Theme_space_list_generic_get(PointerRNA *ptr)
 
 
 #ifdef WITH_OPENSUBDIV
-static const EnumPropertyItem *rna_userdef_opensubdiv_compute_type_itemf(bContext *UNUSED(C), PointerRNA *UNUSED(ptr),
-                                                                   PropertyRNA *UNUSED(prop), bool *r_free)
+static const EnumPropertyItem *rna_userdef_opensubdiv_compute_type_itemf(
+        bContext *UNUSED(C), PointerRNA *UNUSED(ptr),
+        PropertyRNA *UNUSED(prop), bool *r_free)
 {
 	EnumPropertyItem *item = NULL;
 	int totitem = 0;
@@ -468,8 +477,9 @@ static void rna_userdef_opensubdiv_update(Main *bmain, Scene *UNUSED(scene), Poi
 
 #endif
 
-static const EnumPropertyItem *rna_userdef_audio_device_itemf(bContext *UNUSED(C), PointerRNA *UNUSED(ptr),
-                                                        PropertyRNA *UNUSED(prop), bool *r_free)
+static const EnumPropertyItem *rna_userdef_audio_device_itemf(
+        bContext *UNUSED(C), PointerRNA *UNUSED(ptr),
+        PropertyRNA *UNUSED(prop), bool *r_free)
 {
 	int index = 0;
 	int totitem = 0;
@@ -501,8 +511,9 @@ static const EnumPropertyItem *rna_userdef_audio_device_itemf(bContext *UNUSED(C
 }
 
 #ifdef WITH_INTERNATIONAL
-static const EnumPropertyItem *rna_lang_enum_properties_itemf(bContext *UNUSED(C), PointerRNA *UNUSED(ptr),
-                                                        PropertyRNA *UNUSED(prop), bool *UNUSED(r_free))
+static const EnumPropertyItem *rna_lang_enum_properties_itemf(
+        bContext *UNUSED(C), PointerRNA *UNUSED(ptr),
+        PropertyRNA *UNUSED(prop), bool *UNUSED(r_free))
 {
 	const EnumPropertyItem *items = BLT_lang_RNA_enum_properties();
 	if (items == NULL) {
@@ -801,7 +812,7 @@ static void rna_def_userdef_theme_ui_font_style(BlenderRNA *brna)
 	static const EnumPropertyItem font_kerning_style[] = {
 		{0, "UNFITTED", 0, "Unfitted", "Use scaled but un-grid-fitted kerning distances"},
 		{1, "FITTED", 0, "Fitted", "Use scaled and grid-fitted kerning distances"},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	srna = RNA_def_struct(brna, "ThemeFontStyle", NULL);
@@ -1037,27 +1048,31 @@ static void rna_def_userdef_theme_ui_panel(BlenderRNA *brna)
 
 static void rna_def_userdef_theme_ui_gradient(BlenderRNA *brna)
 {
+	/* Fake struct, keep this for compatible theme presets. */
 	StructRNA *srna;
 	PropertyRNA *prop;
 
 	srna = RNA_def_struct(brna, "ThemeGradientColors", NULL);
-	RNA_def_struct_sdna(srna, "uiGradientColors");
+	RNA_def_struct_sdna(srna, "ThemeSpace");
 	RNA_def_struct_clear_flag(srna, STRUCT_UNDO);
 	RNA_def_struct_ui_text(srna, "Theme Background Color", "Theme settings for background colors and gradient");
 
 	prop = RNA_def_property(srna, "show_grad", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "show_back_grad", 1);
 	RNA_def_property_ui_text(prop, "Use Gradient",
 	                         "Do a gradient for the background of the viewport working area");
 	RNA_def_property_update(prop, 0, "rna_userdef_update");
 
-	prop = RNA_def_property(srna, "gradient", PROP_FLOAT, PROP_COLOR_GAMMA);
-	RNA_def_property_array(prop, 3);
-	RNA_def_property_ui_text(prop, "Gradient Low", "");
-	RNA_def_property_update(prop, 0, "rna_userdef_update");
-
 	prop = RNA_def_property(srna, "high_gradient", PROP_FLOAT, PROP_COLOR_GAMMA);
+	RNA_def_property_float_sdna(prop, NULL, "back");
 	RNA_def_property_array(prop, 3);
 	RNA_def_property_ui_text(prop, "Gradient High/Off", "");
+	RNA_def_property_update(prop, 0, "rna_userdef_update");
+
+	prop = RNA_def_property(srna, "gradient", PROP_FLOAT, PROP_COLOR_GAMMA);
+	RNA_def_property_float_sdna(prop, NULL, "back_grad");
+	RNA_def_property_array(prop, 3);
+	RNA_def_property_ui_text(prop, "Gradient Low", "");
 	RNA_def_property_update(prop, 0, "rna_userdef_update");
 }
 
@@ -1189,11 +1204,6 @@ static void rna_def_userdef_theme_ui(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "menu_shadow_width", PROP_INT, PROP_PIXEL);
 	RNA_def_property_ui_text(prop, "Menu Shadow Width", "Width of menu shadows, set to zero to disable");
 	RNA_def_property_range(prop, 0.0f, 24.0f);
-	RNA_def_property_update(prop, 0, "rna_userdef_update");
-
-	prop = RNA_def_property(srna, "icon_file", PROP_STRING, PROP_FILEPATH);
-	RNA_def_property_string_sdna(prop, NULL, "iconfile");
-	RNA_def_property_ui_text(prop, "Icon File", "");
 	RNA_def_property_update(prop, 0, "rna_userdef_update");
 
 	prop = RNA_def_property(srna, "icon_alpha", PROP_FLOAT, PROP_FACTOR);
@@ -1366,6 +1376,11 @@ static void rna_def_userdef_theme_space_common(StructRNA *srna)
 	RNA_def_property_ui_text(prop, "Navigation Bar Background", "");
 	RNA_def_property_update(prop, 0, "rna_userdef_update");
 
+	prop = RNA_def_property(srna, "execution_buts", PROP_FLOAT, PROP_COLOR_GAMMA);
+	RNA_def_property_array(prop, 4);
+	RNA_def_property_ui_text(prop, "Execution Region Background", "");
+	RNA_def_property_update(prop, 0, "rna_userdef_update");
+
 	/* tabs */
 	prop = RNA_def_property(srna, "tab_active", PROP_FLOAT, PROP_COLOR_GAMMA);
 	RNA_def_property_array(prop, 3);
@@ -1402,6 +1417,8 @@ static void rna_def_userdef_theme_space_gradient(BlenderRNA *brna)
 	/* gradient/background settings */
 	prop = RNA_def_property(srna, "gradients", PROP_POINTER, PROP_NONE);
 	RNA_def_property_flag(prop, PROP_NEVER_NULL);
+	RNA_def_property_struct_type(prop, "ThemeGradientColors");
+	RNA_def_property_pointer_funcs(prop, "rna_Theme_gradient_colors_get", NULL, NULL, NULL);
 	RNA_def_property_ui_text(prop, "Gradient Colors", "");
 	RNA_def_property_update(prop, 0, "rna_userdef_update");
 
@@ -2081,7 +2098,7 @@ static void rna_def_userdef_theme_space_userpref(BlenderRNA *brna)
 	srna = RNA_def_struct(brna, "ThemePreferences", NULL);
 	RNA_def_struct_sdna(srna, "ThemeSpace");
 	RNA_def_struct_clear_flag(srna, STRUCT_UNDO);
-	RNA_def_struct_ui_text(srna, "Theme User Preferences", "Theme settings for the User Preferences");
+	RNA_def_struct_ui_text(srna, "Theme Preferences", "Theme settings for the Blender Preferences");
 
 	rna_def_userdef_theme_spaces_main(srna);
 }
@@ -3206,10 +3223,10 @@ static void rna_def_userdef_themes(BlenderRNA *brna)
 		{15, "INFO", ICON_INFO, "Info", ""},
 		{16, "FILE_BROWSER", ICON_FILEBROWSER, "File Browser", ""},
 		{17, "CONSOLE", ICON_CONSOLE, "Python Console", ""},
-		{20, "CLIP_EDITOR", ICON_CLIP, "Movie Clip Editor", ""},
+		{20, "CLIP_EDITOR", ICON_TRACKER, "Movie Clip Editor", ""},
 		{21, "TOPBAR", ICON_NONE, "Top Bar", ""},
 		{22, "STATUSBAR", ICON_NONE, "Status Bar", ""},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	srna = RNA_def_struct(brna, "Theme", NULL);
@@ -3650,21 +3667,32 @@ static void rna_def_userdef_view(BlenderRNA *brna)
 		                             "milliseconds are shown instead"},
 		{USER_TIMECODE_SECONDS_ONLY, "SECONDS_ONLY", 0, "Only Seconds",
 		                             "Direct conversion of frame numbers to seconds"},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
+	};
+
+	static const EnumPropertyItem color_picker_types[] = {
+		{USER_CP_CIRCLE_HSV, "CIRCLE_HSV", 0, "Circle (HSV)", "A circular Hue/Saturation color wheel, with "
+		                                      "Value slider"},
+		{USER_CP_CIRCLE_HSL, "CIRCLE_HSL", 0, "Circle (HSL)", "A circular Hue/Saturation color wheel, with "
+		                                                      "Lightness slider"},
+		{USER_CP_SQUARE_SV, "SQUARE_SV", 0, "Square (SV + H)", "A square showing Saturation/Value, with Hue slider"},
+		{USER_CP_SQUARE_HS, "SQUARE_HS", 0, "Square (HS + V)", "A square showing Hue/Saturation, with Value slider"},
+		{USER_CP_SQUARE_HV, "SQUARE_HV", 0, "Square (HV + S)", "A square showing Hue/Value, with Saturation slider"},
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	static const EnumPropertyItem zoom_frame_modes[] = {
 		{ZOOM_FRAME_MODE_KEEP_RANGE, "KEEP_RANGE", 0, "Keep Range", ""},
 		{ZOOM_FRAME_MODE_SECONDS, "SECONDS", 0, "Seconds", ""},
 		{ZOOM_FRAME_MODE_KEYFRAMES, "KEYFRAMES", 0, "Keyframes", ""},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	static const EnumPropertyItem line_width[] = {
 		{-1, "THIN", 0, "Thin", "Thinner lines than the default"},
 		{ 0, "AUTO", 0, "Auto", "Automatic line width based on UI scale"},
 		{ 1, "THICK", 0, "Thick", "Thicker lines than the default"},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	PropertyRNA *prop;
@@ -3677,7 +3705,7 @@ static void rna_def_userdef_view(BlenderRNA *brna)
 	RNA_def_struct_ui_text(srna, "View & Controls", "Preferences related to viewing data");
 
 	/* View  */
-	prop = RNA_def_property(srna, "ui_scale", PROP_FLOAT, PROP_FACTOR);
+	prop = RNA_def_property(srna, "ui_scale", PROP_FLOAT, PROP_NONE);
 	RNA_def_property_ui_text(prop, "UI Scale", "Changes the size of the fonts and buttons in the interface");
 	RNA_def_property_range(prop, 0.25f, 4.0f);
 	RNA_def_property_ui_range(prop, 0.5f, 2.0f, 1, 2);
@@ -3731,10 +3759,25 @@ static void rna_def_userdef_view(BlenderRNA *brna)
 	                         "Show the frames per second screen refresh rate, while animation is played back");
 	RNA_def_property_update(prop, 0, "rna_userdef_update");
 
-	/* app flags (use for app-templates) */
+	/* Weight Paint */
+
+	prop = RNA_def_property(srna, "use_weight_color_range", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", USER_CUSTOM_RANGE);
+	RNA_def_property_ui_text(prop, "Use Weight Color Range",
+	                         "Enable color range used for weight visualization in weight painting mode");
+	RNA_def_property_update(prop, 0, "rna_UserDef_weight_color_update");
+
+	prop = RNA_def_property(srna, "weight_color_range", PROP_POINTER, PROP_NONE);
+	RNA_def_property_flag(prop, PROP_NEVER_NULL);
+	RNA_def_property_pointer_sdna(prop, NULL, "coba_weight");
+	RNA_def_property_struct_type(prop, "ColorRamp");
+	RNA_def_property_ui_text(prop, "Weight Color Range",
+	                         "Color range used for weight visualization in weight painting mode");
+	RNA_def_property_update(prop, 0, "rna_UserDef_weight_color_update");
+
 	prop = RNA_def_property(srna, "show_layout_ui", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_negative_sdna(prop, NULL, "app_flag", USER_APP_LOCK_UI_LAYOUT);
-	RNA_def_property_ui_text(prop, "Show Layout Widgets", "Show screen layout editing UI");
+	RNA_def_property_ui_text(prop, "Editor Corner Splitting", "Split and join editors by dragging from corners");
 	RNA_def_property_update(prop, 0, "rna_userdef_update_ui");
 
 	/* menus */
@@ -3755,11 +3798,23 @@ static void rna_def_userdef_view(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Sub Level Menu Open Delay",
 	                         "Time delay in 1/10 seconds before automatically opening sub level menus");
 
+	prop = RNA_def_property(srna, "color_picker_type", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_items(prop, color_picker_types);
+	RNA_def_property_enum_sdna(prop, NULL, "color_picker_type");
+	RNA_def_property_ui_text(prop, "Color Picker Type", "Different styles of displaying the color picker widget");
+	RNA_def_property_update(prop, 0, "rna_userdef_update");
+
 	/* pie menus */
 	prop = RNA_def_property(srna, "pie_initial_timeout", PROP_INT, PROP_NONE);
 	RNA_def_property_range(prop, 0, 1000);
 	RNA_def_property_ui_text(prop, "Recenter Timeout",
 	                         "Pie menus will use the initial mouse position as center for this amount of time "
+	                         "(in 1/100ths of sec)");
+
+	prop = RNA_def_property(srna, "pie_tap_timeout", PROP_INT, PROP_NONE);
+	RNA_def_property_range(prop, 0, 1000);
+	RNA_def_property_ui_text(prop, "Tap Key Timeout",
+	                         "Pie menu button held longer than this will dismiss menu on release."
 	                         "(in 1/100ths of sec)");
 
 	prop = RNA_def_property(srna, "pie_animation_timeout", PROP_INT, PROP_NONE);
@@ -3783,20 +3838,7 @@ static void rna_def_userdef_view(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "use_quit_dialog", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "uiflag", USER_QUIT_PROMPT);
 	RNA_def_property_ui_text(prop, "Prompt Quit",
-	                         "Ask for confirmation when quitting through the window close button");
-
-	/* Toolbox click-hold delay */
-	prop = RNA_def_property(srna, "open_left_mouse_delay", PROP_INT, PROP_NONE);
-	RNA_def_property_int_sdna(prop, NULL, "tb_leftmouse");
-	RNA_def_property_range(prop, 1, 40);
-	RNA_def_property_ui_text(prop, "Hold LMB Open Toolbox Delay",
-	                         "Time in 1/10 seconds to hold the Left Mouse Button before opening the toolbox");
-
-	prop = RNA_def_property(srna, "open_right_mouse_delay", PROP_INT, PROP_NONE);
-	RNA_def_property_int_sdna(prop, NULL, "tb_rightmouse");
-	RNA_def_property_range(prop, 1, 40);
-	RNA_def_property_ui_text(prop, "Hold RMB Open Toolbox Delay",
-	                         "Time in 1/10 seconds to hold the Right Mouse Button before opening the toolbox");
+	                         "Ask for confirmation when quitting with unsaved changes");
 
 	prop = RNA_def_property(srna, "show_column_layout", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "uiflag", USER_PLAINMENUS);
@@ -3808,61 +3850,31 @@ static void rna_def_userdef_view(BlenderRNA *brna)
 	                         "Otherwise menus, etc will always be top to bottom, left to right, "
 	                         "no matter opening direction");
 
-	static const EnumPropertyItem header_align_default_items[] = {
-		{0, "TOP", 0, "Top", ""},
-		{USER_HEADER_BOTTOM, "BOTTOM", 0, "Bottom", ""},
-		{0, NULL, 0, NULL, NULL}
+	static const EnumPropertyItem header_align_items[] = {
+		{0, "NONE", 0, "Default", "Keep existing header alignment"},
+		{USER_HEADER_FROM_PREF, "TOP", 0, "Top", "Top aligned on load"},
+		{USER_HEADER_FROM_PREF | USER_HEADER_BOTTOM, "BOTTOM", 0, "Bottom", "Bottom align on load (except for property editors)"},
+		{0, NULL, 0, NULL, NULL},
 	};
-	prop = RNA_def_property(srna, "header_align_default", PROP_ENUM, PROP_NONE);
-	RNA_def_property_enum_items(prop, header_align_default_items);
+	prop = RNA_def_property(srna, "header_align", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_items(prop, header_align_items);
 	RNA_def_property_enum_bitflag_sdna(prop, NULL, "uiflag");
 	RNA_def_property_ui_text(prop, "Header Position", "Default header position for new space-types");
-	RNA_def_property_update(prop, 0, "rna_userdef_update");
+	RNA_def_property_update(prop, 0, "rna_userdef_update_ui_header_default");
 
-	prop = RNA_def_property(srna, "use_mouse_depth_navigate", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "uiflag", USER_DEPTH_NAVIGATE);
-	RNA_def_property_ui_text(prop, "Auto Depth",
-	                         "Use the depth under the mouse to improve view pan/rotate/zoom functionality");
-
-	prop = RNA_def_property(srna, "use_mouse_depth_cursor", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "uiflag", USER_DEPTH_CURSOR);
-	RNA_def_property_ui_text(prop, "Cursor Surface Project",
-	                         "Use the surface depth for cursor placement");
-
-	prop = RNA_def_property(srna, "use_cursor_lock_adjust", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "uiflag", USER_LOCK_CURSOR_ADJUST);
-	RNA_def_property_ui_text(prop, "Cursor Lock Adjust",
-	                         "Place the cursor without 'jumping' to the new location (when lock-to-cursor is used)");
-
-	prop = RNA_def_property(srna, "use_camera_lock_parent", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_negative_sdna(prop, NULL, "uiflag", USER_CAM_LOCK_NO_PARENT);
-	RNA_def_property_ui_text(prop, "Camera Parent Lock",
-	                         "When the camera is locked to the view and in fly mode, "
-	                         "transform the parent rather than the camera");
-
-	/* view zoom */
-	prop = RNA_def_property(srna, "use_zoom_to_mouse", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "uiflag", USER_ZOOM_TO_MOUSEPOS);
-	RNA_def_property_ui_text(prop, "Zoom To Mouse Position",
-	                         "Zoom in towards the mouse pointer's position in the 3D view, "
-	                         "rather than the 2D window center");
-
-	/* view rotation */
-	prop = RNA_def_property(srna, "use_auto_perspective", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "uiflag", USER_AUTOPERSP);
-	RNA_def_property_ui_text(prop, "Auto Perspective",
-	                         "Automatically switch between orthographic and perspective when changing "
-	                         "from top/front/side views");
-
-	prop = RNA_def_property(srna, "use_rotate_around_active", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "uiflag", USER_ORBIT_SELECTION);
-	RNA_def_property_ui_text(prop, "Rotate Around Selection", "Use selection as the pivot point");
+	static const EnumPropertyItem text_hinting_items[] = {
+		{0, "AUTO", 0, "Auto", ""},
+		{USER_TEXT_HINTING_NONE, "NONE", 0, "None", ""},
+		{USER_TEXT_HINTING_SLIGHT, "SLIGHT", 0, "Slight", ""},
+		{USER_TEXT_HINTING_FULL, "FULL", 0, "Full", ""},
+		{0, NULL, 0, NULL, NULL},
+	};
 
 	/* mini axis */
 	static const EnumPropertyItem mini_axis_type_items[] = {
 		{0, "MINIMAL", 0, "Simple Axis", ""},
 		{USER_SHOW_GIZMO_AXIS, "GIZMO", 0, "Interactive Navigation", ""},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	prop = RNA_def_property(srna, "mini_axis_type", PROP_ENUM, PROP_NONE);
@@ -3945,6 +3957,64 @@ static void rna_def_userdef_view(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Zoom Seconds",
 	                         "Seconds around cursor that we zoom around");
 
+
+	/* Text. */
+
+	prop = RNA_def_property(srna, "use_text_antialiasing", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_negative_sdna(prop, NULL, "text_render", USER_TEXT_DISABLE_AA);
+	RNA_def_property_ui_text(prop, "Text Anti-aliasing", "Draw user interface text anti-aliased");
+	RNA_def_property_update(prop, 0, "rna_userdef_text_update");
+
+	prop = RNA_def_property(srna, "text_hinting", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_bitflag_sdna(prop, NULL, "text_render");
+	RNA_def_property_enum_items(prop, text_hinting_items);
+	RNA_def_property_ui_text(prop, "Text Hinting", "Method for making user interface text render sharp");
+	RNA_def_property_update(prop, 0, "rna_userdef_text_update");
+
+	prop = RNA_def_property(srna, "font_path_ui", PROP_STRING, PROP_FILEPATH);
+	RNA_def_property_string_sdna(prop, NULL, "font_path_ui");
+	RNA_def_property_ui_text(prop, "Interface Font", "Path to interface font");
+	RNA_def_property_update(prop, NC_WINDOW, "rna_userdef_language_update");
+
+	prop = RNA_def_property(srna, "font_path_ui_mono", PROP_STRING, PROP_FILEPATH);
+	RNA_def_property_string_sdna(prop, NULL, "font_path_ui_mono");
+	RNA_def_property_ui_text(prop, "Mono-space Font", "Path to interface mono-space Font");
+	RNA_def_property_update(prop, NC_WINDOW, "rna_userdef_language_update");
+
+
+	/* Language. */
+
+	prop = RNA_def_property(srna, "use_international_fonts", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "transopts", USER_DOTRANSLATE);
+	RNA_def_property_ui_text(prop, "Translate UI", "Enable UI translation and use international fonts");
+	RNA_def_property_update(prop, NC_WINDOW, "rna_userdef_language_update");
+
+	prop = RNA_def_property(srna, "language", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_items(prop, rna_enum_language_default_items);
+#ifdef WITH_INTERNATIONAL
+	RNA_def_property_enum_funcs(prop, NULL, NULL, "rna_lang_enum_properties_itemf");
+#endif
+	RNA_def_property_ui_text(prop, "Language", "Language used for translation");
+	RNA_def_property_update(prop, NC_WINDOW, "rna_userdef_language_update");
+
+	prop = RNA_def_property(srna, "use_translate_tooltips", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "transopts", USER_TR_TOOLTIPS);
+	RNA_def_property_ui_text(prop, "Translate Tooltips",
+	                         "Translate the descriptions when hovering UI elements (recommended)");
+	RNA_def_property_update(prop, 0, "rna_userdef_update");
+
+	prop = RNA_def_property(srna, "use_translate_interface", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "transopts", USER_TR_IFACE);
+	RNA_def_property_ui_text(prop, "Translate Interface",
+	                         "Translate all labels in menus, buttons and panels "
+	                         "(note that this might make it hard to follow tutorials or the manual)");
+	RNA_def_property_update(prop, 0, "rna_userdef_update");
+
+	prop = RNA_def_property(srna, "use_translate_new_dataname", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "transopts", USER_TR_NEWDATANAME);
+	RNA_def_property_ui_text(prop, "Translate New Names",
+	                         "Translate the names of new data-blocks (objects, materials...)");
+	RNA_def_property_update(prop, 0, "rna_userdef_update");
 }
 
 static void rna_def_userdef_edit(BlenderRNA *brna)
@@ -3955,20 +4025,20 @@ static void rna_def_userdef_edit(BlenderRNA *brna)
 	static const EnumPropertyItem auto_key_modes[] = {
 		{AUTOKEY_MODE_NORMAL, "ADD_REPLACE_KEYS", 0, "Add/Replace", ""},
 		{AUTOKEY_MODE_EDITKEYS, "REPLACE_KEYS", 0, "Replace", ""},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	static const EnumPropertyItem material_link_items[] = {
 		{0, "OBDATA", 0, "ObData", "Toggle whether the material is linked to object data or the object block"},
 		{USER_MAT_ON_OB, "OBJECT", 0, "Object",
 		                 "Toggle whether the material is linked to object data or the object block"},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	static const EnumPropertyItem object_align_items[] = {
 		{0, "WORLD", 0, "World", "Align newly added objects to the world coordinate system"},
 		{USER_ADD_VIEWALIGNED, "VIEW", 0, "View", "Align newly added objects facing the active 3D View direction"},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	srna = RNA_def_struct(brna, "PreferencesEdit", NULL);
@@ -3996,20 +4066,8 @@ static void rna_def_userdef_edit(BlenderRNA *brna)
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", USER_ADD_EDITMODE);
 	RNA_def_property_ui_text(prop, "Enter Edit Mode", "Enter Edit Mode automatically after adding a new object");
 
-	prop = RNA_def_property(srna, "use_drag_immediately", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "flag", USER_RELEASECONFIRM);
-	RNA_def_property_ui_text(prop, "Release confirms",
-	                         "Moving things with a mouse drag confirms when releasing the button");
-
-	prop = RNA_def_property(srna, "use_numeric_input_advanced", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "flag", USER_FLAG_NUMINPUT_ADVANCED);
-	RNA_def_property_ui_text(
-	        prop, "Default to Advanced Numeric Input",
-	        "When entering numbers while transforming, "
-	        "default to advanced mode for full math expression evaluation");
-
-
 	/* Undo */
+
 	prop = RNA_def_property(srna, "undo_steps", PROP_INT, PROP_NONE);
 	RNA_def_property_int_sdna(prop, NULL, "undosteps");
 	RNA_def_property_range(prop, 0, 256);
@@ -4027,13 +4085,13 @@ static void rna_def_userdef_edit(BlenderRNA *brna)
 	                         "Global undo works by keeping a full copy of the file itself in memory, "
 	                         "so takes extra memory");
 
+
 	/* auto keyframing */
 	prop = RNA_def_property(srna, "use_auto_keying", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "autokey_mode", AUTOKEY_ON);
 	RNA_def_property_ui_text(prop, "Auto Keying Enable",
 	                         "Automatic keyframe insertion for Objects and Bones "
 	                         "(default setting used for new Scenes)");
-	RNA_def_property_ui_icon(prop, ICON_REC, 0);
 
 	prop = RNA_def_property(srna, "auto_keying_mode", PROP_ENUM, PROP_NONE);
 	RNA_def_property_enum_items(prop, auto_key_modes);
@@ -4182,6 +4240,17 @@ static void rna_def_userdef_edit(BlenderRNA *brna)
 	RNA_def_property_int_sdna(prop, NULL, "node_margin");
 	RNA_def_property_ui_text(prop, "Auto-offset Margin", "Minimum distance between nodes for Auto-offsetting nodes");
 	RNA_def_property_update(prop, 0, "rna_userdef_update");
+
+	/* cursor */
+	prop = RNA_def_property(srna, "use_cursor_lock_adjust", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "uiflag", USER_LOCK_CURSOR_ADJUST);
+	RNA_def_property_ui_text(prop, "Cursor Lock Adjust",
+	                         "Place the cursor without 'jumping' to the new location (when lock-to-cursor is used)");
+
+	prop = RNA_def_property(srna, "use_mouse_depth_cursor", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "uiflag", USER_DEPTH_CURSOR);
+	RNA_def_property_ui_text(prop, "Cursor Surface Project",
+	                         "Use the surface depth for cursor placement");
 }
 
 static void rna_def_userdef_system(BlenderRNA *brna)
@@ -4198,7 +4267,7 @@ static void rna_def_userdef_system(BlenderRNA *brna)
 		{512, "CLAMP_512", 0, "512", ""},
 		{256, "CLAMP_256", 0, "256", ""},
 		{128, "CLAMP_128", 0, "128", ""},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	static const EnumPropertyItem anisotropic_items[] = {
@@ -4207,7 +4276,7 @@ static void rna_def_userdef_system(BlenderRNA *brna)
 		{4, "FILTER_4", 0, "4x", ""},
 		{8, "FILTER_8", 0, "8x", ""},
 		{16, "FILTER_16", 0, "16x", ""},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	static const EnumPropertyItem audio_mixing_samples_items[] = {
@@ -4219,7 +4288,7 @@ static void rna_def_userdef_system(BlenderRNA *brna)
 		{8192, "SAMPLES_8192", 0, "8192", "Set audio mixing buffer size to 8192 samples"},
 		{16384, "SAMPLES_16384", 0, "16384", "Set audio mixing buffer size to 16384 samples"},
 		{32768, "SAMPLES_32768", 0, "32768", "Set audio mixing buffer size to 32768 samples"},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	static const EnumPropertyItem audio_rate_items[] = {
@@ -4233,7 +4302,7 @@ static void rna_def_userdef_system(BlenderRNA *brna)
 /*		{88200, "RATE_88200", 0, "88.2 kHz", "Set audio sampling rate to 88200 samples per second"}, */
 		{96000, "RATE_96000", 0, "96 kHz", "Set audio sampling rate to 96000 samples per second"},
 		{192000, "RATE_192000", 0, "192 kHz", "Set audio sampling rate to 192000 samples per second"},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	static const EnumPropertyItem audio_format_items[] = {
@@ -4243,7 +4312,7 @@ static void rna_def_userdef_system(BlenderRNA *brna)
 		{0x14, "S32", 0, "32-bit Signed", "Set audio sample format to 32 bit signed integer"},
 		{0x24, "FLOAT", 0, "32-bit Float", "Set audio sample format to 32 bit float"},
 		{0x28, "DOUBLE", 0, "64-bit Float", "Set audio sample format to 64 bit float"},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	static const EnumPropertyItem audio_channel_items[] = {
@@ -4252,16 +4321,7 @@ static void rna_def_userdef_system(BlenderRNA *brna)
 		{4, "SURROUND4", 0, "4 Channels", "Set audio channels to 4 channels"},
 		{6, "SURROUND51", 0, "5.1 Surround", "Set audio channels to 5.1 surround sound"},
 		{8, "SURROUND71", 0, "7.1 Surround", "Set audio channels to 7.1 surround sound"},
-		{0, NULL, 0, NULL, NULL}
-	};
-
-	static const EnumPropertyItem color_picker_types[] = {
-		{USER_CP_CIRCLE_HSV, "CIRCLE_HSV", 0, "Circle (HSV)", "A circular Hue/Saturation color wheel, with Value slider"},
-		{USER_CP_CIRCLE_HSL, "CIRCLE_HSL", 0, "Circle (HSL)", "A circular Hue/Saturation color wheel, with Lightness slider"},
-		{USER_CP_SQUARE_SV, "SQUARE_SV", 0, "Square (SV + H)", "A square showing Saturation/Value, with Hue slider"},
-		{USER_CP_SQUARE_HS, "SQUARE_HS", 0, "Square (HS + V)", "A square showing Hue/Saturation, with Value slider"},
-		{USER_CP_SQUARE_HV, "SQUARE_HV", 0, "Square (HV + S)", "A square showing Hue/Value, with Saturation slider"},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	static const EnumPropertyItem multi_sample_levels[] = {
@@ -4270,29 +4330,14 @@ static void rna_def_userdef_system(BlenderRNA *brna)
 		{USER_MULTISAMPLE_4, "4", 0, "MultiSample: 4", "Use 4x OpenGL MultiSample (requires restart)"},
 		{USER_MULTISAMPLE_8, "8", 0, "MultiSample: 8", "Use 8x OpenGL MultiSample (requires restart)"},
 		{USER_MULTISAMPLE_16, "16", 0, "MultiSample: 16", "Use 16x OpenGL MultiSample (requires restart)"},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	static const EnumPropertyItem image_draw_methods[] = {
 		{IMAGE_DRAW_METHOD_2DTEXTURE, "2DTEXTURE", 0, "2D Texture", "Use CPU for display transform and draw image with 2D texture"},
 		{IMAGE_DRAW_METHOD_GLSL, "GLSL", 0, "GLSL", "Use GLSL shaders for display transform and draw image with 2D texture"},
 		{IMAGE_DRAW_METHOD_DRAWPIXELS, "DRAWPIXELS", 0, "DrawPixels", "Use CPU for display transform and draw image using DrawPixels"},
-		{0, NULL, 0, NULL, NULL}
-	};
-
-	static const EnumPropertyItem gpu_select_method_items[] = {
-	    {USER_SELECT_AUTO, "AUTO", 0, "Automatic", ""},
-	    {USER_SELECT_USE_SELECT_RENDERMODE, "GL_SELECT", 0, "OpenGL Select", ""},
-	    {USER_SELECT_USE_OCCLUSION_QUERY, "GL_QUERY", 0, "OpenGL Occlusion Queries", ""},
-	    {0, NULL, 0, NULL, NULL}
-	};
-
-	static const EnumPropertyItem text_hinting_items[] = {
-	    {0, "AUTO", 0, "Auto", ""},
-	    {USER_TEXT_HINTING_NONE, "NONE", 0, "None", ""},
-	    {USER_TEXT_HINTING_SLIGHT, "SLIGHT", 0, "Slight", ""},
-	    {USER_TEXT_HINTING_FULL, "FULL", 0, "Full", ""},
-	    {0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	srna = RNA_def_struct(brna, "PreferencesSystem", NULL);
@@ -4325,62 +4370,56 @@ static void rna_def_userdef_system(BlenderRNA *brna)
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
 	RNA_def_property_float_sdna(prop, NULL, "pixelsize");
 
-	prop = RNA_def_property(srna, "font_path_ui", PROP_STRING, PROP_FILEPATH);
-	RNA_def_property_string_sdna(prop, NULL, "font_path_ui");
-	RNA_def_property_ui_text(prop, "Interface Font", "Path to interface font");
-	RNA_def_property_update(prop, NC_WINDOW, "rna_userdef_language_update");
 
-	prop = RNA_def_property(srna, "font_path_ui_mono", PROP_STRING, PROP_FILEPATH);
-	RNA_def_property_string_sdna(prop, NULL, "font_path_ui_mono");
-	RNA_def_property_ui_text(prop, "Mono-space Font", "Path to interface mono-space Font");
-	RNA_def_property_update(prop, NC_WINDOW, "rna_userdef_language_update");
+	/* Memory */
+
+	prop = RNA_def_property(srna, "prefetch_frames", PROP_INT, PROP_NONE);
+	RNA_def_property_int_sdna(prop, NULL, "prefetchframes");
+	RNA_def_property_range(prop, 0, INT_MAX);
+	RNA_def_property_ui_range(prop, 0, 500, 1, -1);
+	RNA_def_property_ui_text(prop, "Prefetch Frames", "Number of frames to render ahead during playback (sequencer only)");
+
+	prop = RNA_def_property(srna, "memory_cache_limit", PROP_INT, PROP_NONE);
+	RNA_def_property_int_sdna(prop, NULL, "memcachelimit");
+	RNA_def_property_range(prop, 0, max_memory_in_megabytes_int());
+	RNA_def_property_ui_text(prop, "Memory Cache Limit", "Memory cache limit (in megabytes)");
+	RNA_def_property_update(prop, 0, "rna_Userdef_memcache_update");
 
 	prop = RNA_def_property(srna, "scrollback", PROP_INT, PROP_UNSIGNED);
 	RNA_def_property_int_sdna(prop, NULL, "scrollback");
 	RNA_def_property_range(prop, 32, 32768);
 	RNA_def_property_ui_text(prop, "Scrollback", "Maximum number of lines to store for the console buffer");
 
-	prop = RNA_def_property(srna, "author", PROP_STRING, PROP_NONE);
-	RNA_def_property_string_sdna(prop, NULL, "author");
-	RNA_def_property_string_maxlength(prop, 80);
-	RNA_def_property_ui_text(prop, "Author",
-	                         "Name that will be used in exported files when format supports such feature");
+	/* OpenGL */
 
-	/* Language. */
+	/* Full scene anti-aliasing */
+	prop = RNA_def_property(srna, "multi_sample", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_bitflag_sdna(prop, NULL, "ogl_multisamples");
+	RNA_def_property_enum_items(prop, multi_sample_levels);
+	RNA_def_property_ui_text(prop, "MultiSample",
+	                         "Enable OpenGL multi-sampling, only for systems that support it, requires restart");
+	RNA_def_property_update(prop, 0, "rna_userdef_dpi_update");
 
-	prop = RNA_def_property(srna, "use_international_fonts", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "transopts", USER_DOTRANSLATE);
-	RNA_def_property_ui_text(prop, "Translate UI", "Enable UI translation and use international fonts");
-	RNA_def_property_update(prop, NC_WINDOW, "rna_userdef_language_update");
+	/* grease pencil anti-aliasing */
+	prop = RNA_def_property(srna, "gpencil_multi_sample", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_bitflag_sdna(prop, NULL, "gpencil_multisamples");
+	RNA_def_property_enum_items(prop, multi_sample_levels);
+	RNA_def_property_ui_text(prop, "Gpencil MultiSample",
+	                         "Enable Grease Pencil OpenGL multi-sampling, only for systems that support it");
+	RNA_def_property_update(prop, 0, "rna_userdef_dpi_update");
 
-	prop = RNA_def_property(srna, "language", PROP_ENUM, PROP_NONE);
-	RNA_def_property_enum_items(prop, rna_enum_language_default_items);
-#ifdef WITH_INTERNATIONAL
-	RNA_def_property_enum_funcs(prop, NULL, NULL, "rna_lang_enum_properties_itemf");
-#endif
-	RNA_def_property_ui_text(prop, "Language", "Language used for translation");
-	RNA_def_property_update(prop, NC_WINDOW, "rna_userdef_language_update");
+	prop = RNA_def_property(srna, "use_region_overlap", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "uiflag2", USER_REGION_OVERLAP);
+	RNA_def_property_ui_text(prop, "Region Overlap",
+	                         "Draw tool/property regions over the main region");
+	RNA_def_property_update(prop, 0, "rna_userdef_dpi_update");
 
-	prop = RNA_def_property(srna, "use_translate_tooltips", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "transopts", USER_TR_TOOLTIPS);
-	RNA_def_property_ui_text(prop, "Translate Tooltips",
-	                         "Translate the descriptions when hovering UI elements (recommended)");
+	prop = RNA_def_property(srna, "gpu_viewport_quality", PROP_FLOAT, PROP_FACTOR);
+	RNA_def_property_float_sdna(prop, NULL, "gpu_viewport_quality");
+	RNA_def_property_float_default(prop, 0.6f);
+	RNA_def_property_range(prop, 0.0f, 1.0f);
+	RNA_def_property_ui_text(prop, "Viewport Quality", "Quality setting for Solid mode rendering in the 3d viewport");
 	RNA_def_property_update(prop, 0, "rna_userdef_update");
-
-	prop = RNA_def_property(srna, "use_translate_interface", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "transopts", USER_TR_IFACE);
-	RNA_def_property_ui_text(prop, "Translate Interface",
-	                         "Translate all labels in menus, buttons and panels "
-	                         "(note that this might make it hard to follow tutorials or the manual)");
-	RNA_def_property_update(prop, 0, "rna_userdef_update");
-
-	prop = RNA_def_property(srna, "use_translate_new_dataname", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "transopts", USER_TR_NEWDATANAME);
-	RNA_def_property_ui_text(prop, "Translate New Names",
-	                         "Translate the names of new data-blocks (objects, materials...)");
-	RNA_def_property_update(prop, 0, "rna_userdef_update");
-
-	/* System & OpenGL */
 
 	prop = RNA_def_property(srna, "solid_lights", PROP_COLLECTION, PROP_NONE);
 	RNA_def_property_collection_sdna(prop, NULL, "light_param", "");
@@ -4399,70 +4438,18 @@ static void rna_def_userdef_system(BlenderRNA *brna)
 	                               "View the result of the studio light editor in the viewport");
 	RNA_def_property_update(prop, 0, "rna_UserDef_viewport_lights_update");
 
-	prop = RNA_def_property(srna, "use_weight_color_range", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "flag", USER_CUSTOM_RANGE);
-	RNA_def_property_ui_text(prop, "Use Weight Color Range",
-	                         "Enable color range used for weight visualization in weight painting mode");
-	RNA_def_property_update(prop, 0, "rna_UserDef_weight_color_update");
-
-	prop = RNA_def_property(srna, "weight_color_range", PROP_POINTER, PROP_NONE);
-	RNA_def_property_flag(prop, PROP_NEVER_NULL);
-	RNA_def_property_pointer_sdna(prop, NULL, "coba_weight");
-	RNA_def_property_struct_type(prop, "ColorRamp");
-	RNA_def_property_ui_text(prop, "Weight Color Range",
-	                         "Color range used for weight visualization in weight painting mode");
-	RNA_def_property_update(prop, 0, "rna_UserDef_weight_color_update");
-
-	prop = RNA_def_property(srna, "color_picker_type", PROP_ENUM, PROP_NONE);
-	RNA_def_property_enum_items(prop, color_picker_types);
-	RNA_def_property_enum_sdna(prop, NULL, "color_picker_type");
-	RNA_def_property_ui_text(prop, "Color Picker Type", "Different styles of displaying the color picker widget");
-	RNA_def_property_update(prop, 0, "rna_userdef_update");
-
-	prop = RNA_def_property(srna, "use_scripts_auto_execute", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_negative_sdna(prop, NULL, "flag", USER_SCRIPT_AUTOEXEC_DISABLE);
-	RNA_def_property_ui_text(prop, "Auto Run Python Scripts",
-	                         "Allow any .blend file to run scripts automatically "
-	                         "(unsafe with blend files from an untrusted source)");
-	RNA_def_property_update(prop, 0, "rna_userdef_script_autoexec_update");
-
-	prop = RNA_def_property(srna, "use_tabs_as_spaces", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_negative_sdna(prop, NULL, "flag", USER_TXT_TABSTOSPACES_DISABLE);
-	RNA_def_property_ui_text(prop, "Tabs as Spaces",
-	                         "Automatically convert all new tabs into spaces for new and loaded text files");
-
-	prop = RNA_def_property(srna, "prefetch_frames", PROP_INT, PROP_NONE);
-	RNA_def_property_int_sdna(prop, NULL, "prefetchframes");
-	RNA_def_property_range(prop, 0, INT_MAX);
-	RNA_def_property_ui_range(prop, 0, 500, 1, -1);
-	RNA_def_property_ui_text(prop, "Prefetch Frames", "Number of frames to render ahead during playback (sequencer only)");
-
-	prop = RNA_def_property(srna, "memory_cache_limit", PROP_INT, PROP_NONE);
-	RNA_def_property_int_sdna(prop, NULL, "memcachelimit");
-	RNA_def_property_range(prop, 0, max_memory_in_megabytes_int());
-	RNA_def_property_ui_text(prop, "Memory Cache Limit", "Memory cache limit (in megabytes)");
-	RNA_def_property_update(prop, 0, "rna_Userdef_memcache_update");
-
 	prop = RNA_def_property(srna, "gl_clip_alpha", PROP_FLOAT, PROP_NONE);
 	RNA_def_property_float_sdna(prop, NULL, "glalphaclip");
 	RNA_def_property_range(prop, 0.0f, 1.0f);
 	RNA_def_property_ui_text(prop, "Clip Alpha", "Clip alpha below this threshold in the 3D textured view");
 	RNA_def_property_update(prop, 0, "rna_userdef_update");
 
-	prop = RNA_def_property(srna, "use_16bit_textures", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "use_16bit_textures", 1);
-	RNA_def_property_ui_text(prop, "16 Bit Float Textures", "Use 16 bit per component texture for float images");
-	RNA_def_property_update(prop, 0, "rna_userdef_gl_use_16bit_textures");
-
-	prop = RNA_def_property(srna, "use_gpu_mipmap", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "use_gpu_mipmap", 1);
-	RNA_def_property_ui_text(prop, "GPU Mipmap Generation", "Generate Image Mipmaps on the GPU");
-	RNA_def_property_update(prop, 0, "rna_userdef_gl_gpu_mipmaps");
+	/* Textures */
 
 	prop = RNA_def_property(srna, "image_draw_method", PROP_ENUM, PROP_NONE);
 	RNA_def_property_enum_items(prop, image_draw_methods);
 	RNA_def_property_enum_sdna(prop, NULL, "image_draw_method");
-	RNA_def_property_ui_text(prop, "Image Draw Method", "Method used for displaying images on the screen");
+	RNA_def_property_ui_text(prop, "Image Display Method", "Method used for displaying images on the screen");
 	RNA_def_property_update(prop, 0, "rna_userdef_update");
 
 	prop = RNA_def_property(srna, "anisotropic_filter", PROP_ENUM, PROP_NONE);
@@ -4492,6 +4479,14 @@ static void rna_def_userdef_system(BlenderRNA *brna)
 	RNA_def_property_range(prop, 1, 3600);
 	RNA_def_property_ui_text(prop, "Texture Collection Rate",
 	                         "Number of seconds between each run of the GL texture garbage collector");
+
+	/* Select */
+
+	prop = RNA_def_property(srna, "use_select_pick_depth", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "gpu_select_pick_deph", 1);
+	RNA_def_property_ui_text(prop, "OpenGL Depth Picking", "Use the depth buffer for picking 3D View selection");
+
+	/* Audio */
 
 	prop = RNA_def_property(srna, "audio_mixing_buffer", PROP_ENUM, PROP_NONE);
 	RNA_def_property_enum_sdna(prop, NULL, "mixbufsize");
@@ -4524,56 +4519,6 @@ static void rna_def_userdef_system(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Audio Channels", "Audio channel count");
 	RNA_def_property_update(prop, 0, "rna_UserDef_audio_update");
 
-	prop = RNA_def_property(srna, "use_text_antialiasing", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_negative_sdna(prop, NULL, "text_render", USER_TEXT_DISABLE_AA);
-	RNA_def_property_ui_text(prop, "Text Anti-aliasing", "Draw user interface text anti-aliased");
-	RNA_def_property_update(prop, 0, "rna_userdef_text_update");
-
-	prop = RNA_def_property(srna, "text_hinting", PROP_ENUM, PROP_NONE);
-	RNA_def_property_enum_bitflag_sdna(prop, NULL, "text_render");
-	RNA_def_property_enum_items(prop, text_hinting_items);
-	RNA_def_property_ui_text(prop, "Text Hinting", "Method for making user interface text render sharp");
-	RNA_def_property_update(prop, 0, "rna_userdef_text_update");
-
-	prop = RNA_def_property(srna, "select_method", PROP_ENUM, PROP_NONE);
-	RNA_def_property_enum_sdna(prop, NULL, "gpu_select_method");
-	RNA_def_property_enum_items(prop, gpu_select_method_items);
-	RNA_def_property_ui_text(prop, "Selection Method",
-	                         "Use OpenGL occlusion queries or selection render mode to accelerate selection");
-
-	prop = RNA_def_property(srna, "use_select_pick_depth", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "gpu_select_pick_deph", 1);
-	RNA_def_property_ui_text(prop, "OpenGL Depth Picking", "Use the depth buffer for picking 3D View selection");
-
-	/* Full scene anti-aliasing */
-	prop = RNA_def_property(srna, "multi_sample", PROP_ENUM, PROP_NONE);
-	RNA_def_property_enum_bitflag_sdna(prop, NULL, "ogl_multisamples");
-	RNA_def_property_enum_items(prop, multi_sample_levels);
-	RNA_def_property_ui_text(prop, "MultiSample",
-	                         "Enable OpenGL multi-sampling, only for systems that support it, requires restart");
-	RNA_def_property_update(prop, 0, "rna_userdef_dpi_update");
-
-	/* grease pencil anti-aliasing */
-	prop = RNA_def_property(srna, "gpencil_multi_sample", PROP_ENUM, PROP_NONE);
-	RNA_def_property_enum_bitflag_sdna(prop, NULL, "gpencil_multisamples");
-	RNA_def_property_enum_items(prop, multi_sample_levels);
-	RNA_def_property_ui_text(prop, "Gpencil MultiSample",
-		"Enable Grease Pencil OpenGL multi-sampling, only for systems that support it");
-	RNA_def_property_update(prop, 0, "rna_userdef_dpi_update");
-
-	prop = RNA_def_property(srna, "use_region_overlap", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "uiflag2", USER_REGION_OVERLAP);
-	RNA_def_property_ui_text(prop, "Region Overlap",
-	                         "Draw tool/property regions over the main region, when using Triple Buffer");
-	RNA_def_property_update(prop, 0, "rna_userdef_dpi_update");
-
-	prop = RNA_def_property(srna, "gpu_viewport_quality", PROP_FLOAT, PROP_FACTOR);
-	RNA_def_property_float_sdna(prop, NULL, "gpu_viewport_quality");
-	RNA_def_property_float_default(prop, 0.6f);
-	RNA_def_property_range(prop, 0.0f, 1.0f);
-	RNA_def_property_ui_text(prop, "Viewport Quality", "Quality setting for Solid mode rendering in the 3d viewport");
-	RNA_def_property_update(prop, 0, "rna_userdef_update");
-
 
 #ifdef WITH_OPENSUBDIV
 	prop = RNA_def_property(srna, "opensubdiv_compute_type", PROP_ENUM, PROP_NONE);
@@ -4600,37 +4545,44 @@ static void rna_def_userdef_input(BlenderRNA *brna)
 	StructRNA *srna;
 
 	static const EnumPropertyItem view_rotation_items[] = {
-		{0, "TURNTABLE", 0, "Turntable", "Use turntable style rotation in the viewport"},
-		{USER_TRACKBALL, "TRACKBALL", 0, "Trackball", "Use trackball style rotation in the viewport"},
-		{0, NULL, 0, NULL, NULL}
+		{0, "TURNTABLE", 0, "Turntable", "Turntable keeps the Z-axis upright while orbiting"},
+		{USER_TRACKBALL, "TRACKBALL", 0, "Trackball", "Trackball allows you to tumble your view at any angle"},
+		{0, NULL, 0, NULL, NULL},
 	};
 
 #ifdef WITH_INPUT_NDOF
 	static const EnumPropertyItem ndof_view_navigation_items[] = {
 		{0, "FREE", 0, "Free", "Use full 6 degrees of freedom by default"},
 		{NDOF_MODE_ORBIT, "ORBIT", 0, "Orbit", "Orbit about the view center by default"},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	static const EnumPropertyItem ndof_view_rotation_items[] = {
 		{NDOF_TURNTABLE, "TURNTABLE", 0, "Turntable", "Use turntable style rotation in the viewport"},
 		{0, "TRACKBALL", 0, "Trackball", "Use trackball style rotation in the viewport"},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 #endif /* WITH_INPUT_NDOF */
+
+	static const EnumPropertyItem tablet_api[] = {
+		{USER_TABLET_AUTOMATIC, "AUTOMATIC", 0, "Automatic", "Automatically choose Wintab or Windows Ink depending on the device"},
+		{USER_TABLET_NATIVE, "WINDOWS_INK", 0, "Windows Ink", "Use native Windows Ink API, for modern tablet and pen devices. Requires Windows 8 or newer"},
+		{USER_TABLET_WINTAB, "WINTAB", 0, "Wintab", "Use Wintab driver for older tablets and Windows versions"},
+		{0, NULL, 0, NULL, NULL},
+	};
 
 	static const EnumPropertyItem view_zoom_styles[] = {
 		{USER_ZOOM_CONT, "CONTINUE", 0, "Continue", "Old style zoom, continues while moving mouse up or down"},
 		{USER_ZOOM_DOLLY, "DOLLY", 0, "Dolly", "Zoom in and out based on vertical mouse movement"},
 		{USER_ZOOM_SCALE, "SCALE", 0, "Scale",
 		                  "Zoom in and out like scaling the view, mouse movements relative to center"},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	static const EnumPropertyItem view_zoom_axes[] = {
 		{0, "VERTICAL", 0, "Vertical", "Zoom in and out based on vertical mouse movement"},
 		{USER_ZOOM_HORIZ, "HORIZONTAL", 0, "Horizontal", "Zoom in and out based on horizontal mouse movement"},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	srna = RNA_def_struct(brna, "PreferencesInput", NULL);
@@ -4638,10 +4590,6 @@ static void rna_def_userdef_input(BlenderRNA *brna)
 	RNA_def_struct_nested(brna, srna, "Preferences");
 	RNA_def_struct_clear_flag(srna, STRUCT_UNDO);
 	RNA_def_struct_ui_text(srna, "Input", "Settings for input devices");
-
-	prop = RNA_def_property(srna, "show_ui_keyconfig", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_negative_sdna(prop, NULL, "userpref_flag", USER_SECTION_INPUT_HIDE_UI_KEYCONFIG);
-	RNA_def_property_ui_text(prop, "Show UI Key-Config", "");
 
 	prop = RNA_def_property(srna, "view_zoom_method", PROP_ENUM, PROP_NONE);
 	RNA_def_property_enum_sdna(prop, NULL, "viewzoom");
@@ -4657,16 +4605,57 @@ static void rna_def_userdef_input(BlenderRNA *brna)
 	RNA_def_property_boolean_sdna(prop, NULL, "uiflag", USER_ZOOM_INVERT);
 	RNA_def_property_ui_text(prop, "Invert Zoom Direction", "Invert the axis of mouse movement for zooming");
 
+	prop = RNA_def_property(srna, "use_mouse_depth_navigate", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "uiflag", USER_DEPTH_NAVIGATE);
+	RNA_def_property_ui_text(prop, "Auto Depth",
+	                         "Use the depth under the mouse to improve view pan/rotate/zoom functionality");
+
+	prop = RNA_def_property(srna, "use_camera_lock_parent", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_negative_sdna(prop, NULL, "uiflag", USER_CAM_LOCK_NO_PARENT);
+	RNA_def_property_ui_text(prop, "Camera Parent Lock",
+	                         "When the camera is locked to the view and in fly mode, "
+	                         "transform the parent rather than the camera");
+
+	/* view zoom */
+	prop = RNA_def_property(srna, "use_zoom_to_mouse", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "uiflag", USER_ZOOM_TO_MOUSEPOS);
+	RNA_def_property_ui_text(prop, "Zoom To Mouse Position",
+	                         "Zoom in towards the mouse pointer's position in the 3D view, "
+	                         "rather than the 2D window center");
+
+	/* view rotation */
+	prop = RNA_def_property(srna, "use_auto_perspective", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "uiflag", USER_AUTOPERSP);
+	RNA_def_property_ui_text(prop, "Auto Perspective",
+	                         "Automatically switch between orthographic and perspective when changing "
+	                         "from top/front/side views");
+
+	prop = RNA_def_property(srna, "use_rotate_around_active", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "uiflag", USER_ORBIT_SELECTION);
+	RNA_def_property_ui_text(prop, "Orbit Around Selection", "Use selection as the pivot point");
+
 	prop = RNA_def_property(srna, "view_rotate_method", PROP_ENUM, PROP_NONE);
 	RNA_def_property_enum_bitflag_sdna(prop, NULL, "flag");
 	RNA_def_property_enum_items(prop, view_rotation_items);
-	RNA_def_property_ui_text(prop, "View Rotation", "Rotation style in the viewport");
+	RNA_def_property_ui_text(prop, "Orbit Method", "Orbit method in the viewport");
 
 	prop = RNA_def_property(srna, "use_mouse_continuous", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "uiflag", USER_CONTINUOUS_MOUSE);
 	RNA_def_property_ui_text(prop, "Continuous Grab",
 	                         "Allow moving the mouse outside the view on some manipulations "
 	                         "(transform, ui control drag)");
+
+	prop = RNA_def_property(srna, "use_drag_immediately", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", USER_RELEASECONFIRM);
+	RNA_def_property_ui_text(prop, "Release Confirms",
+	                         "Moving things with a mouse drag confirms when releasing the button");
+
+	prop = RNA_def_property(srna, "use_numeric_input_advanced", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", USER_FLAG_NUMINPUT_ADVANCED);
+	RNA_def_property_ui_text(
+	        prop, "Default to Advanced Numeric Input",
+	        "When entering numbers while transforming, "
+	        "default to advanced mode for full math expression evaluation");
 
 	/* View Navigation */
 	prop = RNA_def_property(srna, "navigation_mode", PROP_ENUM, PROP_NONE);
@@ -4706,6 +4695,11 @@ static void rna_def_userdef_input(BlenderRNA *brna)
 	RNA_def_property_ui_range(prop, -1.0f, 1.0f, 0.1f, 2);
 	RNA_def_property_ui_text(prop, "Softness",
 	                         "Adjusts softness of the low pressure response onset using a gamma curve");
+
+	prop = RNA_def_property(srna, "tablet_api", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_items(prop, tablet_api);
+	RNA_def_property_ui_text(prop, "Tablet API", "Select the tablet API to use for pressure sensitivity");
+	RNA_def_property_update(prop, 0, "rna_userdef_tablet_api_update");
 
 #ifdef WITH_INPUT_NDOF
 	/* 3D mouse settings */
@@ -4804,7 +4798,7 @@ static void rna_def_userdef_input(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "use_mouse_emulate_3_button", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", USER_TWOBUTTONMOUSE);
 	RNA_def_property_ui_text(prop, "Emulate 3 Button Mouse",
-	                         "Emulate Middle Mouse with Alt+Left Mouse (doesn't work with Left Mouse Select option)");
+	                         "Emulate Middle Mouse with Alt+Left Mouse");
 	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
 	RNA_def_property_update(prop, 0, "rna_userdef_keyconfig_reload_update");
 
@@ -4825,6 +4819,21 @@ static void rna_def_userdef_input(BlenderRNA *brna)
 	RNA_def_property_boolean_sdna(prop, NULL, "uiflag2", USER_TRACKPAD_NATURAL);
 	RNA_def_property_ui_text(prop, "Trackpad Natural",
 	                         "If your system uses 'natural' scrolling, this option keeps consistent trackpad usage throughout the UI");
+}
+
+static void rna_def_userdef_keymap(BlenderRNA *brna)
+{
+	PropertyRNA *prop;
+
+	StructRNA *srna = RNA_def_struct(brna, "PreferencesKeymap", NULL);
+	RNA_def_struct_sdna(srna, "UserDef");
+	RNA_def_struct_nested(brna, srna, "Preferences");
+	RNA_def_struct_clear_flag(srna, STRUCT_UNDO);
+	RNA_def_struct_ui_text(srna, "Keymap", "Shortcut setup for keyboards and other input devices");
+
+	prop = RNA_def_property(srna, "show_ui_keyconfig", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_negative_sdna(prop, NULL, "userpref_flag", USER_SECTION_INPUT_HIDE_UI_KEYCONFIG);
+	RNA_def_property_ui_text(prop, "Show UI Key-Config", "");
 
 	prop = RNA_def_property(srna, "active_keyconfig", PROP_STRING, PROP_DIRPATH);
 	RNA_def_property_string_sdna(prop, NULL, "keyconfigstr");
@@ -4843,7 +4852,7 @@ static void rna_def_userdef_filepaths(BlenderRNA *brna)
 		{4, "RV", 0, "rv", "Frame player from Tweak Software"},
 		{5, "MPLAYER", 0, "MPlayer", "Media player for video & png/jpeg/sgi image sequences"},
 		{50, "CUSTOM", 0, "Custom", "Custom animation player executable path"},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	srna = RNA_def_struct(brna, "PreferencesFilePaths", NULL);
@@ -4854,7 +4863,7 @@ static void rna_def_userdef_filepaths(BlenderRNA *brna)
 
 	prop = RNA_def_property(srna, "show_hidden_files_datablocks", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "uiflag", USER_HIDE_DOT);
-	RNA_def_property_ui_text(prop, "Hide Dot Files/Data-Blocks", "Hide files/data-blocks that start with a dot (.*)");
+	RNA_def_property_ui_text(prop, "Hide Dot Files/Libraries", "Hide files and data-blocks if their name start with a dot (.*)");
 
 	prop = RNA_def_property(srna, "use_filter_files", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "uiflag", USER_FILTERFILEEXTS);
@@ -4885,6 +4894,21 @@ static void rna_def_userdef_filepaths(BlenderRNA *brna)
 	RNA_def_property_boolean_negative_sdna(prop, NULL, "flag", USER_FILENOUI);
 	RNA_def_property_ui_text(prop, "Load UI", "Load user interface setup when loading .blend files");
 	RNA_def_property_update(prop, 0, "rna_userdef_load_ui_update");
+
+
+	prop = RNA_def_property(srna, "use_scripts_auto_execute", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_negative_sdna(prop, NULL, "flag", USER_SCRIPT_AUTOEXEC_DISABLE);
+	RNA_def_property_ui_text(prop, "Auto Run Python Scripts",
+	                         "Allow any .blend file to run scripts automatically "
+	                         "(unsafe with blend files from an untrusted source)");
+	RNA_def_property_update(prop, 0, "rna_userdef_script_autoexec_update");
+
+	prop = RNA_def_property(srna, "use_tabs_as_spaces", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_negative_sdna(prop, NULL, "flag", USER_TXT_TABSTOSPACES_DISABLE);
+	RNA_def_property_ui_text(prop, "Tabs as Spaces",
+	                         "Automatically convert all new tabs into spaces for new and loaded text files");
+
+	/* Directories  */
 
 	prop = RNA_def_property(srna, "font_directory", PROP_STRING, PROP_DIRPATH);
 	RNA_def_property_string_sdna(prop, NULL, "fontdir");
@@ -4959,11 +4983,6 @@ static void rna_def_userdef_filepaths(BlenderRNA *brna)
 	                         "The time (in minutes) to wait between automatic temporary saves");
 	RNA_def_property_update(prop, 0, "rna_userdef_autosave_update");
 
-	prop = RNA_def_property(srna, "use_keep_session", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "uiflag2", USER_KEEP_SESSION);
-	RNA_def_property_ui_text(prop, "Keep Session",
-	                         "Always load session recovery and save it after quitting Blender");
-
 	prop = RNA_def_property(srna, "recent_files", PROP_INT, PROP_NONE);
 	RNA_def_property_range(prop, 0, 30);
 	RNA_def_property_ui_text(prop, "Recent Files", "Maximum number of recently opened files to remember");
@@ -5032,27 +5051,29 @@ void RNA_def_userdef(BlenderRNA *brna)
 	PropertyRNA *prop;
 
 	static const EnumPropertyItem preference_section_items[] = {
-		{0, "", ICON_USER, "User Preferences", ""},
 		{USER_SECTION_INTERFACE, "INTERFACE", 0, "Interface", ""},
-		{USER_SECTION_EDIT, "EDITING", 0, "Editing", ""},
-		{USER_SECTION_INPUT, "INPUT", 0, "Input", ""},
-		{USER_SECTION_ADDONS, "ADDONS", 0, "Add-ons", ""},
 		{USER_SECTION_THEME, "THEMES", 0, "Themes", ""},
+		{USER_SECTION_VIEWPORT, "VIEWPORT", 0, "Viewport", ""},
 		{USER_SECTION_LIGHT, "LIGHTS", 0, "Lights", ""},
-#ifdef WITH_USERDEF_WORKSPACES
-		{0, "", ICON_WORKSPACE, "Workspaces", ""},
+		{USER_SECTION_EDITING, "EDITING", 0, "Editing", ""},
+		{USER_SECTION_ANIMATION, "ANIMATION", 0, "Animation", ""},
+		{0, "", 0, NULL, NULL},
+		{USER_SECTION_ADDONS, "ADDONS", 0, "Add-ons", ""},
+#if 0 //def WITH_USERDEF_WORKSPACES
+		{0, "", 0, NULL, NULL},
 		{USER_SECTION_WORKSPACE_CONFIG, "WORKSPACE_CONFIG", 0, "Configuration File", ""},
 		{USER_SECTION_WORKSPACE_ADDONS, "WORKSPACE_ADDONS", 0, "Add-on Overrides", ""},
 		{USER_SECTION_WORKSPACE_KEYMAPS, "WORKSPACE_KEYMAPS", 0, "Keymap Overrides", ""},
 #endif
-		{0, "", ICON_SYSTEM, "System", ""},
-		{USER_SECTION_SYSTEM_GENERAL, "SYSTEM_GENERAL", 0, "General", ""},
-		{USER_SECTION_SYSTEM_FILES,   "SYSTEM_FILES",   0, "Files",   ""},
-#ifdef WITH_USERDEF_SYSTEM_SPLIT
-		{USER_SECTION_SYSTEM_DISPLAY, "SYSTEM_DISPLAY", 0, "Display", ""},
-		{USER_SECTION_SYSTEM_DEVICES, "SYSTEM_DEVICES", 0, "Devices", ""},
-#endif
-		{0, NULL, 0, NULL, NULL}
+		{0, "", 0, NULL, NULL},
+		{USER_SECTION_INPUT, "INPUT", 0, "Input", ""},
+		{USER_SECTION_NAVIGATION, "NAVIGATION", 0, "Navigation", ""},
+		{USER_SECTION_KEYMAP, "KEYMAP", 0, "Keymap", ""},
+		{0, "", 0, NULL, NULL},
+		{USER_SECTION_SYSTEM, "SYSTEM", 0, "System", ""},
+		{USER_SECTION_SAVE_LOAD, "SAVE_LOAD",   0, "Save & Load",   ""},
+		{USER_SECTION_FILE_PATHS, "FILE_PATHS",   0, "File Paths",   ""},
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	rna_def_userdef_dothemes(brna);
@@ -5068,7 +5089,7 @@ void RNA_def_userdef(BlenderRNA *brna)
 	RNA_def_property_enum_sdna(prop, NULL, "userpref");
 	RNA_def_property_enum_items(prop, preference_section_items);
 	RNA_def_property_ui_text(prop, "Active Section",
-	                         "Active section of the user preferences shown in the user interface");
+	                         "Active section of the preferences shown in the user interface");
 	RNA_def_property_update(prop, 0, "rna_userdef_update");
 
 	/* don't expose this directly via the UI, modify via an operator */
@@ -5117,6 +5138,12 @@ void RNA_def_userdef(BlenderRNA *brna)
 	RNA_def_property_pointer_funcs(prop, "rna_UserDef_input_get", NULL, NULL, NULL);
 	RNA_def_property_ui_text(prop, "Inputs", "Settings for input devices");
 
+	prop = RNA_def_property(srna, "keymap", PROP_POINTER, PROP_NONE);
+	RNA_def_property_flag(prop, PROP_NEVER_NULL);
+	RNA_def_property_struct_type(prop, "PreferencesKeymap");
+	RNA_def_property_pointer_funcs(prop, "rna_UserDef_keymap_get", NULL, NULL, NULL);
+	RNA_def_property_ui_text(prop, "Keymap", "Shortcut setup for keyboards and other input devices");
+
 	prop = RNA_def_property(srna, "filepaths", PROP_POINTER, PROP_NONE);
 	RNA_def_property_flag(prop, PROP_NEVER_NULL);
 	RNA_def_property_struct_type(prop, "PreferencesFilePaths");
@@ -5148,6 +5175,7 @@ void RNA_def_userdef(BlenderRNA *brna)
 	rna_def_userdef_view(brna);
 	rna_def_userdef_edit(brna);
 	rna_def_userdef_input(brna);
+	rna_def_userdef_keymap(brna);
 	rna_def_userdef_filepaths(brna);
 	rna_def_userdef_system(brna);
 	rna_def_userdef_addon(brna);

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,15 +15,9 @@
  *
  * The Original Code is Copyright (C) 2008 Blender Foundation.
  * All rights reserved.
- *
- *
- * Contributor(s): Blender Foundation
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/space_buttons/space_buttons.c
- *  \ingroup spbuttons
+/** \file \ingroup spbuttons
  */
 
 #include <string.h>
@@ -427,7 +419,8 @@ static void buttons_navigation_bar_region_draw(const bContext *C, ARegion *ar)
 	}
 
 	ED_region_panels_layout(C, ar);
-	ar->v2d.scroll &= ~V2D_SCROLL_VERTICAL; /* ED_region_panels_layout adds vertical scrollbars, we don't want them. */
+	/* ED_region_panels_layout adds vertical scrollbars, we don't want them. */
+	ar->v2d.scroll &= ~V2D_SCROLL_VERTICAL;
 	ED_region_panels_draw(C, ar);
 }
 
@@ -743,7 +736,8 @@ void ED_spacetype_buttons(void)
 	/* regions: navigation bar */
 	art = MEM_callocN(sizeof(ARegionType), "spacetype nav buttons region");
 	art->regionid = RGN_TYPE_NAV_BAR;
-	art->prefsizex = AREAMINX - 3; /* XXX Works and looks best, should we update AREAMINX accordingly? */
+	art->prefsizex = AREAMINX - 3; /* XXX Works and looks best,
+	                                * should we update AREAMINX accordingly? */
 	art->keymapflag = ED_KEYMAP_UI | ED_KEYMAP_FRAMES;
 	art->init = buttons_navigation_bar_region_init;
 	art->draw = buttons_navigation_bar_region_draw;

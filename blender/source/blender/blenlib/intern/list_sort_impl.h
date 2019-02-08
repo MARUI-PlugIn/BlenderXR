@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,12 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenlib/intern/list_sort_impl.h
- *  \ingroup bli
+/** \file \ingroup bli
  *
  * Common implementation of linked-list a non-recursive mergesort.
  *
@@ -226,7 +221,7 @@ BLI_INLINE list_node *sweep_up(struct SortInfo *si, list_node *list, unsigned in
  * When inserting higher-ranked lists, we choose to clear out the lower ranks
  * in the interests of keeping the sort stable, but this makes analysis harder.
  * Note that clearing the lower-ranked lists is `O(length(list))--` thus it
- * shouldn't affect the `O(n log n)` behaviour.
+ * shouldn't affect the `O(n log n)` behavior.
  * In other words, inserting one `rank-i` list is equivalent to inserting
  * `2**i` `rank-0` lists, thus even if we do `i` additional merges
  * in the clearing-out (taking at most `2**i` time) we are still fine.

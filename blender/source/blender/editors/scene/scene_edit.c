@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,12 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/scene/scene_edit.c
- *  \ingroup edscene
+/** \file \ingroup edscene
  */
 
 #include <stdio.h>
@@ -78,7 +73,7 @@ Scene *ED_scene_add(Main *bmain, bContext *C, wmWindow *win, eSceneCopyMethod me
 			ED_object_single_users(bmain, scene_new, false, true);
 		}
 		else if (method == SCE_COPY_FULL) {
-			ED_editors_flush_edits(C, false);
+			ED_editors_flush_edits(bmain, false);
 			ED_object_single_users(bmain, scene_new, true, true);
 		}
 	}
@@ -115,7 +110,7 @@ bool ED_scene_delete(bContext *C, Main *bmain, wmWindow *win, Scene *scene)
 
 	id_us_clear_real(&scene->id);
 	if (scene->id.us == 0) {
-		BKE_libblock_free(bmain, scene);
+		BKE_id_free(bmain, scene);
 	}
 
 	return true;
@@ -219,7 +214,7 @@ static void SCENE_OT_new(wmOperatorType *ot)
 		{SCE_COPY_LINK_OB, "LINK_OBJECTS", 0, "Link Objects", "Link to the objects from the current scene"},
 		{SCE_COPY_LINK_DATA, "LINK_OBJECT_DATA", 0, "Link Object Data", "Copy objects linked to data from the current scene"},
 		{SCE_COPY_FULL, "FULL_COPY", 0, "Full Copy", "Make a full copy of the current scene"},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	/* identifiers */
@@ -236,6 +231,12 @@ static void SCENE_OT_new(wmOperatorType *ot)
 
 	/* properties */
 	ot->prop = RNA_def_enum(ot->srna, "type", type_items, 0, "Type", "");
+}
+
+static bool scene_delete_poll(bContext *C)
+{
+	Scene *scene = CTX_data_scene(C);
+	return (scene->id.prev || scene->id.next);
 }
 
 static int scene_delete_exec(bContext *C, wmOperator *UNUSED(op))
@@ -263,6 +264,7 @@ static void SCENE_OT_delete(wmOperatorType *ot)
 
 	/* api callbacks */
 	ot->exec = scene_delete_exec;
+	ot->poll = scene_delete_poll;
 
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;

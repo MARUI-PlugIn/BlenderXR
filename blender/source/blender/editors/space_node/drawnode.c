@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2005 Blender Foundation.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): David Millan Escriva, Juho Vepsäläinen, Bob Holcomb, Thomas Dinges
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/space_node/drawnode.c
- *  \ingroup spnode
+/** \file \ingroup spnode
  *  \brief lower level node drawing for nodes (boarders, headers etc), also node layout.
  */
 
@@ -162,7 +153,8 @@ static void node_buts_curvevec(uiLayout *layout, bContext *UNUSED(C), PointerRNA
 }
 
 #define SAMPLE_FLT_ISNONE FLT_MAX
-static float _sample_col[4] = {SAMPLE_FLT_ISNONE};  /* bad bad, 2.5 will do better?... no it won't... */
+/* bad bad, 2.5 will do better?... no it won't... */
+static float _sample_col[4] = {SAMPLE_FLT_ISNONE};
 void ED_node_sample_set(const float col[4])
 {
 	if (col) {
@@ -270,7 +262,7 @@ static int node_resize_area_default(bNode *node, int x, int y)
 			return 0;
 	}
 	else {
-		const float size = 10.0f;
+		const float size = NODE_RESIZE_MARGIN;
 		rctf totr = node->totr;
 		int dir = 0;
 
@@ -362,7 +354,8 @@ static void node_draw_frame_label(bNodeTree *ntree, bNode *node, const float asp
 
 	BLF_enable(fontid, BLF_ASPECT);
 	BLF_aspect(fontid, aspect, aspect, 1.0f);
-	BLF_size(fontid, MIN2(24, font_size), U.dpi); /* clamp otherwise it can suck up a LOT of memory */
+	/* clamp otherwise it can suck up a LOT of memory */
+	BLF_size(fontid, MIN2(24, font_size), U.dpi);
 
 	/* title color */
 	UI_GetThemeColorBlendShade3ubv(TH_TEXT, color_id, 0.4f, 10, color);
@@ -652,7 +645,8 @@ static void node_buts_image_user(uiLayout *layout, bContext *C, PointerRNA *ptr,
 	source = RNA_enum_get(imaptr, "source");
 
 	if (source == IMA_SRC_SEQUENCE) {
-		/* don't use iuser->framenr directly because it may not be updated if auto-refresh is off */
+		/* don't use iuser->framenr directly
+		 * because it may not be updated if auto-refresh is off */
 		Scene *scene = CTX_data_scene(C);
 		ImageUser *iuser = iuserptr->data;
 		/* Image *ima = imaptr->data; */  /* UNUSED */
@@ -1795,17 +1789,18 @@ static void node_composit_buts_file_output_ex(uiLayout *layout, bContext *C, Poi
 	/* using different collection properties if multilayer format is enabled */
 	if (multilayer) {
 		uiTemplateList(col, C, "UI_UL_list", "file_output_node", ptr, "layer_slots", ptr, "active_input_index",
-		               NULL, 0, 0, 0, 0, false);
+		               NULL, 0, 0, 0, 0, false, false);
 		RNA_property_collection_lookup_int(ptr, RNA_struct_find_property(ptr, "layer_slots"),
 		                                   active_index, &active_input_ptr);
 	}
 	else {
 		uiTemplateList(col, C, "UI_UL_list", "file_output_node", ptr, "file_slots", ptr, "active_input_index",
-		               NULL, 0, 0, 0, 0, false);
+		               NULL, 0, 0, 0, 0, false, false);
 		RNA_property_collection_lookup_int(ptr, RNA_struct_find_property(ptr, "file_slots"),
 		                                   active_index, &active_input_ptr);
 	}
-	/* XXX collection lookup does not return the ID part of the pointer, setting this manually here */
+	/* XXX collection lookup does not return the ID part of the pointer,
+	 * setting this manually here */
 	active_input_ptr.id.data = ptr->id.data;
 
 	col = uiLayoutColumn(row, true);
@@ -2903,7 +2898,7 @@ static void node_texture_set_butfunc(bNodeType *ntype)
 	}
 }
 
-/* ******* init draw callbacks for all tree types, only called in usiblender.c, once ************* */
+/* ****** init draw callbacks for all tree types, only called in usiblender.c, once ************ */
 
 static void node_property_update_default(Main *bmain, Scene *UNUSED(scene), PointerRNA *ptr)
 {
@@ -3054,7 +3049,8 @@ static void std_node_socket_interface_draw_color(bContext *UNUSED(C), PointerRNA
 	copy_v4_v4(r_color, std_node_socket_colors[type]);
 }
 
-/* draw function for file output node sockets, displays only sub-path and format, no value button */
+/* draw function for file output node sockets,
+ * displays only sub-path and format, no value button */
 static void node_file_output_socket_draw(bContext *C, uiLayout *layout, PointerRNA *ptr, PointerRNA *node_ptr)
 {
 	bNodeTree *ntree = ptr->id.data;
@@ -3250,7 +3246,7 @@ void draw_nodespace_back_pix(const bContext *C, ARegion *ar, SpaceNode *snode, b
 					shuffle[3] = 1.0f;
 
 				IMMDrawPixelsTexState state = immDrawPixelsTexSetup(GPU_SHADER_2D_IMAGE_SHUFFLE_COLOR);
-				GPU_shader_uniform_vector(state.shader, GPU_shader_get_uniform(state.shader, "shuffle"), 4, 1, shuffle);
+				GPU_shader_uniform_vector(state.shader, GPU_shader_get_uniform_ensure(state.shader, "shuffle"), 4, 1, shuffle);
 
 				immDrawPixelsTex(&state, x, y, ibuf->x, ibuf->y, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST,
 				                 display_buffer, snode->zoom, snode->zoom, NULL);
@@ -3532,7 +3528,8 @@ static void nodelink_batch_init(void)
 	g_batch_link.p3_id = GPU_vertformat_attr_add(&format_inst, "P3", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
 	g_batch_link.colid_id = GPU_vertformat_attr_add(&format_inst, "colid_doarrow", GPU_COMP_U8, 4, GPU_FETCH_INT);
 	g_batch_link.inst_vbo = GPU_vertbuf_create_with_format_ex(&format_inst, GPU_USAGE_STREAM);
-	GPU_vertbuf_data_alloc(g_batch_link.inst_vbo, NODELINK_GROUP_SIZE); /* Alloc max count but only draw the range we need. */
+	/* Alloc max count but only draw the range we need. */
+	GPU_vertbuf_data_alloc(g_batch_link.inst_vbo, NODELINK_GROUP_SIZE);
 
 	GPU_batch_instbuf_set(g_batch_link.batch, g_batch_link.inst_vbo, true);
 
@@ -3565,7 +3562,7 @@ static void nodelink_batch_draw(SpaceNode *snode)
 	UI_GetThemeColor4fv(TH_EDGE_SELECT, colors[nodelink_get_color_id(TH_EDGE_SELECT)]);
 	UI_GetThemeColor4fv(TH_REDALERT,    colors[nodelink_get_color_id(TH_REDALERT)]);
 
-	GPU_vertbuf_vertex_count_set(g_batch_link.inst_vbo, g_batch_link.count);
+	GPU_vertbuf_data_len_set(g_batch_link.inst_vbo, g_batch_link.count);
 	GPU_vertbuf_use(g_batch_link.inst_vbo); /* force update. */
 
 	GPU_batch_program_set_builtin(g_batch_link.batch, GPU_SHADER_2D_NODELINK_INST);

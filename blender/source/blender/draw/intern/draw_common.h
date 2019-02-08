@@ -1,6 +1,4 @@
 /*
- * Copyright 2016, Blender Foundation.
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,12 +13,10 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * Contributor(s): Blender Institute
- *
+ * Copyright 2016, Blender Foundation.
  */
 
-/** \file draw_common.h
- *  \ingroup draw
+/** \file \ingroup draw
  */
 
 #ifndef __DRAW_COMMON_H__
@@ -30,11 +26,11 @@ struct DRWPass;
 struct DRWShadingGroup;
 struct GPUBatch;
 struct GPUMaterial;
-struct Object;
-struct ViewLayer;
 struct ModifierData;
-struct ParticleSystem;
+struct Object;
 struct PTCacheEdit;
+struct ParticleSystem;
+struct ViewLayer;
 
 #define UBO_FIRST_COLOR colorWire
 #define UBO_LAST_COLOR colorGridAxisZ
@@ -48,9 +44,11 @@ typedef struct GlobalsUboStorage {
 	float colorWireEdit[4];
 	float colorActive[4];
 	float colorSelect[4];
-	float colorTransform[4];
+	float colorDupliSelect[4];
+	float colorDupli[4];
 	float colorLibrarySelect[4];
 	float colorLibrary[4];
+	float colorTransform[4];
 	float colorLamp[4];
 	float colorSpeaker[4];
 	float colorCamera[4];
@@ -123,31 +121,32 @@ BLI_STATIC_ASSERT_ALIGN(GlobalsUboStorage, 16)
 void DRW_globals_update(void);
 void DRW_globals_free(void);
 
+void DRW_shgroup_world_clip_planes_from_rv3d(struct DRWShadingGroup *shgrp, const RegionView3D *rv3d);
+
 struct DRWShadingGroup *shgroup_dynlines_flat_color(struct DRWPass *pass);
-struct DRWShadingGroup *shgroup_dynlines_dashed_uniform_color(struct DRWPass *pass, float color[4]);
-struct DRWShadingGroup *shgroup_dynpoints_uniform_color(struct DRWPass *pass, float color[4], float *size);
-struct DRWShadingGroup *shgroup_groundlines_uniform_color(struct DRWPass *pass, float color[4]);
-struct DRWShadingGroup *shgroup_groundpoints_uniform_color(struct DRWPass *pass, float color[4]);
-struct DRWShadingGroup *shgroup_instance_screenspace(struct DRWPass *pass, struct GPUBatch *geom, float *size);
+struct DRWShadingGroup *shgroup_dynlines_dashed_uniform_color(struct DRWPass *pass, const float color[4]);
+struct DRWShadingGroup *shgroup_dynpoints_uniform_color(struct DRWPass *pass, const float color[4], const float *size, eGPUShaderConfig shader_cfg);
+struct DRWShadingGroup *shgroup_groundlines_uniform_color(struct DRWPass *pass, const float color[4], eGPUShaderConfig shader_cfg);
+struct DRWShadingGroup *shgroup_groundpoints_uniform_color(struct DRWPass *pass, const float color[4], eGPUShaderConfig shader_cfg);
+struct DRWShadingGroup *shgroup_instance_screenspace(struct DRWPass *pass, struct GPUBatch *geom, const float *size, eGPUShaderConfig shader_cfg);
 struct DRWShadingGroup *shgroup_instance_solid(struct DRWPass *pass, struct GPUBatch *geom);
 struct DRWShadingGroup *shgroup_instance_wire(struct DRWPass *pass, struct GPUBatch *geom);
-struct DRWShadingGroup *shgroup_instance_screen_aligned(struct DRWPass *pass, struct GPUBatch *geom);
-struct DRWShadingGroup *shgroup_instance_empty_axes(struct DRWPass *pass, struct GPUBatch *geom);
-struct DRWShadingGroup *shgroup_instance_image_plane(struct DRWPass *pass, struct GPUBatch *geom);
-struct DRWShadingGroup *shgroup_instance_scaled(struct DRWPass *pass, struct GPUBatch *geom);
-struct DRWShadingGroup *shgroup_instance(struct DRWPass *pass, struct GPUBatch *geom);
-struct DRWShadingGroup *shgroup_instance_alpha(struct DRWPass *pass, struct GPUBatch *geom, float alpha);
+struct DRWShadingGroup *shgroup_instance_screen_aligned(struct DRWPass *pass, struct GPUBatch *geom, eGPUShaderConfig shader_cfg);
+struct DRWShadingGroup *shgroup_instance_empty_axes(struct DRWPass *pass, struct GPUBatch *geom, eGPUShaderConfig shader_cfg);
+struct DRWShadingGroup *shgroup_instance_scaled(struct DRWPass *pass, struct GPUBatch *geom, eGPUShaderConfig shader_cfg);
+struct DRWShadingGroup *shgroup_instance(struct DRWPass *pass, struct GPUBatch *geom, eGPUShaderConfig shader_cfg);
+struct DRWShadingGroup *shgroup_instance_alpha(struct DRWPass *pass, struct GPUBatch *geom, eGPUShaderConfig shader_cfg);
 struct DRWShadingGroup *shgroup_instance_outline(struct DRWPass *pass, struct GPUBatch *geom, int *baseid);
-struct DRWShadingGroup *shgroup_camera_instance(struct DRWPass *pass, struct GPUBatch *geom);
-struct DRWShadingGroup *shgroup_distance_lines_instance(struct DRWPass *pass, struct GPUBatch *geom);
-struct DRWShadingGroup *shgroup_spot_instance(struct DRWPass *pass, struct GPUBatch *geom);
-struct DRWShadingGroup *shgroup_instance_mball_handles(struct DRWPass *pass);
+struct DRWShadingGroup *shgroup_camera_instance(struct DRWPass *pass, struct GPUBatch *geom, eGPUShaderConfig shader_cfg);
+struct DRWShadingGroup *shgroup_distance_lines_instance(struct DRWPass *pass, struct GPUBatch *geom, eGPUShaderConfig shader_cfg);
+struct DRWShadingGroup *shgroup_spot_instance(struct DRWPass *pass, struct GPUBatch *geom, eGPUShaderConfig shader_cfg);
+struct DRWShadingGroup *shgroup_instance_mball_handles(struct DRWPass *pass, eGPUShaderConfig shader_cfg);
 struct DRWShadingGroup *shgroup_instance_bone_axes(struct DRWPass *pass);
 struct DRWShadingGroup *shgroup_instance_bone_envelope_distance(struct DRWPass *pass);
 struct DRWShadingGroup *shgroup_instance_bone_envelope_outline(struct DRWPass *pass);
 struct DRWShadingGroup *shgroup_instance_bone_envelope_solid(struct DRWPass *pass, bool transp);
-struct DRWShadingGroup *shgroup_instance_bone_shape_outline(struct DRWPass *pass, struct GPUBatch *geom);
-struct DRWShadingGroup *shgroup_instance_bone_shape_solid(struct DRWPass *pass, struct GPUBatch *geom, bool transp);
+struct DRWShadingGroup *shgroup_instance_bone_shape_outline(struct DRWPass *pass, struct GPUBatch *geom, eGPUShaderConfig shader_cfg);
+struct DRWShadingGroup *shgroup_instance_bone_shape_solid(struct DRWPass *pass, struct GPUBatch *geom, bool transp, eGPUShaderConfig shader_cfg);
 struct DRWShadingGroup *shgroup_instance_bone_sphere_outline(struct DRWPass *pass);
 struct DRWShadingGroup *shgroup_instance_bone_sphere_solid(struct DRWPass *pass, bool transp);
 struct DRWShadingGroup *shgroup_instance_bone_stick(struct DRWPass *pass);
@@ -200,5 +199,19 @@ void DRW_hair_free(void);
 /* pose_mode.c */
 bool DRW_pose_mode_armature(
     struct Object *ob, struct Object *active_ob);
+
+/* draw_common.c */
+struct DRW_Global {
+	/** If needed, contains all global/Theme colors
+	 * Add needed theme colors / values to DRW_globals_update() and update UBO
+	 * Not needed for constant color. */
+	GlobalsUboStorage block;
+	/** Define "globalsBlock" uniform for 'block'.  */
+	struct GPUUniformBuffer *block_ubo;
+
+	struct GPUTexture *ramp;
+	struct GPUTexture *weight_ramp;
+};
+extern struct DRW_Global G_draw;
 
 #endif /* __DRAW_COMMON_H__ */

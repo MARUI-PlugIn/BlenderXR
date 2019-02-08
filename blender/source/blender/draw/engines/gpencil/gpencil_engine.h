@@ -1,6 +1,4 @@
 /*
- * Copyright 2017, Blender Foundation.
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,12 +13,10 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * Contributor(s): Antonio Vazquez
- *
+ * Copyright 2017, Blender Foundation.
  */
 
-/** \file blender/draw/engines/gpencil/gpencil_engine.h
- *  \ingroup draw
+/** \file \ingroup draw
  */
 
 #ifndef __GPENCIL_ENGINE_H__
@@ -28,15 +24,15 @@
 
 #include "GPU_batch.h"
 
-struct tGPspoint;
-struct bGPDstroke;
-struct ModifierData;
 struct GPENCIL_Data;
 struct GPENCIL_StorageList;
-struct Object;
 struct MaterialGPencilStyle;
+struct ModifierData;
+struct Object;
 struct RenderEngine;
 struct RenderLayer;
+struct bGPDstroke;
+struct tGPspoint;
 
 #define GPENCIL_CACHE_BLOCK_SIZE 8
 #define GPENCIL_MAX_SHGROUPS 65536
@@ -92,6 +88,7 @@ typedef struct tGPencilObjectCache {
 	float obmat[4][4];
 	float zdepth;  /* z-depth value to sort gp object */
 	bool is_dup_ob;  /* flag to tag duplicate objects */
+	float scale;
 
 	/* GPU data size */
 	int tot_vertex;
@@ -114,6 +111,7 @@ typedef struct GPENCIL_shgroup {
 	int texture_clamp;
 	int fill_style;
 	int keep_size;
+	int caps_mode[2];
 	float obj_scale;
 } GPENCIL_shgroup;
 
@@ -364,7 +362,8 @@ typedef struct GpencilBatchCache {
 /* general drawing functions */
 struct DRWShadingGroup *DRW_gpencil_shgroup_stroke_create(
         struct GPENCIL_e_data *e_data, struct GPENCIL_Data *vedata, struct DRWPass *pass, struct GPUShader *shader,
-        struct Object *ob, struct bGPdata *gpd, struct MaterialGPencilStyle *gp_style, int id, bool onion);
+        struct Object *ob, struct bGPdata *gpd, struct bGPDstroke *gps,
+        struct MaterialGPencilStyle *gp_style, int id, bool onion, const float scale);
 void DRW_gpencil_populate_datablock(
         struct GPENCIL_e_data *e_data, void *vedata,
         struct Object *ob, struct tGPencilObjectCache *cache_ob);

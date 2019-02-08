@@ -81,21 +81,38 @@
 #include "icon_select.png.h"
 #include "icon_select_raycast.png.h"
 #include "icon_select_proximity.png.h"
+#include "icon_cursor_teleport.png.h"
+#include "icon_cursor_worldorigin.png.h"
+#include "icon_cursor_objorigin.png.h"
 #include "icon_transform.png.h"
 #include "icon_move.png.h"
 #include "icon_rotate.png.h"
 #include "icon_scale.png.h"
 #include "icon_annotate.png.h"
 #include "icon_measure.png.h"
+#include "icon_mesh.png.h"
+#include "icon_mesh_plane.png.h"
+#include "icon_mesh_cube.png.h"
+#include "icon_mesh_circle.png.h"
+#include "icon_mesh_cylinder.png.h"
+#include "icon_mesh_cone.png.h"
+#include "icon_mesh_grid.png.h"
+#include "icon_mesh_monkey.png.h"
+#include "icon_mesh_uvsphere.png.h"
+#include "icon_mesh_icosphere.png.h"
 #include "icon_extrude.png.h"
 #include "icon_extrude_individual.png.h"
 #include "icon_extrude_normals.png.h"
-#include "icon_flip_normals.png.h"
+#include "icon_insetfaces.png.h"
+#include "icon_bevel.png.h"
+#include "icon_loopcut.png.h"
+#include "icon_knife.png.h"
 #include "icon_delete.png.h"
 #include "icon_duplicate.png.h"
+#include "icon_join.png.h"
+#include "icon_separate.png.h"
 #include "icon_undo.png.h"
 #include "icon_redo.png.h"
-#include "icon_manip.png.h"
 #include "icon_manip_global.png.h"
 #include "icon_manip_local.png.h"
 #include "icon_manip_normal.png.h"
@@ -108,6 +125,11 @@
 #include "icon_edge.png.h"
 #include "icon_face.png.h"
 #include "icon_toolsettings.png.h"
+#include "icon_box_empty.png.h"
+#include "icon_box_filled.png.h"
+#include "icon_plus.png.h"
+#include "icon_minus.png.h"
+#include "icon_reset.png.h"
 
 /* Menu textures */
 #include "menu_background.png.h"
@@ -165,22 +187,39 @@ VR_Draw::Texture *VR_Draw::alt_tex(0);
 VR_Draw::Texture *VR_Draw::select_tex(0);
 VR_Draw::Texture *VR_Draw::select_raycast_tex(0);
 VR_Draw::Texture *VR_Draw::select_proximity_tex(0);
+VR_Draw::Texture *VR_Draw::cursor_teleport_tex(0);
+VR_Draw::Texture *VR_Draw::cursor_worldorigin_tex(0);
+VR_Draw::Texture *VR_Draw::cursor_objorigin_tex(0);
 VR_Draw::Texture *VR_Draw::transform_tex(0);
 VR_Draw::Texture *VR_Draw::move_tex(0);
 VR_Draw::Texture *VR_Draw::rotate_tex(0);
 VR_Draw::Texture *VR_Draw::scale_tex(0);
 VR_Draw::Texture *VR_Draw::annotate_tex(0);
 VR_Draw::Texture *VR_Draw::measure_tex(0);
+VR_Draw::Texture *VR_Draw::mesh_tex(0);
+VR_Draw::Texture *VR_Draw::mesh_plane_tex(0);
+VR_Draw::Texture *VR_Draw::mesh_cube_tex(0);
+VR_Draw::Texture *VR_Draw::mesh_circle_tex(0);
+VR_Draw::Texture *VR_Draw::mesh_cylinder_tex(0);
+VR_Draw::Texture *VR_Draw::mesh_cone_tex(0);
+VR_Draw::Texture *VR_Draw::mesh_grid_tex(0);
+VR_Draw::Texture *VR_Draw::mesh_monkey_tex(0);
+VR_Draw::Texture *VR_Draw::mesh_uvsphere_tex(0);
+VR_Draw::Texture *VR_Draw::mesh_icosphere_tex(0);
 VR_Draw::Texture *VR_Draw::extrude_tex(0);
 VR_Draw::Texture *VR_Draw::extrude_individual_tex(0);
 VR_Draw::Texture *VR_Draw::extrude_normals_tex(0);
-VR_Draw::Texture *VR_Draw::flip_normals_tex(0);
+VR_Draw::Texture *VR_Draw::insetfaces_tex(0);
+VR_Draw::Texture *VR_Draw::bevel_tex(0);
+VR_Draw::Texture *VR_Draw::loopcut_tex(0);
+VR_Draw::Texture *VR_Draw::knife_tex(0);
 VR_Draw::Texture *VR_Draw::delete_tex(0);
 VR_Draw::Texture *VR_Draw::delete_alt_tex(0);
 VR_Draw::Texture *VR_Draw::duplicate_tex(0);
+VR_Draw::Texture *VR_Draw::join_tex(0);
+VR_Draw::Texture *VR_Draw::separate_tex(0);
 VR_Draw::Texture *VR_Draw::undo_tex(0);
 VR_Draw::Texture *VR_Draw::redo_tex(0);
-VR_Draw::Texture *VR_Draw::manip_tex(0);
 VR_Draw::Texture *VR_Draw::manip_global_tex(0);
 VR_Draw::Texture *VR_Draw::manip_local_tex(0);
 VR_Draw::Texture *VR_Draw::manip_normal_tex(0);
@@ -193,6 +232,11 @@ VR_Draw::Texture *VR_Draw::vertex_tex(0);
 VR_Draw::Texture *VR_Draw::edge_tex(0);
 VR_Draw::Texture *VR_Draw::face_tex(0);
 VR_Draw::Texture *VR_Draw::toolsettings_tex(0);
+VR_Draw::Texture *VR_Draw::box_empty_tex(0);
+VR_Draw::Texture *VR_Draw::box_filled_tex(0);
+VR_Draw::Texture *VR_Draw::plus_tex(0);
+VR_Draw::Texture *VR_Draw::minus_tex(0);
+VR_Draw::Texture *VR_Draw::reset_tex(0);
 
 VR_Draw::Texture *VR_Draw::background_menu_tex(0);
 VR_Draw::Texture *VR_Draw::colorwheel_menu_tex(0);
@@ -276,21 +320,38 @@ int VR_Draw::init(void* display, void* drawable, void* context)
 	select_tex = new Texture(icon_select_png);
 	select_raycast_tex = new Texture(icon_select_raycast_png);
 	select_proximity_tex = new Texture(icon_select_proximity_png);
+	cursor_teleport_tex = new Texture(icon_cursor_teleport_png);
+	cursor_worldorigin_tex = new Texture(icon_cursor_worldorigin_png);
+	cursor_objorigin_tex = new Texture(icon_cursor_objorigin_png);
 	transform_tex = new Texture(icon_transform_png);
 	move_tex = new Texture(icon_move_png);
 	rotate_tex = new Texture(icon_rotate_png);
 	scale_tex = new Texture(icon_scale_png);
 	annotate_tex = new Texture(icon_annotate_png);
 	measure_tex = new Texture(icon_measure_png);
+	mesh_tex = new Texture(icon_mesh_png);
+	mesh_plane_tex = new Texture(icon_mesh_plane_png);
+	mesh_cube_tex = new Texture(icon_mesh_cube_png);
+	mesh_circle_tex = new Texture(icon_mesh_circle_png);
+	mesh_cylinder_tex = new Texture(icon_mesh_cylinder_png);
+	mesh_cone_tex = new Texture(icon_mesh_cone_png);
+	mesh_grid_tex = new Texture(icon_mesh_grid_png);
+	mesh_monkey_tex = new Texture(icon_mesh_monkey_png);
+	mesh_uvsphere_tex = new Texture(icon_mesh_uvsphere_png);
+	mesh_icosphere_tex = new Texture(icon_mesh_icosphere_png);
 	extrude_tex = new Texture(icon_extrude_png);
 	extrude_individual_tex = new Texture(icon_extrude_individual_png);
 	extrude_normals_tex = new Texture(icon_extrude_normals_png);
-	flip_normals_tex = new Texture(icon_flip_normals_png);
+	insetfaces_tex = new Texture(icon_insetfaces_png);
+	bevel_tex = new Texture(icon_bevel_png);
+	loopcut_tex = new Texture(icon_loopcut_png);
+	knife_tex = new Texture(icon_knife_png);
 	delete_tex = new Texture(icon_delete_png);
 	duplicate_tex = new Texture(icon_duplicate_png);
+	join_tex = new Texture(icon_join_png);
+	separate_tex = new Texture(icon_separate_png);
 	undo_tex = new Texture(icon_undo_png);
 	redo_tex = new Texture(icon_redo_png);
-	manip_tex = new Texture(icon_manip_png);
 	manip_global_tex = new Texture(icon_manip_global_png);
 	manip_local_tex = new Texture(icon_manip_local_png);
 	manip_normal_tex = new Texture(icon_manip_normal_png);
@@ -303,6 +364,11 @@ int VR_Draw::init(void* display, void* drawable, void* context)
 	edge_tex = new Texture(icon_edge_png);
 	face_tex = new Texture(icon_face_png);
 	toolsettings_tex = new Texture(icon_toolsettings_png);
+	box_empty_tex = new Texture(icon_box_empty_png);
+	box_filled_tex = new Texture(icon_box_filled_png);
+	plus_tex = new Texture(icon_plus_png);
+	minus_tex = new Texture(icon_minus_png);
+	reset_tex = new Texture(icon_reset_png);
 
 	background_menu_tex = new Texture(menu_background_png);
 	colorwheel_menu_tex = new Texture(menu_colorwheel_png);
@@ -419,6 +485,18 @@ void VR_Draw::uninit()
 		delete select_proximity_tex;
 		select_proximity_tex = NULL;
 	}
+	if (cursor_teleport_tex) {
+		delete cursor_teleport_tex;
+		cursor_teleport_tex = NULL;
+	}
+	if (cursor_worldorigin_tex) {
+		delete cursor_worldorigin_tex;
+		cursor_worldorigin_tex = NULL;
+	}
+	if (cursor_objorigin_tex) {
+		delete cursor_objorigin_tex;
+		cursor_objorigin_tex = NULL;
+	}
 	if (transform_tex) {
 		delete transform_tex;
 		transform_tex = NULL;
@@ -443,6 +521,46 @@ void VR_Draw::uninit()
 		delete measure_tex;
 		measure_tex = NULL;
 	}
+	if (mesh_tex) {
+		delete mesh_tex;
+		mesh_tex = NULL;
+	}
+	if (mesh_plane_tex) {
+		delete mesh_plane_tex;
+		mesh_plane_tex = NULL;
+	}
+	if (mesh_cube_tex) {
+		delete mesh_cube_tex;
+		mesh_cube_tex = NULL;
+	}
+	if (mesh_circle_tex) {
+		delete mesh_circle_tex;
+		mesh_circle_tex = NULL;
+	}
+	if (mesh_cylinder_tex) {
+		delete mesh_cylinder_tex;
+		mesh_cylinder_tex = NULL;
+	}
+	if (mesh_cone_tex) {
+		delete mesh_cone_tex;
+		mesh_cone_tex = NULL;
+	}
+	if (mesh_grid_tex) {
+		delete mesh_grid_tex;
+		mesh_grid_tex = NULL;
+	}
+	if (mesh_monkey_tex) {
+		delete mesh_monkey_tex;
+		mesh_monkey_tex = NULL;
+	}
+	if (mesh_uvsphere_tex) {
+		delete mesh_uvsphere_tex;
+		mesh_uvsphere_tex = NULL;
+	}
+	if (mesh_icosphere_tex) {
+		delete mesh_icosphere_tex;
+		mesh_icosphere_tex = NULL;
+	}
 	if (extrude_tex) {
 		delete extrude_tex;
 		extrude_tex = NULL;
@@ -455,9 +573,21 @@ void VR_Draw::uninit()
 		delete extrude_normals_tex;
 		extrude_normals_tex = NULL;
 	}
-	if (flip_normals_tex) {
-		delete flip_normals_tex;
-		flip_normals_tex = NULL;
+	if (insetfaces_tex) {
+		delete insetfaces_tex;
+		insetfaces_tex = NULL;
+	}
+	if (bevel_tex) {
+		delete bevel_tex;
+		bevel_tex = NULL;
+	}
+	if (loopcut_tex) {
+		delete loopcut_tex;
+		loopcut_tex = NULL;
+	}
+	if (knife_tex) {
+		delete knife_tex;
+		knife_tex = NULL;
 	}
 	if (delete_tex) {
 		delete delete_tex;
@@ -467,6 +597,14 @@ void VR_Draw::uninit()
 		delete duplicate_tex;
 		duplicate_tex = NULL;
 	}
+	if (join_tex) {
+		delete join_tex;
+		join_tex = NULL;
+	}
+	if (separate_tex) {
+		delete separate_tex;
+		separate_tex = NULL;
+	}
 	if (undo_tex) {
 		delete undo_tex;
 		undo_tex = NULL;
@@ -474,10 +612,6 @@ void VR_Draw::uninit()
 	if (redo_tex) {
 		delete redo_tex;
 		redo_tex = NULL;
-	}
-	if (manip_tex) {
-		delete manip_tex;
-		manip_tex = NULL;
 	}
 	if (manip_global_tex) {
 		delete manip_global_tex;
@@ -526,6 +660,26 @@ void VR_Draw::uninit()
 	if (toolsettings_tex) {
 		delete toolsettings_tex;
 		toolsettings_tex = NULL;
+	}
+	if (box_empty_tex) {
+		delete box_empty_tex;
+		box_empty_tex = NULL;
+	}
+	if (box_filled_tex) {
+		delete box_filled_tex;
+		box_filled_tex = NULL;
+	}
+	if (plus_tex) {
+		delete plus_tex;
+		plus_tex = NULL;
+	}
+	if (minus_tex) {
+		delete minus_tex;
+		minus_tex = NULL;
+	}
+	if (reset_tex) {
+		delete reset_tex;
+		reset_tex = NULL;
 	}
 
 	if (background_menu_tex) {

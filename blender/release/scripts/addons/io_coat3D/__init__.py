@@ -26,7 +26,7 @@ bl_info = {
     "warning": "",
     "wiki_url": "https://wiki.blender.org/index.php/Extensions:2.6/Py/"
                 "Scripts/Import-Export/3dcoat_applink",
-    "category": "Import-Export",
+    "category": "3D View",
 }
 
 
@@ -88,12 +88,7 @@ def set_exchange_folder():
     Blender_export = ""
 
     if(platform == 'win32'):
-        exchange = os.path.expanduser("~") + os.sep + 'Documents' + os.sep + '3D-CoatV48' + os.sep +'Exchange'
-        if not(os.path.isdir(exchange)):
-            exchange = os.path.expanduser("~") + os.sep + 'Documents' + os.sep + '3D-CoatV4' + os.sep +'Exchange'
-        if not (os.path.isdir(exchange)):
-            exchange = os.path.expanduser("~") + os.sep + 'Documents' + os.sep + '3D-CoatV3' + os.sep + 'Exchange'
-
+        exchange = os.path.expanduser("~") + os.sep + 'Documents' + os.sep + 'Applinks' + os.sep + '3D-Coat' + os.sep +'Exchange'
     else:
         exchange = os.path.expanduser("~") + os.sep + '3D-CoatV4' + os.sep + 'Exchange'
         if not(os.path.isdir(exchange)):
@@ -155,14 +150,21 @@ def set_exchange_folder():
 def set_working_folders():
     platform = os.sys.platform
     coat3D = bpy.context.scene.coat3D
+
     if(platform == 'win32'):
-        folder_objects = os.path.expanduser("~") + os.sep + 'Documents' + os.sep + '3DC2Blender' + os.sep + 'ApplinkObjects'
-        if(not(os.path.isdir(folder_objects))):
-            os.makedirs(folder_objects)
+        if (coat3D.defaultfolder != '' and os.path.isdir(coat3D.defaultfolder)):
+            return coat3D.defaultfolder
+        else:
+            folder_objects = os.path.expanduser("~") + os.sep + 'Documents' + os.sep + '3DC2Blender' + os.sep + 'ApplinkObjects'
+            if(not(os.path.isdir(folder_objects))):
+                os.makedirs(folder_objects)
     else:
-        folder_objects = os.path.expanduser("~") + os.sep + '3DC2Blender' + os.sep + 'ApplinkObjects'
-        if(not(os.path.isdir(folder_objects))):
-            os.makedirs(folder_objects)
+        if (coat3D.defaultfolder != '' and os.path.isdir(coat3D.defaultfolder)):
+            return coat3D.defaultfolder
+        else:
+            folder_objects = os.path.expanduser("~") + os.sep + '3DC2Blender' + os.sep + 'ApplinkObjects'
+            if(not(os.path.isdir(folder_objects))):
+                os.makedirs(folder_objects)
 
     return folder_objects
 
@@ -378,15 +380,20 @@ class SCENE_OT_export(bpy.types.Operator):
         looking = True
         object_index = 0
 
-        while(looking == True):
-            checkname = folder_objects + os.sep + "3DC"
-            checkname = ("%s%.3d.fbx"%(checkname,object_index))
-            if(os.path.isfile(checkname)):
-                object_index += 1
-            else:
-                looking = False
-                coa.applink_name = ("%s%.2d"%(activeobj,object_index))
-                coa.applink_address = checkname
+        if(coat3D.type == 'autopo'):
+            checkname = folder_objects + os.sep
+            checkname = ("%sretopo.fbx" % (checkname))
+
+        else:
+            while(looking == True):
+                checkname = folder_objects + os.sep + "3DC"
+                checkname = ("%s%.3d.fbx"%(checkname,object_index))
+                if(os.path.isfile(checkname)):
+                    object_index += 1
+                else:
+                    looking = False
+                    coa.applink_name = ("%s%.2d"%(activeobj,object_index))
+                    coa.applink_address = checkname
 
         matindex = 0
 
@@ -427,16 +434,44 @@ class SCENE_OT_export(bpy.types.Operator):
                 objekti.name = name_boxs[0]
                 objekti.data.name = name_boxs[0]
             objekti.coat3D.applink_name = objekti.data.name
-
+        mod_mat_list = {}
         for objekti in bpy.context.selected_objects:
+            mod_mat_list[objekti.name] = []
             objekti.coat3D.applink_scale = objekti.scale
+
+            ''' Checks what materials are linked into UV '''
+
+            if(coat3D.type == 'ppp'):
+                final_material_indexs = []
+                uvtiles_index = []
+                for poly in objekti.data.polygons:
+                    if(poly.material_index not in final_material_indexs):
+                        final_material_indexs.append(poly.material_index)
+                        loop_index = poly.loop_indices[0]
+                        uvtiles_index.append([poly.material_index,objekti.data.uv_layers.active.data[loop_index].uv[0]])
+                    if(len(final_material_indexs) == len(objekti.material_slots)):
+                        break
+
+                material_index = 0
+                if (len(final_material_indexs) != len(objekti.material_slots)):
+                    for material in objekti.material_slots:
+                        if material_index not in final_material_indexs:
+                            temp_mat = material.material
+                            material.material = objekti.material_slots[0].material
+                            mod_mat_list[objekti.name].append([material_index, temp_mat])
+                        material_index = material_index + 1
 
         bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY')
         if(len(bpy.context.selected_objects) > 1 and coat3D.type != 'vox'):
             bpy.ops.object.transforms_to_deltas(mode='ROT')
 
-
-        bpy.ops.export_scene.fbx(filepath=coa.applink_address, use_selection=True, use_mesh_modifiers=coat3D.exportmod, axis_forward='-Z', axis_up='Y')
+        if(coat3D.type == 'autopo'):
+            coat3D.bring_retopo = True
+            coat3D.bring_retopo_path = checkname
+            bpy.ops.export_scene.fbx(filepath=checkname, use_selection=True, use_mesh_modifiers=coat3D.exportmod, axis_forward='-Z', axis_up='Y')
+        else:
+            coat3D.bring_retopo = False
+            bpy.ops.export_scene.fbx(filepath=coa.applink_address, use_selection=True, use_mesh_modifiers=coat3D.exportmod, axis_forward='-Z', axis_up='Y')
 
         file = open(importfile, "w")
         file.write("%s"%(checkname))
@@ -450,10 +485,11 @@ class SCENE_OT_export(bpy.types.Operator):
                 objekti.coat3D.applink_onlyone = True
             objekti.coat3D.type = coat3D.type
             objekti.coat3D.applink_mesh = True
-            objekti.coat3D.applink_address = coa.applink_address
             objekti.coat3D.obj_mat = ''
             objekti.coat3D.applink_firsttime = True
-            objekti.coat3D.objecttime = str(os.path.getmtime(objekti.coat3D.applink_address))
+            if(coat3D.type != 'autopo'):
+                objekti.coat3D.applink_address = coa.applink_address
+                objekti.coat3D.objecttime = str(os.path.getmtime(objekti.coat3D.applink_address))
             objekti.data.coat3D.name = '3DC'
 
             if(coat3D.type != 'vox'):
@@ -463,6 +499,12 @@ class SCENE_OT_export(bpy.types.Operator):
                             for node in material.material.node_tree.nodes:
                                 if(node.name.startswith('3DC_') == True):
                                     material.material.node_tree.nodes.remove(node)
+
+
+            for ind, mat_list in enumerate(mod_mat_list):
+                if(mat_list == objekti.name):
+                    for ind, mat in enumerate(mod_mat_list[mat_list]):
+                        objekti.material_slots[mod_mat_list[mat_list][ind][0]].material = mod_mat_list[mat_list][ind][1]
 
         return {'FINISHED'}
 
@@ -509,15 +551,15 @@ class SCENE_OT_import(bpy.types.Operator):
                     bpy.data.images.remove(image)
 
 
-        kokeilu = coat3D.exchangedir[:-10]
-        Blender_folder = ("%s%sExchange%sBlender"%(kokeilu,os.sep,os.sep))
+        kokeilu = coat3D.exchangedir
+        Blender_folder = ("%s%sBlender"%(kokeilu,os.sep))
         Blender_export = Blender_folder
         path3b_now = coat3D.exchangedir
         path3b_now += ('last_saved_3b_file.txt')
         Blender_export += ('%sexport.txt'%(os.sep))
         new_applink_address = 'False'
         new_object = False
-
+        print('mitas: ', Blender_export)
         if(os.path.isfile(Blender_export)):
             obj_pathh = open(Blender_export)
             new_object = True
@@ -536,6 +578,7 @@ class SCENE_OT_import(bpy.types.Operator):
         exportfile += ('%sexport.txt' % (os.sep))
         if (os.path.isfile(exportfile)):
             os.remove(exportfile)
+
         if(new_object == False):
 
             '''
@@ -753,6 +796,12 @@ class SCENE_OT_import(bpy.types.Operator):
                         bpy.context.collection.all_objects[del_obj].select_set(True)
                         bpy.ops.object.delete()
 
+            if (coat3D.bring_retopo or coat3D.bring_retopo_path):
+                if(os.path.isfile(coat3D.bring_retopo_path)):
+                    bpy.ops.import_scene.fbx(filepath=coat3D.bring_retopo_path, global_scale=1, axis_forward='X', use_custom_normals=False)
+                    os.remove(coat3D.bring_retopo_path)
+
+
         else:
 
             '''
@@ -783,7 +832,7 @@ class SCENE_OT_import(bpy.types.Operator):
             old_materials = bpy.data.materials.keys()
             old_objects = bpy.data.objects.keys()
 
-            bpy.ops.import_scene.fbx(filepath=new_applink_address, global_scale = 0.001, use_manual_orientation=True, axis_forward='-Z', axis_up='Y')
+            bpy.ops.import_scene.fbx(filepath=new_applink_address, global_scale = 1, use_manual_orientation=True, axis_forward='-Z', axis_up='Y', use_custom_normals=False)
 
             new_materials = bpy.data.materials.keys()
             new_objects = bpy.data.objects.keys()
@@ -801,6 +850,7 @@ class SCENE_OT_import(bpy.types.Operator):
                 bpy.data.objects[c_index].material_slots[0].material = bpy.data.materials[diff_mat[laskuri]]
                 laskuri += 1
 
+
             bpy.ops.object.select_all(action='DESELECT')
             for new_obj in bpy.context.collection.objects:
 
@@ -808,7 +858,7 @@ class SCENE_OT_import(bpy.types.Operator):
                     new_obj.select_set(True)
                     #bpy.ops.object.origin_set(type='GEOMETRY_ORIGIN')
                     #new_obj.rotation_euler = (0, 0, 0)
-                    new_obj.scale = (0.03, 0.03, 0.03)
+                    #new_obj.scale = (0.01, 0.01, 0.01)
                     new_obj.coat3D.applink_firsttime = False
                     new_obj.select_set(False)
                     new_obj.coat3D.applink_address = new_applink_address
@@ -917,7 +967,7 @@ class SCENE_PT_Settings(ObjectButtonsPanel,bpy.types.Panel):
 class SCENE_PT_Settings_Update(ObjectButtonsPanel, bpy.types.Panel):
     bl_label = "Update"
     bl_parent_id = "SCENE_PT_Settings"
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE', 'BLENDER_OPENGL'}
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE', 'BLENDER_WORKBENCH'}
 
     def draw(self, context):
         layout = self.layout
@@ -937,14 +987,12 @@ class SCENE_PT_Settings_Update(ObjectButtonsPanel, bpy.types.Panel):
         col = flow.column()
         col.prop(coat3D, "importtextures", text="Update Textures")
         col = flow.column()
-        col.prop(coat3D, "creategroup", text="Group Nodes")
-        col = flow.column()
         col.prop(coat3D, "exportmod", text="Export with modifiers")
 
 class SCENE_PT_Settings_Folders(ObjectButtonsPanel, bpy.types.Panel):
     bl_label = "Folders"
     bl_parent_id = "SCENE_PT_Settings"
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE', 'BLENDER_OPENGL'}
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE', 'BLENDER_WORKBENCH'}
 
     def draw(self, context):
         layout = self.layout
@@ -959,6 +1007,9 @@ class SCENE_PT_Settings_Folders(ObjectButtonsPanel, bpy.types.Panel):
 
         col = flow.column()
         col.prop(coat3D, "exchangedir", text="Exchange folder")
+
+        col = flow.column()
+        col.prop(coat3D, "defaultfolder", text="Object/Texture folder")
 
         col = flow.column()
         col.prop(coat3D, "coat3D_exe", text="3D-Coat.exe")
@@ -1078,10 +1129,6 @@ class SceneCoat3D(PropertyGroup):
         name="FilePath",
         subtype="FILE_PATH",
     )
-    cursor_loc: FloatVectorProperty(
-        name="Cursor_loc",
-        description="location"
-    )
     exchangedir: StringProperty(
         name="FilePath",
         subtype="DIR_PATH"
@@ -1090,13 +1137,14 @@ class SceneCoat3D(PropertyGroup):
         name="FilePath",
         subtype="DIR_PATH"
     )
-    wasactive: StringProperty(
-        name="Pass active object",
-    )
-    import_box: BoolProperty(
+    bring_retopo: BoolProperty(
         name="Import window",
         description="Allows to skip import dialog",
-        default=True
+        default=False
+    )
+    bring_retopo_path: StringProperty(
+        name="FilePath",
+        subtype="DIR_PATH",
     )
     remove_path: BoolProperty(
         name="Import window",
@@ -1106,46 +1154,6 @@ class SceneCoat3D(PropertyGroup):
     exchange_found: BoolProperty(
         name="Exchange Found",
         description="Alert if Exchange folder is not found",
-        default=True
-    )
-    export_box: BoolProperty(
-        name="Export window",
-        description="Allows to skip export dialog",
-        default=True
-    )
-    export_color: BoolProperty(
-        name="Export color",
-        description="Export color texture",
-        default=True
-    )
-    export_spec: BoolProperty(
-        name="Export specular",
-        description="Export specular texture",
-        default=True
-    )
-    export_normal: BoolProperty(
-        name="Export Normal",
-        description="Export normal texture",
-        default=True
-    )
-    export_disp: BoolProperty(
-        name="Export Displacement",
-        description="Export displacement texture",
-        default=True
-    )
-    export_position: BoolProperty(
-        name="Export Source Position",
-        description="Export source position",
-        default=True
-    )
-    export_zero_layer: BoolProperty(
-        name="Export from Layer 0",
-        description="Export mesh from Layer 0",
-        default=True
-    )
-    export_coarse: BoolProperty(
-        name="Export Coarse",
-        description="Export Coarse",
         default=True
     )
     exportfile: BoolProperty(
@@ -1163,11 +1171,6 @@ class SceneCoat3D(PropertyGroup):
         description="Export modifiers",
         default=False
     )
-    export_pos: BoolProperty(
-        name="Remember Position",
-        description="Remember position",
-        default=True
-    )
     importtextures: BoolProperty(
         name="Bring Textures",
         description="Import Textures",
@@ -1178,19 +1181,9 @@ class SceneCoat3D(PropertyGroup):
         description="Import Textures",
         default=True
     )
-    creategroup: BoolProperty(
-        name="Bring Textures",
-        description="Import Textures",
-        default=True
-    )
     importlevel: BoolProperty(
         name="Multires. Level",
         description="Bring Specific Multires Level",
-        default=False
-    )
-    exportover: BoolProperty(
-        name="Export Obj",
-        description="Import Textures",
         default=False
     )
     importmesh: BoolProperty(

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -18,14 +16,9 @@
  * All rights reserved.
  *
  * The Original Code is: some of this file.
- *
- * Contributor(s): Jens Ole Wund (bjornmose), Campbell Barton (ideasman42)
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/sculpt_paint/paint_image.c
- *  \ingroup edsculpt
+/** \file \ingroup edsculpt
  *  \brief Functions to paint images in 2D and 3D.
  */
 
@@ -84,7 +77,6 @@
 #include "GPU_immediate.h"
 #include "GPU_state.h"
 
-#include "BIF_gl.h"
 
 #include "IMB_colormanagement.h"
 
@@ -302,7 +294,7 @@ static bool image_paint_poll(bContext *C)
 	return image_paint_poll_ex(C, true);
 }
 
-static bool image_paint_ignore_tool_poll(bContext *C)
+static bool image_paint_poll_ignore_tool(bContext *C)
 {
 	return image_paint_poll_ex(C, false);
 }
@@ -391,11 +383,14 @@ void paint_brush_init_tex(Brush *brush)
 	/* init mtex nodes */
 	if (brush) {
 		MTex *mtex = &brush->mtex;
-		if (mtex->tex && mtex->tex->nodetree)
-			ntreeTexBeginExecTree(mtex->tex->nodetree);  /* has internal flag to detect it only does it once */
-		mtex = &brush->mask_mtex;
-		if (mtex->tex && mtex->tex->nodetree)
+		if (mtex->tex && mtex->tex->nodetree) {
+			/* has internal flag to detect it only does it once */
 			ntreeTexBeginExecTree(mtex->tex->nodetree);
+		}
+		mtex = &brush->mask_mtex;
+		if (mtex->tex && mtex->tex->nodetree) {
+			ntreeTexBeginExecTree(mtex->tex->nodetree);
+		}
 	}
 }
 
@@ -493,7 +488,7 @@ static PaintOperation *texture_paint_init(bContext *C, wmOperator *op, const flo
 	}
 
 	settings->imapaint.flag |= IMAGEPAINT_DRAWING;
-	ED_image_undo_push_begin(op->type->name);
+	ED_image_undo_push_begin(op->type->name, PAINT_MODE_TEXTURE_2D);
 
 	return pop;
 }
@@ -1022,6 +1017,11 @@ static int sample_color_modal(bContext *C, wmOperator *op, const wmEvent *event)
 	return OPERATOR_RUNNING_MODAL;
 }
 
+static bool sample_color_poll(bContext *C)
+{
+	return (image_paint_poll_ignore_tool(C) || vertex_paint_poll_ignore_tool(C));
+}
+
 void PAINT_OT_sample_color(wmOperatorType *ot)
 {
 	/* identifiers */
@@ -1033,7 +1033,7 @@ void PAINT_OT_sample_color(wmOperatorType *ot)
 	ot->exec = sample_color_exec;
 	ot->invoke = sample_color_invoke;
 	ot->modal = sample_color_modal;
-	ot->poll = image_paint_ignore_tool_poll;
+	ot->poll = sample_color_poll;
 
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
@@ -1100,7 +1100,8 @@ static int texture_paint_toggle_exec(bContext *C, wmOperator *op)
 
 		/* entering paint mode also sets image to editors */
 		if (imapaint->mode == IMAGEPAINT_MODE_MATERIAL) {
-			Material *ma = give_current_material(ob, ob->actcol); /* set the current material active paint slot on image editor */
+			/* set the current material active paint slot on image editor */
+			Material *ma = give_current_material(ob, ob->actcol);
 
 			if (ma && ma->texpaintslot)
 				ima = ma->texpaintslot[ma->paint_active_slot].ima;
@@ -1172,20 +1173,12 @@ void PAINT_OT_texture_paint_toggle(wmOperatorType *ot)
 
 static int brush_colors_flip_exec(bContext *C, wmOperator *UNUSED(op))
 {
-	UnifiedPaintSettings *ups = &CTX_data_tool_settings(C)->unified_paint_settings;
+	Scene *scene = CTX_data_scene(C);
+	UnifiedPaintSettings *ups = &scene->toolsettings->unified_paint_settings;
 
-	Object *ob = CTX_data_active_object(C);
-	Brush *br;
-	if (!(ob && (ob->mode & OB_MODE_VERTEX_PAINT))) {
-		br = image_paint_brush(C);
-	}
-	else {
-		/* At the moment, wpaint does not support the color flipper.
-		 * So for now we're only handling vpaint */
-		ToolSettings *ts = CTX_data_tool_settings(C);
-		VPaint *vp = ts->vpaint;
-		br = BKE_paint_brush(&vp->paint);
-	}
+	ViewLayer *view_layer = CTX_data_view_layer(C);
+	Paint *paint = BKE_paint_get_active(scene, view_layer);
+	Brush *br = BKE_paint_brush(paint);
 
 	if (ups->flag & UNIFIED_PAINT_COLOR) {
 		swap_v3_v3(ups->rgb, ups->secondary_rgb);
@@ -1203,15 +1196,17 @@ static bool brush_colors_flip_poll(bContext *C)
 	if (image_paint_poll(C)) {
 		Brush *br = image_paint_brush(C);
 		if (br->imagepaint_tool == PAINT_TOOL_DRAW)
-			return 1;
+			return true;
 	}
 	else {
 		Object *ob = CTX_data_active_object(C);
-		if (ob && (ob->mode & OB_MODE_VERTEX_PAINT)) {
-			return 1;
+		if (ob != NULL) {
+			if (ob->mode & (OB_MODE_VERTEX_PAINT | OB_MODE_TEXTURE_PAINT)) {
+				return true;
+			}
 		}
 	}
-	return 0;
+	return false;
 }
 
 void PAINT_OT_brush_colors_flip(wmOperatorType *ot)
@@ -1238,7 +1233,7 @@ void ED_imapaint_bucket_fill(struct bContext *C, float color[3], wmOperator *op)
 
 	BKE_undosys_step_push_init_with_type(wm->undo_stack, C, op->type->name, BKE_UNDOSYS_TYPE_IMAGE);
 
-	ED_image_undo_push_begin(op->type->name);
+	ED_image_undo_push_begin(op->type->name, PAINT_MODE_TEXTURE_2D);
 
 	paint_2d_bucket_fill(C, color, NULL, NULL, NULL);
 

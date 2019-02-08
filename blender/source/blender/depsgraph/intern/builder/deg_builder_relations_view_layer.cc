@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,15 +15,9 @@
  *
  * The Original Code is Copyright (C) 2013 Blender Foundation.
  * All rights reserved.
- *
- * Original Author: Joshua Leung
- * Contributor(s): Based on original depsgraph.c code - Blender Foundation (2005-2013)
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/depsgraph/intern/builder/deg_builder_relations_view_layer.cc
- *  \ingroup depsgraph
+/** \file \ingroup depsgraph
  *
  * Methods for constructing depsgraph
  */
@@ -57,15 +49,12 @@ extern "C" {
 #include "intern/builder/deg_builder.h"
 #include "intern/builder/deg_builder_pchanmap.h"
 
-#include "intern/nodes/deg_node.h"
-#include "intern/nodes/deg_node_component.h"
-#include "intern/nodes/deg_node_id.h"
-#include "intern/nodes/deg_node_operation.h"
+#include "intern/node/deg_node.h"
+#include "intern/node/deg_node_component.h"
+#include "intern/node/deg_node_id.h"
+#include "intern/node/deg_node_operation.h"
 
-#include "intern/depsgraph_intern.h"
-#include "intern/depsgraph_types.h"
-
-#include "util/deg_util_foreach.h"
+#include "intern/depsgraph_type.h"
 
 namespace DEG {
 
@@ -92,8 +81,7 @@ void DepsgraphRelationBuilder::build_view_layer(Scene *scene, ViewLayer *view_la
 	/* Scene objects. */
 	/* NOTE: Nodes builder requires us to pass CoW base because it's being
 	 * passed to the evaluation functions. During relations builder we only
-	 * do NULL-pointer check of the base, so it's fine to pass original one.
-	 */
+	 * do NULL-pointer check of the base, so it's fine to pass original one. */
 	const int base_flag = (graph_->mode == DAG_EVAL_VIEWPORT) ?
 		BASE_ENABLED_VIEWPORT : BASE_ENABLED_RENDER;
 	LISTBASE_FOREACH (Base *, base, &view_layer->object_bases) {
@@ -131,6 +119,16 @@ void DepsgraphRelationBuilder::build_view_layer(Scene *scene, ViewLayer *view_la
 	/* Movie clips. */
 	LISTBASE_FOREACH (MovieClip *, clip, &bmain_->movieclip) {
 		build_movieclip(clip);
+	}
+	/* Material override. */
+	if (view_layer->mat_override != NULL) {
+		build_material(view_layer->mat_override);
+	}
+	/* Freestyle collections. */
+	LISTBASE_FOREACH (FreestyleLineSet *, fls, &view_layer->freestyle_config.linesets) {
+		if (fls->group != NULL) {
+			build_collection(NULL, NULL, fls->group);
+		}
 	}
 	/* Build all set scenes. */
 	if (scene->set != NULL) {

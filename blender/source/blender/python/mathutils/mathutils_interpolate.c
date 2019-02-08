@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,14 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Lukas Toenne
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/python/mathutils/mathutils_interpolate.c
- *  \ingroup pymathutils
+/** \file \ingroup pymathutils
  */
 
 
@@ -115,7 +108,7 @@ static PyMethodDef M_Interpolate_methods[] = {
 #ifndef MATH_STANDALONE
 	{"poly_3d_calc", (PyCFunction) M_Interpolate_poly_3d_calc, METH_VARARGS, M_Interpolate_poly_3d_calc_doc},
 #endif
-	{NULL, NULL, 0, NULL}
+	{NULL, NULL, 0, NULL},
 };
 
 static struct PyModuleDef M_Interpolate_module_def = {

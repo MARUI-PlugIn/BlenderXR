@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,14 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Dalai Felinto, Campbell Barton
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/space_view3d/view3d_walk.c
- *  \ingroup spview3d
+/** \file \ingroup spview3d
  */
 
 /* defines VIEW3D_OT_navigate - walk modal operator */
@@ -41,9 +34,6 @@
 #include "BKE_report.h"
 
 #include "BLT_translation.h"
-
-
-#include "BIF_gl.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -65,7 +55,8 @@
 
 #ifdef WITH_INPUT_NDOF
 //#  define NDOF_WALK_DEBUG
-//#  define NDOF_WALK_DRAW_TOOMUCH  /* is this needed for ndof? - commented so redraw doesn't thrash - campbell */
+/* is this needed for ndof? - commented so redraw doesn't thrash - campbell */
+//#  define NDOF_WALK_DRAW_TOOMUCH
 #endif
 
 #define USE_TABLET_SUPPORT
@@ -76,7 +67,8 @@
 /* prototypes */
 static float getVelocityZeroTime(const float gravity, const float velocity);
 
-/* NOTE: these defines are saved in keymap files, do not change values but just add new ones */
+/* NOTE: these defines are saved in keymap files,
+ * do not change values but just add new ones */
 enum {
 	WALK_MODAL_CANCEL = 1,
 	WALK_MODAL_CONFIRM,
@@ -167,7 +159,8 @@ void walk_modal_keymap(wmKeyConfig *keyconf)
 
 		{WALK_MODAL_TOGGLE, "GRAVITY_TOGGLE", 0, "Toggle Gravity", "Toggle gravity effect"},
 
-		{0, NULL, 0, NULL, NULL}};
+		{0, NULL, 0, NULL, NULL},
+	};
 
 	wmKeyMap *keymap = WM_modalkeymap_get(keyconf, "View3D Walk Modal");
 
@@ -945,8 +938,10 @@ static int walkApply(bContext *C, wmOperator *op, WalkInfo *walk)
 	RegionView3D *rv3d = walk->rv3d;
 	ARegion *ar = walk->ar;
 
-	float mat[3][3]; /* 3x3 copy of the view matrix so we can move along the view axis */
-	float dvec[3] = {0.0f, 0.0f, 0.0f}; /* this is the direction that's added to the view offset per redraw */
+	/* 3x3 copy of the view matrix so we can move along the view axis */
+	float mat[3][3];
+	/* this is the direction that's added to the view offset per redraw */
+	float dvec[3] = {0.0f, 0.0f, 0.0f};
 
 	int moffset[2]; /* mouse offset from the views center */
 	float tmp_quat[4]; /* used for rotating the view */
@@ -1378,7 +1373,8 @@ static int walk_modal(bContext *C, wmOperator *op, const wmEvent *event)
 			WM_event_add_notifier(C, NC_OBJECT | ND_TRANSFORM, walk_object);
 		}
 
-		// puts("redraw!"); // too frequent, commented with NDOF_WALK_DRAW_TOOMUCH for now
+		// too frequent, commented with NDOF_WALK_DRAW_TOOMUCH for now
+		// puts("redraw!");
 		ED_region_tag_redraw(CTX_wm_region(C));
 	}
 

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,10 @@
  *
  * The Original Code is Copyright (C) 2017, Blender Foundation
  * This is a new part of Blender
- *
- * Contributor(s): Antonio Vazquez
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
- /** \file blender/blenkernel/intern/gpencil_modifier.c
-  *  \ingroup bke
-  */
-
+/** \file \ingroup bke
+ */
 
 #include <stdio.h>
 
@@ -45,7 +37,6 @@
 #include "DNA_gpencil_types.h"
 #include "DNA_gpencil_modifier_types.h"
 
-#include "BKE_global.h"
 #include "BKE_library.h"
 #include "BKE_library_query.h"
 #include "BKE_gpencil.h"
@@ -227,7 +218,7 @@ static void gpencil_rdp_stroke(bGPDstroke *gps, vec2f *points2d, float epsilon)
 		old_dvert = MEM_dupallocN(gps->dvert);
 	}
 	/* resize gps */
-	gps->flag |= GP_STROKE_RECALC_CACHES;
+	gps->flag |= GP_STROKE_RECALC_GEOMETRY;
 	gps->tot_triangles = 0;
 
 	int j = 0;
@@ -275,7 +266,7 @@ void BKE_gpencil_simplify_stroke(bGPDstroke *gps, float factor)
 	MEM_SAFE_FREE(points2d);
 }
 
-/* Simplify alternate vertex of stroke except extrems */
+/* Simplify alternate vertex of stroke except extremes */
 void BKE_gpencil_simplify_fixed(bGPDstroke *gps)
 {
 	if (gps->totpoints < 5) {
@@ -302,7 +293,7 @@ void BKE_gpencil_simplify_fixed(bGPDstroke *gps)
 	if (gps->dvert != NULL) {
 		gps->dvert = MEM_recallocN(gps->dvert, sizeof(*gps->dvert) * newtot);
 	}
-	gps->flag |= GP_STROKE_RECALC_CACHES;
+	gps->flag |= GP_STROKE_RECALC_GEOMETRY;
 	gps->tot_triangles = 0;
 
 	int j = 0;
@@ -443,7 +434,7 @@ void BKE_gpencil_stroke_modifiers(Depsgraph *depsgraph, Object *ob, bGPDlayer *g
 					         eGpencilModifierType_Offset))
 					{
 
-						gps->flag |= GP_STROKE_RECALC_CACHES;
+						gps->flag |= GP_STROKE_RECALC_GEOMETRY;
 					}
 				}
 			}
@@ -743,7 +734,8 @@ void BKE_gpencil_subdivide(bGPDstroke *gps, int level, int flag)
 			temp_dverts = MEM_dupallocN(gps->dvert);
 			gps->dvert = MEM_recallocN(gps->dvert, sizeof(*gps->dvert) * gps->totpoints);
 		}
-		gps->flag |= GP_STROKE_RECALC_CACHES;
+		gps->flag |= GP_STROKE_RECALC_GEOMETRY;
+		gps->tot_triangles = 0;
 
 		/* move points from last to first to new place */
 		i2 = gps->totpoints - 1;

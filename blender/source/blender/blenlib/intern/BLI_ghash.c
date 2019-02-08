@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenlib/intern/BLI_ghash.c
- *  \ingroup bli
+/** \file \ingroup bli
  *
  * A general (pointer -> pointer) chaining hash table
  * for 'Abstract Data Types' (known as an ADT Hash Table).
@@ -66,7 +57,7 @@ const uint hashsizes[] = {
 	5, 11, 17, 37, 67, 131, 257, 521, 1031, 2053, 4099, 8209,
 	16411, 32771, 65537, 131101, 262147, 524309, 1048583, 2097169,
 	4194319, 8388617, 16777259, 33554467, 67108879, 134217757,
-	268435459
+	268435459,
 };
 
 #ifdef GHASH_USE_MODULO_BUCKETS
@@ -242,8 +233,8 @@ static void ghash_buckets_resize(GHash *gh, const uint nbuckets)
 					buckets_new[bucket_index] = e;
 				}
 #else
-				/* No need to recompute hashes in this case, since our mask is just smaller, all items in old bucket i
-				 * will go in same new bucket (i & new_mask)! */
+				/* No need to recompute hashes in this case, since our mask is just smaller,
+				 * all items in old bucket 'i' will go in same new bucket (i & new_mask)! */
 				const unsigned bucket_index = ghash_bucket_index(gh, i);
 				BLI_assert(!buckets_old[i] || (bucket_index == ghash_bucket_index(gh, ghash_entryhash(gh, buckets_old[i]))));
 				Entry *e;
@@ -614,8 +605,9 @@ static Entry *ghash_pop(GHash *gh, GHashIterState *state)
 		return NULL;
 	}
 
-	/* Note: using first_bucket_index here allows us to avoid potential huge number of loops over buckets,
-	 *       in case we are popping from a large ghash with few items in it... */
+	/* Note: using first_bucket_index here allows us to avoid potential
+	 * huge number of loops over buckets,
+	 * in case we are popping from a large ghash with few items in it... */
 	curr_bucket = ghash_find_next_bucket_index(gh, curr_bucket);
 
 	Entry *e = gh->buckets[curr_bucket];
@@ -681,7 +673,8 @@ static GHash *ghash_copy(GHash *gh, GHashKeyCopyFP keycopyfp, GHashValCopyFP val
 			 * This means entries in buckets in new copy will be in reversed order!
 			 * This shall not be an issue though, since order should never be assumed in ghash. */
 
-			/* Note: We can use 'i' here, since we are sure that 'gh' and 'gh_new' have the same number of buckets! */
+			/* Note: We can use 'i' here, since we are sure that
+			 * 'gh' and 'gh_new' have the same number of buckets! */
 			e_new->next = gh_new->buckets[i];
 			gh_new->buckets[i] = e_new;
 		}

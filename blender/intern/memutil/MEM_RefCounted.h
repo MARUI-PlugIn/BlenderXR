@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,20 +15,10 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file memutil/MEM_RefCounted.h
- *  \ingroup memutil
- */
-
-/**
- * @file	MEM_RefCounted.h
+/** \file \ingroup memutil
+ *
  * Declaration of MEM_RefCounted class.
  */
 
@@ -58,19 +46,19 @@ public:
 	{
 	}
 
-	/** 
+	/**
 	 * Returns the reference count of this object.
 	 * @return the reference count.
 	 */
 	inline virtual int getRef() const;
 
-	/** 
+	/**
 	 * Increases the reference count of this object.
 	 * @return the new reference count.
 	 */
 	inline virtual int incRef();
 
-	/** 
+	/**
 	 * Decreases the reference count of this object.
 	 * If the reference count reaches zero, the object self-destructs.
 	 * @return the new reference count.
@@ -113,4 +101,3 @@ inline int MEM_RefCounted::decRef()
 }
 
 #endif // __MEM_REFCOUNTED_H__
-

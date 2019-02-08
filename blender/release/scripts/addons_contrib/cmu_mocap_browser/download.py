@@ -59,13 +59,13 @@ class CMUMocapDownloadImport(bpy.types.Operator):
     bl_idname = "mocap.download_import"
     bl_label = "Download and Import a file"
 
-    remote_file = bpy.props.StringProperty(
+    remote_file: bpy.props.StringProperty(
         name="Remote File",
         description="Location from where to download the file data")
-    local_file = bpy.props.StringProperty(
+    local_file: bpy.props.StringProperty(
         name="Local File",
         description="Destination where to save the file data")
-    do_import = bpy.props.BoolProperty(
+    do_import: bpy.props.BoolProperty(
         name="Manual Import",
         description="Import the resource non-automatically",
         default=False)
@@ -96,13 +96,13 @@ class CMUMocapDownloadImport(bpy.types.Operator):
     def cancel(self, context):
         context.window_manager.event_timer_remove(self.timer)
         bpy.types.SpaceView3D.draw_handler_remove(self.handle, 'WINDOW')
-        cml = context.user_preferences.addons['cmu_mocap_browser'].preferences
+        cml = context.preferences.addons['cmu_mocap_browser'].preferences
         if os.path.exists(self.local_file):
             return self.import_or_open(cml)
         return {'CANCELLED'}
 
     def execute(self, context):
-        cml = context.user_preferences.addons['cmu_mocap_browser'].preferences
+        cml = context.preferences.addons['cmu_mocap_browser'].preferences
         if not os.path.exists(self.local_file):
             try:
                 os.makedirs(os.path.split(self.local_file)[0])

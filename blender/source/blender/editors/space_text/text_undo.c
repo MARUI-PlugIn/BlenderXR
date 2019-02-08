@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,12 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/space_text/text_undo.c
- *  \ingroup sptext
+/** \file \ingroup sptext
  */
 
 #include <string.h>
@@ -29,7 +24,6 @@
 
 #include "DNA_text_types.h"
 
-#include "BLI_listbase.h"
 #include "BLI_array_utils.h"
 
 #include "BLT_translation.h"
@@ -70,16 +64,11 @@ typedef struct TextUndoStep {
 	TextUndoBuf data;
 } TextUndoStep;
 
-static bool text_undosys_poll(bContext *C)
+static bool text_undosys_poll(bContext *UNUSED(C))
 {
-	Text *text = CTX_data_edit_text(C);
-	if (text == NULL) {
-		return false;
-	}
-	if (ID_IS_LINKED(text)) {
-		return false;
-	}
-	return true;
+	/* Only use when operators initialized. */
+	UndoStack *ustack = ED_undo_stack_get();
+	return (ustack->step_init && (ustack->step_init->type == BKE_UNDOSYS_TYPE_TEXT));
 }
 
 static void text_undosys_step_encode_init(struct bContext *C, UndoStep *us_p)
@@ -95,7 +84,7 @@ static void text_undosys_step_encode_init(struct bContext *C, UndoStep *us_p)
 	us->data.pos = -1;
 }
 
-static bool text_undosys_step_encode(struct bContext *C, UndoStep *us_p)
+static bool text_undosys_step_encode(struct bContext *C, struct Main *UNUSED(bmain), UndoStep *us_p)
 {
 	TextUndoStep *us = (TextUndoStep *)us_p;
 
@@ -106,6 +95,8 @@ static bool text_undosys_step_encode(struct bContext *C, UndoStep *us_p)
 		return false;
 	}
 
+	us_p->is_applied = true;
+
 	us->text_ref.ptr = text;
 
 	us->step.data_size = us->data.len;
@@ -113,24 +104,83 @@ static bool text_undosys_step_encode(struct bContext *C, UndoStep *us_p)
 	return true;
 }
 
-static void text_undosys_step_decode(struct bContext *C, UndoStep *us_p, int dir)
+
+static void text_undosys_step_decode_undo_impl(Text *text, TextUndoStep *us)
+{
+	BLI_assert(us->step.is_applied == true);
+	TextUndoBuf data = us->data;
+	while (data.pos > -1) {
+		txt_do_undo(text, &data);
+	}
+	BLI_assert(data.pos == -1);
+	us->step.is_applied = false;
+}
+
+static void text_undosys_step_decode_redo_impl(Text *text, TextUndoStep *us)
+{
+	BLI_assert(us->step.is_applied == false);
+	TextUndoBuf data = us->data;
+	data.pos = -1;
+	while (data.pos < us->data.pos) {
+		txt_do_redo(text, &data);
+	}
+	BLI_assert(data.pos == us->data.pos);
+	us->step.is_applied = true;
+}
+
+static void text_undosys_step_decode_undo(Text *text, TextUndoStep *us)
+{
+	TextUndoStep *us_iter = us;
+	while (us_iter->step.next && (us_iter->step.next->type == us_iter->step.type)) {
+		if (us_iter->step.next->is_applied == false) {
+			break;
+		}
+		us_iter = (TextUndoStep *)us_iter->step.next;
+	}
+	while (us_iter != us) {
+		text_undosys_step_decode_undo_impl(text, us_iter);
+		us_iter = (TextUndoStep *)us_iter->step.prev;
+	}
+}
+
+static void text_undosys_step_decode_redo(Text *text, TextUndoStep *us)
+{
+	TextUndoStep *us_iter = us;
+	while (us_iter->step.prev && (us_iter->step.prev->type == us_iter->step.type)) {
+		if (us_iter->step.prev->is_applied == true) {
+			break;
+		}
+		us_iter = (TextUndoStep *)us_iter->step.prev;
+	}
+	while (us_iter && (us_iter->step.is_applied == false)) {
+		text_undosys_step_decode_redo_impl(text, us_iter);
+		if (us_iter == us) {
+			break;
+		}
+		us_iter = (TextUndoStep *)us_iter->step.next;
+	}
+}
+
+static void text_undosys_step_decode(struct bContext *C, struct Main *UNUSED(bmain), UndoStep *us_p, int dir)
 {
 	TextUndoStep *us = (TextUndoStep *)us_p;
 	Text *text = us->text_ref.ptr;
 
 	if (dir < 0) {
-		TextUndoBuf data = us->data;
-		txt_do_undo(text, &data);
+		text_undosys_step_decode_undo(text, us);
 	}
 	else {
-		TextUndoBuf data = us->data;
-		data.pos = -1;
-		txt_do_redo(text, &data);
+		text_undosys_step_decode_redo(text, us);
 	}
 
+	SpaceText *st = CTX_wm_space_text(C);
+	if (st) {
+		/* Not essential, always show text being undo where possible. */
+		st->text = text;
+	}
 	text_update_edited(text);
 	text_update_cursor_moved(C);
-	text_drawcache_tag_update(CTX_wm_space_text(C), 1);
+	text_drawcache_tag_update(st, 1);
 	WM_event_add_notifier(C, NC_TEXT | NA_EDITED, text);
 }
 
@@ -160,7 +210,6 @@ void ED_text_undosys_type(UndoType *ut)
 
 	ut->step_foreach_ID_ref = text_undosys_foreach_ID_ref;
 
-	ut->mode = BKE_UNDOTYPE_MODE_ACCUMULATE;
 	ut->use_context = false;
 
 	ut->step_size = sizeof(TextUndoStep);

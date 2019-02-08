@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,12 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenkernel/intern/blendfile.c
- *  \ingroup bke
+/** \file \ingroup bke
  *
  * High level `.blend` file read/write,
  * and functions for writing *partial* files (only selected data-blocks).
@@ -69,7 +64,6 @@
 #endif
 
 /* -------------------------------------------------------------------- */
-
 /** \name High Level `.blend` file read/write.
  * \{ */
 
@@ -265,9 +259,6 @@ static void setup_app_data(
 		CTX_data_scene_set(C, curscene);
 	}
 	else {
-		/* Keep state from preferences. */
-		const int fileflags_skip = G_FILE_FLAGS_RUNTIME;
-		G.fileflags = (G.fileflags & fileflags_skip) | (bfd->fileflags & ~fileflags_skip);
 		CTX_wm_manager_set(C, bmain->wm.first);
 		CTX_wm_screen_set(C, bfd->curscreen);
 		CTX_data_scene_set(C, bfd->curscene);
@@ -276,6 +267,10 @@ static void setup_app_data(
 		CTX_wm_menu_set(C, NULL);
 		curscene = bfd->curscene;
 	}
+
+	/* Keep state from preferences. */
+	const int fileflags_keep = G_FILE_FLAG_ALL_RUNTIME;
+	G.fileflags = (G.fileflags & fileflags_keep) | (bfd->fileflags & ~fileflags_keep);
 
 	/* this can happen when active scene was lib-linked, and doesn't exist anymore */
 	if (CTX_data_scene(C) == NULL) {
@@ -295,7 +290,8 @@ static void setup_app_data(
 
 	/* special cases, override loaded flags: */
 	if (G.f != bfd->globalf) {
-		const int flags_keep = (G_SWAP_EXCHANGE | G_SCRIPT_AUTOEXEC | G_SCRIPT_OVERRIDE_PREF);
+		const int flags_keep = G_FLAG_ALL_RUNTIME;
+		bfd->globalf &= G_FLAG_ALL_READFILE;
 		bfd->globalf = (bfd->globalf & ~flags_keep) | (G.f & flags_keep);
 	}
 
@@ -443,9 +439,9 @@ bool BKE_blendfile_read_from_memfile(
 	if (bfd) {
 		/* remove the unused screens and wm */
 		while (bfd->main->wm.first)
-			BKE_libblock_free(bfd->main, bfd->main->wm.first);
+			BKE_id_free(bfd->main, bfd->main->wm.first);
 		while (bfd->main->screen.first)
-			BKE_libblock_free(bfd->main, bfd->main->screen.first);
+			BKE_id_free(bfd->main, bfd->main->screen.first);
 
 		setup_app_data(C, bfd, "<memory1>", params->is_startup, reports);
 	}
@@ -476,7 +472,7 @@ void BKE_blendfile_read_make_empty(bContext *C)
 				continue;
 			}
 			while ((id = lbarray[a]->first)) {
-				BKE_libblock_delete(bmain, id);
+				BKE_id_delete(bmain, id);
 			}
 		}
 	}
@@ -621,7 +617,6 @@ void BKE_blendfile_workspace_config_data_free(WorkspaceConfigFileData *workspace
 
 
 /* -------------------------------------------------------------------- */
-
 /** \name Partial `.blend` file save.
  * \{ */
 

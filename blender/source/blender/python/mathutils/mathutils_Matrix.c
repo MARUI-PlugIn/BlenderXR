@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,14 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Michel Selten & Joseph Gilbert
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/python/mathutils/mathutils_Matrix.c
- *  \ingroup pymathutils
+/** \file \ingroup pymathutils
  */
 
 
@@ -158,7 +151,7 @@ Mathutils_Callback mathutils_matrix_row_cb = {
 	mathutils_matrix_row_get,
 	mathutils_matrix_row_set,
 	mathutils_matrix_row_get_index,
-	mathutils_matrix_row_set_index
+	mathutils_matrix_row_set_index,
 };
 
 
@@ -250,7 +243,7 @@ Mathutils_Callback mathutils_matrix_col_cb = {
 	mathutils_matrix_col_get,
 	mathutils_matrix_col_set,
 	mathutils_matrix_col_get_index,
-	mathutils_matrix_col_set_index
+	mathutils_matrix_col_set_index,
 };
 
 
@@ -327,7 +320,7 @@ Mathutils_Callback mathutils_matrix_translation_cb = {
 	mathutils_matrix_translation_get,
 	mathutils_matrix_translation_set,
 	mathutils_matrix_translation_get_index,
-	mathutils_matrix_translation_set_index
+	mathutils_matrix_translation_set_index,
 };
 
 
@@ -2652,7 +2645,7 @@ static int Matrix_ass_subscript(MatrixObject *self, PyObject *item, PyObject *va
 static PyMappingMethods Matrix_AsMapping = {
 	(lenfunc)Matrix_len,
 	(binaryfunc)Matrix_subscript,
-	(objobjargproc)Matrix_ass_subscript
+	(objobjargproc)Matrix_ass_subscript,
 };
 
 
@@ -2912,7 +2905,7 @@ static struct PyMethodDef Matrix_methods[] = {
 	{"Shear", (PyCFunction) C_Matrix_Shear, METH_VARARGS | METH_CLASS, C_Matrix_Shear_doc},
 	{"Translation", (PyCFunction) C_Matrix_Translation, METH_O | METH_CLASS, C_Matrix_Translation_doc},
 	{"OrthoProjection", (PyCFunction) C_Matrix_OrthoProjection,  METH_VARARGS | METH_CLASS, C_Matrix_OrthoProjection_doc},
-	{NULL, NULL, 0, NULL}
+	{NULL, NULL, 0, NULL},
 };
 
 /*------------------PY_OBECT DEFINITION--------------------------*/
@@ -3314,7 +3307,7 @@ static PyObject *MatrixAccess_iter(MatrixAccessObject *self)
 static PyMappingMethods MatrixAccess_AsMapping = {
 	(lenfunc)MatrixAccess_len,
 	(binaryfunc)MatrixAccess_subscript,
-	(objobjargproc) MatrixAccess_ass_subscript
+	(objobjargproc) MatrixAccess_ass_subscript,
 };
 
 PyTypeObject matrix_access_Type = {

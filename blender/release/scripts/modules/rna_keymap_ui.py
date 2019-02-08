@@ -190,11 +190,11 @@ def draw_kmi(display_keymaps, kc, km, kmi, layout, level):
 
             subrow = sub.row()
             subrow.scale_x = 0.75
-            subrow.prop(kmi, "any")
-            subrow.prop(kmi, "shift")
-            subrow.prop(kmi, "ctrl")
-            subrow.prop(kmi, "alt")
-            subrow.prop(kmi, "oskey", text="Cmd")
+            subrow.prop(kmi, "any", toggle=True)
+            subrow.prop(kmi, "shift", toggle=True)
+            subrow.prop(kmi, "ctrl", toggle=True)
+            subrow.prop(kmi, "alt", toggle=True)
+            subrow.prop(kmi, "oskey", text="Cmd", toggle=True)
             subrow.prop(kmi, "key_modifier", text="", event=True)
 
         # Operator properties
@@ -368,24 +368,31 @@ def draw_keymaps(context, layout):
     kc_active = wm.keyconfigs.active
     spref = context.space_data
 
-    subsplit = layout.split()
-    subcol = subsplit.column()
-
-    col = subcol.column()
-    row = col.row(align=True)
-
     # row.prop_search(wm.keyconfigs, "active", wm, "keyconfigs", text="Key Config")
-    text = bpy.path.display_name(kc_active.name)
+    text = bpy.path.display_name(kc_active.name, has_ext=False)
     if not text:
         text = "Blender (default)"
-    row.menu("USERPREF_MT_keyconfigs", text=text)
-    row.operator("wm.keyconfig_preset_add", text="", icon='ADD')
-    row.operator("wm.keyconfig_preset_add", text="", icon='REMOVE').remove_active = True
+
+    split = layout.split(factor=0.6)
+
+    row = split.row()
+
+    rowsub = row.row(align=True)
+
+    rowsub.menu("USERPREF_MT_keyconfigs", text=text)
+    rowsub.operator("wm.keyconfig_preset_add", text="", icon='ADD')
+    rowsub.operator("wm.keyconfig_preset_add", text="", icon='REMOVE').remove_active = True
+
+    rowsub = split.row(align=True)
+    rowsub.operator("wm.keyconfig_import", text="Import...", icon='IMPORT')
+    rowsub.operator("wm.keyconfig_export", text="Export...", icon='EXPORT')
+
+    row = layout.row()
+    col = layout.column()
 
     # layout.context_pointer_set("keyconfig", wm.keyconfigs.active)
     # row.operator("wm.keyconfig_remove", text="", icon='X')
-    row.separator()
-    rowsub = row.split(factor=0.33, align=True)
+    rowsub = row.split(factor=0.3, align=True)
     # postpone drawing into rowsub, so we can set alert!
 
     layout.separator()
@@ -413,14 +420,14 @@ def draw_keymaps(context, layout):
             box = col.box()
             row = box.row(align=True)
 
-            prefs = context.preferences
-            inputs = prefs.inputs
-            show_ui_keyconfig = inputs.show_ui_keyconfig
+            pref = context.preferences
+            keymappref = pref.keymap
+            show_ui_keyconfig = keymappref.show_ui_keyconfig
             row.prop(
-                inputs,
+                keymappref,
                 "show_ui_keyconfig",
                 text="",
-                icon='TRIA_DOWN' if show_ui_keyconfig else 'TRIA_RIGHT',
+                icon='DISCLOSURE_TRI_DOWN' if show_ui_keyconfig else 'DISCLOSURE_TRI_RIGHT',
                 emboss=False,
             )
             row.label(text="Preferences")

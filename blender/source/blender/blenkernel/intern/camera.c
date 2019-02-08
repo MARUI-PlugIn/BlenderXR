@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenkernel/intern/camera.c
- *  \ingroup bke
+/** \file \ingroup bke
  */
 
 #include <stdlib.h>
@@ -50,8 +41,6 @@
 #include "BKE_object.h"
 #include "BKE_layer.h"
 #include "BKE_library.h"
-#include "BKE_library_query.h"
-#include "BKE_library_remap.h"
 #include "BKE_main.h"
 #include "BKE_scene.h"
 #include "BKE_screen.h"
@@ -99,7 +88,7 @@ void *BKE_camera_add(Main *bmain, const char *name)
 
 /**
  * Only copy internal data of Camera ID from source to already allocated/initialized destination.
- * You probably nerver want to use that directly, use id_copy or BKE_id_copy_ex for typical needs.
+ * You probably never want to use that directly, use BKE_id_copy or BKE_id_copy_ex for typical needs.
  *
  * WARNING! This function will not handle ID user count!
  *
@@ -113,7 +102,7 @@ void BKE_camera_copy_data(Main *UNUSED(bmain), Camera *cam_dst, const Camera *ca
 Camera *BKE_camera_copy(Main *bmain, const Camera *cam)
 {
 	Camera *cam_copy;
-	BKE_id_copy_ex(bmain, &cam->id, (ID **)&cam_copy, 0, false);
+	BKE_id_copy(bmain, &cam->id, (ID **)&cam_copy);
 	return cam_copy;
 }
 
@@ -213,10 +202,7 @@ void BKE_camera_params_from_object(CameraParams *params, const Object *ob)
 	else if (ob->type == OB_LAMP) {
 		/* lamp object */
 		Lamp *la = ob->data;
-		float fac = cosf(la->spotsize * 0.5f);
-		float phi = acosf(fac);
-
-		params->lens = 16.0f * fac / sinf(phi);
+		params->lens = 16.0f / tanf(la->spotsize * 0.5f);
 		if (params->lens == 0.0f)
 			params->lens = 35.0f;
 
@@ -778,6 +764,12 @@ static bool camera_is_left(const char *viewname)
 
 void BKE_camera_multiview_model_matrix(RenderData *rd, const Object *camera, const char *viewname, float r_modelmat[4][4])
 {
+	BKE_camera_multiview_model_matrix_scaled(rd, camera, viewname, r_modelmat);
+	normalize_m4(r_modelmat);
+}
+
+void BKE_camera_multiview_model_matrix_scaled(RenderData *rd, const Object *camera, const char *viewname, float r_modelmat[4][4])
+{
 	const bool is_multiview = (rd && rd->scemode & R_MULTIVIEW) != 0;
 
 	if (!is_multiview) {
@@ -790,7 +782,22 @@ void BKE_camera_multiview_model_matrix(RenderData *rd, const Object *camera, con
 		const bool is_left = camera_is_left(viewname);
 		camera_stereo3d_model_matrix(camera, is_left, r_modelmat);
 	}
-	normalize_m4(r_modelmat);
+}
+
+void BKE_camera_multiview_window_matrix(RenderData *rd, const Object *camera, const char *viewname, float r_winmat[4][4])
+{
+	CameraParams params;
+
+	/* Setup parameters */
+	BKE_camera_params_init(&params);
+	BKE_camera_params_from_object(&params, camera);
+	BKE_camera_multiview_params(rd, &params, camera, viewname);
+
+	/* Compute matrix, viewplane, .. */
+	BKE_camera_params_compute_viewplane(&params, rd->xsch, rd->ysch, rd->xasp, rd->yasp);
+	BKE_camera_params_compute_matrix(&params);
+
+	copy_m4_m4(r_winmat, params.winmat);
 }
 
 bool BKE_camera_multiview_spherical_stereo(RenderData *rd, const Object *camera)

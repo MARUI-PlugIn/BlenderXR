@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,14 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Campbell Barton
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/python/generic/py_capi_utils.h
- *  \ingroup pygen
+/** \file \ingroup pygen
  */
 
 #ifndef __PY_CAPI_UTILS_H__
@@ -38,7 +31,10 @@ PyObject *PyC_ExceptionBuffer(void);
 PyObject *PyC_ExceptionBuffer_Simple(void);
 PyObject *PyC_Object_GetAttrStringArgs(PyObject *o, Py_ssize_t n, ...);
 PyObject *PyC_FrozenSetFromStrings(const char **strings);
+
 PyObject *PyC_Err_Format_Prefix(PyObject *exception_type_prefix, const char *format, ...);
+PyObject *PyC_Err_SetString_Prefix(PyObject *exception_type_prefix, const char *str);
+
 void      PyC_Err_PrintWithFunc(PyObject *py_func);
 
 void	PyC_FileAndNum(const char **filename, int *lineno);

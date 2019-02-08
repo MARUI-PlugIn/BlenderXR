@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,14 +15,9 @@
  *
  * The Original Code is Copyright (C) 2008, Blender Foundation
  * This is a new part of Blender
- *
- * Contributor(s): Joshua Leung
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file ED_gpencil.h
- *  \ingroup editors
+/** \file \ingroup editors
  */
 
 #ifndef __ED_GPENCIL_H__
@@ -43,31 +36,31 @@ struct ListBase;
 struct PointerRNA;
 struct rcti;
 
-struct bGPdata;
-struct bGPDlayer;
-struct bGPDframe;
-struct bGPDstroke;
-struct bGPDspoint;
 struct Brush;
+struct bGPDframe;
+struct bGPDlayer;
+struct bGPDspoint;
+struct bGPDstroke;
+struct bGPdata;
 
-struct Main;
-struct bContext;
-struct EvaluationContext;
-struct Depsgraph;
-struct ScrArea;
 struct ARegion;
+struct Depsgraph;
+struct EvaluationContext;
+struct Main;
 struct RegionView3D;
 struct ReportList;
 struct Scene;
+struct ScrArea;
 struct ToolSettings;
-struct ViewLayer;
 struct View3D;
+struct ViewLayer;
+struct bContext;
 
-struct Object;
 struct Material;
+struct Object;
 
-struct bAnimContext;
 struct KeyframeEditData;
+struct bAnimContext;
 
 struct wmKeyConfig;
 struct wmOperator;
@@ -87,7 +80,7 @@ typedef struct tGPspoint {
 	float time;             /* Time relative to stroke start (used when converting to path) */
 	float uv_fac;           /* factor of uv along the stroke */
 	float uv_rot;           /* uv rotation for dor mode */
-	float rnd[2];           /* rnd value */
+	float rnd[3];           /* rnd value */
 	bool rnd_dirty;         /* rnd flag */
 } tGPspoint;
 
@@ -228,13 +221,13 @@ void ED_gpencil_brush_draw_eraser(struct Brush *brush, int x, int y);
 
 /* ----------- Add Primitive Utilities -------------- */
 
-void ED_gpencil_create_monkey(struct bContext *C, float mat[4][4]);
-void ED_gpencil_create_stroke(struct bContext *C, float mat[4][4]);
+void ED_gpencil_create_monkey(struct bContext *C, struct Object *ob, float mat[4][4]);
+void ED_gpencil_create_stroke(struct bContext *C, struct Object *ob, float mat[4][4]);
 
 /* ------------ Object Utilities ------------ */
 struct Object *ED_gpencil_add_object(
         struct bContext *C, struct Scene *scene, const float loc[3], unsigned short local_view_bits);
-void ED_gpencil_add_defaults(struct bContext *C);
+void ED_gpencil_add_defaults(struct bContext *C, struct Object *ob);
 /* set object modes */
 void ED_gpencil_setup_modes(struct bContext *C, struct bGPdata *gpd, int newmode);
 
@@ -267,10 +260,23 @@ void ED_gpencil_tpoint_to_point(struct ARegion *ar, float origin[3], const struc
 void ED_gpencil_calc_stroke_uv(struct Object *ob, struct bGPDstroke *gps);
 void ED_gpencil_update_color_uv(struct Main *bmain, struct Material *mat);
 
+/* extend selection to stroke intersections
+ * returns:
+ * 0 - No hit
+ * 1 - Hit in point A
+ * 2 - Hit in point B
+ * 3 - Hit in point A and B
+*/
+int ED_gpencil_select_stroke_segment(
+	struct bGPDlayer *gpl,
+	struct bGPDstroke *gps, struct bGPDspoint *pt,
+	bool select, bool insert, const float scale,
+	float r_hita[3], float r_hitb[3]);
+
 #if WITH_VR
 #ifdef __cplusplus
 }
 #endif
 #endif
-
+	
 #endif /*  __ED_GPENCIL_H__ */

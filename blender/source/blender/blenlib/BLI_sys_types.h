@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file BLI_sys_types.h
- *  \ingroup bli
+/** \file \ingroup bli
  *
  * A platform-independent definition of [u]intXX_t
  * Plus the accompanying header include for htonl/ntohl
@@ -37,7 +28,6 @@
  * - Windows uses __intXX compiler-builtin types. These are signed,
  *   so we have to flip the signs.
  * For these rogue platforms, we make the typedefs ourselves.
- *
  */
 
 #ifndef __BLI_SYS_TYPES_H__
@@ -56,7 +46,7 @@ extern "C" {
 
 /* XXX */
 #ifndef UINT64_MAX
-# define UINT64_MAX     18446744073709551615
+#  define UINT64_MAX     18446744073709551615
 typedef uint8_t u_int8_t;
 typedef uint16_t u_int16_t;
 typedef uint32_t u_int32_t;

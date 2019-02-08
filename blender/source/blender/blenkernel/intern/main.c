@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenkernel/intern/main.c
- *  \ingroup bke
+/** \file \ingroup bke
  *
  * Contains management of Main database itself.
  */
@@ -64,61 +55,69 @@ void BKE_main_free(Main *mainvar)
 	ListBase *lbarray[MAX_LIBARRAY];
 	int a;
 
+	/* Since we are removing whole main, no need to bother 'properly' (and slowly) removing each ID from it. */
+	const int free_flag = (LIB_ID_FREE_NO_MAIN |
+	                       LIB_ID_FREE_NO_UI_USER |
+	                       LIB_ID_FREE_NO_USER_REFCOUNT |
+	                       LIB_ID_FREE_NO_DEG_TAG);
+
 	MEM_SAFE_FREE(mainvar->blen_thumb);
 
 	a = set_listbasepointers(mainvar, lbarray);
 	while (a--) {
 		ListBase *lb = lbarray[a];
-		ID *id;
+		ID *id, *id_next;
 
-		while ( (id = lb->first) ) {
+		for (id = lb->first; id != NULL; id = id_next) {
+			id_next = id->next;
 #if 1
-			BKE_libblock_free_ex(mainvar, id, false, false);
+			BKE_id_free_ex(mainvar, id, free_flag, false);
 #else
 			/* errors freeing ID's can be hard to track down,
 			 * enable this so valgrind will give the line number in its error log */
 			switch (a) {
-				case   0: BKE_libblock_free_ex(mainvar, id, false, false); break;
-				case   1: BKE_libblock_free_ex(mainvar, id, false, false); break;
-				case   2: BKE_libblock_free_ex(mainvar, id, false, false); break;
-				case   3: BKE_libblock_free_ex(mainvar, id, false, false); break;
-				case   4: BKE_libblock_free_ex(mainvar, id, false, false); break;
-				case   5: BKE_libblock_free_ex(mainvar, id, false, false); break;
-				case   6: BKE_libblock_free_ex(mainvar, id, false, false); break;
-				case   7: BKE_libblock_free_ex(mainvar, id, false, false); break;
-				case   8: BKE_libblock_free_ex(mainvar, id, false, false); break;
-				case   9: BKE_libblock_free_ex(mainvar, id, false, false); break;
-				case  10: BKE_libblock_free_ex(mainvar, id, false, false); break;
-				case  11: BKE_libblock_free_ex(mainvar, id, false, false); break;
-				case  12: BKE_libblock_free_ex(mainvar, id, false, false); break;
-				case  13: BKE_libblock_free_ex(mainvar, id, false, false); break;
-				case  14: BKE_libblock_free_ex(mainvar, id, false, false); break;
-				case  15: BKE_libblock_free_ex(mainvar, id, false, false); break;
-				case  16: BKE_libblock_free_ex(mainvar, id, false, false); break;
-				case  17: BKE_libblock_free_ex(mainvar, id, false, false); break;
-				case  18: BKE_libblock_free_ex(mainvar, id, false, false); break;
-				case  19: BKE_libblock_free_ex(mainvar, id, false, false); break;
-				case  20: BKE_libblock_free_ex(mainvar, id, false, false); break;
-				case  21: BKE_libblock_free_ex(mainvar, id, false, false); break;
-				case  22: BKE_libblock_free_ex(mainvar, id, false, false); break;
-				case  23: BKE_libblock_free_ex(mainvar, id, false, false); break;
-				case  24: BKE_libblock_free_ex(mainvar, id, false, false); break;
-				case  25: BKE_libblock_free_ex(mainvar, id, false, false); break;
-				case  26: BKE_libblock_free_ex(mainvar, id, false, false); break;
-				case  27: BKE_libblock_free_ex(mainvar, id, false, false); break;
-				case  28: BKE_libblock_free_ex(mainvar, id, false, false); break;
-				case  29: BKE_libblock_free_ex(mainvar, id, false, false); break;
-				case  30: BKE_libblock_free_ex(mainvar, id, false, false); break;
-				case  31: BKE_libblock_free_ex(mainvar, id, false, false); break;
-				case  32: BKE_libblock_free_ex(mainvar, id, false, false); break;
-				case  33: BKE_libblock_free_ex(mainvar, id, false, false); break;
-				case  34: BKE_libblock_free_ex(mainvar, id, false, false); break;
+				case   0: BKE_id_free_ex(mainvar, id, free_flag, false); break;
+				case   1: BKE_id_free_ex(mainvar, id, free_flag, false); break;
+				case   2: BKE_id_free_ex(mainvar, id, free_flag, false); break;
+				case   3: BKE_id_free_ex(mainvar, id, free_flag, false); break;
+				case   4: BKE_id_free_ex(mainvar, id, free_flag, false); break;
+				case   5: BKE_id_free_ex(mainvar, id, free_flag, false); break;
+				case   6: BKE_id_free_ex(mainvar, id, free_flag, false); break;
+				case   7: BKE_id_free_ex(mainvar, id, free_flag, false); break;
+				case   8: BKE_id_free_ex(mainvar, id, free_flag, false); break;
+				case   9: BKE_id_free_ex(mainvar, id, free_flag, false); break;
+				case  10: BKE_id_free_ex(mainvar, id, free_flag, false); break;
+				case  11: BKE_id_free_ex(mainvar, id, free_flag, false); break;
+				case  12: BKE_id_free_ex(mainvar, id, free_flag, false); break;
+				case  13: BKE_id_free_ex(mainvar, id, free_flag, false); break;
+				case  14: BKE_id_free_ex(mainvar, id, free_flag, false); break;
+				case  15: BKE_id_free_ex(mainvar, id, free_flag, false); break;
+				case  16: BKE_id_free_ex(mainvar, id, free_flag, false); break;
+				case  17: BKE_id_free_ex(mainvar, id, free_flag, false); break;
+				case  18: BKE_id_free_ex(mainvar, id, free_flag, false); break;
+				case  19: BKE_id_free_ex(mainvar, id, free_flag, false); break;
+				case  20: BKE_id_free_ex(mainvar, id, free_flag, false); break;
+				case  21: BKE_id_free_ex(mainvar, id, free_flag, false); break;
+				case  22: BKE_id_free_ex(mainvar, id, free_flag, false); break;
+				case  23: BKE_id_free_ex(mainvar, id, free_flag, false); break;
+				case  24: BKE_id_free_ex(mainvar, id, free_flag, false); break;
+				case  25: BKE_id_free_ex(mainvar, id, free_flag, false); break;
+				case  26: BKE_id_free_ex(mainvar, id, free_flag, false); break;
+				case  27: BKE_id_free_ex(mainvar, id, free_flag, false); break;
+				case  28: BKE_id_free_ex(mainvar, id, free_flag, false); break;
+				case  29: BKE_id_free_ex(mainvar, id, free_flag, false); break;
+				case  30: BKE_id_free_ex(mainvar, id, free_flag, false); break;
+				case  31: BKE_id_free_ex(mainvar, id, free_flag, false); break;
+				case  32: BKE_id_free_ex(mainvar, id, free_flag, false); break;
+				case  33: BKE_id_free_ex(mainvar, id, free_flag, false); break;
+				case  34: BKE_id_free_ex(mainvar, id, free_flag, false); break;
 				default:
 					BLI_assert(0);
 					break;
 			}
 #endif
 		}
+		BLI_listbase_clear(lb);
 	}
 
 	if (mainvar->relations) {
@@ -141,7 +140,7 @@ void BKE_main_unlock(struct Main *bmain)
 }
 
 
-static int main_relations_create_cb(void *user_data, ID *id_self, ID **id_pointer, int cb_flag)
+static int main_relations_create_idlink_cb(void *user_data, ID *id_self, ID **id_pointer, int cb_flag)
 {
 	MainIDRelations *rel = user_data;
 
@@ -174,13 +173,15 @@ static int main_relations_create_cb(void *user_data, ID *id_self, ID **id_pointe
 	return IDWALK_RET_NOP;
 }
 
+static bool main_relations_create_id_cb(Main *bmain, ID *id, void *UNUSED(user_data))
+{
+	BKE_library_foreach_ID_link(NULL, id, main_relations_create_idlink_cb, bmain->relations, IDWALK_READONLY);
+	return true;
+}
+
 /** Generate the mappings between used IDs and their users, and vice-versa. */
 void BKE_main_relations_create(Main *bmain)
 {
-	ListBase *lbarray[MAX_LIBARRAY];
-	ID *id;
-	int a;
-
 	if (bmain->relations != NULL) {
 		BKE_main_relations_free(bmain);
 	}
@@ -190,11 +191,7 @@ void BKE_main_relations_create(Main *bmain)
 	bmain->relations->id_user_to_used = BLI_ghash_new(BLI_ghashutil_ptrhash, BLI_ghashutil_ptrcmp, __func__);
 	bmain->relations->entry_pool = BLI_mempool_create(sizeof(MainIDRelationsEntry), 128, 128, BLI_MEMPOOL_NOP);
 
-	for (a = set_listbasepointers(bmain, lbarray); a--; ) {
-		for (id = lbarray[a]->first; id; id = id->next) {
-			BKE_library_foreach_ID_link(NULL, id, main_relations_create_cb, bmain->relations, IDWALK_READONLY);
-		}
-	}
+	BKE_main_foreach_id(bmain, false, main_relations_create_id_cb, NULL);
 }
 
 void BKE_main_relations_free(Main *bmain)
@@ -210,6 +207,56 @@ void BKE_main_relations_free(Main *bmain)
 		MEM_freeN(bmain->relations);
 		bmain->relations = NULL;
 	}
+}
+
+/**
+ * Call given callback over every IDs of given \a lb listbase (assumed to be part of given \a bmain).
+ *
+ * \return false if the iteration was iterrupted by the callback.
+ *
+ * \warning \a callback may affect the ID, but DO NOT change the listbase or Main database (add/remove/reorder its IDs).
+ */
+bool BKE_main_listbase_foreach_id(
+        Main *bmain, ListBase *lb,
+        MainForeachIDCallback callback, void *user_data)
+{
+	bool keep_looping = true;
+	for (ID *id = lb->first; id; id = id->next) {
+		if (!(keep_looping = callback(bmain, id, user_data))) {
+			return keep_looping;
+		}
+	}
+	return keep_looping;
+}
+
+/**
+ * Call given callback over every IDs of given \a bmain Main database.
+ *
+ * \param reverse_type_order Allow to reverse order in which ID *types* are handled
+ *                           (i.e. does not reverse the order in which IDs themselves are handled
+ *                           whithin a give listbase).
+ *                           Note that in most cases, you want to set that parameter to true.
+ * \return false if the iteration was iterrupted by the callback.
+ *
+ * \warning \a callback may affect the ID, but DO NOT change the Main database (add/remove/reorder its IDs).
+ */
+bool BKE_main_foreach_id(
+        Main *bmain, const bool reverse_type_order,
+        MainForeachIDCallback callback, void *user_data)
+{
+	ListBase *lbarray[MAX_LIBARRAY];
+	const int nbr_types = set_listbasepointers(bmain, lbarray);
+
+	bool keep_looping = true;
+	for (int i = reverse_type_order ? nbr_types - 1 : 0;
+	     reverse_type_order ? i >= 0 : i < nbr_types;
+	     reverse_type_order ? i-- : i++)
+	{
+		if (!(keep_looping = BKE_main_listbase_foreach_id(bmain, lbarray[i], callback, user_data))) {
+			return keep_looping;
+		}
+	}
+	return keep_looping;
 }
 
 /**

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,10 +12,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Esteban Tovagliari, Cedric Paille, Kevin Dietrich
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
 #include "../ABC_alembic.h"
@@ -340,7 +334,7 @@ bool ABC_export(
 	job->settings.scene = scene;
 	job->settings.depsgraph = DEG_graph_new(scene, job->view_layer, DAG_EVAL_RENDER);
 
-	/* Sybren: for now we only export the active scene layer.
+	/* TODO(Sybren): for now we only export the active scene layer.
 	 * Later in the 2.8 development process this may be replaced by using
 	 * a specific collection for Alembic I/O, which can then be toggled
 	 * between "real" objects and cached Alembic files. */
@@ -353,7 +347,7 @@ bool ABC_export(
 	job->settings.shutter_open = params->shutter_open;
 	job->settings.shutter_close = params->shutter_close;
 
-	/* Sybren: For now this is ignored, until we can get selection
+	/* TODO(Sybren): For now this is ignored, until we can get selection
 	 * detection working through Base pointers (instead of ob->flags). */
 	job->settings.selected_only = params->selected_only;
 
@@ -364,9 +358,10 @@ bool ABC_export(
 	job->settings.export_hair = params->export_hair;
 	job->settings.export_particles = params->export_particles;
 	job->settings.apply_subdiv = params->apply_subdiv;
+	job->settings.curves_as_mesh = params->curves_as_mesh;
 	job->settings.flatten_hierarchy = params->flatten_hierarchy;
 
-	/* Sybren: visible_layer & renderable only is ignored for now,
+	/* TODO(Sybren): visible_layer & renderable only is ignored for now,
 	 * to be replaced with collections later in the 2.8 dev process
 	 * (also see note above). */
 	job->settings.visible_layers_only = params->visible_layers_only;
@@ -632,6 +627,7 @@ struct ImportJobData {
 	Main *bmain;
 	Scene *scene;
 	ViewLayer *view_layer;
+	wmWindowManager *wm;
 
 	char filename[1024];
 	ImportSettings settings;
@@ -656,6 +652,8 @@ static void import_startjob(void *user_data, short *stop, short *do_update, floa
 	data->stop = stop;
 	data->do_update = do_update;
 	data->progress = progress;
+
+	WM_set_locked_interface(data->wm, true);
 
 	ArchiveReader *archive = new ArchiveReader(data->filename);
 
@@ -796,7 +794,7 @@ static void import_endjob(void *user_data)
 			 * the reader and the creation of the Blender object. */
 			if (ob == NULL) continue;
 
-			BKE_libblock_free_us(data->bmain, ob);
+			BKE_id_free_us(data->bmain, ob);
 		}
 	}
 	else {
@@ -836,6 +834,8 @@ static void import_endjob(void *user_data)
 		}
 	}
 
+	WM_set_locked_interface(data->wm, false);
+
 	switch (data->error_code) {
 		default:
 		case ABC_NO_ERROR:
@@ -868,6 +868,7 @@ bool ABC_import(bContext *C, const char *filepath, float scale, bool is_sequence
 	job->bmain = CTX_data_main(C);
 	job->scene = CTX_data_scene(C);
 	job->view_layer = CTX_data_view_layer(C);
+	job->wm = CTX_wm_manager(C);
 	job->import_ok = false;
 	BLI_strncpy(job->filename, filepath, 1024);
 

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,13 +15,9 @@
  *
  * The Original Code is Copyright (C) 2008 Blender Foundation.
  * All rights reserved.
- *
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/render/render_opengl.c
- *  \ingroup edrend
+/** \file \ingroup edrend
  */
 
 
@@ -329,10 +323,10 @@ static void screen_opengl_render_doit(const bContext *C, OGLRender *oglrender, R
 			wmOrtho2(0, sizex, 0, sizey);
 			GPU_matrix_translate_2f(sizex / 2, sizey / 2);
 
-			G.f |= G_RENDER_OGL;
+			G.f |= G_FLAG_RENDER_VIEWPORT;
 			ED_gpencil_draw_ex(
 				view_layer, rv3d, scene, gpd, sizex, sizey, scene->r.cfra, SPACE_SEQ);
-			G.f &= ~G_RENDER_OGL;
+			G.f &= ~G_FLAG_RENDER_VIEWPORT;
 
 			gp_rect = MEM_mallocN(sizex * sizey * sizeof(unsigned char) * 4, "offscreen rect");
 			GPU_offscreen_read_pixels(oglrender->ofs, GL_UNSIGNED_BYTE, gp_rect);
@@ -602,11 +596,13 @@ static bool screen_opengl_render_init(bContext *C, wmOperator *op)
 	oglrender->prevar = prevar;
 
 	if (is_view_context) {
-		ED_view3d_context_user_region(C, &oglrender->v3d, &oglrender->ar); /* so quad view renders camera */
+		/* so quad view renders camera */
+		ED_view3d_context_user_region(C, &oglrender->v3d, &oglrender->ar);
+
 		oglrender->rv3d = oglrender->ar->regiondata;
 
 		/* MUST be cleared on exit */
-		oglrender->scene->customdata_mask_modal = ED_view3d_datamask(oglrender->scene, oglrender->v3d);
+		oglrender->scene->customdata_mask_modal = ED_view3d_datamask(C, oglrender->scene, oglrender->v3d);
 
 		/* apply immediately in case we're rendering from a script,
 		 * running notifiers again will overwrite */

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,20 +15,11 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 #ifndef __BKE_SCENE_H__
 #define __BKE_SCENE_H__
 
-/** \file BKE_scene.h
- *  \ingroup bke
- *  \since March 2001
- *  \author nzc
+/** \file \ingroup bke
  */
 
 #ifdef __cplusplus
@@ -44,11 +33,11 @@ struct Main;
 struct Object;
 struct RenderData;
 struct Scene;
-struct ViewLayer;
+struct TransformOrientation;
 struct UnitSettings;
+struct ViewLayer;
 struct ViewRender;
 struct WorkSpace;
-struct TransformOrientation;
 
 typedef enum eSceneCopyMethod {
 	SCE_COPY_NEW       = 0,
@@ -104,7 +93,6 @@ int BKE_scene_base_iter_next(
         struct Scene **scene, int val, struct Base **base, struct Object **ob);
 
 void BKE_scene_base_flag_to_objects(struct ViewLayer *view_layer);
-void BKE_scene_base_flag_from_objects(struct Scene *scene);
 void BKE_scene_object_base_flag_sync_from_base(struct Base *base);
 void BKE_scene_object_base_flag_sync_from_object(struct Base *base);
 

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,15 +15,9 @@
  *
  * The Original Code is Copyright (C) 2008 Blender Foundation.
  * All rights reserved.
- *
- *
- * Contributor(s): Blender Foundation
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/space_view3d/view3d_draw.c
- *  \ingroup spview3d
+/** \file \ingroup spview3d
  */
 
 #include <math.h>
@@ -37,8 +29,6 @@
 #include "BLI_threads.h"
 #include "BLI_jitter_2d.h"
 
-#include "BIF_gl.h"
-#include "BIF_glutil.h"
 
 #include "BKE_camera.h"
 #include "BKE_collection.h"
@@ -248,20 +238,22 @@ static void view3d_stereo3d_setup(
 
 	/* update the viewport matrices with the new camera */
 	if (scene->r.views_format == SCE_VIEWS_FORMAT_STEREO_3D) {
-		Camera *data;
+		Camera *data, *data_eval;
 		float viewmat[4][4];
 		float shiftx;
 
 		data = (Camera *)v3d->camera->data;
-		shiftx = data->shiftx;
+		data_eval = (Camera *)DEG_get_evaluated_id(depsgraph, &data->id);
+
+		shiftx = data_eval->shiftx;
 
 		BLI_thread_lock(LOCK_VIEW3D);
-		data->shiftx = BKE_camera_multiview_shift_x(&scene->r, v3d->camera, viewname);
+		data_eval->shiftx = BKE_camera_multiview_shift_x(&scene->r, v3d->camera, viewname);
 
 		BKE_camera_multiview_view_matrix(&scene->r, v3d->camera, is_left, viewmat);
 		view3d_main_region_setup_view(depsgraph, scene, v3d, ar, viewmat, NULL, rect);
 
-		data->shiftx = shiftx;
+		data_eval->shiftx = shiftx;
 		BLI_thread_unlock(LOCK_VIEW3D);
 	}
 	else { /* SCE_VIEWS_FORMAT_MULTIVIEW */
@@ -716,7 +708,10 @@ void ED_view3d_draw_depth(
 	/* temp set drawtype to solid */
 	/* Setting these temporarily is not nice */
 	v3d->flag &= ~V3D_SELECT_OUTLINE;
-	U.glalphaclip = alphaoverride ? 0.5f : glalphaclip; /* not that nice but means we wont zoom into billboards */
+
+	/* not that nice but means we wont zoom into billboards */
+	U.glalphaclip = alphaoverride ? 0.5f : glalphaclip;
+
 	U.obcenter_dia = 0;
 
 	/* Tools may request depth outside of regular drawing code. */
@@ -780,9 +775,9 @@ float ED_view3d_grid_scale(Scene *scene, View3D *v3d, const char **grid_unit)
 	return v3d->grid * ED_scene_grid_scale(scene, grid_unit);
 }
 
-/* Simulates the grid scale that is visualized by the shaders drawing functions.
- * The actual code is seen in `object_grid_frag.glsl` when you get the `grid_res` value.
- * Currently the simulation is done only when RV3D_VIEW_IS_AXIS. */
+/* Simulates the grid scale that is actually viewed.
+ * The actual code is seen in `object_grid_frag.glsl` (see `grid_res`).
+ * Currently the simulation is only done when RV3D_VIEW_IS_AXIS. */
 float ED_view3d_grid_view_scale(
         Scene *scene, View3D *v3d, RegionView3D *rv3d, const char **grid_unit)
 {
@@ -791,19 +786,18 @@ float ED_view3d_grid_view_scale(
 		/* Decrease the distance between grid snap points depending on zoom. */
 		float grid_subdiv = v3d->gridsubdiv;
 		if (grid_subdiv > 1) {
+			/* Allow 3 more subdivisions (see OBJECT_engine_init). */
+			grid_scale /= powf(grid_subdiv, 3);
+
 			float grid_distance = rv3d->dist;
 			float lvl = (logf(grid_distance / grid_scale) / logf(grid_subdiv));
-			if (lvl < 0.0f) {
-				/* Negative values need an offset for correct casting.
-				 * By convention, the minimum lvl is limited to -2 (see `objec_mode.c`) */
-				if (lvl > -2.0f) {
-					lvl -= 1.0f;
-				}
-				else {
-					lvl = -2.0f;
-				}
-			}
-			grid_scale *= pow(grid_subdiv, (int)lvl - 1);
+
+			/* 1.3f is a visually chosen offset for the
+			 * subdivision to match the visible grid. */
+			lvl -= 1.3f;
+			CLAMP_MIN(lvl, 0.0f);
+
+			grid_scale *= pow(grid_subdiv, (int)lvl);
 		}
 	}
 
@@ -813,7 +807,8 @@ float ED_view3d_grid_view_scale(
 static void draw_view_axis(RegionView3D *rv3d, const rcti *rect)
 {
 	const float k = U.rvisize * U.pixelsize;  /* axis size */
-	const int bright = - 20 * (10 - U.rvibright);  /* axis alpha offset (rvibright has range 0-10) */
+	/* axis alpha offset (rvibright has range 0-10) */
+	const int bright = - 20 * (10 - U.rvibright);
 
 	/* Axis center in screen coordinates.
 	 *
@@ -1210,12 +1205,15 @@ static void draw_selected_name(Scene *scene, ViewLayer *view_layer, Object *ob, 
 		}
 
 		/* color depends on whether there is a keyframe */
-		if (id_frame_has_keyframe((ID *)ob, /* BKE_scene_frame_get(scene) */ (float)cfra, ANIMFILTER_KEYS_LOCAL))
+		if (id_frame_has_keyframe((ID *)ob, /* BKE_scene_frame_get(scene) */ (float)cfra, ANIMFILTER_KEYS_LOCAL)) {
 			UI_FontThemeColor(font_id, TH_TIME_KEYFRAME);
-		else if (ED_gpencil_has_keyframe_v3d(scene, ob, cfra))
+		}
+		else if (ED_gpencil_has_keyframe_v3d(scene, ob, cfra)) {
 			UI_FontThemeColor(font_id, TH_TIME_GP_KEYFRAME);
-		else
+		}
+		else {
 			UI_FontThemeColor(font_id, TH_TEXT_HI);
+		}
 	}
 	else {
 		/* no object */
@@ -1368,7 +1366,6 @@ void view3d_main_region_draw(const bContext *C, ARegion *ar)
 }
 
 /* -------------------------------------------------------------------- */
-
 /** \name Offscreen Drawing
  * \{ */
 
@@ -1422,7 +1419,7 @@ void ED_view3d_draw_offscreen(
 	UI_SetTheme(SPACE_VIEW3D, RGN_TYPE_WINDOW);
 
 	/* set flags */
-	G.f |= G_RENDER_OGL;
+	G.f |= G_FLAG_RENDER_VIEWPORT;
 
 	{
 		/* free images which can have changed on frame-change
@@ -1455,7 +1452,7 @@ void ED_view3d_draw_offscreen(
 
 	UI_Theme_Restore(&theme_state);
 
-	G.f &= ~G_RENDER_OGL;
+	G.f &= ~G_FLAG_RENDER_VIEWPORT;
 }
 
 /**
@@ -1721,5 +1718,30 @@ ImBuf *ED_view3d_draw_offscreen_imbuf_simple(
 	        &v3d, &ar, width, height, flag,
 	        draw_flags, alpha_mode, samples, viewname, ofs, err_out);
 }
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Viewport Clipping
+ * \{ */
+
+static bool view3d_clipping_test(const float co[3], const float clip[6][4])
+{
+	if (plane_point_side_v3(clip[0], co) > 0.0f)
+		if (plane_point_side_v3(clip[1], co) > 0.0f)
+			if (plane_point_side_v3(clip[2], co) > 0.0f)
+				if (plane_point_side_v3(clip[3], co) > 0.0f)
+					return false;
+
+	return true;
+}
+
+/* for 'local' ED_view3d_clipping_local must run first
+ * then all comparisons can be done in localspace */
+bool ED_view3d_clipping_test(const RegionView3D *rv3d, const float co[3], const bool is_local)
+{
+	return view3d_clipping_test(co, is_local ? rv3d->clip_local : rv3d->clip);
+}
+
 
 /** \} */

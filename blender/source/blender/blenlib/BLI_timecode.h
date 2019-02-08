@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,18 +15,12 @@
  *
  * The Original Code is Copyright (C) 2008 Blender Foundation.
  * All rights reserved.
- *
- *
- * Contributor(s): Joshua Leung
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
 #ifndef __BLI_TIMECODE_H__
 #define __BLI_TIMECODE_H__
 
-/** \file BLI_timecode.h
- *  \ingroup BLI
+/** \file \ingroup BLI
  */
 
 #include "BLI_compiler_attrs.h"

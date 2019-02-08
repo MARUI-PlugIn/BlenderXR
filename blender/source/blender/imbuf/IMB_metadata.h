@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,25 +15,18 @@
  *
  * The Original Code is Copyright (C) 2005 Blender Foundation
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): Austin Benesh. Ton Roosendaal.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/imbuf/IMB_metadata.h
- *  \ingroup imbuf
+/** \file \ingroup imbuf
  */
 
 
 #ifndef __IMB_METADATA_H__
 #define __IMB_METADATA_H__
 
-struct anim;
-struct ImBuf;
 struct IDProperty;
+struct ImBuf;
+struct anim;
 
 /** The metadata is a list of key/value pairs (both char *) that can me
  * saved in the header of several image formats.
@@ -74,5 +65,9 @@ void IMB_metadata_set_field(struct IDProperty *metadata, const char *key, const 
 
 void IMB_metadata_copy(struct ImBuf *dimb, struct ImBuf *simb);
 struct IDProperty *IMB_anim_load_metadata(struct anim *anim);
+
+/* Invoke callback for every value stored in the metadata. */
+typedef void (*IMBMetadataForeachCb)(const char *field, const char *value, void *userdata);
+void IMB_metadata_foreach(struct ImBuf *ibuf, IMBMetadataForeachCb callback, void *userdata);
 
 #endif /* __IMB_METADATA_H__ */

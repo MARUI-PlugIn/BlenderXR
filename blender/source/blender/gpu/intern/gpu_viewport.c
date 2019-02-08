@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2006 Blender Foundation.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s):
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/gpu/intern/gpu_viewport.c
- *  \ingroup gpu
+/** \file \ingroup gpu
  *
  * System that manages viewport drawing.
  */
@@ -35,7 +26,6 @@
 
 #include "BLI_listbase.h"
 #include "BLI_rect.h"
-#include "BLI_string.h"
 #include "BLI_mempool.h"
 
 #include "BIF_gl.h"
@@ -43,7 +33,6 @@
 #include "DNA_vec_types.h"
 #include "DNA_userdef_types.h"
 
-#include "BKE_global.h"
 
 #include "GPU_framebuffer.h"
 #include "GPU_glew.h"
@@ -540,9 +529,9 @@ void GPU_viewport_draw_to_screen(GPUViewport *viewport, const rcti *rect)
 	GPU_shader_bind(shader);
 
 	GPU_texture_bind(color, 0);
-	glUniform1i(GPU_shader_get_uniform(shader, "image"), 0);
-	glUniform4f(GPU_shader_get_uniform(shader, "rect_icon"), halfx, halfy, 1.0f + halfx, 1.0f + halfy);
-	glUniform4f(GPU_shader_get_uniform(shader, "rect_geom"), x1, y1, x2, y2);
+	glUniform1i(GPU_shader_get_uniform_ensure(shader, "image"), 0);
+	glUniform4f(GPU_shader_get_uniform_ensure(shader, "rect_icon"), halfx, halfy, 1.0f + halfx, 1.0f + halfy);
+	glUniform4f(GPU_shader_get_uniform_ensure(shader, "rect_geom"), x1, y1, x2, y2);
 	glUniform4f(GPU_shader_get_builtin_uniform(shader, GPU_UNIFORM_COLOR), 1.0f, 1.0f, 1.0f, 1.0f);
 
 	GPU_draw_primitive(GPU_PRIM_TRI_STRIP, 4);

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,14 +15,9 @@
  *
  * The Original Code is Copyright (C) 2017 by Blender Foundation.
  * All rights reserved.
- *
- * Contributor(s): Blender Foundation, Mike Erwin, Dalai Felinto
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file draw_cache_impl_particles.c
- *  \ingroup draw
+/** \file \ingroup draw
  *
  * \brief Particle API for render engines
  */
@@ -44,9 +37,7 @@
 #include "DNA_particle_types.h"
 #include "DNA_customdata_types.h"
 
-#include "BKE_lattice.h"
 #include "BKE_mesh.h"
-#include "BKE_modifier.h"
 #include "BKE_particle.h"
 #include "BKE_pointcache.h"
 
@@ -1176,8 +1167,8 @@ static void particle_batch_cache_ensure_pos_and_seg(
 	attr_id.ind = GPU_vertformat_attr_add(&format, "ind", GPU_COMP_I32, 1, GPU_FETCH_INT);
 
 	if (psmd) {
-		uv_id = MEM_mallocN(sizeof(*uv_id) * num_uv_layers, "UV attrib format");
-		col_id = MEM_mallocN(sizeof(*col_id) * num_col_layers, "Col attrib format");
+		uv_id = MEM_mallocN(sizeof(*uv_id) * num_uv_layers, "UV attr format");
+		col_id = MEM_mallocN(sizeof(*col_id) * num_col_layers, "Col attr format");
 
 		for (int i = 0; i < num_uv_layers; i++) {
 			const char *name = CustomData_get_layer_name(&psmd->mesh_final->ldata, CD_MLOOPUV, i);
@@ -1309,8 +1300,9 @@ static void particle_batch_cache_ensure_pos(
 	if (psys->part->phystype == PART_PHYS_KEYED) {
 		if (psys->flag & PSYS_KEYED) {
 			psys_count_keyed_targets(&sim);
-			if (psys->totkeyed == 0)
+			if (psys->totkeyed == 0) {
 				return;
+			}
 		}
 	}
 

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,14 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s):
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/bmesh/operators/bmo_bevel.c
- *  \ingroup bmesh
+/** \file \ingroup bmesh
  *
  * Bevel wrapper around #BM_mesh_bevel
  */
@@ -43,9 +36,14 @@ void bmo_bevel_exec(BMesh *bm, BMOperator *op)
 	const bool  clamp_overlap = BMO_slot_bool_get(op->slots_in,  "clamp_overlap");
 	const int   material      = BMO_slot_int_get(op->slots_in,   "material");
 	const bool  loop_slide    = BMO_slot_bool_get(op->slots_in,  "loop_slide");
-	const bool	mark_seam	  = BMO_slot_bool_get(op->slots_in, "mark_seam");
-	const bool	mark_sharp	  = BMO_slot_bool_get(op->slots_in, "mark_sharp");
-	const int hnmode		  = BMO_slot_int_get(op->slots_in, "hnmode");
+	const bool	mark_seam	  = BMO_slot_bool_get(op->slots_in,  "mark_seam");
+	const bool	mark_sharp	  = BMO_slot_bool_get(op->slots_in,  "mark_sharp");
+	const bool  harden_normals = BMO_slot_bool_get(op->slots_in, "harden_normals");
+	const int   face_strength_mode = BMO_slot_int_get(op->slots_in, "face_strength_mode");
+	const int   miter_outer   = BMO_slot_int_get(op->slots_in,   "miter_outer");
+	const int   miter_inner   = BMO_slot_int_get(op->slots_in,   "miter_inner");
+	const float spread        = BMO_slot_float_get(op->slots_in, "spread");
+	const float smoothresh    = BMO_slot_float_get(op->slots_in, "smoothresh");
 
 	if (offset > 0) {
 		BMOIter siter;
@@ -71,7 +69,8 @@ void bmo_bevel_exec(BMesh *bm, BMOperator *op)
 
 		BM_mesh_bevel(
 		        bm, offset, offset_type, seg, profile, vonly, false, clamp_overlap, NULL, -1, material,
-		        loop_slide, mark_seam, mark_sharp, hnmode, op);
+		        loop_slide, mark_seam, mark_sharp, harden_normals, face_strength_mode,
+		        miter_outer, miter_inner, spread, smoothresh);
 
 		BMO_slot_buffer_from_enabled_hflag(bm, op, op->slots_out, "faces.out", BM_FACE, BM_ELEM_TAG);
 		BMO_slot_buffer_from_enabled_hflag(bm, op, op->slots_out, "edges.out", BM_EDGE, BM_ELEM_TAG);

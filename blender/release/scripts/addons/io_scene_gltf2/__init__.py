@@ -17,6 +17,7 @@
 #
 
 import os
+import time
 import bpy
 from bpy_extras.io_utils import ImportHelper, ExportHelper
 from bpy.types import Operator, AddonPreferences
@@ -36,13 +37,13 @@ from bpy.props import (CollectionProperty,
 
 bl_info = {
     'name': 'glTF 2.0 format',
-    'author': 'Julien Duroure, Norbert Nopper, Urs Hanselmann Moritz Becher, Benjamin Schmithüsen',
+    'author': 'Julien Duroure, Norbert Nopper, Urs Hanselmann, Moritz Becher, Benjamin Schmithüsen',
     "version": (0, 0, 1),
     'blender': (2, 80, 0),
     'location': 'File > Import-Export',
     'description': 'Import-Export as glTF 2.0',
     'warning': '',
-    'wiki_url': "https://github.com/KhronosGroup/glTF-Blender-IO",
+    'wiki_url': "https://docs.blender.org/manual/en/dev/addons/io_gltf2.html",
     'tracker_url': "https://github.com/KhronosGroup/glTF-Blender-IO/issues/",
     'support': 'OFFICIAL',
     'category': 'Import-Export'}
@@ -254,7 +255,10 @@ class ExportGLTF2_Base:
         default=False
     )
 
-    will_save_settings: BoolProperty(default=False)
+    will_save_settings: BoolProperty(
+        name='Remember Export Settings',
+        description='Store glTF export settings in the Blender project',
+        default=False)
 
     # Custom scene property for saving settings
     scene_key = "glTF2ExportSettings"
@@ -375,6 +379,7 @@ class ExportGLTF2_Base:
         col.prop(self, 'export_apply')
         col.prop(self, 'export_yup')
         col.prop(self, 'export_extras')
+        col.prop(self, 'will_save_settings')
         col.prop(self, 'export_copyright')
 
     def draw_mesh_settings(self):
@@ -482,8 +487,10 @@ class ImportGLTF2(Operator, ImportHelper):
             self.report({'ERROR'}, txt)
             return {'CANCELLED'}
         self.gltf_importer.log.critical("Data are loaded, start creating Blender stuff")
+        start_time = time.time()
         BlenderGlTF.create(self.gltf_importer)
-        self.gltf_importer.log.critical("glTF import is now finished")
+        elapsed_s = "{:.2f}s".format(time.time() - start_time)
+        self.gltf_importer.log.critical("glTF import finished in " + elapsed_s)
         self.gltf_importer.log.removeHandler(self.gltf_importer.log_handler)
 
         return {'FINISHED'}

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,15 +15,9 @@
  *
  * The Original Code is Copyright (C) 2008 Blender Foundation.
  * All rights reserved.
- *
- *
- * Contributor(s): Blender Foundation
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/space_file/filesel.c
- *  \ingroup spfile
+/** \file \ingroup spfile
  */
 
 
@@ -55,27 +47,24 @@
 
 #include "BLI_blenlib.h"
 #include "BLI_utildefines.h"
-#include "BLI_fileops_types.h"
 #include "BLI_fnmatch.h"
 
 #include "BKE_appdir.h"
 #include "BKE_context.h"
-#include "BKE_global.h"
 #include "BKE_main.h"
 
 #include "BLF_api.h"
-
 
 #include "ED_fileselect.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
 
-
 #include "RNA_access.h"
 
 #include "UI_interface.h"
 #include "UI_interface_icons.h"
+#include "UI_view2d.h"
 
 #include "file_intern.h"
 #include "filelist.h"
@@ -547,7 +536,9 @@ void ED_fileselect_init_layout(struct SpaceFile *sfile, ARegion *ar)
 		layout->prv_border_y = 0;
 		layout->tile_h = textheight * 3 / 2;
 		layout->height = (int)(BLI_rctf_size_y(&v2d->cur) - 2 * layout->tile_border_y);
-		layout->rows = layout->height / (layout->tile_h + 2 * layout->tile_border_y);
+		/* Padding by full scrollbar H is too much, can overlap tile border Y. */
+		layout->rows = (layout->height - V2D_SCROLL_HEIGHT + layout->tile_border_y) /
+			           (layout->tile_h + 2 * layout->tile_border_y);
 
 		column_widths(params, layout);
 
@@ -627,7 +618,8 @@ int file_select_match(struct SpaceFile *sfile, const char *pattern, char *matche
 	 */
 	for (i = 0; i < n; i++) {
 		file = filelist_file(sfile->files, i);
-		/* Do not check whether file is a file or dir here! Causes T44243 (we do accept dirs at this stage). */
+		/* Do not check whether file is a file or dir here! Causes T44243
+		 * (we do accept dirs at this stage). */
 		if (fnmatch(pattern, file->relpath, 0) == 0) {
 			filelist_entry_select_set(sfile->files, file, FILE_SEL_ADD, FILE_SEL_SELECTED, CHECK_ALL);
 			if (!match) {

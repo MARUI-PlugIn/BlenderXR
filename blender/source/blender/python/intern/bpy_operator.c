@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,14 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Campbell Barton
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/python/intern/bpy_operator.c
- *  \ingroup pythonintern
+/** \file \ingroup pythonintern
  *
  * This file defines '_bpy.ops', an internal python module which gives python
  * the ability to inspect and call both C and Python defined operators.
@@ -37,7 +30,6 @@
 
 #include "BLI_utildefines.h"
 #include "BLI_listbase.h"
-#include "BLI_string.h"
 
 #include "BPY_extern.h"
 #include "bpy_operator.h"
@@ -429,7 +421,7 @@ static struct PyMethodDef bpy_ops_methods[] = {
 	{"dir", (PyCFunction) pyop_dir, METH_NOARGS, NULL},
 	{"get_rna_type", (PyCFunction) pyop_getrna_type, METH_O, NULL},
 	{"macro_define", (PyCFunction) PYOP_wrap_macro_define, METH_VARARGS, NULL},
-	{NULL, NULL, 0, NULL}
+	{NULL, NULL, 0, NULL},
 };
 
 static struct PyModuleDef bpy_ops_module = {
@@ -438,7 +430,7 @@ static struct PyModuleDef bpy_ops_module = {
 	NULL,
 	-1, /* multiple "initialization" just copies the module dict. */
 	bpy_ops_methods,
-	NULL, NULL, NULL, NULL
+	NULL, NULL, NULL, NULL,
 };
 
 PyObject *BPY_operator_module(void)

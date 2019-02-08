@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -20,11 +18,9 @@
  *
  * The Original Code is: some of this file.
  *
- * ***** END GPL LICENSE BLOCK *****
  * */
 
-/** \file blender/blenlib/intern/math_vector_inline.c
- *  \ingroup bli
+/** \file \ingroup bli
  */
 
 #ifndef __MATH_VECTOR_INLINE_C__
@@ -66,6 +62,13 @@ MINLINE void copy_v3_v3(float r[3], const float a[3])
 	r[0] = a[0];
 	r[1] = a[1];
 	r[2] = a[2];
+}
+
+MINLINE void copy_v3fl_v3s(float r[3], const short a[3])
+{
+	r[0] = (float)a[0];
+	r[1] = (float)a[1];
+	r[2] = (float)a[2];
 }
 
 MINLINE void copy_v4_v4(float r[4], const float a[4])
@@ -142,12 +145,6 @@ MINLINE void copy_v4_v4_char(char r[4], const char a[4])
 }
 
 /* short */
-MINLINE void zero_v3_int(int r[3])
-{
-	r[0] = 0;
-	r[1] = 0;
-	r[2] = 0;
-}
 
 MINLINE void copy_v2_v2_short(short r[2], const short a[2])
 {
@@ -171,6 +168,13 @@ MINLINE void copy_v4_v4_short(short r[4], const short a[4])
 }
 
 /* int */
+MINLINE void zero_v3_int(int r[3])
+{
+	r[0] = 0;
+	r[1] = 0;
+	r[2] = 0;
+}
+
 MINLINE void copy_v2_v2_int(int r[2], const int a[2])
 {
 	r[0] = a[0];
@@ -185,6 +189,35 @@ MINLINE void copy_v3_v3_int(int r[3], const int a[3])
 }
 
 MINLINE void copy_v4_v4_int(int r[4], const int a[4])
+{
+	r[0] = a[0];
+	r[1] = a[1];
+	r[2] = a[2];
+	r[3] = a[3];
+}
+
+/* double */
+MINLINE void zero_v3_db(double r[3])
+{
+	r[0] = 0.0;
+	r[1] = 0.0;
+	r[2] = 0.0;
+}
+
+MINLINE void copy_v2_v2_db(double r[2], const double a[2])
+{
+	r[0] = a[0];
+	r[1] = a[1];
+}
+
+MINLINE void copy_v3_v3_db(double r[3], const double a[3])
+{
+	r[0] = a[0];
+	r[1] = a[1];
+	r[2] = a[2];
+}
+
+MINLINE void copy_v4_v4_db(double r[4], const double a[4])
 {
 	r[0] = a[0];
 	r[1] = a[1];
@@ -348,6 +381,20 @@ MINLINE void add_v3_v3v3(float r[3], const float a[3], const float b[3])
 	r[2] = a[2] + b[2];
 }
 
+MINLINE void add_v3fl_v3fl_v3i(float r[3], const float a[3], const int b[3])
+{
+	r[0] = a[0] + (float)b[0];
+	r[1] = a[1] + (float)b[1];
+	r[2] = a[2] + (float)b[2];
+}
+
+MINLINE void add_v3fl_v3fl_v3s(float r[3], const float a[3], const short b[3])
+{
+	r[0] = a[0] + (float)b[0];
+	r[1] = a[1] + (float)b[1];
+	r[2] = a[2] + (float)b[2];
+}
+
 MINLINE void add_v4_v4(float r[4], const float a[4])
 {
 	r[0] += a[0];
@@ -394,6 +441,20 @@ MINLINE void sub_v3_v3v3(float r[3], const float a[3], const float b[3])
 	r[0] = a[0] - b[0];
 	r[1] = a[1] - b[1];
 	r[2] = a[2] - b[2];
+}
+
+MINLINE void sub_v3_v3v3_int(int r[3], const int a[3], const int b[3])
+{
+	r[0] = a[0] - b[0];
+	r[1] = a[1] - b[1];
+	r[2] = a[2] - b[2];
+}
+
+MINLINE void sub_v3db_v3fl_v3fl(double r[3], const float a[3], const float b[3])
+{
+	r[0] = (double)a[0] - (double)b[0];
+	r[1] = (double)a[1] - (double)b[1];
+	r[2] = (double)a[2] - (double)b[2];
 }
 
 MINLINE void sub_v4_v4(float r[4], const float a[4])
@@ -590,6 +651,13 @@ MINLINE void madd_v3_v3v3v3(float r[3], const float a[3], const float b[3], cons
 	r[0] = a[0] + b[0] * c[0];
 	r[1] = a[1] + b[1] * c[1];
 	r[2] = a[2] + b[2] * c[2];
+}
+
+MINLINE void madd_v3fl_v3fl_v3fl_v3i(float r[3], const float a[3], const float b[3], const int c[3])
+{
+	r[0] = a[0] + b[0] * (float)c[0];
+	r[1] = a[1] + b[1] * (float)c[1];
+	r[2] = a[2] + b[2] * (float)c[2];
 }
 
 MINLINE void madd_v4_v4fl(float r[4], const float a[4], float f)

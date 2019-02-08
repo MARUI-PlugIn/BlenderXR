@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,14 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Blender Foundation (2009), Joshua Leung
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/makesrna/intern/rna_nla.c
- *  \ingroup RNA
+/** \file \ingroup RNA
  */
 
 #include <stdlib.h>
@@ -488,13 +481,17 @@ static void rna_NlaTrack_solo_set(PointerRNA *ptr, bool value)
 /* enum defines exported for rna_animation.c */
 const EnumPropertyItem rna_enum_nla_mode_blend_items[] = {
 	{NLASTRIP_MODE_REPLACE, "REPLACE", 0, "Replace",
-	                        "Result strip replaces the accumulated results by amount specified by influence"},
+	                        "The strip values replace the accumulated results by amount specified by influence"},
+	{NLASTRIP_MODE_COMBINE, "COMBINE", 0, "Combine",
+	                        "The strip values are combined with accumulated results by appropriately using addition, "
+	                        "multiplication, or quaternion math, based on channel type"},
+	{0, "", 0, NULL, NULL},
 	{NLASTRIP_MODE_ADD, "ADD", 0, "Add", "Weighted result of strip is added to the accumulated results"},
 	{NLASTRIP_MODE_SUBTRACT, "SUBTRACT", 0, "Subtract",
 	                         "Weighted result of strip is removed from the accumulated results"},
 	{NLASTRIP_MODE_MULTIPLY, "MULTIPLY", 0, "Multiply",
 	                         "Weighted result of strip is multiplied with the accumulated results"},
-	{0, NULL, 0, NULL, NULL}
+	{0, NULL, 0, NULL, NULL},
 };
 
 const EnumPropertyItem rna_enum_nla_mode_extend_items[] = {
@@ -502,7 +499,7 @@ const EnumPropertyItem rna_enum_nla_mode_extend_items[] = {
 	{NLASTRIP_EXTEND_HOLD, "HOLD", 0, "Hold",
 	                       "Hold the first frame if no previous strips in track, and always hold last frame"},
 	{NLASTRIP_EXTEND_HOLD_FORWARD, "HOLD_FORWARD", 0, "Hold Forward", "Only hold last frame"},
-	{0, NULL, 0, NULL, NULL}
+	{0, NULL, 0, NULL, NULL},
 };
 
 static void rna_def_strip_fcurves(BlenderRNA *brna, PropertyRNA *cprop)
@@ -541,7 +538,7 @@ static void rna_def_nlastrip(BlenderRNA *brna)
 		{NLASTRIP_TYPE_TRANSITION, "TRANSITION", 0, "Transition", "NLA Strip 'transitions' between adjacent strips"},
 		{NLASTRIP_TYPE_META, "META", 0, "Meta", "NLA Strip acts as a container for adjacent strips"},
 		{NLASTRIP_TYPE_SOUND, "SOUND", 0, "Sound Clip", "NLA Strip representing a sound event for speakers"},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	/* struct definition */
@@ -721,7 +718,7 @@ static void rna_def_nlastrip(BlenderRNA *brna)
 
 	prop = RNA_def_property(srna, "mute", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", NLASTRIP_FLAG_MUTED);
-	RNA_def_property_ui_text(prop, "Muted", "NLA Strip is not evaluated");
+	RNA_def_property_ui_text(prop, "Muted", "Disable NLA Strip evaluation");
 	RNA_def_property_update(prop, NC_ANIMATION | ND_NLA | NA_EDITED, "rna_NlaStrip_update");
 
 	prop = RNA_def_property(srna, "use_reverse", PROP_BOOLEAN, PROP_NONE);
@@ -818,7 +815,7 @@ static void rna_def_nlatrack(BlenderRNA *brna)
 
 	prop = RNA_def_property(srna, "mute", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", NLATRACK_MUTED);
-	RNA_def_property_ui_text(prop, "Muted", "NLA Track is not evaluated");
+	RNA_def_property_ui_text(prop, "Muted", "Disable NLA Track evaluation");
 	RNA_def_property_update(prop, NC_ANIMATION | ND_NLA | NA_EDITED, "rna_NlaStrip_update");
 
 	prop = RNA_def_property(srna, "lock", PROP_BOOLEAN, PROP_NONE);

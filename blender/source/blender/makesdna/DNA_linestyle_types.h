@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,19 +15,12 @@
  *
  * The Original Code is Copyright (C) 2010 Blender Foundation.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
 #ifndef __DNA_LINESTYLE_TYPES_H__
 #define __DNA_LINESTYLE_TYPES_H__
 
-/** \file DNA_linestyle_types.h
- *  \ingroup DNA
+/** \file \ingroup DNA
  */
 
 #include "DNA_listBase.h"
@@ -52,7 +43,8 @@ struct bNodeTree;
 typedef struct LineStyleModifier {
 	struct LineStyleModifier *next, *prev;
 
-	char name[64]; /* MAX_NAME */
+	/** MAX_NAME. */
+	char name[64];
 	int type;
 	float influence;
 	int flags;
@@ -383,7 +375,8 @@ typedef struct LineStyleGeometryModifier_PerlinNoise1D {
 	struct LineStyleModifier modifier;
 
 	float frequency, amplitude;
-	float angle; /* in radians! */
+	/** In radians!. */
+	float angle;
 	unsigned int octaves;
 	int seed;
 	int pad1;
@@ -393,7 +386,8 @@ typedef struct LineStyleGeometryModifier_PerlinNoise2D {
 	struct LineStyleModifier modifier;
 
 	float frequency, amplitude;
-	float angle; /* in radians! */
+	/** In radians!. */
+	float angle;
 	unsigned int octaves;
 	int seed;
 	int pad1;
@@ -462,7 +456,8 @@ typedef struct LineStyleGeometryModifier_2DTransform {
 
 	int pivot;
 	float scale_x, scale_y;
-	float angle; /* in radians! */
+	/** In radians!. */
+	float angle;
 	float pivot_u;
 	float pivot_x, pivot_y;
 	int pad;
@@ -481,7 +476,8 @@ typedef struct LineStyleThicknessModifier_Calligraphy {
 	struct LineStyleModifier modifier;
 
 	float min_thickness, max_thickness;
-	float orientation; /* in radians! */
+	/** In radians!. */
+	float orientation;
 	int pad;
 } LineStyleThicknessModifier_Calligraphy;
 
@@ -551,7 +547,8 @@ typedef struct FreestyleLineStyle {
 	int chaining;
 	unsigned int rounds;
 	float split_length;
-	float min_angle, max_angle; /* in radians, for splitting */
+	/** In radians, for splitting. */
+	float min_angle, max_angle;
 	float min_length, max_length;
 	unsigned int chain_count;
 	unsigned short split_dash1, split_gap1;
@@ -562,8 +559,10 @@ typedef struct FreestyleLineStyle {
 	short texact, pr_texture;
 	short use_nodes, pad[3];
 	unsigned short dash1, gap1, dash2, gap2, dash3, gap3;
-	int panel; /* for UI */
-	struct MTex *mtex[18]; /* MAX_MTEX */
+	/** For UI. */
+	int panel;
+	/** MAX_MTEX. */
+	struct MTex *mtex[18];
 	/* nodes */
 	struct bNodeTree *nodetree;
 

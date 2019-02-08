@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,14 +15,9 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * Contributor(s): Blender Foundation, 2002-2009 full recode.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/armature/pose_transform.c
- *  \ingroup edarmature
+/** \file \ingroup edarmature
  */
 
 #include "DNA_anim_types.h"
@@ -45,7 +38,6 @@
 #include "BKE_blender_copybuffer.h"
 #include "BKE_context.h"
 #include "BKE_deform.h"
-#include "BKE_global.h"
 #include "BKE_idprop.h"
 #include "BKE_layer.h"
 #include "BKE_main.h"
@@ -72,7 +64,8 @@
 /* ********************************************** */
 /* Pose Apply */
 
-/* helper for apply_armature_pose2bones - fixes parenting of objects that are bone-parented to armature */
+/* helper for apply_armature_pose2bones - fixes parenting of objects
+ * that are bone-parented to armature */
 static void applyarmature_fix_boneparents(const bContext *C, Scene *scene, Object *armob)
 {
 	Depsgraph *depsgraph = CTX_data_depsgraph(C);
@@ -100,7 +93,8 @@ static int apply_armature_pose2bones_exec(bContext *C, wmOperator *op)
 	Main *bmain = CTX_data_main(C);
 	Depsgraph *depsgraph = CTX_data_depsgraph(C);
 	Scene *scene = CTX_data_scene(C);
-	Object *ob = BKE_object_pose_armature_get(CTX_data_active_object(C)); // must be active object, not edit-object
+	// must be active object, not edit-object
+	Object *ob = BKE_object_pose_armature_get(CTX_data_active_object(C));
 	const Object *ob_eval = DEG_get_evaluated_object(depsgraph, ob);
 	bArmature *arm = BKE_armature_from_object(ob);
 	bPose *pose;
@@ -111,7 +105,7 @@ static int apply_armature_pose2bones_exec(bContext *C, wmOperator *op)
 	if (ob->type != OB_ARMATURE)
 		return OPERATOR_CANCELLED;
 	if (BKE_object_obdata_is_libdata(ob)) {
-		BKE_report(op->reports, RPT_ERROR, "Cannot apply pose to lib-linked armature"); /* error_libdata(); */
+		BKE_report(op->reports, RPT_ERROR, "Cannot apply pose to lib-linked armature");
 		return OPERATOR_CANCELLED;
 	}
 
@@ -745,7 +739,8 @@ static void pchan_clear_rot(bPoseChannel *pchan)
 		}
 	}
 
-	/* Clear also Bendy Bone stuff - Roll is obvious, but Curve X/Y stuff is also kindof rotational in nature... */
+	/* Clear also Bendy Bone stuff - Roll is obvious,
+	 * but Curve X/Y stuff is also kindof rotational in nature... */
 	pchan->roll1 = 0.0f;
 	pchan->roll2 = 0.0f;
 

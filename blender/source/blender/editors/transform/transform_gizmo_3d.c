@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,12 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/transform/transform_gizmo_3d.c
- *  \ingroup edtransform
+/** \file \ingroup edtransform
  *
  * \name 3D Transform Gizmo
  *
@@ -58,8 +53,6 @@
 #include "BKE_scene.h"
 #include "BKE_workspace.h"
 #include "BKE_object.h"
-
-#include "BIF_gl.h"
 
 #include "DEG_depsgraph.h"
 
@@ -1088,7 +1081,7 @@ int ED_transform_calc_gizmo_stats(
 		if (base && ((base->flag & BASE_SELECTED) == 0)) ob = NULL;
 
 		for (base = view_layer->object_bases.first; base; base = base->next) {
-			if (!TESTBASELIB(v3d, base)) {
+			if (!BASE_SELECTED_EDITABLE(v3d, base)) {
 				continue;
 			}
 			if (ob == NULL) {
@@ -1211,8 +1204,6 @@ static void gizmo_xform_message_subscribe(
         wmGizmoGroup *gzgroup, struct wmMsgBus *mbus,
         Scene *scene, bScreen *UNUSED(screen), ScrArea *UNUSED(sa), ARegion *ar, const void *type_fn)
 {
-	GizmoGroup *ggd = gzgroup->customdata;
-
 	/* Subscribe to view properties */
 	wmMsgSubscribeValue msg_sub_value_gz_tag_refresh = {
 		.owner = ar,
@@ -1237,7 +1228,20 @@ static void gizmo_xform_message_subscribe(
 		}
 	}
 
-	TransformOrientationSlot *orient_slot = BKE_scene_orientation_slot_get(scene, ggd->twtype_init);
+	int orient_flag = 0;
+	if (type_fn == TRANSFORM_GGT_gizmo) {
+		GizmoGroup *ggd = gzgroup->customdata;
+		orient_flag = ggd->twtype_init;
+	}
+	else if (type_fn == VIEW3D_GGT_xform_cage) {
+		orient_flag = SCE_GIZMO_SHOW_SCALE;
+		/* pass */
+	}
+	else if (type_fn == VIEW3D_GGT_xform_shear) {
+		orient_flag = SCE_GIZMO_SHOW_ROTATE;
+	}
+
+	TransformOrientationSlot *orient_slot = BKE_scene_orientation_slot_get(scene, orient_flag);
 	PointerRNA orient_ref_ptr;
 	RNA_pointer_create(&scene->id, &RNA_TransformOrientationSlot, orient_slot, &orient_ref_ptr);
 	{
@@ -1258,9 +1262,12 @@ static void gizmo_xform_message_subscribe(
 	RNA_pointer_create(&scene->id, &RNA_ToolSettings, scene->toolsettings, &toolsettings_ptr);
 
 	if (type_fn == TRANSFORM_GGT_gizmo) {
+		GizmoGroup *ggd = gzgroup->customdata;
 		extern PropertyRNA rna_ToolSettings_transform_pivot_point;
+		extern PropertyRNA rna_ToolSettings_use_gizmo_mode;
 		const PropertyRNA *props[] = {
 			&rna_ToolSettings_transform_pivot_point,
+			ggd->use_twtype_refresh ? &rna_ToolSettings_use_gizmo_mode : NULL,
 		};
 		for (int i = 0; i < ARRAY_SIZE(props); i++) {
 			WM_msg_subscribe_rna(mbus, &toolsettings_ptr, props[i], &msg_sub_value_gz_tag_refresh, __func__);
@@ -1895,7 +1902,7 @@ void TRANSFORM_GGT_gizmo(wmGizmoGroupType *gzgt)
 		{SCE_GIZMO_SHOW_ROTATE, "ROTATE", 0, "Rotate", ""},
 		{SCE_GIZMO_SHOW_SCALE, "SCALE", 0, "Scale", ""},
 		{0, "NONE", 0, "None", ""},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 	RNA_def_enum(gzgt->srna, "drag_action", rna_enum_gizmo_items, SCE_GIZMO_SHOW_TRANSLATE, "Drag Action", "");
 }
@@ -2157,15 +2164,20 @@ static void WIDGETGROUP_xform_shear_setup(const bContext *UNUSED(C), wmGizmoGrou
 
 static void WIDGETGROUP_xform_shear_refresh(const bContext *C, wmGizmoGroup *gzgroup)
 {
+	Scene *scene = CTX_data_scene(C);
 	ARegion *ar = CTX_wm_region(C);
 	RegionView3D *rv3d = ar->regiondata;
 
 	struct XFormShearWidgetGroup *xgzgroup = gzgroup->customdata;
 	struct TransformBounds tbounds;
 
+	const TransformOrientationSlot *orient_slot = BKE_scene_orientation_slot_get(scene, SCE_GIZMO_SHOW_ROTATE);
+
 	if (ED_transform_calc_gizmo_stats(
 	            C, &(struct TransformCalcParams) {
 	                .use_local_axis = false,
+	                .orientation_type = orient_slot->type + 1,
+	                .orientation_index_custom = orient_slot->index_custom,
 	            }, &tbounds) == 0)
 	{
 		for (int i = 0; i < 3; i++) {
@@ -2246,7 +2258,8 @@ static void WIDGETGROUP_xform_shear_draw_prepare(const bContext *C, wmGizmoGroup
 		LISTBASE_FOREACH (wmGizmo *, gz, &gzgroup->gizmos) {
 			/* Since we have two pairs of each axis,
 			 * bias the values so gizmos that are orthogonal to the view get priority.
-			 * This means we never default to shearing along the view axis in the case of an overlap. */
+			 * This means we never default to shearing along
+			 * the view axis in the case of an overlap. */
 			float axis_order[3], axis_bias[3];
 			copy_v3_v3(axis_order, gz->matrix_basis[2]);
 			copy_v3_v3(axis_bias, gz->matrix_basis[1]);

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,12 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file button2d_gizmo.c
- *  \ingroup edgizmolib
+/** \file \ingroup edgizmolib
  *
  * \name Button Gizmo
  *
@@ -28,7 +23,6 @@
  * \brief Single click button action for use in gizmo groups.
  *
  * \note Currently only basic icon & vector-shape buttons are supported.
- *
  */
 
 #include "MEM_guardedalloc.h"
@@ -37,8 +31,6 @@
 
 #include "BKE_context.h"
 
-#include "BIF_gl.h"
-#include "BIF_glutil.h"
 
 #include "GPU_immediate.h"
 #include "GPU_immediate_util.h"
@@ -308,7 +300,7 @@ static void GIZMO_GT_button_2d(wmGizmoType *gzt)
 		{ED_GIZMO_BUTTON_SHOW_OUTLINE, "OUTLINE", 0, "Outline", ""},
 		{ED_GIZMO_BUTTON_SHOW_BACKDROP, "BACKDROP", 0, "Backdrop", ""},
 		{ED_GIZMO_BUTTON_SHOW_HELPLINE, "HELPLINE", 0, "Help Line", ""},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 	PropertyRNA *prop;
 

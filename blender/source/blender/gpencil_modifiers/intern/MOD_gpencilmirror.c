@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,15 +15,9 @@
  *
  * The Original Code is Copyright (C) 2018, Blender Foundation
  * This is a new part of Blender
- *
- * Contributor(s): Antonio Vazquez
- *
- * ***** END GPL LICENSE BLOCK *****
- *
  */
 
-/** \file blender/gpencil_modifiers/intern/MOD_gpencilmirror.c
- *  \ingroup modifiers
+/** \file \ingroup modifiers
  */
 
 #include <stdio.h>
@@ -40,7 +32,6 @@
 #include "BLI_math.h"
 #include "BLI_utildefines.h"
 
-#include "BKE_context.h"
 #include "BKE_deform.h"
 #include "BKE_gpencil.h"
 #include "BKE_gpencil_modifier.h"
@@ -84,24 +75,26 @@ static void update_position(Object *ob, MirrorGpencilModifierData *mmd, bGPDstro
 	clear[axis] = 1.0f;
 
 	float ob_origin[3];
-	float mirror_origin[3];
 	float pt_origin[3];
 
-	copy_v3_v3(ob_origin, ob->loc);
-	/* only works with current axis */
-	mul_v3_v3(ob_origin, clear);
-	zero_v3(mirror_origin);
-
 	if (mmd->object) {
-		mul_v3_v3v3(mirror_origin, mmd->object->loc, clear);
+		float inv_mat[4][4];
+
+		invert_m4_m4(inv_mat, mmd->object->obmat);
+		mul_v3_m4v3(ob_origin, inv_mat, ob->obmat[3]);
+	}
+	else {
+		copy_v3_v3(ob_origin, ob->obmat[3]);
 	}
 
-	/* clear other axis */
+	/* only works with current axis */
+	mul_v3_v3(ob_origin, clear);
+
+	mul_v3_v3fl(pt_origin, ob_origin, -2.0f);
+
 	for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
 		mul_v3_v3(&pt->x, factor);
 		if (mmd->object) {
-			sub_v3_v3v3(pt_origin, ob_origin, mirror_origin);
-			mul_v3_fl(pt_origin, -2.0f);
 			add_v3_v3(&pt->x, pt_origin);
 		}
 	}

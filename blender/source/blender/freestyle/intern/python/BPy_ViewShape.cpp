@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,12 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file source/blender/freestyle/intern/python/BPy_ViewShape.cpp
- *  \ingroup freestyle
+/** \file \ingroup freestyle
  */
 
 #include "BPy_ViewShape.h"
@@ -165,7 +160,7 @@ static PyObject *ViewShape_add_vertex(BPy_ViewShape *self, PyObject *args, PyObj
 static PyMethodDef BPy_ViewShape_methods[] = {
 	{"add_edge", (PyCFunction)ViewShape_add_edge, METH_VARARGS | METH_KEYWORDS, ViewShape_add_edge_doc},
 	{"add_vertex", (PyCFunction)ViewShape_add_vertex, METH_VARARGS | METH_KEYWORDS, ViewShape_add_vertex_doc},
-	{NULL, NULL, 0, NULL}
+	{NULL, NULL, 0, NULL},
 };
 
 /*----------------------ViewShape get/setters ----------------------------*/
@@ -293,7 +288,7 @@ PyDoc_STRVAR(ViewShape_name_doc,
 
 static PyObject *ViewShape_name_get(BPy_ViewShape *self, void *UNUSED(closure))
 {
-	return PyUnicode_FromString(self->vs->getName());
+	return PyUnicode_FromString(self->vs->getName().c_str());
 }
 
 PyDoc_STRVAR(ViewShape_library_path_doc,
@@ -303,10 +298,7 @@ PyDoc_STRVAR(ViewShape_library_path_doc,
 
 static PyObject *ViewShape_library_path_get(BPy_ViewShape *self, void *UNUSED(closure))
 {
-	const char *name = self->vs->getLibraryPath();
-	if (!name)
-		Py_RETURN_NONE;
-	return PyUnicode_FromString(name);
+	return PyUnicode_FromString(self->vs->getLibraryPath().c_str());
 }
 
 PyDoc_STRVAR(ViewShape_id_doc,

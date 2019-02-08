@@ -25448,7 +25448,7 @@ msgstr "用來過濾變換的方法"
 
 
 msgid "Translate"
-msgstr "平移"
+msgstr "翻譯"
 
 
 msgid "Wrapping"

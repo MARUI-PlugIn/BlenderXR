@@ -195,7 +195,7 @@ class NPFPGetSelection(bpy.types.Operator):
         NP020FP.selob = selob
         # De-selecting objects in prepare for other processes in the script:
         for ob in selob:
-            ob.select = False
+            ob.select_set(False)
         np_print('01_get_selection_END')
         return {'FINISHED'}
 
@@ -250,8 +250,8 @@ class NPFPAddPoints(bpy.types.Operator):
         end = bpy.context.object
         end.name = 'NP_FP_end'
         NP020FP.end = end
-        start.select = True
-        end.select = True
+        start.select_set(True)
+        end.select_set(True)
         bpy.context.tool_settings.use_snap = False
         bpy.context.tool_settings.snap_element = NP020FP.snap
         bpy.context.tool_settings.snap_target = 'ACTIVE'
@@ -268,7 +268,7 @@ def draw_callback_px_TRANS(self, context):
 
     np_print('04_callback_TRANS_START')
 
-    addon_prefs = context.user_preferences.addons[__package__].preferences
+    addon_prefs = context.preferences.addons[__package__].preferences
     point_markers = addon_prefs.npfp_point_markers
     point_size = addon_prefs.npfp_point_size
 
@@ -668,12 +668,12 @@ class NPFPRunTranslate(bpy.types.Operator):
             # PRESS is taken by transform.translate operator
             bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
             bpy.ops.object.select_all(action='DESELECT')
-            start.select = True
-            end.select = True
+            start.select_set(True)
+            end.select_set(True)
             bpy.ops.object.delete('EXEC_DEFAULT')
             if selob is not polyob:
                 for ob in selob:
-                    ob.select = True
+                    ob.select_set(True)
             else:
                 polyob.select = True
             NP020FP.startloc3d = (0.0, 0.0, 0.0)
@@ -690,7 +690,7 @@ class NPFPRunTranslate(bpy.types.Operator):
             bpy.context.tool_settings.snap_target = NP020FP.snap_target
             bpy.context.space_data.pivot_point = NP020FP.pivot_point
             if NP020FP.acob is not None:
-                bpy.context.scene.objects.active = NP020FP.acob
+                bpy.context.view_layer.objects.active = NP020FP.acob
                 bpy.ops.object.mode_set(mode=NP020FP.edit_mode)
             np_print('04_run_TRANS_esc_right_CANCELLED')
 
@@ -699,12 +699,12 @@ class NPFPRunTranslate(bpy.types.Operator):
             # PRESS is taken by transform.translate operator
             bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
             bpy.ops.object.select_all(action='DESELECT')
-            start.select = True
-            end.select = True
+            start.select_set(True)
+            end.select_set(True)
             bpy.ops.object.delete('EXEC_DEFAULT')
             if selob is not polyob:
                 for ob in selob:
-                    ob.select = True
+                    ob.select_set(True)
             else:
                 polyob.select = True
             NP020FP.startloc3d = (0.0, 0.0, 0.0)
@@ -722,7 +722,7 @@ class NPFPRunTranslate(bpy.types.Operator):
             bpy.context.space_data.pivot_point = NP020FP.pivot_point
             bpy.context.space_data.transform_orientation = NP020FP.trans_orient
             if NP020FP.acob is not None:
-                bpy.context.scene.objects.active = NP020FP.acob
+                bpy.context.view_layer.objects.active = NP020FP.acob
                 bpy.ops.object.mode_set(mode=NP020FP.edit_mode)
             np_print('04_run_TRANS_esc_right_CANCELLED')
             return{'CANCELLED'}
@@ -757,7 +757,7 @@ def draw_callback_px_NAV(self, context):
 
     np_print('05_callback_NAV_START')
 
-    addon_prefs = context.user_preferences.addons[__package__].preferences
+    addon_prefs = context.preferences.addons[__package__].preferences
     point_markers = addon_prefs.npfp_point_markers
     point_size = addon_prefs.npfp_point_size
 
@@ -1176,12 +1176,12 @@ class NPFPRunNavigate(bpy.types.Operator):
             bpy.ops.object.select_all(action='DESELECT')
             start.hide = False
             end.hide = False
-            start.select = True
-            end.select = True
+            start.select_set(True)
+            end.select_set(True)
             bpy.ops.object.delete('EXEC_DEFAULT')
             if selob is not polyob:
                 for ob in selob:
-                    ob.select = True
+                    ob.select_set(True)
             else:
                 polyob.select = True
             NP020FP.startloc3d = (0.0, 0.0, 0.0)
@@ -1200,7 +1200,7 @@ class NPFPRunNavigate(bpy.types.Operator):
             bpy.context.space_data.transform_orientation = NP020FP.trans_orient
 
             if NP020FP.acob is not None:
-                bpy.context.scene.objects.active = NP020FP.acob
+                bpy.context.view_layer.objects.active = NP020FP.acob
                 bpy.ops.object.mode_set(mode=NP020FP.edit_mode)
             np_print('05_run_NAV_esc_right_any_CANCELLED')
             return{'CANCELLED'}
@@ -1255,7 +1255,7 @@ class NPFPChangePhase(bpy.types.Operator):
         NP020FP.startloc3d = startloc3d
         NP020FP.endloc3d = endloc3d
         bpy.ops.object.select_all(action='DESELECT')
-        end.select = True
+        end.select_set(True)
         NP020FP.snap = NP020FP.snap
         bpy.context.tool_settings.use_snap = False
         bpy.context.tool_settings.snap_element = NP020FP.snap
@@ -1275,7 +1275,7 @@ class NPFPMakeSegment(bpy.types.Operator):
     bl_options = {'INTERNAL'}
 
     def execute(self, context):
-        addon_prefs = context.user_preferences.addons[__package__].preferences
+        addon_prefs = context.preferences.addons[__package__].preferences
         wire = addon_prefs.npfp_wire
         smooth = addon_prefs.npfp_smooth  # is this used ?
         material = addon_prefs.npfp_material
@@ -1344,16 +1344,16 @@ class NPFPMakeSegment(bpy.types.Operator):
             polyob.select = True
             bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY')
             NP020FP.polyob = polyob
-        bpy.context.scene.objects.active = polyob
+        bpy.context.view_layer.objects.active = polyob
         bpy.ops.object.mode_set(mode='EDIT')
         bpy.ops.mesh.select_all(action='SELECT')
         bpy.ops.mesh.remove_doubles()
         bpy.ops.object.mode_set(mode='OBJECT')
-        bpy.context.scene.objects.active = end
+        bpy.context.view_layer.objects.active = end
         start.location = endloc3d
         end.location = endloc3d
         bpy.ops.object.select_all(action='DESELECT')
-        end.select = True
+        end.select_set(True)
         NP020FP.start = start
         NP020FP.end = end
         NP020FP.phase = 2
@@ -1378,7 +1378,7 @@ class NPFPDeletePoints(bpy.types.Operator):
     bl_options = {'INTERNAL'}
 
     def execute(self, context):
-        addon_prefs = context.user_preferences.addons[__package__].preferences  # is this used ?
+        addon_prefs = context.preferences.addons[__package__].preferences  # is this used ?
         dist = NP020FP.dist  # is this used ?
         polyob = NP020FP.polyob
         np_print('07_delete_points_START')
@@ -1389,12 +1389,12 @@ class NPFPDeletePoints(bpy.types.Operator):
         bpy.ops.object.select_all(action='DESELECT')
         start.hide = False
         end.hide = False
-        start.select = True
-        end.select = True
+        start.select_set(True)
+        end.select_set(True)
         bpy.ops.object.delete('EXEC_DEFAULT')
         if selob is not polyob:
             for ob in selob:
-                ob.select = True
+                ob.select_set(True)
         else:
             polyob.select = True
         NP020FP.startloc3d = (0.0, 0.0, 0.0)
@@ -1413,7 +1413,7 @@ class NPFPDeletePoints(bpy.types.Operator):
         bpy.context.space_data.pivot_point = NP020FP.pivot_point
         bpy.context.space_data.transform_orientation = NP020FP.trans_orient
         if NP020FP.acob is not None:
-            bpy.context.scene.objects.active = NP020FP.acob
+            bpy.context.view_layer.objects.active = NP020FP.acob
             bpy.ops.object.mode_set(mode=NP020FP.edit_mode)
         return {'FINISHED'}
 
@@ -1426,7 +1426,7 @@ class NPFPMakeSurface(bpy.types.Operator):
     bl_options = {'INTERNAL'}
 
     def execute(self, context):
-        addon_prefs = context.user_preferences.addons[__package__].preferences
+        addon_prefs = context.preferences.addons[__package__].preferences
         smooth = addon_prefs.npfp_smooth
         dist = NP020FP.dist  # is this used ?
         polyob = NP020FP.polyob
@@ -1452,7 +1452,7 @@ def draw_callback_px_NAVEX(self, context):
 
     np_print('08_callback_NAVEX_START')
 
-    addon_prefs = context.user_preferences.addons[__package__].preferences
+    addon_prefs = context.preferences.addons[__package__].preferences
 
     #scale = addon_prefs.npfp_scale  # is this used ?
     #badge = addon_prefs.npfp_badge
@@ -1797,7 +1797,7 @@ class NPFPRunNavEx(bpy.types.Operator):
             # XXX selob and polyob are undefined
             if selob is not polyob:
                 for ob in selob:
-                    ob.select = True
+                    ob.select_set(True)
             else:
                 polyob.select = True
 
@@ -1816,7 +1816,7 @@ class NPFPRunNavEx(bpy.types.Operator):
             bpy.context.space_data.pivot_point = NP020FP.pivot_point
             bpy.context.space_data.transform_orientation = NP020FP.trans_orient
             if NP020FP.acob is not None:
-                bpy.context.scene.objects.active = NP020FP.acob
+                bpy.context.view_layer.objects.active = NP020FP.acob
                 bpy.ops.object.mode_set(mode=NP020FP.edit_mode)
             np_print('05_run_NAVEX_esc_right_any_CANCELLED')
             return{'CANCELLED'}
@@ -1847,7 +1847,7 @@ def draw_callback_px_EXTRUDE(self, context):
 
     np_print('10_callback_EXTRUDE_START')
 
-    addon_prefs = context.user_preferences.addons[__package__].preferences
+    addon_prefs = context.preferences.addons[__package__].preferences
     #scale = addon_prefs.npfp_scale
     #badge = addon_prefs.npfp_badge  # is this used ?
     #point_size = addon_prefs.npfp_point_size  # is this used ?
@@ -2140,7 +2140,7 @@ class NPFPRunExtrude(bpy.types.Operator):
             bpy.ops.object.select_all(action='DESELECT')
             if selob is not polyob:
                 for ob in selob:
-                    ob.select = True
+                    ob.select_set(True)
             else:
                 polyob.select = True
             NP020FP.startloc3d = (0.0, 0.0, 0.0)
@@ -2158,7 +2158,7 @@ class NPFPRunExtrude(bpy.types.Operator):
             bpy.context.space_data.pivot_point = NP020FP.pivot_point
             bpy.context.space_data.transform_orientation = NP020FP.trans_orient
             if NP020FP.acob is not None:
-                bpy.context.scene.objects.active = NP020FP.acob
+                bpy.context.view_layer.objects.active = NP020FP.acob
                 bpy.ops.object.mode_set(mode=NP020FP.edit_mode)
             np_print('10_run_EXTRUDE_space_FINISHED_flag_TRANSLATE')
             return{'FINISHED'}
@@ -2174,7 +2174,7 @@ class NPFPRunExtrude(bpy.types.Operator):
             bpy.ops.object.select_all(action='DESELECT')
             if selob is not polyob:
                 for ob in selob:
-                    ob.select = True
+                    ob.select_set(True)
             else:
                 polyob.select = True
             NP020FP.startloc3d = (0.0, 0.0, 0.0)
@@ -2192,7 +2192,7 @@ class NPFPRunExtrude(bpy.types.Operator):
             bpy.context.space_data.pivot_point = NP020FP.pivot_point
             bpy.context.space_data.transform_orientation = NP020FP.trans_orient
             if NP020FP.acob is not None:
-                bpy.context.scene.objects.active = NP020FP.acob
+                bpy.context.view_layer.objects.active = NP020FP.acob
                 bpy.ops.object.mode_set(mode=NP020FP.edit_mode)
             np_print('10_run_EXTRUDE_space_CANCELLED_flag_TRANSLATE')
             return{'CANCELLED'}
@@ -2212,7 +2212,7 @@ class NPFPRunExtrude(bpy.types.Operator):
             if context.area.type == 'VIEW_3D':
                 if bpy.context.mode == 'OBJECT':
                     bpy.ops.object.select_all(action='DESELECT')
-                    bpy.context.scene.objects.active = polyob
+                    bpy.context.view_layer.objects.active = polyob
                     polyob.select = True
                     bpy.ops.object.mode_set(mode='EDIT')
                     polyme = polyob.data
@@ -2274,7 +2274,7 @@ class NPFPRunBevel(bpy.types.Operator):
             bpy.ops.object.select_all(action='DESELECT')
             if selob is not polyob:
                 for ob in selob:
-                    ob.select = True
+                    ob.select_set(True)
             else:
                 polyob.select = True
             NP020FP.startloc3d = (0.0, 0.0, 0.0)
@@ -2291,7 +2291,7 @@ class NPFPRunBevel(bpy.types.Operator):
             bpy.context.space_data.pivot_point = NP020FP.pivot_point
             bpy.context.space_data.transform_orientation = NP020FP.trans_orient
             if NP020FP.acob is not None:
-                bpy.context.scene.objects.active = NP020FP.acob
+                bpy.context.view_layer.objects.active = NP020FP.acob
                 bpy.ops.object.mode_set(mode=NP020FP.edit_mode)
             np_print('10_run_EXTRUDE_left_release_FINISHED')
             return{'FINISHED'}
@@ -2304,7 +2304,7 @@ class NPFPRunBevel(bpy.types.Operator):
             bpy.ops.object.select_all(action='DESELECT')
             if selob is not polyob:
                 for ob in selob:
-                    ob.select = True
+                    ob.select_set(True)
             else:
                 polyob.select = True
             NP020FP.startloc3d = (0.0, 0.0, 0.0)
@@ -2322,7 +2322,7 @@ class NPFPRunBevel(bpy.types.Operator):
             bpy.context.space_data.pivot_point = NP020FP.pivot_point
             bpy.context.space_data.transform_orientation = NP020FP.trans_orient
             if NP020FP.acob is not None:
-                bpy.context.scene.objects.active = NP020FP.acob
+                bpy.context.view_layer.objects.active = NP020FP.acob
                 bpy.ops.object.mode_set(mode=NP020FP.edit_mode)
             np_print('11_run_BEVEL_esc_CANCELLED')
             return{'CANCELLED'}
@@ -2332,7 +2332,7 @@ class NPFPRunBevel(bpy.types.Operator):
 
     def invoke(self, context, event):
         np_print('11_run_BEVEL_INVOKE_a')
-        addon_prefs = context.user_preferences.addons[__package__].preferences
+        addon_prefs = context.preferences.addons[__package__].preferences
         bevel = addon_prefs.npfp_bevel
         selob = NP020FP.selob
         flag = NP020FP.flag
@@ -2341,7 +2341,7 @@ class NPFPRunBevel(bpy.types.Operator):
 
         if flag == 'BEVEL' and bevel:
             if context.area.type == 'VIEW_3D':
-                bpy.context.scene.objects.active = polyob
+                bpy.context.view_layer.objects.active = polyob
                 bpy.ops.mesh.select_all(action='SELECT')
                 args = (self, context)
                 NP020FP.main_BEVEL = 'DESIGNATE BEVEL AMOUNT'
@@ -2360,7 +2360,7 @@ class NPFPRunBevel(bpy.types.Operator):
             bpy.ops.object.select_all(action='DESELECT')
             if selob is not polyob:
                 for ob in selob:
-                    ob.select = True
+                    ob.select_set(True)
             else:
                 polyob.select = True
             NP020FP.startloc3d = (0.0, 0.0, 0.0)
@@ -2378,7 +2378,7 @@ class NPFPRunBevel(bpy.types.Operator):
             bpy.context.space_data.pivot_point = NP020FP.pivot_point
             bpy.context.space_data.transform_orientation = NP020FP.trans_orient
             if NP020FP.acob is not None:
-                bpy.context.scene.objects.active = NP020FP.acob
+                bpy.context.view_layer.objects.active = NP020FP.acob
                 bpy.ops.object.mode_set(mode=NP020FP.edit_mode)
             np_print('11_run_BEVEL_INVOKE_a_FINISHED')
             return {'FINISHED'}

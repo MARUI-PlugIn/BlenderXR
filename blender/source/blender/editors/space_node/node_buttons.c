@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,15 +15,9 @@
  *
  * The Original Code is Copyright (C) 2009 Blender Foundation.
  * All rights reserved.
- *
- *
- * Contributor(s): Blender Foundation
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/space_node/node_buttons.c
- *  \ingroup spnode
+/** \file \ingroup spnode
  */
 
 #include "MEM_guardedalloc.h"
@@ -150,14 +142,14 @@ static void node_tree_interface_panel(const bContext *C, Panel *pa)
 	ot = WM_operatortype_find("NODE_OT_tree_socket_add", false);
 	uiItemL(col, IFACE_("Inputs:"), ICON_NONE);
 	uiTemplateList(col, (bContext *)C, "NODE_UL_interface_sockets", "inputs", &ptr, "inputs", &ptr, "active_input",
-	               NULL, 0, 0, 0, 0, false);
+	               NULL, 0, 0, 0, 0, false, false);
 	uiItemFullO_ptr(col, ot, "", ICON_PLUS, NULL, WM_OP_EXEC_DEFAULT, 0, &opptr);
 	RNA_enum_set(&opptr, "in_out", SOCK_IN);
 
 	col = uiLayoutColumn(split, true);
 	uiItemL(col, IFACE_("Outputs:"), ICON_NONE);
 	uiTemplateList(col, (bContext *)C, "NODE_UL_interface_sockets", "outputs", &ptr, "outputs", &ptr, "active_output",
-	               NULL, 0, 0, 0, 0, false);
+	               NULL, 0, 0, 0, 0, false, false);
 	uiItemFullO_ptr(col, ot, "", ICON_PLUS, NULL, WM_OP_EXEC_DEFAULT, 0, &opptr);
 	RNA_enum_set(&opptr, "in_out", SOCK_OUT);
 

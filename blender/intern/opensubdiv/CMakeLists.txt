@@ -16,11 +16,6 @@
 #
 # The Original Code is Copyright (C) 2013, Blender Foundation
 # All rights reserved.
-#
-# The Original Code is: all of this file.
-#
-# Contributor(s): Sergey Sharybin.
-#
 # ***** END GPL LICENSE BLOCK *****
 
 set(INC
@@ -75,6 +70,7 @@ if(WITH_OPENSUBDIV)
 		internal/opensubdiv_converter_orient_impl.h
 		internal/opensubdiv_device_context_cuda.h
 		internal/opensubdiv_device_context_opencl.h
+		internal/opensubdiv_edge_map.h
 		internal/opensubdiv_evaluator_internal.h
 		internal/opensubdiv_gl_mesh_draw.h
 		internal/opensubdiv_gl_mesh_fvar.h

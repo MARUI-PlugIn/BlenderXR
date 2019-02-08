@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,20 +15,13 @@
  *
  * The Original Code is Copyright (C) 2017, Blender Foundation
  * This is a new part of Blender
- *
- * Contributor(s): Antonio Vazquez
- *
- * ***** END GPL LICENSE BLOCK *****
- *
  */
 
-/** \file blender/gpencil_modifiers/intern/MOD_gpencilnoise.c
- *  \ingroup modifiers
+/** \file \ingroup modifiers
  */
 
 #include <stdio.h>
 
-#include "BLI_blenlib.h"
 #include "BLI_utildefines.h"
 #include "BLI_math_vector.h"
 #include "BLI_rand.h"
@@ -43,8 +34,6 @@
 #include "DNA_gpencil_types.h"
 #include "DNA_gpencil_modifier_types.h"
 
-#include "BKE_context.h"
-#include "BKE_global.h"
 #include "BKE_deform.h"
 #include "BKE_gpencil.h"
 #include "BKE_gpencil_modifier.h"
@@ -96,8 +85,8 @@ static bool dependsOnTime(GpencilModifierData *md)
 
 /* aply noise effect based on stroke direction */
 static void deformStroke(
-        GpencilModifierData *md, Depsgraph *depsgraph,
-        Object *ob, bGPDlayer *gpl, bGPDstroke *gps)
+	GpencilModifierData *md, Depsgraph *depsgraph,
+	Object *ob, bGPDlayer *gpl, bGPDstroke *gps)
 {
 	NoiseGpencilModifierData *mmd = (NoiseGpencilModifierData *)md;
 	bGPDspoint *pt0, *pt1;
@@ -108,6 +97,7 @@ static void deformStroke(
 	int sc_frame = 0;
 	int sc_diff = 0;
 	const int def_nr = defgroup_name_index(ob, mmd->vgname);
+	const float unit_v3[3] = { 1.0f, 1.0f, 1.0f };
 
 	/* Random generator, only init once. */
 	if (mmd->rng == NULL) {
@@ -118,7 +108,7 @@ static void deformStroke(
 
 	if (!is_stroke_affected_by_modifier(
 	            ob,
-	            mmd->layername, mmd->pass_index, mmd->layer_pass, 3, gpl, gps,
+	            mmd->layername, mmd->pass_index, mmd->layer_pass, 1, gpl, gps,
 	            mmd->flag & GP_NOISE_INVERT_LAYER, mmd->flag & GP_NOISE_INVERT_PASS,
 	            mmd->flag & GP_NOISE_INVERT_LAYERPASS))
 	{
@@ -130,7 +120,12 @@ static void deformStroke(
 	zero_v3(vec2);
 
 	/* calculate stroke normal*/
-	BKE_gpencil_stroke_normal(gps, normal);
+	if (gps->totpoints > 2) {
+		BKE_gpencil_stroke_normal(gps, normal);
+	}
+	else {
+		copy_v3_v3(normal, unit_v3);
+	}
 
 	/* move points */
 	for (int i = 0; i < gps->totpoints; i++) {
@@ -138,13 +133,13 @@ static void deformStroke(
 			continue;
 		}
 
-		/* last point is special */
-		if (i == gps->totpoints) {
+		/* first point is special */
+		if (i == 0) {
 			if (gps->dvert) {
-				dvert = &gps->dvert[i - 2];
+				dvert = &gps->dvert[0];
 			}
-			pt0 = &gps->points[i - 2];
-			pt1 = &gps->points[i - 1];
+			pt0 = (gps->totpoints > 1) ? &gps->points[1] : &gps->points[0];
+			pt1 = &gps->points[0];
 		}
 		else {
 			int prev_idx = i - 1;
@@ -164,7 +159,12 @@ static void deformStroke(
 		}
 
 		/* initial vector (p0 -> p1) */
-		sub_v3_v3v3(vec1, &pt1->x, &pt0->x);
+		if (i == 0) {
+			sub_v3_v3v3(vec1, &pt0->x, &pt1->x);
+		}
+		else {
+			sub_v3_v3v3(vec1, &pt1->x, &pt0->x);
+		}
 		vran = len_v3(vec1);
 		/* vector orthogonal to normal */
 		cross_v3_v3v3(vec2, vec1, normal);
@@ -203,7 +203,14 @@ static void deformStroke(
 			mmd->gp_frame = -999999;
 		}
 
-		/* apply randomness to location of the point */
+		/* if vec2 is zero, set to something */
+		if (gps->totpoints < 3) {
+			if ((vec2[0] == 0.0f) && (vec2[1] == 0.0f) && (vec2[2] == 0.0f)) {
+				copy_v3_v3(vec2, unit_v3);
+			}
+		}
+
+			/* apply randomness to location of the point */
 		if (mmd->flag & GP_NOISE_MOD_LOCATION) {
 			/* factor is too sensitive, so need divide */
 			shift = ((vran * mmd->factor) / 1000.0f) * weight;
@@ -219,10 +226,10 @@ static void deformStroke(
 		/* apply randomness to thickness */
 		if (mmd->flag & GP_NOISE_MOD_THICKNESS) {
 			if (vdir > 0.5f) {
-				pt1->pressure -= pt1->pressure * vran * mmd->factor;
+				pt1->pressure -= pt1->pressure * vran * mmd->factor * weight;
 			}
 			else {
-				pt1->pressure += pt1->pressure * vran * mmd->factor;
+				pt1->pressure += pt1->pressure * vran * mmd->factor * weight;
 			}
 			CLAMP_MIN(pt1->pressure, GPENCIL_STRENGTH_MIN);
 		}
@@ -230,20 +237,20 @@ static void deformStroke(
 		/* apply randomness to color strength */
 		if (mmd->flag & GP_NOISE_MOD_STRENGTH) {
 			if (vdir > 0.5f) {
-				pt1->strength -= pt1->strength * vran * mmd->factor;
+				pt1->strength -= pt1->strength * vran * mmd->factor * weight;
 			}
 			else {
-				pt1->strength += pt1->strength * vran * mmd->factor;
+				pt1->strength += pt1->strength * vran * mmd->factor * weight;
 			}
 			CLAMP_MIN(pt1->strength, GPENCIL_STRENGTH_MIN);
 		}
 		/* apply randomness to uv rotation */
 		if (mmd->flag & GP_NOISE_MOD_UV) {
 			if (vdir > 0.5f) {
-				pt1->uv_rot -= pt1->uv_rot * vran * mmd->factor;
+				pt1->uv_rot -= pt1->uv_rot * vran * mmd->factor * weight;
 			}
 			else {
-				pt1->uv_rot += pt1->uv_rot * vran * mmd->factor;
+				pt1->uv_rot += pt1->uv_rot * vran * mmd->factor * weight;
 			}
 			CLAMP(pt1->uv_rot, -M_PI_2, M_PI_2);
 		}

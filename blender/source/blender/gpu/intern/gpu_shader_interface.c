@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,19 +15,15 @@
  *
  * The Original Code is Copyright (C) 2016 by Mike Erwin.
  * All rights reserved.
- *
- * Contributor(s): Blender Foundation
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/gpu/intern/gpu_shader_interface.c
- *  \ingroup gpu
+/** \file \ingroup gpu
  *
  * GPU shader interface (C --> GLSL)
  */
 
 #include "MEM_guardedalloc.h"
+#include "BKE_global.h"
 
 #include "GPU_shader_interface.h"
 
@@ -41,6 +35,7 @@
 #include <string.h>
 
 #define DEBUG_SHADER_INTERFACE 0
+#define DEBUG_SHADER_UNIFORMS 0
 
 #if DEBUG_SHADER_INTERFACE
 #  include <stdio.h>
@@ -219,15 +214,15 @@ GPUShaderInterface *GPU_shaderinterface_create(int32_t program)
 	printf("GPUShaderInterface %p, program %d\n", shaderface, program);
 #endif
 
-	GLint max_attrib_name_len, attr_len;
-	glGetProgramiv(program, GL_ACTIVE_ATTRIBUTE_MAX_LENGTH, &max_attrib_name_len);
+	GLint max_attr_name_len, attr_len;
+	glGetProgramiv(program, GL_ACTIVE_ATTRIBUTE_MAX_LENGTH, &max_attr_name_len);
 	glGetProgramiv(program, GL_ACTIVE_ATTRIBUTES, &attr_len);
 
 	GLint max_ubo_name_len, ubo_len;
 	glGetProgramiv(program, GL_ACTIVE_UNIFORM_BLOCK_MAX_NAME_LENGTH, &max_ubo_name_len);
 	glGetProgramiv(program, GL_ACTIVE_UNIFORM_BLOCKS, &ubo_len);
 
-	const uint32_t name_buffer_len = attr_len * max_attrib_name_len + ubo_len * max_ubo_name_len;
+	const uint32_t name_buffer_len = attr_len * max_attr_name_len + ubo_len * max_ubo_name_len;
 	shaderface->name_buffer = MEM_mallocN(name_buffer_len, "name_buffer");
 
 	/* Attributes */
@@ -251,10 +246,10 @@ GPUShaderInterface *GPU_shaderinterface_create(int32_t program)
 
 		set_input_name(shaderface, input, name, name_len);
 
-		shader_input_to_bucket(input, shaderface->attrib_buckets);
+		shader_input_to_bucket(input, shaderface->attr_buckets);
 
 #if DEBUG_SHADER_INTERFACE
-		printf("attrib[%u] '%s' at location %d\n", i, name, input->location);
+		printf("attr[%u] '%s' at location %d\n", i, name, input->location);
 #endif
 	}
 	/* Uniform Blocks */
@@ -294,7 +289,7 @@ void GPU_shaderinterface_discard(GPUShaderInterface *shaderface)
 {
 	/* Free memory used by buckets and has entries. */
 	buckets_free(shaderface->uniform_buckets);
-	buckets_free(shaderface->attrib_buckets);
+	buckets_free(shaderface->attr_buckets);
 	buckets_free(shaderface->ubo_buckets);
 	/* Free memory used by name_buffer. */
 	MEM_freeN(shaderface->name_buffer);
@@ -311,12 +306,30 @@ void GPU_shaderinterface_discard(GPUShaderInterface *shaderface)
 
 const GPUShaderInput *GPU_shaderinterface_uniform(const GPUShaderInterface *shaderface, const char *name)
 {
-	/* TODO: Warn if we find a matching builtin, since these can be looked up much quicker. */
-	const GPUShaderInput *input = buckets_lookup(shaderface->uniform_buckets, shaderface->name_buffer, name);
+	return buckets_lookup(shaderface->uniform_buckets, shaderface->name_buffer, name);
+}
+
+const GPUShaderInput *GPU_shaderinterface_uniform_ensure(const GPUShaderInterface *shaderface, const char *name)
+{
+	const GPUShaderInput *input = GPU_shaderinterface_uniform(shaderface, name);
 	/* If input is not found add it so it's found next time. */
 	if (input == NULL) {
 		input = add_uniform((GPUShaderInterface *)shaderface, name);
+
+		if ((G.debug & G_DEBUG_GPU) && (input->location == -1)) {
+			fprintf(stderr, "GPUShaderInterface: Warning: Uniform '%s' not found!\n", name);
+		}
 	}
+
+#if DEBUG_SHADER_UNIFORMS
+	if ((G.debug & G_DEBUG_GPU) &&
+	    input->builtin_type != GPU_UNIFORM_NONE &&
+	    input->builtin_type != GPU_UNIFORM_CUSTOM)
+	{
+		/* Warn if we find a matching builtin, since these can be looked up much quicker. */
+		fprintf(stderr, "GPUShaderInterface: Warning: Uniform '%s' is a builtin uniform but not queried as such!\n", name);
+	}
+#endif
 	return (input->location != -1) ? input : NULL;
 }
 
@@ -338,7 +351,7 @@ const GPUShaderInput *GPU_shaderinterface_ubo(const GPUShaderInterface *shaderfa
 
 const GPUShaderInput *GPU_shaderinterface_attr(const GPUShaderInterface *shaderface, const char *name)
 {
-	return buckets_lookup(shaderface->attrib_buckets, shaderface->name_buffer, name);
+	return buckets_lookup(shaderface->attr_buckets, shaderface->name_buffer, name);
 }
 
 void GPU_shaderinterface_add_batch_ref(GPUShaderInterface *shaderface, GPUBatch *batch)

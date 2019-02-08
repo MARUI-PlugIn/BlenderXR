@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,14 +15,9 @@
  *
  * The Original Code is Copyright (C) 2010 Blender Foundation.
  * All rights reserved.
- *
- * Contributor(s): Blender Foundation
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/space_info/info_draw.c
- *  \ingroup spinfo
+/** \file \ingroup spinfo
  */
 
 #include <math.h>
@@ -33,7 +26,6 @@
 #include <sys/stat.h>
 #include <limits.h>
 
-
 #include "BLI_utildefines.h"
 
 #include "DNA_space_types.h"
@@ -41,9 +33,6 @@
 
 // #include "BKE_suggestions.h"
 #include "BKE_report.h"
-
-#include "BIF_gl.h"
-
 
 #include "UI_resources.h"
 #include "UI_interface.h"

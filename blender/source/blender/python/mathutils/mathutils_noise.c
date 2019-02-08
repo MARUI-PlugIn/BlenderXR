@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,14 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): eeshlo, Campbell Barton
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/python/mathutils/mathutils_noise.c
- *  \ingroup mathutils
+/** \file \ingroup mathutils
  *
  * This file defines the 'noise' module, a general purpose module to access
  * blenders noise functions.
@@ -86,8 +79,6 @@
  * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- *
  * Any feedback is very welcome.
  * http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/emt.html
  * email: m-mat @ math.sci.hiroshima-u.ac.jp (remove space)
@@ -216,7 +207,7 @@ static PyC_FlagSet bpy_noise_types[] = {
 	{TEX_VORONOI_F2F1,    "VORONOI_F2F1"},
 	{TEX_VORONOI_CRACKLE, "VORONOI_CRACKLE"},
 	{TEX_CELLNOISE,       "CELLNOISE"},
-	{0, NULL}
+	{0, NULL},
 };
 
 /* Metric basis enum */
@@ -230,7 +221,7 @@ static PyC_FlagSet bpy_noise_metrics[] = {
 	{TEX_MINKOVSKY,        "MINKOVSKY"},
 	{TEX_MINKOVSKY_HALF,   "MINKOVSKY_HALF"},
 	{TEX_MINKOVSKY_FOUR,   "MINKOVSKY_FOUR"},
-	{0, NULL}
+	{0, NULL},
 };
 
 /* Fills an array of length size with random numbers in the range (-1, 1)*/
@@ -1044,7 +1035,7 @@ static PyMethodDef M_Noise_methods[] = {
 	{"voronoi", (PyCFunction) M_Noise_voronoi, METH_VARARGS | METH_KEYWORDS, M_Noise_voronoi_doc},
 	{"cell", (PyCFunction) M_Noise_cell, METH_VARARGS, M_Noise_cell_doc},
 	{"cell_vector", (PyCFunction) M_Noise_cell_vector, METH_VARARGS, M_Noise_cell_vector_doc},
-	{NULL, NULL, 0, NULL}
+	{NULL, NULL, 0, NULL},
 };
 
 static struct PyModuleDef M_Noise_module_def = {

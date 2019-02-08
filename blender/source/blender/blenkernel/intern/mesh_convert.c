@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,14 +12,12 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenkernel/intern/mesh_convert.c
- *  \ingroup bke
+/** \file \ingroup bke
  */
 
+#include "CLG_log.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -40,7 +36,6 @@
 
 #include "BKE_main.h"
 #include "BKE_DerivedMesh.h"
-#include "BKE_global.h"
 #include "BKE_key.h"
 #include "BKE_mesh.h"
 #include "BKE_mesh_runtime.h"
@@ -67,6 +62,8 @@
 #else
 #  define ASSERT_IS_VALID_MESH(mesh)
 #endif
+
+static CLG_LogRef LOG = {"bke.mesh_convert"};
 
 void BKE_mesh_from_metaball(ListBase *lb, Mesh *me)
 {
@@ -616,7 +613,7 @@ void BKE_mesh_from_nurbs_displist(
 	cu->mat = NULL;
 	cu->totcol = 0;
 
-	/* Do not decrement ob->data usercount here, it's done at end of func with BKE_libblock_free_us() call. */
+	/* Do not decrement ob->data usercount here, it's done at end of func with BKE_id_free_us() call. */
 	ob->data = me;
 	ob->type = OB_MESH;
 
@@ -637,11 +634,10 @@ void BKE_mesh_from_nurbs_displist(
 		/* For temporary objects in BKE_mesh_new_from_object don't remap
 		 * the entire scene with associated depsgraph updates, which are
 		 * problematic for renderers exporting data. */
-		id_us_min(&cu->id);
-		BKE_libblock_free(bmain, cu);
+		BKE_id_free(NULL, cu);
 	}
 	else {
-		BKE_libblock_free_us(bmain, cu);
+		BKE_id_free_us(bmain, cu);
 	}
 }
 
@@ -864,8 +860,7 @@ Mesh *BKE_mesh_new_from_object(
 
 			/* copies object and modifiers (but not the data) */
 			Object *tmpobj;
-			/* TODO: make it temp copy outside bmain! */
-			BKE_id_copy_ex(bmain, &ob->id, (ID **)&tmpobj, LIB_ID_COPY_CACHES | LIB_ID_CREATE_NO_DEG_TAG, false);
+			BKE_id_copy_ex(NULL, &ob->id, (ID **)&tmpobj, LIB_ID_COPY_LOCALIZE);
 			tmpcu = (Curve *)tmpobj->data;
 
 			/* Copy cached display list, it might be needed by the stack evaluation.
@@ -883,10 +878,10 @@ Mesh *BKE_mesh_new_from_object(
 
 			/* if getting the original caged mesh, delete object modifiers */
 			if (cage)
-				BKE_object_free_modifiers(tmpobj, 0);
+				BKE_object_free_modifiers(tmpobj, LIB_ID_CREATE_NO_USER_REFCOUNT);
 
-			/* copies the data */
-			BKE_id_copy_ex(bmain, ob->data, (ID **)&copycu, LIB_ID_CREATE_NO_DEG_TAG, false);
+			/* copies the data, but *not* the shapekeys. */
+			BKE_id_copy_ex(NULL, ob->data, (ID **)&copycu, LIB_ID_COPY_LOCALIZE);
 			tmpobj->data = copycu;
 
 			/* make sure texture space is calculated for a copy of curve,
@@ -911,8 +906,11 @@ Mesh *BKE_mesh_new_from_object(
 			/* convert object type to mesh */
 			uv_from_orco = (tmpcu->flag & CU_UV_ORCO) != 0;
 			BKE_mesh_from_nurbs_displist(bmain, tmpobj, &dispbase, uv_from_orco, tmpcu->id.name + 2, true);
+			/* Function above also frees copycu (aka tmpobj->data), make this obvious here. */
+			copycu = NULL;
 
 			tmpmesh = tmpobj->data;
+			id_us_min(&tmpmesh->id);  /* Gets one user from its creation in BKE_mesh_from_nurbs_displist(). */
 
 			BKE_displist_free(&dispbase);
 
@@ -920,11 +918,11 @@ Mesh *BKE_mesh_new_from_object(
 			 * if it didn't the curve did not have any segments or otherwise
 			 * would have generated an empty mesh */
 			if (tmpobj->type != OB_MESH) {
-				BKE_libblock_free(bmain, tmpobj);
+				BKE_id_free(NULL, tmpobj);
 				return NULL;
 			}
 
-			BKE_libblock_free(bmain, tmpobj);
+			BKE_id_free(NULL, tmpobj);
 
 			/* XXX The curve to mesh conversion is convoluted... But essentially, BKE_mesh_from_nurbs_displist()
 			 *     already transfers the ownership of materials from the temp copy of the Curve ID to the new
@@ -970,9 +968,9 @@ Mesh *BKE_mesh_new_from_object(
 		case OB_MESH:
 			/* copies object and modifiers (but not the data) */
 			if (cage) {
-				/* copies the data */
-				tmpmesh = BKE_mesh_copy(bmain, ob->data);
-
+				/* copies the data (but *not* the shapekeys). */
+				Mesh *mesh = ob->data;
+				BKE_id_copy_ex(bmain, &mesh->id, (ID **)&tmpmesh, 0);
 				/* XXX BKE_mesh_copy() already handles materials usercount. */
 				do_mat_id_data_us = false;
 			}
@@ -1088,9 +1086,8 @@ static void add_shapekey_layers(Mesh *mesh_dest, Mesh *mesh_src)
 
 	/* ensure we can use mesh vertex count for derived mesh custom data */
 	if (mesh_src->totvert != mesh_dest->totvert) {
-		fprintf(stderr,
-		        "%s: vertex size mismatch (mesh/dm) '%s' (%d != %d)\n",
-		        __func__, mesh_src->id.name + 2, mesh_src->totvert, mesh_dest->totvert);
+		CLOG_ERROR(&LOG, "vertex size mismatch (mesh/dm) '%s' (%d != %d)",
+		           mesh_src->id.name + 2, mesh_src->totvert, mesh_dest->totvert);
 		return;
 	}
 
@@ -1099,9 +1096,8 @@ static void add_shapekey_layers(Mesh *mesh_dest, Mesh *mesh_src)
 		float *array;
 
 		if (mesh_src->totvert != kb->totelem) {
-			fprintf(stderr,
-			        "%s: vertex size mismatch (Mesh '%s':%d != KeyBlock '%s':%d)\n",
-			        __func__, mesh_src->id.name + 2, mesh_src->totvert, kb->name, kb->totelem);
+			CLOG_ERROR(&LOG, "vertex size mismatch (Mesh '%s':%d != KeyBlock '%s':%d)",
+			        mesh_src->id.name + 2, mesh_src->totvert, kb->name, kb->totelem);
 			array = MEM_calloc_arrayN((size_t)mesh_src->totvert, 3 * sizeof(float), __func__);
 		}
 		else {
@@ -1144,13 +1140,7 @@ Mesh *BKE_mesh_create_derived_for_modifier(
 		float (*deformedVerts)[3] = BKE_mesh_vertexCos_get(me, &numVerts);
 
 		mti->deformVerts(md, &mectx, NULL, deformedVerts, numVerts);
-		BKE_id_copy_ex(
-		        NULL, &me->id, (ID **)&result,
-		        LIB_ID_CREATE_NO_MAIN |
-		        LIB_ID_CREATE_NO_USER_REFCOUNT |
-		        LIB_ID_CREATE_NO_DEG_TAG |
-		        LIB_ID_COPY_NO_PREVIEW,
-		        false);
+		BKE_id_copy_ex(NULL, &me->id, (ID **)&result, LIB_ID_COPY_LOCALIZE);
 		BKE_mesh_apply_vert_coords(result, deformedVerts);
 
 		if (build_shapekey_layers)
@@ -1160,13 +1150,7 @@ Mesh *BKE_mesh_create_derived_for_modifier(
 	}
 	else {
 		Mesh *mesh_temp;
-		BKE_id_copy_ex(
-		        NULL, &me->id, (ID **)&mesh_temp,
-		        LIB_ID_CREATE_NO_MAIN |
-		        LIB_ID_CREATE_NO_USER_REFCOUNT |
-		        LIB_ID_CREATE_NO_DEG_TAG |
-		        LIB_ID_COPY_NO_PREVIEW,
-		        false);
+		BKE_id_copy_ex(NULL, &me->id, (ID **)&mesh_temp, LIB_ID_COPY_LOCALIZE);
 
 		if (build_shapekey_layers)
 			add_shapekey_layers(mesh_temp, me);
@@ -1234,7 +1218,7 @@ static void shapekey_layers_to_keyblocks(Mesh *mesh_src, Mesh *mesh_dst, int act
 
 			kb->totelem = mesh_src->totvert;
 			kb->data = MEM_calloc_arrayN(kb->totelem, 3 * sizeof(float), __func__);
-			fprintf(stderr, "%s: lost a shapekey layer: '%s'! (bmesh internal error)\n", __func__, kb->name);
+			CLOG_ERROR(&LOG, "lost a shapekey layer: '%s'! (bmesh internal error)", kb->name);
 		}
 	}
 }
@@ -1292,8 +1276,7 @@ void BKE_mesh_nomain_to_mesh(Mesh *mesh_src, Mesh *mesh_dst, Object *ob, CustomD
 				uid = kb->uid;
 			}
 			else {
-				printf("%s: error - could not find active shapekey %d!\n",
-				       __func__, ob->shapenr - 1);
+				CLOG_ERROR(&LOG, "could not find active shapekey %d!", ob->shapenr - 1);
 
 				uid = INT_MAX;
 			}
@@ -1363,7 +1346,7 @@ void BKE_mesh_nomain_to_mesh(Mesh *mesh_src, Mesh *mesh_dst, Object *ob, CustomD
 	 * which should be fed through the modifier
 	 * stack */
 	if (tmp.totvert != mesh_dst->totvert && !did_shapekeys && mesh_dst->key) {
-		printf("%s: YEEK! this should be recoded! Shape key loss!: ID '%s'\n", __func__, tmp.id.name);
+		CLOG_ERROR(&LOG, "YEEK! this should be recoded! Shape key loss!: ID '%s'", tmp.id.name);
 		if (tmp.key && !(tmp.id.tag & LIB_TAG_NO_MAIN)) {
 			id_us_min(&tmp.key->id);
 		}

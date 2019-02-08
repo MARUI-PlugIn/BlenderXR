@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,19 +12,14 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
 #ifndef __FITCURVE_H__
 #define __FITCURVE_H__
 
-/** \file blender/freestyle/intern/geometry/FitCurve.h
- *  \ingroup freestyle
+/** \file \ingroup freestyle
  *  \brief An Algorithm for Automatically Fitting Digitized Curves by Philip J. Schneider,
  *  \brief from "Graphics Gems", Academic Press, 1990
- *  \author Stephane Grabli
- *  \date 06/06/2003
  */
 
 #include <vector>

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) Blender Foundation
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenkernel/intern/collision.c
- *  \ingroup bke
+/** \file \ingroup bke
  */
 
 
@@ -428,9 +419,9 @@ static void collision_compute_barycentric ( float pv[3], float p1[3], float p2[3
 	double tempV1[3], tempV2[3], tempV4[3];
 	double a, b, c, d, e, f;
 
-	VECSUB ( tempV1, p1, p3 );
-	VECSUB ( tempV2, p2, p3 );
-	VECSUB ( tempV4, pv, p3 );
+	sub_v3db_v3fl_v3fl(tempV1, p1, p3);
+	sub_v3db_v3fl_v3fl(tempV2, p2, p3);
+	sub_v3db_v3fl_v3fl(tempV4, pv, p3);
 
 	a = INPR ( tempV1, tempV1 );
 	b = INPR ( tempV1, tempV2 );
@@ -1064,13 +1055,15 @@ static bool cloth_bvh_objcollisions_nearcheck(ClothModifierData * clmd, Collisio
 {
 	*collisions = (CollPair *)MEM_mallocN(sizeof(CollPair) * numresult, "collision array");
 
-	ColDetectData data = {.clmd = clmd,
-	                      .collmd = collmd,
-	                      .overlap = overlap,
-	                      .collisions = *collisions,
-	                      .culling = culling,
-	                      .use_normal = use_normal,
-	                      .collided = false};
+	ColDetectData data = {
+		.clmd = clmd,
+		.collmd = collmd,
+		.overlap = overlap,
+		.collisions = *collisions,
+		.culling = culling,
+		.use_normal = use_normal,
+		.collided = false,
+	};
 
 	ParallelRangeSettings settings;
 	BLI_parallel_range_settings_defaults(&settings);
@@ -1083,10 +1076,12 @@ static bool cloth_bvh_objcollisions_nearcheck(ClothModifierData * clmd, Collisio
 static bool cloth_bvh_selfcollisions_nearcheck(ClothModifierData * clmd, CollPair *collisions,
                                                int numresult, BVHTreeOverlap *overlap)
 {
-	SelfColDetectData data = {.clmd = clmd,
-	                          .overlap = overlap,
-	                          .collisions = collisions,
-	                          .collided = false};
+	SelfColDetectData data = {
+		.clmd = clmd,
+		.overlap = overlap,
+		.collisions = collisions,
+		.collided = false,
+	};
 
 	ParallelRangeSettings settings;
 	BLI_parallel_range_settings_defaults(&settings);
@@ -1127,8 +1122,8 @@ static int cloth_bvh_objcollisions_resolve(ClothModifierData * clmd, Object **co
 			for (i = 0; i < mvert_num; i++) {
 				// calculate "velocities" (just xnew = xold + v; no dt in v)
 				if (verts[i].impulse_count) {
-					VECADD ( verts[i].tv, verts[i].tv, verts[i].impulse);
-					VECADD ( verts[i].dcvel, verts[i].dcvel, verts[i].impulse);
+					add_v3_v3(verts[i].tv, verts[i].impulse);
+					add_v3_v3(verts[i].dcvel, verts[i].impulse);
 					zero_v3(verts[i].impulse);
 					verts[i].impulse_count = 0;
 
@@ -1164,8 +1159,8 @@ static int cloth_bvh_selfcollisions_resolve(ClothModifierData * clmd, CollPair *
 			for (i = 0; i < mvert_num; i++) {
 				if (verts[i].impulse_count) {
 					// VECADDMUL ( verts[i].tv, verts[i].impulse, 1.0f / verts[i].impulse_count );
-					VECADD ( verts[i].tv, verts[i].tv, verts[i].impulse);
-					VECADD ( verts[i].dcvel, verts[i].dcvel, verts[i].impulse);
+					add_v3_v3(verts[i].tv, verts[i].impulse);
+					add_v3_v3(verts[i].dcvel, verts[i].impulse);
 					zero_v3(verts[i].impulse);
 					verts[i].impulse_count = 0;
 
@@ -1301,7 +1296,7 @@ int cloth_bvh_collision(Depsgraph *depsgraph, Object *ob, ClothModifierData *clm
 					}
 				}
 
-				VECADD(verts[i].tx, verts[i].txold, verts[i].tv);
+				add_v3_v3v3(verts[i].tx, verts[i].txold, verts[i].tv);
 			}
 		}
 
@@ -1568,7 +1563,7 @@ void cloth_find_point_contacts(Depsgraph *depsgraph, Object *ob, ClothModifierDa
 			}
 		}
 
-		VECADD(verts[i].tx, verts[i].txold, verts[i].tv);
+		add_v3_v3v3(verts[i].tx, verts[i].txold, verts[i].tv);
 	}
 	////////////////////////////////////////////////////////////
 

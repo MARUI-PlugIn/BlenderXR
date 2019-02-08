@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file DNA_effect_types.h
- *  \ingroup DNA
+/** \file \ingroup DNA
  */
 
 #ifndef __DNA_EFFECT_TYPES_H__
@@ -118,8 +109,10 @@ typedef struct PartEff {
 	short staticstep, omat, timetex, speedtex, flag2, flag2neg;
 	short disp, vertgroup_v;
 
-	char vgroupname[64], vgroupname_v[64];	/* MAX_VGROUP_NAME */
-	float imat[4][4];	/* inverse matrix of parent Object */
+	/** MAX_VGROUP_NAME. */
+	char vgroupname[64], vgroupname_v[64];
+	/** Inverse matrix of parent Object. */
+	float imat[4][4];
 
 	Particle *keys;
 	struct Collection *group;

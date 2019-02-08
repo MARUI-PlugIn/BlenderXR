@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,14 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributors:
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/render/intern/source/bake_api.c
- *  \ingroup render
+/** \file \ingroup render
  *
  * \brief The API itself is simple. Blender sends a populated array of BakePixels to the renderer, and gets back an
  * array of floats with the result.
@@ -360,7 +353,7 @@ static bool cast_ray_highpoly(
 		mul_v3_v3fl(dyco, duco_low, pixel_low->du_dy);
 		madd_v3_v3fl(dyco, dvco_low, pixel_low->dv_dy);
 
-		/* transform from low poly to to high poly object space */
+		/* transform from low poly to high poly object space */
 		mul_mat3_m4_v3(mat_low, dxco);
 		mul_mat3_m4_v3(mat_low, dyco);
 		mul_mat3_m4_v3(highpoly[hit_mesh].imat, dxco);
@@ -954,20 +947,11 @@ int RE_pass_depth(const eScenePassType pass_type)
 		{
 			return 2;
 		}
-		case SCE_PASS_RGBA:
-		{
-			return 4;
-		}
 		case SCE_PASS_COMBINED:
-		case SCE_PASS_DIFFUSE:
-		case SCE_PASS_SPEC:
 		case SCE_PASS_SHADOW:
-		case SCE_PASS_REFLECT:
 		case SCE_PASS_NORMAL:
 		case SCE_PASS_VECTOR:
-		case SCE_PASS_REFRACT:
 		case SCE_PASS_INDEXOB:  /* XXX double check */
-		case SCE_PASS_INDIRECT:
 		case SCE_PASS_RAYHITS:  /* XXX double check */
 		case SCE_PASS_EMIT:
 		case SCE_PASS_ENVIRONMENT:

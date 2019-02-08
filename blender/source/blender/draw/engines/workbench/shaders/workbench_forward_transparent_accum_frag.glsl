@@ -2,6 +2,7 @@
 uniform float ImageTransparencyCutoff = 0.1;
 uniform sampler2D image;
 uniform bool imageSrgb;
+uniform bool imageNearest;
 
 uniform mat4 ProjectionMatrix;
 uniform mat4 ViewMatrixInverse;
@@ -12,6 +13,11 @@ uniform vec4 viewvecs[3];
 uniform vec3 materialDiffuseColor;
 uniform vec3 materialSpecularColor;
 uniform float materialRoughness;
+
+uniform float shadowMultiplier = 0.5;
+uniform float lightMultiplier = 1.0;
+uniform float shadowShift = 0.1;
+uniform float shadowFocus = 1.0;
 
 #ifdef NORMAL_VIEWPORT_PASS_ENABLED
 in vec3 normal_viewport;
@@ -35,12 +41,9 @@ void main()
 	vec4 diffuse_color;
 
 #ifdef V3D_SHADING_TEXTURE_COLOR
-	diffuse_color = texture(image, uv_interp);
+	diffuse_color = workbench_sample_texture(image, uv_interp, imageSrgb, imageNearest);
 	if (diffuse_color.a < ImageTransparencyCutoff) {
 		discard;
-	}
-	if (imageSrgb) {
-		diffuse_color = srgb_to_linearrgb(diffuse_color);
 	}
 #else
 	diffuse_color = vec4(materialDiffuseColor, 1.0);
@@ -67,6 +70,12 @@ void main()
 	vec3 shaded_color = get_world_lighting(world_data,
 	                                       diffuse_color.rgb, materialSpecularColor, materialRoughness,
 	                                       nor, I_vs);
+#endif
+
+#ifdef V3D_SHADING_SHADOW
+	float light_factor = -dot(nor, world_data.shadow_direction_vs.xyz);
+	float shadow_mix = smoothstep(shadowFocus, shadowShift, light_factor);
+	shaded_color *= mix(lightMultiplier, shadowMultiplier, shadow_mix);
 #endif
 
 	/* Based on :

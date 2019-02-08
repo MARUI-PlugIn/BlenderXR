@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2011 Blender Foundation.
  * All rights reserved.
- *
- *
- * Contributor(s): Blender Foundation,
- *                 Sergey Sharybin
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/space_clip/clip_graph_ops.c
- *  \ingroup spclip
+/** \file \ingroup spclip
  */
 
 #include "DNA_scene_types.h"
@@ -241,7 +232,8 @@ static bool mouse_select_curve(bContext *C, float co[2], bool extend)
 	if (userdata.track) {
 		if (extend) {
 			if (act_track == userdata.track) {
-				/* currently only single curve can be selected (selected curve represents active track) */
+				/* currently only single curve can be selected
+				 * (selected curve represents active track) */
 				act_track = NULL;
 			}
 		}
@@ -706,7 +698,7 @@ void CLIP_OT_graph_disable_markers(wmOperatorType *ot)
 		{0, "DISABLE", 0, "Disable", "Disable selected markers"},
 		{1, "ENABLE", 0, "Enable", "Enable selected markers"},
 		{2, "TOGGLE", 0, "Toggle", "Toggle disabled flag for selected markers"},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	/* identifiers */

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2009 by Janne Karhu.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenkernel/intern/boids.c
- *  \ingroup bke
+/** \file \ingroup bke
  */
 
 
@@ -743,7 +734,7 @@ static boid_rule_cb boid_rules[] = {
 	//rule_protect,
 	//rule_hide,
 	//rule_follow_path,
-	//rule_follow_wall
+	//rule_follow_wall,
 };
 
 static void set_boid_values(BoidValues *val, BoidSettings *boids, ParticleData *pa)

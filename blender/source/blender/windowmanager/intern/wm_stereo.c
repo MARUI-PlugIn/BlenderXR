@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2015 by Blender Foundation
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): Dalai Felinto
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/windowmanager/intern/wm_stereo.c
- *  \ingroup wm
+/** \file \ingroup wm
  */
 
 
@@ -39,7 +30,6 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "BLI_listbase.h"
 #include "BLI_utildefines.h"
 
 #include "BIF_gl.h"
@@ -65,7 +55,7 @@
 #include "UI_interface.h"
 #include "UI_resources.h"
 
-static GPUInterlaceShader interlace_gpu_id_from_type(eStereo3dInterlaceType interlace_type)
+static eGPUInterlaceShader interlace_gpu_id_from_type(eStereo3dInterlaceType interlace_type)
 {
 	switch (interlace_type) {
 		case S3D_INTERLACE_ROW:

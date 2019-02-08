@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,14 +15,9 @@
  *
  * The Original Code is Copyright (C) 2009 Blender Foundation.
  * All rights reserved.
- *
- * Contributor(s): Blender Foundation, Joshua Leung
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/interface/interface_ops.c
- *  \ingroup edinterface
+/** \file \ingroup edinterface
  */
 
 #include <string.h>
@@ -408,7 +401,7 @@ static EnumPropertyItem override_type_items[] = {
 	{UIOverride_Type_Replace, "REPLACE", 0, "Replace", "Completely replace value from linked data by local one"},
 	{UIOverride_Type_Difference, "DIFFERENCE", 0, "Difference", "Store difference to linked data value"},
 	{UIOverride_Type_Factor, "FACTOR", 0, "Factor", "Store factor to linked data value (useful e.g. for scale)"},
-	{0, NULL, 0, NULL, NULL}
+	{0, NULL, 0, NULL, NULL},
 };
 
 
@@ -444,7 +437,8 @@ static int override_type_set_button_exec(bContext *C, wmOperator *op)
 			operation = IDOVERRIDESTATIC_OP_REPLACE;
 			break;
 		case UIOverride_Type_Difference:
-			operation = IDOVERRIDESTATIC_OP_ADD;  /* override code will automatically switch to subtract if needed. */
+			/* override code will automatically switch to subtract if needed. */
+			operation = IDOVERRIDESTATIC_OP_ADD;
 			break;
 		case UIOverride_Type_Factor:
 			operation = IDOVERRIDESTATIC_OP_MULTIPLY;
@@ -549,13 +543,15 @@ static int override_remove_button_exec(bContext *C, wmOperator *op)
 
 	if (!all && index != -1) {
 		bool is_strict_find;
-		/* Remove override operation for given item, add singular operations for the other items as needed. */
+		/* Remove override operation for given item,
+		 * add singular operations for the other items as needed. */
 		IDOverrideStaticPropertyOperation *opop = BKE_override_static_property_operation_find(
 		        oprop, NULL, NULL, index, index, false, &is_strict_find);
 		BLI_assert(opop != NULL);
 		if (!is_strict_find) {
 			/* No specific override operation, we have to get generic one,
-			 * and create item-specific override operations for all but given index, before removing generic one. */
+			 * and create item-specific override operations for all but given index,
+			 * before removing generic one. */
 			for (int idx = RNA_property_array_length(&ptr, prop); idx--; ) {
 				if (idx != index) {
 					BKE_override_static_property_operation_get(oprop, opop->operation, NULL, NULL, idx, idx, true, NULL, NULL);
@@ -735,7 +731,8 @@ bool UI_context_copy_to_selected_list(
 		}
 		else if (GS(id->name) == ID_SCE) {
 			/* Sequencer's ID is scene :/ */
-			/* Try to recursively find an RNA_Sequence ancestor, to handle situations like T41062... */
+			/* Try to recursively find an RNA_Sequence ancestor,
+			 * to handle situations like T41062... */
 			if ((*r_path = RNA_path_resolve_from_type_to_property(ptr, prop, &RNA_Sequence)) != NULL) {
 				*r_lb = CTX_data_collection_get(C, "selected_editable_sequences");
 			}
@@ -1345,7 +1342,7 @@ static int edittranslation_exec(bContext *C, wmOperator *op)
 		if (!BLI_is_dir(root)) {
 			BKE_report(
 			        op->reports, RPT_ERROR,
-			        "Please set your User Preferences' 'Translation Branches "
+			        "Please set your Preferences' 'Translation Branches "
 			        "Directory' path to a valid directory");
 			return OPERATOR_CANCELLED;
 		}
@@ -1626,7 +1623,6 @@ void ED_operatortypes_ui(void)
 
 	/* external */
 	WM_operatortype_append(UI_OT_eyedropper_color);
-	WM_operatortype_append(UI_OT_eyedropper_color_crypto);
 	WM_operatortype_append(UI_OT_eyedropper_colorband);
 	WM_operatortype_append(UI_OT_eyedropper_colorband_point);
 	WM_operatortype_append(UI_OT_eyedropper_id);

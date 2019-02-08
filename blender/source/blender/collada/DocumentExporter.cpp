@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,14 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Chingiz Dyussenov, Arystanbek Dyussenov, Jan Diederich, Tod Liverseed.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/collada/DocumentExporter.cpp
- *  \ingroup collada
+/** \file \ingroup collada
  */
 
 #include <stdlib.h>
@@ -243,12 +236,7 @@ int DocumentExporter::exportCurrentScene()
 
 	asset.setUnit(unitname, linearmeasure);
 	asset.setUpAxisType(COLLADASW::Asset::Z_UP);
-	if (U.author[0] != '\0') {
-		asset.getContributor().mAuthor = U.author;
-	}
-	else {
-		asset.getContributor().mAuthor = "Blender User";
-	}
+	asset.getContributor().mAuthor = "Blender User";
 	char version_buf[128];
 #ifdef WITH_BUILDINFO
 	BLI_snprintf(version_buf, sizeof(version_buf), "Blender %d.%02d.%d commit date:%s, commit time:%s, hash:%s",
@@ -340,5 +328,4 @@ void DocumentExporter::exportScenes(const char *filename)
  * NOTES:
  *
  * AnimationExporter::sample_animation enables all curves on armature, this is undesirable for a user
- *
  */

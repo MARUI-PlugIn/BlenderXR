@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,14 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Jörg Müller.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenkernel/intern/speaker.c
- *  \ingroup bke
+/** \file \ingroup bke
  */
 
 #include "DNA_object_types.h"
@@ -33,8 +26,6 @@
 
 #include "BKE_animsys.h"
 #include "BKE_library.h"
-#include "BKE_library_query.h"
-#include "BKE_library_remap.h"
 #include "BKE_main.h"
 #include "BKE_speaker.h"
 
@@ -69,7 +60,7 @@ void *BKE_speaker_add(Main *bmain, const char *name)
 
 /**
  * Only copy internal data of Speaker ID from source to already allocated/initialized destination.
- * You probably nerver want to use that directly, use id_copy or BKE_id_copy_ex for typical needs.
+ * You probably never want to use that directly, use BKE_id_copy or BKE_id_copy_ex for typical needs.
  *
  * WARNING! This function will not handle ID user count!
  *
@@ -83,7 +74,7 @@ void BKE_speaker_copy_data(Main *UNUSED(bmain), Speaker *UNUSED(spk_dst), const 
 Speaker *BKE_speaker_copy(Main *bmain, const Speaker *spk)
 {
 	Speaker *spk_copy;
-	BKE_id_copy_ex(bmain, &spk->id, (ID **)&spk_copy, 0, false);
+	BKE_id_copy(bmain, &spk->id, (ID **)&spk_copy);
 	return spk_copy;
 }
 

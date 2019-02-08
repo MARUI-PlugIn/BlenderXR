@@ -1,13 +1,34 @@
-
+/*
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * Copyright 2018, Blender Foundation.
+ */
 
 #include "workbench_private.h"
 
 #include "BIF_gl.h"
 
 #include "BKE_image.h"
+#include "BKE_node.h"
 
 #include "BLI_dynstr.h"
 #include "BLI_hash.h"
+
+#include "DNA_node_types.h"
+
+#include "ED_uvedit.h"
 
 #define HSV_SATURATION 0.5
 #define HSV_VALUE 0.8
@@ -105,6 +126,9 @@ char *workbench_material_build_defines(WORKBENCH_PrivateData *wpd, bool use_text
 	if (is_hair) {
 		BLI_dynstr_appendf(ds, "#define HAIR_SHADER\n");
 	}
+	if (wpd->world_clip_planes != NULL) {
+		BLI_dynstr_appendf(ds, "#define USE_WORLD_CLIP_PLANES\n");
+	}
 
 	str = BLI_dynstr_get_cstring(ds);
 	BLI_dynstr_free(ds);
@@ -149,6 +173,7 @@ int workbench_material_get_composite_shader_index(WORKBENCH_PrivateData *wpd)
 	SET_FLAG_FROM_TEST(index, wpd->shading.flag & V3D_SHADING_CAVITY, 1 << 3);
 	SET_FLAG_FROM_TEST(index, wpd->shading.flag & V3D_SHADING_OBJECT_OUTLINE, 1 << 4);
 	SET_FLAG_FROM_TEST(index, MATDATA_PASS_ENABLED(wpd), 1 << 5);
+	BLI_assert(index < MAX_COMPOSITE_SHADERS);
 	return index;
 }
 
@@ -163,6 +188,8 @@ int workbench_material_get_prepass_shader_index(
 	SET_FLAG_FROM_TEST(index, NORMAL_VIEWPORT_PASS_ENABLED(wpd), 1 << 3);
 	SET_FLAG_FROM_TEST(index, MATCAP_ENABLED(wpd), 1 << 4);
 	SET_FLAG_FROM_TEST(index, use_textures, 1 << 5);
+	SET_FLAG_FROM_TEST(index, wpd->world_clip_planes != NULL, 1 << 6);
+	BLI_assert(index < MAX_PREPASS_SHADERS);
 	return index;
 }
 
@@ -174,6 +201,9 @@ int workbench_material_get_accum_shader_index(WORKBENCH_PrivateData *wpd, bool u
 	index = SPECULAR_HIGHLIGHT_ENABLED(wpd) ? 3 : wpd->shading.light;
 	SET_FLAG_FROM_TEST(index, use_textures, 1 << 2);
 	SET_FLAG_FROM_TEST(index, is_hair, 1 << 3);
+	/* 1 bits SHADOWS (only facing factor) */
+	SET_FLAG_FROM_TEST(index, SHADOW_ENABLED(wpd), 1 << 4);
+	BLI_assert(index < MAX_ACCUM_SHADERS);
 	return index;
 }
 
@@ -186,9 +216,24 @@ int workbench_material_determine_color_type(WORKBENCH_PrivateData *wpd, Image *i
 	return color_type;
 }
 
+void workbench_material_get_image_and_mat(Object *ob, int mat_nr, Image **r_image, int *r_interp, Material **r_mat)
+{
+	bNode *node;
+	*r_mat = give_current_material(ob, mat_nr);
+	ED_object_get_active_image(ob, mat_nr, r_image, NULL, &node, NULL);
+	if (node) {
+		BLI_assert(node->type == SH_NODE_TEX_IMAGE);
+		NodeTexImage *storage = node->storage;
+		*r_interp = storage->interpolation;
+	}
+	else {
+		*r_interp = 0;
+	}
+}
+
 void workbench_material_shgroup_uniform(
         WORKBENCH_PrivateData *wpd, DRWShadingGroup *grp, WORKBENCH_MaterialData *material, Object *ob,
-        const bool use_metallic, const bool deferred)
+        const bool use_metallic, const bool deferred, const int interp)
 {
 	if (deferred && !MATDATA_PASS_ENABLED(wpd)) {
 		return;
@@ -201,6 +246,7 @@ void workbench_material_shgroup_uniform(
 		GPUTexture *tex = GPU_texture_from_blender(material->ima, NULL, GL_TEXTURE_2D, false, 0.0f);
 		DRW_shgroup_uniform_texture(grp, "image", tex);
 		DRW_shgroup_uniform_bool_copy(grp, "imageSrgb", do_color_correction);
+		DRW_shgroup_uniform_bool_copy(grp, "imageNearest", (interp == SHD_INTERP_CLOSEST));
 	}
 	else {
 		DRW_shgroup_uniform_vec3(grp, "materialDiffuseColor", (use_metallic) ? material->base_color : material->diffuse_color, 1);
@@ -214,6 +260,11 @@ void workbench_material_shgroup_uniform(
 			DRW_shgroup_uniform_vec3(grp, "materialSpecularColor", material->specular_color, 1);
 		}
 		DRW_shgroup_uniform_float(grp, "materialRoughness", &material->roughness, 1);
+	}
+
+	if (wpd->world_clip_planes != NULL) {
+		DRW_shgroup_uniform_vec4(grp, "WorldClipPlanes", wpd->world_clip_planes[0], 6);
+		DRW_shgroup_state_enable(grp, DRW_STATE_CLIP_PLANES);
 	}
 }
 

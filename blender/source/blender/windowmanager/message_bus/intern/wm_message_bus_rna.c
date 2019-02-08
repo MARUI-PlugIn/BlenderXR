@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,14 +12,10 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/windowmanager/message_bus/intern/wm_message_bus_rna.c
- *  \ingroup wm
+/** \file \ingroup wm
  */
-
 
 #include <stdio.h>
 
@@ -39,7 +33,6 @@
 #include "message_bus/intern/wm_message_bus_intern.h"
 
 #include "RNA_access.h"
-
 
 /* -------------------------------------------------------------------------- */
 
@@ -120,10 +113,15 @@ static void wm_msg_rna_update_by_id(
 
 			/* Remove any non-persistent values, so a single persistent
 			 * value doesn't modify behavior for the rest. */
-			wmMsgSubscribeValueLink *msg_lnk_next;
-			for (wmMsgSubscribeValueLink *msg_lnk = key->head.values.first; msg_lnk; msg_lnk = msg_lnk_next) {
+			for (wmMsgSubscribeValueLink *msg_lnk = key->head.values.first, *msg_lnk_next;
+			     msg_lnk;
+			     msg_lnk = msg_lnk_next)
+			{
 				msg_lnk_next = msg_lnk->next;
 				if (msg_lnk->params.is_persistent == false) {
+					if (msg_lnk->params.tag) {
+						mbus->messages_tag_count -= 1;
+					}
 					wm_msg_subscribe_value_free(&key->head, msg_lnk);
 				}
 			}
@@ -140,12 +138,14 @@ static void wm_msg_rna_update_by_id(
 				remove = false;
 			}
 			else {
-				/* we need to resolve this from the  */
+				/* We need to resolve this from the new ID pointer. */
 				PointerRNA idptr;
 				RNA_id_pointer_create(id_dst, &idptr);
 				PointerRNA ptr;
-				PropertyRNA *prop;
-				if (!RNA_path_resolve(&idptr, key->msg.params.data_path, &ptr, &prop)) {
+				PropertyRNA *prop = NULL;
+				if (RNA_path_resolve(&idptr, key->msg.params.data_path, &ptr, &prop) &&
+				    (prop == NULL) == (key->msg.params.prop == NULL))
+				{
 					key->msg.params.ptr = ptr;
 					key->msg.params.prop = prop;
 					remove = false;
@@ -153,6 +153,18 @@ static void wm_msg_rna_update_by_id(
 			}
 
 			if (remove) {
+				for (wmMsgSubscribeValueLink *msg_lnk = key->head.values.first, *msg_lnk_next;
+				     msg_lnk;
+				     msg_lnk = msg_lnk_next)
+				{
+					msg_lnk_next = msg_lnk->next;
+					if (msg_lnk->params.is_persistent == false) {
+						if (msg_lnk->params.tag) {
+							mbus->messages_tag_count -= 1;
+						}
+						wm_msg_subscribe_value_free(&key->head, msg_lnk);
+					}
+				}
 				/* Failed to persist, remove the key. */
 				BLI_remlink(&mbus->messages, key);
 				wm_msg_rna_gset_key_free(key);
@@ -176,6 +188,18 @@ static void wm_msg_rna_remove_by_id(struct wmMsgBus *mbus, const ID *id)
 		wmMsgSubscribeKey_RNA *key = BLI_gsetIterator_getKey(&gs_iter);
 		BLI_gsetIterator_step(&gs_iter);
 		if (key->msg.params.ptr.id.data == id) {
+			/* Clear here so we can decrement 'messages_tag_count'. */
+			for (wmMsgSubscribeValueLink *msg_lnk = key->head.values.first, *msg_lnk_next;
+			     msg_lnk;
+			     msg_lnk = msg_lnk_next)
+			{
+				msg_lnk_next = msg_lnk->next;
+				if (msg_lnk->params.tag) {
+					mbus->messages_tag_count -= 1;
+				}
+				wm_msg_subscribe_value_free(&key->head, msg_lnk);
+			}
+
 			BLI_remlink(&mbus->messages, key);
 			BLI_gset_remove(gs, key, NULL);
 			wm_msg_rna_gset_key_free(key);

@@ -16,11 +16,6 @@
 #
 # The Original Code is Copyright (C) 2006, Blender Foundation
 # All rights reserved.
-#
-# The Original Code is: all of this file.
-#
-# Contributor(s): Jacques Beaurainm, Campbell Barton
-#
 # ***** END GPL LICENSE BLOCK *****
 
 set(INC
@@ -62,12 +57,12 @@ set(SRC
 	bpy_app_translations.c
 	bpy_capi_utils.c
 	bpy_driver.c
+	bpy_gizmo_wrap.c
 	bpy_interface.c
 	bpy_interface_atexit.c
 	bpy_intern_string.c
 	bpy_library_load.c
 	bpy_library_write.c
-	bpy_gizmo_wrap.c
 	bpy_msgbus.c
 	bpy_operator.c
 	bpy_operator_wrap.c
@@ -78,8 +73,8 @@ set(SRC
 	bpy_rna_array.c
 	bpy_rna_callback.c
 	bpy_rna_driver.c
-	bpy_rna_id_collection.c
 	bpy_rna_gizmo.c
+	bpy_rna_id_collection.c
 	bpy_traceback.c
 	bpy_utils_previews.c
 	bpy_utils_units.c
@@ -101,9 +96,9 @@ set(SRC
 	bpy_app_translations.h
 	bpy_capi_utils.h
 	bpy_driver.h
+	bpy_gizmo_wrap.h
 	bpy_intern_string.h
 	bpy_library.h
-	bpy_gizmo_wrap.h
 	bpy_msgbus.h
 	bpy_operator.h
 	bpy_operator_wrap.h
@@ -113,8 +108,8 @@ set(SRC
 	bpy_rna_anim.h
 	bpy_rna_callback.h
 	bpy_rna_driver.h
-	bpy_rna_id_collection.h
 	bpy_rna_gizmo.h
+	bpy_rna_id_collection.h
 	bpy_traceback.h
 	bpy_utils_previews.h
 	bpy_utils_units.h

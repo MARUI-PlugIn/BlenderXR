@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,14 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s):
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/interface/interface_anim.c
- *  \ingroup edinterface
+/** \file \ingroup edinterface
  */
 
 #include <stdio.h>
@@ -98,8 +91,11 @@ void ui_but_anim_flag(uiBut *but, float cfra)
 			if (fcurve_frame_has_keyframe(fcu, cfra, 0))
 				but->flag |= UI_BUT_ANIMATED_KEY;
 
-			if (fcurve_is_changed(but->rnapoin, but->rnaprop, fcu, cfra))
-				but->drawflag |= UI_BUT_ANIMATED_CHANGED;
+			/* XXX: this feature is totally broken and useless with NLA */
+			if (adt == NULL || adt->nla_tracks.first == NULL) {
+				if (fcurve_is_changed(but->rnapoin, but->rnaprop, fcu, cfra))
+					but->drawflag |= UI_BUT_ANIMATED_CHANGED;
+			}
 		}
 		else {
 			but->flag |= UI_BUT_DRIVEN;
@@ -213,7 +209,8 @@ bool ui_but_anim_expression_create(uiBut *but, const char *str)
 	}
 
 	/* make sure we have animdata for this */
-	/* FIXME: until materials can be handled by depsgraph, don't allow drivers to be created for them */
+	/* FIXME: until materials can be handled by depsgraph,
+	 * don't allow drivers to be created for them */
 	id = (ID *)but->rnapoin.id.data;
 	if ((id == NULL) || (GS(id->name) == ID_MA) || (GS(id->name) == ID_TE)) {
 		if (G.debug & G_DEBUG)

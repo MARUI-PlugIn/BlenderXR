@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,10 @@
  *
  * The Original Code is Copyright (C) 2018, Blender Foundation
  * This is a new part of Blender
- *
- * Contributor(s): Antonio Vazquez
- *
- * ***** END GPL LICENSE BLOCK *****
- *
  * Operators for dealing with armatures and GP datablocks
  */
 
-/** \file blender/editors/gpencil/gpencil_armature.c
- *  \ingroup edgpencil
+/** \file \ingroup edgpencil
  */
 
 
@@ -40,9 +32,7 @@
 
 #include "BLI_blenlib.h"
 #include "BLI_utildefines.h"
-#include "BLI_ghash.h"
 #include "BLI_math.h"
-#include "BLI_string_utils.h"
 
 #include "BLT_translation.h"
 
@@ -79,7 +69,7 @@
 
 enum {
 	GP_ARMATURE_NAME = 0,
-	GP_ARMATURE_AUTO = 1
+	GP_ARMATURE_AUTO = 1,
 };
 
 #define DEFAULT_RATIO 0.10f
@@ -655,7 +645,7 @@ void GPENCIL_OT_generate_weights(wmOperatorType *ot)
 	static const EnumPropertyItem mode_type[] = {
 		{GP_ARMATURE_NAME, "NAME", 0, "Empty Groups", ""},
 		{GP_ARMATURE_AUTO, "AUTO", 0, "Automatic Weights", ""},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	PropertyRNA *prop;

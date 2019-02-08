@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,19 +15,12 @@
  *
  * The Original Code is Copyright (C) 2011 Blender Foundation.
  * All rights reserved.
- *
- * Contributor(s): Blender Foundation,
- *                 Sergey Sharybin
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
 #ifndef __BKE_MOVIECLIP_H__
 #define __BKE_MOVIECLIP_H__
 
-/** \file BKE_movieclip.h
- *  \ingroup bke
- *  \author Sergey Sharybin
+/** \file \ingroup bke
  */
 
 struct Depsgraph;
@@ -52,6 +43,8 @@ struct MovieClip *BKE_movieclip_file_add_exists(struct Main *bmain, const char *
 void BKE_movieclip_reload(struct Main *bmain, struct MovieClip *clip);
 void BKE_movieclip_clear_cache(struct MovieClip *clip);
 void BKE_movieclip_clear_proxy_cache(struct MovieClip *clip);
+
+void BKE_movieclip_convert_multilayer_ibuf(struct ImBuf *ibuf);
 
 struct ImBuf *BKE_movieclip_get_ibuf(struct MovieClip *clip, struct MovieClipUser *user);
 struct ImBuf *BKE_movieclip_get_postprocessed_ibuf(struct MovieClip *clip, struct MovieClipUser *user, int postprocess_flag);

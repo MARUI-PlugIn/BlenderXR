@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2006 Blender Foundation.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL/BL DUAL LICENSE BLOCK *****
  */
 
-/** \file DNA_color_types.h
- *  \ingroup DNA
+/** \file \ingroup DNA
  */
 
 #ifndef __DNA_COLOR_TYPES_H__
@@ -43,7 +34,8 @@
 
 typedef struct CurveMapPoint {
 	float x, y;
-	short flag, shorty;		/* shorty for result lookup */
+	/** Shorty for result lookup. */
+	short flag, shorty;
 } CurveMapPoint;
 
 /* curvepoint->flag */
@@ -56,14 +48,21 @@ enum {
 typedef struct CurveMap {
 	short totpoint, flag;
 
-	float range;					/* quick multiply value for reading table */
-	float mintable, maxtable;		/* the x-axis range for the table */
-	float ext_in[2], ext_out[2];	/* for extrapolated curves, the direction vector */
-	CurveMapPoint *curve;			/* actual curve */
-	CurveMapPoint *table;			/* display and evaluate table */
+	/** Quick multiply value for reading table. */
+	float range;
+	/** The x-axis range for the table. */
+	float mintable, maxtable;
+	/** For extrapolated curves, the direction vector. */
+	float ext_in[2], ext_out[2];
+	/** Actual curve. */
+	CurveMapPoint *curve;
+	/** Display and evaluate table. */
+	CurveMapPoint *table;
 
-	CurveMapPoint *premultable;		/* for RGB curves, premulled table */
-	float premul_ext_in[2];			/* for RGB curves, premulled extrapolation vector */
+	/** For RGB curves, premulled table. */
+	CurveMapPoint *premultable;
+	/** For RGB curves, premulled extrapolation vector. */
+	float premul_ext_in[2];
 	float premul_ext_out[2];
 } CurveMap;
 
@@ -71,17 +70,23 @@ typedef struct CurveMap {
 #define CUMA_EXTEND_EXTRAPOLATE	1
 
 typedef struct CurveMapping {
-	int flag, cur;					/* cur; for buttons, to show active curve */
+	/** Cur; for buttons, to show active curve. */
+	int flag, cur;
 	int preset;
 	int changed_timestamp;
 
-	rctf curr, clipr;				/* current rect, clip rect (is default rect too) */
+	/** Current rect, clip rect (is default rect too). */
+	rctf curr, clipr;
 
-	CurveMap cm[4];					/* max 4 builtin curves per mapping struct now */
-	float black[3], white[3];		/* black/white point (black[0] abused for current frame) */
-	float bwmul[3];					/* black/white point multiply value, for speed */
+	/** Max 4 builtin curves per mapping struct now. */
+	CurveMap cm[4];
+	/** Black/white point (black[0] abused for current frame). */
+	float black[3], white[3];
+	/** Black/white point multiply value, for speed. */
+	float bwmul[3];
 
-	float sample[3];				/* sample values, if flag set it draws line and intersection */
+	/** Sample values, if flag set it draws line and intersection. */
+	float sample[3];
 
 	short tone;
 	short pad[3];
@@ -119,12 +124,12 @@ enum {
 	HISTO_MODE_R      = 2,
 	HISTO_MODE_G      = 3,
 	HISTO_MODE_B      = 4,
-	HISTO_MODE_ALPHA  = 5
+	HISTO_MODE_ALPHA  = 5,
 };
 
 enum {
 	HISTO_FLAG_LINE        = (1 << 0),
-	HISTO_FLAG_SAMPLELINE  = (1 << 1)
+	HISTO_FLAG_SAMPLELINE  = (1 << 1),
 };
 
 typedef struct Histogram {
@@ -177,11 +182,17 @@ typedef struct Scopes {
 
 typedef struct ColorManagedViewSettings {
 	int flag, pad;
-	char look[64];   /* look which is being applied when displaying buffer on the screen (prior to view transform) */
-	char view_transform[64];   /* view transform which is being applied when displaying buffer on the screen */
-	float exposure;            /* fstop exposure */
-	float gamma;               /* post-display gamma transform */
-	struct CurveMapping *curve_mapping;  /* pre-display RGB curves transform */
+	/** Look which is being applied when displaying buffer on the screen
+	 * (prior to view transform). */
+	char look[64];
+	/** View transform which is being applied when displaying buffer on the screen. */
+	char view_transform[64];
+	/** Fstop exposure. */
+	float exposure;
+	/** Post-display gamma transform. */
+	float gamma;
+	/** Pre-display RGB curves transform. */
+	struct CurveMapping *curve_mapping;
 	void *pad2;
 } ColorManagedViewSettings;
 
@@ -190,12 +201,13 @@ typedef struct ColorManagedDisplaySettings {
 } ColorManagedDisplaySettings;
 
 typedef struct ColorManagedColorspaceSettings {
-	char name[64];    /* MAX_COLORSPACE_NAME */
+	/** MAX_COLORSPACE_NAME. */
+	char name[64];
 } ColorManagedColorspaceSettings;
 
 /* ColorManagedViewSettings->flag */
 enum {
-	COLORMANAGE_VIEW_USE_CURVES = (1 << 0)
+	COLORMANAGE_VIEW_USE_CURVES = (1 << 0),
 };
 
 #endif

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): mar-2001 nzc
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file DNA_collection_types.h
- *  \ingroup DNA
+/** \file \ingroup DNA
  *
  * \brief Object groups, one object can be in many groups at once.
  */
@@ -38,8 +29,8 @@
 #include "DNA_listBase.h"
 #include "DNA_ID.h"
 
-struct Object;
 struct Collection;
+struct Object;
 
 typedef struct CollectionObject {
 	struct CollectionObject *next, *prev;
@@ -56,8 +47,10 @@ typedef struct CollectionChild {
 typedef struct Collection {
 	ID id;
 
-	ListBase gobject;   /* CollectionObject */
-	ListBase children;  /* CollectionChild */
+	/** CollectionObject. */
+	ListBase gobject;
+	/** CollectionChild. */
+	ListBase children;
 
 	struct PreviewImage *preview;
 

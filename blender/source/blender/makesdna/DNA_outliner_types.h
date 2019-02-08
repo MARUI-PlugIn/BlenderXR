@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file DNA_outliner_types.h
- *  \ingroup DNA
+/** \file \ingroup DNA
  */
 
 #ifndef __DNA_OUTLINER_TYPES_H__
@@ -46,10 +37,15 @@ typedef struct TreeStoreElem {
 
 /* used only to store data in in blend files */
 typedef struct TreeStore {
-	int totelem  DNA_DEPRECATED; /* was previously used for memory preallocation */
-	int usedelem;                /* number of elements in data array */
-	TreeStoreElem *data;         /* elements to be packed from mempool in writefile.c
-	                              * or extracted to mempool in readfile.c */
+	/** Was previously used for memory preallocation. */
+	int totelem  DNA_DEPRECATED;
+	/** Number of elements in data array. */
+	int usedelem;
+	/**
+	 * Elements to be packed from mempool in writefile.c
+	 * or extracted to mempool in readfile.c
+	 */
+	TreeStoreElem *data;
 } TreeStore;
 
 /* TreeStoreElem->flag */

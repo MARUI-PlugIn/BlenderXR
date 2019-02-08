@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,15 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software  Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Pawel Kowal, Campbell Barton
- *
- * ***** END GPL LICENSE BLOCK *****
- *
  */
 
-/** \file blender/modifiers/intern/MOD_uvwarp.c
- *  \ingroup modifiers
+/** \file \ingroup modifiers
  */
 
 #include <string.h>
@@ -202,9 +194,11 @@ static Mesh *applyModifier(
 	mloopuv = CustomData_duplicate_referenced_layer_named(&mesh->ldata, CD_MLOOPUV, uvname, numLoops);
 	MOD_get_vgroup(ctx->object, mesh, umd->vgroup_name, &dvert, &defgrp_index);
 
-	UVWarpData data = {.mpoly = mpoly, .mloop = mloop, .mloopuv = mloopuv,
-	                   .dvert = dvert, .defgrp_index = defgrp_index,
-	                   .warp_mat = warp_mat, .axis_u = axis_u, .axis_v = axis_v};
+	UVWarpData data = {
+		.mpoly = mpoly, .mloop = mloop, .mloopuv = mloopuv,
+		.dvert = dvert, .defgrp_index = defgrp_index,
+		.warp_mat = warp_mat, .axis_u = axis_u, .axis_v = axis_v,
+	};
 	ParallelRangeSettings settings;
 	BLI_parallel_range_settings_defaults(&settings);
 	settings.use_threading = (numPolys > 1000);

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -20,14 +18,12 @@
  *
  * The Original Code is: some of this file.
  *
- * ***** END GPL LICENSE BLOCK *****
  * */
 
 #ifndef __BLI_MATH_ROTATION_H__
 #define __BLI_MATH_ROTATION_H__
 
-/** \file BLI_math_rotation.h
- *  \ingroup bli
+/** \file \ingroup bli
  */
 
 #ifdef __cplusplus
@@ -53,7 +49,8 @@ void copy_qt_qt(float q[4], const float a[4]);
 void mul_qt_qtqt(float q[4], const float a[4], const float b[4]);
 void mul_qt_v3(const float q[4], float r[3]);
 void mul_qt_fl(float q[4], const float f);
-void mul_fac_qt_fl(float q[4], const float f);
+
+void pow_qt_fl_normalized(float q[4], const float f);
 
 void sub_qt_qtqt(float q[4], const float a[4], const float b[4]);
 

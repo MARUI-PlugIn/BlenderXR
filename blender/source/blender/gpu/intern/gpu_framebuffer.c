@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,22 +15,14 @@
  *
  * The Original Code is Copyright (C) 2005 Blender Foundation.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): Brecht Van Lommel.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
 #include "MEM_guardedalloc.h"
 
 #include "BLI_blenlib.h"
-#include "BLI_threads.h"
 #include "BLI_utildefines.h"
 #include "BLI_math_base.h"
 
-#include "BKE_global.h"
 
 #include "GPU_batch.h"
 #include "GPU_draw.h"
@@ -94,7 +84,7 @@ static GLenum convert_attachment_type_to_gl(GPUAttachmentType type)
 		[GPU_FB_COLOR_ATTACHMENT1] = GL_COLOR_ATTACHMENT1,
 		[GPU_FB_COLOR_ATTACHMENT2] = GL_COLOR_ATTACHMENT2,
 		[GPU_FB_COLOR_ATTACHMENT3] = GL_COLOR_ATTACHMENT3,
-		[GPU_FB_COLOR_ATTACHMENT4] = GL_COLOR_ATTACHMENT4
+		[GPU_FB_COLOR_ATTACHMENT4] = GL_COLOR_ATTACHMENT4,
 	};
 	return table[type];
 }
@@ -114,7 +104,7 @@ static GPUAttachmentType attachment_type_from_tex(GPUTexture *tex, int slot)
 	}
 }
 
-static GLenum convert_buffer_bits_to_gl(GPUFrameBufferBits bits)
+static GLenum convert_buffer_bits_to_gl(eGPUFrameBufferBits bits)
 {
 	GLbitfield mask = 0;
 	mask |= (bits & GPU_DEPTH_BIT) ? GL_DEPTH_BUFFER_BIT : 0;
@@ -485,7 +475,7 @@ static void gpu_framebuffer_update_attachments_and_fill_empty_slots(GPUFrameBuff
 static struct {
 	GPUFrameBuffer *framebuffers[FRAMEBUFFER_STACK_DEPTH];
 	uint top;
-} FrameBufferStack = { 0 };
+} FrameBufferStack = {{0}};
 
 static void gpuPushFrameBuffer(GPUFrameBuffer *fbo)
 {
@@ -582,7 +572,7 @@ void GPU_framebuffer_viewport_set(GPUFrameBuffer *fb, int x, int y, int w, int h
 }
 
 void GPU_framebuffer_clear(
-        GPUFrameBuffer *fb, GPUFrameBufferBits buffers,
+        GPUFrameBuffer *fb, eGPUFrameBufferBits buffers,
         const float clear_col[4], float clear_depth, uint clear_stencil)
 {
 	CHECK_FRAMEBUFFER_IS_BOUND(fb);
@@ -636,7 +626,7 @@ void GPU_framebuffer_read_color(
 void GPU_framebuffer_blit(
         GPUFrameBuffer *fb_read, int read_slot,
         GPUFrameBuffer *fb_write, int write_slot,
-        GPUFrameBufferBits blit_buffers)
+        eGPUFrameBufferBits blit_buffers)
 {
 	BLI_assert(blit_buffers != 0);
 
@@ -798,6 +788,11 @@ GPUOffScreen *GPU_offscreen_create(int width, int height, int samples, bool dept
 
 	ofs = MEM_callocN(sizeof(GPUOffScreen), "GPUOffScreen");
 
+	/* Sometimes areas can have 0 height or width and this will
+	 * create a 1D texture which we don't want. */
+	height = max_ii(1, height);
+	width  = max_ii(1, width);
+
 	ofs->color = GPU_texture_create_2D_multisample(
 	        width, height,
 	        (high_bitdepth) ? GPU_RGBA16F : GPU_RGBA8, NULL, samples, err_out);
@@ -811,7 +806,7 @@ GPUOffScreen *GPU_offscreen_create(int width, int height, int samples, bool dept
 		return NULL;
 	}
 
-	gpuPushAttrib(GPU_VIEWPORT_BIT);
+	gpuPushAttr(GPU_VIEWPORT_BIT);
 
 	GPU_framebuffer_ensure_config(&ofs->fb, {
 		GPU_ATTACHMENT_TEXTURE(ofs->depth),
@@ -821,13 +816,13 @@ GPUOffScreen *GPU_offscreen_create(int width, int height, int samples, bool dept
 	/* check validity at the very end! */
 	if (!GPU_framebuffer_check_valid(ofs->fb, err_out)) {
 		GPU_offscreen_free(ofs);
-		gpuPopAttrib();
+		gpuPopAttr();
 		return NULL;
 	}
 
 	GPU_framebuffer_restore();
 
-	gpuPopAttrib();
+	gpuPopAttr();
 
 	return ofs;
 }
@@ -847,7 +842,7 @@ void GPU_offscreen_free(GPUOffScreen *ofs)
 void GPU_offscreen_bind(GPUOffScreen *ofs, bool save)
 {
 	if (save) {
-		gpuPushAttrib(GPU_SCISSOR_BIT | GPU_VIEWPORT_BIT);
+		gpuPushAttr(GPU_SCISSOR_BIT | GPU_VIEWPORT_BIT);
 		GPUFrameBuffer *fb = GPU_framebuffer_active_get();
 		gpuPushFrameBuffer(fb);
 	}
@@ -860,7 +855,7 @@ void GPU_offscreen_unbind(GPUOffScreen *UNUSED(ofs), bool restore)
 	GPUFrameBuffer *fb = NULL;
 
 	if (restore) {
-		gpuPopAttrib();
+		gpuPopAttr();
 		fb = gpuPopFrameBuffer();
 	}
 
@@ -973,7 +968,7 @@ void GPU_clear_color(float red, float green, float blue, float alpha)
 	glClearColor(red, green, blue, alpha);
 }
 
-void GPU_clear(GPUFrameBufferBits flags)
+void GPU_clear(eGPUFrameBufferBits flags)
 {
 	glClear(convert_buffer_bits_to_gl(flags));
 }

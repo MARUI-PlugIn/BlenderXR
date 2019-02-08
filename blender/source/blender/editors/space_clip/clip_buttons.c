@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2011 Blender Foundation.
  * All rights reserved.
- *
- *
- * Contributor(s): Blender Foundation,
- *                 Sergey Sharybin
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/space_clip/clip_buttons.c
- *  \ingroup spclip
+/** \file \ingroup spclip
  */
 
 #include <string.h>
@@ -38,9 +29,9 @@
 #include "DNA_screen_types.h"
 #include "DNA_space_types.h"
 
-#include "BLI_math.h"
 #include "BLI_utildefines.h"
 #include "BLI_listbase.h"
+#include "BLI_math.h"
 #include "BLI_path_util.h"
 #include "BLI_string.h"
 
@@ -53,7 +44,9 @@
 
 #include "DEG_depsgraph.h"
 
+#include "ED_clip.h"
 #include "ED_gpencil.h"
+#include "ED_screen.h"
 
 #include "UI_interface.h"
 #include "UI_resources.h"
@@ -70,9 +63,39 @@
 
 /* Panels */
 
-void ED_clip_buttons_register(ARegionType *UNUSED(art))
+static bool metadata_panel_context_poll(const bContext *C, PanelType *UNUSED(pt))
 {
+	return ED_space_clip_poll((bContext *)C);
+}
 
+static void metadata_panel_context_draw(const bContext *C, Panel *panel)
+{
+	SpaceClip *space_clip = CTX_wm_space_clip(C);
+	/* NOTE: This might not be exactly the same image buffer as shown in the
+	 * clip editor itself, since that might be coming from proxy, or being
+	 * postprocessed (stabilized or undistored).
+	 * Ideally we need to query metadata from an original image or movie without
+	 * reading actual pixels to speed up the process. */
+	ImBuf *ibuf = ED_space_clip_get_buffer(space_clip);
+	if (ibuf != NULL) {
+		ED_region_image_metadata_panel_draw(ibuf, panel->layout);
+		IMB_freeImBuf(ibuf);
+	}
+}
+
+void ED_clip_buttons_register(ARegionType *art)
+{
+	PanelType *pt;
+
+	pt = MEM_callocN(sizeof(PanelType), "spacetype clip panel metadata");
+	strcpy(pt->idname, "CLIP_PT_metadata");
+	strcpy(pt->label, N_("Metadata"));
+	strcpy(pt->category, "Footage");
+	strcpy(pt->translation_context, BLT_I18NCONTEXT_DEFAULT_BPYRNA);
+	pt->poll = metadata_panel_context_poll;
+	pt->draw = metadata_panel_context_draw;
+	pt->flag |= PNL_DEFAULT_CLOSED;
+	BLI_addtail(&art->paneltypes, pt);
 }
 
 /********************* MovieClip Template ************************/
@@ -184,19 +207,27 @@ void uiTemplateTrack(uiLayout *layout, PointerRNA *ptr, const char *propname)
 #define B_MARKER_FLAG           8
 
 typedef struct {
-	int compact;                                /* compact mode */
+	/** compact mode */
+	int compact;
 
 	MovieClip *clip;
-	MovieClipUser *user;                        /* user of clip */
+	/** user of clip */
+	MovieClipUser *user;
 	MovieTrackingTrack *track;
 	MovieTrackingMarker *marker;
 
-	int framenr;                                    /* current frame number */
-	float marker_pos[2];                            /* position of marker in pixel coords */
-	float marker_pat[2];                            /* position and dimensions of marker pattern in pixel coords */
-	float track_offset[2];                          /* offset of "parenting" point */
-	float marker_search_pos[2], marker_search[2];   /* position and dimensions of marker search in pixel coords */
-	int marker_flag;                                /* marker's flags */
+	/** current frame number */
+	int framenr;
+	/** position of marker in pixel coords */
+	float marker_pos[2];
+	/** position and dimensions of marker pattern in pixel coords */
+	float marker_pat[2];
+	/** offset of "parenting" point */
+	float track_offset[2];
+	/** position and dimensions of marker search in pixel coords */
+	float marker_search_pos[2], marker_search[2];
+	/** marker's flags */
+	int marker_flag;
 } MarkerUpdateCb;
 
 static void to_pixel_space(float r[2], float a[2], int width, int height)

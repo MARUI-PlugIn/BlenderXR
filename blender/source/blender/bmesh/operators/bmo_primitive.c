@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,14 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Joseph Eagar.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/bmesh/operators/bmo_primitive.c
- *  \ingroup bmesh
+/** \file \ingroup bmesh
  *
  * Primitive shapes.
  */
@@ -52,7 +45,7 @@ static const float icovert[12][3] = {
 	{-144.72f, 105.144f, 89.443f},
 	{55.277f, 170.128f, 89.443f},
 	{178.885f, 0.0f, 89.443f},
-	{0.0f, 0.0f, 200.0f}
+	{0.0f, 0.0f, 200.0f},
 };
 
 static const short icoface[20][3] = {
@@ -75,7 +68,7 @@ static const short icoface[20][3] = {
 	{7, 6, 11},
 	{8, 7, 11},
 	{9, 8, 11},
-	{10, 9, 11}
+	{10, 9, 11},
 };
 
 static const float icouvs[60][2] =
@@ -99,7 +92,7 @@ static const float icouvs[60][2] =
 	{1.000000f, 0.314921f}, {0.818181f, 0.314921f}, {0.909090f, 0.472382f},
 	{0.272727f, 0.314921f}, {0.090909f, 0.314921f}, {0.181818f, 0.472382f},
 	{0.454545f, 0.314921f}, {0.272727f, 0.314921f}, {0.363636f, 0.472382f},
-	{0.636363f, 0.314921f}, {0.454545f, 0.314921f}, {0.545454f, 0.472382f}
+	{0.636363f, 0.314921f}, {0.454545f, 0.314921f}, {0.545454f, 0.472382f},
 };
 
 
@@ -744,7 +737,7 @@ static const float monkeyuvs[] =
 	0.620420f, 0.565675f, 0.671403f, 0.592656f, 0.484068f, 0.628776f, 0.498072f, 0.552315f,
 	0.276936f, 0.625067f, 0.092820f, 0.589862f, 0.145041f, 0.562595f, 0.264218f, 0.550140f,
 	0.391039f, 0.611891f, 0.498072f, 0.552315f, 0.484068f, 0.628776f, 0.434803f, 0.658882f,
-	0.276936f, 0.625067f, 0.264218f, 0.550140f, 0.369913f, 0.610196f, 0.325318f, 0.656224f
+	0.276936f, 0.625067f, 0.264218f, 0.550140f, 0.369913f, 0.610196f, 0.325318f, 0.656224f,
 };
 
 #define VERT_MARK   1

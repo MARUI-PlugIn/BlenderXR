@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,20 +15,15 @@
  *
  * The Original Code is Copyright (C) 2012 Blender Foundation.
  * All rights reserved.
- *
- * Contributor(s): Blender Foundation,
- *                 Sergey Sharybin,
- *                 Campbell Barton
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenkernel/intern/mask.c
- *  \ingroup bke
+/** \file \ingroup bke
  */
 
 #include <stddef.h>
 #include <string.h>
+
+#include "CLG_log.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -62,6 +55,8 @@
 #include "BKE_image.h"
 
 #include "DEG_depsgraph_build.h"
+
+static CLG_LogRef LOG = {"bke.mask"};
 
 static struct {
 	ListBase splines;
@@ -207,6 +202,7 @@ MaskLayer *BKE_mask_layer_copy(const MaskLayer *masklay)
 	masklay_new->blend = masklay->blend;
 	masklay_new->blend_flag = masklay->blend_flag;
 	masklay_new->flag = masklay->flag;
+	masklay_new->falloff = masklay->falloff;
 	masklay_new->restrictflag = masklay->restrictflag;
 
 	for (spline = masklay->splines.first; spline; spline = spline->next) {
@@ -847,7 +843,7 @@ Mask *BKE_mask_copy_nolib(Mask *mask)
 
 /**
  * Only copy internal data of Mask ID from source to already allocated/initialized destination.
- * You probably nerver want to use that directly, use id_copy or BKE_id_copy_ex for typical needs.
+ * You probably never want to use that directly, use BKE_id_copy or BKE_id_copy_ex for typical needs.
  *
  * WARNING! This function will not handle ID user count!
  *
@@ -866,7 +862,7 @@ void BKE_mask_copy_data(Main *UNUSED(bmain), Mask *mask_dst, const Mask *mask_sr
 Mask *BKE_mask_copy(Main *bmain, const Mask *mask)
 {
 	Mask *mask_copy;
-	BKE_id_copy_ex(bmain, &mask->id, (ID **)&mask_copy, 0, false);
+	BKE_id_copy(bmain, &mask->id, (ID **)&mask_copy);
 	return mask_copy;
 }
 
@@ -1488,8 +1484,8 @@ void BKE_mask_layer_shape_from_mask(MaskLayer *masklay, MaskLayerShape *masklay_
 		}
 	}
 	else {
-		printf("%s: vert mismatch %d != %d (frame %d)\n",
-		       __func__, masklay_shape->tot_vert, tot, masklay_shape->frame);
+		CLOG_ERROR(&LOG, "vert mismatch %d != %d (frame %d)",
+		           masklay_shape->tot_vert, tot, masklay_shape->frame);
 	}
 }
 
@@ -1510,8 +1506,8 @@ void BKE_mask_layer_shape_to_mask(MaskLayer *masklay, MaskLayerShape *masklay_sh
 		}
 	}
 	else {
-		printf("%s: vert mismatch %d != %d (frame %d)\n",
-		       __func__, masklay_shape->tot_vert, tot, masklay_shape->frame);
+		CLOG_ERROR(&LOG, "vert mismatch %d != %d (frame %d)",
+		           masklay_shape->tot_vert, tot, masklay_shape->frame);
 	}
 }
 
@@ -1549,9 +1545,9 @@ void BKE_mask_layer_shape_to_mask_interp(MaskLayer *masklay,
 		}
 	}
 	else {
-		printf("%s: vert mismatch %d != %d != %d (frame %d - %d)\n",
-		       __func__, masklay_shape_a->tot_vert, masklay_shape_b->tot_vert, tot,
-		       masklay_shape_a->frame, masklay_shape_b->frame);
+		CLOG_ERROR(&LOG, "vert mismatch %d != %d != %d (frame %d - %d)",
+		           masklay_shape_a->tot_vert, masklay_shape_b->tot_vert, tot,
+		           masklay_shape_a->frame, masklay_shape_b->frame);
 	}
 }
 
@@ -1805,8 +1801,8 @@ void BKE_mask_layer_shape_changed_add(MaskLayer *masklay, int index,
 				masklay_shape->data = data_resized;
 			}
 			else {
-				printf("%s: vert mismatch %d != %d (frame %d)\n",
-				       __func__, masklay_shape->tot_vert, tot, masklay_shape->frame);
+				CLOG_ERROR(&LOG, "vert mismatch %d != %d (frame %d)",
+				           masklay_shape->tot_vert, tot, masklay_shape->frame);
 			}
 		}
 	}
@@ -1846,8 +1842,8 @@ void BKE_mask_layer_shape_changed_remove(MaskLayer *masklay, int index, int coun
 			masklay_shape->data = data_resized;
 		}
 		else {
-			printf("%s: vert mismatch %d != %d (frame %d)\n",
-			       __func__, masklay_shape->tot_vert - count, tot, masklay_shape->frame);
+			CLOG_ERROR(&LOG, "vert mismatch %d != %d (frame %d)",
+			           masklay_shape->tot_vert - count, tot, masklay_shape->frame);
 		}
 	}
 }

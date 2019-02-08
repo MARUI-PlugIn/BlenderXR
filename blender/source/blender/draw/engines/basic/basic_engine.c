@@ -1,6 +1,4 @@
 /*
- * Copyright 2016, Blender Foundation.
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,12 +13,10 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * Contributor(s): Blender Institute
- *
+ * Copyright 2016, Blender Foundation.
  */
 
-/** \file basic_engine.c
- *  \ingroup draw_engine
+/** \file \ingroup draw_engine
  *
  * Simple engine for drawing color and/or depth.
  * When we only need simple flat shaders.
@@ -28,9 +24,6 @@
 
 #include "DRW_render.h"
 
-#include "BKE_icons.h"
-#include "BKE_idprop.h"
-#include "BKE_main.h"
 #include "BKE_particle.h"
 
 #include "DNA_particle_types.h"
@@ -63,11 +56,15 @@ typedef struct BASIC_Data {
 	BASIC_StorageList *stl;
 } BASIC_Data;
 
+typedef struct BASIC_Shaders {
+	/* Depth Pre Pass */
+	struct GPUShader *depth;
+} BASIC_Shaders;
+
 /* *********** STATIC *********** */
 
 static struct {
-	/* Depth Pre Pass */
-	struct GPUShader *depth_sh;
+	BASIC_Shaders sh_data[GPU_SHADER_CFG_LEN];
 } e_data = {NULL}; /* Engine data */
 
 typedef struct BASIC_PrivateData {
@@ -80,9 +77,12 @@ typedef struct BASIC_PrivateData {
 
 static void basic_engine_init(void *UNUSED(vedata))
 {
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	BASIC_Shaders *sh_data = &e_data.sh_data[draw_ctx->shader_cfg];
+
 	/* Depth prepass */
-	if (!e_data.depth_sh) {
-		e_data.depth_sh = DRW_shader_create_3D_depth_only();
+	if (!sh_data->depth) {
+		sh_data->depth = DRW_shader_create_3D_depth_only(draw_ctx->shader_cfg);
 	}
 }
 
@@ -90,6 +90,15 @@ static void basic_cache_init(void *vedata)
 {
 	BASIC_PassList *psl = ((BASIC_Data *)vedata)->psl;
 	BASIC_StorageList *stl = ((BASIC_Data *)vedata)->stl;
+
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	BASIC_Shaders *sh_data = &e_data.sh_data[draw_ctx->shader_cfg];
+	const RegionView3D *rv3d = draw_ctx->rv3d;
+	const bool is_clip = (rv3d->rflag & RV3D_CLIPPING) != 0;
+
+	if (is_clip) {
+		DRW_state_clip_planes_set_from_rv3d(draw_ctx->rv3d);
+	}
 
 	if (!stl->g_data) {
 		/* Alloc transient pointers */
@@ -99,12 +108,18 @@ static void basic_cache_init(void *vedata)
 	{
 		psl->depth_pass = DRW_pass_create(
 		        "Depth Pass", DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS_EQUAL | DRW_STATE_WIRE);
-		stl->g_data->depth_shgrp = DRW_shgroup_create(e_data.depth_sh, psl->depth_pass);
+		stl->g_data->depth_shgrp = DRW_shgroup_create(sh_data->depth, psl->depth_pass);
+		if (rv3d->rflag & RV3D_CLIPPING) {
+			DRW_shgroup_world_clip_planes_from_rv3d(stl->g_data->depth_shgrp, rv3d);
+		}
 
 		psl->depth_pass_cull = DRW_pass_create(
 		        "Depth Pass Cull",
 		        DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS_EQUAL | DRW_STATE_CULL_BACK);
-		stl->g_data->depth_shgrp_cull = DRW_shgroup_create(e_data.depth_sh, psl->depth_pass_cull);
+		stl->g_data->depth_shgrp_cull = DRW_shgroup_create(sh_data->depth, psl->depth_pass_cull);
+		if (rv3d->rflag & RV3D_CLIPPING) {
+			DRW_shgroup_world_clip_planes_from_rv3d(stl->g_data->depth_shgrp_cull, rv3d);
+		}
 	}
 }
 
@@ -146,9 +161,10 @@ static void basic_cache_populate(void *vedata, Object *ob)
 	    (ob->dt == OB_WIRE))
 	{
 		int flat_axis = 0;
-		bool is_flat_object_viewed_from_side = (draw_ctx->rv3d->persp == RV3D_ORTHO) &&
-		                                       DRW_object_is_flat(ob, &flat_axis) &&
-		                                       DRW_object_axis_orthogonal_to_view(ob, flat_axis);
+		bool is_flat_object_viewed_from_side = (
+		        (draw_ctx->rv3d->persp == RV3D_ORTHO) &&
+		        DRW_object_is_flat(ob, &flat_axis) &&
+		        DRW_object_axis_orthogonal_to_view(ob, flat_axis));
 
 		if (is_flat_object_viewed_from_side) {
 			/* Avoid losing flat objects when in ortho views (see T56549) */
@@ -211,7 +227,7 @@ RenderEngineType DRW_engine_viewport_basic_type = {
 	BASIC_ENGINE, N_("Basic"), RE_INTERNAL,
 	NULL, NULL, NULL, NULL, NULL, NULL, NULL,
 	&draw_engine_basic_type,
-	{NULL, NULL, NULL}
+	{NULL, NULL, NULL},
 };
 
 

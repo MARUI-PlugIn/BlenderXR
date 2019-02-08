@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file ghost/intern/GHOST_SystemX11.h
- *  \ingroup GHOST
+/** \file \ingroup GHOST
  * Declaration of GHOST_SystemX11 class.
  */
 
@@ -42,6 +33,12 @@
 // For tablets
 #ifdef WITH_X11_XINPUT
 #  include <X11/extensions/XInput.h>
+
+/* Disable xinput warp, currently not implemented by Xorg for multi-head display.
+ * (see comment in xserver "Xi/xiwarppointer.c" -> "FIXME: panoramix stuff is missing" ~ v1.13.4)
+ * If this is supported we can add back xinput for warping (fixing T48901).
+ * For now disable (see T50383). */
+// #  define USE_X11_XINPUT_WARP
 #endif
 
 #if defined(WITH_X11_XINPUT) && defined(X_HAVE_UTF8_STRING)
@@ -73,8 +70,6 @@ class GHOST_WindowX11;
 /**
  * X11 Implementation of GHOST_System class.
  * \see GHOST_System.
- * \author	Laurence Bourn
- * \date	October 26, 2001
  */
 
 class GHOST_SystemX11 : public GHOST_System {
@@ -309,28 +304,22 @@ public:
 
 #ifdef WITH_X11_XINPUT
 	typedef struct GHOST_TabletX11 {
-		XDevice *StylusDevice;
-		XDevice *EraserDevice;
-
-		XID StylusID, EraserID;
+		GHOST_TTabletMode mode;
+		XDevice *Device;
+		XID ID;
 
 		int MotionEvent;
 		int ProxInEvent;
 		int ProxOutEvent;
 		int PressEvent;
 
-		int MotionEventEraser;
-		int ProxInEventEraser;
-		int ProxOutEventEraser;
-		int PressEventEraser;
-
 		int PressureLevels;
 		int XtiltLevels, YtiltLevels;
 	} GHOST_TabletX11;
 
-	GHOST_TabletX11 &GetXTablet()
+	std::vector<GHOST_TabletX11> &GetXTablets()
 	{
-		return m_xtablet;
+		return m_xtablets;
 	}
 #endif // WITH_X11_XINPUT
 
@@ -384,7 +373,7 @@ private:
 
 #ifdef WITH_X11_XINPUT
 	/* Tablet devices */
-	GHOST_TabletX11 m_xtablet;
+	std::vector<GHOST_TabletX11> m_xtablets;
 #endif
 
 	/// The vector of windows that need to be updated.
@@ -414,6 +403,7 @@ private:
 #endif
 
 #ifdef WITH_X11_XINPUT
+	void clearXInputDevices();
 	void refreshXInputDevices();
 #endif
 

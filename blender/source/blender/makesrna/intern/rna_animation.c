@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,14 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Blender Foundation (2009), Joshua Leung
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/makesrna/intern/rna_animation.c
- *  \ingroup RNA
+/** \file \ingroup RNA
  */
 
 #include <stdlib.h>
@@ -51,7 +44,7 @@ const EnumPropertyItem rna_enum_keyingset_path_grouping_items[] = {
 	{KSP_GROUP_NAMED, "NAMED", 0, "Named Group", ""},
 	{KSP_GROUP_NONE, "NONE", 0, "None", ""},
 	{KSP_GROUP_KSNAME, "KEYINGSET", 0, "Keying Set Name", ""},
-	{0, NULL, 0, NULL, NULL}
+	{0, NULL, 0, NULL, NULL},
 };
 
 /* It would be cool to get rid of this 'INSERTKEY_' prefix in 'py strings' values, but it would break existing
@@ -65,7 +58,7 @@ const EnumPropertyItem rna_enum_keying_flag_items[] = {
 	{INSERTKEY_XYZ2RGB, "INSERTKEY_XYZ_TO_RGB", 0, "XYZ=RGB Colors",
 	                    "Color for newly added transformation F-Curves (Location, Rotation, Scale) "
 	                    "and also Color is based on the transform axis"},
-	{0, NULL, 0, NULL, NULL}
+	{0, NULL, 0, NULL, NULL},
 };
 
 #ifdef RNA_RUNTIME
@@ -579,6 +572,33 @@ static FCurve *rna_Driver_from_existing(AnimData *adt, bContext *C, FCurve *src_
 	}
 }
 
+static FCurve *rna_Driver_new(ID *id, AnimData *adt, ReportList *reports, const char *rna_path, int array_index)
+{
+	if (rna_path[0] == '\0') {
+		BKE_report(reports, RPT_ERROR, "F-Curve data path empty, invalid argument");
+		return NULL;
+	}
+
+	if (list_find_fcurve(&adt->drivers, rna_path, array_index)) {
+		BKE_reportf(reports, RPT_ERROR, "Driver '%s[%d]' already exists", rna_path, array_index);
+		return NULL;
+	}
+
+	short add_mode = 1;
+	FCurve *fcu = verify_driver_fcurve(id, rna_path, array_index, add_mode);
+	BLI_assert(fcu != NULL);
+	return fcu;
+}
+
+static void rna_Driver_remove(AnimData *adt, ReportList *reports, FCurve *fcu)
+{
+	if (!BLI_remlink_safe(&adt->drivers, fcu)) {
+		BKE_report(reports, RPT_ERROR, "Driver not found in this animation data");
+		return;
+	}
+	free_fcurve(fcu);
+}
+
 static FCurve *rna_Driver_find(AnimData *adt, ReportList *reports, const char *data_path, int index)
 {
 	if (data_path[0] == '\0') {
@@ -920,7 +940,6 @@ static void rna_def_keyingset(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "bl_description", PROP_STRING, PROP_NONE);
 	RNA_def_property_string_sdna(prop, NULL, "description");
 	RNA_def_property_string_maxlength(prop, RNA_DYN_DESCR_MAX); /* else it uses the pointer size! */
-	RNA_def_property_flag(prop, PROP_REGISTER_OPTIONAL);
 	RNA_def_property_ui_text(prop, "Description", "A short description of the keying set");
 
 	/* KeyingSetInfo (Type Info) for Builtin Sets only  */
@@ -1004,6 +1023,24 @@ static void rna_api_animdata_drivers(BlenderRNA *brna, PropertyRNA *cprop)
 	srna = RNA_def_struct(brna, "AnimDataDrivers", NULL);
 	RNA_def_struct_sdna(srna, "AnimData");
 	RNA_def_struct_ui_text(srna, "Drivers", "Collection of Driver F-Curves");
+
+	/* Match: ActionFCurves.new/remove */
+
+	/* AnimData.drivers.new(...) */
+	func = RNA_def_function(srna, "new", "rna_Driver_new");
+	RNA_def_function_flag(func, FUNC_USE_SELF_ID | FUNC_USE_REPORTS);
+	parm = RNA_def_string(func, "data_path", NULL, 0, "Data Path", "F-Curve data path to use");
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
+	RNA_def_int(func, "index", 0, 0, INT_MAX, "Index", "Array index", 0, INT_MAX);
+	/* return type */
+	parm = RNA_def_pointer(func, "driver", "FCurve", "", "Newly Driver F-Curve");
+	RNA_def_function_return(func, parm);
+
+	/* AnimData.drivers.remove(...) */
+	func = RNA_def_function(srna, "remove", "rna_Driver_remove");
+	RNA_def_function_flag(func, FUNC_USE_REPORTS);
+	parm = RNA_def_pointer(func, "driver", "FCurve", "", "");
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
 
 	/* AnimData.drivers.from_existing(...) */
 	func = RNA_def_function(srna, "from_existing", "rna_Driver_from_existing");

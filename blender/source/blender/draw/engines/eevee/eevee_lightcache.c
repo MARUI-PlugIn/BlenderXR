@@ -1,6 +1,4 @@
 /*
- * Copyright 2016, Blender Foundation.
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,12 +13,10 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * Contributor(s): Blender Institute
- *
+ * Copyright 2016, Blender Foundation.
  */
 
-/** \file eevee_lightcache.c
- *  \ingroup draw_engine
+/** \file \ingroup draw_engine
  *
  * Eevee's indirect lighting cache.
  */
@@ -28,7 +24,6 @@
 #include "DRW_render.h"
 
 #include "BKE_global.h"
-#include "BKE_blender.h"
 
 #include "BLI_threads.h"
 
@@ -71,7 +66,8 @@
 #  define IRRADIANCE_FORMAT GPU_RGBA8
 #endif
 
-#define IRRADIANCE_MAX_POOL_LAYER 256 /* OpenGL 3.3 core requirement, can be extended but it's already very big */
+/* OpenGL 3.3 core requirement, can be extended but it's already very big */
+#define IRRADIANCE_MAX_POOL_LAYER 256
 #define IRRADIANCE_MAX_POOL_SIZE 1024
 #define MAX_IRRADIANCE_SAMPLES \
         (IRRADIANCE_MAX_POOL_SIZE / IRRADIANCE_SAMPLE_SIZE_X) * \
@@ -147,14 +143,13 @@ typedef struct EEVEE_LightBake {
 } EEVEE_LightBake;
 
 /* -------------------------------------------------------------------- */
-
 /** \name Light Cache
  * \{ */
 
 /* Return memory footprint in bytes. */
-static unsigned int eevee_lightcache_memsize_get(LightCache *lcache)
+static uint eevee_lightcache_memsize_get(LightCache *lcache)
 {
-	unsigned int size = 0;
+	uint size = 0;
 	if (lcache->grid_tx.data) {
 		size += MEM_allocN_len(lcache->grid_tx.data);
 	}
@@ -184,7 +179,7 @@ void EEVEE_lightcache_info_update(SceneEEVEE *eevee)
 
 	if (lcache != NULL) {
 		if (lcache->flag & LIGHTCACHE_BAKING) {
-			BLI_strncpy(eevee->light_cache_info, IFACE_("Baking light cache."), sizeof(eevee->light_cache_info));
+			BLI_strncpy(eevee->light_cache_info, IFACE_("Baking light cache"), sizeof(eevee->light_cache_info));
 			return;
 		}
 
@@ -196,7 +191,7 @@ void EEVEE_lightcache_info_update(SceneEEVEE *eevee)
 		BLI_snprintf(eevee->light_cache_info, sizeof(eevee->light_cache_info), IFACE_("%d Ref. Cubemaps, %d Irr. Samples (%s in memory)"), lcache->cube_len - 1, irr_samples, formatted_mem);
 	}
 	else {
-		BLI_strncpy(eevee->light_cache_info, IFACE_("No light cache in this scene."), sizeof(eevee->light_cache_info));
+		BLI_strncpy(eevee->light_cache_info, IFACE_("No light cache in this scene"), sizeof(eevee->light_cache_info));
 	}
 }
 
@@ -281,32 +276,34 @@ LightCache *EEVEE_lightcache_create(
 void EEVEE_lightcache_load(LightCache *lcache)
 {
 	if (lcache->grid_tx.tex == NULL && lcache->grid_tx.data) {
-		lcache->grid_tx.tex = GPU_texture_create_nD(lcache->grid_tx.tex_size[0],
-		                                            lcache->grid_tx.tex_size[1],
-		                                            lcache->grid_tx.tex_size[2],
-		                                            2,
-		                                            lcache->grid_tx.data,
-		                                            IRRADIANCE_FORMAT,
-		                                            GPU_DATA_UNSIGNED_BYTE,
-		                                            0,
-		                                            false,
-		                                            NULL);
+		lcache->grid_tx.tex = GPU_texture_create_nD(
+		        lcache->grid_tx.tex_size[0],
+		        lcache->grid_tx.tex_size[1],
+		        lcache->grid_tx.tex_size[2],
+		        2,
+		        lcache->grid_tx.data,
+		        IRRADIANCE_FORMAT,
+		        GPU_DATA_UNSIGNED_BYTE,
+		        0,
+		        false,
+		        NULL);
 		GPU_texture_bind(lcache->grid_tx.tex, 0);
 		GPU_texture_filter_mode(lcache->grid_tx.tex, true);
 		GPU_texture_unbind(lcache->grid_tx.tex);
 	}
 
 	if (lcache->cube_tx.tex == NULL && lcache->cube_tx.data) {
-		lcache->cube_tx.tex = GPU_texture_create_nD(lcache->cube_tx.tex_size[0],
-		                                            lcache->cube_tx.tex_size[1],
-		                                            lcache->cube_tx.tex_size[2],
-		                                            2,
-		                                            lcache->cube_tx.data,
-		                                            GPU_R11F_G11F_B10F,
-		                                            GPU_DATA_10_11_11_REV,
-		                                            0,
-		                                            false,
-		                                            NULL);
+		lcache->cube_tx.tex = GPU_texture_create_nD(
+		        lcache->cube_tx.tex_size[0],
+		        lcache->cube_tx.tex_size[1],
+		        lcache->cube_tx.tex_size[2],
+		        2,
+		        lcache->cube_tx.data,
+		        GPU_R11F_G11F_B10F,
+		        GPU_DATA_10_11_11_REV,
+		        0,
+		        false,
+		        NULL);
 		GPU_texture_bind(lcache->cube_tx.tex, 0);
 		GPU_texture_mipmap_mode(lcache->cube_tx.tex, true, true);
 		for (int mip = 0; mip < lcache->mips_len; ++mip) {
@@ -365,7 +362,6 @@ void EEVEE_lightcache_free(LightCache *lcache)
 
 
 /* -------------------------------------------------------------------- */
-
 /** \name Light Bake Context
  * \{ */
 
@@ -398,7 +394,6 @@ static void eevee_lightbake_context_disable(EEVEE_LightBake *lbake)
 
 
 /* -------------------------------------------------------------------- */
-
 /** \name Light Bake Job
  * \{ */
 
@@ -411,7 +406,8 @@ static void eevee_lightbake_count_probes(EEVEE_LightBake *lbake)
 
 	DEG_OBJECT_ITER_FOR_RENDER_ENGINE_BEGIN(depsgraph, ob)
 	{
-		if (!BKE_object_is_visible(ob, OB_VISIBILITY_CHECK_FOR_RENDER)) {
+		const int ob_visibility = BKE_object_visibility(ob, DAG_EVAL_RENDER);
+		if ((ob_visibility & OB_VISIBLE_SELF) == 0) {
 			continue;
 		}
 
@@ -464,8 +460,9 @@ static void eevee_lightbake_create_resources(EEVEE_LightBake *lbake)
 	lbake->cube_prb = MEM_callocN(sizeof(LightProbe *) * lbake->cube_len, "EEVEE Cube visgroup ptr");
 	lbake->grid_prb = MEM_callocN(sizeof(LightProbe *) * lbake->grid_len, "EEVEE Grid visgroup ptr");
 
-	lbake->grid_prev = DRW_texture_create_2D_array(lbake->irr_size[0], lbake->irr_size[1], lbake->irr_size[2],
-	                                               IRRADIANCE_FORMAT, DRW_TEX_FILTER, NULL);
+	lbake->grid_prev = DRW_texture_create_2D_array(
+	        lbake->irr_size[0], lbake->irr_size[1], lbake->irr_size[2],
+	        IRRADIANCE_FORMAT, DRW_TEX_FILTER, NULL);
 
 	/* Ensure Light Cache is ready to accept new data. If not recreate one.
 	 * WARNING: All the following must be threadsafe. It's currently protected
@@ -506,8 +503,9 @@ wmJob *EEVEE_lightbake_job_create(
 	EEVEE_LightBake *lbake = NULL;
 
 	/* only one render job at a time */
-	if (WM_jobs_test(wm, scene, WM_JOB_TYPE_RENDER))
+	if (WM_jobs_test(wm, scene, WM_JOB_TYPE_RENDER)) {
 		return NULL;
+	}
 
 	wmJob *wm_job = WM_jobs_get(wm, win, scene, "Bake Lighting",
 	                            WM_JOB_EXCL_RENDER | WM_JOB_PRIORITY | WM_JOB_PROGRESS, WM_JOB_TYPE_LIGHT_BAKE);
@@ -687,7 +685,7 @@ static void eevee_lightbake_cache_create(EEVEE_Data *vedata, EEVEE_LightBake *lb
 	txl->color = lbake->rt_color;
 	int viewport_size[2] = {
 		GPU_texture_width(txl->color),
-		GPU_texture_height(txl->color)
+		GPU_texture_height(txl->color),
 	};
 	DRW_render_viewport_size_set(viewport_size);
 
@@ -888,9 +886,10 @@ static void eevee_lightbake_render_grid_sample(void *ved, void *user_data)
 
 	if (lbake->bounce_curr == 0) {
 		/* We only need to filter the visibility for the first bounce. */
-		EEVEE_lightbake_filter_visibility(sldata, vedata, lbake->rt_depth, lbake->store_fb, sample_offset,
-		                                  prb->clipsta, prb->clipend, egrid->visibility_range,
-		                                  prb->vis_blur, lbake->vis_res);
+		EEVEE_lightbake_filter_visibility(
+		        sldata, vedata, lbake->rt_depth, lbake->store_fb, sample_offset,
+		        prb->clipsta, prb->clipend, egrid->visibility_range,
+		        prb->vis_blur, lbake->vis_res);
 	}
 
 	/* Update level for progressive update. */
@@ -1006,7 +1005,8 @@ static void eevee_lightbake_gather_probes(EEVEE_LightBake *lbake)
 	 * This allows a large number of probe to be precomputed (even dupli ones). */
 	DEG_OBJECT_ITER_FOR_RENDER_ENGINE_BEGIN(depsgraph, ob)
 	{
-		if (!BKE_object_is_visible(ob, OB_VISIBILITY_CHECK_FOR_RENDER)) {
+		const int ob_visibility = BKE_object_visibility(ob, DAG_EVAL_RENDER);
+		if ((ob_visibility & OB_VISIBLE_SELF) == 0) {
 			continue;
 		}
 
@@ -1181,7 +1181,7 @@ void EEVEE_lightbake_update_world_quick(EEVEE_ViewLayerData *sldata, EEVEE_Data 
 	float filter_quality = scene->eevee.gi_filter_quality;
 
 	EEVEE_LightBake lbake = {
-		.resource_only = true
+		.resource_only = true,
 	};
 
 	/* Create resources. */

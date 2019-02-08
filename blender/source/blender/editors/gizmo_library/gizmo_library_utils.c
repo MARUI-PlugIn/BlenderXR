@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,14 +15,9 @@
  *
  * The Original Code is Copyright (C) 2015 Blender Foundation.
  * All rights reserved.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file gizmo_library_utils.c
- *  \ingroup edgizmolib
+/** \file \ingroup edgizmolib
  *
  * \name Gizmo Library Utilities
  *
@@ -32,7 +25,6 @@
  */
 
 #include "BLI_math.h"
-#include "BLI_listbase.h"
 
 #include "DNA_view3d_types.h"
 #include "DNA_screen_types.h"

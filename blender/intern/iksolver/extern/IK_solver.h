@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,17 +15,10 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
  * Original author: Laurence
- * Contributor(s): Brecht
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file iksolver/extern/IK_solver.h
- *  \ingroup iksolver
+/** \file \ingroup iksolver
  */
 
 
@@ -35,7 +26,6 @@
 
  * Copyright (C) 2001 NaN Technologies B.V.
  *
- * \author Laurence, Brecht
  * \page IK - Blender inverse kinematics module.
  *
  * \section about About the IK module
@@ -104,7 +94,6 @@ extern "C" {
  *
  * The local transformation is then defined as:
  * start * rest_basis * basis * basis_change * translation_change * translate(0,length,0) 
- *
  */
 
 typedef void IK_Segment;

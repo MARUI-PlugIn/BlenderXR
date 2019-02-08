@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,15 +15,9 @@
  *
  * The Original Code is Copyright (C) 2007 Blender Foundation.
  * All rights reserved.
- *
- *
- * Contributor(s): Blender Foundation
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/windowmanager/wm_event_system.h
- *  \ingroup wm
+/** \file \ingroup wm
  */
 
 #ifndef __WM_EVENT_SYSTEM_H__
@@ -37,8 +29,8 @@
 #define WM_HANDLER_HANDLED   2
 #define WM_HANDLER_MODAL     4 /* MODAL|BREAK means unhandled */
 
-struct ScrArea;
 struct ARegion;
+struct ScrArea;
 
 /* wmKeyMap is in DNA_windowmanager.h, it's saveable */
 
@@ -84,7 +76,7 @@ typedef struct wmEventHandler {
 /* custom types for handlers, for signaling, freeing */
 enum {
 	WM_HANDLER_DEFAULT,
-	WM_HANDLER_FILESELECT
+	WM_HANDLER_FILESELECT,
 };
 
 /* wm_event_system.c */

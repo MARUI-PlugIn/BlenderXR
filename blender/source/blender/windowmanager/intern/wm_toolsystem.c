@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,12 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/windowmanager/intern/wm_toolsystem.c
- *  \ingroup wm
+/** \file \ingroup wm
  *
  * Experimental tool-system>
  */
@@ -801,6 +796,8 @@ static const char *toolsystem_default_tool(const bToolKey *tkey)
 
 				case CTX_MODE_PARTICLE:
 					return "Comb";
+				case CTX_MODE_EDIT_TEXT:
+					return "Cursor";
 			}
 			break;
 		case SPACE_IMAGE:
@@ -895,6 +892,13 @@ IDProperty *WM_toolsystem_ref_properties_ensure_idprops(bToolRef *tref)
 	return tref->properties;
 }
 
+bool WM_toolsystem_ref_properties_get_ex(bToolRef *tref, const char *idname, StructRNA *type, PointerRNA *r_ptr)
+{
+	IDProperty *group = tref->properties;
+	IDProperty *prop = group ? IDP_GetPropertyFromGroup(group, idname) : NULL;
+	RNA_pointer_create(NULL, type, prop, r_ptr);
+	return (prop != NULL);
+}
 
 void WM_toolsystem_ref_properties_ensure_ex(bToolRef *tref, const char *idname, StructRNA *type, PointerRNA *r_ptr)
 {

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,15 +15,9 @@
  *
  * The Original Code is Copyright (C) 2008 Blender Foundation.
  * All rights reserved.
- *
- *
- * Contributor(s): Blender Foundation
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/space_node/node_intern.h
- *  \ingroup spnode
+/** \file \ingroup spnode
  */
 
 #ifndef __NODE_INTERN_H__
@@ -39,14 +31,14 @@
 
 struct ARegion;
 struct ARegionType;
+struct Main;
 struct View2D;
 struct bContext;
-struct Main;
-struct wmWindow;
 struct bNode;
-struct bNodeSocket;
 struct bNodeLink;
+struct bNodeSocket;
 struct wmKeyConfig;
+struct wmWindow;
 
 /* temp data to pass on to modal */
 typedef struct bNodeLinkDrag {
@@ -64,7 +56,8 @@ typedef struct bNodeLinkDrag {
 ARegion *node_has_buttons_region(ScrArea *sa);
 ARegion *node_has_tools_region(ScrArea *sa);
 
-void snode_group_offset(struct SpaceNode *snode, float *x, float *y);	/* transform between View2Ds in the tree path */
+/* transform between View2Ds in the tree path */
+void snode_group_offset(struct SpaceNode *snode, float *x, float *y);
 
 /* node_draw.c */
 int node_get_colorid(struct bNode *node);
@@ -245,6 +238,7 @@ extern const char *node_context_dir[];
 #define NODE_HEIGHT(node) (node->height * UI_DPI_FAC)
 #define NODE_MARGIN_X   (0.75f * U.widget_unit)
 #define NODE_SOCKSIZE   (0.25f * U.widget_unit)
+#define NODE_RESIZE_MARGIN (0.20f * U.widget_unit)
 #define NODE_LINK_RESOL 12
 
 // XXX button events (butspace)

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,14 +15,9 @@
  *
  * The Original Code is Copyright (C) 2016 Blender Foundation.
  * All rights reserved.
- *
- * Contributor(s): Kevin Dietrich.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenkernel/intern/cachefile.c
- *  \ingroup bke
+/** \file \ingroup bke
  */
 
 #include "DNA_anim_types.h"
@@ -110,7 +103,7 @@ void BKE_cachefile_free(CacheFile *cache_file)
 
 /**
  * Only copy internal data of CacheFile ID from source to already allocated/initialized destination.
- * You probably nerver want to use that directly, use id_copy or BKE_id_copy_ex for typical needs.
+ * You probably never want to use that directly, use BKE_id_copy or BKE_id_copy_ex for typical needs.
  *
  * WARNING! This function will not handle ID user count!
  *
@@ -132,7 +125,7 @@ void BKE_cachefile_copy_data(
 CacheFile *BKE_cachefile_copy(Main *bmain, const CacheFile *cache_file)
 {
 	CacheFile *cache_file_copy;
-	BKE_id_copy_ex(bmain, &cache_file->id, (ID **)&cache_file_copy, 0, false);
+	BKE_id_copy(bmain, &cache_file->id, (ID **)&cache_file_copy);
 	return cache_file_copy;
 }
 
@@ -184,7 +177,8 @@ void BKE_cachefile_update_frame(
 	char filename[FILE_MAX];
 
 	for (cache_file = bmain->cachefiles.first; cache_file; cache_file = cache_file->id.next) {
-		/* Execute drivers only, as animation has already been done. */
+		/* TODO: dependency graph should be updated to do drivers on cachefile.
+		 * Execute drivers only, as animation has already been done. */
 		BKE_animsys_evaluate_animdata(depsgraph, scene, &cache_file->id, cache_file->adt, ctime, ADT_RECALC_DRIVERS);
 
 		if (!cache_file->is_sequence) {

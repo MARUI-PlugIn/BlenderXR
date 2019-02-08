@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,15 +15,9 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * Contributor(s): Full recode, Ton Roosendaal, Crete 2005
- *                 Full recode, Joshua Leung, 2009
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenkernel/intern/action.c
- *  \ingroup bke
+/** \file \ingroup bke
  */
 
 
@@ -56,11 +48,8 @@
 #include "BKE_constraint.h"
 #include "BKE_deform.h"
 #include "BKE_fcurve.h"
-#include "BKE_global.h"
 #include "BKE_idprop.h"
 #include "BKE_library.h"
-#include "BKE_library_query.h"
-#include "BKE_library_remap.h"
 #include "BKE_main.h"
 #include "BKE_object.h"
 
@@ -69,6 +58,10 @@
 #include "BIK_api.h"
 
 #include "RNA_access.h"
+
+#include "CLG_log.h"
+
+static CLG_LogRef LOG = {"bke.action"};
 
 /* *********************** NOTE ON POSE AND ACTION **********************
  *
@@ -123,7 +116,7 @@ void BKE_action_free(bAction *act)
 
 /**
  * Only copy internal data of Action ID from source to already allocated/initialized destination.
- * You probably nerver want to use that directly, use id_copy or BKE_id_copy_ex for typical needs.
+ * You probably never want to use that directly, use BKE_id_copy or BKE_id_copy_ex for typical needs.
  *
  * WARNING! This function will not handle ID user count!
  *
@@ -169,7 +162,7 @@ void BKE_action_copy_data(Main *UNUSED(bmain), bAction *act_dst, const bAction *
 bAction *BKE_action_copy(Main *bmain, const bAction *act_src)
 {
 	bAction *act_copy;
-	BKE_id_copy_ex(bmain, &act_src->id, (ID **)&act_copy, 0, false);
+	BKE_id_copy(bmain, &act_src->id, (ID **)&act_copy);
 	return act_copy;
 }
 
@@ -1381,15 +1374,14 @@ bool BKE_pose_copy_result(bPose *to, bPose *from)
 	bPoseChannel *pchanto, *pchanfrom;
 
 	if (to == NULL || from == NULL) {
-		printf("Pose copy error, pose to:%p from:%p\n", (void *)to, (void *)from); /* debug temp */
+		CLOG_ERROR(&LOG, "Pose copy error, pose to:%p from:%p", (void *)to, (void *)from); /* debug temp */
 		return false;
 	}
 
 	if (to == from) {
-		printf("BKE_pose_copy_result source and target are the same\n");
+		CLOG_ERROR(&LOG, "source and target are the same");
 		return false;
 	}
-
 
 	for (pchanfrom = from->chanbase.first; pchanfrom; pchanfrom = pchanfrom->next) {
 		pchanto = BKE_pose_channel_find_name(to, pchanfrom->name);
@@ -1473,7 +1465,6 @@ void what_does_obaction(Object *ob, Object *workob, bPose *pose, bAction *act, c
 		/* init animdata, and attach to workob */
 		workob->adt = &adt;
 
-		adt.recalc = ADT_RECALC_ANIM;
 		adt.action = act;
 
 		/* execute effects of Action on to workob (or it's PoseChannels) */

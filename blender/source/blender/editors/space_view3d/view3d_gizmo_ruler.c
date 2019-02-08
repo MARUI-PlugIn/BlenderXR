@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,12 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/space_view3d/view3d_gizmo_ruler.c
- *  \ingroup spview3d
+/** \file \ingroup spview3d
  */
 
 #include "BLI_listbase.h"
@@ -43,8 +38,6 @@
 #include "DNA_object_types.h"
 #include "DNA_gpencil_types.h"
 #include "DNA_view3d_types.h"
-
-#include "BIF_gl.h"
 
 #include "ED_gizmo_utils.h"
 #include "ED_gpencil.h"
@@ -72,7 +65,6 @@
 
 #include "BLF_api.h"
 
-
 static const char *view3d_gzgt_ruler_id = "VIEW3D_GGT_ruler";
 
 
@@ -82,12 +74,12 @@ static const char *view3d_gzgt_ruler_id = "VIEW3D_GGT_ruler";
 /* Ruler Item (we can have many) */
 enum {
 	RULERITEM_USE_ANGLE = (1 << 0),  /* use protractor */
-	RULERITEM_USE_RAYCAST = (1 << 1)
+	RULERITEM_USE_RAYCAST = (1 << 1),
 };
 
 enum {
 	RULERITEM_DIRECTION_IN = 0,
-	RULERITEM_DIRECTION_OUT
+	RULERITEM_DIRECTION_OUT,
 };
 
 /* keep smaller then selection, since we may want click elsewhere without selecting a ruler */
@@ -102,7 +94,7 @@ enum {
 
 enum {
 	RULER_STATE_NORMAL = 0,
-	RULER_STATE_DRAG
+	RULER_STATE_DRAG,
 };
 
 enum {

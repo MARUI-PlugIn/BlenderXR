@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,15 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Blender Foundation
- *
- * ***** END GPL LICENSE BLOCK *****
- *
  */
 
-/** \file blender/blenloader/intern/versioning_270.c
- *  \ingroup blenloader
+/** \file \ingroup blenloader
  */
 
 #include "BLI_utildefines.h"
@@ -63,7 +55,6 @@
 #include "BKE_colortools.h"
 #include "BKE_fcurve.h"
 #include "BKE_gpencil.h"
-#include "BKE_library.h"
 #include "BKE_main.h"
 #include "BKE_mask.h"
 #include "BKE_modifier.h"
@@ -1515,7 +1506,7 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *bmain)
 		}
 		if (!DNA_struct_elem_find(fd->filesdna, "FFMpegCodecData", "int", "constant_rate_factor")) {
 			for (Scene *scene = bmain->scene.first; scene; scene = scene->id.next) {
-				/* fall back to behaviour from before we introduced CRF for old files */
+				/* fall back to behavior from before we introduced CRF for old files */
 				scene->r.ffcodecdata.constant_rate_factor = FFM_CRF_NONE;
 			}
 		}

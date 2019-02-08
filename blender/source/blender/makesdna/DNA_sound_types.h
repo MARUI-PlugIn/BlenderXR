@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,17 +15,8 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
-/** \file DNA_sound_types.h
- *  \ingroup DNA
- *  \since mar-2001
- *  \author nzc
+/** \file \ingroup DNA
  */
 
 #ifndef __DNA_SOUND_TYPES_H__
@@ -48,7 +37,8 @@ typedef struct bSound {
 	/**
 	 * The path to the sound file.
 	 */
-	char name[1024];  /* 1024 = FILE_MAX */
+	/** 1024 = FILE_MAX. */
+	char name[1024];
 
 	/**
 	 * The packed file.
@@ -73,7 +63,8 @@ typedef struct bSound {
 	float max_gain;
 	float distance;
 	short flags;
-	short tags;  /* Runtime only, always reset in readfile. */
+	/** Runtime only, always reset in readfile. */
+	short tags;
 	int pad;
 
 	/* unused currently
@@ -96,7 +87,7 @@ typedef struct bSound {
 	 */
 	void *playback_handle;
 
-	/* spinlock for asynchronous loading of sounds */
+	/** Spinlock for asynchronous loading of sounds. */
 	void *spinlock;
 	/* XXX unused currently	(SOUND_TYPE_LIMITER) */
 	/* float start, end; */
@@ -108,7 +99,7 @@ typedef enum eSound_Type {
 	SOUND_TYPE_INVALID = -1,
 	SOUND_TYPE_FILE = 0,
 	SOUND_TYPE_BUFFER = 1,
-	SOUND_TYPE_LIMITER = 2
+	SOUND_TYPE_LIMITER = 2,
 } eSound_Type;
 #endif
 
@@ -121,7 +112,8 @@ enum {
 /* bSound->flags */
 enum {
 #ifdef DNA_DEPRECATED
-	SOUND_FLAGS_3D                   = (1 << 3),  /* deprecated! used for sound actuator loading */
+	/* deprecated! used for sound actuator loading */
+	SOUND_FLAGS_3D                   = (1 << 3),
 #endif
 	SOUND_FLAGS_CACHING              = (1 << 4),
 	SOUND_FLAGS_MONO                 = (1 << 5),
@@ -129,7 +121,8 @@ enum {
 
 /* bSound->tags */
 enum {
-	SOUND_TAGS_WAVEFORM_NO_RELOAD    = 1 << 0,  /* Do not free/reset waveform on sound load, only used by undo code. */
+	/* Do not free/reset waveform on sound load, only used by undo code. */
+	SOUND_TAGS_WAVEFORM_NO_RELOAD    = 1 << 0,
 	SOUND_TAGS_WAVEFORM_LOADING     = (1 << 6),
 };
 

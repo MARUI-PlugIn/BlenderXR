@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,20 +15,11 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 #ifndef __BKE_BLENDER_H__
 #define __BKE_BLENDER_H__
 
-/** \file BKE_blender.h
- *  \ingroup bke
- *  \since March 2001
- *  \author nzc
+/** \file \ingroup bke
  *  \brief Blender util stuff
  */
 
@@ -55,8 +44,6 @@ void BKE_blender_userdef_data_set_and_free(struct UserDef *userdef);
 void BKE_blender_userdef_app_template_data_swap(struct UserDef *userdef_dst, struct UserDef *userdef_src);
 void BKE_blender_userdef_app_template_data_set(struct UserDef *userdef);
 void BKE_blender_userdef_app_template_data_set_and_free(struct UserDef *userdef);
-
-void BKE_blender_userdef_data_duplicate(struct UserDef *userdef_dst, struct UserDef *userdef_src);
 
 void BKE_blender_userdef_data_free(struct UserDef *userdef, bool clear_fonts);
 

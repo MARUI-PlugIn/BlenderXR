@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,17 +12,12 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Joseph Eagar.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
 #ifndef __BKE_EDITMESH_H__
 #define __BKE_EDITMESH_H__
 
-/** \file BKE_editmesh.h
- *  \ingroup bke
+/** \file \ingroup bke
  *
  * The \link edmesh EDBM module\endlink is for editmode bmesh stuff.
  * In contrast, this module is for code shared with blenkernel that's
@@ -42,14 +35,14 @@ extern "C"
 #endif
 #endif
 
-struct BMesh;
 struct BMLoop;
-struct Mesh;
-struct Scene;
-struct DerivedMesh;
-struct MeshStatVis;
+struct BMesh;
 struct Depsgraph;
+struct DerivedMesh;
 struct EditMeshData;
+struct Mesh;
+struct MeshStatVis;
+struct Scene;
 
 /**
  * This structure is used for mesh edit-mode.
@@ -112,11 +105,11 @@ void BKE_editmesh_statvis_calc(
 
 float (*BKE_editmesh_vertexCos_get(
            struct Depsgraph *depsgraph, struct BMEditMesh *em, struct Scene *scene, int *r_numVerts))[3];
-
+		   
 #if WITH_VR
 #ifdef __cplusplus
 }
 #endif
 #endif
-		   
+
 #endif /* __BKE_EDITMESH_H__ */

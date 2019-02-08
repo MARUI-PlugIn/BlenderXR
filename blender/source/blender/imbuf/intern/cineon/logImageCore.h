@@ -21,13 +21,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Julien Enche.
- *
  */
 
-/** \file blender/imbuf/intern/cineon/logImageCore.h
- *  \ingroup imbcineon
+/** \file \ingroup imbcineon
  */
 
 #ifndef __LOGIMAGECORE_H__
@@ -49,7 +45,7 @@ extern "C" {
 /* There are some differences between DPX and Cineon so we need to know from what type of file the datas come from */
 enum format {
 	format_DPX,
-	format_Cineon
+	format_Cineon,
 };
 
 typedef struct LogImageElement {
@@ -125,7 +121,7 @@ enum transfer {
 	transfer_NTSC,
 	transfer_PAL,
 	transfer_ZLinear,
-	transfer_Homogeneous
+	transfer_Homogeneous,
 };
 
 /* The SMPTE defines this code:
@@ -179,7 +175,7 @@ enum descriptor {
 	descriptor_UserDefined7Elt,
 	descriptor_UserDefined8Elt,
 	/* following descriptors are for internal use only */
-	descriptor_YA
+	descriptor_YA,
 };
 
 /* int functions return 0 for OK */

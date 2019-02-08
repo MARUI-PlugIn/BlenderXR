@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,19 +15,9 @@
  *
  * The Original Code is Copyright (C) 2005 by the Blender Foundation.
  * All rights reserved.
- *
- * Contributor(s): Daniel Dunbar
- *                 Ton Roosendaal,
- *                 Ben Batt,
- *                 Brecht Van Lommel,
- *                 Campbell Barton
- *
- * ***** END GPL LICENSE BLOCK *****
- *
  */
 
-/** \file blender/modifiers/intern/MOD_boolean.c
- *  \ingroup modifiers
+/** \file \ingroup modifiers
  */
 
 // #ifdef DEBUG_TIME
@@ -122,12 +110,7 @@ static Mesh *get_quick_mesh(
 					result = mesh_self;
 				}
 				else {
-					BKE_id_copy_ex(NULL, &mesh_other->id, (ID **)&result,
-					               LIB_ID_CREATE_NO_MAIN |
-					               LIB_ID_CREATE_NO_USER_REFCOUNT |
-					               LIB_ID_CREATE_NO_DEG_TAG |
-					               LIB_ID_COPY_NO_PREVIEW,
-					               false);
+					BKE_id_copy_ex(NULL, &mesh_other->id, (ID **)&result, LIB_ID_COPY_LOCALIZE);
 
 					float imat[4][4];
 					float omat[4][4];

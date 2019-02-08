@@ -6,11 +6,11 @@ uniform mat4 ViewProjectionMatrix;
 uniform mat4 ViewMatrix;
 uniform mat4 ProjectionMatrix;
 
-/* ---- Instantiated Attribs ---- */
+/* ---- Instantiated Attrs ---- */
 in vec3 pos;
 in vec3 nor;
 
-/* ---- Per instance Attribs ---- */
+/* ---- Per instance Attrs ---- */
 in mat4 InstanceModelMatrix;
 in vec3 boneColor;
 in vec3 stateColor;
@@ -32,5 +32,11 @@ void main()
 	finalColor.rgb = mix(stateColor, boneColor, fac);
 	finalColor.a = 1.0;
 
-	gl_Position = ViewProjectionMatrix * (InstanceModelMatrix * vec4(pos, 1.0));
+
+	vec4 worldPosition = InstanceModelMatrix * vec4(pos, 1.0);
+	gl_Position = ViewProjectionMatrix * worldPosition;
+
+#ifdef USE_WORLD_CLIP_PLANES
+	world_clip_planes_calc_clip_distance(worldPosition.xyz);
+#endif
 }

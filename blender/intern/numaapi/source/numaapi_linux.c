@@ -61,6 +61,8 @@ typedef struct bitmask* tnuma_allocate_nodemask(void);
 typedef void tnuma_free_cpumask(struct bitmask* bitmask);
 typedef void tnuma_free_nodemask(struct bitmask* bitmask);
 typedef int tnuma_run_on_node_mask(struct bitmask *nodemask);
+typedef int tnuma_run_on_node_mask_all(struct bitmask *nodemask);
+typedef struct bitmask *tnuma_get_run_node_mask(void);
 typedef void tnuma_set_interleave_mask(struct bitmask *nodemask);
 typedef void tnuma_set_localalloc(void);
 
@@ -83,6 +85,8 @@ static tnuma_allocate_nodemask* numa_allocate_nodemask;
 static tnuma_free_nodemask* numa_free_nodemask;
 static tnuma_free_cpumask* numa_free_cpumask;
 static tnuma_run_on_node_mask* numa_run_on_node_mask;
+static tnuma_run_on_node_mask_all* numa_run_on_node_mask_all;
+static tnuma_get_run_node_mask* numa_get_run_node_mask;
 static tnuma_set_interleave_mask* numa_set_interleave_mask;
 static tnuma_set_localalloc* numa_set_localalloc;
 
@@ -157,6 +161,8 @@ static NUMAAPI_Result loadNumaSymbols(void) {
   NUMA_LIBRARY_FIND(numa_free_cpumask);
   NUMA_LIBRARY_FIND(numa_free_nodemask);
   NUMA_LIBRARY_FIND(numa_run_on_node_mask);
+  NUMA_LIBRARY_FIND(numa_run_on_node_mask_all);
+  NUMA_LIBRARY_FIND(numa_get_run_node_mask);
   NUMA_LIBRARY_FIND(numa_set_interleave_mask);
   NUMA_LIBRARY_FIND(numa_set_localalloc);
 
@@ -192,17 +198,14 @@ int numaAPI_GetNumNodes(void) {
 }
 
 bool numaAPI_IsNodeAvailable(int node) {
-  if (numa_node_size(node, NULL) > 0) {
-    return true;
-  }
-  return false;
+  return numaAPI_GetNumNodeProcessors(node) > 0;
 }
 
 int numaAPI_GetNumNodeProcessors(int node) {
   struct bitmask* cpu_mask = numa_allocate_cpumask();
   numa_node_to_cpus(node, cpu_mask);
   const unsigned int num_bytes = numa_bitmask_nbytes(cpu_mask);
-  const unsigned int num_bits = num_bytes  *8;
+  const unsigned int num_bits = num_bytes * 8;
   // TODO(sergey): There might be faster way calculating number of set bits.
   int num_processors = 0;
   for (unsigned int bit = 0; bit < num_bits; ++bit) {
@@ -223,6 +226,23 @@ int numaAPI_GetNumNodeProcessors(int node) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// Topology helpers.
+
+int numaAPI_GetNumCurrentNodesProcessors(void) {
+  struct bitmask* node_mask = numa_get_run_node_mask();
+  const unsigned int num_bytes = numa_bitmask_nbytes(node_mask);
+  const unsigned int num_bits = num_bytes * 8;
+  int num_processors = 0;
+  for (unsigned int bit = 0; bit < num_bits; ++bit) {
+    if (numa_bitmask_isbitset(node_mask, bit)) {
+      num_processors += numaAPI_GetNumNodeProcessors(bit);
+    }
+  }
+  numa_bitmask_free(node_mask);
+  return num_processors;
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // Affinities.
 
 bool numaAPI_RunProcessOnNode(int node) {
@@ -235,13 +255,15 @@ bool numaAPI_RunThreadOnNode(int node) {
   struct bitmask* node_mask = numa_allocate_nodemask();
   numa_bitmask_clearall(node_mask);
   numa_bitmask_setbit(node_mask, node);
-  numa_run_on_node_mask(node_mask);
+  numa_run_on_node_mask_all(node_mask);
   // TODO(sergey): The following commands are based on x265 code, we might want
   // to make those optional, or require to call those explicitly.
   //
   // Current assumption is that this is similar to SetThreadGroupAffinity().
-  numa_set_interleave_mask(node_mask);
-  numa_set_localalloc();
+  if (numa_node_size(node, NULL) > 0) {
+    numa_set_interleave_mask(node_mask);
+    numa_set_localalloc();
+  }
 #ifdef WITH_DYNLOAD
   if (numa_free_nodemask != NULL) {
     numa_free_nodemask(node_mask);

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2005 Blender Foundation.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenkernel/intern/DerivedMesh.c
- *  \ingroup bke
+/** \file \ingroup bke
  */
 
 
@@ -77,6 +68,8 @@
 #include "DEG_depsgraph_query.h"
 #include "BKE_shrinkwrap.h"
 
+#include "CLG_log.h"
+
 #ifdef WITH_OPENSUBDIV
 #  include "DNA_userdef_types.h"
 #endif
@@ -92,7 +85,7 @@
 #  define ASSERT_IS_VALID_MESH(mesh)
 #endif
 
-
+static CLG_LogRef LOG = {"bke.derivedmesh"};
 static ThreadRWMutex loops_cache_lock = PTHREAD_RWLOCK_INITIALIZER;
 
 
@@ -549,9 +542,7 @@ void DM_to_mesh(DerivedMesh *dm, Mesh *me, Object *ob, CustomDataMask mask, bool
 				uid = kb->uid;
 			}
 			else {
-				printf("%s: error - could not find active shapekey %d!\n",
-				       __func__, ob->shapenr - 1);
-
+				CLOG_ERROR(&LOG, "could not find active shapekey %d!", ob->shapenr - 1);
 				uid = INT_MAX;
 			}
 		}
@@ -614,7 +605,7 @@ void DM_to_mesh(DerivedMesh *dm, Mesh *me, Object *ob, CustomDataMask mask, bool
 	 * which should be fed through the modifier
 	 * stack */
 	if (tmp.totvert != me->totvert && !did_shapekeys && me->key) {
-		printf("%s: YEEK! this should be recoded! Shape key loss!: ID '%s'\n", __func__, tmp.id.name);
+		CLOG_WARN(&LOG, "YEEK! this should be recoded! Shape key loss!: ID '%s'", tmp.id.name);
 		if (tmp.key && !(tmp.id.tag & LIB_TAG_NO_MAIN)) {
 			id_us_min(&tmp.key->id);
 		}
@@ -1107,7 +1098,7 @@ static void shapekey_layers_to_keyblocks(DerivedMesh *dm, Mesh *me, int actshape
 
 			kb->totelem = dm->numVertData;
 			kb->data = MEM_calloc_arrayN(kb->totelem, 3 * sizeof(float), "kb->data derivedmesh.c");
-			fprintf(stderr, "%s: lost a shapekey layer: '%s'! (bmesh internal error)\n", __func__, kb->name);
+			CLOG_ERROR(&LOG, "lost a shapekey layer: '%s'! (bmesh internal error)", kb->name);
 		}
 	}
 }
@@ -1123,9 +1114,8 @@ static void add_shapekey_layers(Mesh *me_dst, Mesh *me_src, Object *UNUSED(ob))
 
 	/* ensure we can use mesh vertex count for derived mesh custom data */
 	if (me_src->totvert != me_dst->totvert) {
-		fprintf(stderr,
-		        "%s: vertex size mismatch (mesh/eval) '%s' (%d != %d)\n",
-		        __func__, me_src->id.name + 2, me_src->totvert, me_dst->totvert);
+		CLOG_WARN(&LOG, "vertex size mismatch (mesh/eval) '%s' (%d != %d)",
+		          me_src->id.name + 2, me_src->totvert, me_dst->totvert);
 		return;
 	}
 
@@ -1134,9 +1124,8 @@ static void add_shapekey_layers(Mesh *me_dst, Mesh *me_src, Object *UNUSED(ob))
 		float *array;
 
 		if (me_src->totvert != kb->totelem) {
-			fprintf(stderr,
-			        "%s: vertex size mismatch (Mesh '%s':%d != KeyBlock '%s':%d)\n",
-			        __func__, me_src->id.name + 2, me_src->totvert, kb->name, kb->totelem);
+			CLOG_WARN(&LOG, "vertex size mismatch (Mesh '%s':%d != KeyBlock '%s':%d)",
+			          me_src->id.name + 2, me_src->totvert, kb->name, kb->totelem);
 			array = MEM_calloc_arrayN((size_t)me_src->totvert, sizeof(float[3]), __func__);
 		}
 		else {
@@ -1170,7 +1159,7 @@ static void mesh_calc_modifiers(
 	ModifierData *firstmd, *md, *previewmd = NULL;
 	CDMaskLink *datamasks, *curr;
 	/* XXX Always copying POLYINDEX, else tessellated data are no more valid! */
-	CustomDataMask mask, nextmask, previewmask = 0, append_mask = CD_MASK_ORIGINDEX;
+	CustomDataMask mask, nextmask, previewmask = 0, append_mask = CD_MASK_ORIGINDEX | CD_MASK_BAREMESH;
 	float (*deformedVerts)[3] = NULL;
 	int numVerts = ((Mesh *)ob->data)->totvert;
 	const bool useRenderParams = (DEG_get_mode(depsgraph) == DAG_EVAL_RENDER);
@@ -1688,7 +1677,7 @@ static void editbmesh_calc_modifiers(
 {
 	ModifierData *md;
 	float (*deformedVerts)[3] = NULL;
-	CustomDataMask mask = 0, append_mask = 0;
+	CustomDataMask mask = 0, append_mask = CD_MASK_BAREMESH;
 	int i, numVerts = 0, cageIndex = modifiers_getCageIndex(scene, ob, NULL, 1);
 	CDMaskLink *datamasks, *curr;
 	const int required_mode = eModifierMode_Realtime | eModifierMode_Editmode;
@@ -2052,7 +2041,11 @@ static void mesh_build_data(
 #endif
 
 	BKE_object_boundbox_calc_from_mesh(ob, ob->runtime.mesh_eval);
-	BKE_mesh_texspace_copy_from_object(ob->runtime.mesh_eval, ob);
+	/* Only copy texspace from orig mesh if some modifier (hint: smoke sim, see T58492)
+	 * did not re-enable that flag (which always get disabled for eval mesh as a start). */
+	if (!(ob->runtime.mesh_eval->texflag & ME_AUTOSPACE)) {
+		BKE_mesh_texspace_copy_from_object(ob->runtime.mesh_eval, ob);
+	}
 
 	mesh_finalize_eval(ob);
 

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,15 +12,12 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
 #ifndef __BLENDER_FILE_LOADER_H__
 #define __BLENDER_FILE_LOADER_H__
 
-/** \file blender/freestyle/intern/blender_interface/BlenderFileLoader.h
- *  \ingroup freestyle
+/** \file \ingroup freestyle
  */
 
 #include <string.h>
@@ -89,7 +84,7 @@ class BlenderFileLoader
 {
 public:
 	/*! Builds a MaxFileLoader */
-	BlenderFileLoader(Render *re, ViewLayer *view_layer);
+	BlenderFileLoader(Render *re, ViewLayer *view_layer, Depsgraph *depsgraph);
 	virtual ~BlenderFileLoader();
 
 	/*! Loads the 3D scene and returns a pointer to the scene root node */
@@ -124,7 +119,7 @@ protected:
 		unsigned n;
 	};
 	Render *_re;
-	ViewLayer *_view_layer;
+	Depsgraph *_depsgraph;
 	NodeGroup *_Scene;
 	unsigned _numFacesRead;
 #if 0

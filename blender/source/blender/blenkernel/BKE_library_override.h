@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,19 +15,12 @@
  *
  * The Original Code is Copyright (C) 2016 by Blender Foundation.
  * All rights reserved.
- *
- * Contributor(s): Bastien Montagne.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
 #ifndef __BKE_LIBRARY_OVERRIDE_H__
 #define __BKE_LIBRARY_OVERRIDE_H__
 
-/** \file BKE_library_override.h
- *  \ingroup bke
- *  \since December 2016
- *  \author mont29
+/** \file \ingroup bke
  */
 
 struct ID;

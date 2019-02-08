@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,53 +15,46 @@
  *
  * The Original Code is Copyright (C) 2009 by Nicholas Bishop
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
 #ifndef __BKE_PAINT_H__
 #define __BKE_PAINT_H__
 
-/** \file BKE_paint.h
- *  \ingroup bke
+/** \file \ingroup bke
  */
 
-struct bContext;
-struct bToolRef;
-struct BMesh;
 struct BMFace;
+struct BMesh;
 struct Brush;
 struct CurveMapping;
+struct Depsgraph;
 struct EnumPropertyItem;
-struct MeshElemMap;
 struct GridPaintMask;
-struct Main;
-struct Mesh;
+struct ImagePool;
+struct MFace;
 struct MLoop;
 struct MLoopTri;
-struct MFace;
 struct MVert;
+struct Main;
+struct Mesh;
+struct MeshElemMap;
 struct Object;
+struct PBVH;
 struct Paint;
 struct PaintCurve;
 struct Palette;
 struct PaletteColor;
-struct PBVH;
 struct ReportList;
 struct Scene;
-struct ViewLayer;
 struct Sculpt;
 struct StrokeCache;
 struct SubdivCCG;
 struct Tex;
-struct ImagePool;
-struct UnifiedPaintSettings;
-struct Depsgraph;
 struct ToolSettings;
+struct UnifiedPaintSettings;
+struct ViewLayer;
+struct bContext;
+struct bToolRef;
 
 enum eOverlayFlags;
 
@@ -99,7 +90,7 @@ typedef enum eOverlayControlFlags {
 	PAINT_OVERLAY_INVALID_CURVE = (1 << 3),
 	PAINT_OVERLAY_OVERRIDE_CURSOR = (1 << 4),
 	PAINT_OVERLAY_OVERRIDE_PRIMARY = (1 << 5),
-	PAINT_OVERLAY_OVERRIDE_SECONDARY = (1 << 6)
+	PAINT_OVERLAY_OVERRIDE_SECONDARY = (1 << 6),
 } eOverlayControlFlags;
 
 #define PAINT_OVERRIDE_MASK \
@@ -297,6 +288,6 @@ struct PBVH *BKE_sculpt_object_pbvh_ensure(struct Depsgraph *depsgraph, struct O
 
 enum {
 	SCULPT_MASK_LAYER_CALC_VERT = (1 << 0),
-	SCULPT_MASK_LAYER_CALC_LOOP = (1 << 1)
+	SCULPT_MASK_LAYER_CALC_LOOP = (1 << 1),
 };
 #endif

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,14 +15,9 @@
  *
  * The Original Code is Copyright (C) 2017 by Blender Foundation.
  * All rights reserved.
- *
- * Contributor(s): Blender Foundation, Mike Erwin, Dalai Felinto
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file draw_hair.c
- *  \ingroup draw
+/** \file \ingroup draw
  *
  *  \brief Contains procedural GPU hair drawing methods.
  */
@@ -34,18 +27,12 @@
 #include "BLI_utildefines.h"
 #include "BLI_string_utils.h"
 
-#include "DNA_mesh_types.h"
-#include "DNA_meshdata_types.h"
 #include "DNA_modifier_types.h"
 #include "DNA_particle_types.h"
 #include "DNA_customdata_types.h"
 
 #include "BKE_anim.h"
-#include "BKE_mesh.h"
-#include "BKE_particle.h"
-#include "BKE_pointcache.h"
 
-#include "ED_particle.h"
 
 #include "GPU_batch.h"
 #include "GPU_shader.h"
@@ -141,7 +128,7 @@ static DRWShadingGroup *drw_shgroup_create_hair_procedural_ex(
 		}
 	}
 
-	if (dupli_parent) {
+	if ((dupli_parent != NULL) && (dupli_object != NULL)) {
 		DRWHairInstanceData *hair_inst_data = (DRWHairInstanceData *)DRW_drawdata_ensure(
 		        &object->id, (DrawEngineType *)&drw_shgroup_create_hair_procedural_ex,
 		        sizeof(DRWHairInstanceData), NULL, NULL);

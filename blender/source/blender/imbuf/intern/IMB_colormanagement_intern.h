@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,29 +15,19 @@
  *
  * The Original Code is Copyright (C) 2012 by Blender Foundation.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): Xavier Thomas,
- *                 Lukas Toenne,
- *                 Sergey Sharybin
- *
- * ***** END GPL LICENSE BLOCK *****
- *
  */
 
 #ifndef __IMB_COLORMANAGEMENT_INTERN_H__
 #define __IMB_COLORMANAGEMENT_INTERN_H__
 
-/** \file IMB_colormanagement_intern.h
- *  \ingroup imbuf
+/** \file \ingroup imbuf
  */
 
 #include "DNA_listBase.h"
 #include "BLI_sys_types.h"
 
-struct OCIO_ConstProcessorRcPtr;
 struct ImBuf;
+struct OCIO_ConstProcessorRcPtr;
 
 extern float imbuf_luma_coefficients[3];
 extern float imbuf_xyz_to_rgb[3][3];

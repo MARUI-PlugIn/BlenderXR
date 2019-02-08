@@ -15,5 +15,9 @@ add_subdirectory(${PROJECT_SOURCE_DIR}/src)
 
 set_target_properties (${PROJECT_NAME}
     PROPERTIES
+if(APPLE)
+	LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin/MacOS/SteamVR"
+else()
 	LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin/Linux/SteamVR"
+endif()
 )

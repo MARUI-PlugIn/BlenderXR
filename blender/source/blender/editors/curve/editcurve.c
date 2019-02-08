@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/curve/editcurve.c
- *  \ingroup edcurve
+/** \file \ingroup edcurve
  */
 
 #include "DNA_key_types.h"
@@ -160,8 +151,9 @@ static void init_editNurb_keyIndex(EditNurb *editnurb, ListBase *origBase)
 			pt_index = 0;
 			while (a--) {
 				/* We cannot keep *any* reference to curve obdata,
-				 * it might be replaced and freed while editcurve remain in use (in viewport render case e.g.).
-				 * Note that we could use a pool to avoid lots of malloc's here, but... not really a problem for now. */
+				 * it might be replaced and freed while editcurve remain in use
+				 * (in viewport render case e.g.). Note that we could use a pool to avoid
+				 * lots of malloc's here, but... not really a problem for now. */
 				BezTriple *origbezt_cpy = MEM_mallocN(sizeof(*origbezt), __func__);
 				*origbezt_cpy = *origbezt;
 				keyIndex = init_cvKeyIndex(origbezt_cpy, key_index, nu_index, pt_index, vertex_index);
@@ -180,8 +172,9 @@ static void init_editNurb_keyIndex(EditNurb *editnurb, ListBase *origBase)
 			pt_index = 0;
 			while (a--) {
 				/* We cannot keep *any* reference to curve obdata,
-				 * it might be replaced and freed while editcurve remain in use (in viewport render case e.g.).
-				 * Note that we could use a pool to avoid lots of malloc's here, but... not really a problem for now. */
+				 * it might be replaced and freed while editcurve remain in use
+				 * (in viewport render case e.g.). Note that we could use a pool to avoid
+				 * lots of malloc's here, but... not really a problem for now. */
 				BPoint *origbp_cpy = MEM_mallocN(sizeof(*origbp_cpy), __func__);
 				*origbp_cpy = *origbp;
 				keyIndex = init_cvKeyIndex(origbp_cpy, key_index, nu_index, pt_index, vertex_index);
@@ -1272,8 +1265,9 @@ void ED_curve_editnurb_make(Object *obedit)
 
 		if (actkey) {
 			editnurb->shapenr = obedit->shapenr;
-			/* Apply shapekey to new nurbs of editnurb, not those of original curve (and *after* we generated keyIndex),
-			 * else we do not have valid 'original' data to properly restore curve when leaving editmode. */
+			/* Apply shapekey to new nurbs of editnurb, not those of original curve
+			 * (and *after* we generated keyIndex), else we do not have valid 'original' data
+			 * to properly restore curve when leaving editmode. */
 			BKE_keyblock_convert_to_curve(actkey, cu, &editnurb->nurbs);
 		}
 	}
@@ -1336,7 +1330,8 @@ static int separate_exec(bContext *C, wmOperator *op)
 		}
 
 		/* 2. Duplicate the object and data. */
-		newbase = ED_object_add_duplicate(bmain, scene, view_layer, oldbase, 0); /* 0 = fully linked. */
+		newbase = ED_object_add_duplicate(
+		        bmain, scene, view_layer, oldbase, 0); /* 0 = fully linked. */
 		DEG_relations_tag_update(bmain);
 
 		newob = newbase->object;
@@ -2225,7 +2220,8 @@ static void adduplicateflagNurb(Object *obedit, View3D *v3d, ListBase *newnurb,
 									newu++;
 									for (c = a / nu->pntsu, bp3 = bp2; c < nu->pntsv; c++, bp3 += nu->pntsu) {
 										if (bp3->f1 & flag) {
-											bp3->f1 |= SURF_SEEN; /* flag as seen so skipped on future iterations */
+											/* flag as seen so skipped on future iterations */
+											bp3->f1 |= SURF_SEEN;
 											if (newu == 1) newv++;
 										}
 										else {
@@ -2722,7 +2718,8 @@ static void curve_smooth_value(ListBase *editnurb,
 			for (last_sel = 0; last_sel < nu->pntsu; last_sel++) {
 				/* loop over selection segments of a curve, smooth each */
 
-				/* Start BezTriple code, this is duplicated below for points, make sure these functions stay in sync */
+				/* Start BezTriple code,
+				 * this is duplicated below for points, make sure these functions stay in sync */
 				start_sel = -1;
 				for (bezt = &nu->bezt[last_sel], a = last_sel; a < nu->pntsu; a++, bezt++) {
 					if (bezt->f2 & SELECT) {
@@ -2792,7 +2789,8 @@ static void curve_smooth_value(ListBase *editnurb,
 			for (last_sel = 0; last_sel < nu->pntsu; last_sel++) {
 				/* loop over selection segments of a curve, smooth each */
 
-				/* Start BezTriple code, this is duplicated below for points, make sure these functions stay in sync */
+				/* Start BezTriple code,
+				 * this is duplicated below for points, make sure these functions stay in sync */
 				start_sel = -1;
 				for (bp = &nu->bp[last_sel], a = last_sel; a < nu->pntsu; a++, bp++) {
 					if (bp->f1 & SELECT) {
@@ -3752,7 +3750,7 @@ void CURVE_OT_spline_type_set(wmOperatorType *ot)
 //		{CU_CARDINAL, "CARDINAL", 0, "Cardinal", ""},
 //		{CU_BSPLINE, "B_SPLINE", 0, "B-Spline", ""},
 		{CU_NURBS, "NURBS", 0, "NURBS", ""},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	/* identifiers */
@@ -3810,7 +3808,7 @@ void CURVE_OT_handle_type_set(wmOperatorType *ot)
 		{5, "ALIGNED", 0, "Aligned", ""},
 		{6, "FREE_ALIGN", 0, "Free", ""},
 		{3, "TOGGLE_FREE_ALIGN", 0, "Toggle Free/Align", ""},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	/* identifiers */
@@ -5499,7 +5497,8 @@ static bool curve_toggle_cyclic(View3D *v3d, ListBase *editnurb, int direction)
 					while (a--) {
 						if (bp->f1 & SELECT) {
 							nu->flagu ^= CU_NURB_CYCLIC;
-							BKE_nurb_knot_calc_u(nu);   /* 1==u  type is ignored for cyclic curves */
+							/* 1==u  type is ignored for cyclic curves */
+							BKE_nurb_knot_calc_u(nu);
 							changed = true;
 							break;
 						}
@@ -5515,12 +5514,14 @@ static bool curve_toggle_cyclic(View3D *v3d, ListBase *editnurb, int direction)
 					if (bp->f1 & SELECT) {
 						if (direction == 0 && nu->pntsu > 1) {
 							nu->flagu ^= CU_NURB_CYCLIC;
-							BKE_nurb_knot_calc_u(nu);   /* 1==u  type is ignored for cyclic curves */
+							/* 1==u  type is ignored for cyclic curves */
+							BKE_nurb_knot_calc_u(nu);
 							changed = true;
 						}
 						if (direction == 1 && nu->pntsv > 1) {
 							nu->flagv ^= CU_NURB_CYCLIC;
-							BKE_nurb_knot_calc_v(nu);   /* 2==v  type is ignored for cyclic curves */
+							/* 2==v  type is ignored for cyclic curves */
+							BKE_nurb_knot_calc_v(nu);
 							changed = true;
 						}
 						break;
@@ -5592,7 +5593,7 @@ void CURVE_OT_cyclic_toggle(wmOperatorType *ot)
 	static const EnumPropertyItem direction_items[] = {
 		{0, "CYCLIC_U", 0, "Cyclic U", ""},
 		{1, "CYCLIC_V", 0, "Cyclic V", ""},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	/* identifiers */
@@ -6130,11 +6131,12 @@ static int curve_delete_exec(bContext *C, wmOperator *op)
 static const EnumPropertyItem curve_delete_type_items[] = {
 	{CURVE_VERTEX, "VERT", 0, "Vertices", ""},
 	{CURVE_SEGMENT, "SEGMENT", 0, "Segments", ""},
-	{0, NULL, 0, NULL, NULL}
+	{0, NULL, 0, NULL, NULL},
 };
 
-static const EnumPropertyItem *rna_curve_delete_type_itemf(bContext *C, PointerRNA *UNUSED(ptr),
-                                                            PropertyRNA *UNUSED(prop), bool *r_free)
+static const EnumPropertyItem *rna_curve_delete_type_itemf(
+        bContext *C, PointerRNA *UNUSED(ptr),
+        PropertyRNA *UNUSED(prop), bool *r_free)
 {
 	EnumPropertyItem *item = NULL;
 	int totitem = 0;

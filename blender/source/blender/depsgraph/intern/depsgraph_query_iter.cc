@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,15 +15,9 @@
  *
  * The Original Code is Copyright (C) 2017 Blender Foundation.
  * All rights reserved.
- *
- * Original Author: Dalai Felinto
- * Contributor(s): Sergey Sharybin
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/depsgraph/intern/depsgraph_query_iter.cc
- *  \ingroup depsgraph
+/** \file \ingroup depsgraph
  *
  * Implementation of Querying and Filtering API's
  */
@@ -51,10 +43,8 @@ extern "C" {
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_query.h"
 
-#include "intern/depsgraph_intern.h"
-#include "util/deg_util_foreach.h"
-
-#include "intern/nodes/deg_node_id.h"
+#include "intern/depsgraph.h"
+#include "intern/node/deg_node_id.h"
 
 #ifndef NDEBUG
 #  include "intern/eval/deg_eval_copy_on_write.h"
@@ -107,6 +97,26 @@ void verify_id_properties_freed(DEGObjectIterData *data)
 	temp_dupli_object->id.properties = NULL;
 }
 
+static bool deg_object_hide_original(eEvaluationMode eval_mode, Object *ob, DupliObject *dob)
+{
+	/* Automatic hiding if this object is being instanced on verts/faces/frames
+	 * by its parent. Ideally this should not be needed, but due to the wrong
+	 * dependency direction in the data design there is no way to keep the object
+	 * visible otherwise. The better solution eventually would be for objects
+	 * to specify which object they instance, instead of through parenting. */
+	if (eval_mode == DAG_EVAL_RENDER || dob) {
+		const int hide_original_types = OB_DUPLIVERTS | OB_DUPLIFACES;
+
+		if (!dob || !(dob->type & hide_original_types)) {
+			if (ob->parent && (ob->parent->transflag & hide_original_types)) {
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
 bool deg_objects_dupli_iterator_next(BLI_Iterator *iter)
 {
 	DEGObjectIterData *data = (DEGObjectIterData *)iter->data;
@@ -116,14 +126,13 @@ bool deg_objects_dupli_iterator_next(BLI_Iterator *iter)
 
 		data->dupli_object_next = data->dupli_object_next->next;
 
-		/* Group duplis need to set ob matrices correct, for deform. so no_draw
-		 * is part handled.
-		 */
-		if ((obd->transflag & OB_RENDER_DUPLI) == 0 && dob->no_draw) {
+		if (dob->no_draw) {
 			continue;
 		}
-
 		if (obd->type == OB_MBALL) {
+			continue;
+		}
+		if (deg_object_hide_original(data->eval_mode, dob->ob, dob)) {
 			continue;
 		}
 
@@ -136,17 +145,16 @@ bool deg_objects_dupli_iterator_next(BLI_Iterator *iter)
 		Object *temp_dupli_object = &data->temp_dupli_object;
 		*temp_dupli_object = *dob->ob;
 		temp_dupli_object->select_color = dupli_parent->select_color;
-		temp_dupli_object->base_flag = dupli_parent->base_flag | BASE_FROMDUPLI;
+		temp_dupli_object->base_flag = dupli_parent->base_flag | BASE_FROM_DUPLI;
 		temp_dupli_object->base_local_view_bits = dupli_parent->base_local_view_bits;
 
 		/* Duplicated elements shouldn't care whether their original collection is visible or not. */
 		temp_dupli_object->base_flag |= BASE_VISIBLE;
 
-		if (BKE_object_is_visible(temp_dupli_object, OB_VISIBILITY_CHECK_UNKNOWN_RENDER_MODE) == false) {
+		int ob_visibility = BKE_object_visibility(temp_dupli_object, data->eval_mode);
+		if (ob_visibility == 0) {
 			continue;
 		}
-
-		temp_dupli_object->transflag &= ~OB_DUPLI;
 
 		copy_m4_m4(data->temp_dupli_object.obmat, dob->mat);
 		iter->current = &data->temp_dupli_object;
@@ -159,7 +167,7 @@ bool deg_objects_dupli_iterator_next(BLI_Iterator *iter)
 	return false;
 }
 
-void deg_iterator_objects_step(BLI_Iterator *iter, DEG::IDDepsNode *id_node)
+void deg_iterator_objects_step(BLI_Iterator *iter, DEG::IDNode *id_node)
 {
 	/* Set it early in case we need to exit and we are running from within a loop. */
 	iter->skip = true;
@@ -196,25 +204,29 @@ void deg_iterator_objects_step(BLI_Iterator *iter, DEG::IDDepsNode *id_node)
 	Object *object = (Object *)id_node->id_cow;
 	BLI_assert(DEG::deg_validate_copy_on_write_datablock(&object->id));
 
-	if ((BKE_object_is_visible(object, OB_VISIBILITY_CHECK_UNKNOWN_RENDER_MODE) == false) &&
-	    ((data->flag & DEG_ITER_OBJECT_FLAG_VISIBLE) != 0))
-	{
-		return;
-	}
+	int ob_visibility = OB_VISIBLE_ALL;
+	if (data->flag & DEG_ITER_OBJECT_FLAG_VISIBLE) {
+		ob_visibility = BKE_object_visibility(object, data->eval_mode);
 
-	if ((data->flag & DEG_ITER_OBJECT_FLAG_DUPLI) &&
-	    (object->transflag & OB_DUPLI))
-	{
-		data->dupli_parent = object;
-		data->dupli_list = object_duplilist(data->graph, data->scene, object);
-		data->dupli_object_next = (DupliObject *)data->dupli_list->first;
-		if (BKE_object_is_visible(object, (eObjectVisibilityCheck)data->visibility_check) == false) {
+		if (deg_object_hide_original(data->eval_mode, object, NULL)) {
 			return;
 		}
 	}
 
-	iter->current = object;
-	iter->skip = false;
+	if (ob_visibility & OB_VISIBLE_INSTANCES) {
+		if ((data->flag & DEG_ITER_OBJECT_FLAG_DUPLI) &&
+		    (object->transflag & OB_DUPLI))
+		{
+			data->dupli_parent = object;
+			data->dupli_list = object_duplilist(data->graph, data->scene, object);
+			data->dupli_object_next = (DupliObject *)data->dupli_list->first;
+		}
+	}
+
+	if (ob_visibility & (OB_VISIBLE_SELF | OB_VISIBLE_PARTICLES)) {
+		iter->current = object;
+		iter->skip = false;
+	}
 }
 
 }  // namespace
@@ -239,13 +251,10 @@ void DEG_iterator_objects_begin(BLI_Iterator *iter, DEGObjectIterData *data)
 	data->scene = DEG_get_evaluated_scene(depsgraph);
 	data->id_node_index = 0;
 	data->num_id_nodes = num_id_nodes;
-	eEvaluationMode eval_mode = DEG_get_mode(depsgraph);
-	data->visibility_check = (eval_mode == DAG_EVAL_RENDER)
-	                         ? OB_VISIBILITY_CHECK_FOR_RENDER
-	                         : OB_VISIBILITY_CHECK_FOR_VIEWPORT;
+	data->eval_mode = DEG_get_mode(depsgraph);
 	deg_invalidate_iterator_work_data(data);
 
-	DEG::IDDepsNode *id_node = deg_graph->id_nodes[data->id_node_index];
+	DEG::IDNode *id_node = deg_graph->id_nodes[data->id_node_index];
 	deg_iterator_objects_step(iter, id_node);
 
 	if (iter->skip) {
@@ -281,7 +290,7 @@ void DEG_iterator_objects_next(BLI_Iterator *iter)
 			return;
 		}
 
-		DEG::IDDepsNode *id_node = deg_graph->id_nodes[data->id_node_index];
+		DEG::IDNode *id_node = deg_graph->id_nodes[data->id_node_index];
 		deg_iterator_objects_step(iter, id_node);
 	} while (iter->skip);
 }
@@ -291,15 +300,14 @@ void DEG_iterator_objects_end(BLI_Iterator *iter)
 	DEGObjectIterData *data = (DEGObjectIterData *)iter->data;
 	if (data != NULL) {
 		/* Force crash in case the iterator data is referenced and accessed down
-		 * the line. (T51718)
-		 */
+		 * the line. (T51718) */
 		deg_invalidate_iterator_work_data(data);
 	}
 }
 
 /* ************************ DEG ID ITERATOR ********************* */
 
-static void DEG_iterator_ids_step(BLI_Iterator *iter, DEG::IDDepsNode *id_node, bool only_updated)
+static void DEG_iterator_ids_step(BLI_Iterator *iter, DEG::IDNode *id_node, bool only_updated)
 {
 	ID *id_cow = id_node->id_cow;
 
@@ -339,7 +347,7 @@ void DEG_iterator_ids_begin(BLI_Iterator *iter, DEGIDIterData *data)
 	data->id_node_index = 0;
 	data->num_id_nodes = num_id_nodes;
 
-	DEG::IDDepsNode *id_node = deg_graph->id_nodes[data->id_node_index];
+	DEG::IDNode *id_node = deg_graph->id_nodes[data->id_node_index];
 	DEG_iterator_ids_step(iter, id_node, data->only_updated);
 
 	if (iter->skip) {
@@ -362,7 +370,7 @@ void DEG_iterator_ids_next(BLI_Iterator *iter)
 			return;
 		}
 
-		DEG::IDDepsNode *id_node = deg_graph->id_nodes[data->id_node_index];
+		DEG::IDNode *id_node = deg_graph->id_nodes[data->id_node_index];
 		DEG_iterator_ids_step(iter, id_node, data->only_updated);
 	} while (iter->skip);
 }

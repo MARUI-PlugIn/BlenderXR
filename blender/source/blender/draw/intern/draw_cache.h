@@ -1,6 +1,4 @@
 /*
- * Copyright 2016, Blender Foundation.
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,12 +13,10 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * Contributor(s): Blender Institute
- *
+ * Copyright 2016, Blender Foundation.
  */
 
-/** \file draw_cache.h
- *  \ingroup draw
+/** \file \ingroup draw
  */
 
 #ifndef __DRAW_CACHE_H__
@@ -115,7 +111,6 @@ struct GPUBatch *DRW_cache_bone_box_get(void);
 struct GPUBatch *DRW_cache_bone_box_wire_get(void);
 struct GPUBatch *DRW_cache_bone_envelope_solid_get(void);
 struct GPUBatch *DRW_cache_bone_envelope_outline_get(void);
-struct GPUBatch *DRW_cache_bone_envelope_head_wire_outline_get(void);
 struct GPUBatch *DRW_cache_bone_point_get(void);
 struct GPUBatch *DRW_cache_bone_point_wire_outline_get(void);
 struct GPUBatch *DRW_cache_bone_stick_get(void);
@@ -145,7 +140,6 @@ void DRW_cache_mesh_sculpt_coords_ensure(struct Object *ob);
 struct GPUBatch *DRW_cache_curve_surface_get(struct Object *ob);
 struct GPUBatch **DRW_cache_curve_surface_shaded_get(
         struct Object *ob, struct GPUMaterial **gpumat_array, uint gpumat_array_len);
-struct GPUBatch *DRW_cache_curve_surface_verts_get(struct Object *ob);
 struct GPUBatch *DRW_cache_curve_loose_edges_get(struct Object *ob);
 struct GPUBatch *DRW_cache_curve_edge_wire_get(struct Object *ob);
 struct GPUBatch *DRW_cache_curve_face_wireframe_get(Object *ob);
@@ -161,9 +155,6 @@ struct GPUBatch *DRW_cache_text_edge_wire_get(struct Object *ob);
 struct GPUBatch **DRW_cache_text_surface_shaded_get(
         struct Object *ob, struct GPUMaterial **gpumat_array, uint gpumat_array_len);
 struct GPUBatch *DRW_cache_text_face_wireframe_get(Object *ob);
-/* edit-mode */
-struct GPUBatch *DRW_cache_text_cursor_overlay_get(struct Object *ob);
-struct GPUBatch *DRW_cache_text_select_overlay_get(struct Object *ob);
 
 /* Surface */
 struct GPUBatch *DRW_cache_surf_surface_get(struct Object *ob);

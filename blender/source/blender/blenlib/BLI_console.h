@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,17 +15,16 @@
  *
  * The Original Code is Copyright (C) 2018 Blender Foundation.
  * All rights reserved.
- *
- * Contributor(s): Srrgey Sharybin.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
 #ifndef __BLI_CONSOLE_H__
 #define __BLI_CONSOLE_H__
 
-/** \file BLI_console.h
- *  \ingroup bli
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/** \file \ingroup bli
  *  \brief Set of utility functions and constants to work with consoles.
  */
 
@@ -38,5 +35,9 @@
 
 /* Marker which indicates that colored output is finished. */
 #define TRUECOLOR_ANSI_COLOR_FINISH "\x1b[0m"
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif  /* __BLI_CONSOLE_H__ */

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,19 +15,12 @@
  *
  * The Original Code is Copyright (C) 2007 Blender Foundation.
  * All rights reserved.
- *
- *
- * Contributor(s): Blender Foundation
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/windowmanager/intern/wm_files_link.c
- *  \ingroup wm
+/** \file \ingroup wm
  *
  * Functions for dealing with append/link operators and helpers.
  */
-
 
 #include <float.h>
 #include <string.h>
@@ -45,8 +36,6 @@
 #include "DNA_screen_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_windowmanager_types.h"
-
-
 
 #include "BLI_blenlib.h"
 #include "BLI_bitmap.h"
@@ -747,7 +736,7 @@ static void lib_relocate_do(
 		ID *old_id = item->customdata;
 
 		if (old_id->us == 0) {
-			BKE_libblock_free(bmain, old_id);
+			BKE_id_free(bmain, old_id);
 		}
 	}
 
@@ -760,7 +749,7 @@ static void lib_relocate_do(
 			id_next = id->next;
 			/* XXX That check may be a bit to generic/permissive? */
 			if (id->lib && (id->flag & LIB_TAG_PRE_EXISTING) && id->us == 0) {
-				BKE_libblock_free(bmain, id);
+				BKE_id_free(bmain, id);
 			}
 		}
 	}
@@ -782,7 +771,7 @@ static void lib_relocate_do(
 		if (lib->id.tag & LIB_TAG_DOIT) {
 			id_us_clear_real(&lib->id);
 			if (lib->id.us == 0) {
-				BKE_libblock_free(bmain, (ID *)lib);
+				BKE_id_free(bmain, (ID *)lib);
 			}
 		}
 	}

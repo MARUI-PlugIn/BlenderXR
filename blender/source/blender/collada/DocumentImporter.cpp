@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,14 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Chingiz Dyussenov, Arystanbek Dyussenov, Nathan Letwory.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/collada/DocumentImporter.cpp
- *  \ingroup collada
+/** \file \ingroup collada
  */
 
 // TODO:
@@ -297,7 +290,7 @@ void DocumentImporter::translate_anim_recursive(COLLADAFW::Node *node, COLLADAFW
 		COLLADAFW::Transformation::ROTATE,
 		COLLADAFW::Transformation::SCALE,
 		COLLADAFW::Transformation::TRANSLATE,
-		COLLADAFW::Transformation::MATRIX
+		COLLADAFW::Transformation::MATRIX,
 	};
 
 	Object *ob;
@@ -379,7 +372,7 @@ Object *DocumentImporter::create_camera_object(COLLADAFW::InstanceCamera *camera
 	Camera *cam = uid_camera_map[cam_uid];
 	Camera *old_cam = (Camera *)ob->data;
 	ob->data = cam;
-	BKE_libblock_free_us(bmain, old_cam);
+	BKE_id_free_us(bmain, old_cam);
 	return ob;
 }
 
@@ -396,7 +389,7 @@ Object *DocumentImporter::create_lamp_object(COLLADAFW::InstanceLight *lamp, Sce
 	Lamp *la = uid_lamp_map[lamp_uid];
 	Lamp *old_lamp = (Lamp *)ob->data;
 	ob->data = la;
-	BKE_libblock_free_us(bmain, old_lamp);
+	BKE_id_free_us(bmain, old_lamp);
 	return ob;
 }
 

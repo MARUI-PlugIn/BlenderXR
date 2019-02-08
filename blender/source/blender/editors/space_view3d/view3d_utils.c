@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,12 +15,9 @@
  *
  * The Original Code is Copyright (C) 2008 Blender Foundation.
  * All rights reserved.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/space_view3d/view3d_utils.c
- *  \ingroup spview3d
+/** \file \ingroup spview3d
  *
  * 3D View checks and manipulation (no operators).
  */
@@ -47,14 +42,12 @@
 
 #include "BKE_camera.h"
 #include "BKE_context.h"
-#include "BKE_main.h"
 #include "BKE_object.h"
 #include "BKE_screen.h"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_query.h"
 
-#include "BIF_gl.h"
 #include "BIF_glutil.h"
 
 #include "GPU_matrix.h"
@@ -93,7 +86,7 @@ void ED_view3d_background_color_get(const Scene *scene, const View3D *v3d, float
 		return;
 	}
 
-	UI_GetThemeColor3fv(TH_HIGH_GRAD, r_color);
+	UI_GetThemeColor3fv(TH_BACK, r_color);
 }
 
 void ED_view3d_cursor3d_calc_mat3(const Scene *scene, float mat[3][3])
@@ -111,7 +104,8 @@ void ED_view3d_cursor3d_calc_mat4(const Scene *scene, float mat[4][4])
 
 Camera *ED_view3d_camera_data_get(View3D *v3d, RegionView3D *rv3d)
 {
-	/* establish the camera object, so we can default to view mapping if anything is wrong with it */
+	/* establish the camera object,
+	 * so we can default to view mapping if anything is wrong with it */
 	if ((rv3d->persp == RV3D_CAMOB) && v3d->camera && (v3d->camera->type == OB_CAMERA)) {
 		return v3d->camera->data;
 	}
@@ -163,10 +157,10 @@ bool ED_view3d_viewplane_get(
 
 	BKE_camera_params_init(&params);
 	BKE_camera_params_from_view3d(&params, depsgraph, v3d, rv3d);
-#if WITH_VR
+	#if WITH_VR
 	if (rv3d->rflag & RV3D_IS_VR) {
 		/* Set up VR camera params. */
-		vr_compute_viewplane(v3d->multiview_eye, &params, winx, winy);
+		vr_compute_viewplane(v3d, &params, winx, winy);
 	}
 	else {
 		BKE_camera_params_compute_viewplane(&params, winx, winy, 1.0f, 1.0f);
@@ -453,7 +447,8 @@ bool ED_view3d_persp_ensure(const Depsgraph *depsgraph, View3D *v3d, ARegion *ar
 
 	if (rv3d->persp != RV3D_PERSP) {
 		if (rv3d->persp == RV3D_CAMOB) {
-			/* If autopersp and previous view was an axis one, switch back to PERSP mode, else reuse previous mode. */
+			/* If autopersp and previous view was an axis one,
+			 * switch back to PERSP mode, else reuse previous mode. */
 			char persp = (autopersp && RV3D_VIEW_IS_AXIS(rv3d->lview)) ? RV3D_PERSP : rv3d->lpersp;
 			ED_view3d_persp_switch_from_camera(depsgraph, v3d, rv3d, persp);
 		}
@@ -1129,7 +1124,8 @@ float ED_view3d_radius_to_dist(
 
 		angle = focallength_to_fov(lens, sensor_size);
 
-		/* zoom influences lens, correct this by scaling the angle as a distance (by the zoom-level) */
+		/* zoom influences lens, correct this by scaling the angle as a distance
+		 * (by the zoom-level) */
 		angle = atanf(tanf(angle / 2.0f) * zoom) * 2.0f;
 
 		dist = ED_view3d_radius_to_dist_persp(angle, radius);

@@ -113,7 +113,7 @@ def brush_texpaint_common(panel, context, layout, brush, settings, projpaint=Fal
 
     col = layout.column()
 
-    if brush.image_tool in {'DRAW', 'FILL'}:
+    if capabilities.has_color:
         if brush.blend not in {'ERASE_ALPHA', 'ADD_ALPHA'}:
             if not brush.use_gradient:
                 panel.prop_unified_color_picker(col, context, brush, "color", value_slider=True)
@@ -199,22 +199,8 @@ def brush_texpaint_common(panel, context, layout, brush, settings, projpaint=Fal
 
     col.separator()
 
-    if capabilities.has_radius:
-        row = col.row(align=True)
-        panel.prop_unified_size(row, context, brush, "size", slider=True, text="Radius")
-        panel.prop_unified_size(row, context, brush, "use_pressure_size")
-
-    row = col.row(align=True)
-
-    if capabilities.has_space_attenuation:
-        row.prop(brush, "use_space_attenuation", toggle=True, icon_only=True)
-
-    panel.prop_unified_strength(row, context, brush, "strength", text="Strength")
-    panel.prop_unified_strength(row, context, brush, "use_pressure_strength")
-
-    if brush.image_tool in {'DRAW', 'FILL'}:
-        col.separator()
-        col.prop(brush, "blend", text="Blend")
+    if not panel.is_popover:
+        brush_basic_texpaint_settings(col, context, brush)
 
     col = layout.column()
 
@@ -264,7 +250,7 @@ def brush_texture_settings(layout, brush, sculpt):
                     if brush.sculpt_capabilities.has_random_texture_angle:
                         col.prop(tex_slot, "use_random", text="Random")
                         if tex_slot.use_random:
-                            col.prop(tex_slot, "random_angle", text="Raandom Angle")
+                            col.prop(tex_slot, "random_angle", text="Random Angle")
                 else:
                     col.prop(tex_slot, "use_random", text="Random")
                     if tex_slot.use_random:
@@ -310,6 +296,196 @@ def brush_mask_texture_settings(layout, brush):
     # scale and offset
     col.prop(mask_tex_slot, "offset")
     col.prop(mask_tex_slot, "scale")
+
+# Basic Brush Options
+#
+# Share between topbar and brush panel.
+
+def brush_basic_wpaint_settings(layout, context, brush, *, compact=False):
+    capabilities = brush.weight_paint_capabilities
+
+    if capabilities.has_weight:
+        row = layout.row(align=True)
+        UnifiedPaintPanel.prop_unified_weight(row, context, brush, "weight", slider=True, text="Weight")
+
+    row = layout.row(align=True)
+    UnifiedPaintPanel.prop_unified_size(row, context, brush, "size", slider=True, text="Radius")
+    UnifiedPaintPanel.prop_unified_size(row, context, brush, "use_pressure_size")
+
+    row = layout.row(align=True)
+    UnifiedPaintPanel.prop_unified_strength(row, context, brush, "strength", text="Strength")
+    UnifiedPaintPanel.prop_unified_strength(row, context, brush, "use_pressure_strength")
+
+    layout.separator()
+    layout.prop(brush, "blend", text="" if compact else "Blend")
+
+
+def brush_basic_vpaint_settings(layout, context, brush, *, compact=False):
+    capabilities = brush.vertex_paint_capabilities
+
+    row = layout.row(align=True)
+    UnifiedPaintPanel.prop_unified_size(row, context, brush, "size", slider=True, text="Radius")
+    UnifiedPaintPanel.prop_unified_size(row, context, brush, "use_pressure_size")
+
+    row = layout.row(align=True)
+    UnifiedPaintPanel.prop_unified_strength(row, context, brush, "strength", text="Strength")
+    UnifiedPaintPanel.prop_unified_strength(row, context, brush, "use_pressure_strength")
+
+
+    if capabilities.has_color:
+        layout.separator()
+        layout.prop(brush, "blend", text="" if compact else "Blend")
+
+
+def brush_basic_texpaint_settings(layout, context, brush, *, compact=False):
+    capabilities = brush.image_paint_capabilities
+
+    if capabilities.has_radius:
+        row = layout.row(align=True)
+        UnifiedPaintPanel.prop_unified_size(row, context, brush, "size", slider=True, text="Radius")
+        UnifiedPaintPanel.prop_unified_size(row, context, brush, "use_pressure_size")
+
+    row = layout.row(align=True)
+
+    if capabilities.has_space_attenuation:
+        row.prop(brush, "use_space_attenuation", toggle=True, icon_only=True)
+
+    UnifiedPaintPanel.prop_unified_strength(row, context, brush, "strength", text="Strength")
+    UnifiedPaintPanel.prop_unified_strength(row, context, brush, "use_pressure_strength")
+
+    if capabilities.has_color:
+        layout.separator()
+        layout.prop(brush, "blend", text="" if compact else "Blend")
+
+
+def brush_basic_sculpt_settings(layout, context, brush, *, compact=False):
+    tool_settings = context.tool_settings
+    capabilities = brush.sculpt_capabilities
+
+    row = layout.row(align=True)
+    UnifiedPaintPanel.prop_unified_size(row, context, brush, "use_locked_size")
+
+    ups = tool_settings.unified_paint_settings
+    if (
+            (ups.use_unified_size and ups.use_locked_size) or
+            ((not ups.use_unified_size) and brush.use_locked_size)
+    ):
+        UnifiedPaintPanel.prop_unified_size(row, context, brush, "unprojected_radius", slider=True, text="Radius")
+    else:
+        UnifiedPaintPanel.prop_unified_size(row, context, brush, "size", slider=True, text="Radius")
+
+    UnifiedPaintPanel.prop_unified_size(row, context, brush, "use_pressure_size")
+
+    # strength, use_strength_pressure, and use_strength_attenuation
+    layout.separator()
+    row = layout.row(align=True)
+
+    if capabilities.has_space_attenuation:
+        row.prop(brush, "use_space_attenuation", toggle=True, icon_only=True)
+
+    UnifiedPaintPanel.prop_unified_strength(row, context, brush, "strength", text="Strength")
+
+    if capabilities.has_strength_pressure:
+        UnifiedPaintPanel.prop_unified_strength(row, context, brush, "use_pressure_strength")
+
+    # direction
+    layout.separator()
+    layout.row().prop(brush, "direction", expand=True, **({"text": ""} if compact else {}))
+
+
+def brush_basic_gpencil_paint_settings(layout, context, brush, *, compact=False):
+    gp_settings = brush.gpencil_settings
+
+    # Brush details
+    if brush.gpencil_tool == 'ERASE':
+        row = layout.row(align=True)
+        row.prop(brush, "size", text="Radius")
+        row.prop(gp_settings, "use_pressure", text="", icon='STYLUS_PRESSURE')
+        row.prop(gp_settings, "use_occlude_eraser", text="", icon='XRAY')
+
+        if gp_settings.eraser_mode == 'SOFT':
+            row = layout.row(align=True)
+            row.prop(gp_settings, "pen_strength", slider=True)
+            row.prop(gp_settings, "use_strength_pressure", text="", icon='STYLUS_PRESSURE')
+            row = layout.row(align=True)
+            row.prop(gp_settings, "eraser_strength_factor")
+            row = layout.row(align=True)
+            row.prop(gp_settings, "eraser_thickness_factor")
+    elif brush.gpencil_tool == 'FILL':
+        row = layout.column(align=True)
+        row.prop(gp_settings, "fill_leak", text="Leak Size")
+        row.separator()
+        row = layout.column(align=True)
+        row.prop(brush, "size", text="Thickness")
+        row = layout.column(align=True)
+        row.prop(gp_settings, "fill_simplify_level", text="Simplify")
+
+        row = layout.row(align=True)
+        row.prop(gp_settings, "fill_draw_mode", text="Boundary Draw Mode")
+        row.prop(gp_settings, "show_fill_boundary", text="", icon='GRID')
+
+        row = layout.column(align=True)
+        row.enabled = gp_settings.fill_draw_mode != 'STROKE'
+        row.prop(gp_settings, "show_fill", text="Ignore Transparent Strokes")
+        sub = layout.row(align=True)
+        sub.enabled = not gp_settings.show_fill
+        sub.prop(gp_settings, "fill_threshold", text="Threshold")
+    else:  # brush.gpencil_tool == 'DRAW':
+        row = layout.row(align=True)
+        row.prop(brush, "size", text="Radius")
+        row.prop(gp_settings, "use_pressure", text="", icon='STYLUS_PRESSURE')
+        row = layout.row(align=True)
+        row.prop(gp_settings, "pen_strength", slider=True)
+        row.prop(gp_settings, "use_strength_pressure", text="", icon='STYLUS_PRESSURE')
+
+
+def brush_basic_gpencil_sculpt_settings(layout, context, brush, *, compact=False):
+    tool_settings = context.tool_settings
+    settings = tool_settings.gpencil_sculpt
+    tool = settings.sculpt_tool
+
+    row = layout.row(align=True)
+    row.prop(brush, "size", slider=True)
+    sub = row.row(align=True)
+    sub.enabled = tool not in {'GRAB', 'CLONE'}
+    sub.prop(brush, "use_pressure_radius", text="")
+
+    row = layout.row(align=True)
+    row.prop(brush, "strength", slider=True)
+    row.prop(brush, "use_pressure_strength", text="")
+
+    layout.prop(brush, "use_falloff")
+
+    if compact:
+        if tool in {'THICKNESS', 'STRENGTH', 'PINCH', 'TWIST'}:
+            row.separator()
+            row.prop(brush, "direction", expand=True, text="")
+    else:
+        use_property_split_prev = layout.use_property_split
+        layout.use_property_split = False
+        if tool in {'THICKNESS', 'STRENGTH'}:
+            layout.row().prop(brush, "direction", expand=True)
+        elif tool == 'PINCH':
+            row = layout.row(align=True)
+            row.prop_enum(brush, "direction", value='ADD', text="Pinch")
+            row.prop_enum(brush, "direction", value='SUBTRACT', text="Inflate")
+        elif tool == 'TWIST':
+            row = layout.row(align=True)
+            row.prop_enum(brush, "direction", value='ADD', text="CCW")
+            row.prop_enum(brush, "direction", value='SUBTRACT', text="CW")
+        layout.use_property_split = use_property_split_prev
+
+
+def brush_basic_gpencil_weight_settings(layout, context, brush, *, compact=False):
+    layout.prop(brush, "size", slider=True)
+
+    row = layout.row(align=True)
+    row.prop(brush, "strength", slider=True)
+    row.prop(brush, "use_pressure_strength", text="")
+
+    layout.prop(brush, "use_falloff")
+
+    layout.prop(brush, "weight", slider=True)
 
 
 classes = (

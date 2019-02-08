@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,14 +15,9 @@
  *
  * The Original Code is Copyright (C) 2008 Blender Foundation.
  * All rights reserved.
- *
- * Contributor(s): Blender Foundation
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/interface/interface_region_popup.c
- *  \ingroup edinterface
+/** \file \ingroup edinterface
  *
  * PopUp Region (Generic)
  */
@@ -75,6 +68,10 @@ void ui_popup_translate(ARegion *ar, const int mdiff[2])
 
 	/* update blocks */
 	for (block = ar->uiblocks.first; block; block = block->next) {
+		uiPopupBlockHandle *handle = block->handle;
+		/* Make empty, will be initialized on next use, see T60608. */
+		BLI_rctf_init(&handle->prev_block_rect, 0, 0, 0, 0);
+
 		uiSafetyRct *saferct;
 		for (saferct = block->saferct.first; saferct; saferct = saferct->next) {
 			BLI_rctf_translate(&saferct->parent, UNPACK2(mdiff));
@@ -366,8 +363,8 @@ static void ui_block_region_popup_window_listener(
 static void ui_popup_block_clip(wmWindow *window, uiBlock *block)
 {
 	uiBut *bt;
-	float xofs = 0.0f;
-	int width = UI_SCREEN_MARGIN;
+	const float xmin_orig = block->rect.xmin;
+	const int margin = UI_SCREEN_MARGIN;
 	int winx, winy;
 
 	if (block->flag & UI_BLOCK_NO_WIN_CLIP) {
@@ -377,30 +374,32 @@ static void ui_popup_block_clip(wmWindow *window, uiBlock *block)
 	winx = WM_window_pixels_x(window);
 	winy = WM_window_pixels_y(window);
 
-	/* shift menus to right if outside of view */
-	if (block->rect.xmin < width) {
-		xofs = (width - block->rect.xmin);
+	/* shift to left if outside of view */
+	if (block->rect.xmax > winx - margin) {
+		const float xofs = winx - margin - block->rect.xmax;
 		block->rect.xmin += xofs;
 		block->rect.xmax += xofs;
 	}
-	/* or shift to left if outside of view */
-	if (block->rect.xmax > winx - width) {
-		xofs = winx - width - block->rect.xmax;
+	/* shift menus to right if outside of view */
+	if (block->rect.xmin < margin) {
+		const float xofs = (margin - block->rect.xmin);
 		block->rect.xmin += xofs;
 		block->rect.xmax += xofs;
 	}
 
-	if (block->rect.ymin < width)
-		block->rect.ymin = width;
-	if (block->rect.ymax > winy - UI_POPUP_MENU_TOP)
+	if (block->rect.ymin < margin) {
+		block->rect.ymin = margin;
+	}
+	if (block->rect.ymax > winy - UI_POPUP_MENU_TOP) {
 		block->rect.ymax = winy - UI_POPUP_MENU_TOP;
+	}
 
 	/* ensure menu items draw inside left/right boundary */
+	const float xofs = block->rect.xmin - xmin_orig;
 	for (bt = block->buttons.first; bt; bt = bt->next) {
 		bt->rect.xmin += xofs;
 		bt->rect.xmax += xofs;
 	}
-
 }
 
 void ui_popup_block_scrolltest(uiBlock *block)

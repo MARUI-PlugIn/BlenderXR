@@ -27,14 +27,26 @@ void emit_edge(vec2 edge_dir, vec2 hidden_dir, vec2 thick, bool is_persp)
 
 	vec2 t = thick * (is_persp ? abs(vPos[1].z) : 1.0);
 	gl_Position = pPos[1];
+#ifdef USE_WORLD_CLIP_PLANES
+	world_clip_planes_set_clip_distance(gl_in[1].gl_ClipDistance);
+#endif
 	EmitVertex();
 	gl_Position.xy += t * edge_dir;
+#ifdef USE_WORLD_CLIP_PLANES
+	world_clip_planes_set_clip_distance(gl_in[1].gl_ClipDistance);
+#endif
 	EmitVertex();
 
 	t = thick * (is_persp ? abs(vPos[2].z) : 1.0);
 	gl_Position = pPos[2];
+#ifdef USE_WORLD_CLIP_PLANES
+	world_clip_planes_set_clip_distance(gl_in[2].gl_ClipDistance);
+#endif
 	EmitVertex();
 	gl_Position.xy += t * edge_dir;
+#ifdef USE_WORLD_CLIP_PLANES
+	world_clip_planes_set_clip_distance(gl_in[2].gl_ClipDistance);
+#endif
 	EmitVertex();
 }
 
@@ -44,6 +56,9 @@ void emit_corner(const int e, vec2 thick, bool is_persp)
 	vec2 t = thick * (is_persp ? abs(vPos[e].z) : 1.0);
 
 	gl_Position = pPos[e] + vec4(t * corner_dir, 0.0, 0.0);
+#ifdef USE_WORLD_CLIP_PLANES
+	world_clip_planes_set_clip_distance(gl_in[e].gl_ClipDistance);
+#endif
 	EmitVertex();
 }
 
@@ -69,13 +84,15 @@ void main(void)
 	if (abs(fac0) > 1e-5 && abs(fac3) > 1e-5) {
 		/* If both adjacent verts are facing the camera the same way,
 		 * then it isn't an outline edge. */
-		if (sign(fac0) == sign(fac3))
+		if (sign(fac0) == sign(fac3)) {
 			return;
+		}
 	}
 
 	/* Don't outline if concave edge. */
-	if (dot(n0, v13) > 0.0001)
+	if (dot(n0, v13) > 0.0001) {
 		return;
+	}
 
 	vec2 thick = vColSize[0].w * (lineThickness / viewportSize);
 	vec2 edge_dir = compute_dir(ssPos[1], ssPos[2]);

@@ -1,6 +1,4 @@
 /*
- * Copyright 2016, Blender Foundation.
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,12 +13,10 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * Contributor(s): Blender Institute
- *
+ * Copyright 2016, Blender Foundation.
  */
 
-/** \file blender/draw/modes/edit_mesh_mode_text.c
- *  \ingroup draw
+/** \file \ingroup draw
  */
 
 #include "BLI_math.h"
@@ -31,9 +27,6 @@
 #include "BKE_unit.h"
 
 #include "ED_view3d.h"
-
-#include "GPU_shader.h"
-#include "GPU_viewport.h"
 
 #include "DNA_mesh_types.h"
 #include "DNA_object_types.h"

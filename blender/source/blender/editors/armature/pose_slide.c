@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,14 +15,9 @@
  *
  * The Original Code is Copyright (C) 2009, Blender Foundation, Joshua Leung
  * This is a new part of Blender
- *
- * Contributor(s): Joshua Leung
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/armature/pose_slide.c
- *  \ingroup edarmature
+/** \file \ingroup edarmature
  */
 
 #include "MEM_guardedalloc.h"
@@ -87,28 +80,43 @@
 
 /* Temporary data shared between these operators */
 typedef struct tPoseSlideOp {
-	Scene *scene;       /* current scene */
-	ScrArea *sa;        /* area that we're operating in (needed for modal()) */
-	ARegion *ar;        /* region that we're operating in (needed for modal()) */
-	uint objects_len;   /* len of the PoseSlideObject array. */
+	/** current scene */
+	Scene *scene;
+	/** area that we're operating in (needed for modal()) */
+	ScrArea *sa;
+	/** region that we're operating in (needed for modal()) */
+	ARegion *ar;
+	/** len of the PoseSlideObject array. */
+	uint objects_len;
 
-	ListBase pfLinks;   /* links between posechannels and f-curves for all the pose objects. */
-	DLRBT_Tree keys;    /* binary tree for quicker searching for keyframes (when applicable) */
+	/** links between posechannels and f-curves for all the pose objects. */
+	ListBase pfLinks;
+	/** binary tree for quicker searching for keyframes (when applicable) */
+	DLRBT_Tree keys;
 
-	int cframe;         /* current frame number - global time */
+	/** current frame number - global time */
+	int cframe;
 
-	int prevFrame;      /* frame before current frame (blend-from) - global time */
-	int nextFrame;      /* frame after current frame (blend-to)    - global time */
+	/** frame before current frame (blend-from) - global time */
+	int prevFrame;
+	/** frame after current frame (blend-to)    - global time */
+	int nextFrame;
 
-	short mode;         /* sliding mode (ePoseSlide_Modes) */
-	short flag;         /* unused for now, but can later get used for storing runtime settings.... */
+	/** sliding mode (ePoseSlide_Modes) */
+	short mode;
+	/** unused for now, but can later get used for storing runtime settings.... */
+	short flag;
 
-	short channels;     /* which transforms/channels are affected (ePoseSlide_Channels) */
-	short axislock;     /* axis-limits for transforms (ePoseSlide_AxisLock) */
+	/** which transforms/channels are affected (ePoseSlide_Channels) */
+	short channels;
+	/** axis-limits for transforms (ePoseSlide_AxisLock) */
+	short axislock;
 
-	float percentage;   /* 0-1 value for determining the influence of whatever is relevant */
+	/** 0-1 value for determining the influence of whatever is relevant */
+	float percentage;
 
-	NumInput num;       /* numeric input */
+	/** numeric input */
+	NumInput num;
 
 	struct tPoseSlideObject *ob_data_array;
 } tPoseSlideOp;
@@ -150,14 +158,14 @@ static const EnumPropertyItem prop_channels_types[] = {
 	{PS_TFM_SIZE, "SIZE", 0, "Scale", "Scale only"},
 	{PS_TFM_BBONE_SHAPE, "BBONE", 0, "Bendy Bone", "Bendy Bone shape properties"},
 	{PS_TFM_PROPS, "CUSTOM", 0, "Custom Properties", "Custom properties"},
-	{0, NULL, 0, NULL, NULL}
+	{0, NULL, 0, NULL, NULL},
 };
 
 /* Axis Locks */
 typedef enum ePoseSlide_AxisLock {
 	PS_LOCK_X = (1 << 0),
 	PS_LOCK_Y = (1 << 1),
-	PS_LOCK_Z = (1 << 2)
+	PS_LOCK_Z = (1 << 2),
 } ePoseSlide_AxisLock;
 
 /* Property enum for ePoseSlide_AxisLock */
@@ -167,7 +175,7 @@ static const EnumPropertyItem prop_axis_lock_types[] = {
 	{PS_LOCK_Y, "Y", 0, "Y", "Only Y-axis transforms are affected"},
 	{PS_LOCK_Z, "Z", 0, "Z", "Only Z-axis transforms are affected"},
 	/* TODO: Combinations? */
-	{0, NULL, 0, NULL, NULL}
+	{0, NULL, 0, NULL, NULL},
 };
 
 /* ------------------------------------ */
@@ -361,7 +369,8 @@ static void pose_slide_apply_val(
 			 * - numerator should be larger than denominator to 'expand' the result
 			 * - perform this weighting a number of times given by the percentage...
 			 */
-			int iters = (int)ceil(10.0f * pso->percentage); /* TODO: maybe a sensitivity ctrl on top of this is needed */
+			/* TODO: maybe a sensitivity ctrl on top of this is needed */
+			int iters = (int)ceil(10.0f * pso->percentage);
 
 			while (iters-- > 0) {
 				(*val) = (-((sVal * w2) + (eVal * w1)) + ((*val) * 6.0f) ) / 5.0f;
@@ -374,7 +383,8 @@ static void pose_slide_apply_val(
 			 * - numerator should be smaller than denominator to 'relax' the result
 			 * - perform this weighting a number of times given by the percentage...
 			 */
-			int iters = (int)ceil(10.0f * pso->percentage); /* TODO: maybe a sensitivity ctrl on top of this is needed */
+			/* TODO: maybe a sensitivity ctrl on top of this is needed */
+			int iters = (int)ceil(10.0f * pso->percentage);
 
 			while (iters-- > 0) {
 				(*val) = ( ((sVal * w2) + (eVal * w1)) + ((*val) * 5.0f) ) / 6.0f;
@@ -579,7 +589,8 @@ static void pose_slide_apply_quat(tPoseSlideOp *pso, tPChanFCurveLink *pfl)
 		}
 		else {
 			float quat_interp[4], quat_orig[4];
-			int iters = (int)ceil(10.0f * pso->percentage); /* TODO: maybe a sensitivity ctrl on top of this is needed */
+			/* TODO: maybe a sensitivity ctrl on top of this is needed */
+			int iters = (int)ceil(10.0f * pso->percentage);
 
 			/* perform this blending several times until a satisfactory result is reached */
 			while (iters-- > 0) {
@@ -1647,7 +1658,8 @@ void POSE_OT_propagate(wmOperatorType *ot)
 	     "Propagate pose to all selected keyframes"},
 		{POSE_PROPAGATE_SELECTED_MARKERS, "SELECTED_MARKERS", 0, "On Selected Markers",
 	     "Propagate pose to all keyframes occurring on frames with Scene Markers after the current frame"},
-		{0, NULL, 0, NULL, NULL}};
+		{0, NULL, 0, NULL, NULL},
+	};
 
 	/* identifiers */
 	ot->name = "Propagate Pose";

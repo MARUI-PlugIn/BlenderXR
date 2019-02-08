@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenkernel/intern/displist.c
- *  \ingroup bke
+/** \file \ingroup bke
  */
 
 
@@ -48,12 +39,10 @@
 #include "BLI_scanfill.h"
 #include "BLI_utildefines.h"
 
-#include "BKE_global.h"
 #include "BKE_displist.h"
 #include "BKE_cdderivedmesh.h"
 #include "BKE_object.h"
 #include "BKE_library.h"
-#include "BKE_main.h"
 #include "BKE_mball.h"
 #include "BKE_mball_tessellate.h"
 #include "BKE_mesh.h"
@@ -965,12 +954,28 @@ static void curve_calc_modifiers_post(
 		if (!modifier_isEnabled(scene, md, required_mode))
 			continue;
 
+		/* If we need normals, no choice, have to convert to mesh now. */
+		if (mti->dependsOnNormals != NULL && mti->dependsOnNormals(md) && modified == NULL) {
+			if (vertCos != NULL) {
+				displist_apply_allverts(dispbase, vertCos);
+			}
+
+			if (ELEM(ob->type, OB_CURVE, OB_FONT) && (cu->flag & CU_DEFORM_FILL)) {
+				curve_to_filledpoly(cu, nurb, dispbase);
+			}
+
+			modified = BKE_mesh_new_nomain_from_curve_displist(ob, dispbase);
+		}
+
 		if (mti->type == eModifierTypeType_OnlyDeform ||
 		    (mti->type == eModifierTypeType_DeformOrConstruct && !modified))
 		{
 			if (modified) {
 				if (!vertCos) {
 					vertCos = BKE_mesh_vertexCos_get(modified, &totvert);
+				}
+				if (mti->dependsOnNormals != NULL && mti->dependsOnNormals(md)) {
+					BKE_mesh_ensure_normals(modified);
 				}
 				mti->deformVerts(md, &mectx_deform, modified, vertCos, totvert);
 			}
@@ -993,10 +998,7 @@ static void curve_calc_modifiers_post(
 			if (modified) {
 				if (vertCos) {
 					Mesh *temp_mesh;
-					BKE_id_copy_ex(NULL, &modified->id, (ID **)&temp_mesh,
-					               LIB_ID_CREATE_NO_MAIN | LIB_ID_CREATE_NO_USER_REFCOUNT |
-					               LIB_ID_CREATE_NO_DEG_TAG | LIB_ID_COPY_NO_PREVIEW,
-					               false);
+					BKE_id_copy_ex(NULL, &modified->id, (ID **)&temp_mesh, LIB_ID_COPY_LOCALIZE);
 					BKE_id_free(NULL, modified);
 					modified = temp_mesh;
 
@@ -1021,6 +1023,9 @@ static void curve_calc_modifiers_post(
 				vertCos = NULL;
 			}
 
+			if (mti->dependsOnNormals != NULL && mti->dependsOnNormals(md)) {
+				BKE_mesh_ensure_normals(modified);
+			}
 			mesh_applied = mti->applyModifier(md, &mectx_apply, modified);
 
 			if (mesh_applied) {
@@ -1036,10 +1041,7 @@ static void curve_calc_modifiers_post(
 	if (vertCos) {
 		if (modified) {
 			Mesh *temp_mesh;
-			BKE_id_copy_ex(NULL, &modified->id, (ID **)&temp_mesh,
-			               LIB_ID_CREATE_NO_MAIN | LIB_ID_CREATE_NO_USER_REFCOUNT |
-			               LIB_ID_CREATE_NO_DEG_TAG | LIB_ID_COPY_NO_PREVIEW,
-			               false);
+			BKE_id_copy_ex(NULL, &modified->id, (ID **)&temp_mesh, LIB_ID_COPY_LOCALIZE);
 			BKE_id_free(NULL, modified);
 			modified = temp_mesh;
 
@@ -1070,12 +1072,22 @@ static void curve_calc_modifiers_post(
 			/* XXX2.8(Sybren): make sure the face normals are recalculated as well */
 			BKE_mesh_ensure_normals(modified);
 
+			/* Special tweaks, needed since neither BKE_mesh_new_nomain_from_template() nor
+			 * BKE_mesh_new_nomain_from_curve_displist() properly duplicate mat info...
+			 */
+			BLI_strncpy(modified->id.name, cu->id.name, sizeof(modified->id.name));
+			*((short *)modified->id.name) = ID_ME;
+			MEM_SAFE_FREE(modified->mat);
+			/* Set flag which makes it easier to see what's going on in a debugger. */
+			modified->id.tag |= LIB_TAG_COPIED_ON_WRITE_EVAL_RESULT;
+			modified->mat = MEM_dupallocN(cu->mat);
+			modified->totcol = cu->totcol;
+
 			(*r_final) = modified;
 		}
 		else {
 			(*r_final) = NULL;
 		}
-
 	}
 }
 

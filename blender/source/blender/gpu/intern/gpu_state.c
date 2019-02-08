@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,15 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Ray Molenkamp
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/gpu/intern/gpu_state.c
- *  \ingroup gpu
- *
+/** \file \ingroup gpu
  */
 
 #include "DNA_userdef_types.h"
@@ -31,7 +23,7 @@
 #include "GPU_state.h"
 #include "GPU_extensions.h"
 
-static GLenum gpu_get_gl_blendfunction(GPUBlendFunction blend)
+static GLenum gpu_get_gl_blendfunction(eGPUBlendFunction blend)
 {
 	switch (blend) {
 		case GPU_ONE:
@@ -60,14 +52,14 @@ void GPU_blend(bool enable)
 	}
 }
 
-void GPU_blend_set_func(GPUBlendFunction sfactor, GPUBlendFunction dfactor)
+void GPU_blend_set_func(eGPUBlendFunction sfactor, eGPUBlendFunction dfactor)
 {
 	glBlendFunc(gpu_get_gl_blendfunction(sfactor), gpu_get_gl_blendfunction(dfactor));
 }
 
 void GPU_blend_set_func_separate(
-	GPUBlendFunction src_rgb, GPUBlendFunction dst_rgb,
-	GPUBlendFunction src_alpha, GPUBlendFunction dst_alpha)
+	eGPUBlendFunction src_rgb, eGPUBlendFunction dst_rgb,
+	eGPUBlendFunction src_alpha, eGPUBlendFunction dst_alpha)
 {
 	glBlendFuncSeparate(
 	        gpu_get_gl_blendfunction(src_rgb),

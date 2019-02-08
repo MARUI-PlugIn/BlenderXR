@@ -16,11 +16,6 @@
 #
 # The Original Code is Copyright (C) 2014, Blender Foundation
 # All rights reserved.
-#
-# The Original Code is: all of this file.
-#
-# Contributor(s): Lukas Toenne
-#
 # ***** END GPL LICENSE BLOCK *****
 
 set(INC
@@ -41,11 +36,11 @@ set(INC_SYS
 set(SRC
 	intern/BPH_mass_spring.cpp
 	intern/ConstrainedConjugateGradient.h
+	intern/eigen_utils.h
 	intern/hair_volume.cpp
 	intern/implicit.h
 	intern/implicit_blender.c
 	intern/implicit_eigen.cpp
-	intern/eigen_utils.h
 
 	BPH_mass_spring.h
 )

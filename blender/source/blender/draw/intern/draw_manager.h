@@ -1,6 +1,4 @@
 /*
- * Copyright 2016, Blender Foundation.
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,12 +13,10 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * Contributor(s): Blender Institute
- *
+ * Copyright 2016, Blender Foundation.
  */
 
-/** \file draw_manager.h
- *  \ingroup draw
+/** \file \ingroup draw
  */
 
 /* Private functions / structs of the draw manager */
@@ -45,6 +41,10 @@
 
 /* Use draw manager to call GPU_select, see: DRW_draw_select_loop */
 #define USE_GPU_SELECT
+
+#define DRW_DEBUG_USE_UNIFORM_NAME 0
+#define DRW_UNIFORM_BUFFER_NAME 64
+#define DRW_UNIFORM_BUFFER_NAME_INC 1024
 
 /* ------------ Profiling --------------- */
 
@@ -128,11 +128,16 @@ typedef struct DRWCallState {
 } DRWCallState;
 
 typedef enum {
-	DRW_CALL_SINGLE,                 /* A single batch */
-	DRW_CALL_RANGE,                  /* Like single but only draw a range of vertices/indices. */
-	DRW_CALL_INSTANCES,              /* Draw instances without any instancing attribs. */
-	DRW_CALL_GENERATE,               /* Uses a callback to draw with any number of batches. */
-	DRW_CALL_PROCEDURAL,             /* Generate a drawcall without any GPUBatch. */
+	/** A single batch. */
+	DRW_CALL_SINGLE,
+	/** Like single but only draw a range of vertices/indices. */
+	DRW_CALL_RANGE,
+	/** Draw instances without any instancing attributes. */
+	DRW_CALL_INSTANCES,
+	/** Uses a callback to draw with any number of batches. */
+	DRW_CALL_GENERATE,
+	/** Generate a drawcall without any #GPUBatch. */
+	DRW_CALL_PROCEDURAL,
 } DRWCallType;
 
 typedef struct DRWCall {
@@ -186,8 +191,6 @@ typedef enum {
 	DRW_UNIFORM_BLOCK_PERSIST
 } DRWUniformType;
 
-#define MAX_UNIFORM_NAME 13
-
 struct DRWUniform {
 	DRWUniform *next; /* single-linked list */
 	union {
@@ -197,13 +200,11 @@ struct DRWUniform {
 		float fvalue;
 		int ivalue;
 	};
+	int name_ofs; /* name offset in name buffer. */
 	int location;
 	char type; /* DRWUniformType */
 	char length; /* cannot be more than 16 */
 	char arraysize; /* cannot be more than 16 too */
-#ifndef NDEBUG
-	char name[MAX_UNIFORM_NAME];
-#endif
 };
 
 typedef enum {
@@ -265,7 +266,7 @@ struct DRWShadingGroup {
 
 	DRWPass *pass_parent; /* backlink to pass we're in */
 #ifndef NDEBUG
-	char attribs_count;
+	char attrs_count;
 #endif
 #ifdef USE_GPU_SELECT
 	GPUVertBuf *inst_selectid;
@@ -362,7 +363,7 @@ typedef struct DRWManager {
 	/* View dependent uniforms. */
 	DRWMatrixState original_mat; /* Original rv3d matrices. */
 	int override_mat;            /* Bitflag of which matrices are overridden. */
-	int num_clip_planes;         /* Number of active clipplanes. */
+	int clip_planes_len;         /* Number of active clipplanes. */
 	bool dirty_mat;
 
 	/* keep in sync with viewBlock */
@@ -402,6 +403,12 @@ typedef struct DRWManager {
 		DRWDebugLine *lines;
 		DRWDebugSphere *spheres;
 	} debug;
+
+	struct {
+		char *buffer;
+		uint buffer_len;
+		uint buffer_ofs;
+	} uniform_names;
 } DRWManager;
 
 extern DRWManager DST; /* TODO : get rid of this and allow multithreaded rendering */
@@ -409,9 +416,6 @@ extern DRWManager DST; /* TODO : get rid of this and allow multithreaded renderi
 /* --------------- FUNCTIONS ------------- */
 
 void drw_texture_set_parameters(GPUTexture *tex, DRWTextureFlag flags);
-void drw_texture_get_format(
-        GPUTextureFormat format, bool is_framebuffer,
-        GPUTextureFormat *r_data_type, int *r_channels, bool *r_is_depth);
 
 void *drw_viewport_engine_data_ensure(void *engine_type);
 

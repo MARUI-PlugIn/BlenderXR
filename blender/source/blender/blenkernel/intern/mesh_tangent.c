@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,14 +15,9 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * Contributor(s): Blender Foundation
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenkernel/intern/mesh_tangent.c
- *  \ingroup bke
+/** \file \ingroup bke
  *
  * Functions to evaluate mesh tangents.
  */
@@ -38,11 +31,9 @@
 
 #include "BLI_utildefines.h"
 #include "BLI_math.h"
-#include "BLI_stack.h"
 #include "BLI_task.h"
 
 #include "BKE_customdata.h"
-#include "BKE_global.h"
 #include "BKE_mesh.h"
 #include "BKE_mesh_tangent.h"
 #include "BKE_mesh_runtime.h"
@@ -55,7 +46,6 @@
 
 
 /* -------------------------------------------------------------------- */
-
 /** \name Mesh Tangent Calculations (Single Layer)
  * \{ */
 
@@ -204,7 +194,6 @@ void BKE_mesh_calc_loop_tangent_single(Mesh *mesh, const char *uvmap, float (*r_
 
 
 /* -------------------------------------------------------------------- */
-
 /** \name Mesh Tangent Calculations (All Layers)
  * \{ */
 

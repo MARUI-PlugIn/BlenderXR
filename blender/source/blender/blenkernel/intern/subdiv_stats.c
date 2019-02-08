@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,14 +15,9 @@
  *
  * The Original Code is Copyright (C) 2018 by Blender Foundation.
  * All rights reserved.
- *
- * Contributor(s): Sergey Sharybin.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenkernel/intern/subdiv_stats.c
- *  \ingroup bke
+/** \file \ingroup bke
  */
 
 #include "BKE_subdiv.h"
@@ -42,6 +35,7 @@ void BKE_subdiv_stats_init(SubdivStats *stats)
 	stats->evaluator_refine_time = 0.0;
 	stats->subdiv_to_ccg_time = 0.0;
 	stats->subdiv_to_ccg_elements_time = 0.0;
+	stats->topology_compare_time = 0.0;
 }
 
 void BKE_subdiv_stats_begin(SubdivStats *stats, eSubdivStatsValue value)
@@ -53,6 +47,11 @@ void BKE_subdiv_stats_end(SubdivStats *stats, eSubdivStatsValue value)
 {
 	stats->values_[value] =
 	        PIL_check_seconds_timer() - stats->begin_timestamp_[value];
+}
+
+void BKE_subdiv_stats_reset(SubdivStats *stats, eSubdivStatsValue value)
+{
+	stats->values_[value] = 0.0;
 }
 
 void BKE_subdiv_stats_print(const SubdivStats *stats)
@@ -87,6 +86,9 @@ void BKE_subdiv_stats_print(const SubdivStats *stats)
 	STATS_PRINT_TIME(stats,
 	                 subdiv_to_ccg_elements_time,
 	                 "    Elements time");
+	STATS_PRINT_TIME(stats,
+	                 topology_compare_time,
+	                 "Topology comparison time");
 
 #undef STATS_PRINT_TIME
 }

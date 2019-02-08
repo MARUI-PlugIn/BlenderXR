@@ -1,6 +1,4 @@
 /*
- * Copyright 2017, Blender Foundation.
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,29 +13,21 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * Contributor(s): Antonio Vazquez
- *
+ * Copyright 2017, Blender Foundation.
  */
 
-/** \file blender/draw/engines/gpencil/gpencil_shader_fx.c
- *  \ingroup draw
+/** \file \ingroup draw
  */
 #include "DNA_gpencil_types.h"
 #include "DNA_shader_fx_types.h"
-#include "DNA_screen_types.h"
 #include "DNA_view3d_types.h"
 #include "DNA_camera_types.h"
 
 #include "BKE_gpencil.h"
-#include "BKE_shader_fx.h"
 
-#include "DRW_engine.h"
 #include "DRW_render.h"
 
 #include "BKE_camera.h"
-
-#include "ED_view3d.h"
-#include "ED_gpencil.h"
 
 #include "gpencil_engine.h"
 
@@ -89,13 +79,15 @@ static bool effect_is_active(bGPdata *gpd, ShaderFxData *fx, bool is_render)
 static bool get_normal_vector(bGPdata *gpd, float r_point[3], float r_normal[3])
 {
 	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
-		if (gpl->flag & GP_LAYER_HIDE)
+		if (gpl->flag & GP_LAYER_HIDE) {
 			continue;
+		}
 
 		/* get frame  */
 		bGPDframe *gpf = gpl->actframe;
-		if (gpf == NULL)
+		if (gpf == NULL) {
 			continue;
+		}
 		for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
 			if (gps->totpoints >= 3) {
 				bGPDspoint *pt = &gps->points[0];
@@ -164,6 +156,8 @@ static void DRW_gpencil_fx_blur(
 	View3D *v3d = draw_ctx->v3d;
 	RegionView3D *rv3d = draw_ctx->rv3d;
 	DRWShadingGroup *fx_shgrp;
+	bGPdata *gpd = cache->gpd;
+	copy_v3_v3(fxd->runtime.loc, cache->loc);
 
 	fxd->blur[0] = fxd->radius[0];
 	fxd->blur[1] = fxd->radius[1];
@@ -221,9 +215,9 @@ static void DRW_gpencil_fx_blur(
 	DRW_shgroup_uniform_vec2(fx_shgrp, "Viewport", DRW_viewport_size_get(), 1);
 	DRW_shgroup_uniform_int(fx_shgrp, "blur", &fxd->blur[0], 2);
 
-	DRW_shgroup_uniform_vec3(fx_shgrp, "loc", &cache->loc[0], 1);
+	DRW_shgroup_uniform_vec3(fx_shgrp, "loc", fxd->runtime.loc, 1);
 	DRW_shgroup_uniform_float(fx_shgrp, "pixsize", stl->storage->pixsize, 1);
-	DRW_shgroup_uniform_float(fx_shgrp, "pixfactor", &cache->pixfactor, 1);
+	DRW_shgroup_uniform_float(fx_shgrp, "pixfactor", &gpd->pixfactor, 1);
 
 	fxd->runtime.fx_sh = fx_shgrp;
 }
@@ -310,7 +304,7 @@ static void DRW_gpencil_fx_light(
 	DRW_shgroup_uniform_vec2(fx_shgrp, "Viewport", DRW_viewport_size_get(), 1);
 
 	/* location of the light using obj location as origin */
-	copy_v3_v3(fxd->loc, &fxd->object->loc[0]);
+	copy_v3_v3(fxd->loc, fxd->object->obmat[3]);
 
 	/* Calc distance to strokes plane
 	 * The w component of location is used to transfer the distance to drawing plane
@@ -323,7 +317,7 @@ static void DRW_gpencil_fx_light(
 	}
 	mul_mat3_m4_v3(cache->obmat, r_normal); /* only rotation component */
 	plane_from_point_normal_v3(r_plane, r_point, r_normal);
-	float dt = dist_to_plane_v3(fxd->object->loc, r_plane);
+	float dt = dist_to_plane_v3(fxd->object->obmat[3], r_plane);
 	fxd->loc[3] = dt; /* use last element to save it */
 
 	DRW_shgroup_uniform_vec4(fx_shgrp, "loc", &fxd->loc[0], 1);
@@ -332,7 +326,7 @@ static void DRW_gpencil_fx_light(
 	DRW_shgroup_uniform_float(fx_shgrp, "ambient", &fxd->ambient, 1);
 
 	DRW_shgroup_uniform_float(fx_shgrp, "pixsize", stl->storage->pixsize, 1);
-	DRW_shgroup_uniform_float(fx_shgrp, "pixfactor", &cache->pixfactor, 1);
+	DRW_shgroup_uniform_float(fx_shgrp, "pixfactor", &gpd->pixfactor, 1);
 
 	fxd->runtime.fx_sh = fx_shgrp;
 }
@@ -351,6 +345,7 @@ static void DRW_gpencil_fx_pixel(
 	GPENCIL_PassList *psl = ((GPENCIL_Data *)vedata)->psl;
 	DRWShadingGroup *fx_shgrp;
 	bGPdata *gpd = cache->gpd;
+	copy_v3_v3(fxd->runtime.loc, cache->loc);
 
 	fxd->size[2] = (int)fxd->flag & FX_PIXEL_USE_LINES;
 
@@ -362,7 +357,7 @@ static void DRW_gpencil_fx_pixel(
 	DRW_shgroup_uniform_int(fx_shgrp, "size", &fxd->size[0], 3);
 	DRW_shgroup_uniform_vec4(fx_shgrp, "color", &fxd->rgba[0], 1);
 
-	DRW_shgroup_uniform_vec3(fx_shgrp, "loc", &cache->loc[0], 1);
+	DRW_shgroup_uniform_vec3(fx_shgrp, "loc", fxd->runtime.loc, 1);
 	DRW_shgroup_uniform_float(fx_shgrp, "pixsize", stl->storage->pixsize, 1);
 	DRW_shgroup_uniform_float(fx_shgrp, "pixfactor", &gpd->pixfactor, 1);
 
@@ -378,12 +373,15 @@ static void DRW_gpencil_fx_rim(
 		return;
 	}
 	RimShaderFxData *fxd = (RimShaderFxData *)fx;
+	bGPdata *gpd = cache->gpd;
 
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 	GPENCIL_PassList *psl = ((GPENCIL_Data *)vedata)->psl;
 	DRWShadingGroup *fx_shgrp;
 
 	GPUBatch *fxquad = DRW_cache_fullscreen_quad_get();
+	copy_v3_v3(fxd->runtime.loc, cache->loc);
+
 	/* prepare pass */
 	fx_shgrp = DRW_shgroup_create(
 	        e_data->gpencil_fx_rim_prepare_sh,
@@ -397,9 +395,9 @@ static void DRW_gpencil_fx_rim(
 	DRW_shgroup_uniform_vec3(fx_shgrp, "rim_color", &fxd->rim_rgb[0], 1);
 	DRW_shgroup_uniform_vec3(fx_shgrp, "mask_color", &fxd->mask_rgb[0], 1);
 
-	DRW_shgroup_uniform_vec3(fx_shgrp, "loc", &cache->loc[0], 1);
+	DRW_shgroup_uniform_vec3(fx_shgrp, "loc", fxd->runtime.loc, 1);
 	DRW_shgroup_uniform_float(fx_shgrp, "pixsize", stl->storage->pixsize, 1);
-	DRW_shgroup_uniform_float(fx_shgrp, "pixfactor", &cache->pixfactor, 1);
+	DRW_shgroup_uniform_float(fx_shgrp, "pixfactor", &gpd->pixfactor, 1);
 
 	fxd->runtime.fx_sh = fx_shgrp;
 
@@ -413,9 +411,9 @@ static void DRW_gpencil_fx_rim(
 	DRW_shgroup_uniform_vec2(fx_shgrp, "Viewport", DRW_viewport_size_get(), 1);
 	DRW_shgroup_uniform_int(fx_shgrp, "blur", &fxd->blur[0], 2);
 
-	DRW_shgroup_uniform_vec3(fx_shgrp, "loc", &cache->loc[0], 1);
+	DRW_shgroup_uniform_vec3(fx_shgrp, "loc", fxd->runtime.loc, 1);
 	DRW_shgroup_uniform_float(fx_shgrp, "pixsize", stl->storage->pixsize, 1);
-	DRW_shgroup_uniform_float(fx_shgrp, "pixfactor", &cache->pixfactor, 1);
+	DRW_shgroup_uniform_float(fx_shgrp, "pixfactor", &gpd->pixfactor, 1);
 
 	fxd->runtime.fx_sh_b = fx_shgrp;
 
@@ -452,6 +450,8 @@ static void DRW_gpencil_fx_shadow(
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 	GPENCIL_PassList *psl = ((GPENCIL_Data *)vedata)->psl;
 	DRWShadingGroup *fx_shgrp;
+	bGPdata *gpd = cache->gpd;
+	copy_v3_v3(fxd->runtime.loc, cache->loc);
 
 	GPUBatch *fxquad = DRW_cache_fullscreen_quad_get();
 	/* prepare pass */
@@ -469,10 +469,10 @@ static void DRW_gpencil_fx_shadow(
 	DRW_shgroup_uniform_vec4(fx_shgrp, "shadow_color", &fxd->shadow_rgba[0], 1);
 
 	if ((fxd->object) && (fxd->flag & FX_SHADOW_USE_OBJECT)) {
-		DRW_shgroup_uniform_vec3(fx_shgrp, "loc", &fxd->object->loc[0], 1);
+		DRW_shgroup_uniform_vec3(fx_shgrp, "loc", fxd->object->obmat[3], 1);
 	}
 	else {
-		DRW_shgroup_uniform_vec3(fx_shgrp, "loc", &cache->loc[0], 1);
+		DRW_shgroup_uniform_vec3(fx_shgrp, "loc", fxd->runtime.loc, 1);
 	}
 
 	const int nowave = -1;
@@ -487,7 +487,7 @@ static void DRW_gpencil_fx_shadow(
 	DRW_shgroup_uniform_float(fx_shgrp, "phase", &fxd->phase, 1);
 
 	DRW_shgroup_uniform_float(fx_shgrp, "pixsize", stl->storage->pixsize, 1);
-	DRW_shgroup_uniform_float(fx_shgrp, "pixfactor", &cache->pixfactor, 1);
+	DRW_shgroup_uniform_float(fx_shgrp, "pixfactor", &gpd->pixfactor, 1);
 
 	fxd->runtime.fx_sh = fx_shgrp;
 
@@ -501,9 +501,9 @@ static void DRW_gpencil_fx_shadow(
 	DRW_shgroup_uniform_vec2(fx_shgrp, "Viewport", DRW_viewport_size_get(), 1);
 	DRW_shgroup_uniform_int(fx_shgrp, "blur", &fxd->blur[0], 2);
 
-	DRW_shgroup_uniform_vec3(fx_shgrp, "loc", &cache->loc[0], 1);
+	DRW_shgroup_uniform_vec3(fx_shgrp, "loc", fxd->runtime.loc, 1);
 	DRW_shgroup_uniform_float(fx_shgrp, "pixsize", stl->storage->pixsize, 1);
-	DRW_shgroup_uniform_float(fx_shgrp, "pixfactor", &cache->pixfactor, 1);
+	DRW_shgroup_uniform_float(fx_shgrp, "pixfactor", &gpd->pixfactor, 1);
 
 	fxd->runtime.fx_sh_b = fx_shgrp;
 
@@ -529,6 +529,8 @@ static void DRW_gpencil_fx_glow(
 		return;
 	}
 	GlowShaderFxData *fxd = (GlowShaderFxData *)fx;
+	bGPdata *gpd = cache->gpd;
+	copy_v3_v3(fxd->runtime.loc, cache->loc);
 
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 	GPENCIL_PassList *psl = ((GPENCIL_Data *)vedata)->psl;
@@ -560,9 +562,9 @@ static void DRW_gpencil_fx_glow(
 	DRW_shgroup_uniform_vec2(fx_shgrp, "Viewport", DRW_viewport_size_get(), 1);
 	DRW_shgroup_uniform_int(fx_shgrp, "blur", &fxd->blur[0], 2);
 
-	DRW_shgroup_uniform_vec3(fx_shgrp, "loc", &cache->loc[0], 1);
+	DRW_shgroup_uniform_vec3(fx_shgrp, "loc", fxd->runtime.loc, 1);
 	DRW_shgroup_uniform_float(fx_shgrp, "pixsize", stl->storage->pixsize, 1);
-	DRW_shgroup_uniform_float(fx_shgrp, "pixfactor", &cache->pixfactor, 1);
+	DRW_shgroup_uniform_float(fx_shgrp, "pixfactor", &gpd->pixfactor, 1);
 
 	fxd->runtime.fx_sh_b = fx_shgrp;
 
@@ -598,6 +600,7 @@ static void DRW_gpencil_fx_swirl(
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 	GPENCIL_PassList *psl = ((GPENCIL_Data *)vedata)->psl;
 	DRWShadingGroup *fx_shgrp;
+	bGPdata *gpd = cache->gpd;
 
 	fxd->transparent = (int)fxd->flag & FX_SWIRL_MAKE_TRANSPARENT;
 
@@ -609,14 +612,14 @@ static void DRW_gpencil_fx_swirl(
 
 	DRW_shgroup_uniform_vec2(fx_shgrp, "Viewport", DRW_viewport_size_get(), 1);
 
-	DRW_shgroup_uniform_vec3(fx_shgrp, "loc", &fxd->object->loc[0], 1);
+	DRW_shgroup_uniform_vec3(fx_shgrp, "loc", fxd->object->obmat[3], 1);
 
 	DRW_shgroup_uniform_int(fx_shgrp, "radius", &fxd->radius, 1);
 	DRW_shgroup_uniform_float(fx_shgrp, "angle", &fxd->angle, 1);
 	DRW_shgroup_uniform_int(fx_shgrp, "transparent", &fxd->transparent, 1);
 
 	DRW_shgroup_uniform_float(fx_shgrp, "pixsize", stl->storage->pixsize, 1);
-	DRW_shgroup_uniform_float(fx_shgrp, "pixfactor", &cache->pixfactor, 1);
+	DRW_shgroup_uniform_float(fx_shgrp, "pixfactor", &gpd->pixfactor, 1);
 
 	fxd->runtime.fx_sh = fx_shgrp;
 }

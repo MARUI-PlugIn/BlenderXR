@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenkernel/intern/curve.c
- *  \ingroup bke
+/** \file \ingroup bke
  */
 
 
@@ -55,20 +46,21 @@
 #include "BKE_curve.h"
 #include "BKE_displist.h"
 #include "BKE_font.h"
-#include "BKE_global.h"
 #include "BKE_key.h"
 #include "BKE_library.h"
-#include "BKE_library_query.h"
-#include "BKE_library_remap.h"
 #include "BKE_main.h"
 #include "BKE_object.h"
 #include "BKE_material.h"
 
 #include "DEG_depsgraph.h"
 
+#include "CLG_log.h"
+
 /* globals */
 
 /* local */
+static CLG_LogRef LOG = {"bke.curve"};
+
 static int cu_isectLL(const float v1[3], const float v2[3], const float v3[3], const float v4[3],
                       short cox, short coy,
                       float *lambda, float *mu, float vec[3]);
@@ -193,7 +185,7 @@ Curve *BKE_curve_add(Main *bmain, const char *name, int type)
 
 /**
  * Only copy internal data of Curve ID from source to already allocated/initialized destination.
- * You probably nerver want to use that directly, use id_copy or BKE_id_copy_ex for typical needs.
+ * You probably never want to use that directly, use BKE_id_copy or BKE_id_copy_ex for typical needs.
  *
  * WARNING! This function will not handle ID user count!
  *
@@ -213,7 +205,7 @@ void BKE_curve_copy_data(Main *bmain, Curve *cu_dst, const Curve *cu_src, const 
 	cu_dst->batch_cache = NULL;
 
 	if (cu_src->key && (flag & LIB_ID_COPY_SHAPEKEY)) {
-		BKE_id_copy_ex(bmain, &cu_src->key->id, (ID **)&cu_dst->key, flag, false);
+		BKE_id_copy_ex(bmain, &cu_src->key->id, (ID **)&cu_dst->key, flag);
 	}
 
 	cu_dst->editnurb = NULL;
@@ -223,7 +215,7 @@ void BKE_curve_copy_data(Main *bmain, Curve *cu_dst, const Curve *cu_src, const 
 Curve *BKE_curve_copy(Main *bmain, const Curve *cu)
 {
 	Curve *cu_copy;
-	BKE_id_copy_ex(bmain, &cu->id, (ID **)&cu_copy, LIB_ID_COPY_SHAPEKEY, false);
+	BKE_id_copy(bmain, &cu->id, (ID **)&cu_copy);
 	return cu_copy;
 }
 
@@ -1035,7 +1027,7 @@ static void calcknots(float *knots, const int pnts, const short order, const sho
 				}
 			}
 			else {
-				printf("bez nurb curve order is not 3 or 4, should never happen\n");
+				CLOG_ERROR(&LOG, "bez nurb curve order is not 3 or 4, should never happen");
 			}
 			break;
 		default:
@@ -3710,8 +3702,6 @@ static bool tridiagonal_solve_with_limits(float *a, float *b, float *c, float *d
  * |    |      |          |            |        |
  * |    |      |          |            |        |
  * |-------t1---------t2--------- ~ --------tN-------------------> time (co 0)
- *
- *
  * Mathematical basis:
  *
  *   1. Handle lengths on either side of each point are connected by a factor

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,19 +15,9 @@
  *
  * The Original Code is Copyright (C) 2005 by the Blender Foundation.
  * All rights reserved.
- *
- * Contributor(s): Daniel Dunbar
- *                 Ton Roosendaal,
- *                 Ben Batt,
- *                 Brecht Van Lommel,
- *                 Campbell Barton
- *
- * ***** END GPL LICENSE BLOCK *****
- *
  */
 
-/** \file blender/modifiers/intern/MOD_cloth.c
- *  \ingroup modifiers
+/** \file \ingroup modifiers
  */
 
 #include <string.h>
@@ -98,13 +86,7 @@ static void deformVerts(
 	else {
 		/* Not possible to use get_mesh() in this case as we'll modify its vertices
 		 * and get_mesh() would return 'mesh' directly. */
-		BKE_id_copy_ex(
-		        NULL, (ID *)mesh, (ID **)&mesh_src,
-		        LIB_ID_CREATE_NO_MAIN |
-		        LIB_ID_CREATE_NO_USER_REFCOUNT |
-		        LIB_ID_CREATE_NO_DEG_TAG |
-		        LIB_ID_COPY_NO_PREVIEW,
-		        false);
+		BKE_id_copy_ex(NULL, (ID *)mesh, (ID **)&mesh_src, LIB_ID_COPY_LOCALIZE);
 	}
 
 	/* TODO(sergey): For now it actually duplicates logic from DerivedMesh.c
@@ -140,6 +122,7 @@ static void updateDepsgraph(ModifierData *md, const ModifierUpdateDepsgraphConte
 		DEG_add_collision_relations(ctx->node, ctx->object, clmd->coll_parms->group, eModifierType_Collision, NULL, "Cloth Collision");
 		DEG_add_forcefield_relations(ctx->node, ctx->object, clmd->sim_parms->effector_weights, true, 0, "Cloth Field");
 	}
+	DEG_add_object_relation(ctx->node, ctx->object, DEG_OB_COMP_TRANSFORM, "Cloth Modifier");
 }
 
 static CustomDataMask requiredDataMask(Object *UNUSED(ob), ModifierData *md)
@@ -201,8 +184,9 @@ static void freeData(ModifierData *md)
 	ClothModifierData *clmd = (ClothModifierData *) md;
 
 	if (clmd) {
-		if (G.debug_value > 0)
+		if (G.debug & G_DEBUG_SIMDATA) {
 			printf("clothModifier_freeData\n");
+		}
 
 		cloth_free_modifier_extern(clmd);
 

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,12 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file creator/creator_signals.c
- *  \ingroup creator
+/** \file \ingroup creator
  */
 
 #ifndef WITH_PYTHON_MODULE
@@ -63,7 +58,6 @@
 #include "BKE_global.h"
 #include "BKE_main.h"
 #include "BKE_report.h"
-
 
 #include <signal.h>
 
@@ -335,8 +329,10 @@ void main_signal_setup_fpe(void)
 	                       (_MM_MASK_OVERFLOW | _MM_MASK_INVALID | _MM_MASK_DIV_ZERO));
 # endif /* OSX_SSE_FPE */
 # if defined(_WIN32) && defined(_MSC_VER)
-	_controlfp_s(NULL, 0, _MCW_EM); /* enables all fp exceptions */
-	_controlfp_s(NULL, _EM_DENORMAL | _EM_UNDERFLOW | _EM_INEXACT, _MCW_EM); /* hide the ones we don't care about */
+	/* enables all fp exceptions */
+	_controlfp_s(NULL, 0, _MCW_EM);
+	/* hide the ones we don't care about */
+	_controlfp_s(NULL, _EM_DENORMAL | _EM_UNDERFLOW | _EM_INEXACT, _MCW_EM);
 # endif /* _WIN32 && _MSC_VER */
 #endif
 }

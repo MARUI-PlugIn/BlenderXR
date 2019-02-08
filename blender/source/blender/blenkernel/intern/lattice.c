@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenkernel/intern/lattice.c
- *  \ingroup bke
+/** \file \ingroup bke
  */
 
 #include <stdio.h>
@@ -57,8 +48,6 @@
 #include "BKE_key.h"
 #include "BKE_lattice.h"
 #include "BKE_library.h"
-#include "BKE_library_query.h"
-#include "BKE_library_remap.h"
 #include "BKE_main.h"
 #include "BKE_modifier.h"
 #include "BKE_object.h"
@@ -276,7 +265,7 @@ Lattice *BKE_lattice_add(Main *bmain, const char *name)
 
 /**
  * Only copy internal data of Lattice ID from source to already allocated/initialized destination.
- * You probably nerver want to use that directly, use id_copy or BKE_id_copy_ex for typical needs.
+ * You probably never want to use that directly, use BKE_id_copy or BKE_id_copy_ex for typical needs.
  *
  * WARNING! This function will not handle ID user count!
  *
@@ -287,7 +276,7 @@ void BKE_lattice_copy_data(Main *bmain, Lattice *lt_dst, const Lattice *lt_src, 
 	lt_dst->def = MEM_dupallocN(lt_src->def);
 
 	if (lt_src->key && (flag & LIB_ID_COPY_SHAPEKEY)) {
-		BKE_id_copy_ex(bmain, &lt_src->key->id, (ID **)&lt_dst->key, flag, false);
+		BKE_id_copy_ex(bmain, &lt_src->key->id, (ID **)&lt_dst->key, flag);
 	}
 
 	if (lt_src->dvert) {
@@ -302,7 +291,7 @@ void BKE_lattice_copy_data(Main *bmain, Lattice *lt_dst, const Lattice *lt_src, 
 Lattice *BKE_lattice_copy(Main *bmain, const Lattice *lt)
 {
 	Lattice *lt_copy;
-	BKE_id_copy_ex(bmain, &lt->id, (ID **)&lt_copy, LIB_ID_COPY_SHAPEKEY, false);
+	BKE_id_copy(bmain, &lt->id, (ID **)&lt_copy);
 	return lt_copy;
 }
 

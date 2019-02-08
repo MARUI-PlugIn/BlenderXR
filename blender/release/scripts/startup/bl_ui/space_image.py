@@ -353,7 +353,7 @@ class IMAGE_MT_uvs(Menu):
         uv = sima.uv_editor
         tool_settings = context.tool_settings
 
-        layout.prop(uv, "use_snap_to_pixels")
+        layout.prop_menu_enum(uv, "pixel_snap_mode")
         layout.prop(uv, "lock_bounds")
 
         layout.separator()
@@ -438,7 +438,7 @@ class IMAGE_MT_uvs_select_mode(Menu):
             props.data_path = "tool_settings.uv_select_mode"
 
 
-class IMAGE_MT_specials(Menu):
+class IMAGE_MT_uvs_specials(Menu):
     bl_label = "UV Context Menu"
 
     def draw(self, context):
@@ -498,8 +498,8 @@ class IMAGE_MT_uvs_snap_pie(Menu):
         layout.operator_context = 'EXEC_REGION_WIN'
 
         pie.operator("uv.snap_selected", text="Selected to Pixels", icon='RESTRICT_SELECT_OFF').target = 'PIXELS'
-        pie.operator("uv.snap_cursor", text="Cursor to Pixels", icon='CURSOR').target = 'PIXELS'
-        pie.operator("uv.snap_cursor", text="Cursor to Selected", icon='CURSOR').target = 'SELECTED'
+        pie.operator("uv.snap_cursor", text="Cursor to Pixels", icon='PIVOT_CURSOR').target = 'PIXELS'
+        pie.operator("uv.snap_cursor", text="Cursor to Selected", icon='PIVOT_CURSOR').target = 'SELECTED'
         pie.operator("uv.snap_selected", text="Selected to Cursor", icon='RESTRICT_SELECT_OFF').target = 'CURSOR'
         pie.operator("uv.snap_selected", text="Selected to Cursor (Offset)", icon='RESTRICT_SELECT_OFF').target = 'CURSOR_OFFSET'
         pie.operator("uv.snap_selected", text="Selected to Adjacent Unselected", icon='RESTRICT_SELECT_OFF').target = 'ADJACENT_UNSELECTED'
@@ -1189,22 +1189,11 @@ class ImageScopesPanel:
         return True
 
 
-class IMAGE_PT_view_scopes(ImageScopesPanel, Panel):
-    bl_space_type = 'IMAGE_EDITOR'
-    bl_region_type = 'UI'
-    bl_category = "Image"
-    bl_label = "Scopes"
-
-    def draw(self, layout):
-        return  # nothing to draw.
-
-
 class IMAGE_PT_view_histogram(ImageScopesPanel, Panel):
     bl_space_type = 'IMAGE_EDITOR'
     bl_region_type = 'UI'
-    bl_category = "Image"
+    bl_category = "Scopes"
     bl_label = "Histogram"
-    bl_parent_id = 'IMAGE_PT_view_scopes'
 
     def draw(self, context):
         layout = self.layout
@@ -1222,9 +1211,8 @@ class IMAGE_PT_view_histogram(ImageScopesPanel, Panel):
 class IMAGE_PT_view_waveform(ImageScopesPanel, Panel):
     bl_space_type = 'IMAGE_EDITOR'
     bl_region_type = 'UI'
-    bl_category = "Image"
+    bl_category = "Scopes"
     bl_label = "Waveform"
-    bl_parent_id = 'IMAGE_PT_view_scopes'
     bl_options = {'DEFAULT_CLOSED'}
 
     def draw(self, context):
@@ -1241,9 +1229,8 @@ class IMAGE_PT_view_waveform(ImageScopesPanel, Panel):
 class IMAGE_PT_view_vectorscope(ImageScopesPanel, Panel):
     bl_space_type = 'IMAGE_EDITOR'
     bl_region_type = 'UI'
-    bl_category = "Image"
+    bl_category = "Scopes"
     bl_label = "Vectorscope"
-    bl_parent_id = 'IMAGE_PT_view_scopes'
     bl_options = {'DEFAULT_CLOSED'}
 
     def draw(self, context):
@@ -1257,9 +1244,8 @@ class IMAGE_PT_view_vectorscope(ImageScopesPanel, Panel):
 class IMAGE_PT_sample_line(ImageScopesPanel, Panel):
     bl_space_type = 'IMAGE_EDITOR'
     bl_region_type = 'UI'
-    bl_category = "Image"
+    bl_category = "Scopes"
     bl_label = "Sample Line"
-    bl_parent_id = 'IMAGE_PT_view_scopes'
     bl_options = {'DEFAULT_CLOSED'}
 
     def draw(self, context):
@@ -1279,9 +1265,8 @@ class IMAGE_PT_sample_line(ImageScopesPanel, Panel):
 class IMAGE_PT_scope_sample(ImageScopesPanel, Panel):
     bl_space_type = 'IMAGE_EDITOR'
     bl_region_type = 'UI'
-    bl_category = "Image"
+    bl_category = "Scopes"
     bl_label = "Samples"
-    bl_parent_id = 'IMAGE_PT_view_scopes'
     bl_options = {'DEFAULT_CLOSED'}
 
     def draw(self, context):
@@ -1325,7 +1310,7 @@ classes = (
     IMAGE_MT_uvs_mirror,
     IMAGE_MT_uvs_weldalign,
     IMAGE_MT_uvs_select_mode,
-    IMAGE_MT_specials,
+    IMAGE_MT_uvs_specials,
     IMAGE_MT_pivot_pie,
     IMAGE_MT_uvs_snap_pie,
     IMAGE_HT_header,
@@ -1351,7 +1336,6 @@ classes = (
     IMAGE_PT_tools_brush_appearance,
     IMAGE_PT_uv_sculpt,
     IMAGE_PT_uv_sculpt_curve,
-    IMAGE_PT_view_scopes,
     IMAGE_PT_view_histogram,
     IMAGE_PT_view_waveform,
     IMAGE_PT_view_vectorscope,

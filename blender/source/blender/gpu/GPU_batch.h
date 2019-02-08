@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,14 +15,9 @@
  *
  * The Original Code is Copyright (C) 2016 by Mike Erwin.
  * All rights reserved.
- *
- * Contributor(s): Blender Foundation
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/gpu/GPU_batch.h
- *  \ingroup gpu
+/** \file \ingroup gpu
  *
  * GPU geometry batch
  * Contains VAOs + VBOs + Shader representing a drawable entity.
@@ -59,9 +52,13 @@ typedef enum {
 
 typedef struct GPUBatch {
 	/* geometry */
-	GPUVertBuf *verts[GPU_BATCH_VBO_MAX_LEN]; /* verts[0] is required, others can be NULL */
-	GPUVertBuf *inst; /* instance attribs */
-	GPUIndexBuf *elem; /* NULL if element list not needed */
+
+	/** verts[0] is required, others can be NULL */
+	GPUVertBuf *verts[GPU_BATCH_VBO_MAX_LEN];
+	/** Instance attributes. */
+	GPUVertBuf *inst;
+	/** NULL if element list not needed */
+	GPUIndexBuf *elem;
 	uint32_t gl_prim_type;
 
 	/* cached values (avoid dereferencing later) */
@@ -71,21 +68,22 @@ typedef struct GPUBatch {
 
 	/* book-keeping */
 	uint owns_flag;
-	struct GPUContext *context; /* used to free all vaos. this implies all vaos were created under the same context. */
+	/** used to free all vaos. this implies all vaos were created under the same context. */
+	struct GPUContext *context;
 	GPUBatchPhase phase;
 	bool program_in_use;
 
-	/* Vao management: remembers all geometry state (vertex attrib bindings & element buffer)
+	/* Vao management: remembers all geometry state (vertex attribute bindings & element buffer)
 	 * for each shader interface. Start with a static number of vaos and fallback to dynamic count
 	 * if necessary. Once a batch goes dynamic it does not go back. */
 	bool is_dynamic_vao_count;
 	union {
-		/* Static handle count */
+		/** Static handle count */
 		struct {
 			const struct GPUShaderInterface *interfaces[GPU_BATCH_VAO_STATIC_LEN];
 			uint32_t vao_ids[GPU_BATCH_VAO_STATIC_LEN];
 		} static_vaos;
-		/* Dynamic handle count */
+		/** Dynamic handle count */
 		struct {
 			uint count;
 			const struct GPUShaderInterface **interfaces;
@@ -131,7 +129,11 @@ int GPU_batch_vertbuf_add_ex(GPUBatch *, GPUVertBuf *, bool own_vbo);
 
 void GPU_batch_program_set_no_use(GPUBatch *, uint32_t program, const GPUShaderInterface *);
 void GPU_batch_program_set(GPUBatch *, uint32_t program, const GPUShaderInterface *);
-void GPU_batch_program_set_builtin(GPUBatch *batch, GPUBuiltinShader shader_id);
+void GPU_batch_program_set_shader(GPUBatch *, GPUShader *shader);
+void GPU_batch_program_set_builtin(
+        GPUBatch *batch, eGPUBuiltinShader shader_id);
+void GPU_batch_program_set_builtin_with_config(
+        GPUBatch *batch, eGPUBuiltinShader shader_id, eGPUShaderConfig shader_cfg);
 /* Entire batch draws with one shader program, but can be redrawn later with another program. */
 /* Vertex shader's inputs must be compatible with the batch's vertex format. */
 

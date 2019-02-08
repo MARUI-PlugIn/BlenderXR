@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenkernel/intern/library.c
- *  \ingroup bke
+/** \file \ingroup bke
  *
  * Contains management of ID's and libraries
  * allocate and free of all library data
@@ -38,6 +29,8 @@
 #include <stdlib.h>
 #include <stddef.h>
 #include <assert.h>
+
+#include "CLG_log.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -78,9 +71,7 @@
 #include "BLI_ghash.h"
 #include "BLI_linklist.h"
 #include "BLI_memarena.h"
-#include "BLI_mempool.h"
 #include "BLI_string_utils.h"
-#include "BLI_threads.h"
 
 #include "BLT_translation.h"
 
@@ -104,7 +95,6 @@
 #include "BKE_lamp.h"
 #include "BKE_lattice.h"
 #include "BKE_library.h"
-#include "BKE_library_override.h"
 #include "BKE_library_query.h"
 #include "BKE_library_remap.h"
 #include "BKE_linestyle.h"
@@ -143,6 +133,8 @@
 #  include "PIL_time_utildefines.h"
 #endif
 
+static CLG_LogRef LOG = {"bke.library"};
+
 /* GS reads the memory pointed at in a specific ordering.
  * only use this definition, makes little and big endian systems
  * work fine, in conjunction with MAKE_ID */
@@ -169,8 +161,9 @@ void id_lib_extern(ID *id)
 	if (id && ID_IS_LINKED(id)) {
 		BLI_assert(BKE_idcode_is_linkable(GS(id->name)));
 		if (id->tag & LIB_TAG_INDIRECT) {
-			id->tag -= LIB_TAG_INDIRECT;
+			id->tag &= ~LIB_TAG_INDIRECT;
 			id->tag |= LIB_TAG_EXTERN;
+			id->lib->parent = NULL;
 		}
 	}
 }
@@ -187,7 +180,7 @@ void id_us_ensure_real(ID *id)
 		id->tag |= LIB_TAG_EXTRAUSER;
 		if (id->us <= limit) {
 			if (id->us < limit || ((id->us == limit) && (id->tag & LIB_TAG_EXTRAUSER_SET))) {
-				printf("ID user count error: %s (from '%s')\n", id->name, id->lib ? id->lib->filepath : "[Main]");
+				CLOG_ERROR(&LOG, "ID user count error: %s (from '%s')", id->name, id->lib ? id->lib->filepath : "[Main]");
 				BLI_assert(0);
 			}
 			id->us = limit + 1;
@@ -243,8 +236,8 @@ void id_us_min(ID *id)
 		const int limit = ID_FAKE_USERS(id);
 
 		if (id->us <= limit) {
-			printf("ID user decrement error: %s (from '%s'): %d <= %d\n",
-			       id->name, id->lib ? id->lib->filepath : "[Main]", id->us, limit);
+			CLOG_ERROR(&LOG, "ID user decrement error: %s (from '%s'): %d <= %d",
+			           id->name, id->lib ? id->lib->filepath : "[Main]", id->us, limit);
 			BLI_assert(0);
 			id->us = limit;
 		}
@@ -346,8 +339,8 @@ void BKE_id_make_local_generic(Main *bmain, ID *id, const bool id_in_mainlist, c
 		else {
 			ID *id_new;
 
-			/* Should not fail in expected usecases, but id_copy does not copy Scene e.g. */
-			if (id_copy(bmain, id, &id_new, false)) {
+			/* Should not fail in expected usecases, but a few ID types cannot be copied (LIB, WM, SCR...). */
+			if (BKE_id_copy(bmain, id, &id_new)) {
 				id_new->us = 0;
 
 				/* setting newid is mandatory for complex make_lib_local logic... */
@@ -544,6 +537,16 @@ static void id_copy_clear_runtime_pointers(ID *id, int UNUSED(flag))
 	}
 }
 
+bool BKE_id_copy_is_allowed(const ID *id)
+{
+#define LIB_ID_TYPES_NOCOPY ID_LI, ID_SCR, ID_WM,  /* Not supported */ \
+                            ID_IP  /* Deprecated */
+
+	return !ELEM(GS(id->name), LIB_ID_TYPES_NOCOPY);
+
+#undef LIB_ID_TYPES_NOCOPY
+}
+
 /**
  * Generic entry point for copying a datablock (new API).
  *
@@ -556,38 +559,29 @@ static void id_copy_clear_runtime_pointers(ID *id, int UNUSED(flag))
  * \param id: Source datablock.
  * \param r_newid: Pointer to new (copied) ID pointer.
  * \param flag: Set of copy options, see DNA_ID.h enum for details (leave to zero for default, full copy).
- * \param test: If set, do not do any copy, just test whether copy is supported.
  * \return False when copying that ID type is not supported, true otherwise.
  */
-/* XXX TODO remove test thing, *all* IDs should be copyable that way! */
-bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, const bool test)
+bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag)
 {
-#define LIB_ID_TYPES_NOCOPY ID_LI, ID_SCR, ID_WM,  /* Not supported */ \
-                            ID_IP  /* Deprecated */
-
-	BLI_assert(test || (r_newid != NULL));
-	/* Early output is source is NULL. */
-	if (id == NULL) {
-		return false;
-	}
+	BLI_assert(r_newid != NULL);
 	/* Make sure destination pointer is all good. */
 	if ((flag & LIB_ID_CREATE_NO_ALLOCATE) == 0) {
-		if (r_newid != NULL) {
-			*r_newid = NULL;
-		}
+		*r_newid = NULL;
 	}
 	else {
-		if (r_newid != NULL && *r_newid != NULL) {
-			/* Allow some garbage non-initialized memory to go in. */
+		if (*r_newid != NULL) {
+			/* Allow some garbage non-initialized memory to go in, and clean it up here. */
 			const size_t size = BKE_libblock_get_alloc_info(GS(id->name), NULL);
 			memset(*r_newid, 0, size);
 		}
 	}
-	if (ELEM(GS(id->name), LIB_ID_TYPES_NOCOPY)) {
+
+	/* Early output is source is NULL. */
+	if (id == NULL) {
 		return false;
 	}
-	else if (test) {
-		return true;
+	if (!BKE_id_copy_is_allowed(id)) {
+		return false;
 	}
 
 	BKE_libblock_copy_ex(bmain, id, r_newid, flag);
@@ -696,7 +690,7 @@ bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, con
 	}
 
 	/* Update ID refcount, remap pointers to self in new ID. */
-	struct IDCopyLibManagementData data = {.id_src = id, .id_dst = *r_newid, .flag = flag};
+	struct IDCopyLibManagementData data = {.id_src = id, .id_dst = *r_newid, .flag = flag,};
 	BKE_library_foreach_ID_link(bmain, *r_newid, id_copy_libmanagement_cb, &data, IDWALK_NOP);
 
 	/* Do not make new copy local in case we are copying outside of main...
@@ -718,9 +712,9 @@ bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, con
  * Invokes the appropriate copy method for the block and returns the result in
  * newid, unless test. Returns true if the block can be copied.
  */
-bool id_copy(Main *bmain, const ID *id, ID **newid, bool test)
+bool BKE_id_copy(Main *bmain, const ID *id, ID **newid)
 {
-	return BKE_id_copy_ex(bmain, id, newid, LIB_ID_COPY_SHAPEKEY, test);
+	return BKE_id_copy_ex(bmain, id, newid, LIB_ID_COPY_DEFAULT);
 }
 
 /** Does a mere memory swap over the whole IDs data (including type-specific memory).
@@ -802,7 +796,7 @@ bool id_single_user(bContext *C, ID *id, PointerRNA *ptr, PropertyRNA *prop)
 		/* if property isn't editable, we're going to have an extra block hanging around until we save */
 		if (RNA_property_editable(ptr, prop)) {
 			Main *bmain = CTX_data_main(C);
-			if (id_copy(bmain, id, &newid, false) && newid) {
+			if (BKE_id_copy(bmain, id, &newid) && newid) {
 				/* copy animation actions too */
 				BKE_animdata_copy_id_action(bmain, id, false);
 				/* us is 1 by convention with new IDs, but RNA_property_pointer_set
@@ -999,6 +993,37 @@ void BKE_main_id_flag_all(Main *bmain, const int flag, const bool value)
 	while (a--) {
 		BKE_main_id_flag_listbase(lbarray[a], flag, value);
 	}
+}
+
+void BKE_main_id_repair_duplicate_names_listbase(ListBase *lb)
+{
+	int lb_len = 0;
+	for (ID *id = lb->first; id; id = id->next) {
+		if (id->lib == NULL) {
+			lb_len += 1;
+		}
+	}
+	if (lb_len <= 1) {
+		return;
+	}
+
+	/* Fill an array because renaming sorts. */
+	ID **id_array = MEM_mallocN(sizeof(*id_array) * lb_len, __func__);
+	GSet *gset = BLI_gset_str_new_ex(__func__, lb_len);
+	int i = 0;
+	for (ID *id = lb->first; id; id = id->next) {
+		if (id->lib == NULL) {
+			id_array[i] = id;
+			i++;
+		}
+	}
+	for (i = 0; i < lb_len; i++) {
+		if (!BLI_gset_add(gset, id_array[i]->name + 2)) {
+			new_id(lb, id_array[i], NULL);
+		}
+	}
+	BLI_gset_free(gset, NULL);
+	MEM_freeN(id_array);
 }
 
 void BKE_main_lib_objects_recalc_all(Main *bmain)
@@ -1382,22 +1407,11 @@ void *BKE_libblock_copy(Main *bmain, const ID *id)
 	return idn;
 }
 
-void *BKE_libblock_copy_nolib(const ID *id, const bool do_action)
-{
-	ID *idn;
-
-	BKE_libblock_copy_ex(NULL, id, &idn, LIB_ID_CREATE_NO_MAIN | LIB_ID_CREATE_NO_USER_REFCOUNT | (do_action ? LIB_ID_COPY_ACTIONS : 0));
-
-	return idn;
-}
-
+/* XXX TODO: get rid of this useless wrapper at some point... */
 void *BKE_libblock_copy_for_localize(const ID *id)
 {
 	ID *idn;
-	BKE_libblock_copy_ex(NULL, id, &idn, (LIB_ID_CREATE_NO_MAIN |
-	                                      LIB_ID_CREATE_NO_USER_REFCOUNT |
-	                                      LIB_ID_COPY_ACTIONS |
-	                                      LIB_ID_COPY_NO_ANIMDATA));
+	BKE_libblock_copy_ex(NULL, id, &idn, LIB_ID_COPY_LOCALIZE | LIB_ID_COPY_NO_ANIMDATA);
 	return idn;
 }
 
@@ -1648,8 +1662,11 @@ void id_clear_lib_data_ex(Main *bmain, ID *id, const bool id_in_mainlist)
 
 	id->lib = NULL;
 	id->tag &= ~(LIB_TAG_INDIRECT | LIB_TAG_EXTERN);
-	if (id_in_mainlist)
-		new_id(which_libbase(bmain, GS(id->name)), id, NULL);
+	if (id_in_mainlist) {
+		if (new_id(which_libbase(bmain, GS(id->name)), id, NULL)) {
+			bmain->is_memfile_undo_written = false;
+		}
+	}
 
 	/* Internal bNodeTree blocks inside datablocks also stores id->lib, make sure this stays in sync. */
 	if ((ntree = ntreeFromID(id))) {
@@ -1930,9 +1947,6 @@ void BKE_library_make_local(
 	TIMEIT_VALUE_PRINT(make_local);
 #endif
 
-	/* Note: Keeping both version of the code (old one being safer, since it still has checks against unused IDs)
-	 * for now, we can remove old one once it has been tested for some time in master... */
-#if 1
 	/* Step 5: proxy 'remapping' hack. */
 	for (LinkNode *it = copied_ids; it; it = it->next) {
 		/* Attempt to re-link copied proxy objects. This allows appending of an entire scene
@@ -1947,8 +1961,8 @@ void BKE_library_make_local(
 
 			/* Proxies only work when the proxified object is linked-in from a library. */
 			if (ob->proxy->id.lib == NULL) {
-				printf("Warning, proxy object %s will loose its link to %s, because the "
-				       "proxified object is local.\n", id->newid->name, ob->proxy->id.name);
+				CLOG_WARN(&LOG, "proxy object %s will loose its link to %s, because the "
+				       "proxified object is local.", id->newid->name, ob->proxy->id.name);
 				continue;
 			}
 
@@ -1958,8 +1972,8 @@ void BKE_library_make_local(
 			 * referred to from a library. Not checking for local use; if new local proxy
 			 * was not used locally would be a nasty bug! */
 			if (is_local || is_lib) {
-				printf("Warning, made-local proxy object %s will loose its link to %s, "
-				       "because the linked-in proxy is referenced (is_local=%i, is_lib=%i).\n",
+				CLOG_WARN(&LOG, "made-local proxy object %s will loose its link to %s, "
+				       "because the linked-in proxy is referenced (is_local=%i, is_lib=%i).",
 				       id->newid->name, ob->proxy->id.name, is_local, is_lib);
 			}
 			else {
@@ -1978,133 +1992,6 @@ void BKE_library_make_local(
 #ifdef DEBUG_TIME
 	printf("Step 5: Proxy 'remapping' hack: Done.\n");
 	TIMEIT_VALUE_PRINT(make_local);
-#endif
-
-#else
-	LinkNode *linked_loop_candidates = NULL;
-
-	/* Step 5: remove datablocks that have been copied to be localized and are no more used in the end...
-	 * Note that we may have to loop more than once here, to tackle dependencies between linked objects... */
-	bool do_loop = true;
-	while (do_loop) {
-		do_loop = false;
-		for (LinkNode *it = copied_ids; it; it = it->next) {
-			if ((id = it->link) == NULL) {
-				continue;
-			}
-
-			bool is_local = false, is_lib = false;
-
-			BKE_library_ID_test_usages(bmain, id, &is_local, &is_lib);
-
-			/* Attempt to re-link copied proxy objects. This allows appending of an entire scene
-			 * from another blend file into this one, even when that blend file contains proxified
-			 * armatures that have local references. Since the proxified object needs to be linked
-			 * (not local), this will only work when the "Localize all" checkbox is disabled.
-			 * TL;DR: this is a dirty hack on top of an already weak feature (proxies). */
-			if (GS(id->name) == ID_OB && ((Object *)id)->proxy != NULL) {
-				Object *ob = (Object *)id;
-				Object *ob_new = (Object *)id->newid;
-
-				/* Proxies only work when the proxified object is linked-in from a library. */
-				if (ob->proxy->id.lib == NULL) {
-					printf("Warning, proxy object %s will loose its link to %s, because the "
-						   "proxified object is local.\n", id->newid->name, ob->proxy->id.name);
-				}
-				/* We can only switch the proxy'ing to a made-local proxy if it is no longer
-				 * referred to from a library. Not checking for local use; if new local proxy
-				 * was not used locally would be a nasty bug! */
-				else if (is_local || is_lib) {
-					printf("Warning, made-local proxy object %s will loose its link to %s, "
-					       "because the linked-in proxy is referenced (is_local=%i, is_lib=%i).\n",
-					       id->newid->name, ob->proxy->id.name, is_local, is_lib);
-				}
-				else {
-					/* we can switch the proxy'ing from the linked-in to the made-local proxy.
-					 * BKE_object_make_proxy() shouldn't be used here, as it allocates memory that
-					 * was already allocated by BKE_object_make_local_ex() (which called BKE_object_copy_ex). */
-					ob_new->proxy = ob->proxy;
-					ob_new->proxy_group = ob->proxy_group;
-					ob_new->proxy_from = ob->proxy_from;
-					ob_new->proxy->proxy_from = ob_new;
-					ob->proxy = ob->proxy_from = ob->proxy_group = NULL;
-				}
-			}
-
-			if (!is_local) {
-				if (!is_lib) {  /* Not used at all, we can free it! */
-					BLI_assert(!"Unused linked data copy remaining from MakeLibLocal process, should not happen anymore");
-					printf("\t%s (from %s)\n", id->name, id->lib->id.name);
-					BKE_libblock_free(bmain, id);
-					it->link = NULL;
-					do_loop = true;
-				}
-				/* Only used by linked data, potential candidate to ugly lib-only dependency cycles... */
-				else if ((id->tag & LIB_TAG_DOIT) == 0) {  /* Check TAG_DOIT to avoid adding same ID several times... */
-					/* Note that we store the node, not directly ID pointer, that way if it->link is set to NULL
-					 * later we can skip it in lib-dependency cycles search later. */
-					BLI_linklist_prepend_arena(&linked_loop_candidates, it, linklist_mem);
-					id->tag |= LIB_TAG_DOIT;
-
-					/* Grrrrrrr... those half-datablocks-stuff... grrrrrrrrrrr...
-					 * Here we have to also tag them as potential candidates, otherwise they would falsy report
-					 * ID they used as 'directly used' in sixth step. */
-					ID *ntree = (ID *)ntreeFromID(id);
-					if (ntree != NULL) {
-						ntree->tag |= LIB_TAG_DOIT;
-					}
-				}
-			}
-		}
-	}
-
-#ifdef DEBUG_TIME
-	printf("Step 5: Remove linked datablocks that have been copied and ended fully localized: Done.\n");
-	TIMEIT_VALUE_PRINT(make_local);
-#endif
-
-	/* Step 6: Try to find circle dependencies between indirectly-linked-only datablocks.
-	 * Those are fake 'usages' that prevent their deletion. See T49775 for nice ugly case. */
-	BKE_library_unused_linked_data_set_tag(bmain, false);
-	for (LinkNode *it = linked_loop_candidates; it; it = it->next) {
-		if (it->link == NULL) {
-			continue;
-		}
-		if ((id = ((LinkNode *)it->link)->link) == NULL) {
-			it->link = NULL;
-			continue;
-		}
-
-		/* Note: in theory here we are only handling datablocks forming exclusive linked dependency-cycles-based
-		 * archipelagos, so no need to check again after we have deleted one, as done in previous step. */
-		if (id->tag & LIB_TAG_DOIT) {
-			BLI_assert(!"Unused linked data copy remaining from MakeLibLocal process (archipelago case), should not happen anymore");
-			/* Object's deletion rely on valid ob->data, but ob->data may have already been freed here...
-			 * Setting it to NULL may not be 100% correct, but should be safe and do the work. */
-			if (GS(id->name) == ID_OB) {
-				((Object *)id)->data = NULL;
-			}
-
-			/* Note: *in theory* IDs tagged here are fully *outside* of file scope, totally unused, so we can
-			 *       directly wipe them out without caring about clearing their usages.
-			 *       However, this is a highly-risky presumption, and nice crasher in case something goes wrong here.
-			 *       So for 2.78a will keep the safe option, and switch to more efficient one in master later. */
-#if 1
-			BKE_libblock_free_ex(bmain, id, false, true);
-#else
-			BKE_libblock_unlink(bmain, id, false, false);
-			BKE_libblock_free(bmain, id);
-#endif
-			((LinkNode *)it->link)->link = NULL;  /* Not strictly necessary, but safer (see T49903)... */
-			it->link = NULL;
-		}
-	}
-
-#ifdef DEBUG_TIME
-	printf("Step 6: Try to find circle dependencies between indirectly-linked-only datablocks: Done.\n");
-	TIMEIT_VALUE_PRINT(make_local);
-#endif
-
 #endif
 
 	/* This is probably more of a hack than something we should do here, but...
@@ -2147,9 +2034,11 @@ void BLI_libblock_ensure_unique_name(Main *bmain, const char *name)
 
 	/* search for id */
 	idtest = BLI_findstring(lb, name + 2, offsetof(ID, name) + 2);
-
-	if (idtest && !new_id(lb, idtest, idtest->name + 2)) {
-		id_sort_by_name(lb, idtest);
+	if (idtest != NULL) {
+		if (!new_id(lb, idtest, idtest->name + 2)) {
+			id_sort_by_name(lb, idtest);
+		}
+		bmain->is_memfile_undo_written = false;
 	}
 }
 
@@ -2159,7 +2048,9 @@ void BLI_libblock_ensure_unique_name(Main *bmain, const char *name)
 void BKE_libblock_rename(Main *bmain, ID *id, const char *name)
 {
 	ListBase *lb = which_libbase(bmain, GS(id->name));
-	new_id(lb, id, name);
+	if (new_id(lb, id, name)) {
+		bmain->is_memfile_undo_written = false;
+	}
 }
 
 /**

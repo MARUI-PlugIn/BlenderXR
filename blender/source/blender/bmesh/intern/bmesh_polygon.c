@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,14 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Joseph Eagar, Geoffrey Bantle, Campbell Barton
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/bmesh/intern/bmesh_polygon.c
- *  \ingroup bmesh
+/** \file \ingroup bmesh
  *
  * This file contains code for dealing
  * with polygons (normal/area calculation,
@@ -30,6 +23,7 @@
 
 #include "DNA_listBase.h"
 #include "DNA_modifier_types.h"
+#include "DNA_meshdata_types.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -39,7 +33,6 @@
 #include "BLI_polyfill_2d.h"
 #include "BLI_polyfill_2d_beautify.h"
 #include "BLI_linklist.h"
-#include "BLI_edgehash.h"
 #include "BLI_heap.h"
 
 #include "bmesh.h"
@@ -259,6 +252,25 @@ float BM_face_calc_area_with_mat3(const BMFace *f, const float mat3[3][3])
 		copy_v3_v3(co, co_next);
 	} while ((l_iter = l_iter->next) != l_first);
 	return len_v3(n) * 0.5f;
+}
+
+/**
+ * get the area of UV face
+ */
+float BM_face_calc_area_uv(const BMFace *f, int cd_loop_uv_offset)
+{
+	/* inline 'area_poly_v2' logic, avoid creating a temp array */
+	const BMLoop *l_iter, *l_first;
+
+	l_iter = l_first = BM_FACE_FIRST_LOOP(f);
+	/* The Trapezium Area Rule */
+	float cross = 0.0f;
+	do {
+		const MLoopUV *luv = BM_ELEM_CD_GET_VOID_P(l_iter, cd_loop_uv_offset);
+		const MLoopUV *luv_next = BM_ELEM_CD_GET_VOID_P(l_iter->next, cd_loop_uv_offset);
+		cross += (luv_next->uv[0] - luv->uv[0]) * (luv_next->uv[1] + luv->uv[1]);
+	} while ((l_iter = l_iter->next) != l_first);
+	return fabsf(cross * 0.5f);
 }
 
 /**

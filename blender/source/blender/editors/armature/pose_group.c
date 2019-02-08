@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,10 @@
  *
  * The Original Code is Copyright (C) 2008 Blender Foundation
  * All rights reserved.
- *
- * Contributor(s): Joshua Leung
- *
- * ***** END GPL LICENSE BLOCK *****
- *
  * Implementation of Bone Groups operators and editing API's
  */
 
-/** \file blender/editors/armature/pose_group.c
- *  \ingroup edarmature
+/** \file \ingroup edarmature
  */
 
 #include <string.h>
@@ -337,7 +329,7 @@ void POSE_OT_group_move(wmOperatorType *ot)
 	static const EnumPropertyItem group_slot_move[] = {
 		{-1, "UP", 0, "Up", ""},
 		{1, "DOWN", 0, "Down", ""},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	/* identifiers */

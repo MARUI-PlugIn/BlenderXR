@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,14 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Joseph Gilbert
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/python/mathutils/mathutils_Quaternion.c
- *  \ingroup pymathutils
+/** \file \ingroup pymathutils
  */
 
 
@@ -1036,7 +1029,7 @@ static PySequenceMethods Quaternion_SeqMethods = {
 static PyMappingMethods Quaternion_AsMapping = {
 	(lenfunc)Quaternion_len,
 	(binaryfunc)Quaternion_subscript,
-	(objobjargproc)Quaternion_ass_subscript
+	(objobjargproc)Quaternion_ass_subscript,
 };
 
 static PyNumberMethods Quaternion_NumMethods = {
@@ -1337,7 +1330,7 @@ static struct PyMethodDef Quaternion_methods[] = {
 	{"copy", (PyCFunction) Quaternion_copy, METH_NOARGS, Quaternion_copy_doc},
 	{"__copy__", (PyCFunction) Quaternion_copy, METH_NOARGS, Quaternion_copy_doc},
 	{"__deepcopy__", (PyCFunction) Quaternion_deepcopy, METH_VARARGS, Quaternion_copy_doc},
-	{NULL, NULL, 0, NULL}
+	{NULL, NULL, 0, NULL},
 };
 
 /*****************************************************************************/

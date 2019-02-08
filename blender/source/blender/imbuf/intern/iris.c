@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/imbuf/intern/iris.c
- *  \ingroup imbuf
+/** \file \ingroup imbuf
  */
 
 
@@ -125,7 +116,6 @@ static void lumrow(uchar *rgbptr, uchar *lumptr, int n);
 
 /*
  * byte order independent read/write of shorts and ints.
- *
  */
 
 static ushort getshort(MFileOffset *inf)
@@ -248,7 +238,6 @@ int imb_is_a_iris(const uchar *mem)
  * longimagedata -
  * read in a B/W RGB or RGBA iris image file and return a
  * pointer to an array of ints.
- *
  */
 
 struct ImBuf *imb_loadiris(const uchar *mem, size_t size, int flags, char colorspace[IM_MAX_SPACE])

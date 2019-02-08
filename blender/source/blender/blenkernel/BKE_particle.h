@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,21 +15,15 @@
  *
  * The Original Code is Copyright (C) 2007 by Janne Karhu.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
  * Adaptive time step
  * Classical SPH
  * Copyright 2011-2012 AutoCRC
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
 #ifndef __BKE_PARTICLE_H__
 #define __BKE_PARTICLE_H__
 
-/** \file BKE_particle.h
- *  \ingroup bke
+/** \file \ingroup bke
  */
 
 #include "BLI_utildefines.h"
@@ -49,28 +41,28 @@ extern "C"
 #endif
 #endif
 
-struct ParticleSystemModifierData;
-struct ParticleSystem;
 struct ParticleKey;
 struct ParticleSettings;
+struct ParticleSystem;
+struct ParticleSystemModifierData;
 
-struct Main;
-struct Object;
-struct Scene;
-struct Depsgraph;
-struct ModifierData;
-struct MTFace;
-struct MCol;
-struct MFace;
-struct MVert;
-struct LatticeDeformData;
-struct LinkNode;
-struct KDTree;
-struct RNG;
 struct BVHTreeRay;
 struct BVHTreeRayHit;
-struct EdgeHash;
 struct Depsgraph;
+struct Depsgraph;
+struct EdgeHash;
+struct KDTree;
+struct LatticeDeformData;
+struct LinkNode;
+struct MCol;
+struct MFace;
+struct MTFace;
+struct MVert;
+struct Main;
+struct ModifierData;
+struct Object;
+struct RNG;
+struct Scene;
 struct ViewLayer;
 
 #define PARTICLE_COLLISION_MAX_COLLISIONS 10
@@ -311,7 +303,19 @@ void psys_set_current_num(Object *ob, int index);
 
 struct LatticeDeformData *psys_create_lattice_deform_data(struct ParticleSimulationData *sim);
 
+/* For a given evaluated particle system get its original.
+ *
+ * If this input is an original particle system already, the return value is the
+ * same as the input. */
 struct ParticleSystem *psys_orig_get(struct ParticleSystem *psys);
+
+
+/* For a given original object and its particle system, get evaluated particle
+ * system within a given dependency graph. */
+struct ParticleSystem *psys_eval_get(struct Depsgraph *depsgraph,
+                                     struct Object *object,
+                                     struct ParticleSystem *psys);
+
 bool psys_in_edit_mode(struct Depsgraph *depsgraph, const struct ParticleSystem *psys);
 bool psys_check_enabled(struct Object *ob, struct ParticleSystem *psys, const bool use_render_params);
 bool psys_check_edited(struct ParticleSystem *psys);
@@ -414,6 +418,9 @@ typedef void (*ParticleSystemIDFunc)(struct ParticleSystem *psys, struct ID **id
 
 void BKE_particlesystem_id_loop(struct ParticleSystem *psys, ParticleSystemIDFunc func, void *userdata);
 
+/* Reset all particle systems in the given object. */
+void BKE_particlesystem_reset_all(struct Object *object);
+
 /* ----------- functions needed only inside particlesystem ------------ */
 /* particle.c */
 void psys_disable_all(struct Object *ob);
@@ -479,8 +486,6 @@ void BKE_particle_settings_eval_reset(
 void BKE_particle_system_eval_init(struct Depsgraph *depsgraph,
                                    struct Object *object);
 
-#endif
-
 /* Draw Cache */
 enum {
 	BKE_PARTICLE_BATCH_DIRTY_ALL = 0,
@@ -493,3 +498,5 @@ void BKE_particle_batch_cache_free(struct ParticleSystem *psys);
 }
 #endif
 #endif
+
+#endif  /* __BKE_PARTICLE_H__ */

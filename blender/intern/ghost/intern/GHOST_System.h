@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file ghost/intern/GHOST_System.h
- *  \ingroup GHOST
+/** \file \ingroup GHOST
  * Declaration of GHOST_System class.
  */
 
@@ -58,8 +49,6 @@ class GHOST_NDOFManager;
  * GHOST_System is an abstract class because not all methods of GHOST_ISystem
  * are implemented.
  * \see GHOST_ISystem.
- * \author	Maarten Gribnau
- * \date	May 7, 2001
  */
 class GHOST_System : public GHOST_ISystem
 {
@@ -247,6 +236,17 @@ public:
 	 */
 	GHOST_TSuccess getButtonState(GHOST_TButtonMask mask, bool& isDown) const;
 
+	/**
+	 * Set which tablet API to use. Only affects Windows, other platforms have a single API.
+	 * \param api Enum indicating which API to use.
+	 */
+	void setTabletAPI(GHOST_TTabletAPI api);
+
+	/**
+	 * Test if given tablet API should be used by event handling.
+	 */
+	bool useTabletAPI(GHOST_TTabletAPI api) const;
+
 #ifdef WITH_INPUT_NDOF
 	/***************************************************************************************
 	 * Access to 3D mouse.
@@ -380,6 +380,8 @@ protected:
 	/** Settings of the display before the display went fullscreen. */
 	GHOST_DisplaySetting m_preFullScreenSetting;
 
+	/** Which tablet API to use. */
+	GHOST_TTabletAPI m_tabletAPI;
 };
 
 inline GHOST_TimerManager *GHOST_System::getTimerManager() const

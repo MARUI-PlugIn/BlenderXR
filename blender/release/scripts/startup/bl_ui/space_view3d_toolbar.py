@@ -27,9 +27,9 @@ from .properties_grease_pencil_common import (
 )
 from .properties_paint_common import (
     UnifiedPaintPanel,
-    brush_texture_settings,
-    brush_texpaint_common,
     brush_mask_texture_settings,
+    brush_texpaint_common,
+    brush_texture_settings,
 )
 from bl_operators.presets import PresetMenu
 
@@ -257,36 +257,26 @@ class VIEW3D_PT_tools_brush(Panel, View3DPaintPanel):
         # Sculpt Mode #
 
         elif context.sculpt_object and brush:
+            from .properties_paint_common import (
+                brush_basic_sculpt_settings,
+            )
+
             capabilities = brush.sculpt_capabilities
 
             col = layout.column()
 
             col.separator()
 
-            row = col.row(align=True)
+            if not self.is_popover:
+                brush_basic_sculpt_settings(col, context, brush)
 
-            ups = tool_settings.unified_paint_settings
-            if ((ups.use_unified_size and ups.use_locked_size) or
-                    ((not ups.use_unified_size) and brush.use_locked_size)):
-                self.prop_unified_size(row, context, brush, "use_locked_size", icon='LOCKED')
-                self.prop_unified_size(row, context, brush, "unprojected_radius", slider=True, text="Radius")
-            else:
-                self.prop_unified_size(row, context, brush, "use_locked_size", icon='UNLOCKED')
-                self.prop_unified_size(row, context, brush, "size", slider=True, text="Radius")
-
-            self.prop_unified_size(row, context, brush, "use_pressure_size")
-
-            # strength, use_strength_pressure, and use_strength_attenuation
-            col.separator()
-            row = col.row(align=True)
-
-            if capabilities.has_space_attenuation:
-                row.prop(brush, "use_space_attenuation", toggle=True, icon_only=True)
-
-            self.prop_unified_strength(row, context, brush, "strength", text="Strength")
-
-            if capabilities.has_strength_pressure:
-                self.prop_unified_strength(row, context, brush, "use_pressure_strength")
+            # topology_rake_factor
+            if (capabilities.has_topology_rake and
+                context.sculpt_object.use_dynamic_topology_sculpting
+            ):
+                col.separator()
+                row = col.row()
+                row.prop(brush, "topology_rake_factor", slider=True)
 
             # auto_smooth_factor and use_inverse_smooth_pressure
             if capabilities.has_auto_smooth:
@@ -350,10 +340,6 @@ class VIEW3D_PT_tools_brush(Panel, View3DPaintPanel):
             col.prop(brush, "use_frontface", text="Front Faces Only")
             col.prop(brush, "use_projected")
 
-            # direction
-            col.separator()
-            col.row().prop(brush, "direction", expand=True)
-
             # use_accumulate
             if capabilities.has_accumulate:
                 col.separator()
@@ -384,22 +370,14 @@ class VIEW3D_PT_tools_brush(Panel, View3DPaintPanel):
 
         # Weight Paint Mode #
         elif context.weight_paint_object and brush:
+            from .properties_paint_common import (
+                brush_basic_wpaint_settings,
+            )
 
             col = layout.column()
 
-            row = col.row(align=True)
-            self.prop_unified_weight(row, context, brush, "weight", slider=True, text="Weight")
-
-            row = col.row(align=True)
-            self.prop_unified_size(row, context, brush, "size", slider=True, text="Radius")
-            self.prop_unified_size(row, context, brush, "use_pressure_size")
-
-            row = col.row(align=True)
-            self.prop_unified_strength(row, context, brush, "strength", text="Strength")
-            self.prop_unified_strength(row, context, brush, "use_pressure_strength")
-
-            col.separator()
-            col.prop(brush, "blend", text="Blend")
+            if not self.is_popover:
+                brush_basic_wpaint_settings(col, context, brush)
 
             if brush.weight_tool != 'SMEAR':
                 col.prop(brush, "use_accumulate")
@@ -420,6 +398,10 @@ class VIEW3D_PT_tools_brush(Panel, View3DPaintPanel):
 
         # Vertex Paint Mode #
         elif context.vertex_paint_object and brush:
+            from .properties_paint_common import (
+                brush_basic_vpaint_settings,
+            )
+
             col = layout.column()
             self.prop_unified_color_picker(col, context, brush, "color", value_slider=True)
             if settings.palette:
@@ -431,16 +413,10 @@ class VIEW3D_PT_tools_brush(Panel, View3DPaintPanel):
             row.operator("paint.brush_colors_flip", icon='FILE_REFRESH', text="")
 
             col.separator()
-            row = col.row(align=True)
-            self.prop_unified_size(row, context, brush, "size", slider=True, text="Radius")
-            self.prop_unified_size(row, context, brush, "use_pressure_size")
 
-            row = col.row(align=True)
-            self.prop_unified_strength(row, context, brush, "strength", text="Strength")
-            self.prop_unified_strength(row, context, brush, "use_pressure_strength")
+            if not self.is_popover:
+                brush_basic_vpaint_settings(col, context, brush)
 
-            col.separator()
-            col.prop(brush, "blend", text="Blend")
             col.prop(brush, "use_alpha")
 
             if brush.vertex_tool != 'SMEAR':
@@ -543,6 +519,8 @@ class VIEW3D_PT_slots_projectpaint(View3DPanel, Panel):
                 layout.menu("VIEW3D_MT_tools_projectpaint_uvlayer", text=uv_text, translate=False)
             have_image = settings.canvas is not None
 
+            layout.prop(settings, "interpolation", text="")
+
         if settings.missing_uvs:
             layout.separator()
             split = layout.split()
@@ -636,7 +614,10 @@ class VIEW3D_PT_tools_brush_overlay(Panel, View3DPaintPanel):
         sub = row.row(align=True)
         sub.prop(brush, "cursor_overlay_alpha", text="Curve Alpha")
         sub.prop(brush, "use_cursor_overlay_override", toggle=True, text="", icon='BRUSH_DATA')
-        row.prop(brush, "use_cursor_overlay", text="", toggle=True, icon='HIDE_OFF' if brush.use_cursor_overlay else 'HIDE_ON')
+        row.prop(
+            brush, "use_cursor_overlay", text="", toggle=True,
+            icon='HIDE_OFF' if brush.use_cursor_overlay else 'HIDE_ON',
+        )
 
         col.active = brush.brush_capabilities.has_overlay
 
@@ -647,7 +628,10 @@ class VIEW3D_PT_tools_brush_overlay(Panel, View3DPaintPanel):
             sub.prop(brush, "texture_overlay_alpha", text="Texture Alpha")
             sub.prop(brush, "use_primary_overlay_override", toggle=True, text="", icon='BRUSH_DATA')
             if tex_slot.map_mode != 'STENCIL':
-                row.prop(brush, "use_primary_overlay", text="", toggle=True, icon='HIDE_OFF' if brush.use_primary_overlay else 'HIDE_ON')
+                row.prop(
+                    brush, "use_primary_overlay", text="", toggle=True,
+                    icon='HIDE_OFF' if brush.use_primary_overlay else 'HIDE_ON',
+                )
 
         if context.image_paint_object:
             row = col.row(align=True)
@@ -656,7 +640,10 @@ class VIEW3D_PT_tools_brush_overlay(Panel, View3DPaintPanel):
             sub.prop(brush, "mask_overlay_alpha", text="Mask Texture Alpha")
             sub.prop(brush, "use_secondary_overlay_override", toggle=True, text="", icon='BRUSH_DATA')
             if tex_slot_mask.map_mode != 'STENCIL':
-                row.prop(brush, "use_secondary_overlay", text="", toggle=True, icon='HIDE_OFF' if brush.use_secondary_overlay else 'HIDE_ON')
+                row.prop(
+                    brush, "use_secondary_overlay", text="", toggle=True,
+                    icon='HIDE_OFF' if brush.use_secondary_overlay else 'HIDE_ON',
+                )
 
 
 # TODO, move to space_view3d.py
@@ -1498,55 +1485,14 @@ class VIEW3D_PT_tools_grease_pencil_brush(View3DPanel, Panel):
         if brush is not None:
             gp_settings = brush.gpencil_settings
 
-            # XXX: Items in "sub" currently show up beside the brush selector in a separate column
-            if brush.gpencil_tool == 'ERASE':
-                sub.prop(gp_settings, "use_default_eraser", text="")
+            if brush.gpencil_tool in {'DRAW', 'FILL'}:
+                layout.row(align=True).template_ID(gp_settings, "material")
 
-            # Brush details
-            if brush.gpencil_tool == 'ERASE':
-                row = layout.row(align=True)
-                row.prop(brush, "size", text="Radius")
-                row.prop(gp_settings, "use_pressure", text="", icon='STYLUS_PRESSURE')
-                row.prop(gp_settings, "use_occlude_eraser", text="", icon='XRAY')
-
-                if gp_settings.eraser_mode == 'SOFT':
-                    row = layout.row(align=True)
-                    row.prop(gp_settings, "pen_strength", slider=True)
-                    row.prop(gp_settings, "use_strength_pressure", text="", icon='STYLUS_PRESSURE')
-                    row = layout.row(align=True)
-                    row.prop(gp_settings, "eraser_strength_factor")
-                    row = layout.row(align=True)
-                    row.prop(gp_settings, "eraser_thickness_factor")
-            elif brush.gpencil_tool == 'FILL':
-                col = layout.column(align=True)
-                col.prop(gp_settings, "fill_leak", text="Leak Size")
-                col.separator()
-                col.prop(brush, "size", text="Thickness")
-                col.prop(gp_settings, "fill_simplify_level", text="Simplify")
-
-                col = layout.row(align=True)
-                col.template_ID(gp_settings, "material")
-
-                row = layout.row(align=True)
-                row.prop(gp_settings, "fill_draw_mode", text="Boundary Draw Mode")
-                row.prop(gp_settings, "show_fill_boundary", text="", icon='GRID')
-
-                col = layout.column(align=True)
-                col.enabled = gp_settings.fill_draw_mode != 'STROKE'
-                col.prop(gp_settings, "show_fill", text="Ignore Transparent Strokes")
-                sub = col.row(align=True)
-                sub.enabled = not gp_settings.show_fill
-                sub.prop(gp_settings, "fill_threshold", text="Threshold")
-            else:  # bgpsettings.tool == 'DRAW':
-                row = layout.row(align=True)
-                row.prop(brush, "size", text="Radius")
-                row.prop(gp_settings, "use_pressure", text="", icon='STYLUS_PRESSURE')
-                row = layout.row(align=True)
-                row.prop(gp_settings, "pen_strength", slider=True)
-                row.prop(gp_settings, "use_strength_pressure", text="", icon='STYLUS_PRESSURE')
-
-                row = layout.row(align=True)
-                row.template_ID(gp_settings, "material")
+            if not self.is_popover:
+                from .properties_paint_common import (
+                    brush_basic_gpencil_paint_settings,
+                )
+                brush_basic_gpencil_paint_settings(layout, context, brush, compact=True)
 
 
 # Grease Pencil drawing brushes options
@@ -1558,7 +1504,7 @@ class VIEW3D_PT_tools_grease_pencil_brush_option(View3DPanel, Panel):
     @classmethod
     def poll(cls, context):
         brush = context.tool_settings.gpencil_paint.brush
-        return brush is not None and brush.gpencil_tool != 'ERASE'
+        return brush is not None and brush.gpencil_tool not in {'ERASE', 'FILL'}
 
     def draw_header_preset(self, context):
         VIEW3D_PT_gpencil_brush_presets.draw_panel_header(self.layout)
@@ -1698,7 +1644,7 @@ class VIEW3D_PT_tools_grease_pencil_brushcurves(View3DPanel, Panel):
     @classmethod
     def poll(cls, context):
         brush = context.tool_settings.gpencil_paint.brush
-        return brush is not None and brush.gpencil_tool != 'ERASE'
+        return brush is not None and brush.gpencil_tool not in {'ERASE', 'FILL'}
 
     @staticmethod
     def draw(self, context):
@@ -1830,12 +1776,12 @@ class VIEW3D_PT_tools_grease_pencil_weight_paint(View3DPanel, Panel):
         layout.template_icon_view(settings, "weight_tool", show_labels=True)
 
         col = layout.column()
-        col.prop(brush, "size", slider=True)
-        row = col.row(align=True)
-        row.prop(brush, "strength", slider=True)
-        row.prop(brush, "use_pressure_strength", text="")
 
-        col.prop(brush, "use_falloff")
+        if not self.is_popover:
+            from .properties_paint_common import (
+                brush_basic_gpencil_weight_settings,
+            )
+            brush_basic_gpencil_weight_settings(col, context, brush)
 
 
 # Grease Pencil Brush Appeareance (one for each mode)

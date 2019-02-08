@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,14 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Bastien Montagne
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/python/intern/bpy_rna_id_collection.c
- *  \ingroup pythonintern
+/** \file \ingroup pythonintern
  *
  * This file adds some helpers related to ID/Main handling, that cannot fit well in RNA itself.
  */
@@ -35,6 +28,7 @@
 #include "BLI_bitmap.h"
 
 #include "BKE_global.h"
+#include "BKE_library.h"
 #include "BKE_library_query.h"
 #include "BKE_main.h"
 
@@ -42,6 +36,9 @@
 /* Those folowing are only to support hack of not listing some internal 'backward' pointers in generated user_map... */
 #include "DNA_object_types.h"
 #include "DNA_key_types.h"
+
+#include "WM_api.h"
+#include "WM_types.h"
 
 #include "bpy_capi_utils.h"
 #include "bpy_rna_id_collection.h"
@@ -96,11 +93,11 @@ static int foreach_libblock_id_user_map_callback(
 		}
 
 		if ((GS(self_id->name) == ID_OB) && (id_p == (ID **)&((Object *)self_id)->proxy_from)) {
-			/* We skip proxy_from here, since it some internal pointer which is not irrelevant info for py/API level. */
+			/* We skip proxy_from here, since it's some internal pointer which is not relevant info for py/API level. */
 			return IDWALK_RET_NOP;
 		}
 		else if ((GS(self_id->name) == ID_KE) && (id_p == (ID **)&((Key *)self_id)->from)) {
-			/* We skip from here, since it some internal pointer which is not irrelevant info for py/API level. */
+			/* We skip from here, since it's some internal pointer which is not relevant info for py/API level. */
 			return IDWALK_RET_NOP;
 		}
 
@@ -289,12 +286,92 @@ error:
 
 }
 
+PyDoc_STRVAR(bpy_batch_remove_doc,
+".. method:: batch_remove(ids=(id1, id2, ...))\n"
+"\n"
+"   Remove (delete) several IDs at once.\n"
+"\n"
+"   WARNING: Considered experimental feature currently.\n"
+"\n"
+"   Note that this function is quicker than individual calls to :func:`remove()` (from :class:`bpy.types.BlendData`\n"
+"   ID collections), but less safe/versatile (it can break Blender, e.g. by removing all scenes...).\n"
+"\n"
+"   :arg ids: Iterables of IDs (types can be mixed).\n"
+"   :type subset: sequence\n"
+);
+static PyObject *bpy_batch_remove(PyObject *UNUSED(self), PyObject *args, PyObject *kwds)
+{
+#if 0  /* If someone knows how to get a proper 'self' in that case... */
+	BPy_StructRNA *pyrna = (BPy_StructRNA *)self;
+	Main *bmain = pyrna->ptr.data;
+#else
+	Main *bmain = G_MAIN;  /* XXX Ugly, but should work! */
+#endif
+
+	PyObject *ids = NULL;
+
+	PyObject *ret = NULL;
+
+	static const char *_keywords[] = {"ids", NULL};
+	static _PyArg_Parser _parser = {"O:user_map", _keywords, 0};
+	if (!_PyArg_ParseTupleAndKeywordsFast(
+	        args, kwds, &_parser,
+	        &ids))
+	{
+		return ret;
+	}
+
+	if (ids) {
+		BKE_main_id_tag_all(bmain, LIB_TAG_DOIT, false);
+
+		PyObject *ids_fast = PySequence_Fast(ids, "batch_remove");
+		if (ids_fast == NULL) {
+			goto error;
+		}
+
+		PyObject **ids_array = PySequence_Fast_ITEMS(ids_fast);
+		Py_ssize_t ids_len = PySequence_Fast_GET_SIZE(ids_fast);
+
+		for (; ids_len; ids_array++, ids_len--) {
+			ID *id;
+			if (!pyrna_id_FromPyObject(*ids_array, &id)) {
+				PyErr_Format(PyExc_TypeError,
+				             "Expected an ID type, not %.200s",
+				             Py_TYPE(*ids_array)->tp_name);
+				Py_DECREF(ids_fast);
+				goto error;
+			}
+
+			id->tag |= LIB_TAG_DOIT;
+		}
+		Py_DECREF(ids_fast);
+
+		BKE_id_multi_tagged_delete(bmain);
+		/* Force full redraw, mandatory to avoid crashes when running this from UI... */
+		WM_main_add_notifier(NC_WINDOW, NULL);
+	}
+	else {
+		goto error;
+	}
+
+	Py_INCREF(Py_None);
+	ret = Py_None;
+
+error:
+	return ret;
+}
+
 int BPY_rna_id_collection_module(PyObject *mod_par)
 {
 	static PyMethodDef user_map = {
 	    "user_map", (PyCFunction)bpy_user_map, METH_VARARGS | METH_KEYWORDS, bpy_user_map_doc};
 
 	PyModule_AddObject(mod_par, "_rna_id_collection_user_map", PyCFunction_New(&user_map, NULL));
+
+	static PyMethodDef batch_remove = {
+	    "batch_remove", (PyCFunction)bpy_batch_remove, METH_VARARGS | METH_KEYWORDS, bpy_batch_remove_doc};
+
+	PyModule_AddObject(mod_par, "_rna_id_collection_batch_remove", PyCFunction_New(&batch_remove, NULL));
 
 	return 0;
 }

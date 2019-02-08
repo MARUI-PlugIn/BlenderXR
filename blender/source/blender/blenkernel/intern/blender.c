@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenkernel/intern/blender.c
- *  \ingroup bke
+/** \file \ingroup bke
  *
  * Application level startup/shutdown functionality.
  */
@@ -52,12 +43,10 @@
 #include "BKE_blendfile.h"
 #include "BKE_brush.h"
 #include "BKE_cachefile.h"
-#include "BKE_context.h"
 #include "BKE_global.h"
 #include "BKE_idprop.h"
 #include "BKE_image.h"
 #include "BKE_layer.h"
-#include "BKE_library.h"
 #include "BKE_main.h"
 #include "BKE_node.h"
 #include "BKE_report.h"
@@ -137,9 +126,9 @@ void BKE_blender_globals_init(void)
 	BKE_blender_version_string(versionstr, sizeof(versionstr), BLENDER_VERSION, BLENDER_SUBVERSION, true, true);
 
 #ifndef WITH_PYTHON_SECURITY /* default */
-	G.f |= G_SCRIPT_AUTOEXEC;
+	G.f |= G_FLAG_SCRIPT_AUTOEXEC;
 #else
-	G.f &= ~G_SCRIPT_AUTOEXEC;
+	G.f &= ~G_FLAG_SCRIPT_AUTOEXEC;
 #endif
 
 	G.log.level = 1;

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2010 Blender Foundation.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenkernel/intern/linestyle.c
- *  \ingroup bke
+/** \file \ingroup bke
  */
 
 #include <stdio.h>
@@ -156,7 +147,7 @@ void BKE_linestyle_free(FreestyleLineStyle *linestyle)
 
 /**
  * Only copy internal data of Linestyle ID from source to already allocated/initialized destination.
- * You probably nerver want to use that directly, use id_copy or BKE_id_copy_ex for typical needs.
+ * You probably never want to use that directly, use BKE_id_copy or BKE_id_copy_ex for typical needs.
  *
  * WARNING! This function will not handle ID user count!
  *
@@ -178,7 +169,7 @@ void BKE_linestyle_copy_data(
 	if (linestyle_src->nodetree) {
 		/* Note: nodetree is *not* in bmain, however this specific case is handled at lower level
 		 *       (see BKE_libblock_copy_ex()). */
-		BKE_id_copy_ex(bmain, (ID *)linestyle_src->nodetree, (ID **)&linestyle_dst->nodetree, flag, false);
+		BKE_id_copy_ex(bmain, (ID *)linestyle_src->nodetree, (ID **)&linestyle_dst->nodetree, flag);
 	}
 
 	LineStyleModifier *m;
@@ -203,7 +194,7 @@ void BKE_linestyle_copy_data(
 FreestyleLineStyle *BKE_linestyle_copy(struct Main *bmain, const FreestyleLineStyle *linestyle)
 {
 	FreestyleLineStyle *linestyle_copy;
-	BKE_id_copy_ex(bmain, &linestyle->id, (ID **)&linestyle_copy, 0, false);
+	BKE_id_copy(bmain, &linestyle->id, (ID **)&linestyle_copy);
 	return linestyle_copy;
 }
 

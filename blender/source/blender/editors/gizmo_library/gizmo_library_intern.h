@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,14 +15,9 @@
  *
  * The Original Code is Copyright (C) 2016 Blender Foundation.
  * All rights reserved.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file gizmo_library_intern.h
- *  \ingroup edgizmolib
+/** \file \ingroup edgizmolib
  */
 
 #ifndef __GIZMO_LIBRARY_INTERN_H__
@@ -114,5 +107,5 @@ void wm_gizmo_vec_draw(
 }
 #endif
 #endif
-
+		
 #endif  /* __GIZMO_LIBRARY_INTERN_H__ */

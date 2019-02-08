@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,12 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/undo/memfile_undo.c
- *  \ingroup edundo
+/** \file \ingroup edundo
  *
  * Wrapper between 'ED_undo.h' and 'BKE_undo_system.h' API's.
  */
@@ -38,8 +33,7 @@
 
 #include "ED_object.h"
 #include "ED_undo.h"
-#include "ED_render.h"
-
+#include "ED_util.h"
 
 #include "../blenloader/BLO_undofile.h"
 
@@ -54,22 +48,29 @@ typedef struct MemFileUndoStep {
 	MemFileUndoData *data;
 } MemFileUndoStep;
 
-static bool memfile_undosys_poll(bContext *UNUSED(C))
+static bool memfile_undosys_poll(bContext *C)
 {
 	/* other poll functions must run first, this is a catch-all. */
 
 	if ((U.uiflag & USER_GLOBALUNDO) == 0) {
 		return false;
 	}
+
+	/* Allow a single memfile undo step (the first). */
+	UndoStack *ustack = ED_undo_stack_get();
+	if ((ustack->step_active != NULL) &&
+	    (ED_undo_is_memfile_compatible(C) == false))
+	{
+		return false;
+	}
 	return true;
 }
 
-static bool memfile_undosys_step_encode(struct bContext *C, UndoStep *us_p)
+static bool memfile_undosys_step_encode(struct bContext *UNUSED(C), struct Main *bmain, UndoStep *us_p)
 {
 	MemFileUndoStep *us = (MemFileUndoStep *)us_p;
 
 	/* Important we only use 'main' from the context (see: BKE_undosys_stack_init_from_main). */
-	struct Main *bmain = CTX_data_main(C);
 	UndoStack *ustack = ED_undo_stack_get();
 
 	/* can be NULL, use when set. */
@@ -80,13 +81,29 @@ static bool memfile_undosys_step_encode(struct bContext *C, UndoStep *us_p)
 	return true;
 }
 
-static void memfile_undosys_step_decode(struct bContext *C, UndoStep *us_p, int UNUSED(dir))
+static void memfile_undosys_step_decode(struct bContext *C, struct Main *bmain, UndoStep *us_p, int UNUSED(dir))
 {
-	/* Loading the content will correctly switch into compatible non-object modes. */
-	ED_object_mode_exit(C);
+	ED_editors_exit(bmain, false);
 
 	MemFileUndoStep *us = (MemFileUndoStep *)us_p;
 	BKE_memfile_undo_decode(us->data, C);
+
+	for (UndoStep *us_iter = us_p->next; us_iter; us_iter = us_iter->next) {
+		if (BKE_UNDOSYS_TYPE_IS_MEMFILE_SKIP(us_iter->type)) {
+			continue;
+		}
+		us_iter->is_applied = false;
+	}
+	for (UndoStep *us_iter = us_p; us_iter; us_iter = us_iter->prev) {
+		if (BKE_UNDOSYS_TYPE_IS_MEMFILE_SKIP(us_iter->type)) {
+			continue;
+		}
+		us_iter->is_applied = true;
+	}
+
+	/* bmain has been freed. */
+	bmain = CTX_data_main(C);
+	ED_editors_init_for_undo(bmain);
 
 	WM_event_add_notifier(C, NC_SCENE | ND_LAYER_CONTENT, CTX_data_scene(C));
 }
@@ -115,7 +132,6 @@ void ED_memfile_undosys_type(UndoType *ut)
 	ut->step_decode = memfile_undosys_step_decode;
 	ut->step_free = memfile_undosys_step_free;
 
-	ut->mode = BKE_UNDOTYPE_MODE_STORE;
 	ut->use_context = true;
 
 	ut->step_size = sizeof(MemFileUndoStep);

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,14 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Blender Foundation 2009.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/interface/interface_templates.c
- *  \ingroup edinterface
+/** \file \ingroup edinterface
  */
 
 
@@ -129,8 +122,12 @@ static void template_add_button_search_menu(
 		ARegion *region = CTX_wm_region(C);
 		ScrArea *area = CTX_wm_area(C);
 		/* XXX ugly top-bar exception */
-		const bool use_big_size = (region->regiontype != RGN_TYPE_HEADER) && (area->spacetype != SPACE_TOPBAR); /* silly check, could be more generic */
-		/* Ugly exception for screens here, drawing their preview in icon size looks ugly/useless */
+		const bool use_big_size = (
+		        /* silly check, could be more generic */
+		        (region->regiontype != RGN_TYPE_HEADER) &&
+		        (area->spacetype != SPACE_TOPBAR));
+		/* Ugly exception for screens here,
+		 * drawing their preview in icon size looks ugly/useless */
 		const bool use_preview_icon = use_big_size || (id && (GS(id->name) != ID_SCR));
 		const short width = UI_UNIT_X * (use_big_size ? 6 : 1.6f);
 		const short height = UI_UNIT_Y * (use_big_size ? 6 : 1);
@@ -735,8 +732,7 @@ static void template_ID(
 			but->flag |= UI_BUT_UNDO;
 
 			UI_but_funcN_set(but, template_id_cb, MEM_dupallocN(template_ui), POINTER_FROM_INT(UI_ID_ALONE));
-			if (/* test only */
-			    (id_copy(CTX_data_main(C), id, NULL, true) == false) ||
+			if ((!BKE_id_copy_is_allowed(id)) ||
 			    (idfrom && idfrom->lib) ||
 			    (!editable) ||
 			    /* object in editmode - don't change data */
@@ -802,7 +798,7 @@ static void template_ID(
 		but = NULL;
 
 		if (unlinkop) {
-			but = uiDefIconButO(block, UI_BTYPE_BUT, unlinkop, WM_OP_INVOKE_REGION_WIN, ICON_X, 0, 0, UI_UNIT_X, UI_UNIT_Y, NULL);
+			but = uiDefIconButO(block, UI_BTYPE_BUT, unlinkop, WM_OP_INVOKE_DEFAULT, ICON_X, 0, 0, UI_UNIT_X, UI_UNIT_Y, NULL);
 			/* so we can access the template from operators, font unlinking needs this */
 			UI_but_funcN_set(but, NULL, MEM_dupallocN(template_ui), NULL);
 		}
@@ -1048,7 +1044,9 @@ void uiTemplateAnyID(
 	}
 
 	/* Start drawing UI Elements using standard defines */
-	split = uiLayoutSplit(layout, 0.33f, false);  /* NOTE: split amount here needs to be synced with normal labels */
+
+	/* NOTE: split amount here needs to be synced with normal labels */
+	split = uiLayoutSplit(layout, 0.33f, false);
 
 	/* FIRST PART ................................................ */
 	row = uiLayoutRow(split, false);
@@ -1066,14 +1064,20 @@ void uiTemplateAnyID(
 	row = uiLayoutRow(split, true);
 
 	/* ID-Type Selector - just have a menu of icons */
-	sub = uiLayoutRow(row, true);                     /* HACK: special group just for the enum, otherwise we */
-	uiLayoutSetAlignment(sub, UI_LAYOUT_ALIGN_LEFT);  /*       we get ugly layout with text included too...  */
+
+	/* HACK: special group just for the enum,
+	 * otherwise we get ugly layout with text included too... */
+	sub = uiLayoutRow(row, true);
+	uiLayoutSetAlignment(sub, UI_LAYOUT_ALIGN_LEFT);
 
 	uiItemFullR(sub, ptr, propType, 0, 0, UI_ITEM_R_ICON_ONLY, "", ICON_NONE);
 
 	/* ID-Block Selector - just use pointer widget... */
-	sub = uiLayoutRow(row, true);                       /* HACK: special group to counteract the effects of the previous */
-	uiLayoutSetAlignment(sub, UI_LAYOUT_ALIGN_EXPAND);  /*       enum, which now pushes everything too far right         */
+
+	/* HACK: special group to counteract the effects of the previous enum,
+	 * which now pushes everything too far right. */
+	sub = uiLayoutRow(row, true);
+	uiLayoutSetAlignment(sub, UI_LAYOUT_ALIGN_EXPAND);
 
 	uiItemFullR(sub, ptr, propID, 0, 0, 0, "", ICON_NONE);
 }
@@ -1312,7 +1316,8 @@ void uiTemplatePathBuilder(
 	/* Path (existing string) Widget */
 	uiItemR(row, ptr, propname, 0, text, ICON_RNA);
 
-	/* TODO: attach something to this to make allow searching of nested properties to 'build' the path */
+	/* TODO: attach something to this to make allow
+	 * searching of nested properties to 'build' the path */
 }
 
 /************************ Modifier Template *************************/
@@ -1350,7 +1355,8 @@ static int modifier_can_delete(ModifierData *md)
 	return 1;
 }
 
-/* Check whether Modifier is a simulation or not, this is used for switching to the physics/particles context tab */
+/* Check whether Modifier is a simulation or not,
+ * this is used for switching to the physics/particles context tab */
 static int modifier_is_simulation(ModifierData *md)
 {
 	/* Physic Tab */
@@ -1477,7 +1483,8 @@ static uiLayout *draw_modifier(
 		UI_block_align_end(block);
 
 		UI_block_emboss_set(block, UI_EMBOSS_NONE);
-		/* When Modifier is a simulation, show button to switch to context rather than the delete button. */
+		/* When Modifier is a simulation,
+		 * show button to switch to context rather than the delete button. */
 		if (modifier_can_delete(md) &&
 		    !modifier_is_simulation(md))
 		{
@@ -1507,12 +1514,14 @@ static uiLayout *draw_modifier(
 				ParticleSystem *psys = ((ParticleSystemModifierData *)md)->psys;
 
 				if (!(ob->mode & OB_MODE_PARTICLE_EDIT)) {
-					if (ELEM(psys->part->ren_as, PART_DRAW_GR, PART_DRAW_OB))
+					if (ELEM(psys->part->ren_as, PART_DRAW_GR, PART_DRAW_OB)) {
 						uiItemO(row, CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Convert"), ICON_NONE,
 						        "OBJECT_OT_duplicates_make_real");
-					else if (psys->part->ren_as == PART_DRAW_PATH && psys->pathcache)
+					}
+					else if (psys->part->ren_as == PART_DRAW_PATH) {
 						uiItemO(row, CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Convert"), ICON_NONE,
 						        "OBJECT_OT_modifier_convert");
+					}
 				}
 			}
 			else {
@@ -1540,7 +1549,8 @@ static uiLayout *draw_modifier(
 			}
 		}
 
-		/* result is the layout block inside the box, that we return so that modifier settings can be drawn */
+		/* result is the layout block inside the box,
+		 * that we return so that modifier settings can be drawn */
 		result = uiLayoutColumn(box, false);
 		block = uiLayoutAbsoluteBlock(box);
 	}
@@ -1677,7 +1687,8 @@ static uiLayout *gpencil_draw_modifier(
 		uiItemO(row, CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Copy"), ICON_NONE,
 		        "OBJECT_OT_gpencil_modifier_copy");
 
-		/* result is the layout block inside the box, that we return so that modifier settings can be drawn */
+		/* result is the layout block inside the box,
+		 * that we return so that modifier settings can be drawn */
 		result = uiLayoutColumn(box, false);
 		block = uiLayoutAbsoluteBlock(box);
 	}
@@ -1795,7 +1806,8 @@ static uiLayout *gpencil_draw_shaderfx(
 		/* only here obdata, the rest of effect is ob level */
 		UI_block_lock_set(block, BKE_object_obdata_is_libdata(ob), ERROR_LIBDATA_MESSAGE);
 
-		/* result is the layout block inside the box, that we return so that effect settings can be drawn */
+		/* result is the layout block inside the box,
+		 * that we return so that effect settings can be drawn */
 		result = uiLayoutColumn(box, false);
 		block = uiLayoutAbsoluteBlock(box);
 	}
@@ -2020,7 +2032,8 @@ static uiLayout *draw_constraint(uiLayout *layout, Object *ob, bConstraint *con)
 	if (proxy_protected) {
 		UI_block_emboss_set(block, UI_EMBOSS_NONE);
 
-		/* draw a ghost icon (for proxy) and also a lock beside it, to show that constraint is "proxy locked" */
+		/* draw a ghost icon (for proxy) and also a lock beside it,
+		 * to show that constraint is "proxy locked" */
 		uiDefIconBut(block, UI_BTYPE_BUT, B_CONSTRAINT_TEST, ICON_GHOST_ENABLED, xco + 12.2f * UI_UNIT_X, yco, 0.95f * UI_UNIT_X, 0.95f * UI_UNIT_Y,
 		             NULL, 0.0, 0.0, 0.0, 0.0, TIP_("Proxy Protected"));
 		uiDefIconBut(block, UI_BTYPE_BUT, B_CONSTRAINT_TEST, ICON_LOCKED, xco + 13.1f * UI_UNIT_X, yco, 0.95f * UI_UNIT_X, 0.95f * UI_UNIT_Y,
@@ -2650,7 +2663,9 @@ static uiBlock *ui_icon_view_menu_cb(bContext *C, ARegion *ar, void *arg_litem)
 /**
  * \param icon_scale: Scale of the icon, 1x == button height.
  */
-void uiTemplateIconView(uiLayout *layout, PointerRNA *ptr, const char *propname, bool show_labels, float icon_scale)
+void uiTemplateIconView(
+        uiLayout *layout, PointerRNA *ptr, const char *propname, bool show_labels,
+        float icon_scale, float icon_scale_popup)
 {
 	PropertyRNA *prop = RNA_struct_find_property(ptr, propname);
 	IconViewMenuArgs *cb_args;
@@ -2677,12 +2692,16 @@ void uiTemplateIconView(uiLayout *layout, PointerRNA *ptr, const char *propname,
 		cb_args->ptr = *ptr;
 		cb_args->prop = prop;
 		cb_args->show_labels = show_labels;
-		cb_args->icon_scale = icon_scale;
+		cb_args->icon_scale = icon_scale_popup;
 
-		but = uiDefBlockButN(block, ui_icon_view_menu_cb, cb_args, "", 0, 0, UI_UNIT_X * 6, UI_UNIT_Y * 6, "");
+		but = uiDefBlockButN(
+		        block, ui_icon_view_menu_cb, cb_args, "",
+		        0, 0, UI_UNIT_X * icon_scale, UI_UNIT_Y * icon_scale, "");
 	}
 	else {
-		but = uiDefIconBut(block, UI_BTYPE_LABEL, 0, ICON_X, 0, 0, UI_UNIT_X * 6, UI_UNIT_Y * 6, NULL, 0.0, 0.0, 0.0, 0.0, "");
+		but = uiDefIconBut(
+		        block, UI_BTYPE_LABEL, 0, ICON_X,
+		        0, 0, UI_UNIT_X * icon_scale, UI_UNIT_Y * icon_scale, NULL, 0.0, 0.0, 0.0, 0.0, "");
 	}
 
 
@@ -3049,7 +3068,8 @@ static void curvemap_buttons_reset(bContext *C, void *cb_v, void *cumap_v)
 	rna_update_cb(C, cb_v, NULL);
 }
 
-/* still unsure how this call evolves... we use labeltype for defining what curve-channels to show */
+/* still unsure how this call evolves...
+ * we use labeltype for defining what curve-channels to show */
 static void curvemap_buttons_layout(
         uiLayout *layout, PointerRNA *ptr, char labeltype, bool levels,
         bool brush, bool neg_slope, bool tone, RNAUpdateCb *cb)
@@ -3436,10 +3456,14 @@ void uiTemplateCryptoPicker(uiLayout *layout, PointerRNA *ptr, const char *propn
 
 	block = uiLayoutGetBlock(layout);
 
-	but = uiDefIconTextButO(block, UI_BTYPE_BUT, "UI_OT_eyedropper_color_crypto", WM_OP_INVOKE_DEFAULT, ICON_EYEDROPPER, RNA_property_ui_name(prop), 0, 0, UI_UNIT_X, UI_UNIT_Y, RNA_property_ui_description(prop));
+	but = uiDefIconTextButO(block, UI_BTYPE_BUT, "UI_OT_eyedropper_color", WM_OP_INVOKE_DEFAULT, ICON_EYEDROPPER, RNA_property_ui_name(prop), 0, 0, UI_UNIT_X, UI_UNIT_Y, RNA_property_ui_description(prop));
 	but->rnapoin = *ptr;
 	but->rnaprop = prop;
 	but->rnaindex = -1;
+
+	PointerRNA *opptr = UI_but_operator_ptr_get(but);
+	/* Important for crypto-matte operation. */
+	RNA_boolean_set(opptr, "use_accumulate", false);
 }
 
 /********************* Layer Buttons Template ************************/
@@ -3565,7 +3589,7 @@ static void uilist_draw_item_default(
 	}
 }
 
-static void uilist_draw_filter_default(struct uiList *ui_list, struct bContext *UNUSED(C), struct uiLayout *layout, bool reverse)
+static void uilist_draw_filter_default(struct uiList *ui_list, struct bContext *UNUSED(C), struct uiLayout *layout)
 {
 	PointerRNA listptr;
 	uiLayout *row, *subrow;
@@ -3579,8 +3603,7 @@ static void uilist_draw_filter_default(struct uiList *ui_list, struct bContext *
 	uiItemR(subrow, &listptr, "use_filter_invert", UI_ITEM_R_TOGGLE | UI_ITEM_R_ICON_ONLY, "",
 	        (ui_list->filter_flag & UILST_FLT_EXCLUDE) ? ICON_ZOOM_OUT : ICON_ZOOM_IN);
 
-	/* a reverse list, cannot sort or invert order in filter */
-	if (!reverse) {
+	if ((ui_list->filter_sort_flag & UILST_FLT_SORT_LOCK) == 0) {
 		subrow = uiLayoutRow(row, true);
 		uiItemR(subrow, &listptr, "use_filter_sort_alpha", UI_ITEM_R_TOGGLE | UI_ITEM_R_ICON_ONLY, "", ICON_NONE);
 		uiItemR(subrow, &listptr, "use_filter_sort_reverse", UI_ITEM_R_TOGGLE | UI_ITEM_R_ICON_ONLY, "",
@@ -3609,7 +3632,7 @@ static void uilist_filter_items_default(
 	const char *filter_raw = ui_list->filter_byname;
 	char *filter = (char *)filter_raw, filter_buff[32], *filter_dyn = NULL;
 	const bool filter_exclude = (ui_list->filter_flag & UILST_FLT_EXCLUDE) != 0;
-	const bool order_by_name = (ui_list->filter_sort_flag & UILST_FLT_SORT_ALPHA) != 0;
+	const bool order_by_name = (ui_list->filter_sort_flag & UILST_FLT_SORT_MASK) == UILST_FLT_SORT_ALPHA;
 	int len = RNA_property_collection_length(dataptr, prop);
 
 	dyn_data->items_shown = dyn_data->items_len = len;
@@ -3749,7 +3772,8 @@ static void uilist_prepare(
 		rows = min_ii(dyn_data->height, maxrows);
 	}
 
-	/* If list length changes or list is tagged to check this, and active is out of view, scroll to it .*/
+	/* If list length changes or list is tagged to check this,
+	 * and active is out of view, scroll to it .*/
 	if (ui_list->list_last_len != len || ui_list->flag & UILST_SCROLL_TO_ACTIVE_ITEM) {
 		if (activei_row < ui_list->list_scroll) {
 			ui_list->list_scroll = activei_row;
@@ -3808,7 +3832,8 @@ static char *uilist_item_tooltip_func(bContext *UNUSED(C), void *argN, const cha
 void uiTemplateList(
         uiLayout *layout, bContext *C, const char *listtype_name, const char *list_id,
         PointerRNA *dataptr, const char *propname, PointerRNA *active_dataptr, const char *active_propname,
-        const char *item_dyntip_propname, int rows, int maxrows, int layout_type, int columns, bool reverse)
+        const char *item_dyntip_propname, int rows, int maxrows, int layout_type, int columns,
+        bool sort_reverse, bool sort_lock)
 {
 	uiListType *ui_list_type;
 	uiList *ui_list = NULL;
@@ -3913,6 +3938,12 @@ void uiTemplateList(
 		BLI_strncpy(ui_list->list_id, ui_list_id, sizeof(ui_list->list_id));
 		BLI_addtail(&ar->ui_lists, ui_list);
 		ui_list->list_grip = -UI_LIST_AUTO_SIZE_THRESHOLD;  /* Force auto size by default. */
+		if (sort_reverse) {
+			ui_list->filter_sort_flag |= UILST_FLT_SORT_REVERSE;
+		}
+		if (sort_lock) {
+			ui_list->filter_sort_flag |= UILST_FLT_SORT_LOCK;
+		}
 	}
 
 	if (!ui_list->dyn_data) {
@@ -3928,19 +3959,6 @@ void uiTemplateList(
 	MEM_SAFE_FREE(dyn_data->items_filter_flags);
 	MEM_SAFE_FREE(dyn_data->items_filter_neworder);
 	dyn_data->items_len = dyn_data->items_shown = -1;
-
-	/* if reverse, enable reverse and forced flag */
-	if (reverse) {
-		ui_list->filter_sort_flag |= UILST_FLT_SORT_REVERSE;
-		ui_list->filter_sort_flag |= UILST_FLT_FORCED_REVERSE;
-	}
-	else {
-		/* if it was forced, disable forced flag to restore all normal behavior */
-		if (ui_list->filter_sort_flag & UILST_FLT_FORCED_REVERSE) {
-			ui_list->filter_sort_flag &= ~UILST_FLT_SORT_REVERSE;
-			ui_list->filter_sort_flag &= ~UILST_FLT_FORCED_REVERSE;
-		}
-	}
 
 	/* When active item changed since last draw, scroll to it. */
 	if (activei != ui_list->list_last_activei) {
@@ -4219,7 +4237,7 @@ void uiTemplateList(
 			subblock = uiLayoutGetBlock(col);
 			uiDefBut(subblock, UI_BTYPE_SEPR, 0, "", 0, 0, UI_UNIT_X, UI_UNIT_Y * 0.05f, NULL, 0.0, 0.0, 0, 0, "");
 
-			draw_filter(ui_list, C, col, reverse);
+			draw_filter(ui_list, C, col);
 		}
 		else {
 			but = uiDefIconButBitI(subblock, UI_BTYPE_TOGGLE, UILST_FLT_SHOW, 0, ICON_DISCLOSURE_TRI_RIGHT, 0, 0,
@@ -4396,7 +4414,8 @@ eAutoPropButsReturn uiTemplateOperatorPropertyButs(
 
 	/* menu */
 	if (op->type->flag & OPTYPE_PRESET) {
-		/* XXX, no simple way to get WM_MT_operator_presets.bl_label from python! Label remains the same always! */
+		/* XXX, no simple way to get WM_MT_operator_presets.bl_label
+		 * from python! Label remains the same always! */
 		PointerRNA op_ptr;
 		uiLayout *row;
 
@@ -4425,7 +4444,7 @@ eAutoPropButsReturn uiTemplateOperatorPropertyButs(
 	else {
 		wmWindowManager *wm = CTX_wm_manager(C);
 		PointerRNA ptr;
-		struct uiTemplateOperatorPropertyPollParam user_data = {.C = C, .op = op, .flag = flag};
+		struct uiTemplateOperatorPropertyPollParam user_data = { .C = C, .op = op, .flag = flag, };
 
 		RNA_pointer_create(&wm->id, op->type->srna, op->properties, &ptr);
 
@@ -4581,7 +4600,7 @@ void uiTemplateRunningJobs(uiLayout *layout, bContext *C)
 		if (WM_jobs_test(wm, sa, WM_JOB_TYPE_ANY))
 			owner = sa;
 		handle_event = B_STOPCLIP;
-		icon = ICON_CLIP;
+		icon = ICON_TRACKER;
 	}
 	else if (sa->spacetype == SPACE_FILE) {
 		if (WM_jobs_test(wm, sa, WM_JOB_TYPE_FILESEL_READDIR)) {
@@ -4867,7 +4886,8 @@ void uiTemplateKeymapItemProperties(uiLayout *layout, PointerRNA *ptr)
 			if (but->rnaprop) {
 				UI_but_func_set(but, keymap_item_modified, ptr->data, NULL);
 
-				/* Otherwise the keymap will be re-generated which we're trying to edit, see: T47685 */
+				/* Otherwise the keymap will be re-generated which we're trying to edit,
+				 * see: T47685 */
 				UI_but_flag_enable(but, UI_BUT_UPDATE_DELAY);
 			}
 		}

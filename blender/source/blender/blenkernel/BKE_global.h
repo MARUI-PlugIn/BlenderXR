@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,20 +15,11 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 #ifndef __BKE_GLOBAL_H__
 #define __BKE_GLOBAL_H__
 
-/** \file BKE_global.h
- *  \ingroup bke
- *  \since March 2001
- *  \author nzc
+/** \file \ingroup bke
  *  \section aboutglobal Global settings
  *   Global settings, handles, pointers. This is the root for finding
  *   any data in Blender. This block is not serialized, but built anew
@@ -43,26 +32,25 @@
 extern "C" {
 #endif
 
-/* forwards */
 struct Main;
 
 typedef struct Global {
 
-	/* active pointers */
+	/** Active pointers. */
 	struct Main *main;
 
-	/* strings: lastsaved */
+	/** Strings: last saved */
 	char ima[1024], lib[1024]; /* 1024 = FILE_MAX */
 
-	/* when set: G_MAIN->name contains valid relative base path */
+	/** When set: `G_MAIN->name` contains valid relative base path. */
 	bool relbase_valid;
 	bool file_loaded;
 	bool save_over;
 
-	/* strings of recent opened files */
+	/** Strings of recent opened files. */
 	struct ListBase recent_files;
 
-	/* has escape been pressed or Ctrl+C pressed in background mode, used for render quit */
+	/** Has escape been pressed or Ctrl+C pressed in background mode, used for render quit. */
 	bool is_break;
 
 	bool background;
@@ -70,55 +58,74 @@ typedef struct Global {
 
 	short moving;
 
-	/* to indicate render is busy, prevent renderwindow events etc */
+	/** To indicate render is busy, prevent renderwindow events etc. */
 	bool is_rendering;
 
-	/* debug value, can be set from the UI and python, used for testing nonstandard features */
+	/**
+	 * Debug value, can be set from the UI and python, used for testing nonstandard features.
+	 * DO NOT abuse it with generic checks like `if (G.debug_value > 0)`. Do not use it as bitflags.
+	 * Only precise specific values should be checked for, to avoid unpredictable side-effects.
+	 * Please document here the value(s) you are using (or a range of values reserved to some area).
+	 *   * -16384 and below: Reserved for python (add-ons) usage.
+	 *   *     -1: Disable faster motion paths computation (since 08/2018).
+	 *   * 1 - 30: EEVEE debug/stats values (01/2018).
+	 *   *    101: Enable UI debug drawing of fullscreen area's corner widget (10/2014).
+	 *   *    527: Old mysterious switch in behavior of MeshDeform modifier (before 04/2010).
+	 *   *    666: Use quicker batch delete for outliners' delete hierarchy (01/2019).
+	 *   *    777: Enable UI node panel's sockets polling (11/2011).
+	 *   *    799: Enable some mysterious new depsgraph behavior (05/2015).
+	 *   *   1112: Disable new Cloth internal springs hanlding (09/2014).
+	 *   *   1234: Disable new dyntopo code fixing skinny faces generation (04/2015).
+	 *   * 16384 and above: Reserved for python (add-ons) usage.
+	 */
 	short debug_value;
 
-	/* saved to the blend file as FileGlobal.globalf,
-	 * however this is now only used for runtime options */
+	/** Saved to the blend file as #FileGlobal.globalf,
+	 * however this is now only used for runtime options. */
 	int f;
 
 	struct {
-		/* Logging vars (different loggers may use). */
+		/** Logging vars (different loggers may use). */
 		int level;
-		/* FILE handle or use stderr (we own this so close when done). */
+		/** FILE handle or use stderr (we own this so close when done). */
 		void *file;
 	} log;
 
-	/* debug flag, G_DEBUG, G_DEBUG_PYTHON & friends, set python or command line args */
+	/** debug flag, #G_DEBUG, #G_DEBUG_PYTHON & friends, set python or command line args */
 	int debug;
 
-	/* this variable is written to / read from FileGlobal->fileflags */
+	/** This variable is written to / read from #FileGlobal.fileflags */
 	int fileflags;
 
-	/* message to use when autoexec fails */
+	/** Message to use when auto execution fails. */
 	char autoexec_fail[200];
 } Global;
 
 /* **************** GLOBAL ********************* */
 
-/* G.f */
-#define G_RENDER_OGL    (1 <<  0)
-#define G_SWAP_EXCHANGE (1 <<  1)
-/* #define G_RENDER_SHADOW	(1 <<  3) */ /* temp flag, removed */
-#define G_BACKBUFSEL    (1 <<  4)
-#define G_PICKSEL       (1 <<  5)
+/** #Global.f */
+enum {
+	G_FLAG_RENDER_VIEWPORT = (1 << 0),
+	G_FLAG_BACKBUFSEL = (1 << 1),
+	G_FLAG_PICKSEL = (1 << 2),
+	/** Support simulating events (for testing). */
+	G_FLAG_EVENT_SIMULATE = (1 << 3),
 
-/* #define G_FACESELECT	(1 <<  8) use (mesh->editflag & ME_EDIT_PAINT_FACE_SEL) */
+	G_FLAG_SCRIPT_AUTOEXEC = (1 << 13),
+	/** When this flag is set ignore the prefs #USER_SCRIPT_AUTOEXEC_DISABLE. */
+	G_FLAG_SCRIPT_OVERRIDE_PREF = (1 << 14),
+	G_FLAG_SCRIPT_AUTOEXEC_FAIL = (1 << 15),
+	G_FLAG_SCRIPT_AUTOEXEC_FAIL_QUIET = (1 << 16),
+};
 
-#define G_SCRIPT_AUTOEXEC (1 << 13)
-#define G_SCRIPT_OVERRIDE_PREF (1 << 14) /* when this flag is set ignore the userprefs */
-#define G_SCRIPT_AUTOEXEC_FAIL (1 << 15)
-#define G_SCRIPT_AUTOEXEC_FAIL_QUIET (1 << 16)
+/** Don't overwrite these flags when reading a file. */
+#define G_FLAG_ALL_RUNTIME \
+	(G_FLAG_SCRIPT_AUTOEXEC | G_FLAG_SCRIPT_OVERRIDE_PREF | G_FLAG_EVENT_SIMULATE)
 
-/* #define G_NOFROZEN	(1 << 17) also removed */
-/* #define G_GREASEPENCIL   (1 << 17)   also removed */
+/** Flags to read from blend file. */
+#define G_FLAG_ALL_READFILE 0
 
-/* #define G_AUTOMATKEYS	(1 << 30)   also removed */
-
-/* G.debug */
+/** #Global.debug */
 enum {
 	G_DEBUG =           (1 << 0),  /* general debug flag, print more info in unexpected cases */
 	G_DEBUG_FFMPEG =    (1 << 1),
@@ -146,49 +153,40 @@ enum {
 	G_DEBUG_GPU_FORCE_WORKAROUNDS = (1 << 19),  /* force gpu workarounds bypassing detections. */
 };
 
-#define G_DEBUG_ALL  (G_DEBUG | G_DEBUG_FFMPEG | G_DEBUG_PYTHON | G_DEBUG_EVENTS | G_DEBUG_WM | G_DEBUG_JOBS | \
-                      G_DEBUG_FREESTYLE | G_DEBUG_DEPSGRAPH | G_DEBUG_GPU_MEM | G_DEBUG_IO | G_DEBUG_GPU_SHADERS)
+#define G_DEBUG_ALL \
+	(G_DEBUG | G_DEBUG_FFMPEG | G_DEBUG_PYTHON | G_DEBUG_EVENTS | G_DEBUG_WM | G_DEBUG_JOBS | \
+	 G_DEBUG_FREESTYLE | G_DEBUG_DEPSGRAPH | G_DEBUG_GPU_MEM | G_DEBUG_IO | G_DEBUG_GPU_SHADERS)
 
 
-/* G.fileflags */
+/** #Global.fileflags */
+enum {
+	G_FILE_AUTOPACK          = (1 << 0),
+	G_FILE_COMPRESS          = (1 << 1),
 
-#define G_AUTOPACK               (1 << 0)
-#define G_FILE_COMPRESS          (1 << 1)
+	G_FILE_USERPREFS         = (1 << 9),
+	G_FILE_NO_UI             = (1 << 10),
 
-#define G_FILE_USERPREFS         (1 << 9)
-#define G_FILE_NO_UI             (1 << 10)
-#ifdef DNA_DEPRECATED_ALLOW
-/* #define G_FILE_GAME_TO_IPO    (1 << 11) */           /* deprecated */
-#define G_FILE_GAME_MAT          (1 << 12)              /* deprecated */
-/* #define G_FILE_DISPLAY_LISTS  (1 << 13) */           /* deprecated */
-#define G_FILE_SHOW_PHYSICS      (1 << 14)              /* deprecated */
-#define G_FILE_GAME_MAT_GLSL     (1 << 15)              /* deprecated */
-/* #define G_FILE_GLSL_NO_LIGHTS     (1 << 16) */       /* deprecated */
-#define G_FILE_GLSL_NO_SHADERS   (1 << 17)              /* deprecated */
-#define G_FILE_GLSL_NO_SHADOWS   (1 << 18)              /* deprecated */
-#define G_FILE_GLSL_NO_RAMPS     (1 << 19)              /* deprecated */
-#define G_FILE_GLSL_NO_NODES     (1 << 20)              /* deprecated */
-#define G_FILE_GLSL_NO_EXTRA_TEX (1 << 21)              /* deprecated */
-#define G_FILE_IGNORE_DEPRECATION_WARNINGS  (1 << 22)   /* deprecated */
-#endif  /* DNA_DEPRECATED_ALLOW */
+	/* Bits 11 to 22 (inclusive) are deprecated & need to be cleared */
 
-/* On read, use #FileGlobal.filename instead of the real location on-disk,
- * needed for recovering temp files so relative paths resolve */
-#define G_FILE_RECOVER           (1 << 23)
-/* On write, remap relative file paths to the new file location. */
-#define G_FILE_RELATIVE_REMAP    (1 << 24)
-/* On write, make backup `.blend1`, `.blend2` ... files, when the users preference is enabled */
-#define G_FILE_HISTORY           (1 << 25)
-/* BMesh option to save as older mesh format */
-// #define G_FILE_MESH_COMPAT       (1 << 26)
-/* On write, restore paths after editing them (G_FILE_RELATIVE_REMAP) */
-#define G_FILE_SAVE_COPY         (1 << 27)
-#define G_FILE_GLSL_NO_ENV_LIGHTING (1 << 28)
+	/** On read, use #FileGlobal.filename instead of the real location on-disk,
+	 * needed for recovering temp files so relative paths resolve */
+	G_FILE_RECOVER           = (1 << 23),
+	/** On write, remap relative file paths to the new file location. */
+	G_FILE_RELATIVE_REMAP    = (1 << 24),
+	/** On write, make backup `.blend1`, `.blend2` ... files, when the users preference is enabled */
+	G_FILE_HISTORY           = (1 << 25),
+	/** BMesh option to save as older mesh format */
+/* #define G_FILE_MESH_COMPAT       (1 << 26) */
+	/** On write, restore paths after editing them (G_FILE_RELATIVE_REMAP) */
+	G_FILE_SAVE_COPY         = (1 << 27),
+/* #define G_FILE_GLSL_NO_ENV_LIGHTING (1 << 28) */ /* deprecated */
+};
 
-#define G_FILE_FLAGS_RUNTIME (G_FILE_NO_UI | G_FILE_RELATIVE_REMAP | G_FILE_SAVE_COPY)
+/** Don't overwrite these flags when reading a file. */
+#define G_FILE_FLAG_ALL_RUNTIME \
+	(G_FILE_NO_UI | G_FILE_RELATIVE_REMAP | G_FILE_SAVE_COPY)
 
-/* ENDIAN_ORDER: indicates what endianness the platform where the file was
- * written had. */
+/** ENDIAN_ORDER: indicates what endianness the platform where the file was written had. */
 #if !defined(__BIG_ENDIAN__) && !defined(__LITTLE_ENDIAN__)
 #  error Either __BIG_ENDIAN__ or __LITTLE_ENDIAN__ must be defined.
 #endif
@@ -202,18 +200,21 @@ enum {
 #  define ENDIAN_ORDER L_ENDIAN
 #endif
 
-/* G.moving, signals drawing in (3d) window to denote transform */
-#define G_TRANSFORM_OBJ         1
-#define G_TRANSFORM_EDIT        2
-#define G_TRANSFORM_SEQ         4
-#define G_TRANSFORM_FCURVES     8
-#define G_TRANSFORM_WM          16
+/** #Global.moving, signals drawing in (3d) window to denote transform */
+enum {
+	G_TRANSFORM_OBJ         = (1 << 0),
+	G_TRANSFORM_EDIT        = (1 << 1),
+	G_TRANSFORM_SEQ         = (1 << 2),
+	G_TRANSFORM_FCURVES     = (1 << 3),
+	G_TRANSFORM_WM          = (1 << 4),
+};
 
-/* Memory is allocated where? blender.c */
+/** Defined in blender.c */
 extern Global G;
 
 /**
- * Stupid macro to hide the few *valid* usages of G.main (from startup/exit code e.g.), helps with cleanup task.
+ * Stupid macro to hide the few *valid* usages of `G.main` (from startup/exit code e.g.),
+ * helps with cleanup task.
  */
 #define G_MAIN (G).main
 

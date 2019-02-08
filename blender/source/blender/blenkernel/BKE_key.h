@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,30 +15,21 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 #ifndef __BKE_KEY_H__
 #define __BKE_KEY_H__
 
-/** \file BKE_key.h
- *  \ingroup bke
- *  \since March 2001
- *  \author nzc
+/** \file \ingroup bke
  */
+struct Curve;
+struct ID;
 struct Key;
 struct KeyBlock;
-struct ID;
-struct ListBase;
-struct Curve;
-struct Object;
 struct Lattice;
+struct ListBase;
 struct Main;
 struct Mesh;
+struct Object;
 struct WeightsArrayCache;
 
 /* Kernel prototypes */
@@ -65,6 +54,8 @@ float *BKE_key_evaluate_object_ex(
         float *arr, size_t arr_size);
 float *BKE_key_evaluate_object(
         struct Object *ob, int *r_totelem);
+
+bool BKE_key_idtype_support(const short id_type);
 
 struct Key     **BKE_key_from_id_p(struct ID *id);
 struct Key      *BKE_key_from_id(struct ID *id);

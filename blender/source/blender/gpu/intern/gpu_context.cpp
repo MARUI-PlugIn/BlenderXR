@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,14 +15,9 @@
  *
  * The Original Code is Copyright (C) 2016 by Mike Erwin.
  * All rights reserved.
- *
- * Contributor(s): Blender Foundation, Clément Foucault
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/gpu/intern/gpu_context.cpp
- *  \ingroup gpu
+/** \file \ingroup gpu
  *
  * Manage GL vertex array IDs in a thread-safe way
  * Use these instead of glGenBuffers & its friends
@@ -82,12 +75,14 @@ struct GPUContext {
 #if TRUST_NO_ONE
 	pthread_t thread; /* Thread on which this context is active. */
 	bool thread_is_used;
+#endif
 
 	GPUContext() {
+#if TRUST_NO_ONE
 		thread_is_used = false;
+#endif
 		current_fbo = 0;
 	}
-#endif
 };
 
 #if defined(_MSC_VER) && (_MSC_VER == 1800)

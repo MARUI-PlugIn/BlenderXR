@@ -1,6 +1,4 @@
 /*
- * Copyright 2018, Blender Foundation.
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,17 +13,14 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * Contributor(s): Blender Institute
- *
+ * Copyright 2018, Blender Foundation.
  */
 
-/** \file workbench_volume.c
- *  \ingroup draw_engine
+/** \file \ingroup draw_engine
  */
 
 #include "workbench_private.h"
 
-#include "BKE_modifier.h"
 #include "BKE_object.h"
 
 #include "BLI_rand.h"
@@ -52,7 +47,7 @@ static struct {
 	struct GPUShader *volume_slice_coba_sh;
 	struct GPUTexture *dummy_tex;
 	struct GPUTexture *dummy_coba_tex;
-} e_data = {NULL};
+} e_data = {{NULL}};
 
 extern char datatoc_workbench_volume_vert_glsl[];
 extern char datatoc_workbench_volume_frag_glsl[];

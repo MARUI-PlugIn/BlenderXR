@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,17 +15,10 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): 2007, Joshua Leung, major recode
- *
- * ***** END GPL LICENSE BLOCK *****
  * Constraint DNA data
  */
 
-/** \file DNA_constraint_types.h
- *  \ingroup DNA
+/** \file \ingroup DNA
  */
 
 #ifndef __DNA_CONSTRAINT_TYPES_H__
@@ -38,8 +29,8 @@
 #include "DNA_listBase.h"
 
 struct Action;
-struct Text;
 struct Ipo;
+struct Text;
 
 /* channels reside in Object or Action (ListBase) constraintChannels */
 // XXX deprecated... old AnimSys
@@ -54,25 +45,38 @@ typedef struct bConstraintChannel {
 typedef struct bConstraint {
 	struct bConstraint *next, *prev;
 
-	void		*data;		/* Constraint data	(a valid constraint type) */
-	short		type;		/* Constraint type	*/
-	short		flag;		/* Flag - General Settings	*/
+	/** Constraint data	(a valid constraint type). */
+	void		*data;
+	/** Constraint type.	*/
+	short		type;
+	/** Flag - General Settings.	*/
+	short		flag;
 
-	char 		ownspace;	/* Space that owner should be evaluated in */
-	char		tarspace;	/* Space that target should be evaluated in (only used if 1 target) */
+	/** Space that owner should be evaluated in. */
+	char 		ownspace;
+	/** Space that target should be evaluated in (only used if 1 target). */
+	char		tarspace;
 
-	char		name[64];	/* Constraint name, MAX_NAME */
+	/** Constraint name, MAX_NAME. */
+	char		name[64];
 
 	short		pad;
 
-	float		enforce;	/* Amount of influence exherted by constraint (0.0-1.0) */
-	float		headtail;	/* Point along subtarget bone where the actual target is. 0=head (default for all), 1=tail*/
+	/** Amount of influence exherted by constraint (0.0-1.0). */
+	float		enforce;
+	/** Point along subtarget bone where the actual target is. 0=head (default for all), 1=tail. */
+	float		headtail;
 
-	struct Ipo *ipo    DNA_DEPRECATED;		/* local influence ipo or driver */  /* old animation system, deprecated for 2.5 */
+	/* old animation system, deprecated for 2.5. */
+	/** Local influence ipo or driver */
+	struct Ipo *ipo    DNA_DEPRECATED;
 
-	/* below are readonly fields that are set at runtime by the solver for use in the GE (only IK atm) */
-	float       lin_error;		/* residual error on constraint expressed in blender unit*/
-	float       rot_error;		/* residual error on constraint expressed in radiant */
+	/* below are readonly fields that are set at runtime
+	 * by the solver for use in the GE (only IK atm) */
+	/** Residual error on constraint expressed in blender unit. */
+	float       lin_error;
+	/** Residual error on constraint expressed in radiant. */
+	float       rot_error;
 } bConstraint;
 
 
@@ -85,45 +89,71 @@ typedef struct bConstraint {
 typedef struct bConstraintTarget {
 	struct bConstraintTarget *next, *prev;
 
-	struct Object *tar;			/* object to use as target */
-	char subtarget[64];		/* subtarget - pchan or vgroup name, MAX_ID_NAME-2 */
+	/** Object to use as target. */
+	struct Object *tar;
+	/** Subtarget - pchan or vgroup name, MAX_ID_NAME-2. */
+	char subtarget[64];
 
-	float matrix[4][4];		/* matrix used during constraint solving - should be cleared before each use */
+	/** Matrix used during constraint solving - should be cleared before each use. */
+	float matrix[4][4];
 
-	short space;			/* space that target should be evaluated in (overrides bConstraint->tarspace) */
-	short flag;				/* runtime settings (for editor, etc.) */
-	short type;				/* type of target (eConstraintObType) */
-	short rotOrder;			/* rotation order for target (as defined in BLI_math.h) */
-	float weight;   		/* weight for armature deform */
+	/** Space that target should be evaluated in (overrides bConstraint->tarspace). */
+	short space;
+	/** Runtime settings (for editor, etc.). */
+	short flag;
+	/** Type of target (eConstraintObType). */
+	short type;
+	/** Rotation order for target (as defined in BLI_math.h). */
+	short rotOrder;
+	/** Weight for armature deform. */
+	float weight;
 	char pad[4];
 } bConstraintTarget;
 
 /* bConstraintTarget -> flag */
 typedef enum eConstraintTargetFlag {
-	CONSTRAINT_TAR_TEMP = (1<<0)		/* temporary target-struct that needs to be freed after use */
+	/** temporary target-struct that needs to be freed after use */
+	CONSTRAINT_TAR_TEMP = (1<<0),
 } eConstraintTargetFlag;
 
 /* bConstraintTarget/bConstraintOb -> type */
 typedef enum eConstraintObType {
-	CONSTRAINT_OBTYPE_OBJECT = 1,	/* string is "" */
-	CONSTRAINT_OBTYPE_BONE   = 2,	/* string is bone-name */
-	CONSTRAINT_OBTYPE_VERT   = 3,	/* string is vertex-group name */
-	CONSTRAINT_OBTYPE_CV     = 4	/* string is vertex-group name - is not available until curves get vgroups */
+	/** string is "" */
+	CONSTRAINT_OBTYPE_OBJECT = 1,
+	/** string is bone-name */
+	CONSTRAINT_OBTYPE_BONE   = 2,
+	/** string is vertex-group name */
+	CONSTRAINT_OBTYPE_VERT   = 3,
+	/** string is vertex-group name - is not available until curves get vgroups */
+	CONSTRAINT_OBTYPE_CV     = 4,
 } eConstraintObType;
 
 
 /* Python Script Constraint */
 typedef struct bPythonConstraint {
-	struct Text *text;		/* text-buffer (containing script) to execute */
-	IDProperty *prop;		/* 'id-properties' used to store custom properties for constraint */
+	/** Text-buffer (containing script) to execute. */
+	struct Text *text;
+	/** 'id-properties' used to store custom properties for constraint. */
+	IDProperty *prop;
 
-	int flag;				/* general settings/state indicators accessed by bitmapping */
-	int tarnum;				/* number of targets - usually only 1-3 are needed */
+	/** General settings/state indicators accessed by bitmapping. */
+	int flag;
+	/** Number of targets - usually only 1-3 are needed. */
+	int tarnum;
 
-	ListBase targets;		/* a list of targets that this constraint has (bConstraintTarget-s) */
+	/** A list of targets that this constraint has (bConstraintTarget-s). */
+	ListBase targets;
 
-	struct Object *tar;		/* target from previous implementation (version-patch sets this to NULL on file-load) */
-	char subtarget[64];		/* subtarger from previous implementation (version-patch sets this to "" on file-load), MAX_ID_NAME-2 */
+	/**
+	 * Target from previous implementation
+	 * (version-patch sets this to NULL on file-load).
+	 */
+	struct Object *tar;
+	/**
+	 * Subtarger from previous implementation
+	 * (version-patch sets this to "" on file-load), MAX_ID_NAME-2.
+	 */
+	char subtarget[64];
 } bPythonConstraint;
 
 
@@ -134,26 +164,43 @@ typedef struct bPythonConstraint {
  * This is indicated in the comments for each field
  */
 typedef struct bKinematicConstraint {
-	struct Object		*tar;			/* All: target object in case constraint needs a target */
-	short		iterations;		/* All: Maximum number of iterations to try */
-	short		flag;			/* All & CopyPose: some options Like CONSTRAINT_IK_TIP */
-	short		rootbone;		/* All: index to rootbone, if zero go all the way to mother bone */
-	short		max_rootbone;	/* CopyPose: for auto-ik, maximum length of chain */
-	char		subtarget[64];	/* All: String to specify sub-object target, MAX_ID_NAME-2 */
-	struct Object		*poletar;			/* All: Pole vector target */
-	char		polesubtarget[64];	/* All: Pole vector sub-object target, MAX_ID_NAME-2 */
-	float		poleangle;			/* All: Pole vector rest angle */
-	float		weight;			/* All: Weight of constraint in IK tree */
-	float		orientweight;	/* CopyPose: Amount of rotation a target applies on chain */
-	float		grabtarget[3];	/* CopyPose: for target-less IK */
-	short		type;			/* subtype of IK constraint: eConstraint_IK_Type */
-	short 		mode;			/* Distance: how to limit in relation to clamping sphere: LIMITDIST_.. */
-	float 		dist;			/* Distance: distance (radius of clamping sphere) from target */
+	/** All: target object in case constraint needs a target. */
+	struct Object		*tar;
+	/** All: Maximum number of iterations to try. */
+	short		iterations;
+	/** All & CopyPose: some options Like CONSTRAINT_IK_TIP. */
+	short		flag;
+	/** All: index to rootbone, if zero go all the way to mother bone. */
+	short		rootbone;
+	/** CopyPose: for auto-ik, maximum length of chain. */
+	short		max_rootbone;
+	/** All: String to specify sub-object target, MAX_ID_NAME-2. */
+	char		subtarget[64];
+	/** All: Pole vector target. */
+	struct Object		*poletar;
+	/** All: Pole vector sub-object target, MAX_ID_NAME-2. */
+	char		polesubtarget[64];
+	/** All: Pole vector rest angle. */
+	float		poleangle;
+	/** All: Weight of constraint in IK tree. */
+	float		weight;
+	/** CopyPose: Amount of rotation a target applies on chain. */
+	float		orientweight;
+	/** CopyPose: for target-less IK. */
+	float		grabtarget[3];
+	/** Subtype of IK constraint: eConstraint_IK_Type. */
+	short		type;
+	/** Distance: how to limit in relation to clamping sphere: LIMITDIST_... */
+	short 		mode;
+	/** Distance: distance (radius of clamping sphere) from target. */
+	float 		dist;
 } bKinematicConstraint;
 
 typedef enum eConstraint_IK_Type {
-	CONSTRAINT_IK_COPYPOSE = 0,		/* 'standard' IK constraint: match position and/or orientation of target */
-	CONSTRAINT_IK_DISTANCE = 1		/* maintain distance with target */
+	/** 'standard' IK constraint: match position and/or orientation of target */
+	CONSTRAINT_IK_COPYPOSE = 0,
+	/** maintain distance with target */
+	CONSTRAINT_IK_DISTANCE = 1,
 } eConstraint_IK_Type;
 
 
@@ -164,16 +211,25 @@ typedef enum eConstraint_IK_Type {
  */
 typedef struct bSplineIKConstraint {
 		/* target(s) */
-	struct Object *tar;		/* curve object (with follow path enabled) which drives the bone chain */
+	/** Curve object (with follow path enabled) which drives the bone chain. */
+	struct Object *tar;
 
 		/* binding details */
-	float 		*points;	/* array of numpoints items, denoting parametric positions along curve that joints should follow */
-	short 		numpoints;	/* number of points to bound in points array */
-	short		chainlen;	/* number of bones ('n') that are in the chain */
+	/**
+	 * Array of numpoints items,
+	 * denoting parametric positions along curve that joints should follow.
+	 */
+	float 		*points;
+	/** Number of points to bound in points array. */
+	short 		numpoints;
+	/** Number of bones ('n') that are in the chain. */
+	short		chainlen;
 
 		/* settings */
-	short flag;				/* general settings for constraint */
-	short xzScaleMode;		/* method used for determining the x & z scaling of the bones */
+	/** General settings for constraint. */
+	short flag;
+	/** Method used for determining the x & z scaling of the bones. */
+	short xzScaleMode;
 
 		/* volume preservation settings */
 	float		bulge;
@@ -184,10 +240,12 @@ typedef struct bSplineIKConstraint {
 
 /* Armature Constraint */
 typedef struct bArmatureConstraint {
-	int flag;       		/* general settings/state indicators accessed by bitmapping */
+	/** General settings/state indicators accessed by bitmapping. */
+	int flag;
 	char pad[4];
 
-	ListBase targets;		/* a list of targets that this constraint has (bConstraintTarget-s) */
+	/** A list of targets that this constraint has (bConstraintTarget-s). */
+	ListBase targets;
 } bArmatureConstraint;
 
 /* Single-target subobject constraints ---------------------  */
@@ -195,14 +253,18 @@ typedef struct bArmatureConstraint {
 /* Track To Constraint */
 typedef struct bTrackToConstraint {
 	struct Object		*tar;
-	int			reserved1; /* I'll be using reserved1 and reserved2 as Track and Up flags,
-	                        * not sure if that's what they were intended for anyway.
-	                        * Not sure either if it would create backward incompatibility if I were to rename them.
-	                        * - theeth*/
+	/**
+	 * I'll be using reserved1 and reserved2 as Track and Up flags,
+	 * not sure if that's what they were intended for anyway.
+	 * Not sure either if it would create backward incompatibility if I were to rename them.
+	 * - theeth
+	 */
+	int			reserved1;
 	int			reserved2;
 	int			flags;
 	int			pad;
-	char		subtarget[64];	/* MAX_ID_NAME-2 */
+	/** MAX_ID_NAME-2. */
+	char		subtarget[64];
 } bTrackToConstraint;
 
 /* Copy Rotation Constraint */
@@ -210,7 +272,8 @@ typedef struct bRotateLikeConstraint {
 	struct Object		*tar;
 	int			flag;
 	int			reserved1;
-	char		subtarget[64];	/* MAX_ID_NAME-2 */
+	/** MAX_ID_NAME-2. */
+	char		subtarget[64];
 } bRotateLikeConstraint;
 
 /* Copy Location Constraint */
@@ -218,7 +281,8 @@ typedef struct bLocateLikeConstraint {
 	struct Object		*tar;
 	int			flag;
 	int			reserved1;
-	char		subtarget[64];	/* MAX_ID_NAME-2 */
+	/** MAX_ID_NAME-2. */
+	char		subtarget[64];
 } bLocateLikeConstraint;
 
 /* Copy Scale Constraint */
@@ -226,7 +290,8 @@ typedef struct bSizeLikeConstraint {
 	struct Object		*tar;
 	int			flag;
 	int			reserved1;
-	char		subtarget[64];	/* MAX_ID_NAME-2 */
+	/** MAX_ID_NAME-2. */
+	char		subtarget[64];
 } bSizeLikeConstraint;
 
 /* Maintain Volume Constraint */
@@ -238,7 +303,8 @@ typedef struct bSameVolumeConstraint {
 /* Copy Transform Constraint */
 typedef struct bTransLikeConstraint {
 	struct Object *tar;
-	char 		subtarget[64];	/* MAX_ID_NAME-2 */
+	/** MAX_ID_NAME-2. */
+	char 		subtarget[64];
 } bTransLikeConstraint;
 
 /* Floor Constraint */
@@ -247,23 +313,28 @@ typedef struct bMinMaxConstraint {
 	int			minmaxflag;
 	float		offset;
 	int			flag;
-	short		sticky, stuck, pad1, pad2; /* for backward compatibility */
+	/** For backward compatibility. */
+	short		sticky, stuck, pad1, pad2;
 	float		cache[3];
-	char		subtarget[64];	/* MAX_ID_NAME-2 */
+	/** MAX_ID_NAME-2. */
+	char		subtarget[64];
 } bMinMaxConstraint;
 
 /* Action Constraint */
 typedef struct bActionConstraint {
 	struct Object		*tar;
-	short		type;	/* what transform 'channel' drives the result */
-	short		local;	/* was used in versions prior to the Constraints recode */
+	/** What transform 'channel' drives the result. */
+	short		type;
+	/** Was used in versions prior to the Constraints recode. */
+	short		local;
 	int			start;
 	int			end;
 	float		min;
 	float		max;
 	int			flag;
 	struct bAction	*act;
-	char		subtarget[64];	/* MAX_ID_NAME-2 */
+	/** MAX_ID_NAME-2. */
+	char		subtarget[64];
 } bActionConstraint;
 
 /* Locked Axis Tracking constraint */
@@ -271,7 +342,8 @@ typedef struct bLockTrackConstraint {
 	struct Object		*tar;
 	int			trackflag;
 	int			lockflag;
-	char		subtarget[64];	/* MAX_ID_NAME-2 */
+	/** MAX_ID_NAME-2. */
+	char		subtarget[64];
 } bLockTrackConstraint;
 
 /* Damped Tracking constraint */
@@ -279,15 +351,19 @@ typedef struct bDampTrackConstraint {
 	struct Object		*tar;
 	int			trackflag;
 	int			pad;
-	char		subtarget[64];	/* MAX_ID_NAME-2 */
+	/** MAX_ID_NAME-2. */
+	char		subtarget[64];
 } bDampTrackConstraint;
 
 /* Follow Path constraints */
 typedef struct bFollowPathConstraint {
-	struct Object		*tar;		/* Must be path object */
+	/** Must be path object. */
+	struct Object		*tar;
 
-	float		offset; 		/* Offset in time on the path (in frames), when NOT using 'fixed position' */
-	float 		offset_fac;		/* Parametric offset factor defining position along path, when using 'fixed position' */
+	/** Offset in time on the path (in frames), when NOT using 'fixed position'. */
+	float		offset;
+	/** Parametric offset factor defining position along path, when using 'fixed position'. */
+	float 		offset_fac;
 
 	int			followflag;
 
@@ -306,7 +382,8 @@ typedef struct bStretchToConstraint {
 	float		bulge_min;
 	float		bulge_max;
 	float		bulge_smooth;
-	char		subtarget[64];	/* MAX_ID_NAME-2 */
+	/** MAX_ID_NAME-2. */
+	char		subtarget[64];
 } bStretchToConstraint;
 
 /* Rigid Body constraint */
@@ -331,42 +408,63 @@ typedef struct bRigidBodyJointConstraint {
 
 /* Clamp-To Constraint */
 typedef struct bClampToConstraint {
-	struct Object 		*tar;			/* 'target' must be a curve */
-	int			flag;			/* which axis/plane to compare owner's location on  */
-	int			flag2;			/* for legacy reasons, this is flag2. used for any extra settings */
+	/** 'target' must be a curve. */
+	struct Object 		*tar;
+	/** Which axis/plane to compare owner's location on . */
+	int			flag;
+	/** For legacy reasons, this is flag2. used for any extra settings. */
+	int			flag2;
 } bClampToConstraint;
 
 /* Child Of Constraint */
 typedef struct bChildOfConstraint {
-	struct Object 		*tar;			/* object which will act as parent (or target comes from) */
-	int 		flag;			/* settings */
+	/** Object which will act as parent (or target comes from). */
+	struct Object 		*tar;
+	/** Settings. */
+	int 		flag;
 	int			pad;
-	float		invmat[4][4];	/* parent-inverse matrix to use */
-	char 		subtarget[64];	/* string to specify a subobject target, MAX_ID_NAME-2 */
+	/** Parent-inverse matrix to use. */
+	float		invmat[4][4];
+	/** String to specify a subobject target, MAX_ID_NAME-2. */
+	char 		subtarget[64];
 } bChildOfConstraint;
 
 /* Generic Transform->Transform Constraint */
 typedef struct bTransformConstraint {
-	struct Object 		*tar;			/* target (i.e. 'driver' object/bone) */
-	char 		subtarget[64];		/* MAX_ID_NAME-2 */
+	/** Target (i.e. 'driver' object/bone). */
+	struct Object 		*tar;
+	/** MAX_ID_NAME-2. */
+	char 		subtarget[64];
 
-	short		from, to;		/* can be loc(0), rot(1) or size(2) */
-	char		map[3];			/* defines which target-axis deform is copied by each owner-axis */
-	char		expo;			/* extrapolate motion? if 0, confine to ranges */
+	/** Can be loc(0), rot(1) or size(2). */
+	short		from, to;
+	/** Defines which target-axis deform is copied by each owner-axis. */
+	char		map[3];
+	/** Extrapolate motion? if 0, confine to ranges. */
+	char		expo;
 
-	float		from_min[3];	/* from_min/max defines range of target transform */
-	float		from_max[3];	/* to map on to to_min/max range. */
-	float		to_min[3];		/* range of motion on owner caused by target  */
+	/** From_min/max defines range of target transform. */
+	float		from_min[3];
+	/** To map on to to_min/max range. */
+	float		from_max[3];
+	/** Range of motion on owner caused by target . */
+	float		to_min[3];
 	float		to_max[3];
 
-	float		from_min_rot[3];	/* from_min/max defines range of target transform */
-	float		from_max_rot[3];	/* to map on to to_min/max range. */
-	float		to_min_rot[3];		/* range of motion on owner caused by target  */
+	/** From_min/max defines range of target transform. */
+	float		from_min_rot[3];
+	/** To map on to to_min/max range. */
+	float		from_max_rot[3];
+	/** Range of motion on owner caused by target . */
+	float		to_min_rot[3];
 	float		to_max_rot[3];
 
-	float		from_min_scale[3];	/* from_min/max defines range of target transform */
-	float		from_max_scale[3];	/* to map on to to_min/max range. */
-	float		to_min_scale[3];	/* range of motion on owner caused by target  */
+	/** From_min/max defines range of target transform. */
+	float		from_min_scale[3];
+	/** To map on to to_min/max range. */
+	float		from_max_scale[3];
+	/** Range of motion on owner caused by target . */
+	float		to_min_scale[3];
 	float		to_max_scale[3];
 } bTransformConstraint;
 
@@ -375,17 +473,22 @@ typedef struct bPivotConstraint {
 	/* Pivot Point:
 	 * Either target object + offset, or just offset is used
 	 */
-	struct Object 		*tar;			/* target object (optional) */
-	char		subtarget[64];		/* subtarget name (optional), MAX_ID_NAME-2 */
-	float 		offset[3];		/* offset from the target to use, regardless of whether it exists */
+	/** Target object (optional). */
+	struct Object 		*tar;
+	/** Subtarget name (optional), MAX_ID_NAME-2. */
+	char		subtarget[64];
+	/** Offset from the target to use, regardless of whether it exists. */
+	float 		offset[3];
 
 	/* Rotation-driven activation:
 	 * This option provides easier one-stop setups for footrolls
 	 */
-	short 		rotAxis;		/* rotation axes to consider for this (ePivotConstraint_Axis) */
+	/** Rotation axes to consider for this (#ePivotConstraint_Axis). */
+	short 		rotAxis;
 
 	/* General flags */
-	short 		flag;			/* ePivotConstraint_Flag */
+	/** #ePivotConstraint_Flag. */
+	short 		flag;
 } bPivotConstraint;
 
 /* transform limiting constraints - zero target ----------------------------  */
@@ -419,37 +522,52 @@ typedef struct bSizeLimitConstraint {
 /* Limit Distance Constraint */
 typedef struct bDistLimitConstraint {
 	struct Object 		*tar;
-	char 		subtarget[64];		/* MAX_ID_NAME-2 */
+	/** MAX_ID_NAME-2. */
+	char 		subtarget[64];
 
-	float 		dist;			/* distance (radius of clamping sphere) from target */
-	float		soft;			/* distance from clamping-sphere to start applying 'fade' */
+	/** Distance (radius of clamping sphere) from target. */
+	float 		dist;
+	/** Distance from clamping-sphere to start applying 'fade'. */
+	float		soft;
 
-	short		flag;			/* settings */
-	short 		mode;			/* how to limit in relation to clamping sphere */
+	/** Settings. */
+	short		flag;
+	/** How to limit in relation to clamping sphere. */
+	short 		mode;
 	int 		pad;
 } bDistLimitConstraint;
 
 /* ShrinkWrap Constraint */
 typedef struct bShrinkwrapConstraint {
 	struct Object		*target;
-	float		dist;			/* distance to kept from target */
-	short		shrinkType;		/* shrink type (look on MOD shrinkwrap for values) */
-	char		projAxis;		/* axis to project/constrain */
-	char		projAxisSpace;	/* space to project axis in */
-	float		projLimit;		/* distance to search */
-	char		shrinkMode;		/* inside/outside/on surface (see MOD shrinkwrap) */
-	char		flag;			/* options */
-	char		trackAxis;		/* axis to align to normal */
+	/** Distance to kept from target. */
+	float		dist;
+	/** Shrink type (look on MOD shrinkwrap for values). */
+	short		shrinkType;
+	/** Axis to project/constrain. */
+	char		projAxis;
+	/** Space to project axis in. */
+	char		projAxisSpace;
+	/** Distance to search. */
+	float		projLimit;
+	/** Inside/outside/on surface (see MOD shrinkwrap). */
+	char		shrinkMode;
+	/** Options. */
+	char		flag;
+	/** Axis to align to normal. */
+	char		trackAxis;
 	char 		pad;
 } bShrinkwrapConstraint;
 
 /* Follow Track constraints */
 typedef struct bFollowTrackConstraint {
 	struct MovieClip	*clip;
-	char	track[64];	/* MAX_NAME */
+	/** MAX_NAME. */
+	char	track[64];
 	int		flag;
 	int		frame_method;
-	char		object[64];	/* MAX_NAME */
+	/** MAX_NAME. */
+	char		object[64];
 	struct Object *camera;
 	struct Object *depth_ob;
 } bFollowTrackConstraint;
@@ -464,8 +582,10 @@ typedef struct bCameraSolverConstraint {
 typedef struct bObjectSolverConstraint {
 	struct MovieClip	*clip;
 	int		flag, pad;
-	char		object[64];	/* MAX_NAME */
-	float		invmat[4][4];	/* parent-inverse matrix to use */
+	/** MAX_NAME. */
+	char		object[64];
+	/** Parent-inverse matrix to use. */
+	float		invmat[4][4];
 	struct Object *camera;
 } bObjectSolverConstraint;
 
@@ -473,7 +593,8 @@ typedef struct bObjectSolverConstraint {
 typedef struct bTransformCacheConstraint {
 	struct CacheFile *cache_file;
 	struct CacheReader *reader;
-	char object_path[1024];  /* FILE_MAX */
+	/** FILE_MAX. */
+	char object_path[1024];
 } bTransformCacheConstraint;
 
 /* ------------------------------------------ */
@@ -483,37 +604,60 @@ typedef struct bTransformCacheConstraint {
  *   broken as their correct value cannot be resolved
  */
 typedef enum eBConstraint_Types {
-	CONSTRAINT_TYPE_NULL = 0,			/* Invalid/legacy constraint */
-	CONSTRAINT_TYPE_CHILDOF = 1,			/* Unimplemented non longer :) - during constraints recode, Aligorith */
+	/** Invalid/legacy constraint */
+	CONSTRAINT_TYPE_NULL = 0,
+	/** Unimplemented non longer :) - during constraints recode, Aligorith */
+	CONSTRAINT_TYPE_CHILDOF = 1,
 	CONSTRAINT_TYPE_TRACKTO = 2,
 	CONSTRAINT_TYPE_KINEMATIC = 3,
 	CONSTRAINT_TYPE_FOLLOWPATH = 4,
-	CONSTRAINT_TYPE_ROTLIMIT = 5,			/* Unimplemented no longer :) - Aligorith */
-	CONSTRAINT_TYPE_LOCLIMIT = 6,			/* Unimplemented no longer :) - Aligorith */
-	CONSTRAINT_TYPE_SIZELIMIT = 7,			/* Unimplemented no longer :) - Aligorith */
+	/** Unimplemented no longer :) - Aligorith */
+	CONSTRAINT_TYPE_ROTLIMIT = 5,
+	/** Unimplemented no longer :) - Aligorith */
+	CONSTRAINT_TYPE_LOCLIMIT = 6,
+	/** Unimplemented no longer :) - Aligorith */
+	CONSTRAINT_TYPE_SIZELIMIT = 7,
 	CONSTRAINT_TYPE_ROTLIKE = 8,
 	CONSTRAINT_TYPE_LOCLIKE = 9,
 	CONSTRAINT_TYPE_SIZELIKE = 10,
-	CONSTRAINT_TYPE_PYTHON = 11,				/* Unimplemented no longer :) - Aligorith. Scripts */
+	/** Unimplemented no longer :) - Aligorith. Scripts */
+	CONSTRAINT_TYPE_PYTHON = 11,
 	CONSTRAINT_TYPE_ACTION = 12,
-	CONSTRAINT_TYPE_LOCKTRACK = 13,			/* New Tracking constraint that locks an axis in place - theeth */
-	CONSTRAINT_TYPE_DISTLIMIT = 14,			/* limit distance */
-	CONSTRAINT_TYPE_STRETCHTO = 15,			/* claiming this to be mine :) is in tuhopuu bjornmose */
-	CONSTRAINT_TYPE_MINMAX = 16,  			/* floor constraint */
+	/** New Tracking constraint that locks an axis in place - theeth */
+	CONSTRAINT_TYPE_LOCKTRACK = 13,
+	/** limit distance */
+	CONSTRAINT_TYPE_DISTLIMIT = 14,
+	/** claiming this to be mine :) is in tuhopuu bjornmose */
+	CONSTRAINT_TYPE_STRETCHTO = 15,
+	/** floor constraint */
+	CONSTRAINT_TYPE_MINMAX = 16,
 	/* CONSTRAINT_TYPE_DEPRECATED = 17 */
-	CONSTRAINT_TYPE_CLAMPTO = 18, 			/* clampto constraint */
-	CONSTRAINT_TYPE_TRANSFORM = 19,			/* transformation (loc/rot/size -> loc/rot/size) constraint */
-	CONSTRAINT_TYPE_SHRINKWRAP = 20,		/* shrinkwrap (loc/rot) constraint */
-	CONSTRAINT_TYPE_DAMPTRACK = 21,			/* New Tracking constraint that minimizes twisting */
-	CONSTRAINT_TYPE_SPLINEIK = 22,			/* Spline-IK - Align 'n' bones to a curve */
-	CONSTRAINT_TYPE_TRANSLIKE = 23,			/* Copy transform matrix */
-	CONSTRAINT_TYPE_SAMEVOL = 24,			/* Maintain volume during scaling */
-	CONSTRAINT_TYPE_PIVOT = 25,			/* Pivot Constraint */
-	CONSTRAINT_TYPE_FOLLOWTRACK = 26,		/* Follow Track Constraint */
-	CONSTRAINT_TYPE_CAMERASOLVER = 27,		/* Camera Solver Constraint */
-	CONSTRAINT_TYPE_OBJECTSOLVER = 28,		/* Object Solver Constraint */
-	CONSTRAINT_TYPE_TRANSFORM_CACHE = 29,	/* Transform Cache Constraint */
-	CONSTRAINT_TYPE_ARMATURE = 30,			/* Armature Deform Constraint */
+	/** clampto constraint */
+	CONSTRAINT_TYPE_CLAMPTO = 18,
+	/** transformation (loc/rot/size -> loc/rot/size) constraint */
+	CONSTRAINT_TYPE_TRANSFORM = 19,
+	/** shrinkwrap (loc/rot) constraint */
+	CONSTRAINT_TYPE_SHRINKWRAP = 20,
+	/** New Tracking constraint that minimizes twisting */
+	CONSTRAINT_TYPE_DAMPTRACK = 21,
+	/** Spline-IK - Align 'n' bones to a curve */
+	CONSTRAINT_TYPE_SPLINEIK = 22,
+	/** Copy transform matrix */
+	CONSTRAINT_TYPE_TRANSLIKE = 23,
+	/** Maintain volume during scaling */
+	CONSTRAINT_TYPE_SAMEVOL = 24,
+	/** Pivot Constraint */
+	CONSTRAINT_TYPE_PIVOT = 25,
+	/** Follow Track Constraint */
+	CONSTRAINT_TYPE_FOLLOWTRACK = 26,
+	/** Camera Solver Constraint */
+	CONSTRAINT_TYPE_CAMERASOLVER = 27,
+	/** Object Solver Constraint */
+	CONSTRAINT_TYPE_OBJECTSOLVER = 28,
+	/** Transform Cache Constraint */
+	CONSTRAINT_TYPE_TRANSFORM_CACHE = 29,
+	/** Armature Deform Constraint */
+	CONSTRAINT_TYPE_ARMATURE = 30,
 
 	/* NOTE: no constraints are allowed to be added after this */
 	NUM_CONSTRAINT_TYPES
@@ -521,27 +665,28 @@ typedef enum eBConstraint_Types {
 
 /* bConstraint->flag */
 /* flags 0x2 (1<<1) and 0x8 (1<<3) were used in past */
-/* flag 0x20 (1<<5) was used to indicate that a constraint was evaluated using a 'local' hack for posebones only  */
+/* flag 0x20 (1<<5) was used to indicate that a constraint was evaluated
+ *                  using a 'local' hack for posebones only. */
 typedef enum eBConstraint_Flags {
-		/* expand for UI */
+	/* expand for UI */
 	CONSTRAINT_EXPAND =		(1<<0),
-		/* pre-check for illegal object name or bone name */
+	/* pre-check for illegal object name or bone name */
 	CONSTRAINT_DISABLE = 	(1<<2),
-		/* to indicate which Ipo should be shown, maybe for 3d access later too */
+	/* to indicate which Ipo should be shown, maybe for 3d access later too */
 	CONSTRAINT_ACTIVE = 	(1<<4),
-		/* to indicate that the owner's space should only be changed into ownspace, but not out of it */
+	/* to indicate that the owner's space should only be changed into ownspace, but not out of it */
 	CONSTRAINT_SPACEONCE = 	(1<<6),
-		/* influence ipo is on constraint itself, not in action channel */
+	/* influence ipo is on constraint itself, not in action channel */
 	CONSTRAINT_OWN_IPO	= (1<<7),
-		/* indicates that constraint was added locally (i.e.  didn't come from the proxy-lib) */
+	/* indicates that constraint was added locally (i.e.  didn't come from the proxy-lib) */
 	CONSTRAINT_PROXY_LOCAL = (1<<8),
-		/* indicates that constraint is temporarily disabled (only used in GE) */
+	/* indicates that constraint is temporarily disabled (only used in GE) */
 	CONSTRAINT_OFF = (1<<9),
-		/* use bbone curve shape when calculating headtail values (also used by dependency graph!) */
+	/* use bbone curve shape when calculating headtail values (also used by dependency graph!) */
 	CONSTRAINT_BBONE_SHAPE = (1<<10),
-		/* That constraint has been inserted in local override (i.e. it can be fully edited!). */
+	/* That constraint has been inserted in local override (i.e. it can be fully edited!). */
 	CONSTRAINT_STATICOVERRIDE_LOCAL = (1 << 11),
-		/* use full transformation (not just segment locations) - only set at runtime  */
+	/* use full transformation (not just segment locations) - only set at runtime  */
 	CONSTRAINT_BBONE_SHAPE_FULL = (1 << 12),
 } eBConstraint_Flags;
 
@@ -565,7 +710,7 @@ typedef enum eBConstraint_SpaceTypes {
 // XXX deprecated... old AnimSys
 typedef enum eConstraintChannel_Flags {
 	CONSTRAINT_CHANNEL_SELECT =		(1<<0),
-	CONSTRAINT_CHANNEL_PROTECTED =	(1<<1)
+	CONSTRAINT_CHANNEL_PROTECTED =	(1<<1),
 } eConstraintChannel_Flags;
 
 /* -------------------------------------- */
@@ -578,7 +723,7 @@ typedef enum eCopyRotation_Flags {
 	ROTLIKE_X_INVERT	= (1<<4),
 	ROTLIKE_Y_INVERT	= (1<<5),
 	ROTLIKE_Z_INVERT 	= (1<<6),
-	ROTLIKE_OFFSET		= (1<<7)
+	ROTLIKE_OFFSET		= (1<<7),
 } eCopyRotation_Flags;
 
 /* bLocateLikeConstraint.flag */
@@ -591,7 +736,7 @@ typedef enum eCopyLocation_Flags {
 	LOCLIKE_X_INVERT	= (1<<4),
 	LOCLIKE_Y_INVERT	= (1<<5),
 	LOCLIKE_Z_INVERT	= (1<<6),
-	LOCLIKE_OFFSET		= (1<<7)
+	LOCLIKE_OFFSET		= (1<<7),
 } eCopyLocation_Flags;
 
 /* bSizeLikeConstraint.flag */
@@ -614,7 +759,7 @@ typedef enum eTransform_ToFrom {
 typedef enum eSameVolume_Modes {
 	SAMEVOL_X		= 0,
 	SAMEVOL_Y		= 1,
-	SAMEVOL_Z		= 2
+	SAMEVOL_Z		= 2,
 } eSameVolume_Modes;
 
 /* bActionConstraint.flag */
@@ -627,14 +772,14 @@ typedef enum eActionConstraint_Flags {
 typedef enum eLockAxis_Modes {
 	LOCK_X = 0,
 	LOCK_Y = 1,
-	LOCK_Z = 2
+	LOCK_Z = 2,
 } eLockAxis_Modes;
 
 /* Up-Axis Values (TrackTo and Locked Track) */
 typedef enum eUpAxis_Modes {
 	UP_X = 0,
 	UP_Y = 1,
-	UP_Z = 2
+	UP_Z = 2,
 } eUpAxis_Modes;
 
 /* Tracking axis (TrackTo, Locked Track, Damped Track) and minmax (floor) constraint */
@@ -668,12 +813,12 @@ typedef enum eShrinkwrap_Flags {
 typedef enum eFollowPath_Flags {
 	FOLLOWPATH_FOLLOW	= (1<<0),
 	FOLLOWPATH_STATIC	= (1<<1),
-	FOLLOWPATH_RADIUS	= (1<<2)
+	FOLLOWPATH_RADIUS	= (1<<2),
 } eFollowPath_Flags;
 
 /* bTrackToConstraint->flags */
 typedef enum eTrackTo_Flags {
-	TARGET_Z_UP 	= (1<<0)
+	TARGET_Z_UP 	= (1<<0),
 } eTrackTo_Flags;
 
 /* Stretch To Constraint -> volmode */
@@ -681,14 +826,14 @@ typedef enum eStretchTo_VolMode {
 	VOLUME_XZ	= 0,
 	VOLUME_X	= 1,
 	VOLUME_Z	= 2,
-	NO_VOLUME	= 3
+	NO_VOLUME	= 3,
 } eStretchTo_VolMode;
 
 /* Stretch To Constraint -> plane mode */
 typedef enum eStretchTo_PlaneMode {
 	PLANE_X		= 0,
 	PLANE_Y		= 1,
-	PLANE_Z		= 2
+	PLANE_Z		= 2,
 } eStretchTo_PlaneMode;
 
 /* Clamp-To Constraint ->flag */
@@ -696,12 +841,12 @@ typedef enum eClampTo_Modes {
 	CLAMPTO_AUTO = 0,
 	CLAMPTO_X    = 1,
 	CLAMPTO_Y    = 2,
-	CLAMPTO_Z    = 3
+	CLAMPTO_Z    = 3,
 } eClampTo_Modes;
 
 /* ClampTo Constraint ->flag2 */
 typedef enum eClampTo_Flags {
-	CLAMPTO_CYCLIC	= (1<<0)
+	CLAMPTO_CYCLIC	= (1<<0),
 } eClampTo_Flags;
 
 /* bKinematicConstraint->flag */
@@ -724,7 +869,7 @@ typedef enum eKinematic_Flags {
 	CONSTRAINT_IK_NO_ROT_Y		= (1<<12),
 	CONSTRAINT_IK_NO_ROT_Z		= (1<<13),
 	/* axis relative to target */
-	CONSTRAINT_IK_TARGETAXIS	= (1<<14)
+	CONSTRAINT_IK_TARGETAXIS	= (1<<14),
 } eKinematic_Flags;
 
 /* bSplineIKConstraint->flag */
@@ -754,21 +899,24 @@ typedef enum eSplineIK_XZScaleModes {
 	/* x/z scales are the inverse of the y-scale */
 	CONSTRAINT_SPLINEIK_XZS_INVERSE			= 2,
 	/* x/z scales are computed using a volume preserving technique (from Stretch To constraint) */
-	CONSTRAINT_SPLINEIK_XZS_VOLUMETRIC		= 3
+	CONSTRAINT_SPLINEIK_XZS_VOLUMETRIC		= 3,
 } eSplineIK_XZScaleModes;
 
 /* bArmatureConstraint -> flag */
 typedef enum eArmature_Flags {
-	CONSTRAINT_ARMATURE_QUATERNION  	= (1<<0),	/* use dual quaternion blending */
-	CONSTRAINT_ARMATURE_ENVELOPE    	= (1<<1),	/* use envelopes */
-	CONSTRAINT_ARMATURE_CUR_LOCATION	= (1<<2),	/* use current bone location */
+	/** use dual quaternion blending */
+	CONSTRAINT_ARMATURE_QUATERNION      = (1<<0),
+	/** use envelopes */
+	CONSTRAINT_ARMATURE_ENVELOPE        = (1<<1),
+	/** use current bone location */
+	CONSTRAINT_ARMATURE_CUR_LOCATION    = (1<<2),
 } eArmature_Flags;
 
 /* MinMax (floor) flags */
 typedef enum eFloor_Flags {
 	MINMAX_STICKY	= (1<<0),
 	MINMAX_STUCK	= (1<<1),
-	MINMAX_USEROT	= (1<<2)
+	MINMAX_USEROT	= (1<<2),
 } eFloor_Flags;
 
 /* transform limiting constraints -> flag2 */
@@ -776,7 +924,7 @@ typedef enum eTransformLimits_Flags2 {
 	/* not used anymore - for older Limit Location constraints only */
 	LIMIT_NOPARENT 	= (1<<0),
 	/* for all Limit constraints - allow to be used during transform? */
-	LIMIT_TRANSFORM = (1<<1)
+	LIMIT_TRANSFORM = (1<<1),
 } eTransformLimits_Flags2;
 
 /* transform limiting constraints -> flag (own flags)  */
@@ -786,14 +934,14 @@ typedef enum eTransformLimits_Flags {
 	LIMIT_YMIN = (1<<2),
 	LIMIT_YMAX = (1<<3),
 	LIMIT_ZMIN = (1<<4),
-	LIMIT_ZMAX = (1<<5)
+	LIMIT_ZMAX = (1<<5),
 } eTransformLimits_Flags;
 
 /* limit rotation constraint -> flag (own flags) */
 typedef enum eRotLimit_Flags {
 	LIMIT_XROT = (1<<0),
 	LIMIT_YROT = (1<<1),
-	LIMIT_ZROT = (1<<2)
+	LIMIT_ZROT = (1<<2),
 } eRotLimit_Flags;
 
 /* distance limit constraint */
@@ -802,20 +950,20 @@ typedef enum eDistLimit_Flag {
 	/* "soft" cushion effect when reaching the limit sphere */ // NOT IMPLEMENTED!
 	LIMITDIST_USESOFT	= (1<<0),
 	/* as for all Limit constraints - allow to be used during transform? */
-	LIMITDIST_TRANSFORM = (1<<1)
+	LIMITDIST_TRANSFORM = (1<<1),
 } eDistLimit_Flag;
 
 	/* bDistLimitConstraint->mode */
 typedef enum eDistLimit_Modes {
 	LIMITDIST_INSIDE    = 0,
 	LIMITDIST_OUTSIDE   = 1,
-	LIMITDIST_ONSURFACE = 2
+	LIMITDIST_ONSURFACE = 2,
 } eDistLimit_Modes;
 
 /* python constraint -> flag */
 typedef enum ePyConstraint_Flags {
 	PYCON_USETARGETS	= (1<<0),
-	PYCON_SCRIPTERROR	= (1<<1)
+	PYCON_SCRIPTERROR	= (1<<1),
 } ePyConstraint_Flags;
 
 /* ChildOf Constraint -> flag */
@@ -829,7 +977,7 @@ typedef enum eChildOf_Flags {
 	CHILDOF_SIZEX	= (1<<6),
 	CHILDOF_SIZEY	= (1<<7),
 	CHILDOF_SIZEZ	= (1<<8),
-	CHILDOF_ALL		= 511
+	CHILDOF_ALL		= 511,
 } eChildOf_Flags;
 
 /* Pivot Constraint */
@@ -850,7 +998,7 @@ typedef enum ePivotConstraint_Axis {
 	/* consider +ve y-axis rotations */
 	PIVOTCON_AXIS_Y = 4,
 	/* consider +ve z-axis rotations */
-	PIVOTCON_AXIS_Z = 5
+	PIVOTCON_AXIS_Z = 5,
 } ePivotConstraint_Axis;
 
 	/* settings for Pivot Constraint in general */
@@ -858,29 +1006,29 @@ typedef enum ePivotConstraint_Flag {
 	/* offset is to be interpreted as being a fixed-point in space */
 	PIVOTCON_FLAG_OFFSET_ABS	= (1<<0),
 	/* rotation-based activation uses negative rotation to drive result */
-	PIVOTCON_FLAG_ROTACT_NEG	= (1<<1)
+	PIVOTCON_FLAG_ROTACT_NEG	= (1<<1),
 } ePivotConstraint_Flag;
 
 typedef enum eFollowTrack_Flags {
 	FOLLOWTRACK_ACTIVECLIP	= (1<<0),
 	FOLLOWTRACK_USE_3D_POSITION	= (1<<1),
-	FOLLOWTRACK_USE_UNDISTORTION	= (1<<2)
+	FOLLOWTRACK_USE_UNDISTORTION	= (1<<2),
 } eFollowTrack_Flags;
 
 typedef enum eFollowTrack_FrameMethod {
 	FOLLOWTRACK_FRAME_STRETCH = 0,
 	FOLLOWTRACK_FRAME_FIT = 1,
-	FOLLOWTRACK_FRAME_CROP = 2
+	FOLLOWTRACK_FRAME_CROP = 2,
 } eFollowTrack_FrameMethod;
 
 /* CameraSolver Constraint -> flag */
 typedef enum eCameraSolver_Flags {
-	CAMERASOLVER_ACTIVECLIP	= (1<<0)
+	CAMERASOLVER_ACTIVECLIP	= (1<<0),
 } eCameraSolver_Flags;
 
 /* ObjectSolver Constraint -> flag */
 typedef enum eObjectSolver_Flags {
-	OBJECTSOLVER_ACTIVECLIP	= (1<<0)
+	OBJECTSOLVER_ACTIVECLIP	= (1<<0),
 } eObjectSolver_Flags;
 
 /* ObjectSolver Constraint -> flag */

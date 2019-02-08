@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,14 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Willian P. Germano, Joseph Gilbert, Ken Hughes, Alex Fraser, Campbell Barton
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/python/mathutils/mathutils_Vector.c
- *  \ingroup pymathutils
+/** \file \ingroup pymathutils
  */
 
 
@@ -2170,7 +2163,7 @@ static int Vector_ass_subscript(VectorObject *self, PyObject *item, PyObject *va
 static PyMappingMethods Vector_AsMapping = {
 	(lenfunc)Vector_len,
 	(binaryfunc)Vector_subscript,
-	(objobjargproc)Vector_ass_subscript
+	(objobjargproc)Vector_ass_subscript,
 };
 
 
@@ -2338,8 +2331,6 @@ static PyObject *Vector_length_squared_get(VectorObject *self, void *UNUSED(clos
  *                                 (axis_0_pos, axis_1_pos, axis_2_pos, axis_3_pos))
  *
  *     axises = axises[:-1]
- *
- *
  * items = list(axis_dict.items())
  * items.sort(key=lambda a: a[0].replace('x', '0').replace('y', '1').replace('z', '2').replace('w', '3'))
  *
@@ -2963,7 +2954,7 @@ static struct PyMethodDef Vector_methods[] = {
 	{"copy", (PyCFunction) Vector_copy, METH_NOARGS, Vector_copy_doc},
 	{"__copy__", (PyCFunction) Vector_copy, METH_NOARGS, NULL},
 	{"__deepcopy__", (PyCFunction) Vector_deepcopy, METH_VARARGS, NULL},
-	{NULL, NULL, 0, NULL}
+	{NULL, NULL, 0, NULL},
 };
 
 
@@ -3064,7 +3055,7 @@ PyTypeObject vector_Type = {
 	NULL,                       /* PyObject *tp_cache; */
 	NULL,                       /* PyObject *tp_subclasses; */
 	NULL,                       /* PyObject *tp_weaklist; */
-	NULL
+	NULL,
 };
 
 PyObject *Vector_CreatePyObject(

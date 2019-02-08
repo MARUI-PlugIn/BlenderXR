@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2006 Blender Foundation.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): Ben Batt <benbatt@gmail.com>
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file BKE_cdderivedmesh.h
- *  \ingroup bke
+/** \file \ingroup bke
  *  \section aboutcdderivedmesh CDDerivedMesh interface
  *   CDDerivedMesh (CD = Custom Data) is a DerivedMesh backend which stores
  *   mesh elements (vertices, edges and faces) as layers of custom element data.
@@ -38,10 +29,10 @@
 #include "BKE_DerivedMesh.h"
 #include "BKE_customdata.h"
 
-struct DerivedMesh;
 struct BMEditMesh;
-struct Mesh;
+struct DerivedMesh;
 struct MLoopNorSpaceArray;
+struct Mesh;
 struct Object;
 
 /* creates a new CDDerivedMesh */

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,15 +15,9 @@
  *
  * The Original Code is Copyright (C) 2007 Blender Foundation.
  * All rights reserved.
- *
- *
- * Contributor(s): Blender Foundation
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/windowmanager/intern/wm_draw.c
- *  \ingroup wm
+/** \file \ingroup wm
  *
  * Handle OpenGL buffers for windowing, also paint cursor.
  */
@@ -161,8 +153,8 @@ static bool wm_draw_region_stereo_set(Main *bmain, ScrArea *sa, ARegion *ar, eSt
 				v3d->multiview_eye = sview;
 
 				v3d->stereo3d_flag |= V3D_S3D_DISPVR;
-				/* Hide text and cursor overlays. */
-				v3d->overlay.flag |= (V3D_OVERLAY_HIDE_TEXT | V3D_OVERLAY_HIDE_CURSOR);
+				/* Hide text overlays. */
+				v3d->overlay.flag |= (V3D_OVERLAY_HIDE_TEXT);
 				/* Hide navigation gizmo. */
 				v3d->gizmo_flag |= V3D_GIZMO_HIDE_NAVIGATE;
 
@@ -243,7 +235,7 @@ static void wm_region_test_render_do_draw(const Scene *scene, struct Depsgraph *
 
 static bool wm_region_use_viewport(ScrArea *sa, ARegion *ar)
 {
-	return (sa->spacetype == SPACE_VIEW3D && ar->regiontype == RGN_TYPE_WINDOW);
+	return (ELEM(sa->spacetype, SPACE_VIEW3D, SPACE_IMAGE) && ar->regiontype == RGN_TYPE_WINDOW);
 }
 
 /********************** draw all **************************/
@@ -534,9 +526,9 @@ void wm_draw_region_blend(ARegion *ar, int view, bool blend)
 		alpha = 1.0f;
 	}
 
-	glUniform1i(GPU_shader_get_uniform(shader, "image"), 0);
-	glUniform4f(GPU_shader_get_uniform(shader, "rect_icon"), rect_tex.xmin, rect_tex.ymin, rect_tex.xmax, rect_tex.ymax);
-	glUniform4f(GPU_shader_get_uniform(shader, "rect_geom"), rect_geo.xmin, rect_geo.ymin, rect_geo.xmax, rect_geo.ymax);
+	glUniform1i(GPU_shader_get_uniform_ensure(shader, "image"), 0);
+	glUniform4f(GPU_shader_get_uniform_ensure(shader, "rect_icon"), rect_tex.xmin, rect_tex.ymin, rect_tex.xmax, rect_tex.ymax);
+	glUniform4f(GPU_shader_get_uniform_ensure(shader, "rect_geom"), rect_geo.xmin, rect_geo.ymin, rect_geo.xmax, rect_geo.ymax);
 	glUniform4f(GPU_shader_get_builtin_uniform(shader, GPU_UNIFORM_COLOR), alpha, alpha, alpha, alpha);
 
 	GPU_draw_primitive(GPU_PRIM_TRI_STRIP, 4);
@@ -580,6 +572,24 @@ static void wm_draw_window_offscreen(bContext *C, wmWindow *win, bool stereo)
 
 		/* Compute UI layouts for dynamically size regions. */
 		for (ARegion *ar = sa->regionbase.first; ar; ar = ar->next) {
+			if (ar->visible && ar->do_draw && ar->type && ar->type->layout) {
+				CTX_wm_region_set(C, ar);
+				ED_region_do_layout(C, ar);
+				CTX_wm_region_set(C, NULL);
+			}
+		}
+
+		ED_area_update_region_sizes(wm, win, sa);
+
+		if (sa->flag & AREA_FLAG_ACTIVE_TOOL_UPDATE) {
+			if ((1 << sa->spacetype) & WM_TOOLSYSTEM_SPACE_MASK) {
+				WM_toolsystem_update_from_context(C, CTX_wm_workspace(C), CTX_data_view_layer(C), sa);
+			}
+			sa->flag &= ~AREA_FLAG_ACTIVE_TOOL_UPDATE;
+		}
+
+		/* Then do actual drawing of regions. */
+		for (ARegion *ar = sa->regionbase.first; ar; ar = ar->next) {
 #if WITH_VR
 			if (win && win == vr_get_obj()->window && wm_region_use_viewport(sa, ar)) {
 				CTX_wm_region_set(C, ar);
@@ -608,24 +618,6 @@ static void wm_draw_window_offscreen(bContext *C, wmWindow *win, bool stereo)
 				continue;
 			}
 #endif
-			if (ar->visible && ar->do_draw && ar->type && ar->type->layout) {
-				CTX_wm_region_set(C, ar);
-				ED_region_do_layout(C, ar);
-				CTX_wm_region_set(C, NULL);
-			}
-		}
-
-		ED_area_update_region_sizes(wm, win, sa);
-
-		if (sa->flag & AREA_FLAG_ACTIVE_TOOL_UPDATE) {
-			if ((1 << sa->spacetype) & WM_TOOLSYSTEM_SPACE_MASK) {
-				WM_toolsystem_update_from_context(C, CTX_wm_workspace(C), CTX_data_view_layer(C), sa);
-			}
-			sa->flag &= ~AREA_FLAG_ACTIVE_TOOL_UPDATE;
-		}
-
-		/* Then do actual drawing of regions. */
-		for (ARegion *ar = sa->regionbase.first; ar; ar = ar->next) {
 			if (ar->visible && ar->do_draw) {
 				CTX_wm_region_set(C, ar);
 				bool use_viewport = wm_region_use_viewport(sa, ar);

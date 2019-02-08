@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2006 Blender Foundation.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/nodes/composite/nodes/node_composite_image.c
- *  \ingroup cmpnodes
+/** \file \ingroup cmpnodes
  */
 
 #include "node_composite_util.h"
@@ -52,14 +43,14 @@ static bNodeSocketTemplate cmp_node_rlayers_out[] = {
 	{	SOCK_VECTOR, 0, N_(RE_PASSNAME_NORMAL),					0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f},
 	{	SOCK_VECTOR, 0, N_(RE_PASSNAME_UV),						1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f},
 	{	SOCK_VECTOR, 0, N_(RE_PASSNAME_VECTOR),					1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f},
-	{	SOCK_RGBA,   0, N_(RE_PASSNAME_RGBA),					0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f},
-	{	SOCK_RGBA,   0, N_(RE_PASSNAME_DIFFUSE),				0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f},
-	{	SOCK_RGBA,   0, N_(RE_PASSNAME_SPEC),					0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f},
+	{	SOCK_RGBA,   0, N_(RE_PASSNAME_DEPRECATED),				0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f},
+	{	SOCK_RGBA,   0, N_(RE_PASSNAME_DEPRECATED),				0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f},
+	{	SOCK_RGBA,   0, N_(RE_PASSNAME_DEPRECATED),				0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f},
 	{	SOCK_RGBA,   0, N_(RE_PASSNAME_SHADOW),					0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f},
 	{	SOCK_RGBA,   0, N_(RE_PASSNAME_AO),						0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f},
-	{	SOCK_RGBA,   0, N_(RE_PASSNAME_REFLECT),				0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f},
-	{	SOCK_RGBA,   0, N_(RE_PASSNAME_REFRACT),				0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f},
-	{	SOCK_RGBA,   0, N_(RE_PASSNAME_INDIRECT),				0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f},
+	{	SOCK_RGBA,   0, N_(RE_PASSNAME_DEPRECATED),				0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f},
+	{	SOCK_RGBA,   0, N_(RE_PASSNAME_DEPRECATED),				0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f},
+	{	SOCK_RGBA,   0, N_(RE_PASSNAME_DEPRECATED),				0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f},
 	{	SOCK_FLOAT,  0, N_(RE_PASSNAME_INDEXOB),				0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f},
 	{	SOCK_FLOAT,  0, N_(RE_PASSNAME_INDEXMA),				0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f},
 	{	SOCK_FLOAT,  0, N_(RE_PASSNAME_MIST),					0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f},
@@ -77,7 +68,7 @@ static bNodeSocketTemplate cmp_node_rlayers_out[] = {
 	{	SOCK_RGBA,   0, N_(RE_PASSNAME_SUBSURFACE_DIRECT),		0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f},
 	{	SOCK_RGBA,   0, N_(RE_PASSNAME_SUBSURFACE_INDIRECT),	0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f},
 	{	SOCK_RGBA,   0, N_(RE_PASSNAME_SUBSURFACE_COLOR),		0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f},
-	{	-1, 0, ""	}
+	{	-1, 0, ""	},
 };
 
 static void cmp_node_image_add_pass_output(bNodeTree *ntree, bNode *node,
@@ -214,6 +205,23 @@ void node_cmp_rlayers_register_pass(bNodeTree *ntree, bNode *node, Scene *scene,
 	}
 }
 
+static void cmp_node_rlayer_create_outputs_cb(RenderEngine *UNUSED(engine), Scene *scene, ViewLayer *view_layer,
+                                              const char *name, int UNUSED(channels), const char *UNUSED(chanid), int type)
+{
+	/* Register the pass in all scenes that have a render layer node for this layer.
+	 * Since multiple scenes can be used in the compositor, the code must loop over all scenes
+	 * and check whether their nodetree has a node that needs to be updated. */
+	/* NOTE: using G_MAIN seems valid here,
+	 * unless we want to register that for every other temp Main we could generate??? */
+	ntreeCompositRegisterPass(scene->nodetree, scene, view_layer, name, type);
+
+	for (Scene *sce = G_MAIN->scene.first; sce; sce = sce->id.next) {
+		if (sce->nodetree && sce != scene) {
+			ntreeCompositRegisterPass(sce->nodetree, scene, view_layer, name, type);
+		}
+	}
+}
+
 static void cmp_node_rlayer_create_outputs(bNodeTree *ntree, bNode *node, LinkNodePair *available_sockets)
 {
 	Scene *scene = (Scene *)node->id;
@@ -229,7 +237,7 @@ static void cmp_node_rlayer_create_outputs(bNodeTree *ntree, bNode *node, LinkNo
 				node->storage = data;
 
 				RenderEngine *engine = RE_engine_create(engine_type);
-				engine_type->update_render_passes(engine, scene, view_layer);
+				RE_engine_update_render_passes(engine, scene, view_layer, cmp_node_rlayer_create_outputs_cb);
 				RE_engine_free(engine);
 
 				MEM_freeN(data);
@@ -360,14 +368,14 @@ const char *node_cmp_rlayers_sock_to_pass(int sock_index)
 {
 	const char *sock_to_passname[] = {
 		RE_PASSNAME_COMBINED, RE_PASSNAME_COMBINED,
-		RE_PASSNAME_Z, RE_PASSNAME_NORMAL, RE_PASSNAME_UV, RE_PASSNAME_VECTOR, RE_PASSNAME_RGBA,
-		RE_PASSNAME_DIFFUSE, RE_PASSNAME_SPEC, RE_PASSNAME_SHADOW, RE_PASSNAME_AO,
-		RE_PASSNAME_REFLECT, RE_PASSNAME_REFRACT, RE_PASSNAME_INDIRECT,
+		RE_PASSNAME_Z, RE_PASSNAME_NORMAL, RE_PASSNAME_UV, RE_PASSNAME_VECTOR, RE_PASSNAME_DEPRECATED,
+		RE_PASSNAME_DEPRECATED, RE_PASSNAME_DEPRECATED, RE_PASSNAME_SHADOW, RE_PASSNAME_AO,
+		RE_PASSNAME_DEPRECATED, RE_PASSNAME_DEPRECATED, RE_PASSNAME_DEPRECATED,
 		RE_PASSNAME_INDEXOB, RE_PASSNAME_INDEXMA, RE_PASSNAME_MIST, RE_PASSNAME_EMIT, RE_PASSNAME_ENVIRONMENT,
 		RE_PASSNAME_DIFFUSE_DIRECT, RE_PASSNAME_DIFFUSE_INDIRECT, RE_PASSNAME_DIFFUSE_COLOR,
 		RE_PASSNAME_GLOSSY_DIRECT, RE_PASSNAME_GLOSSY_INDIRECT, RE_PASSNAME_GLOSSY_COLOR,
 		RE_PASSNAME_TRANSM_DIRECT, RE_PASSNAME_TRANSM_INDIRECT, RE_PASSNAME_TRANSM_COLOR,
-		RE_PASSNAME_SUBSURFACE_DIRECT, RE_PASSNAME_SUBSURFACE_INDIRECT, RE_PASSNAME_SUBSURFACE_COLOR
+		RE_PASSNAME_SUBSURFACE_DIRECT, RE_PASSNAME_SUBSURFACE_INDIRECT, RE_PASSNAME_SUBSURFACE_COLOR,
 	};
 	if (sock_index > 30) {
 		return NULL;
@@ -414,8 +422,11 @@ static void node_composit_free_rlayers(bNode *node)
 	bNodeSocket *sock;
 
 	/* free extra socket info */
-	for (sock = node->outputs.first; sock; sock = sock->next)
-		MEM_freeN(sock->storage);
+	for (sock = node->outputs.first; sock; sock = sock->next) {
+		if (sock->storage) {
+			MEM_freeN(sock->storage);
+		}
+	}
 }
 
 static void node_composit_copy_rlayers(bNodeTree *UNUSED(dest_ntree), bNode *UNUSED(dest_node), bNode *src_node)
@@ -423,8 +434,11 @@ static void node_composit_copy_rlayers(bNodeTree *UNUSED(dest_ntree), bNode *UNU
 	bNodeSocket *sock;
 
 	/* copy extra socket info */
-	for (sock = src_node->outputs.first; sock; sock = sock->next)
-		sock->new_sock->storage = MEM_dupallocN(sock->storage);
+	for (sock = src_node->outputs.first; sock; sock = sock->next) {
+		if (sock->storage) {
+			sock->new_sock->storage = MEM_dupallocN(sock->storage);
+		}
+	}
 }
 
 static void cmp_node_rlayers_update(bNodeTree *ntree, bNode *node)

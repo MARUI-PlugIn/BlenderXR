@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,14 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Blender Foundation (2008), Roland Hess, Joshua Leung
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/makesrna/intern/rna_pose.c
- *  \ingroup RNA
+/** \file \ingroup RNA
  */
 
 
@@ -40,30 +33,12 @@
 #include "DNA_scene_types.h"
 
 #include "BLI_math.h"
-#include "BLI_string_utils.h"
 
 #include "BLT_translation.h"
 
 #include "UI_resources.h"
 
 #include "WM_types.h"
-
-
-
-/* XXX: this RNA enum define is currently duplicated for objects,
- * since there is some text here which is not applicable */
-const EnumPropertyItem rna_enum_posebone_rotmode_items[] = {
-	{ROT_MODE_QUAT, "QUATERNION", 0, "Quaternion (WXYZ)", "No Gimbal Lock (default)"},
-	{ROT_MODE_XYZ, "XYZ", 0, "XYZ Euler", "XYZ Rotation Order (prone to Gimbal Lock)"},
-	{ROT_MODE_XZY, "XZY", 0, "XZY Euler", "XZY Rotation Order (prone to Gimbal Lock)"},
-	{ROT_MODE_YXZ, "YXZ", 0, "YXZ Euler", "YXZ Rotation Order (prone to Gimbal Lock)"},
-	{ROT_MODE_YZX, "YZX", 0, "YZX Euler", "YZX Rotation Order (prone to Gimbal Lock)"},
-	{ROT_MODE_ZXY, "ZXY", 0, "ZXY Euler", "ZXY Rotation Order (prone to Gimbal Lock)"},
-	{ROT_MODE_ZYX, "ZYX", 0, "ZYX Euler", "ZYX Rotation Order (prone to Gimbal Lock)"},
-	{ROT_MODE_AXISANGLE, "AXIS_ANGLE", 0, "Axis Angle",
-	                     "Axis Angle (W+XYZ), defines a rotation around some axis defined by 3D-Vector"},
-	{0, NULL, 0, NULL, NULL}
-};
 
 /* Bone and Group Color Sets */
 const EnumPropertyItem rna_enum_color_sets_items[] = {
@@ -89,10 +64,13 @@ const EnumPropertyItem rna_enum_color_sets_items[] = {
 	{19, "THEME19", ICON_COLORSET_19_VEC, "19 - Theme Color Set", ""},
 	{20, "THEME20", ICON_COLORSET_20_VEC, "20 - Theme Color Set", ""},
 	{-1, "CUSTOM", 0, "Custom Color Set", ""},
-	{0, NULL, 0, NULL, NULL}
+	{0, NULL, 0, NULL, NULL},
 };
 
 #ifdef RNA_RUNTIME
+
+#include "BLI_ghash.h"
+#include "BLI_string_utils.h"
 
 #include "BIK_api.h"
 #include "BKE_action.h"
@@ -101,8 +79,6 @@ const EnumPropertyItem rna_enum_color_sets_items[] = {
 #include "DNA_userdef_types.h"
 
 #include "MEM_guardedalloc.h"
-
-#include "BLI_ghash.h"
 
 #include "BKE_context.h"
 #include "BKE_constraint.h"
@@ -818,13 +794,13 @@ static void rna_def_bone_group(BlenderRNA *brna)
 static const EnumPropertyItem prop_iksolver_items[] = {
 	{IKSOLVER_STANDARD, "LEGACY", 0, "Standard", "Original IK solver"},
 	{IKSOLVER_ITASC, "ITASC", 0, "iTaSC", "Multi constraint, stateful IK solver"},
-	{0, NULL, 0, NULL, NULL}
+	{0, NULL, 0, NULL, NULL},
 };
 
 static const EnumPropertyItem prop_solver_items[] = {
 	{ITASC_SOLVER_SDLS, "SDLS", 0, "SDLS", "Selective Damped Least Square"},
 	{ITASC_SOLVER_DLS, "DLS", 0, "DLS", "Damped Least Square with Numerical Filtering"},
-	{0, NULL, 0, NULL, NULL}
+	{0, NULL, 0, NULL, NULL},
 };
 
 
@@ -973,7 +949,7 @@ static void rna_def_pose_channel(BlenderRNA *brna)
 
 	prop = RNA_def_property(srna, "rotation_mode", PROP_ENUM, PROP_NONE);
 	RNA_def_property_enum_sdna(prop, NULL, "rotmode");
-	RNA_def_property_enum_items(prop, rna_enum_posebone_rotmode_items); /* XXX move to using a single define of this someday */
+	RNA_def_property_enum_items(prop, rna_enum_object_rotation_mode_items);
 	RNA_def_property_enum_funcs(prop, NULL, "rna_PoseChannel_rotation_mode_set", NULL);
 	/* XXX... disabled, since proxy-locked layers are currently used for ensuring proxy-syncing too */
 	RNA_def_property_editable_func(prop, "rna_PoseChannel_proxy_editable");
@@ -1288,7 +1264,7 @@ static void rna_def_pose_itasc(BlenderRNA *brna)
 		{ITASC_SIMULATION, "SIMULATION", 0, "Simulation",
 		                   "State-full solver running in real-time context and ignoring actions "
 		                   "and non-IK constraints"},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 	static const EnumPropertyItem prop_itasc_reiteration_items[] = {
 		{0, "NEVER", 0, "Never", "The solver does not reiterate, not even on first frame (starts from rest pose)"},
@@ -1297,7 +1273,7 @@ static void rna_def_pose_itasc(BlenderRNA *brna)
 		                            "subsequent frame"},
 		{ITASC_INITIAL_REITERATION | ITASC_REITERATION, "ALWAYS", 0, "Always",
 		                                                "The solver reiterates (converges) on all frames"},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	StructRNA *srna;

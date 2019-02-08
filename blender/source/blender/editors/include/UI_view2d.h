@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,18 +15,11 @@
  *
  * The Original Code is Copyright (C) 2008 Blender Foundation.
  * All rights reserved.
- *
- *
- * Contributor(s): Blender Foundation, Joshua Leung
- *
- *
  * Generic 2d view with should allow drawing grids,
  * panning, zooming, scrolling, ..
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file UI_view2d.h
- *  \ingroup editorui
+/** \file \ingroup editorui
  */
 
 #ifndef __UI_VIEW2D_H__
@@ -61,7 +52,7 @@ enum eView2D_CommonViewTypes {
 	/* headers (this is basically the same as listview, but no y-panning) */
 	V2D_COMMONVIEW_HEADER,
 	/* ui region containing panels */
-	V2D_COMMONVIEW_PANELS_UI
+	V2D_COMMONVIEW_PANELS_UI,
 };
 
 /* ---- Defines for Scroller/Grid Arguments ----- */
@@ -85,7 +76,7 @@ enum eView2D_Units {
 /* clamping of grid values to whole numbers */
 enum eView2D_Clamp {
 	V2D_GRID_NOCLAMP = 0,
-	V2D_GRID_CLAMP
+	V2D_GRID_CLAMP,
 };
 
 /* flags for grid-lines to draw */
@@ -134,13 +125,13 @@ struct View2D;
 struct View2DGrid;
 struct View2DScrollers;
 
-struct wmKeyConfig;
-struct bScreen;
+struct ARegion;
 struct Scene;
 struct ScrArea;
-struct ARegion;
 struct bContext;
+struct bScreen;
 struct rctf;
+struct wmKeyConfig;
 
 typedef struct View2DGrid View2DGrid;
 typedef struct View2DScrollers View2DScrollers;

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,14 +15,9 @@
  *
  * The Original Code is Copyright (C) 2008, Blender Foundation
  * This is a new part of Blender
- *
- * Contributor(s): Joshua Leung, Antonio Vazquez
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/gpencil/drawgpencil.c
- *  \ingroup edgpencil
+/** \file \ingroup edgpencil
  */
 
 
@@ -90,15 +83,24 @@
 /* ----- General Defines ------ */
 /* flags for sflag */
 typedef enum eDrawStrokeFlags {
-	GP_DRAWDATA_NOSTATUS    = (1 << 0),   /* don't draw status info */
-	GP_DRAWDATA_ONLY3D      = (1 << 1),   /* only draw 3d-strokes */
-	GP_DRAWDATA_ONLYV2D     = (1 << 2),   /* only draw 'canvas' strokes */
-	GP_DRAWDATA_ONLYI2D     = (1 << 3),   /* only draw 'image' strokes */
-	GP_DRAWDATA_IEDITHACK   = (1 << 4),   /* special hack for drawing strokes in Image Editor (weird coordinates) */
-	GP_DRAWDATA_NO_XRAY     = (1 << 5),   /* don't draw xray in 3D view (which is default) */
-	GP_DRAWDATA_NO_ONIONS   = (1 << 6),	  /* no onionskins should be drawn (for animation playback) */
-	GP_DRAWDATA_VOLUMETRIC	= (1 << 7),   /* draw strokes as "volumetric" circular billboards */
-	GP_DRAWDATA_FILL        = (1 << 8)    /* fill insides/bounded-regions of strokes */
+	/** don't draw status info */
+	GP_DRAWDATA_NOSTATUS    = (1 << 0),
+	/** only draw 3d-strokes */
+	GP_DRAWDATA_ONLY3D      = (1 << 1),
+	/** only draw 'canvas' strokes */
+	GP_DRAWDATA_ONLYV2D     = (1 << 2),
+	/** only draw 'image' strokes */
+	GP_DRAWDATA_ONLYI2D     = (1 << 3),
+	/** special hack for drawing strokes in Image Editor (weird coordinates) */
+	GP_DRAWDATA_IEDITHACK   = (1 << 4),
+	/** don't draw xray in 3D view (which is default) */
+	GP_DRAWDATA_NO_XRAY     = (1 << 5),
+	/** no onionskins should be drawn (for animation playback) */
+	GP_DRAWDATA_NO_ONIONS   = (1 << 6),
+	/** draw strokes as "volumetric" circular billboards */
+	GP_DRAWDATA_VOLUMETRIC	= (1 << 7),
+	/** fill insides/bounded-regions of strokes */
+	GP_DRAWDATA_FILL        = (1 << 8),
 } eDrawStrokeFlags;
 
 
@@ -342,7 +344,10 @@ static void gp_draw_stroke_volumetric_buffer(
 	const tGPspoint *pt = points;
 	for (int i = 0; i < totpoints; i++, pt++) {
 		gp_set_tpoint_varying_color(pt, ink, color);
-		immAttr1f(size, pt->pressure * thickness); /* TODO: scale based on view transform (zoom level) */
+
+		/* TODO: scale based on view transform (zoom level) */
+		immAttr1f(size, pt->pressure * thickness);
+
 		immVertex2f(pos, pt->x, pt->y);
 	}
 
@@ -403,8 +408,10 @@ static void gp_draw_stroke_volumetric_3d(
 	const bGPDspoint *pt = points;
 	for (int i = 0; i < totpoints && pt; i++, pt++) {
 		gp_set_point_varying_color(pt, ink, color);
-		immAttr1f(size, pt->pressure * thickness); /* TODO: scale based on view transform */
-		immVertex3fv(pos, &pt->x);                   /* we can adjust size in vertex shader based on view/projection! */
+		/* TODO: scale based on view transform */
+		immAttr1f(size, pt->pressure * thickness);
+		/* we can adjust size in vertex shader based on view/projection! */
+		immVertex3fv(pos, &pt->x);
 	}
 
 	immEnd();
@@ -459,50 +466,6 @@ static void gp_calc_stroke_text_coordinates(const float(*points2d)[2], int totpo
 	}
 }
 
-/* Get points of stroke always flat to view not affected by camera view or view position */
-static void gp_stroke_2d_flat(const bGPDspoint *points, int totpoints, float(*points2d)[2], int *r_direction)
-{
-	const bGPDspoint *pt0 = &points[0];
-	const bGPDspoint *pt1 = &points[1];
-	const bGPDspoint *pt3 = &points[(int)(totpoints * 0.75)];
-
-	float locx[3];
-	float locy[3];
-	float loc3[3];
-	float normal[3];
-
-	/* local X axis (p0 -> p1) */
-	sub_v3_v3v3(locx, &pt1->x, &pt0->x);
-
-	/* point vector at 3/4 */
-	sub_v3_v3v3(loc3, &pt3->x, &pt0->x);
-
-	/* vector orthogonal to polygon plane */
-	cross_v3_v3v3(normal, locx, loc3);
-
-	/* local Y axis (cross to normal/x axis) */
-	cross_v3_v3v3(locy, normal, locx);
-
-	/* Normalize vectors */
-	normalize_v3(locx);
-	normalize_v3(locy);
-
-	/* Get all points in local space */
-	for (int i = 0; i < totpoints; i++) {
-		const bGPDspoint *pt = &points[i];
-		float loc[3];
-
-		/* Get local space using first point as origin */
-		sub_v3_v3v3(loc, &pt->x, &pt0->x);
-
-		points2d[i][0] = dot_v3v3(loc, locx);
-		points2d[i][1] = dot_v3v3(loc, locy);
-	}
-
-	/* Concave (-1), Convex (1), or Autodetect (0)? */
-	*r_direction = (int)locy[2];
-}
-
 /* Triangulate stroke for high quality fill (this is done only if cache is null or stroke was modified) */
 static void gp_triangulate_stroke_fill(bGPDstroke *gps)
 {
@@ -517,7 +480,7 @@ static void gp_triangulate_stroke_fill(bGPDstroke *gps)
 	int direction = 0;
 
 	/* convert to 2d and triangulate */
-	gp_stroke_2d_flat(gps->points, gps->totpoints, points2d, &direction);
+	BKE_gpencil_stroke_2d_flat(gps->points, gps->totpoints, points2d, &direction);
 	BLI_polyfill_calc(points2d, (uint)gps->totpoints, direction, tmp_triangles);
 
 	/* calc texture coordinates automatically */
@@ -557,8 +520,8 @@ static void gp_triangulate_stroke_fill(bGPDstroke *gps)
 	}
 
 	/* disable recalculation flag */
-	if (gps->flag & GP_STROKE_RECALC_CACHES) {
-		gps->flag &= ~GP_STROKE_RECALC_CACHES;
+	if (gps->flag & GP_STROKE_RECALC_GEOMETRY) {
+		gps->flag &= ~GP_STROKE_RECALC_GEOMETRY;
 	}
 
 	/* clear memory */
@@ -632,10 +595,10 @@ static void gp_draw_stroke_fill(
 {
 	BLI_assert(gps->totpoints >= 3);
 	Material *ma = gpd->mat[gps->mat_nr];
-	MaterialGPencilStyle *gp_style = ma->gp_style;
+	MaterialGPencilStyle *gp_style = (ma) ? ma->gp_style : NULL;
 
 	/* Calculate triangles cache for filling area (must be done only after changes) */
-	if ((gps->flag & GP_STROKE_RECALC_CACHES) || (gps->tot_triangles == 0) || (gps->triangles == NULL)) {
+	if ((gps->flag & GP_STROKE_RECALC_GEOMETRY) || (gps->tot_triangles == 0) || (gps->triangles == NULL)) {
 		gp_triangulate_stroke_fill(gps);
 	}
 	BLI_assert(gps->tot_triangles >= 1);
@@ -756,7 +719,8 @@ static void gp_draw_stroke_3d(tGPDdraw *tgpw, short thickness, const float ink[4
 	int keep_size = (int)((tgpw->gpd) && (tgpw->gpd->flag & GP_DATA_STROKE_KEEPTHICKNESS));
 	immUniform1i("keep_size", keep_size);
 	immUniform1i("pixfactor", tgpw->gpd->pixfactor);
-	immUniform1i("xraymode", tgpw->gpd->xray_mode);
+	/* xray mode always to 3D space to avoid wrong zdepth calculation (T60051) */
+	immUniform1i("xraymode", GP_XRAY_3DSPACE);
 
 	/* draw stroke curve */
 	GPU_line_width(max_ff(curpressure * thickness, 1.0f));
@@ -1042,7 +1006,7 @@ static void gp_draw_strokes(tGPDdraw *tgpw)
 		}
 		/* check if the color is visible */
 		Material *ma = tgpw->gpd->mat[gps->mat_nr];
-		MaterialGPencilStyle *gp_style = ma->gp_style;
+		MaterialGPencilStyle *gp_style = (ma) ? ma->gp_style : NULL;
 
 		if ((gp_style == NULL) ||
 		    (gp_style->flag & GP_STYLE_COLOR_HIDE) ||
@@ -1262,7 +1226,7 @@ static void gp_draw_strokes_edit(
 		/* verify color lock */
 		{
 			Material *ma = gpd->mat[gps->mat_nr];
-			MaterialGPencilStyle *gp_style = ma->gp_style;
+			MaterialGPencilStyle *gp_style = (ma) ? ma->gp_style : NULL;
 
 			if (gp_style != NULL) {
 				if (gp_style->flag & GP_STYLE_COLOR_HIDE) {
@@ -1292,7 +1256,7 @@ static void gp_draw_strokes_edit(
 		/* for now, we assume that the base color of the points is not too close to the real color */
 		/* set color using material */
 		Material *ma = gpd->mat[gps->mat_nr];
-		MaterialGPencilStyle *gp_style = ma->gp_style;
+		MaterialGPencilStyle *gp_style = (ma) ? ma->gp_style : NULL;
 
 		float selectColor[4];
 		UI_GetThemeColor3fv(TH_GP_VERTEX_SELECT, selectColor);
@@ -1336,8 +1300,12 @@ static void gp_draw_strokes_edit(
 				immAttr3fv(color, selectColor);
 				immAttr1f(size, vsize);
 			}
-			else {
+			else if (gp_style) {
 				immAttr3fv(color, gp_style->stroke_rgba);
+				immAttr1f(size, bsize);
+			}
+			else {
+				immAttr3f(color, 0.0f, 0.0f, 0.0f);
 				immAttr1f(size, bsize);
 			}
 
@@ -1507,7 +1475,7 @@ static void gp_draw_data_layers(RegionView3D *rv3d,
 		 *   (NOTE: doing it this way means that the toggling editmode shows visible change immediately)
 		 */
 		/* XXX: perhaps we don't want to show these when users are drawing... */
-		if ((G.f & G_RENDER_OGL) == 0 &&
+		if ((G.f & G_FLAG_RENDER_VIEWPORT) == 0 &&
 		    (gpl->flag & GP_LAYER_LOCKED) == 0 &&
 		    (gpd->flag & GP_DATA_STROKE_EDITMODE))
 		{
@@ -1549,7 +1517,7 @@ static void UNUSED_FUNCTION(gp_draw_status_text)(const bGPdata *gpd, ARegion *ar
 	rcti rect;
 
 	/* Cannot draw any status text when drawing OpenGL Renders */
-	if (G.f & G_RENDER_OGL)
+	if (G.f & G_FLAG_RENDER_VIEWPORT)
 		return;
 
 	/* Get bounds of region - Necessary to avoid problems with region overlap */
@@ -1674,7 +1642,7 @@ void ED_gpencil_draw_view3d(
 
 	/* when rendering to the offscreen buffer we don't want to
 	 * deal with the camera border, otherwise map the coords to the camera border. */
-	if ((rv3d->persp == RV3D_CAMOB) && !(G.f & G_RENDER_OGL)) {
+	if ((rv3d->persp == RV3D_CAMOB) && !(G.f & G_FLAG_RENDER_VIEWPORT)) {
 		rctf rectf;
 		ED_view3d_calc_camera_border(scene, depsgraph, ar, v3d, rv3d, &rectf, true); /* no shift */
 
@@ -1730,7 +1698,7 @@ void ED_gpencil_draw_view3d_object(wmWindowManager *wm, Scene *scene, Depsgraph 
 
 	/* when rendering to the offscreen buffer we don't want to
 	 * deal with the camera border, otherwise map the coords to the camera border. */
-	if ((rv3d->persp == RV3D_CAMOB) && !(G.f & G_RENDER_OGL)) {
+	if ((rv3d->persp == RV3D_CAMOB) && !(G.f & G_FLAG_RENDER_VIEWPORT)) {
 		rctf rectf;
 		ED_view3d_calc_camera_border(scene, depsgraph, ar, v3d, rv3d, &rectf, true); /* no shift */
 

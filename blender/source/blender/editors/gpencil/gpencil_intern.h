@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,15 +15,9 @@
  *
  * The Original Code is Copyright (C) 2009 Blender Foundation.
  * All rights reserved.
- *
- *
- * Contributor(s): Blender Foundation
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/gpencil/gpencil_intern.h
- *  \ingroup edgpencil
+/** \file \ingroup edgpencil
  */
 
 #ifndef __GPENCIL_INTERN_H__
@@ -45,27 +37,27 @@ extern "C"
 #endif
 
 /* internal exports only */
-struct bGPdata;
-struct bGPDstroke;
-struct bGPDspoint;
-struct tGPspoint;
 struct Material;
+struct bGPDspoint;
+struct bGPDstroke;
+struct bGPdata;
+struct tGPspoint;
 
 struct GHash;
 struct RNG;
 
+struct ARegion;
 struct Brush;
 struct Scene;
-struct ARegion;
-struct View3D;
 struct View2D;
+struct View3D;
 struct wmOperatorType;
 
 struct Depsgraph;
 
+struct EnumPropertyItem;
 struct PointerRNA;
 struct PropertyRNA;
-struct EnumPropertyItem;
 
 
 /* ***************************************************** */
@@ -114,77 +106,138 @@ typedef struct tGPDdraw {
 typedef struct tGPDinterpolate_layer {
 	struct tGPDinterpolate_layer *next, *prev;
 
-	struct bGPDlayer *gpl;            /* layer */
-	struct bGPDframe *prevFrame;      /* frame before current frame (interpolate-from) */
-	struct bGPDframe *nextFrame;      /* frame after current frame (interpolate-to) */
-	struct bGPDframe *interFrame;     /* interpolated frame */
-	float factor;                     /* interpolate factor */
+	/** layer */
+	struct bGPDlayer *gpl;
+	/** frame before current frame (interpolate-from) */
+	struct bGPDframe *prevFrame;
+	/** frame after current frame (interpolate-to) */
+	struct bGPDframe *nextFrame;
+	/** interpolated frame */
+	struct bGPDframe *interFrame;
+	/** interpolate factor */
+	float factor;
 
 } tGPDinterpolate_layer;
 
 typedef struct tGPDinterpolate {
-	struct Scene *scene;       /* current scene from context */
-	struct ScrArea *sa;        /* area where painting originated */
-	struct ARegion *ar;        /* region where painting originated */
-	struct bGPdata *gpd;       /* current GP datablock */
-	struct Material *mat;      /* current material */
+	/** current scene from context */
+	struct Scene *scene;
+	/** area where painting originated */
+	struct ScrArea *sa;
+	/** region where painting originated */
+	struct ARegion *ar;
+	/** current GP datablock */
+	struct bGPdata *gpd;
+	/** current material */
+	struct Material *mat;
 
-	int cframe;                /* current frame number */
-	ListBase ilayers;          /* (tGPDinterpolate_layer) layers to be interpolated */
-	float shift;               /* value for determining the displacement influence */
-	float init_factor;         /* initial interpolation factor for active layer */
-	float low_limit;           /* shift low limit (-100%) */
-	float high_limit;          /* shift upper limit (200%) */
-	int flag;                  /* flag from toolsettings */
+	/** current frame number */
+	int cframe;
+	/** (tGPDinterpolate_layer) layers to be interpolated */
+	ListBase ilayers;
+	/** value for determining the displacement influence */
+	float shift;
+	/** initial interpolation factor for active layer */
+	float init_factor;
+	/** shift low limit (-100%) */
+	float low_limit;
+	/** shift upper limit (200%) */
+	float high_limit;
+	/** flag from toolsettings */
+	int flag;
 
 	NumInput num;              /* numeric input */
-	void *draw_handle_3d;      /* handle for drawing strokes while operator is running 3d stuff */
-	void *draw_handle_screen;  /* handle for drawing strokes while operator is running screen stuff */
+	/** handle for drawing strokes while operator is running 3d stuff */
+	void *draw_handle_3d;
+	/** handle for drawing strokes while operator is running screen stuff */
+	void *draw_handle_screen;
 } tGPDinterpolate;
 
 
 /* Temporary primitive operation data */
 typedef struct tGPDprimitive {
-	struct Main *bmain;               /* main database pointer */
+	/** main database pointer */
+	struct Main *bmain;
 	struct Depsgraph *depsgraph;
-	struct wmWindow *win;             /* window where painting originated */
-	struct Scene *scene;              /* current scene from context */
-	struct Object *ob;                /* current active gp object */
-	struct ScrArea *sa;               /* area where painting originated */
-	struct RegionView3D *rv3d;        /* region where painting originated */
-	struct View3D *v3d;               /* view3d where painting originated */
-	struct ARegion *ar;               /* region where painting originated */
-	struct bGPdata *gpd;              /* current GP datablock */
-	struct Material *mat;             /* current material */
-	struct Brush *brush;              /* current brush */
+	/** window where painting originated */
+	struct wmWindow *win;
+	/** current scene from context */
+	struct Scene *scene;
+	/** current active gp object */
+	struct Object *ob;
+	/** area where painting originated */
+	struct ScrArea *sa;
+	/** region where painting originated */
+	struct RegionView3D *rv3d;
+	/** view3d where painting originated */
+	struct View3D *v3d;
+	/** region where painting originated */
+	struct ARegion *ar;
+	/** current GP datablock */
+	struct bGPdata *gpd;
+	/** current material */
+	struct Material *mat;
+	/** current brush */
+	struct Brush *brush;
 
-	int cframe;                       /* current frame number */
-	struct bGPDlayer *gpl;            /* layer */
-	struct bGPDframe *gpf;            /* frame */
-	int type;                         /* type of primitive */
-	int orign_type;                   /* original type of primitive */
-	bool curve;                       /* type of primitive is a curve */
-	short flip;                       /* flip option */
-	tGPspoint *points;                /* array of data-points for stroke */
-	int point_count;                  /* number of edges allocated */
-	int tot_stored_edges;             /* stored number of polygon edges */
-	int tot_edges;                    /* number of polygon edges */
-	float move[2];                    /* move distance */
-	float origin[2];                  /* initial box corner */
-	float start[2];                   /* first box corner */
-	float end[2];                     /* last box corner */
-	float midpoint[2];                /* midpoint box corner */
-	float cp1[2];                     /* first control point */
-	float cp2[2];                     /* second control point */
-	int sel_cp;                       /* flag to determine control point is selected */
-	int flag;                         /* flag to determine operations in progress */
-	float mval[2];                    /* recorded mouse-position */
-	float mvalo[2];                   /* previous recorded mouse-position */
+	/** current frame number */
+	int cframe;
+	/** layer */
+	struct bGPDlayer *gpl;
+	/** frame */
+	struct bGPDframe *gpf;
+	/** type of primitive */
+	int type;
+	/** original type of primitive */
+	int orign_type;
+	/** type of primitive is a curve */
+	bool curve;
+	/** brush size */
+	int brush_size;
+	/** brush strength */
+	float brush_strength;
+	/** flip option */
+	short flip;
+	/** array of data-points for stroke */
+	tGPspoint *points;
+	/** number of edges allocated */
+	int point_count;
+	/** stored number of polygon edges */
+	int tot_stored_edges;
+	/** number of polygon edges */
+	int tot_edges;
+	/** move distance */
+	float move[2];
+	/** initial box corner */
+	float origin[2];
+	/** first box corner */
+	float start[2];
+	/** last box corner */
+	float end[2];
+	/** midpoint box corner */
+	float midpoint[2];
+	/** first control point */
+	float cp1[2];
+	/** second control point */
+	float cp2[2];
+	/** flag to determine control point is selected */
+	int sel_cp;
+	/** flag to determine operations in progress */
+	int flag;
+	/** recorded mouse-position */
+	float mval[2];
+	/** previous recorded mouse-position */
+	float mvalo[2];
 
-	int lock_axis;                    /* lock to viewport axis */
+	/** lock to viewport axis */
+	int lock_axis;
 	struct RNG *rng;
 
-	NumInput num;                     /* numeric input */
+	/** numeric input */
+	NumInput num;
+
+	/** size in pixels for uv calculation */
+	float totpixlen;
 } tGPDprimitive;
 
 
@@ -239,7 +292,9 @@ void gp_apply_parent(struct Depsgraph *depsgraph, struct Object *obact, bGPdata 
  */
 void gp_apply_parent_point(struct Depsgraph *depsgraph, struct Object *obact, bGPdata *gpd, bGPDlayer *gpl, bGPDspoint *pt);
 
-bool gp_point_xy_to_3d(GP_SpaceConversion *gsc, struct Scene *scene, const float screen_co[2], float r_out[3]);
+void gp_point_3d_to_xy(const GP_SpaceConversion *gsc, const short flag, const float pt[3], float xy[2]);
+
+bool gp_point_xy_to_3d(const GP_SpaceConversion *gsc, struct Scene *scene, const float screen_co[2], float r_out[3]);
 
 /* helper to convert 2d to 3d */
 void gp_stroke_convertcoords_tpoint(
@@ -268,7 +323,7 @@ struct GHash *gp_copybuf_validate_colormap(struct bContext *C);
 
 void gp_stroke_delete_tagged_points(
         bGPDframe *gpf, bGPDstroke *gps, bGPDstroke *next_stroke,
-        int tag_flags, bool select);
+        int tag_flags, bool select, int limit);
 int gp_delete_selected_point_wrap(bContext *C);
 
 void gp_subdivide_stroke(bGPDstroke *gps, const int subdivide);
@@ -296,12 +351,17 @@ void GPENCIL_OT_annotate(struct wmOperatorType *ot);
 void GPENCIL_OT_draw(struct wmOperatorType *ot);
 void GPENCIL_OT_fill(struct wmOperatorType *ot);
 
+/* Guides ----------------------- */
+
+void GPENCIL_OT_guide_rotate(struct wmOperatorType *ot);
+
 /* Paint Modes for operator */
 typedef enum eGPencil_PaintModes {
 	GP_PAINTMODE_DRAW = 0,
 	GP_PAINTMODE_ERASER,
 	GP_PAINTMODE_DRAW_STRAIGHT,
-	GP_PAINTMODE_DRAW_POLY
+	GP_PAINTMODE_DRAW_POLY,
+	GP_PAINTMODE_SET_CP
 } eGPencil_PaintModes;
 
 /* maximum sizes of gp-session buffer */
@@ -342,7 +402,6 @@ void GPENCIL_OT_layer_change(struct wmOperatorType *ot);
 void GPENCIL_OT_snap_to_grid(struct wmOperatorType *ot);
 void GPENCIL_OT_snap_to_cursor(struct wmOperatorType *ot);
 void GPENCIL_OT_snap_cursor_to_selected(struct wmOperatorType *ot);
-void GPENCIL_OT_snap_cursor_to_center(struct wmOperatorType *ot);
 
 void GPENCIL_OT_reproject(struct wmOperatorType *ot);
 
@@ -382,7 +441,7 @@ void GPENCIL_OT_convert(struct wmOperatorType *ot);
 
 enum {
 	GP_STROKE_JOIN = -1,
-	GP_STROKE_JOINCOPY = 1
+	GP_STROKE_JOINCOPY = 1,
 };
 
 enum {
@@ -390,15 +449,20 @@ enum {
 	GP_STROKE_LINE = 1,
 	GP_STROKE_CIRCLE = 2,
 	GP_STROKE_ARC = 3,
-	GP_STROKE_CURVE = 4
+	GP_STROKE_CURVE = 4,
 };
 
+enum {
+	GP_MERGE_STROKE = -1,
+	GP_MERGE_POINT = 1,
+};
 
 void GPENCIL_OT_stroke_arrange(struct wmOperatorType *ot);
 void GPENCIL_OT_stroke_change_color(struct wmOperatorType *ot);
 void GPENCIL_OT_stroke_lock_color(struct wmOperatorType *ot);
 void GPENCIL_OT_stroke_apply_thickness(struct wmOperatorType *ot);
 void GPENCIL_OT_stroke_cyclical_set(struct wmOperatorType *ot);
+void GPENCIL_OT_stroke_caps_set(struct wmOperatorType *ot);
 void GPENCIL_OT_stroke_join(struct wmOperatorType *ot);
 void GPENCIL_OT_stroke_flip(struct wmOperatorType *ot);
 void GPENCIL_OT_stroke_subdivide(struct wmOperatorType *ot);
@@ -407,6 +471,8 @@ void GPENCIL_OT_stroke_simplify_fixed(struct wmOperatorType *ot);
 void GPENCIL_OT_stroke_separate(struct wmOperatorType *ot);
 void GPENCIL_OT_stroke_split(struct wmOperatorType *ot);
 void GPENCIL_OT_stroke_smooth(struct wmOperatorType *ot);
+void GPENCIL_OT_stroke_merge(struct wmOperatorType *ot);
+void GPENCIL_OT_stroke_cutter(struct wmOperatorType *ot);
 
 void GPENCIL_OT_brush_presets_create(struct wmOperatorType *ot);
 
@@ -513,7 +579,7 @@ struct GP_EditableStrokes_Iter {
  */
 #define GP_EDITABLE_STROKES_BEGIN(gpstroke_iter, C, gpl, gps)                           \
 {                                                                                       \
-	struct GP_EditableStrokes_Iter gpstroke_iter = {0};                                 \
+	struct GP_EditableStrokes_Iter gpstroke_iter = {{{0}}};                             \
 	Depsgraph *depsgraph_ = CTX_data_depsgraph(C);                                      \
 	Object *obact_ = CTX_data_active_object(C);                                         \
 	bGPdata *gpd_ = CTX_data_gpencil_data(C);                                           \

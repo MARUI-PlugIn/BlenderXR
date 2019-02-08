@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2009 by Nicholas Bishop
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenkernel/intern/paint.c
- *  \ingroup bke
+/** \file \ingroup bke
  */
 
 #include <stdlib.h>
@@ -45,9 +36,7 @@
 #include "DNA_workspace_types.h"
 
 #include "BLI_bitmap.h"
-#include "BLI_blenlib.h"
 #include "BLI_utildefines.h"
-#include "BLI_string_utils.h"
 #include "BLI_math_vector.h"
 #include "BLI_listbase.h"
 
@@ -61,7 +50,6 @@
 #include "BKE_main.h"
 #include "BKE_context.h"
 #include "BKE_crazyspace.h"
-#include "BKE_global.h"
 #include "BKE_gpencil.h"
 #include "BKE_image.h"
 #include "BKE_key.h"
@@ -440,7 +428,7 @@ PaintCurve *BKE_paint_curve_add(Main *bmain, const char *name)
 
 /**
  * Only copy internal data of PaintCurve ID from source to already allocated/initialized destination.
- * You probably nerver want to use that directly, use id_copy or BKE_id_copy_ex for typical needs.
+ * You probably never want to use that directly, use BKE_id_copy or BKE_id_copy_ex for typical needs.
  *
  * WARNING! This function will not handle ID user count!
  *
@@ -456,7 +444,7 @@ void BKE_paint_curve_copy_data(Main *UNUSED(bmain), PaintCurve *pc_dst, const Pa
 PaintCurve *BKE_paint_curve_copy(Main *bmain, const PaintCurve *pc)
 {
 	PaintCurve *pc_copy;
-	BKE_id_copy_ex(bmain, &pc->id, (ID **)&pc_copy, 0, false);
+	BKE_id_copy(bmain, &pc->id, (ID **)&pc_copy);
 	return pc_copy;
 }
 
@@ -523,7 +511,7 @@ Palette *BKE_palette_add(Main *bmain, const char *name)
 
 /**
  * Only copy internal data of Palette ID from source to already allocated/initialized destination.
- * You probably nerver want to use that directly, use id_copy or BKE_id_copy_ex for typical needs.
+ * You probably never want to use that directly, use BKE_id_copy or BKE_id_copy_ex for typical needs.
  *
  * WARNING! This function will not handle ID user count!
  *
@@ -537,7 +525,7 @@ void BKE_palette_copy_data(Main *UNUSED(bmain), Palette *palette_dst, const Pale
 Palette *BKE_palette_copy(Main *bmain, const Palette *palette)
 {
 	Palette *palette_copy;
-	BKE_id_copy_ex(bmain, &palette->id, (ID **)&palette_copy, 0, false);
+	BKE_id_copy(bmain, &palette->id, (ID **)&palette_copy);
 	return palette_copy;
 }
 
@@ -910,7 +898,7 @@ static void sculptsession_bm_to_me_update_data_only(Object *ob, bool reorder)
 			}
 			if (reorder)
 				BM_log_mesh_elems_reorder(ss->bm, ss->bm_log);
-			BM_mesh_bm_to_me(NULL, ss->bm, ob->data, (&(struct BMeshToMeshParams){.calc_object_remap = false}));
+			BM_mesh_bm_to_me(NULL, ss->bm, ob->data, (&(struct BMeshToMeshParams){.calc_object_remap = false,}));
 		}
 	}
 }

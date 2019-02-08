@@ -372,6 +372,25 @@ void BlenderSync::sync_view_layer(BL::SpaceView3D& /*b_v3d*/, BL::ViewLayer& b_v
 	view_layer.use_background_ao = b_view_layer.use_ao();
 	view_layer.use_surfaces = b_view_layer.use_solid();
 	view_layer.use_hair = b_view_layer.use_strand();
+
+	/* Material override. */
+	view_layer.material_override = b_view_layer.material_override();
+
+	/* Sample override. */
+	PointerRNA cscene = RNA_pointer_get(&b_scene.ptr, "cycles");
+	int use_layer_samples = get_enum(cscene, "use_layer_samples");
+
+	view_layer.bound_samples = (use_layer_samples == 1);
+	view_layer.samples = 0;
+
+	if(use_layer_samples != 2) {
+		int samples = b_view_layer.samples();
+		if(get_boolean(cscene, "use_square_samples"))
+			view_layer.samples = samples * samples;
+		else
+			view_layer.samples = samples;
+	}
+
 }
 
 /* Images */
@@ -463,7 +482,7 @@ int BlenderSync::get_denoising_pass(BL::RenderPass& b_pass)
 {
 	string name = b_pass.name();
 
-	if(name == "Noisy Image") return DENOISING_PASS_COLOR;
+	if(name == "Noisy Image") return DENOISING_PASS_PREFILTERED_COLOR;
 
 	if(name.substr(0, 10) != "Denoising ") {
 		return -1;
@@ -471,15 +490,12 @@ int BlenderSync::get_denoising_pass(BL::RenderPass& b_pass)
 	name = name.substr(10);
 
 #define MAP_PASS(passname, offset) if(name == passname) return offset;
-	MAP_PASS("Normal", DENOISING_PASS_NORMAL);
-	MAP_PASS("Normal Variance", DENOISING_PASS_NORMAL_VAR);
-	MAP_PASS("Albedo", DENOISING_PASS_ALBEDO);
-	MAP_PASS("Albedo Variance", DENOISING_PASS_ALBEDO_VAR);
-	MAP_PASS("Depth", DENOISING_PASS_DEPTH);
-	MAP_PASS("Depth Variance", DENOISING_PASS_DEPTH_VAR);
-	MAP_PASS("Shadow A", DENOISING_PASS_SHADOW_A);
-	MAP_PASS("Shadow B", DENOISING_PASS_SHADOW_B);
-	MAP_PASS("Image Variance", DENOISING_PASS_COLOR_VAR);
+	MAP_PASS("Normal", DENOISING_PASS_PREFILTERED_NORMAL);
+	MAP_PASS("Albedo", DENOISING_PASS_PREFILTERED_ALBEDO);
+	MAP_PASS("Depth", DENOISING_PASS_PREFILTERED_DEPTH);
+	MAP_PASS("Shadowing", DENOISING_PASS_PREFILTERED_SHADOWING);
+	MAP_PASS("Variance", DENOISING_PASS_PREFILTERED_VARIANCE);
+	MAP_PASS("Intensity", DENOISING_PASS_PREFILTERED_INTENSITY);
 	MAP_PASS("Clean", DENOISING_PASS_CLEAN);
 #undef MAP_PASS
 
@@ -511,10 +527,11 @@ vector<Pass> BlenderSync::sync_render_passes(BL::RenderLayer& b_rlay,
 	}
 
 	PointerRNA crp = RNA_pointer_get(&b_view_layer.ptr, "cycles");
-	bool use_denoising = get_boolean(crp, "use_denoising");
-	bool store_denoising_passes = get_boolean(crp, "denoising_store_passes");
+	bool full_denoising = get_boolean(crp, "use_denoising");
+	bool write_denoising_passes = get_boolean(crp, "denoising_store_passes");
+
 	scene->film->denoising_flags = 0;
-	if(use_denoising || store_denoising_passes) {
+	if(full_denoising || write_denoising_passes) {
 #define MAP_OPTION(name, flag) if(!get_boolean(crp, name)) scene->film->denoising_flags |= flag;
 		MAP_OPTION("denoising_diffuse_direct",        DENOISING_CLEAN_DIFFUSE_DIR);
 		MAP_OPTION("denoising_diffuse_indirect",      DENOISING_CLEAN_DIFFUSE_IND);
@@ -528,16 +545,13 @@ vector<Pass> BlenderSync::sync_render_passes(BL::RenderLayer& b_rlay,
 		b_engine.add_pass("Noisy Image", 4, "RGBA", b_view_layer.name().c_str());
 	}
 
-	if(store_denoising_passes) {
+	if(write_denoising_passes) {
 		b_engine.add_pass("Denoising Normal",          3, "XYZ", b_view_layer.name().c_str());
-		b_engine.add_pass("Denoising Normal Variance", 3, "XYZ", b_view_layer.name().c_str());
 		b_engine.add_pass("Denoising Albedo",          3, "RGB", b_view_layer.name().c_str());
-		b_engine.add_pass("Denoising Albedo Variance", 3, "RGB", b_view_layer.name().c_str());
 		b_engine.add_pass("Denoising Depth",           1, "Z",   b_view_layer.name().c_str());
-		b_engine.add_pass("Denoising Depth Variance",  1, "Z",   b_view_layer.name().c_str());
-		b_engine.add_pass("Denoising Shadow A",        3, "XYV", b_view_layer.name().c_str());
-		b_engine.add_pass("Denoising Shadow B",        3, "XYV", b_view_layer.name().c_str());
-		b_engine.add_pass("Denoising Image Variance",  3, "RGB", b_view_layer.name().c_str());
+		b_engine.add_pass("Denoising Shadowing",       1, "X",   b_view_layer.name().c_str());
+		b_engine.add_pass("Denoising Variance",        3, "RGB", b_view_layer.name().c_str());
+		b_engine.add_pass("Denoising Intensity",       1, "X",   b_view_layer.name().c_str());
 
 		if(scene->film->denoising_flags & DENOISING_CLEAN_ALL_PASSES) {
 			b_engine.add_pass("Denoising Clean",   3, "RGB", b_view_layer.name().c_str());
@@ -722,24 +736,18 @@ SessionParams BlenderSync::get_session_params(BL::RenderEngine& b_engine,
 	/* Background */
 	params.background = background;
 
-	/* device type */
-	vector<DeviceInfo>& devices = Device::available_devices();
-
-	/* device default CPU */
-	foreach(DeviceInfo& device, devices) {
-		if(device.type == DEVICE_CPU) {
-			params.device = device;
-			break;
-		}
-	}
+	/* Default to CPU device. */
+	params.device = Device::available_devices(DEVICE_MASK_CPU).front();
 
 	if(get_enum(cscene, "device") == 2) {
-		/* find network device */
-		foreach(DeviceInfo& info, devices)
-			if(info.type == DEVICE_NETWORK)
-				params.device = info;
+		/* Find network device. */
+		vector<DeviceInfo> devices = Device::available_devices(DEVICE_MASK_NETWORK);
+		if(!devices.empty()) {
+			params.device = devices.front();
+		}
 	}
 	else if(get_enum(cscene, "device") == 1) {
+		/* Find cycles preferences. */
 		PointerRNA b_preferences;
 
 		BL::Preferences::addons_iterator b_addon_iter;
@@ -750,6 +758,7 @@ SessionParams BlenderSync::get_session_params(BL::RenderEngine& b_engine,
 			}
 		}
 
+		/* Test if we are using GPU devices. */
 		enum ComputeDevice {
 			COMPUTE_DEVICE_CPU = 0,
 			COMPUTE_DEVICE_CUDA = 1,
@@ -763,15 +772,20 @@ SessionParams BlenderSync::get_session_params(BL::RenderEngine& b_engine,
 		                                                       COMPUTE_DEVICE_CPU);
 
 		if(compute_device != COMPUTE_DEVICE_CPU) {
+			/* Query GPU devices with matching types. */
+			uint mask = DEVICE_MASK_CPU;
+			if(compute_device == COMPUTE_DEVICE_CUDA) {
+				mask |= DEVICE_MASK_CUDA;
+			}
+			else if(compute_device == COMPUTE_DEVICE_OPENCL) {
+				mask |= DEVICE_MASK_OPENCL;
+			}
+			vector<DeviceInfo> devices = Device::available_devices(mask);
+
+			/* Match device preferences and available devices. */
 			vector<DeviceInfo> used_devices;
 			RNA_BEGIN(&b_preferences, device, "devices") {
-				ComputeDevice device_type = (ComputeDevice)get_enum(device,
-				                                                    "type",
-				                                                    COMPUTE_DEVICE_NUM,
-				                                                    COMPUTE_DEVICE_CPU);
-
-				if(get_boolean(device, "use") &&
-				   (device_type == compute_device || device_type == COMPUTE_DEVICE_CPU)) {
+				if(get_boolean(device, "use")) {
 					string id = get_string(device, "id");
 					foreach(DeviceInfo& info, devices) {
 						if(info.id == id) {
@@ -782,10 +796,7 @@ SessionParams BlenderSync::get_session_params(BL::RenderEngine& b_engine,
 				}
 			} RNA_END;
 
-			if(used_devices.size() == 1) {
-				params.device = used_devices[0];
-			}
-			else if(used_devices.size() > 1) {
+			if(!used_devices.empty()) {
 				params.device = Device::get_multi_device(used_devices,
 				                                         params.threads,
 				                                         params.background);

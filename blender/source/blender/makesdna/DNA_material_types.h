@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file DNA_material_types.h
- *  \ingroup DNA
+/** \file \ingroup DNA
  */
 
 #ifndef __DNA_MATERIAL_TYPES_H__
@@ -40,44 +31,70 @@
 #define MAX_MTEX	18
 #endif
 
-struct Image;
-struct bNodeTree;
 struct AnimData;
+struct Image;
 struct Ipo;
+struct bNodeTree;
 
 /* WATCH IT: change type? also make changes in ipo.h  */
 
 typedef struct TexPaintSlot {
-	struct Image *ima; /* image to be painted on */
-	char *uvname;      /* customdata index for uv layer, MAX_NAME*/
-	int valid;         /* do we have a valid image and UV map */
-	int pad;
+	/** Image to be painted on. */
+	struct Image *ima;
+	/** Customdata index for uv layer, MAX_NAM.E*/
+	char *uvname;
+	/** Do we have a valid image and UV map. */
+	int valid;
+	/** Copy of node inteporlation setting. */
+	int interp;
 } TexPaintSlot;
 
 typedef struct MaterialGPencilStyle {
-	struct Image *sima;      /* Texture image for strokes */
-	struct Image *ima;       /* Texture image for filling */
-	float stroke_rgba[4];    /* color for paint and strokes (alpha included) */
-	float fill_rgba[4];      /* color that should be used for drawing "fills" for strokes (alpha included) */
-	float mix_rgba[4];       /* secondary color used for gradients and other stuff */
-	short flag;              /* settings */
-	short index;             /* custom index for passes */
-	short stroke_style;      /* style for drawing strokes (used to select shader type) */
-	short fill_style;        /* style for filling areas (used to select shader type) */
-	float mix_factor;        /* factor used to define shader behavior (several uses) */
-	float gradient_angle;    /* angle used for gradients orientation */
-	float gradient_radius;   /* radius for radial gradients */
-	float pattern_gridsize;  /* cheesboard size */
-	float gradient_scale[2]; /* uv coordinates scale */
-	float gradient_shift[2]; /* factor to shift filling in 2d space */
-	float texture_angle;     /* angle used for texture orientation */
-	float texture_scale[2];  /* texture scale (separated of uv scale) */
-	float texture_offset[2]; /* factor to shift texture in 2d space */
-	float texture_opacity;   /* texture opacity */
-	float texture_pixsize;   /* pixel size for uv along the stroke */
-	int mode;                /* drawing mode (line or dots) */
+	/** Texture image for strokes. */
+	struct Image *sima;
+	/** Texture image for filling. */
+	struct Image *ima;
+	/** Color for paint and strokes (alpha included). */
+	float stroke_rgba[4];
+	/** Color that should be used for drawing "fills" for strokes (alpha included). */
+	float fill_rgba[4];
+	/** Secondary color used for gradients and other stuff. */
+	float mix_rgba[4];
+	/** Settings. */
+	short flag;
+	/** Custom index for passes. */
+	short index;
+	/** Style for drawing strokes (used to select shader type). */
+	short stroke_style;
+	/** Style for filling areas (used to select shader type). */
+	short fill_style;
+	/** Factor used to define shader behavior (several uses). */
+	float mix_factor;
+	/** Angle used for gradients orientation. */
+	float gradient_angle;
+	/** Radius for radial gradients. */
+	float gradient_radius;
+	/** Cheesboard size. */
+	float pattern_gridsize;
+	/** Uv coordinates scale. */
+	float gradient_scale[2];
+	/** Factor to shift filling in 2d space. */
+	float gradient_shift[2];
+	/** Angle used for texture orientation. */
+	float texture_angle;
+	/** Texture scale (separated of uv scale). */
+	float texture_scale[2];
+	/** Factor to shift texture in 2d space. */
+	float texture_offset[2];
+	/** Texture opacity. */
+	float texture_opacity;
+	/** Pixel size for uv along the stroke. */
+	float texture_pixsize;
+	/** Drawing mode (line or dots). */
+	int mode;
 
-	int gradient_type;       /* type of gradient */
+	/** Type of gradient. */
+	int gradient_type;
 	char pad[4];
 } MaterialGPencilStyle;
 
@@ -102,7 +119,7 @@ typedef enum eMaterialGPencilStyle_Flag {
 	/* Stroke show main switch */
 	GP_STYLE_STROKE_SHOW = (1 << 8),
 	/* Fill  show main switch */
-	GP_STYLE_FILL_SHOW = (1 << 9)
+	GP_STYLE_FILL_SHOW = (1 << 9),
 } eMaterialGPencilStyle_Flag;
 
 typedef enum eMaterialGPencilStyle_Mode {
@@ -113,20 +130,22 @@ typedef enum eMaterialGPencilStyle_Mode {
 
 typedef struct Material {
 	ID id;
-	struct AnimData *adt;	/* animation data (must be immediately after id for utilities to use it) */
+	/** Animation data (must be immediately after id for utilities to use it). */
+	struct AnimData *adt;
 
 	short flag, pad1[7];
 
 	/* Colors from Blender Internal that we are still using. */
-	float r, g, b;
+	float r, g, b, a;
 	float specr, specg, specb;
 	float alpha DNA_DEPRECATED;
 	float ray_mirror  DNA_DEPRECATED;
 	float spec;
-	float gloss_mir  DNA_DEPRECATED; /* renamed and inversed to roughness */
+	/** Renamed and inversed to roughness. */
+	float gloss_mir  DNA_DEPRECATED;
 	float roughness;
 	float metallic;
-	float pad4[2];
+	float pad4;
 
 	/* Ror buttons and render. */
 	char pr_type, use_nodes;
@@ -136,7 +155,8 @@ typedef struct Material {
 	short index;
 
 	struct bNodeTree *nodetree;
-	struct Ipo *ipo  DNA_DEPRECATED;  /* old animation system, deprecated for 2.5 */
+	/** Old animation system, deprecated for 2.5. */
+	struct Ipo *ipo  DNA_DEPRECATED;
 	struct PreviewImage *preview;
 
 	/* Freestyle line settings. */
@@ -158,14 +178,16 @@ typedef struct Material {
 	char blend_flag;
 	char pad3[5];
 
-	/* Cached slots for texture painting, must be refreshed in
-	 * refresh_texpaint_image_cache before using. */
+	/**
+	 * Cached slots for texture painting, must be refreshed in
+	 * refresh_texpaint_image_cache before using.
+	 */
 	struct TexPaintSlot *texpaintslot;
 
-	/* Runtime cache for GLSL materials. */
+	/** Runtime cache for GLSL materials. */
 	ListBase gpumaterial;
 
-	/* grease pencil color */
+	/** Grease pencil color. */
 	struct MaterialGPencilStyle *gp_style;
 } Material;
 
@@ -179,7 +201,7 @@ typedef struct Material {
 
 /* flag */
 		/* for render */
-#define MA_IS_USED      (1 << 0)
+/* #define MA_IS_USED      (1 << 0) */ /* UNUSED */
 		/* for dopesheet */
 #define MA_DS_EXPAND    (1 << 1)
 		/* for dopesheet (texture stack expander)
@@ -210,23 +232,24 @@ typedef struct Material {
 
 /* texco */
 #define TEXCO_ORCO      (1 << 0)
-#define TEXCO_REFL      (1 << 1)
-#define TEXCO_NORM      (1 << 2)
+/* #define TEXCO_REFL      (1 << 1) */ /* deprecated */
+/* #define TEXCO_NORM      (1 << 2) */ /* deprecated */
 #define TEXCO_GLOB      (1 << 3)
 #define TEXCO_UV        (1 << 4)
 #define TEXCO_OBJECT    (1 << 5)
-#define TEXCO_LAVECTOR  (1 << 6)
-#define TEXCO_VIEW      (1 << 7)
-#define TEXCO_STICKY_   (1 << 8)  // DEPRECATED
-#define TEXCO_OSA       (1 << 9)
+/* #define TEXCO_LAVECTOR  (1 << 6) */ /* deprecated */
+/* #define TEXCO_VIEW      (1 << 7) */ /* deprecated */
+/* #define TEXCO_STICKY   (1 << 8) */ /* deprecated */
+/* #define TEXCO_OSA       (1 << 9) */ /* deprecated */
 #define TEXCO_WINDOW    (1 << 10)
-#define NEED_UV         (1 << 11)
-#define TEXCO_TANGENT   (1 << 12)
+/* #define NEED_UV         (1 << 11) */ /* deprecated */
+/* #define TEXCO_TANGENT   (1 << 12) */ /* deprecated */
 	/* still stored in vertex->accum, 1 D */
 #define TEXCO_STRAND    (1 << 13)
-#define TEXCO_PARTICLE  (1 << 13) /* strand is used for normal materials, particle for halo materials */
-#define TEXCO_STRESS    (1 << 14)
-#define TEXCO_SPEED     (1 << 15)
+/** strand is used for normal materials, particle for halo materials */
+#define TEXCO_PARTICLE  (1 << 13)
+/* #define TEXCO_STRESS    (1 << 14) */ /* deprecated */
+/* #define TEXCO_SPEED     (1 << 15) */ /* deprecated */
 
 /* mapto */
 #define MAP_COL			(1 << 0)
@@ -291,7 +314,7 @@ enum {
 /* Grease Pencil Stroke styles */
 enum {
 	GP_STYLE_STROKE_STYLE_SOLID = 0,
-	GP_STYLE_STROKE_STYLE_TEXTURE
+	GP_STYLE_STROKE_STYLE_TEXTURE,
 };
 
 /* Grease Pencil Fill styles */
@@ -299,13 +322,13 @@ enum {
 	GP_STYLE_FILL_STYLE_SOLID = 0,
 	GP_STYLE_FILL_STYLE_GRADIENT,
 	GP_STYLE_FILL_STYLE_CHESSBOARD,
-	GP_STYLE_FILL_STYLE_TEXTURE
+	GP_STYLE_FILL_STYLE_TEXTURE,
 };
 
 /* Grease Pencil Gradient Types */
 enum {
 	GP_STYLE_GRADIENT_LINEAR = 0,
-	GP_STYLE_GRADIENT_RADIAL
+	GP_STYLE_GRADIENT_RADIAL,
 };
 
 #endif

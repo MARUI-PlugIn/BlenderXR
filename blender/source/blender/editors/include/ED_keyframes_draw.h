@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,36 +15,29 @@
  *
  * The Original Code is Copyright (C) (C) 2009 Blender Foundation, Joshua Leung
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): Joshua Leung (full recode)
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file ED_keyframes_draw.h
- *  \ingroup editors
+/** \file \ingroup editors
  */
 
 #ifndef __ED_KEYFRAMES_DRAW_H__
 #define __ED_KEYFRAMES_DRAW_H__
 
-struct bAnimContext;
 struct AnimData;
 struct CacheFile;
+struct DLRBT_Tree;
 struct FCurve;
-struct bDopeSheet;
-struct bAction;
-struct bActionGroup;
-struct Object;
 struct ListBase;
-struct bGPDlayer;
-struct Palette;
 struct MaskLayer;
+struct Object;
+struct Palette;
 struct Scene;
 struct View2D;
-struct DLRBT_Tree;
+struct bAction;
+struct bActionGroup;
+struct bAnimContext;
+struct bDopeSheet;
+struct bGPDlayer;
 
 /* ****************************** Base Structs ****************************** */
 
@@ -67,14 +58,20 @@ typedef struct ActKeyColumn {
 	struct ActKeyColumn *next, *prev;
 
 	/* sorting-tree linkage */
-	struct ActKeyColumn *left, *right;  /* 'children' of this node, less than and greater than it (respectively) */
-	struct ActKeyColumn *parent;        /* parent of this node in the tree */
-	char tree_col;                      /* DLRB_BLACK or DLRB_RED */
+	/** 'children' of this node, less than and greater than it (respectively) */
+	struct ActKeyColumn *left, *right;
+	/** parent of this node in the tree */
+	struct ActKeyColumn *parent;
+	/** DLRB_BLACK or DLRB_RED */
+	char tree_col;
 
 	/* keyframe info */
-	char key_type;                      /* eBezTripe_KeyframeType */
-	char handle_type;                   /* eKeyframeHandleDrawOpts */
-	char extreme_type;                  /* eKeyframeExtremeDrawOpts */
+	/** eBezTripe_KeyframeType */
+	char key_type;
+	/** eKeyframeHandleDrawOpts */
+	char handle_type;
+	/** eKeyframeExtremeDrawOpts */
+	char extreme_type;
 	short sel;
 	float cfra;
 
@@ -134,7 +131,8 @@ typedef enum eKeyframeExtremeDrawOpts {
 } eKeyframeExtremeDrawOpts;
 
 /* draw simple diamond-shape keyframe */
-/* caller should set up vertex format, bind GPU_SHADER_KEYFRAME_DIAMOND, immBegin(GPU_PRIM_POINTS, n), then call this n times */
+/* caller should set up vertex format, bind GPU_SHADER_KEYFRAME_DIAMOND,
+ * immBegin(GPU_PRIM_POINTS, n), then call this n times */
 void draw_keyframe_shape(float x, float y, float size, bool sel, short key_type, short mode, float alpha,
                          unsigned int pos_id, unsigned int size_id, unsigned int color_id, unsigned int outline_color_id,
                          unsigned int linemask_id, short ipo_type, short extreme_type);
@@ -180,8 +178,6 @@ void summary_to_keylist(struct bAnimContext *ac, struct DLRBT_Tree *keys, int sa
 void gpencil_to_keylist(struct bDopeSheet *ads, struct bGPdata *gpd, struct DLRBT_Tree *keys, const bool active);
 /* Grease Pencil Layer */
 void gpl_to_keylist(struct bDopeSheet *ads, struct bGPDlayer *gpl, struct DLRBT_Tree *keys);
-/* Palette */
-void palette_to_keylist(struct bDopeSheet *ads, struct Palette *palette, struct DLRBT_Tree *keys);
 /* Mask */
 void mask_to_keylist(struct bDopeSheet *UNUSED(ads), struct MaskLayer *masklay, struct DLRBT_Tree *keys);
 

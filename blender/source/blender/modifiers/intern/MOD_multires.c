@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,19 +15,9 @@
  *
  * The Original Code is Copyright (C) 2005 by the Blender Foundation.
  * All rights reserved.
- *
- * Contributor(s): Daniel Dunbar
- *                 Ton Roosendaal,
- *                 Ben Batt,
- *                 Brecht Van Lommel,
- *                 Campbell Barton
- *
- * ***** END GPL LICENSE BLOCK *****
- *
  */
 
-/** \file blender/modifiers/intern/MOD_multires.c
- *  \ingroup modifiers
+/** \file \ingroup modifiers
  */
 
 
@@ -42,7 +30,6 @@
 #include "BLI_utildefines.h"
 
 #include "BKE_cdderivedmesh.h"
-#include "BKE_global.h"
 #include "BKE_mesh.h"
 #include "BKE_multires.h"
 #include "BKE_modifier.h"
@@ -65,6 +52,37 @@ static void initData(ModifierData *md)
 	mmd->totlvl = 0;
 	mmd->uv_smooth = SUBSURF_UV_SMOOTH_PRESERVE_CORNERS;
 	mmd->quality = 3;
+}
+
+static void copyData(const ModifierData *md_src, ModifierData *md_dst, const int flag)
+{
+	MultiresModifierData *mmd_dst = (MultiresModifierData *)md_dst;
+
+	modifier_copyData_generic(md_src, md_dst, flag);
+
+	mmd_dst->subdiv = NULL;
+}
+
+static void freeData(ModifierData *md)
+{
+	MultiresModifierData *mmd = (MultiresModifierData *) md;
+	if (mmd->subdiv != NULL) {
+		BKE_subdiv_free(mmd->subdiv);
+	}
+}
+
+/* Main goal of this function is to give usable subdivision surface descriptor
+ * which matches settings and topology. */
+static Subdiv *subdiv_descriptor_ensure(MultiresModifierData *mmd,
+                                        const SubdivSettings *subdiv_settings,
+                                        const Mesh *mesh)
+{
+	Subdiv *subdiv = BKE_subdiv_update_from_mesh(
+	        mmd->subdiv, subdiv_settings, mesh);
+	if (false) {
+		mmd->subdiv = subdiv;
+	}
+	return subdiv;
 }
 
 /* Subdivide into fully qualified mesh. */
@@ -137,16 +155,15 @@ static Mesh *applyModifier(ModifierData *md,
 	if (subdiv_settings.level == 0) {
 		return result;
 	}
-	/* TODO(sergey): Try to re-use subdiv when possible. */
-	Subdiv *subdiv = BKE_subdiv_new_from_mesh(&subdiv_settings, mesh);
+	BKE_subdiv_settings_validate_for_mesh(&subdiv_settings, mesh);
+	Subdiv *subdiv = subdiv_descriptor_ensure(mmd, &subdiv_settings, mesh);
 	if (subdiv == NULL) {
 		/* Happens on bad topology, ut also on empty input mesh. */
 		return result;
 	}
 	/* NOTE: Orco needs final coordinates on CPU side, which are expected to be
 	 * accessible via MVert. For this reason we do not evaluate multires to
-	 * grids when orco is requested.
-	 */
+	 * grids when orco is requested. */
 	const bool for_orco = (ctx->flag & MOD_APPLY_ORCO) != 0;
 	if ((ctx->object->mode & OB_MODE_SCULPT) && !for_orco) {
 		/* NOTE: CCG takes ownership over Subdiv. */
@@ -156,9 +173,10 @@ static Mesh *applyModifier(ModifierData *md,
 	}
 	else {
 		result = multires_as_mesh(mmd, ctx, mesh, subdiv);
-		/* TODO(sergey): Cache subdiv somehow. */
 		// BKE_subdiv_stats_print(&subdiv->stats);
-		BKE_subdiv_free(subdiv);
+		if (subdiv != mmd->subdiv) {
+			BKE_subdiv_free(subdiv);
+		}
 	}
 	return result;
 }
@@ -172,7 +190,7 @@ ModifierTypeInfo modifierType_Multires = {
 	                        eModifierTypeFlag_SupportsMapping |
 	                        eModifierTypeFlag_RequiresOriginalData,
 
-	/* copyData */          modifier_copyData_generic,
+	/* copyData */          copyData,
 
 	/* deformVerts_DM */    NULL,
 	/* deformMatrices_DM */ NULL,
@@ -188,7 +206,7 @@ ModifierTypeInfo modifierType_Multires = {
 
 	/* initData */          initData,
 	/* requiredDataMask */  NULL,
-	/* freeData */          NULL,
+	/* freeData */          freeData,
 	/* isDisabled */        NULL,
 	/* updateDepsgraph */   NULL,
 	/* dependsOnTime */     NULL,

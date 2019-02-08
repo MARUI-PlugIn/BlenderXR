@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,23 +12,16 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenlib/intern/array_store.c
- *  \ingroup bli
+/** \file \ingroup bli
  *  \brief Array storage to minimize duplication.
  *
  * This is done by splitting arrays into chunks and using copy-on-write (COW),
  * to de-duplicate chunks,
  * from the users perspective this is an implementation detail.
- *
- *
  * Overview
  * ========
- *
- *
  * Data Structure
  * --------------
  *
@@ -81,8 +72,6 @@
  *         All chunks, (reference counted, used by BChunkList).
  *         These have their headers hashed for reuse so we can quickly check for duplicates.
  * </pre>
- *
- *
  * De-Duplication
  * --------------
  *
@@ -473,7 +462,8 @@ static void bchunk_list_ensure_min_size_last(
 				BLI_mempool_free(bs_mem->chunk_ref, cref);
 			}
 			else {
-				/* If we always merge small slices, we should _almost_ never end up having very large chunks.
+				/* If we always merge small slices, we should _almost_
+				 * never end up having very large chunks.
 				 * Gradual expanding on contracting will cause this.
 				 *
 				 * if we do, the code below works (test by setting 'BCHUNK_SIZE_MAX_MUL = 1.2') */
@@ -1324,8 +1314,8 @@ static BChunkList *bchunk_list_from_data_merge(
 					BChunk *chunk_found = cref_found->link;
 
 					if (bchunk_data_compare(chunk_found, data, data_len, i_prev)) {
-						/* may be useful to remove table data, assuming we dont have repeating memory
-						 * where it would be useful to re-use chunks. */
+						/* may be useful to remove table data, assuming we dont have
+						 * repeating memory where it would be useful to re-use chunks. */
 						i += chunk_found->data_len;
 						bchunk_list_append(info, bs_mem, chunk_list, chunk_found);
 						/* chunk_found may be freed! */
@@ -1377,7 +1367,8 @@ static BChunkList *bchunk_list_from_data_merge(
 			BChunk *chunk = cref->link;
 			// BLI_assert(bchunk_data_compare(chunk, data, data_len, i_prev));
 			i_prev += chunk->data_len;
-			/* use simple since we assume the references chunks have already been sized correctly. */
+			/* use simple since we assume the references chunks
+			 * have already been sized correctly. */
 			bchunk_list_append_only(bs_mem, chunk_list, chunk);
 			ASSERT_CHUNKLIST_DATA(chunk_list, data);
 			cref = cref->next;

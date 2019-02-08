@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2005 Blender Foundation.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): Brecht Van Lommel.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/gpu/intern/gpu_buffers.c
- *  \ingroup gpu
+/** \file \ingroup gpu
  *
  * Mesh drawing using OpenGL VBO (Vertex Buffer Objects)
  */
@@ -41,7 +32,6 @@
 #include "BLI_math.h"
 #include "BLI_utildefines.h"
 #include "BLI_ghash.h"
-#include "BLI_threads.h"
 
 #include "DNA_meshdata_types.h"
 
@@ -465,13 +455,13 @@ void GPU_pbvh_grid_buffers_update(
 							CCG_grid_elem(key, grid, k, j + 1),
 							CCG_grid_elem(key, grid, k + 1, j + 1),
 							CCG_grid_elem(key, grid, k + 1, j),
-							CCG_grid_elem(key, grid, k, j)
+							CCG_grid_elem(key, grid, k, j),
 						};
 						float *co[4] = {
 						    CCG_elem_co(key, elems[0]),
 						    CCG_elem_co(key, elems[1]),
 						    CCG_elem_co(key, elems[2]),
-						    CCG_elem_co(key, elems[3])
+						    CCG_elem_co(key, elems[3]),
 						};
 
 						float fno[3];

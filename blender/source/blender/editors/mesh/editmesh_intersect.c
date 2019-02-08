@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,12 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/mesh/editmesh_intersect.c
- *  \ingroup edmesh
+/** \file \ingroup edmesh
  */
 
 #include "MEM_guardedalloc.h"
@@ -30,7 +25,6 @@
 #include "BLI_memarena.h"
 #include "BLI_stack.h"
 #include "BLI_buffer.h"
-#include "BLI_kdopbvh.h"
 #include "BLI_linklist_stack.h"
 
 #include "BKE_layer.h"
@@ -233,7 +227,7 @@ void MESH_OT_intersect(struct wmOperatorType *ot)
 		 "Self intersect selected faces"},
 		{ISECT_SEL_UNSEL, "SELECT_UNSELECT", 0, "Selected/Unselected",
 		 "Intersect selected with unselected faces"},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	static const EnumPropertyItem isect_separate_items[] = {
@@ -243,7 +237,7 @@ void MESH_OT_intersect(struct wmOperatorType *ot)
 		 "Cut into geometry keeping each side separate (Selected/Unselected only)"},
 		{ISECT_SEPARATE_NONE, "NONE", 0, "Merge",
 		 "Merge all geometry from the intersection"},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	/* identifiers */
@@ -329,7 +323,7 @@ void MESH_OT_intersect_boolean(struct wmOperatorType *ot)
 		{BMESH_ISECT_BOOLEAN_ISECT, "INTERSECT", 0, "Intersect", ""},
 		{BMESH_ISECT_BOOLEAN_UNION, "UNION", 0, "Union", ""},
 		{BMESH_ISECT_BOOLEAN_DIFFERENCE, "DIFFERENCE", 0, "Difference", ""},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	/* identifiers */
@@ -637,8 +631,9 @@ static BMEdge *bm_face_split_edge_find(
 					ok = false;
 				}
 				else if (found_other_face) {
-					/* double check that _all_ the faces used by v_pivot's edges are attached to this edge
-					 * otherwise don't attempt the split since it will give non-deterministic results */
+					/* double check that _all_ the faces used by v_pivot's edges are attached
+					 * to this edge otherwise don't attempt the split since it will give
+					 * non-deterministic results */
 					BMLoop *l_radial_iter = l_iter->radial_next;
 					int other_face_shared = 0;
 					if (l_radial_iter != l_iter) {
@@ -786,7 +781,8 @@ static int edbm_face_split_by_edges_exec(bContext *C, wmOperator *UNUSED(op))
 							dot_test = fabsf(dot_v3v3(e_dir, l->f->no));
 							if (dot_test < dot_best) {
 
-								/* check we're in the correct corner (works with convex loops too) */
+								/* check we're in the correct corner
+								 * (works with convex loops too) */
 								if (angle_signed_on_axis_v3v3v3_v3(l->prev->v->co, l->v->co, v_other->co, l->f->no) <
 								    angle_signed_on_axis_v3v3v3_v3(l->prev->v->co, l->v->co, l->next->v->co, l->f->no))
 								{
@@ -881,8 +877,8 @@ static int edbm_face_split_by_edges_exec(bContext *C, wmOperator *UNUSED(op))
 
 						for (int j = 0; j < 2; j++) {
 							BMVert *v_pivot = (&e->v1)[j];
-							/* checking that \a v_pivot isn't in the face
-							 * prevents attempting to splice the same vertex into an edge from multiple faces */
+							/* checking that \a v_pivot isn't in the face prevents attempting
+							 * to splice the same vertex into an edge from multiple faces */
 							if (!BM_vert_in_face(v_pivot, f)) {
 								float v_pivot_co[3];
 								float v_pivot_fac;
@@ -891,7 +887,8 @@ static int edbm_face_split_by_edges_exec(bContext *C, wmOperator *UNUSED(op))
 									v_pivot_co, &v_pivot_fac);
 
 								if (e_split) {
-									/* for degenerate cases this vertex may be in one of this edges radial faces */
+									/* for degenerate cases this vertex may be in one
+									 * of this edges radial faces */
 									if (!bm_vert_in_faces_radial(v_pivot, e_split, f)) {
 										BMEdge *e_new;
 										BMVert *v_new = BM_edge_split(bm, e_split, e_split->v1, &e_new, v_pivot_fac);

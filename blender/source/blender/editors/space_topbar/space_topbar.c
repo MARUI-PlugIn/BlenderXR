@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,14 +15,9 @@
  *
  * The Original Code is Copyright (C) 2017 Blender Foundation.
  * All rights reserved.
- *
- * Contributor(s): Blender Foundation
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/space_topbar/space_topbar.c
- *  \ingroup sptopbar
+/** \file \ingroup sptopbar
  */
 
 
@@ -239,7 +232,7 @@ static void recent_files_menu_register(void)
 
 	mt = MEM_callocN(sizeof(MenuType), "spacetype info menu recent files");
 	strcpy(mt->idname, "TOPBAR_MT_file_open_recent");
-	strcpy(mt->label, N_("Open Recent..."));
+	strcpy(mt->label, N_("Open Recent"));
 	strcpy(mt->translation_context, BLT_I18NCONTEXT_DEFAULT_BPYRNA);
 	mt->draw = recent_files_menu_draw;
 	WM_menutype_add(mt);

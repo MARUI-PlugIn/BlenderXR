@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,18 +12,13 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
 #ifndef __FREESTYLE_SILHOUETTE_H__
 #define __FREESTYLE_SILHOUETTE_H__
 
-/** \file blender/freestyle/intern/view_map/Silhouette.h
- *  \ingroup freestyle
+/** \file \ingroup freestyle
  *  \brief Classes to define a silhouette structure
- *  \author Stephane Grabli
- *  \date 25/03/2002
  */
 
 #include <float.h>
@@ -1415,8 +1408,8 @@ private:
 	vector<SVertex*> _verticesList;  // list of all vertices
 	vector<FEdge*> _edgesList;       // list of all edges
 	Id _Id;
-	const char *_Name;
-	const char *_LibraryPath;
+	string _Name;
+	string _LibraryPath;
 	BBox<Vec3r> _BBox;
 	vector<FrsMaterial> _FrsMaterials;
 
@@ -1436,8 +1429,6 @@ public:
 		userdata = NULL;
 		_importance = 0.0f;
 		_ViewShape = NULL;
-		_Name = NULL;
-		_LibraryPath = NULL;
 	}
 
 	/*! Copy constructor */
@@ -1891,13 +1882,13 @@ public:
 	}
 
 	/*! Returns the name of the Shape. */
-	inline const char *getName() const
+	inline const string& getName() const
 	{
 		return _Name;
 	}
 
 	/*! Returns the library path of the Shape. */
-	inline const char *getLibraryPath() const
+	inline const string& getLibraryPath() const
 	{
 		return _LibraryPath;
 	}
@@ -1910,13 +1901,13 @@ public:
 	}
 
 	/*! Sets the name of the shape.*/
-	inline void setName(const char *name)
+	inline void setName(const string& name)
 	{
 		_Name = name;
 	}
 
 	/*! Sets the library path of the shape.*/
-	inline void setLibraryPath(const char *path)
+	inline void setLibraryPath(const string& path)
 	{
 		_LibraryPath = path;
 	}

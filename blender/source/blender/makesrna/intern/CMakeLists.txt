@@ -16,11 +16,6 @@
 #
 # The Original Code is Copyright (C) 2006, Blender Foundation
 # All rights reserved.
-#
-# The Original Code is: all of this file.
-#
-# Contributor(s): Jacques Beaurain.
-#
 # ***** END GPL LICENSE BLOCK *****
 
 if(CMAKE_COMPILER_IS_GNUCC)
@@ -112,7 +107,6 @@ set(APISRC
 	rna_material_api.c
 	rna_mesh_api.c
 	rna_meta_api.c
-	rna_texture_api.c
 	rna_object_api.c
 	rna_pose_api.c
 	rna_scene_api.c
@@ -120,6 +114,7 @@ set(APISRC
 	rna_sound_api.c
 	rna_space_api.c
 	rna_text_api.c
+	rna_texture_api.c
 	rna_ui_api.c
 	rna_vfont_api.c
 	rna_wm_api.c

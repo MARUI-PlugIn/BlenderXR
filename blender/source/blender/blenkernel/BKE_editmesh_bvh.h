@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,27 +15,27 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file BKE_editmesh_bvh.h
- *  \ingroup bke
+/** \file \ingroup bke
  */
 
 #ifndef __BKE_EDITMESH_BVH_H__
 #define __BKE_EDITMESH_BVH_H__
 
-struct BMEditMesh;
-struct BMesh;
-struct BMFace;
-struct BMVert;
-struct BMLoop;
+#if WITH_VR
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+#endif
+
 struct BMBVHTree;
+struct BMEditMesh;
+struct BMFace;
+struct BMLoop;
+struct BMVert;
+struct BMesh;
 struct BVHTree;
 
 typedef struct BMBVHTree BMBVHTree;
@@ -78,5 +76,11 @@ enum {
 	BMBVH_RESPECT_SELECT  = (1 << 1), /* restrict to hidden geometry (overrides BMBVH_RESPECT_HIDDEN) */
 	BMBVH_RESPECT_HIDDEN  = (1 << 2)  /* omit hidden geometry */
 };
+
+#if WITH_VR
+#ifdef __cplusplus
+}
+#endif
+#endif
 
 #endif  /* __BKE_EDITMESH_BVH_H__ */

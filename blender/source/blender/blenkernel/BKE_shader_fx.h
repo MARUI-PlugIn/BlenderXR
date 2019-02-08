@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,38 +12,33 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is: all of this file.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 #ifndef __BKE_SHADER_FX_H__
 #define __BKE_SHADER_FX_H__
 
-/** \file BKE_shader_fx.h
- *  \ingroup bke
+/** \file \ingroup bke
  */
 
 #include "DNA_shader_fx_types.h"     /* needed for all enum typdefs */
 #include "BLI_compiler_attrs.h"
 #include "BKE_customdata.h"
 
-struct ID;
+struct DepsNodeHandle;
 struct Depsgraph;
 struct DerivedMesh;
+struct ID;
+struct ListBase;
+struct Main;
 struct Mesh;
+struct ModifierUpdateDepsgraphContext;
 struct Object;
 struct Scene;
-struct ViewLayer;
-struct ListBase;
-struct bArmature;
-struct Main;
 struct ShaderFxData;
-struct DepsNodeHandle;
-struct bGPDlayer;
+struct ViewLayer;
+struct bArmature;
 struct bGPDframe;
+struct bGPDlayer;
 struct bGPDstroke;
-struct ModifierUpdateDepsgraphContext;
 
 #define SHADER_FX_ACTIVE(_fx, _is_render) (((_fx->mode & eShaderFxMode_Realtime) && (_is_render == false)) || \
 												  ((_fx->mode & eShaderFxMode_Render) && (_is_render == true)))

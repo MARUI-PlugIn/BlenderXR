@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenkernel/intern/scene.c
- *  \ingroup bke
+/** \file \ingroup bke
  */
 
 
@@ -73,7 +64,6 @@
 #include "BKE_editmesh.h"
 #include "BKE_fcurve.h"
 #include "BKE_freestyle.h"
-#include "BKE_global.h"
 #include "BKE_gpencil.h"
 #include "BKE_icons.h"
 #include "BKE_idprop.h"
@@ -236,7 +226,7 @@ void BKE_toolsettings_free(ToolSettings *toolsettings)
 
 /**
  * Only copy internal data of Scene ID from source to already allocated/initialized destination.
- * You probably nerver want to use that directly, use id_copy or BKE_id_copy_ex for typical needs.
+ * You probably never want to use that directly, use BKE_id_copy or BKE_id_copy_ex for typical needs.
  *
  * WARNING! This function will not handle ID user count!
  *
@@ -273,7 +263,7 @@ void BKE_scene_copy_data(Main *bmain, Scene *sce_dst, const Scene *sce_src, cons
 	if (sce_src->nodetree) {
 		/* Note: nodetree is *not* in bmain, however this specific case is handled at lower level
 		 *       (see BKE_libblock_copy_ex()). */
-		BKE_id_copy_ex(bmain, (ID *)sce_src->nodetree, (ID **)&sce_dst->nodetree, flag, false);
+		BKE_id_copy_ex(bmain, (ID *)sce_src->nodetree, (ID **)&sce_dst->nodetree, flag);
 		BKE_libblock_relink_ex(bmain, sce_dst->nodetree, (void *)(&sce_src->id), &sce_dst->id, false);
 	}
 
@@ -396,7 +386,7 @@ Scene *BKE_scene_copy(Main *bmain, Scene *sce, int type)
 		return sce_copy;
 	}
 	else {
-		BKE_id_copy_ex(bmain, (ID *)sce, (ID **)&sce_copy, LIB_ID_COPY_ACTIONS, false);
+		BKE_id_copy_ex(bmain, (ID *)sce, (ID **)&sce_copy, LIB_ID_COPY_ACTIONS);
 		id_us_min(&sce_copy->id);
 		id_us_ensure_real(&sce_copy->id);
 
@@ -408,8 +398,11 @@ Scene *BKE_scene_copy(Main *bmain, Scene *sce, int type)
 				for (FreestyleLineSet *lineset = view_layer_dst->freestyle_config.linesets.first; lineset; lineset = lineset->next) {
 					if (lineset->linestyle) {
 						id_us_min(&lineset->linestyle->id);
-						/* XXX Not copying anim/actions here? */
-						BKE_id_copy_ex(bmain, (ID *)lineset->linestyle, (ID **)&lineset->linestyle, 0, false);
+						BKE_id_copy_ex(
+						            bmain,
+						            (ID *)lineset->linestyle,
+						            (ID **)&lineset->linestyle,
+						            LIB_ID_COPY_ACTIONS);
 					}
 				}
 			}
@@ -417,17 +410,16 @@ Scene *BKE_scene_copy(Main *bmain, Scene *sce, int type)
 			/* Full copy of world (included animations) */
 			if (sce_copy->world) {
 				id_us_min(&sce_copy->world->id);
-				BKE_id_copy_ex(bmain, (ID *)sce_copy->world, (ID **)&sce_copy->world, LIB_ID_COPY_ACTIONS, false);
+				BKE_id_copy_ex(bmain, (ID *)sce_copy->world, (ID **)&sce_copy->world, LIB_ID_COPY_ACTIONS);
 			}
 
 			/* Collections */
 			BKE_collection_copy_full(bmain, sce_copy->master_collection);
 
 			/* Full copy of GreasePencil. */
-			/* XXX Not copying anim/actions here? */
 			if (sce_copy->gpd) {
 				id_us_min(&sce_copy->gpd->id);
-				BKE_id_copy_ex(bmain, (ID *)sce_copy->gpd, (ID **)&sce_copy->gpd, 0, false);
+				BKE_id_copy_ex(bmain, (ID *)sce_copy->gpd, (ID **)&sce_copy->gpd, LIB_ID_COPY_ACTIONS);
 			}
 		}
 		else {
@@ -590,6 +582,7 @@ void BKE_scene_init(Scene *sce)
 	 */
 	sce->r.color_mgt_flag |= R_COLOR_MANAGEMENT;
 
+	sce->r.gauss = 1.5;
 	sce->r.dither_intensity = 1.0f;
 
 	sce->r.bake_mode = 0;
@@ -714,6 +707,8 @@ void BKE_scene_init(Scene *sce)
 	        CURVE_PRESET_BELL,
 	        CURVEMAP_SLOPE_POSITIVE);
 
+	sce->toolsettings->gp_sculpt.guide.spacing = 20.0f;
+
 	sce->physics_settings.gravity[0] = 0.0f;
 	sce->physics_settings.gravity[1] = 0.0f;
 	sce->physics_settings.gravity[2] = -9.81f;
@@ -779,7 +774,8 @@ void BKE_scene_init(Scene *sce)
 
 	BKE_color_managed_display_settings_init(&sce->display_settings);
 	BKE_color_managed_view_settings_init_render(&sce->view_settings,
-	                                            &sce->display_settings);
+	                                            &sce->display_settings,
+	                                            "Filmic");
 	BLI_strncpy(sce->sequencer_colorspace_settings.name, colorspace_name,
 	            sizeof(sce->sequencer_colorspace_settings.name));
 
@@ -926,12 +922,12 @@ void BKE_scene_init(Scene *sce)
 	copy_v3_fl(sce->eevee.bloom_color, 1.0f);
 	sce->eevee.bloom_threshold = 0.8f;
 	sce->eevee.bloom_knee = 0.5f;
-	sce->eevee.bloom_intensity = 0.8f;
+	sce->eevee.bloom_intensity = 0.05f;
 	sce->eevee.bloom_radius = 6.5f;
-	sce->eevee.bloom_clamp = 1.0f;
+	sce->eevee.bloom_clamp = 0.0f;
 
 	sce->eevee.motion_blur_samples = 8;
-	sce->eevee.motion_blur_shutter = 1.0f;
+	sce->eevee.motion_blur_shutter = 0.5f;
 
 	sce->eevee.shadow_method = SHADOW_ESM;
 	sce->eevee.shadow_cube_size = 512;
@@ -1400,7 +1396,7 @@ static void scene_armature_depsgraph_workaround(Main *bmain, Depsgraph *depsgrap
 		return;
 	}
 	for (ob = bmain->object.first; ob; ob = ob->id.next) {
-		if (ob->type == OB_ARMATURE && ob->adt && ob->adt->recalc & ADT_RECALC_ANIM) {
+		if (ob->type == OB_ARMATURE && ob->adt) {
 			if (ob->pose == NULL || (ob->pose->flag & POSE_RECALC)) {
 				BKE_pose_rebuild(bmain, ob, ob->data, true);
 			}

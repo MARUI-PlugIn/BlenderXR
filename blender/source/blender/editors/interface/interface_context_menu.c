@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,12 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/interface/interface_context_menu.c
- *  \ingroup edinterface
+/** \file \ingroup edinterface
  *
  * Generic context popup menus.
  */
@@ -54,7 +49,8 @@
 #include "WM_api.h"
 #include "WM_types.h"
 
-/* This hack is needed because we don't have a good way to re-reference keymap items once added: T42944 */
+/* This hack is needed because we don't have a good way to
+ * re-reference keymap items once added: T42944 */
 #define USE_KEYMAP_ADD_HACK
 
 /* -------------------------------------------------------------------- */
@@ -135,7 +131,8 @@ static uiBlock *menu_add_shortcut(bContext *C, ARegion *ar, void *arg)
 	IDProperty *prop = (but->opptr) ? but->opptr->data : NULL;
 	int kmi_id;
 
-	/* XXX this guess_opname can potentially return a different keymap than being found on adding later... */
+	/* XXX this guess_opname can potentially return a different keymap
+	 * than being found on adding later... */
 	km = WM_keymap_guess_opname(C, but->optype->idname);
 	kmi = WM_keymap_add_item(km, but->optype->idname, AKEY, KM_PRESS, 0, 0);
 	kmi_id = kmi->id;
@@ -407,7 +404,8 @@ bool ui_popup_context_menu_for_button(bContext *C, uiBut *but)
 		bool is_idprop = RNA_property_is_idprop(prop);
 		bool is_set = RNA_property_is_set(ptr, prop);
 
-		/* second slower test, saved people finding keyframe items in menus when its not possible */
+		/* second slower test,
+		 * saved people finding keyframe items in menus when its not possible */
 		if (is_anim)
 			is_anim = RNA_property_path_from_ID_check(&but->rnapoin, but->rnaprop);
 
@@ -418,7 +416,8 @@ bool ui_popup_context_menu_for_button(bContext *C, uiBut *but)
 		const int override_status = RNA_property_static_override_status(ptr, prop, -1);
 		const bool is_overridable = (override_status & RNA_OVERRIDE_STATUS_OVERRIDABLE) != 0;
 
-		/* Set the (button_pointer, button_prop) and pointer data for Python access to the hovered ui element. */
+		/* Set the (button_pointer, button_prop)
+		 * and pointer data for Python access to the hovered ui element. */
 		uiLayoutSetContextFromBut(layout, but);
 
 		/* Keyframes */
@@ -675,7 +674,8 @@ bool ui_popup_context_menu_for_button(bContext *C, uiBut *but)
 		}
 	}
 
-	/* Pointer properties and string properties with prop_search support jumping to target object/bone. */
+	/* Pointer properties and string properties with
+	 * prop_search support jumping to target object/bone. */
 	if (but->rnapoin.data && but->rnaprop) {
 		const PropertyType type = RNA_property_type(but->rnaprop);
 
@@ -691,25 +691,36 @@ bool ui_popup_context_menu_for_button(bContext *C, uiBut *but)
 		uiBlock *block = uiLayoutGetBlock(layout);
 		const int w = uiLayoutGetWidth(layout);
 		uiBut *but2;
+		bool item_found = false;
 
-		but2 = uiDefIconTextBut(
-		        block, UI_BTYPE_BUT, 0, ICON_MENU_PANEL,
-		        CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Add to Quick Favorites"),
-		        0, 0, w, UI_UNIT_Y, NULL, 0, 0, 0, 0,
-		        "Add to a user defined context menu (stored in the user preferences)");
-		UI_but_func_set(but2, popup_user_menu_add_or_replace_func, but, NULL);
-
-		bUserMenu *um = ED_screen_user_menu_find(C);
-		if (um) {
+		uint um_array_len;
+		bUserMenu **um_array = ED_screen_user_menus_find(C, &um_array_len);
+		for (int um_index = 0; um_index < um_array_len; um_index++) {
+			bUserMenu *um = um_array[um_index];
+			if (um == NULL) {
+				continue;
+			}
 			bUserMenuItem *umi = ui_but_user_menu_find(C, but, um);
 			if (umi != NULL) {
 				but2 = uiDefIconTextBut(
-				        block, UI_BTYPE_BUT, 0, ICON_BLANK1,
+				        block, UI_BTYPE_BUT, 0, ICON_MENU_PANEL,
 				        CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Remove from Quick Favorites"),
 				        0, 0, w, UI_UNIT_Y, NULL, 0, 0, 0, 0, "");
 				UI_but_func_set(but2, popup_user_menu_remove_func, um, umi);
+				item_found = true;
 			}
 		}
+		MEM_freeN(um_array);
+
+		if (!item_found) {
+			but2 = uiDefIconTextBut(
+			        block, UI_BTYPE_BUT, 0, ICON_MENU_PANEL,
+			        CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Add to Quick Favorites"),
+			        0, 0, w, UI_UNIT_Y, NULL, 0, 0, 0, 0,
+			        "Add to a user defined context menu (stored in the user preferences)");
+			UI_but_func_set(but2, popup_user_menu_add_or_replace_func, but, NULL);
+		}
+
 		uiItemS(layout);
 	}
 

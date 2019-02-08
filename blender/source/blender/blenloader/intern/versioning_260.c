@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,15 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Blender Foundation
- *
- * ***** END GPL LICENSE BLOCK *****
- *
  */
 
-/** \file blender/blenloader/intern/versioning_260.c
- *  \ingroup blenloader
+/** \file \ingroup blenloader
  */
 
 #include "BLI_utildefines.h"
@@ -2402,6 +2394,7 @@ void blo_do_versions_260(FileData *fd, Library *UNUSED(lib), Main *bmain)
 					SCULPT_SYMM_X = (1 << 0),
 					SCULPT_SYMM_Y = (1 << 1),
 					SCULPT_SYMM_Z = (1 << 2),
+					SCULPT_SYMMETRY_FEATHER = (1 << 6),
 				};
 				int symmetry_flags = sd->flags & 7;
 

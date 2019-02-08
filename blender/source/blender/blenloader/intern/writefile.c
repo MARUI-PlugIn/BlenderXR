@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,15 +15,9 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- *
- * Contributor(s): Blender Foundation
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenloader/intern/writefile.c
- *  \ingroup blenloader
+/** \file \ingroup blenloader
  */
 
 
@@ -58,8 +50,6 @@
  * Almost all data in Blender are structures. Each struct saved
  * gets a BHead header.  With BHead the struct can be linked again
  * and compared with StructDNA .
- *
- *
  * WRITE
  * =====
  *
@@ -157,7 +147,6 @@
 #include "MEM_guardedalloc.h" // MEM_freeN
 #include "BLI_bitmap.h"
 #include "BLI_blenlib.h"
-#include "BLI_linklist.h"
 #include "BLI_mempool.h"
 
 #include "BKE_action.h"
@@ -188,10 +177,11 @@
 #endif
 
 
-#include "BLO_writefile.h"
+#include "BLO_blend_defs.h"
+#include "BLO_blend_validate.h"
 #include "BLO_readfile.h"
 #include "BLO_undofile.h"
-#include "BLO_blend_defs.h"
+#include "BLO_writefile.h"
 
 #include "readfile.h"
 
@@ -1341,11 +1331,11 @@ static const char *ptcache_data_struct[] = {
 	"", // BPHYS_DATA_AVELOCITY / BPHYS_DATA_XCONST */
 	"", // BPHYS_DATA_SIZE:
 	"", // BPHYS_DATA_TIMES:
-	"BoidData" // case BPHYS_DATA_BOIDS:
+	"BoidData", // case BPHYS_DATA_BOIDS:
 };
 static const char *ptcache_extra_struct[] = {
 	"",
-	"ParticleSpring"
+	"ParticleSpring",
 };
 static void write_pointcaches(WriteData *wd, ListBase *ptcaches)
 {
@@ -3791,7 +3781,7 @@ static void write_global(WriteData *wd, int fileflags, Main *mainvar)
 	fg.cur_view_layer = view_layer;
 
 	/* prevent to save this, is not good convention, and feature with concerns... */
-	fg.fileflags = (fileflags & ~G_FILE_FLAGS_RUNTIME);
+	fg.fileflags = (fileflags & ~G_FILE_FLAG_ALL_RUNTIME);
 
 	fg.globalf = G.f;
 	BLI_strncpy(fg.filename, mainvar->name, sizeof(fg.filename));
@@ -4128,8 +4118,9 @@ bool BLO_write_file(
 	const int path_list_flag = (BKE_BPATH_TRAVERSE_SKIP_LIBRARY | BKE_BPATH_TRAVERSE_SKIP_MULTIFILE);
 
 	if (G.debug & G_DEBUG_IO && mainvar->lock != NULL) {
-		BKE_report(reports, RPT_INFO, "Checking sanity of current .blend file *BEFORE* save to disk.");
+		BKE_report(reports, RPT_INFO, "Checking sanity of current .blend file *BEFORE* save to disk");
 		BLO_main_validate_libraries(mainvar, reports);
+		BLO_main_validate_shapekeys(mainvar, reports);
 	}
 
 	/* open temporary file, so we preserve the original in case we crash */
@@ -4217,7 +4208,7 @@ bool BLO_write_file(
 	}
 
 	if (G.debug & G_DEBUG_IO && mainvar->lock != NULL) {
-		BKE_report(reports, RPT_INFO, "Checking sanity of current .blend file *AFTER* save to disk.");
+		BKE_report(reports, RPT_INFO, "Checking sanity of current .blend file *AFTER* save to disk");
 		BLO_main_validate_libraries(mainvar, reports);
 	}
 

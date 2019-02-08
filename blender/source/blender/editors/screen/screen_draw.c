@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,12 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/screen/screen_draw.c
- *  \ingroup edscr
+/** \file \ingroup edscr
  */
 
 #include "ED_screen.h"
@@ -564,7 +559,7 @@ static void screen_preview_draw_areas(const bScreen *screen, const float scale[2
 			.xmin = sa->totrct.xmin * scale[0] + ofs_h,
 			.xmax = sa->totrct.xmax * scale[0] - ofs_h,
 			.ymin = sa->totrct.ymin * scale[1] + ofs_h,
-			.ymax = sa->totrct.ymax * scale[1] - ofs_h
+			.ymax = sa->totrct.ymax * scale[1] - ofs_h,
 		};
 
 		immBegin(GPU_PRIM_TRI_FAN, 4);

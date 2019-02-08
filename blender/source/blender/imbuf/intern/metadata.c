@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2005 Blender Foundation
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): Austin Benesh. Ton Roosendaal.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/imbuf/intern/metadata.c
- *  \ingroup imbuf
+/** \file \ingroup imbuf
  */
 
 
@@ -110,4 +101,14 @@ void IMB_metadata_set_field(struct IDProperty *metadata, const char *key, const 
 	}
 
 	IDP_AssignString(prop, value, METADATA_MAX_VALUE_LENGTH);
+}
+
+void IMB_metadata_foreach(struct ImBuf *ibuf, IMBMetadataForeachCb callback, void *userdata)
+{
+	if (ibuf->metadata == NULL) {
+		return;
+	}
+	for (IDProperty *prop = ibuf->metadata->data.group.first; prop != NULL; prop = prop->next) {
+		callback(prop->name, IDP_String(prop), userdata);
+	}
 }

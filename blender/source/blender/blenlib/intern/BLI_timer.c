@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,12 +15,9 @@
  *
  * The Original Code is Copyright (C) 2018 Blender Foundation.
  * All rights reserved.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenlib/intern/BLI_timer.c
- *  \ingroup bli
+/** \file \ingroup bli
  */
 
 #include "BLI_timer.h"
@@ -50,7 +45,7 @@ typedef struct TimerContainer {
 	bool file_load_cb_registered;
 } TimerContainer;
 
-static TimerContainer GlobalTimer = { 0 };
+static TimerContainer GlobalTimer = {{0}};
 
 static void ensure_callback_is_registered(void);
 
@@ -157,8 +152,8 @@ void BLI_timer_free()
 	remove_tagged_functions();
 }
 
-struct Main;
 struct ID;
+struct Main;
 static void remove_non_persistent_functions(struct Main *UNUSED(_1), struct ID *UNUSED(_2), void *UNUSED(_3))
 {
 	LISTBASE_FOREACH(TimedFunction *, timed_func, &GlobalTimer.funcs) {

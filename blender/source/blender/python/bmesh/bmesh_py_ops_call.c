@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,14 +15,9 @@
  *
  * The Original Code is Copyright (C) 2012 Blender Foundation.
  * All rights reserved.
- *
- * Contributor(s): Campbell Barton
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/python/bmesh/bmesh_py_ops_call.c
- *  \ingroup pybmesh
+/** \file \ingroup pybmesh
  *
  * This file provides __call__ aka BPy_BMO_call for
  * the bmesh operator and has been given its own file
@@ -173,7 +166,7 @@ static int bpy_slot_from_py(
 		{
 			if (slot->slot_subtype.intg == BMO_OP_SLOT_SUBTYPE_INT_ENUM) {
 				int enum_val = -1;
-				PyC_FlagSet *items = (PyC_FlagSet *)slot->data.enum_flags;
+				PyC_FlagSet *items = (PyC_FlagSet *)slot->data.enum_data.flags;
 				const char *enum_str = _PyUnicode_AsString(value);
 
 				if (enum_str == NULL) {
@@ -191,7 +184,7 @@ static int bpy_slot_from_py(
 			}
 			else if (slot->slot_subtype.intg == BMO_OP_SLOT_SUBTYPE_INT_FLAG) {
 				int flag = 0;
-				PyC_FlagSet *items = (PyC_FlagSet *)slot->data.enum_flags;
+				PyC_FlagSet *items = (PyC_FlagSet *)slot->data.enum_data.flags;
 
 				if (PyC_FlagSet_ToBitfield(items, value, &flag, slot_name) == -1) {
 					return -1;

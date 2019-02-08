@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,14 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Dalai Felinto
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenkernel/intern/collection.c
- *  \ingroup bke
+/** \file \ingroup bke
  */
 
 #include <string.h>
@@ -33,7 +26,6 @@
 #include "BLI_math_base.h"
 #include "BLI_threads.h"
 #include "BLT_translation.h"
-#include "BLI_string_utils.h"
 
 #include "BKE_collection.h"
 #include "BKE_icons.h"
@@ -173,7 +165,7 @@ bool BKE_collection_delete(Main *bmain, Collection *collection, bool hierarchy)
 		}
 	}
 
-	BKE_libblock_delete(bmain, collection);
+	BKE_id_delete(bmain, collection);
 
 	BKE_main_collection_sync(bmain);
 
@@ -184,7 +176,7 @@ bool BKE_collection_delete(Main *bmain, Collection *collection, bool hierarchy)
 
 /**
  * Only copy internal data of Collection ID from source to already allocated/initialized destination.
- * You probably nerver want to use that directly, use id_copy or BKE_id_copy_ex for typical needs.
+ * You probably never want to use that directly, use BKE_id_copy or BKE_id_copy_ex for typical needs.
  *
  * WARNING! This function will not handle ID user count!
  *
@@ -231,7 +223,7 @@ Collection *BKE_collection_copy(Main *bmain, Collection *parent, Collection *col
 	}
 
 	Collection *collection_new;
-	BKE_id_copy_ex(bmain, &collection->id, (ID **)&collection_new, 0, false);
+	BKE_id_copy(bmain, &collection->id, (ID **)&collection_new);
 	id_us_min(&collection_new->id);  /* Copying add one user by default, need to get rid of that one. */
 
 	/* Optionally add to parent. */
@@ -534,7 +526,7 @@ static bool collection_object_remove(Main *bmain, Collection *collection, Object
 	BKE_collection_object_cache_free(collection);
 
 	if (free_us) {
-		BKE_libblock_free_us(bmain, ob);
+		BKE_id_free_us(bmain, ob);
 	}
 	else {
 		id_us_min(&ob->id);
@@ -776,8 +768,9 @@ bool BKE_collection_is_in_scene(Collection *collection)
 
 void BKE_collections_after_lib_link(Main *bmain)
 {
-	/* Update view layer collections to match any changes in linked
-	 * collections after file load. */
+	/* Need to update layer collections because objects might have changed
+	 * in linked files, and because undo push does not include updated base
+	 * flags since those are refreshed after the operator completes. */
 	BKE_main_collection_sync(bmain);
 }
 

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,14 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Joseph Eagar, Howard Trickey, Campbell Barton
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/mesh/editmesh_bevel.c
- *  \ingroup edmesh
+/** \file \ingroup edmesh
  */
 
 #include "MEM_guardedalloc.h"
@@ -30,7 +23,6 @@
 
 #include "BLI_string.h"
 #include "BLI_math.h"
-#include "BLI_linklist_stack.h"
 
 #include "BLT_translation.h"
 
@@ -40,6 +32,8 @@
 #include "BKE_unit.h"
 #include "BKE_layer.h"
 #include "BKE_mesh.h"
+
+#include "DNA_mesh_types.h"
 
 #include "RNA_define.h"
 #include "RNA_access.h"
@@ -88,7 +82,8 @@ typedef struct {
 	float initial_length[NUM_VALUE_KINDS];
 	float scale[NUM_VALUE_KINDS];
 	NumInput num_input[NUM_VALUE_KINDS];
-	float shift_value[NUM_VALUE_KINDS]; /* The current value when shift is pressed. Negative when shift not active. */
+	/** The current value when shift is pressed. Negative when shift not active. */
+	float shift_value[NUM_VALUE_KINDS];
 	bool is_modal;
 
 	BevelObjectStore *ob_store;
@@ -136,98 +131,6 @@ static void edbm_bevel_update_header(bContext *C, wmOperator *op)
 	}
 }
 
-static void bevel_harden_normals(BMEditMesh *em, BMOperator *bmop, float face_strength)
-{
-	BKE_editmesh_lnorspace_update(em);
-	BM_normals_loops_edges_tag(em->bm, true);
-	const int cd_clnors_offset = CustomData_get_offset(&em->bm->ldata, CD_CUSTOMLOOPNORMAL);
-
-	BMesh *bm = em->bm;
-	BMFace *f;
-	BMLoop *l, *l_cur, *l_first;
-	BMIter fiter;
-
-	BMOpSlot *nslot = BMO_slot_get(bmop->slots_out, "normals.out");		/* Per vertex normals depending on hn_mode */
-
-	/* Similar functionality to bm_mesh_loops_calc_normals... Edges that can be smoothed are tagged */
-	BM_ITER_MESH(f, &fiter, bm, BM_FACES_OF_MESH) {
-		l_cur = l_first = BM_FACE_FIRST_LOOP(f);
-		do {
-			if ((BM_elem_flag_test(l_cur->v, BM_ELEM_SELECT)) &&
-			    ((!BM_elem_flag_test(l_cur->e, BM_ELEM_TAG)) ||
-			     (!BM_elem_flag_test(l_cur, BM_ELEM_TAG) && BM_loop_check_cyclic_smooth_fan(l_cur))))
-			{
-				/* Both adjacent loops are sharp, set clnor to face normal */
-				if (!BM_elem_flag_test(l_cur->e, BM_ELEM_TAG) && !BM_elem_flag_test(l_cur->prev->e, BM_ELEM_TAG)) {
-					const int loop_index = BM_elem_index_get(l_cur);
-					short *clnors = BM_ELEM_CD_GET_VOID_P(l_cur, cd_clnors_offset);
-					BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[loop_index], f->no, clnors);
-				}
-				else {
-					/* Find next corresponding sharp edge in this smooth fan */
-					BMVert *v_pivot = l_cur->v;
-					float *calc_n = BLI_ghash_lookup(nslot->data.ghash, v_pivot);
-
-					BMEdge *e_next;
-					const BMEdge *e_org = l_cur->e;
-					BMLoop *lfan_pivot, *lfan_pivot_next;
-
-					lfan_pivot = l_cur;
-					e_next = lfan_pivot->e;
-					BLI_SMALLSTACK_DECLARE(loops, BMLoop *);
-					float cn_wght[3] = { 0.0f, 0.0f, 0.0f }, cn_unwght[3] = { 0.0f, 0.0f, 0.0f };
-
-					/* Fan through current vert and accumulate normals and loops */
-					while (true) {
-						lfan_pivot_next = BM_vert_step_fan_loop(lfan_pivot, &e_next);
-						if (lfan_pivot_next) {
-							BLI_assert(lfan_pivot_next->v == v_pivot);
-						}
-						else {
-							e_next = (lfan_pivot->e == e_next) ? lfan_pivot->prev->e : lfan_pivot->e;
-						}
-
-						BLI_SMALLSTACK_PUSH(loops, lfan_pivot);
-						float cur[3];
-						mul_v3_v3fl(cur, lfan_pivot->f->no, BM_face_calc_area(lfan_pivot->f));
-						add_v3_v3(cn_wght, cur);
-
-						if (BM_elem_flag_test(lfan_pivot->f, BM_ELEM_SELECT))
-							add_v3_v3(cn_unwght, cur);
-
-						if (!BM_elem_flag_test(e_next, BM_ELEM_TAG) || (e_next == e_org)) {
-							break;
-						}
-						lfan_pivot = lfan_pivot_next;
-					}
-
-					normalize_v3(cn_wght);
-					normalize_v3(cn_unwght);
-					if (calc_n) {
-						mul_v3_fl(cn_wght, face_strength);
-						mul_v3_fl(calc_n, 1.0f - face_strength);
-						add_v3_v3(calc_n, cn_wght);
-						normalize_v3(calc_n);
-					}
-					while ((l = BLI_SMALLSTACK_POP(loops))) {
-						const int l_index = BM_elem_index_get(l);
-						short *clnors = BM_ELEM_CD_GET_VOID_P(l, cd_clnors_offset);
-						if (calc_n) {
-							BKE_lnor_space_custom_normal_to_data(
-							        bm->lnor_spacearr->lspacearr[l_index], calc_n, clnors);
-						}
-						else {
-							BKE_lnor_space_custom_normal_to_data(
-							        bm->lnor_spacearr->lspacearr[l_index], cn_unwght, clnors);
-						}
-					}
-					BLI_ghash_remove(nslot->data.ghash, v_pivot, NULL, MEM_freeN);
-				}
-			}
-		} while ((l_cur = l_cur->next) != l_first);
-	}
-}
-
 static bool edbm_bevel_init(bContext *C, wmOperator *op, const bool is_modal)
 {
 	Scene *scene = CTX_data_scene(C);
@@ -245,7 +148,8 @@ static bool edbm_bevel_init(bContext *C, wmOperator *op, const bool is_modal)
 
 	{
 		uint ob_store_len = 0;
-		Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &ob_store_len);
+		Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(
+			view_layer, CTX_wm_view3d(C), &ob_store_len);
 		opdata->ob_store = MEM_malloc_arrayN(ob_store_len, sizeof(*opdata->ob_store), __func__);
 		for (uint ob_index = 0; ob_index < ob_store_len; ob_index++) {
 			Object *obedit = objects[ob_index];
@@ -279,7 +183,8 @@ static bool edbm_bevel_init(bContext *C, wmOperator *op, const bool is_modal)
 		if (i == OFFSET_VALUE) {
 			opdata->num_input[i].unit_sys = scene->unit.system;
 		}
-		opdata->num_input[i].unit_type[0] = B_UNIT_NONE;  /* Not sure this is a factor or a unit? */
+		/* Not sure this is a factor or a unit? */
+		opdata->num_input[i].unit_type[0] = B_UNIT_NONE;
 	}
 
 	/* avoid the cost of allocating a bm copy */
@@ -320,9 +225,11 @@ static bool edbm_bevel_calc(wmOperator *op)
 	const bool loop_slide = RNA_boolean_get(op->ptr, "loop_slide");
 	const bool mark_seam = RNA_boolean_get(op->ptr, "mark_seam");
 	const bool mark_sharp = RNA_boolean_get(op->ptr, "mark_sharp");
-	const float hn_strength = RNA_float_get(op->ptr, "strength");
-	const int hnmode = RNA_enum_get(op->ptr, "hnmode");
-
+	const bool harden_normals = RNA_boolean_get(op->ptr, "harden_normals");
+	const int face_strength_mode = RNA_enum_get(op->ptr, "face_strength_mode");
+	const int miter_outer = RNA_enum_get(op->ptr, "miter_outer");
+	const int miter_inner = RNA_enum_get(op->ptr, "miter_inner");
+	const float spread = RNA_float_get(op->ptr, "spread");
 
 	for (uint ob_index = 0; ob_index < opdata->ob_store_len; ob_index++) {
 		em = opdata->ob_store[ob_index].em;
@@ -336,12 +243,22 @@ static bool edbm_bevel_calc(wmOperator *op)
 			material = CLAMPIS(material, -1, em->ob->totcol - 1);
 		}
 
+		Mesh *me = em->ob->data;
+
+		if (harden_normals && !(me->flag & ME_AUTOSMOOTH)) {
+			/* harden_normals only has a visible effect if autosmooth is on, so turn it on */
+			me->flag |= ME_AUTOSMOOTH;
+		}
+
 		EDBM_op_init(
 		        em, &bmop, op,
-		        "bevel geom=%hev offset=%f segments=%i vertex_only=%b offset_type=%i profile=%f clamp_overlap=%b "
-		        "material=%i loop_slide=%b mark_seam=%b mark_sharp=%b strength=%f hnmode=%i",
+		        "bevel geom=%hev offset=%f segments=%i vertex_only=%b offset_type=%i profile=%f "
+		        "clamp_overlap=%b material=%i loop_slide=%b mark_seam=%b mark_sharp=%b "
+		        "harden_normals=%b face_strength_mode=%i "
+		        "miter_outer=%i miter_inner=%i spread=%f smoothresh=%f",
 		        BM_ELEM_SELECT, offset, segments, vertex_only, offset_type, profile,
-		        clamp_overlap, material, loop_slide, mark_seam, mark_sharp, hn_strength, hnmode);
+		        clamp_overlap, material, loop_slide, mark_seam, mark_sharp, harden_normals, face_strength_mode,
+		        miter_outer, miter_inner, spread, me->smoothresh);
 
 		BMO_op_exec(em->bm, &bmop);
 
@@ -350,10 +267,6 @@ static bool edbm_bevel_calc(wmOperator *op)
 			 * won't get bevel'd and better not leave it selected */
 			EDBM_flag_disable_all(em, BM_ELEM_SELECT);
 			BMO_slot_buffer_hflag_enable(em->bm, bmop.slots_out, "faces.out", BM_FACE, BM_ELEM_SELECT, true);
-		}
-
-		if (hnmode != BEVEL_HN_NONE) {
-			bevel_harden_normals(em, &bmop, hn_strength);
 		}
 
 		/* no need to de-select existing geometry */
@@ -766,11 +679,25 @@ void MESH_OT_bevel(wmOperatorType *ot)
 		{0, NULL, 0, NULL, NULL},
 	};
 
-	static EnumPropertyItem harden_normals_items[] = {
-		{ BEVEL_HN_NONE, "HN_NONE", 0, "Off", "Do not use Harden Normals" },
-		{ BEVEL_HN_FACE, "HN_FACE", 0, "Face Area", "Use faces as weight" },
-		{ BEVEL_HN_ADJ, "HN_ADJ", 0, "Vertex average", "Use adjacent vertices as weight" },
-		{ 0, NULL, 0, NULL, NULL },
+	static const EnumPropertyItem face_strength_mode_items[] = {
+		{BEVEL_FACE_STRENGTH_NONE, "NONE", 0, "None", "Do not set face strength"},
+		{BEVEL_FACE_STRENGTH_NEW, "NEW", 0, "New", "Set face strength on new faces only"},
+		{BEVEL_FACE_STRENGTH_AFFECTED, "AFFECTED", 0, "Affected", "Set face strength on new and modified faces only"},
+		{BEVEL_FACE_STRENGTH_ALL, "ALL", 0, "All", "Set face strength on all faces"},
+		{0, NULL, 0, NULL, NULL},
+	};
+
+	static const EnumPropertyItem miter_outer_items[] = {
+		{BEVEL_MITER_SHARP, "SHARP", 0, "Sharp", "Outside of miter is sharp"},
+		{BEVEL_MITER_PATCH, "PATCH", 0, "Patch", "Outside of miter is squared-off patch"},
+		{BEVEL_MITER_ARC, "ARC", 0, "Arc", "Outside of miter is arc"},
+		{0, NULL, 0, NULL, NULL},
+	};
+
+	static const EnumPropertyItem miter_inner_items[] = {
+		{BEVEL_MITER_SHARP, "SHARP", 0, "Sharp", "Inside of miter is sharp"},
+		{BEVEL_MITER_ARC, "ARC", 0, "Arc", "Inside of miter is arc"},
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	/* identifiers */
@@ -802,10 +729,16 @@ void MESH_OT_bevel(wmOperatorType *ot)
 	RNA_def_boolean(ot->srna, "mark_sharp", false, "Mark Sharp", "Mark beveled edges as sharp");
 	RNA_def_int(ot->srna, "material", -1, -1, INT_MAX, "Material",
 		"Material for bevel faces (-1 means use adjacent faces)", -1, 100);
-	RNA_def_float(ot->srna, "strength", 0.5f, 0.0f, 1.0f, "Normal Strength",
-		"Strength of calculated normal", 0.0f, 1.0f);
-	RNA_def_enum(ot->srna, "hnmode", harden_normals_items, BEVEL_HN_NONE, "Normal Mode",
-		"Weighting mode for Harden Normals");
+	RNA_def_boolean(ot->srna, "harden_normals", false, "Harden Normals",
+		"Match normals of new faces to adjacent faces");
+	RNA_def_enum(ot->srna, "face_strength_mode", face_strength_mode_items, BEVEL_FACE_STRENGTH_NONE,
+		"Face Strength Mode", "Whether to set face strength, and which faces to set face strength on");
+	RNA_def_enum(ot->srna, "miter_outer", miter_outer_items, BEVEL_MITER_SHARP,
+		"Outer Miter", "Pattern to use for outside of miters");
+	RNA_def_enum(ot->srna, "miter_inner", miter_inner_items, BEVEL_MITER_SHARP,
+		"Inner Miter", "Pattern to use for inside of miters");
+	RNA_def_float(ot->srna, "spread", 0.1f, 0.0f, 1e6f, "Spread",
+		"Amount to spread arcs for arc inner miters", 0.0f, 100.0f);
 	prop = RNA_def_boolean(ot->srna, "release_confirm", 0, "Confirm on Release", "");
 	RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
 

@@ -1,6 +1,4 @@
 /*
- * Copyright 2016, Blender Foundation.
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,12 +13,10 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * Contributor(s): Blender Institute
- *
+ * Copyright 2016, Blender Foundation.
  */
 
-/** \file blender/draw/modes/edit_text_mode.c
- *  \ingroup draw
+/** \file \ingroup draw
  */
 
 #include "DRW_engine.h"
@@ -34,17 +30,8 @@
 
 /* If builtin shaders are needed */
 #include "GPU_shader.h"
-#include "GPU_batch.h"
 
 #include "draw_common.h"
-
-#include "draw_mode_engines.h"
-
-/* If needed, contains all global/Theme colors
- * Add needed theme colors / values to DRW_globals_update() and update UBO
- * Not needed for constant color. */
-extern struct GPUUniformBuffer *globals_ubo; /* draw_common.c */
-extern struct GlobalsUboStorage ts; /* draw_common.c */
 
 /* *********** LISTS *********** */
 /* All lists are per viewport specific datas.
@@ -190,8 +177,8 @@ static void EDIT_TEXT_cache_init(void *vedata)
 		psl->text_box_pass = DRW_pass_create(
 		        "Font Text Boxes",
 		        DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH);
-		stl->g_data->box_shgrp = shgroup_dynlines_dashed_uniform_color(psl->text_box_pass, ts.colorWire);
-		stl->g_data->box_active_shgrp = shgroup_dynlines_dashed_uniform_color(psl->text_box_pass, ts.colorActive);
+		stl->g_data->box_shgrp = shgroup_dynlines_dashed_uniform_color(psl->text_box_pass, G_draw.block.colorWire);
+		stl->g_data->box_active_shgrp = shgroup_dynlines_dashed_uniform_color(psl->text_box_pass, G_draw.block.colorActive);
 	}
 }
 
@@ -222,10 +209,12 @@ static void edit_text_cache_populate_select(void *vedata, Object *ob)
 
 		float selboxw;
 		if (i + 1 != ef->selboxes_len) {
-			if (ef->selboxes[i + 1].y == sb->y)
+			if (ef->selboxes[i + 1].y == sb->y) {
 				selboxw = ef->selboxes[i + 1].x - sb->x;
-			else
+			}
+			else {
 				selboxw = sb->w;
+			}
 		}
 		else {
 			selboxw = sb->w;

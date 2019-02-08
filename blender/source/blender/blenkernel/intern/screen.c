@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenkernel/intern/screen.c
- *  \ingroup bke
+/** \file \ingroup bke
  */
 
 #ifdef WIN32
@@ -854,4 +845,21 @@ bool BKE_screen_is_fullscreen_area(const bScreen *screen)
 bool BKE_screen_is_used(const bScreen *screen)
 {
 	return (screen->winid != 0);
+}
+
+void BKE_screen_header_alignment_reset(bScreen *screen)
+{
+	int alignment = (U.uiflag & USER_HEADER_BOTTOM) ? RGN_ALIGN_BOTTOM : RGN_ALIGN_TOP;
+	for (ScrArea *sa = screen->areabase.first; sa; sa = sa->next) {
+		for (ARegion *ar = sa->regionbase.first; ar; ar = ar->next) {
+			if (ar->regiontype == RGN_TYPE_HEADER) {
+				if (ELEM(sa->spacetype, SPACE_FILE, SPACE_USERPREF, SPACE_OUTLINER, SPACE_BUTS)) {
+					ar->alignment = RGN_ALIGN_TOP;
+					continue;
+				}
+				ar->alignment = alignment;
+			}
+		}
+	}
+	screen->do_refresh = true;
 }

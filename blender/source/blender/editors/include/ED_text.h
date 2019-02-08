@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,23 +15,18 @@
  *
  * The Original Code is Copyright (C) 2009 Blender Foundation.
  * All rights reserved.
- *
- * Contributor(s): Blender Foundation
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file ED_text.h
- *  \ingroup editors
+/** \file \ingroup editors
  */
 
 #ifndef __ED_TEXT_H__
 #define __ED_TEXT_H__
 
-struct SpaceText;
 struct ARegion;
-struct UndoType;
+struct SpaceText;
 struct TextUndoBuf;
+struct UndoType;
 
 bool ED_text_region_location_from_cursor(struct SpaceText *st, struct ARegion *ar, const int cursor_co[2], int r_pixel_co[2]);
 

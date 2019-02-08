@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,15 +15,9 @@
  *
  * The Original Code is Copyright (C) 2008 Blender Foundation.
  * All rights reserved.
- *
- *
- * Contributor(s): Blender Foundation
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/animation/anim_markers.c
- *  \ingroup edanimation
+/** \file \ingroup edanimation
  */
 
 #include <math.h>
@@ -56,8 +48,6 @@
 
 #include "WM_api.h"
 #include "WM_types.h"
-
-#include "BIF_glutil.h"
 
 #include "GPU_immediate.h"
 #include "GPU_matrix.h"
@@ -616,7 +606,8 @@ static int ed_markers_opwrap_invoke_custom(bContext *C, wmOperator *op, const wm
 		BKE_report(op->reports, RPT_ERROR, "Programming error: operator does not actually have code to do anything!");
 
 
-	/* unless successful, must add "pass-through" to let normal operator's have a chance at tackling this event */
+	/* unless successful, must add "pass-through"
+	 * to let normal operator's have a chance at tackling this event */
 	if ((retval & (OPERATOR_FINISHED | OPERATOR_INTERFACE)) == 0) {
 		retval |= OPERATOR_PASS_THROUGH;
 	}
@@ -707,7 +698,6 @@ static void MARKER_OT_add(wmOperatorType *ot)
  *     invoke() calls init, adds modal handler
  *
  *     modal()    accept modal events while doing it, ends with apply and exit, or cancel
- *
  */
 
 typedef struct MarkerMove {

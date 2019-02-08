@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,17 +12,12 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Dalai Felinto
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
 #ifndef __BKE_COLLECTION_H__
 #define __BKE_COLLECTION_H__
 
-/** \file blender/blenkernel/BKE_collection.h
- *  \ingroup bke
+/** \file \ingroup bke
  */
 
 #include "BLI_compiler_compat.h"
@@ -38,8 +31,8 @@ extern "C" {
 
 /* Structs */
 
-struct Base;
 struct BLI_Iterator;
+struct Base;
 struct Collection;
 struct Depsgraph;
 struct ID;
@@ -131,9 +124,6 @@ bool BKE_collection_find_cycle(struct Collection *new_ancestor,
 
 typedef void (*BKE_scene_objects_Cb)(struct Object *ob, void *data);
 typedef void (*BKE_scene_collections_Cb)(struct Collection *ob, void *data);
-
-void BKE_scene_collections_callback(struct Scene *scene, BKE_scene_collections_Cb callback, void *data);
-void BKE_scene_objects_callback(struct Scene *scene, BKE_scene_objects_Cb callback, void *data);
 
 /* Iteratorion over objects in collection. */
 

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,15 +15,9 @@
  *
  * The Original Code is Copyright (C) 2007 Blender Foundation.
  * All rights reserved.
- *
- *
- * Contributor(s): Blender Foundation
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/windowmanager/WM_types.h
- *  \ingroup wm
+/** \file \ingroup wm
  */
 
 #ifndef __WM_TYPES_H__
@@ -106,13 +98,13 @@
 extern "C" {
 #endif
 
-struct bContext;
-struct wmEvent;
-struct wmWindowManager;
-struct wmMsgBus;
-struct wmOperator;
 struct ID;
 struct ImBuf;
+struct bContext;
+struct wmEvent;
+struct wmMsgBus;
+struct wmOperator;
+struct wmWindowManager;
 
 #include "RNA_types.h"
 #include "DNA_listBase.h"
@@ -165,7 +157,7 @@ enum {
 	WM_OP_EXEC_REGION_CHANNELS,
 	WM_OP_EXEC_REGION_PREVIEW,
 	WM_OP_EXEC_AREA,
-	WM_OP_EXEC_SCREEN
+	WM_OP_EXEC_SCREEN,
 };
 
 /* property tags for RNA_OperatorProperties */
@@ -253,7 +245,7 @@ typedef struct wmNotifier {
 #define	NC_GEOM				(16<<24)
 #define NC_NODE				(17<<24)
 #define NC_ID				(18<<24)
-#define NC_LOGIC			(19<<24)
+/* (19<<24) is free */
 #define NC_MOVIECLIP			(20<<24)
 #define NC_MASK				(21<<24)
 #define NC_GPENCIL			(22<<24)

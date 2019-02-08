@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2012 Blender Foundation.
  * All rights reserved.
- *
- *
- * Contributor(s): Blender Foundation,
- *                 Sergey Sharybin
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/mask/mask_ops.c
- *  \ingroup edmask
+/** \file \ingroup edmask
  */
 
 #include "MEM_guardedalloc.h"
@@ -340,7 +331,7 @@ Mask *ED_mask_new(bContext *C, const char *name)
 }
 
 /* Get ative layer. Will create mask/layer to be sure there's an active layer.  */
-MaskLayer *ED_mask_layer_ensure(bContext *C)
+MaskLayer *ED_mask_layer_ensure(bContext *C, bool *r_added_mask)
 {
 	Mask *mask = CTX_data_edit_mask(C);
 	MaskLayer *mask_layer;
@@ -348,6 +339,7 @@ MaskLayer *ED_mask_layer_ensure(bContext *C)
 	if (mask == NULL) {
 		/* If there's no active mask, create one. */
 		mask = ED_mask_new(C, NULL);
+		*r_added_mask = true;
 	}
 
 	mask_layer = BKE_mask_layer_active(mask);
@@ -366,6 +358,8 @@ static int mask_new_exec(bContext *C, wmOperator *op)
 	RNA_string_get(op->ptr, "name", name);
 
 	ED_mask_new(C, name);
+
+	WM_event_add_notifier(C, NC_MASK | NA_ADDED, NULL);
 
 	return OPERATOR_FINISHED;
 }
@@ -461,7 +455,7 @@ enum {
 	SLIDE_ACTION_POINT   = 1,
 	SLIDE_ACTION_HANDLE  = 2,
 	SLIDE_ACTION_FEATHER = 3,
-	SLIDE_ACTION_SPLINE  = 4
+	SLIDE_ACTION_SPLINE  = 4,
 };
 
 typedef struct SlidePointData {
@@ -1917,7 +1911,7 @@ void MASK_OT_handle_type_set(wmOperatorType *ot)
 		{HD_ALIGN, "ALIGNED", 0, "Aligned Single", ""},
 		{HD_ALIGN_DOUBLESIDE, "ALIGNED_DOUBLESIDE", 0, "Aligned", ""},
 		{HD_FREE, "FREE", 0, "Free", ""},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	/* identifiers */
@@ -2159,7 +2153,7 @@ void MASK_OT_layer_move(wmOperatorType *ot)
 	static const EnumPropertyItem direction_items[] = {
 		{-1, "UP", 0, "Up", ""},
 		{1, "DOWN", 0, "Down", ""},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	/* identifiers */
@@ -2217,7 +2211,8 @@ static int mask_duplicate_exec(bContext *C, wmOperator *UNUSED(op))
 					MaskSplinePoint *new_point;
 					int b;
 
-					/* BKE_mask_spline_add might allocate the points, need to free them in this case. */
+					/* BKE_mask_spline_add might allocate the points,
+					 * need to free them in this case. */
 					if (new_spline->points) {
 						MEM_freeN(new_spline->points);
 					}

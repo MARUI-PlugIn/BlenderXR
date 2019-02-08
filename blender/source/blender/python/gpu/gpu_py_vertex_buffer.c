@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,12 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/python/gpu/gpu_py_vertex_buffer.c
- *  \ingroup bpygpu
+/** \file \ingroup bpygpu
  *
  * - Use ``bpygpu_`` for local API.
  * - Use ``BPyGPU`` for public API.
@@ -40,7 +35,6 @@
 #include "gpu_py_vertex_buffer.h" /* own include */
 
 /* -------------------------------------------------------------------- */
-
 /** \name Utility Functions
  * \{ */
 
@@ -102,7 +96,7 @@ static bool bpygpu_vertbuf_fill_impl(
 	const char *exc_str_size_mismatch = "Expected a %s of size %d, got %u";
 
 	bool ok = true;
-	const GPUVertAttr *attr = &vbo->format.attribs[data_id];
+	const GPUVertAttr *attr = &vbo->format.attrs[data_id];
 
 	if (PyObject_CheckBuffer(seq)) {
 		Py_buffer pybuffer;
@@ -216,7 +210,6 @@ static int bpygpu_attr_fill(GPUVertBuf *buf, int id, PyObject *py_seq_data, cons
 
 
 /* -------------------------------------------------------------------- */
-
 /** \name VertBuf Type
  * \{ */
 
@@ -301,7 +294,7 @@ static PyObject *bpygpu_VertBuf_attr_fill(BPyGPUVertBuf *self, PyObject *args, P
 static struct PyMethodDef bpygpu_VertBuf_methods[] = {
 	{"attr_fill", (PyCFunction) bpygpu_VertBuf_attr_fill,
 	 METH_VARARGS | METH_KEYWORDS, bpygpu_VertBuf_attr_fill_doc},
-	{NULL, NULL, 0, NULL}
+	{NULL, NULL, 0, NULL},
 };
 
 static void bpygpu_VertBuf_dealloc(BPyGPUVertBuf *self)
@@ -335,7 +328,6 @@ PyTypeObject BPyGPUVertBuf_Type = {
 
 
 /* -------------------------------------------------------------------- */
-
 /** \name Public API
  * \{ */
 

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,12 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/curve/editcurve_undo.c
- *  \ingroup edcurve
+/** \file \ingroup edcurve
  */
 
 #include "MEM_guardedalloc.h"
@@ -214,13 +209,15 @@ static bool curve_undosys_poll(bContext *C)
 	return (obedit != NULL);
 }
 
-static bool curve_undosys_step_encode(struct bContext *C, UndoStep *us_p)
+static bool curve_undosys_step_encode(struct bContext *C, struct Main *UNUSED(bmain), UndoStep *us_p)
 {
 	CurveUndoStep *us = (CurveUndoStep *)us_p;
 
+	/* Important not to use the 3D view when getting objects because all objects
+	 * outside of this list will be moved out of edit-mode when reading back undo steps. */
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	uint objects_len = 0;
-	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
+	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, NULL, &objects_len);
 
 	us->elems = MEM_callocN(sizeof(*us->elems) * objects_len, __func__);
 	us->elems_len = objects_len;
@@ -237,13 +234,15 @@ static bool curve_undosys_step_encode(struct bContext *C, UndoStep *us_p)
 	return true;
 }
 
-static void curve_undosys_step_decode(struct bContext *C, UndoStep *us_p, int UNUSED(dir))
+static void curve_undosys_step_decode(struct bContext *C, struct Main *UNUSED(bmain), UndoStep *us_p, int UNUSED(dir))
 {
-	/* TODO(campbell): undo_system: use low-level API to set mode. */
-	ED_object_mode_set(C, OB_MODE_EDIT);
-	BLI_assert(curve_undosys_poll(C));
-
 	CurveUndoStep *us = (CurveUndoStep *)us_p;
+
+	/* Load all our objects  into edit-mode, clear everything else. */
+	ED_undo_object_editmode_restore_helper(
+	        C, &us->elems[0].obedit_ref.ptr, us->elems_len, sizeof(*us->elems));
+
+	BLI_assert(curve_undosys_poll(C));
 
 	for (uint i = 0; i < us->elems_len; i++) {
 		CurveUndoStep_Elem *elem = &us->elems[i];
@@ -298,7 +297,6 @@ void ED_curve_undosys_type(UndoType *ut)
 
 	ut->step_foreach_ID_ref = curve_undosys_foreach_ID_ref;
 
-	ut->mode = BKE_UNDOTYPE_MODE_STORE;
 	ut->use_context = true;
 
 	ut->step_size = sizeof(CurveUndoStep);

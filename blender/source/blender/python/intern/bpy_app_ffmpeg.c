@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,14 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Sergey Sharybin
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/python/intern/bpy_app_ffmpeg.c
- *  \ingroup pythonintern
+/** \file \ingroup pythonintern
  */
 
 #include <Python.h>
@@ -53,7 +46,7 @@ static PyStructSequence_Field app_ffmpeg_info_fields[] = {
 	DEF_FFMPEG_LIB_VERSION(avformat),
 	DEF_FFMPEG_LIB_VERSION(avutil),
 	DEF_FFMPEG_LIB_VERSION(swscale),
-	{NULL}
+	{NULL},
 };
 
 #undef DEF_FFMPEG_LIB_VERSION
@@ -62,7 +55,7 @@ static PyStructSequence_Desc app_ffmpeg_info_desc = {
 	(char *)"bpy.app.ffmpeg",     /* name */
 	(char *)"This module contains information about FFmpeg blender is linked against",    /* doc */
 	app_ffmpeg_info_fields,    /* fields */
-	ARRAY_SIZE(app_ffmpeg_info_fields) - 1
+	ARRAY_SIZE(app_ffmpeg_info_fields) - 1,
 };
 
 static PyObject *make_ffmpeg_info(void)

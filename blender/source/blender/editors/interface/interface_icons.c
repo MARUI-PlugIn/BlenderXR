@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,14 +15,9 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * Contributors: Blender Foundation, full recode
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/interface/interface_icons.c
- *  \ingroup edinterface
+/** \file \ingroup edinterface
  */
 
 #include <math.h>
@@ -97,8 +90,8 @@
 typedef struct IconImage {
 	int w;
 	int h;
-	unsigned int *rect;
-	unsigned char *datatoc_rect;
+	uint *rect;
+	uchar *datatoc_rect;
 	int datatoc_size;
 } IconImage;
 
@@ -209,7 +202,7 @@ static DrawInfo *def_internal_icon(ImBuf *bbuf, int icon_id, int xofs, int yofs,
 		if (bbuf) {
 			int y, imgsize;
 
-			iimg->rect = MEM_mallocN(size * size * sizeof(unsigned int), "icon_rect");
+			iimg->rect = MEM_mallocN(size * size * sizeof(uint), "icon_rect");
 
 			/* Here we store the rect in the icon - same as before */
 			if (size == bbuf->x && size == bbuf->y && xofs == 0 && yofs == 0)
@@ -402,15 +395,15 @@ static void vicon_colorset_draw(int index, int x, int y, int w, int h, float UNU
 
 	/* XXX: Include alpha into this... */
 	/* normal */
-	immUniformColor3ubv((unsigned char *)cs->solid);
+	immUniformColor3ubv((uchar *)cs->solid);
 	immRecti(pos, x, y, a, y + h);
 
 	/* selected */
-	immUniformColor3ubv((unsigned char *)cs->select);
+	immUniformColor3ubv((uchar *)cs->select);
 	immRecti(pos, a, y, b, y + h);
 
 	/* active */
-	immUniformColor3ubv((unsigned char *)cs->active);
+	immUniformColor3ubv((uchar *)cs->active);
 	immRecti(pos, b, y, c, y + h);
 
 	immUnbindProgram();
@@ -474,7 +467,7 @@ static void init_brush_icons(void)
 
 #define INIT_BRUSH_ICON(icon_id, name)                                          \
 	{                                                                           \
-		unsigned char *rect = (unsigned char *)datatoc_ ##name## _png;          \
+		uchar *rect = (uchar *)datatoc_ ##name## _png;          \
 		int size = datatoc_ ##name## _png_size;                                 \
 		DrawInfo *di;                                                           \
 		\
@@ -709,7 +702,10 @@ static void init_internal_icons(void)
 
 		if (icondir) {
 			BLI_join_dirfile(iconfilestr, sizeof(iconfilestr), icondir, btheme->tui.iconfile);
-			bbuf = IMB_loadiffname(iconfilestr, IB_rect, NULL); /* if the image is missing bbuf will just be NULL */
+
+			/* if the image is missing bbuf will just be NULL */
+			bbuf = IMB_loadiffname(iconfilestr, IB_rect, NULL);
+
 			if (bbuf && (bbuf->x < ICON_IMAGE_W || bbuf->y < ICON_IMAGE_H)) {
 				printf("\n***WARNING***\nIcons file %s too small.\nUsing built-in Icons instead\n", iconfilestr);
 				IMB_freeImBuf(bbuf);
@@ -722,13 +718,13 @@ static void init_internal_icons(void)
 	}
 #endif
 	if (b16buf == NULL)
-		b16buf = IMB_ibImageFromMemory((unsigned char *)datatoc_blender_icons16_png,
+		b16buf = IMB_ibImageFromMemory((uchar *)datatoc_blender_icons16_png,
 		                               datatoc_blender_icons16_png_size, IB_rect, NULL, "<blender icons>");
 	if (b16buf)
 		IMB_premultiply_alpha(b16buf);
 
 	if (b32buf == NULL)
-		b32buf = IMB_ibImageFromMemory((unsigned char *)datatoc_blender_icons32_png,
+		b32buf = IMB_ibImageFromMemory((uchar *)datatoc_blender_icons32_png,
 		                               datatoc_blender_icons32_png_size, IB_rect, NULL, "<blender icons>");
 	if (b32buf)
 		IMB_premultiply_alpha(b32buf);
@@ -1069,7 +1065,7 @@ int UI_preview_render_size(enum eIconSizes size)
  */
 static void icon_create_rect(struct PreviewImage *prv_img, enum eIconSizes size)
 {
-	unsigned int render_size = UI_preview_render_size(size);
+	uint render_size = UI_preview_render_size(size);
 
 	if (!prv_img) {
 		if (G.debug & G_DEBUG)
@@ -1080,7 +1076,7 @@ static void icon_create_rect(struct PreviewImage *prv_img, enum eIconSizes size)
 		prv_img->h[size] = render_size;
 		prv_img->flag[size] |= PRV_CHANGED;
 		prv_img->changed_timestamp[size] = 0;
-		prv_img->rect[size] = MEM_callocN(render_size * render_size * sizeof(unsigned int), "prv_rect");
+		prv_img->rect[size] = MEM_callocN(render_size * render_size * sizeof(uint), "prv_rect");
 	}
 }
 
@@ -1262,7 +1258,7 @@ PreviewImage *UI_icon_to_preview(int icon_id)
 }
 
 static void icon_draw_rect(float x, float y, int w, int h, float UNUSED(aspect), int rw, int rh,
-                           unsigned int *rect, float alpha, const float rgb[3], const float desaturate)
+                           uint *rect, float alpha, const float rgb[3], const float desaturate)
 {
 	ImBuf *ima = NULL;
 	int draw_w = w;
@@ -1302,16 +1298,13 @@ static void icon_draw_rect(float x, float y, int w, int h, float UNUSED(aspect),
 
 		/* first allocate imbuf for scaling and copy preview into it */
 		ima = IMB_allocImBuf(rw, rh, 32, IB_rect);
-		memcpy(ima->rect, rect, rw * rh * sizeof(unsigned int));
+		memcpy(ima->rect, rect, rw * rh * sizeof(uint));
 		IMB_scaleImBuf(ima, draw_w, draw_h); /* scale it */
 		rect = ima->rect;
 	}
 
-	/* We need to flush widget base first to ensure correct ordering. */
-	UI_widgetbase_draw_cache_flush();
-
 	/* draw */
-	GPUBuiltinShader shader;
+	eGPUBuiltinShader shader;
 	if (desaturate != 0.0f) {
 		shader = GPU_SHADER_2D_IMAGE_DESATURATE_COLOR;
 	}
@@ -1373,8 +1366,8 @@ static void icon_draw_cache_flush_ex(void)
 	GPUShader *shader = GPU_shader_get_builtin_shader(GPU_SHADER_2D_IMAGE_MULTI_RECT_COLOR);
 	GPU_shader_bind(shader);
 
-	int img_loc = GPU_shader_get_uniform(shader, "image");
-	int data_loc = GPU_shader_get_uniform(shader, "calls_data[0]");
+	int img_loc = GPU_shader_get_uniform_ensure(shader, "image");
+	int data_loc = GPU_shader_get_uniform_ensure(shader, "calls_data[0]");
 
 	glUniform1i(img_loc, 0);
 	glUniform4fv(data_loc, ICON_DRAW_CACHE_SIZE * 3, (float *)g_icon_draw_cache.drawcall_cache);
@@ -1462,9 +1455,9 @@ static void icon_draw_texture(
 	if (rgb) glUniform4f(GPU_shader_get_builtin_uniform(shader, GPU_UNIFORM_COLOR), rgb[0], rgb[1], rgb[2], alpha);
 	else     glUniform4f(GPU_shader_get_builtin_uniform(shader, GPU_UNIFORM_COLOR), alpha, alpha, alpha, alpha);
 
-	glUniform1i(GPU_shader_get_uniform(shader, "image"), 0);
-	glUniform4f(GPU_shader_get_uniform(shader, "rect_icon"), x1, y1, x2, y2);
-	glUniform4f(GPU_shader_get_uniform(shader, "rect_geom"), x, y, x + w, y + h);
+	glUniform1i(GPU_shader_get_uniform_ensure(shader, "image"), 0);
+	glUniform4f(GPU_shader_get_uniform_ensure(shader, "rect_icon"), x1, y1, x2, y2);
+	glUniform4f(GPU_shader_get_uniform_ensure(shader, "rect_geom"), x, y, x + w, y + h);
 
 	GPU_draw_primitive(GPU_PRIM_TRI_STRIP, 4);
 
@@ -1513,19 +1506,18 @@ static void icon_draw_size(
 
 	DrawInfo *di = icon_ensure_drawinfo(icon);
 
+	/* We need to flush widget base first to ensure correct ordering. */
+	UI_widgetbase_draw_cache_flush();
+
 	if (di->type == ICON_TYPE_VECTOR) {
-		/* We need to flush widget base first to ensure correct ordering. */
-		UI_widgetbase_draw_cache_flush();
 		/* vector icons use the uiBlock transformation, they are not drawn
 		 * with untransformed coordinates like the other icons */
 		di->data.vector.func((int)x, (int)y, w, h, 1.0f);
 	}
 	else if (di->type == ICON_TYPE_GEOM) {
-		/* We need to flush widget base first to ensure correct ordering. */
-		UI_widgetbase_draw_cache_flush();
-
 #ifdef USE_UI_TOOLBAR_HACK
-		/* TODO(campbell): scale icons up for toolbar, we need a way to detect larger buttons and do this automatic. */
+		/* TODO(campbell): scale icons up for toolbar,
+		 * we need a way to detect larger buttons and do this automatic. */
 		{
 			float scale = (float)ICON_DEFAULT_HEIGHT_TOOLBAR / (float)ICON_DEFAULT_HEIGHT;
 			y = (y + (h / 2)) - ((h * scale) / 2);
@@ -1547,7 +1539,8 @@ static void icon_draw_size(
 			ibuf = BKE_icon_geom_rasterize(icon->obj, w, h);
 			di->data.geom.image_cache = ibuf;
 		}
-		glBlendFuncSeparate(GL_ONE, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+
+		GPU_blend_set_func_separate(GPU_ONE, GPU_ONE_MINUS_SRC_ALPHA, GPU_ONE, GPU_ONE_MINUS_SRC_ALPHA);
 		icon_draw_rect(x, y, w, h, aspect, w, h, ibuf->rect, alpha, rgb, desaturate);
 		GPU_blend_set_func_separate(GPU_SRC_ALPHA, GPU_ONE_MINUS_SRC_ALPHA, GPU_ONE, GPU_ONE_MINUS_SRC_ALPHA);
 	}
@@ -1591,9 +1584,7 @@ static void icon_draw_size(
 #endif
 		if (!iimg->rect) return;  /* something has gone wrong! */
 
-		GPU_blend_set_func_separate(GPU_SRC_ALPHA, GPU_ONE_MINUS_SRC_ALPHA, GPU_ONE, GPU_ONE_MINUS_SRC_ALPHA);
 		icon_draw_rect(x, y, w, h, aspect, iimg->w, iimg->h, iimg->rect, alpha, rgb, desaturate);
-		GPU_blend_set_func_separate(GPU_SRC_ALPHA, GPU_ONE_MINUS_SRC_ALPHA, GPU_ONE, GPU_ONE_MINUS_SRC_ALPHA);
 	}
 	else if (di->type == ICON_TYPE_PREVIEW) {
 		PreviewImage *pi = (icon->id_type != 0) ? BKE_previewimg_id_ensure((ID *)icon->obj) : icon->obj;
@@ -1602,18 +1593,14 @@ static void icon_draw_size(
 			/* no create icon on this level in code */
 			if (!pi->rect[size]) return;  /* something has gone wrong! */
 
-			/* preview images use premul alpha ... */
-			GPU_blend_set_func_separate(GPU_SRC_ALPHA, GPU_ONE_MINUS_SRC_ALPHA, GPU_ONE, GPU_ONE_MINUS_SRC_ALPHA);
-
+			/* Preview images use premultiplied alpha. */
+			GPU_blend_set_func_separate(GPU_ONE, GPU_ONE_MINUS_SRC_ALPHA, GPU_ONE, GPU_ONE_MINUS_SRC_ALPHA);
 			icon_draw_rect(x, y, w, h, aspect, pi->w[size], pi->h[size], pi->rect[size], alpha, rgb, desaturate);
 			GPU_blend_set_func_separate(GPU_SRC_ALPHA, GPU_ONE_MINUS_SRC_ALPHA, GPU_ONE, GPU_ONE_MINUS_SRC_ALPHA);
 		}
 	}
 	else if (di->type == ICON_TYPE_GPLAYER) {
 		BLI_assert(icon->obj != NULL);
-
-		/* We need to flush widget base first to ensure correct ordering. */
-		UI_widgetbase_draw_cache_flush();
 
 		/* Just draw a colored rect - Like for vicon_colorset_draw() */
 #ifndef WITH_HEADLESS
@@ -1625,7 +1612,8 @@ static void icon_draw_size(
 static void ui_id_preview_image_render_size(
         const bContext *C, Scene *scene, ID *id, PreviewImage *pi, int size, const bool use_job)
 {
-	if (((pi->flag[size] & PRV_CHANGED) || !pi->rect[size])) { /* changed only ever set by dynamic icons */
+	/* changed only ever set by dynamic icons */
+	if (((pi->flag[size] & PRV_CHANGED) || !pi->rect[size])) {
 		/* create the rect if necessary */
 		icon_set_image(C, scene, id, pi, size, use_job);
 
@@ -1638,10 +1626,14 @@ void UI_id_icon_render(const bContext *C, Scene *scene, ID *id, const bool big, 
 	PreviewImage *pi = BKE_previewimg_id_ensure(id);
 
 	if (pi) {
-		if (big)
-			ui_id_preview_image_render_size(C, scene, id, pi, ICON_SIZE_PREVIEW, use_job);  /* bigger preview size */
-		else
-			ui_id_preview_image_render_size(C, scene, id, pi, ICON_SIZE_ICON, use_job);     /* icon size */
+		if (big) {
+			/* bigger preview size */
+			ui_id_preview_image_render_size(C, scene, id, pi, ICON_SIZE_PREVIEW, use_job);
+		}
+		else {
+			/* icon size */
+			ui_id_preview_image_render_size(C, scene, id, pi, ICON_SIZE_ICON, use_job);
+		}
 	}
 }
 
@@ -1894,7 +1886,7 @@ int UI_idcode_icon_get(const int idcode)
 		case ID_MB:
 			return ICON_META_DATA;
 		case ID_MC:
-			return ICON_CLIP;
+			return ICON_TRACKER;
 		case ID_ME:
 			return ICON_MESH_DATA;
 		case ID_MSK:

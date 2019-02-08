@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,10 +12,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Esteban Tovagliari, Cedric Paille, Kevin Dietrich
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
 #include "abc_nurbs.h"
@@ -209,7 +203,7 @@ bool AbcNurbsReader::valid() const
 		return false;
 	}
 
-	std::vector< std::pair<INuPatchSchema, IObject> >::const_iterator it;
+	std::vector<std::pair<INuPatchSchema, IObject>>::const_iterator it;
 	for (it = m_schemas.begin(); it != m_schemas.end(); ++it) {
 		const INuPatchSchema &schema = it->first;
 
@@ -243,7 +237,7 @@ void AbcNurbsReader::readObjectData(Main *bmain, const Alembic::Abc::ISampleSele
 	Curve *cu = static_cast<Curve *>(BKE_curve_add(bmain, "abc_curve", OB_SURF));
 	cu->actvert = CU_ACT_NONE;
 
-	std::vector< std::pair<INuPatchSchema, IObject> >::iterator it;
+	std::vector<std::pair<INuPatchSchema, IObject>>::iterator it;
 
 	for (it = m_schemas.begin(); it != m_schemas.end(); ++it) {
 		Nurb *nu = static_cast<Nurb *>(MEM_callocN(sizeof(Nurb), "abc_getnurb"));

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,12 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/python/gpu/gpu_py_vertex_format.c
- *  \ingroup bpygpu
+/** \file \ingroup bpygpu
  *
  * - Use ``bpygpu_`` for local API.
  * - Use ``BPyGPU`` for public API.
@@ -49,7 +44,6 @@
 #endif
 
 /* -------------------------------------------------------------------- */
-
 /** \name Enum Conversion
  *
  * Use with PyArg_ParseTuple's "O&" formatting.
@@ -148,7 +142,6 @@ static int bpygpu_ParseVertFetchMode(PyObject *o, void *p)
 
 
 /* -------------------------------------------------------------------- */
-
 /** \name VertFormat Type
  * \{ */
 
@@ -212,7 +205,7 @@ static PyObject *bpygpu_VertFormat_attr_add(BPyGPUVertFormat *self, PyObject *ar
 static struct PyMethodDef bpygpu_VertFormat_methods[] = {
 	{"attr_add", (PyCFunction)bpygpu_VertFormat_attr_add,
 	 METH_VARARGS | METH_KEYWORDS, bpygpu_VertFormat_attr_add_doc},
-	{NULL, NULL, 0, NULL}
+	{NULL, NULL, 0, NULL},
 };
 
 
@@ -241,7 +234,6 @@ PyTypeObject BPyGPUVertFormat_Type = {
 
 
 /* -------------------------------------------------------------------- */
-
 /** \name Public API
  * \{ */
 

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): Joshua Leung
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file DNA_view2d_types.h
- *  \ingroup DNA
+/** \file \ingroup DNA
  */
 
 #ifndef __DNA_VIEW2D_TYPES_H__
@@ -38,34 +29,54 @@
 
 /* View 2D data - stored per region */
 typedef struct View2D {
-	rctf tot, cur;					/* tot - area that data can be drawn in; cur - region of tot that is visible in viewport */
-	rcti vert, hor;					/* vert - vertical scrollbar region; hor - horizontal scrollbar region */
-	rcti mask;						/* mask - region (in screenspace) within which 'cur' can be viewed */
+	/** Tot - area that data can be drawn in; cur - region of tot that is visible in viewport. */
+	rctf tot, cur;
+	/** Vert - vertical scrollbar region; hor - horizontal scrollbar region. */
+	rcti vert, hor;
+	/** Mask - region (in screenspace) within which 'cur' can be viewed. */
+	rcti mask;
 
-	float min[2], max[2];			/* min/max sizes of 'cur' rect (only when keepzoom not set) */
-	float minzoom, maxzoom;			/* allowable zoom factor range (only when (keepzoom & V2D_LIMITZOOM)) is set */
+	/** Min/max sizes of 'cur' rect (only when keepzoom not set). */
+	float min[2], max[2];
+	/** Allowable zoom factor range (only when (keepzoom & V2D_LIMITZOOM)) is set. */
+	float minzoom, maxzoom;
 
-	short scroll;					/* scroll - scrollbars to display (bitflag) */
-	short scroll_ui;				/* scroll_ui - temp settings used for UI drawing of scrollers */
+	/** Scroll - scrollbars to display (bitflag). */
+	short scroll;
+	/** Scroll_ui - temp settings used for UI drawing of scrollers. */
+	short scroll_ui;
 
-	short keeptot;					/* keeptot - 'cur' rect cannot move outside the 'tot' rect? */
-	short keepzoom;					/* keepzoom - axes that zooming cannot occur on, and also clamp within zoom-limits */
-	short keepofs;					/* keepofs - axes that translation is not allowed to occur on */
+	/** Keeptot - 'cur' rect cannot move outside the 'tot' rect?. */
+	short keeptot;
+	/** Keepzoom - axes that zooming cannot occur on, and also clamp within zoom-limits. */
+	short keepzoom;
+	/** Keepofs - axes that translation is not allowed to occur on. */
+	short keepofs;
 
-	short flag;						/* settings */
-	short align;					/* alignment of content in totrect */
+	/** Settings. */
+	short flag;
+	/** Alignment of content in totrect. */
+	short align;
 
-	short winx, winy;				/* storage of current winx/winy values, set in UI_view2d_size_update */
-	short oldwinx, oldwiny;			/* storage of previous winx/winy values encountered by UI_view2d_curRect_validate(), for keepaspect */
+	/** Storage of current winx/winy values, set in UI_view2d_size_update. */
+	short winx, winy;
+	/** Storage of previous winx/winy values encountered by UI_view2d_curRect_validate(),
+	 * for keepaspect. */
+	short oldwinx, oldwiny;
 
-	short around;					/* pivot point for transforms (rotate and scale) */
+	/** Pivot point for transforms (rotate and scale). */
+	short around;
 
-	float *tab_offset;				/* different offset per tab, for buttons */
-	int tab_num;					/* number of tabs stored */
-	int tab_cur;					/* current tab */
+	/** Different offset per tab, for buttons. */
+	float *tab_offset;
+	/** Number of tabs stored. */
+	int tab_num;
+	/** Current tab. */
+	int tab_cur;
 
 	/* Usually set externally (as in, not in view2d files). */
-	char alpha_vert, alpha_hor;		/* alpha of vertical and horizontal scrollbars (range is [0, 255]) */
+	/** Alpha of vertical and horizontal scrollbars (range is [0, 255]). */
+	char alpha_vert, alpha_hor;
 	short pad[3];
 
 	/* animated smooth view */
@@ -103,18 +114,20 @@ enum {
 
 /* view extent restrictions (v2d->keeptot) */
 enum {
-	/* 'cur' view can be out of extents of 'tot' */
+	/** 'cur' view can be out of extents of 'tot' */
 	V2D_KEEPTOT_FREE      = 0,
-	/* 'cur' rect is adjusted so that it satisfies the extents of 'tot', with some compromises */
+	/** 'cur' rect is adjusted so that it satisfies the extents of 'tot', with some compromises */
 	V2D_KEEPTOT_BOUNDS    = 1,
-	/* 'cur' rect is moved so that the 'minimum' bounds of the 'tot' rect are always respected (particularly in x-axis) */
+	/** 'cur' rect is moved so that the 'minimum' bounds of the 'tot' rect are always respected
+	 * (particularly in x-axis) */
 	V2D_KEEPTOT_STRICT    = 2,
 };
 
 /* general refresh settings (v2d->flag) */
 enum {
 	/* global view2d horizontal locking (for showing same time interval) */
-	/* TODO: this flag may be set in old files but is not accessible currently, should be exposed from RNA - Campbell */
+	/* TODO: this flag may be set in old files but is not accessible currently,
+	 * should be exposed from RNA - Campbell */
 	V2D_VIEWSYNC_SCREEN_TIME      = (1 << 0),
 	/* within area (i.e. between regions) view2d vertical locking */
 	V2D_VIEWSYNC_AREA_VERTICAL    = (1 << 1),
@@ -144,7 +157,8 @@ enum {
 	/* induce hiding of scrollbars - set by region drawing in response to size of region */
 	V2D_SCROLL_VERTICAL_HIDE     = (1 << 7),
 	V2D_SCROLL_HORIZONTAL_HIDE   = (1 << 8),
-	/* scrollbar extends beyond its available window - set when calculating scrollbars for drawing */
+	/* scrollbar extends beyond its available window -
+	 * set when calculating scrollbars for drawing */
 	V2D_SCROLL_VERTICAL_FULLR    = (1 << 9),
 	V2D_SCROLL_HORIZONTAL_FULLR  = (1 << 10),
 };

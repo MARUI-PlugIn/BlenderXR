@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file ghost/intern/GHOST_WindowX11.cpp
- *  \ingroup GHOST
+/** \file \ingroup GHOST
  */
 
 /* For standard X11 cursors */
@@ -648,37 +639,26 @@ bool GHOST_WindowX11::createX11_XIC()
 void GHOST_WindowX11::refreshXInputDevices()
 {
 	if (m_system->m_xinput_version.present) {
-		GHOST_SystemX11::GHOST_TabletX11 &xtablet = m_system->GetXTablet();
-		XEventClass xevents[8], ev;
-		int dcount = 0;
+		std::vector<XEventClass> xevents;
 
-		/* With modern XInput (xlib 1.6.2 at least and/or evdev 2.9.0) and some 'no-name' tablets
-		 * like 'UC-LOGIC Tablet WP5540U', we also need to 'select' ButtonPress for motion event,
-		 * otherwise we do not get any tablet motion event once pen is pressed... See T43367.
-		 */
+		for (GHOST_SystemX11::GHOST_TabletX11& xtablet: m_system->GetXTablets()) {
+			/* With modern XInput (xlib 1.6.2 at least and/or evdev 2.9.0) and some 'no-name' tablets
+			 * like 'UC-LOGIC Tablet WP5540U', we also need to 'select' ButtonPress for motion event,
+			 * otherwise we do not get any tablet motion event once pen is pressed... See T43367.
+			 */
+			XEventClass ev;
 
-		if (xtablet.StylusDevice) {
-			DeviceMotionNotify(xtablet.StylusDevice, xtablet.MotionEvent, ev);
-			if (ev) xevents[dcount++] = ev;
-			DeviceButtonPress(xtablet.StylusDevice, xtablet.PressEvent, ev);
-			if (ev) xevents[dcount++] = ev;
-			ProximityIn(xtablet.StylusDevice, xtablet.ProxInEvent, ev);
-			if (ev) xevents[dcount++] = ev;
-			ProximityOut(xtablet.StylusDevice, xtablet.ProxOutEvent, ev);
-			if (ev) xevents[dcount++] = ev;
-		}
-		if (xtablet.EraserDevice) {
-			DeviceMotionNotify(xtablet.EraserDevice, xtablet.MotionEventEraser, ev);
-			if (ev) xevents[dcount++] = ev;
-			DeviceButtonPress(xtablet.EraserDevice, xtablet.PressEventEraser, ev);
-			if (ev) xevents[dcount++] = ev;
-			ProximityIn(xtablet.EraserDevice, xtablet.ProxInEventEraser, ev);
-			if (ev) xevents[dcount++] = ev;
-			ProximityOut(xtablet.EraserDevice, xtablet.ProxOutEventEraser, ev);
-			if (ev) xevents[dcount++] = ev;
+			DeviceMotionNotify(xtablet.Device, xtablet.MotionEvent, ev);
+			if (ev) xevents.push_back(ev);
+			DeviceButtonPress(xtablet.Device, xtablet.PressEvent, ev);
+			if (ev) xevents.push_back(ev);
+			ProximityIn(xtablet.Device, xtablet.ProxInEvent, ev);
+			if (ev) xevents.push_back(ev);
+			ProximityOut(xtablet.Device, xtablet.ProxOutEvent, ev);
+			if (ev) xevents.push_back(ev);
 		}
 
-		XSelectExtensionEvent(m_display, m_window, xevents, dcount);
+		XSelectExtensionEvent(m_display, m_window, xevents.data(), (int)xevents.size());
 	}
 }
 
@@ -1387,6 +1367,12 @@ GHOST_Context *GHOST_WindowX11::newDrawingContext(GHOST_TDrawingContextType type
 		else
 			delete context;
 
+		/* Ugly, but we get crashes unless a whole bunch of systems are patched. */
+		fprintf(stderr, "Error! Unsupported graphics driver.\n");
+		fprintf(stderr, "Blender requires a graphics driver with at least OpenGL 3.3 support.\n");
+		fprintf(stderr, "The program will now close.\n");
+		fflush(stderr);
+		exit(1);
 	}
 
 	return NULL;
@@ -1520,7 +1506,7 @@ setWindowCursorGrab(
 			 * blender gets can be outside the screen causing menus not to show
 			 * properly unless the user moves the mouse */
 
-#ifdef WITH_X11_XINPUT
+#if defined(WITH_X11_XINPUT) && defined(USE_X11_XINPUT_WARP)
 			if ((m_system->m_xinput_version.present) &&
 			    (m_system->m_xinput_version.major_version >= 2))
 			{

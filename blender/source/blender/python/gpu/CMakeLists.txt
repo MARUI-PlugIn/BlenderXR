@@ -13,9 +13,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software Foundation,
 # Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-# Contributor(s): Campbell Barton
-#
 # ***** END GPL LICENSE BLOCK *****
 
 set(INC
@@ -39,7 +36,6 @@ set(SRC
 	gpu_py_element.c
 	gpu_py_matrix.c
 	gpu_py_offscreen.c
-	gpu_py_primitive.c
 	gpu_py_select.c
 	gpu_py_shader.c
 	gpu_py_types.c
@@ -51,7 +47,6 @@ set(SRC
 	gpu_py_element.h
 	gpu_py_matrix.h
 	gpu_py_offscreen.h
-	gpu_py_primitive.h
 	gpu_py_select.h
 	gpu_py_shader.h
 	gpu_py_types.h

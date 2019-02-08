@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,15 +15,9 @@
  *
  * The Original Code is Copyright (C) 2017, Blender Foundation
  * This is a new part of Blender
- *
- * Contributor(s): Antonio Vazquez, Joshua Leung
- *
- * ***** END GPL LICENSE BLOCK *****
- *
  */
 
-/** \file blender/gpencil_modifiers/intern/MOD_gpencilbuild.c
- *  \ingroup modifiers
+/** \file \ingroup modifiers
  */
 
 #include <stdio.h>
@@ -42,7 +34,6 @@
 #include "BLI_math.h"
 #include "BLI_utildefines.h"
 
-#include "BKE_context.h"
 #include "BKE_gpencil.h"
 #include "BKE_gpencil_modifier.h"
 
@@ -57,7 +48,7 @@ static void initData(GpencilModifierData *md)
 	BuildGpencilModifierData *gpmd = (BuildGpencilModifierData *)md;
 
 	/* We deliberately set this range to the half the default
-	 * frame-range to have an immediate effect ot suggest use-cases
+	 * frame-range to have an immediate effect to suggest use-cases
 	 */
 	gpmd->start_frame = 1;
 	gpmd->end_frame = 125;
@@ -178,7 +169,7 @@ static void reduce_stroke_points(bGPDstroke *gps, const int num_points, const eB
 	gps->totpoints = num_points;
 
 	/* mark stroke as needing to have its geometry caches rebuilt */
-	gps->flag |= GP_STROKE_RECALC_CACHES;
+	gps->flag |= GP_STROKE_RECALC_GEOMETRY;
 	gps->tot_triangles = 0;
 	MEM_SAFE_FREE(gps->triangles);
 }

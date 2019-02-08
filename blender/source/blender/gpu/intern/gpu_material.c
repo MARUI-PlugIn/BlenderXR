@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2006 Blender Foundation.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): Brecht Van Lommel.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/gpu/intern/gpu_material.c
- *  \ingroup gpu
+/** \file \ingroup gpu
  *
  * Manages materials, lights and textures.
  */
@@ -70,7 +61,7 @@ struct GPUMaterial {
 	Scene *scene; /* DEPRECATED was only useful for lamps */
 	Material *ma;
 
-	GPUMaterialStatus status;
+	eGPUMaterialStatus status;
 
 	const void *engine_type;   /* attached engine type */
 	int options;    /* to identify shader variations (shadow, probe, world background...) */
@@ -82,7 +73,7 @@ struct GPUMaterial {
 	/* for binding the material */
 	GPUPass *pass;
 	ListBase inputs;  /* GPUInput */
-	GPUVertexAttribs attribs;
+	GPUVertAttrLayers attrs;
 	int builtins;
 	int alpha, obcolalpha;
 	int dynproperty;
@@ -133,7 +124,7 @@ struct GPUMaterial {
 enum {
 	GPU_DOMAIN_SURFACE    = (1 << 0),
 	GPU_DOMAIN_VOLUME     = (1 << 1),
-	GPU_DOMAIN_SSS        = (1 << 2)
+	GPU_DOMAIN_SSS        = (1 << 2),
 };
 
 /* Functions */
@@ -215,7 +206,7 @@ void GPU_material_free(ListBase *gpumaterial)
 	BLI_freelistN(gpumaterial);
 }
 
-GPUBuiltin GPU_get_material_builtins(GPUMaterial *material)
+eGPUBuiltin GPU_get_material_builtins(GPUMaterial *material)
 {
 	return material->builtins;
 }
@@ -569,9 +560,9 @@ struct GPUUniformBuffer *GPU_material_create_sss_profile_ubo(void)
 #undef SSS_EXPONENT
 #undef SSS_SAMPLES
 
-void GPU_material_vertex_attributes(GPUMaterial *material, GPUVertexAttribs *attribs)
+void GPU_material_vertex_attrs(GPUMaterial *material, GPUVertAttrLayers *r_attrs)
 {
-	*attribs = material->attribs;
+	*r_attrs = material->attrs;
 }
 
 void GPU_material_output_link(GPUMaterial *material, GPUNodeLink *link)
@@ -586,7 +577,7 @@ void gpu_material_add_node(GPUMaterial *material, GPUNode *node)
 }
 
 /* Return true if the material compilation has not yet begin or begin. */
-GPUMaterialStatus GPU_material_status(GPUMaterial *mat)
+eGPUMaterialStatus GPU_material_status(GPUMaterial *mat)
 {
 	return mat->status;
 }
@@ -611,12 +602,12 @@ bool GPU_material_use_domain_volume(GPUMaterial *mat)
 	return (mat->domain & GPU_DOMAIN_VOLUME);
 }
 
-void GPU_material_flag_set(GPUMaterial *mat, GPUMatFlag flag)
+void GPU_material_flag_set(GPUMaterial *mat, eGPUMatFlag flag)
 {
 	mat->flag |= flag;
 }
 
-bool GPU_material_flag_get(GPUMaterial *mat, GPUMatFlag flag)
+bool GPU_material_flag_get(GPUMaterial *mat, eGPUMatFlag flag)
 {
 	return (mat->flag & flag);
 }
@@ -676,15 +667,15 @@ GPUMaterial *GPU_material_from_nodetree(
 	}
 
 	if (mat->outlink) {
-		/* Prune the unused nodes and extract attribs before compiling so the
+		/* Prune the unused nodes and extract attributes before compiling so the
 		 * generated VBOs are ready to accept the future shader. */
 		GPU_nodes_prune(&mat->nodes, mat->outlink);
-		GPU_nodes_get_vertex_attributes(&mat->nodes, &mat->attribs);
+		GPU_nodes_get_vertex_attrs(&mat->nodes, &mat->attrs);
 		/* Create source code and search pass cache for an already compiled version. */
 		mat->pass = GPU_generate_pass(
 		        mat,
 		        mat->outlink,
-		        &mat->attribs,
+		        &mat->attrs,
 		        &mat->nodes,
 		        &mat->builtins,
 		        vert_code,

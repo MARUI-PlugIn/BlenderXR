@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,14 +15,9 @@
  *
  * The Original Code is Copyright (C) 2016 by Mike Erwin.
  * All rights reserved.
- *
- * Contributor(s): Blender Foundation
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/gpu/GPU_primitive.h
- *  \ingroup gpu
+/** \file \ingroup gpu
  *
  * GPU geometric primitives
  */
@@ -56,7 +49,7 @@ typedef enum {
 	GPU_PRIM_CLASS_POINT   = (1 << 0),
 	GPU_PRIM_CLASS_LINE    = (1 << 1),
 	GPU_PRIM_CLASS_SURFACE = (1 << 2),
-	GPU_PRIM_CLASS_ANY     = GPU_PRIM_CLASS_POINT | GPU_PRIM_CLASS_LINE | GPU_PRIM_CLASS_SURFACE
+	GPU_PRIM_CLASS_ANY     = GPU_PRIM_CLASS_POINT | GPU_PRIM_CLASS_LINE | GPU_PRIM_CLASS_SURFACE,
 } GPUPrimClass;
 
 GPUPrimClass GPU_primtype_class(GPUPrimType);

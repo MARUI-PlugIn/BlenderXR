@@ -167,22 +167,39 @@ public:
 	static Texture *select_tex;	/* Texture for the "select" icon. */
 	static Texture *select_raycast_tex;	/* Texture for the "select raycast" icon. */
 	static Texture *select_proximity_tex;	/* Texture for the "select proximity" icon. */
+	static Texture *cursor_teleport_tex;	/* Texture for the "teleport to cursor" icon. */
+	static Texture *cursor_worldorigin_tex;	/* Texture for the "set cursor to world origin" icon. */
+	static Texture *cursor_objorigin_tex;	/* Texture for the "set cursor to object origin" icon. */
 	static Texture *transform_tex;	/* Texture for the "transform" icon. */
 	static Texture *move_tex;	/* Texture for the "move" icon. */
 	static Texture *rotate_tex;	/* Texture for the "rotate" icon. */
 	static Texture *scale_tex;	/* Texture for the "scale" icon. */
 	static Texture *annotate_tex;	/* Texture for the "annotate" icon. */
 	static Texture *measure_tex;	/* Texture for the "measure" icon. */
+	static Texture *mesh_tex;	/* Texture for the "mesh" icon. */
+	static Texture *mesh_plane_tex;	/* Texture for the "mesh plane" icon. */
+	static Texture *mesh_cube_tex;	/* Texture for the "mesh cube" icon. */
+	static Texture *mesh_circle_tex;	/* Texture for the "mesh circle" icon. */
+	static Texture *mesh_cylinder_tex;	/* Texture for the "mesh cylinder" icon. */
+	static Texture *mesh_cone_tex;	/* Texture for the "mesh cone" icon. */
+	static Texture *mesh_grid_tex;	/* Texture for the "mesh grid" icon. */
+	static Texture *mesh_monkey_tex;	/* Texture for the "mesh monkey" icon. */
+	static Texture *mesh_uvsphere_tex;	/* Texture for the "mesh uvsphere" icon. */
+	static Texture *mesh_icosphere_tex;	/* Texture for the "mesh icosphere" icon. */
 	static Texture *extrude_tex;	/* Texture for the "extrude* icon. */
 	static Texture *extrude_individual_tex;	/* Texture for the "extrude individual* icon. */
 	static Texture *extrude_normals_tex;	/* Texture for the "extrude normals* icon. */
-	static Texture *flip_normals_tex;	/* Texture for the "flip normals" icon. */
+	static Texture *insetfaces_tex;	/* Texture for the "inset faces" icon. */
+	static Texture *bevel_tex;	/* Texture for the "bevel" icon. */
+	static Texture *loopcut_tex;	/* Texture for the "loopcut" icon. */
+	static Texture *knife_tex;	/* Texture for the "knife" icon. */
 	static Texture *delete_tex;	/* Texture for the "delete" icon. */
 	static Texture *delete_alt_tex; /* Texture for the "updated delete" icon. */
 	static Texture *duplicate_tex;	/* Texture for the "duplicate" icon. */
+	static Texture *join_tex;	/* Texture for the "join" icon. */
+	static Texture *separate_tex;	/* Texture for the "separate" icon. */
 	static Texture *undo_tex;	/* Texture for the "undo" icon. */
 	static Texture *redo_tex;	/* Texture for the "redo" icon. */
-	static Texture *manip_tex;	/* Texture for the "manipulator" icon. */
 	static Texture *manip_global_tex;	/* Texture for the "global manipulator" icon. */
 	static Texture *manip_local_tex;	/* Texture for the "local manipulator" icon. */
 	static Texture *manip_normal_tex;	/* Texture for the "normal manipulator" icon. */
@@ -195,6 +212,11 @@ public:
 	static Texture *edge_tex;	/* Texture for the "edge" icon. */
 	static Texture *face_tex;	/* Texture for the "face" icon. */
 	static Texture *toolsettings_tex;	/* Texture for the "toolsettings" icon. */
+	static Texture *box_empty_tex;	/* Texture for the "box empty" icon. */
+	static Texture *box_filled_tex;	/* Texture for the "box filled" icon. */
+	static Texture *plus_tex;	/* Texture for the "plus" icon. */
+	static Texture *minus_tex;	/* Texture for the "minus" icon. */
+	static Texture *reset_tex;	/* Texture for the "reset" icon. */
 
 	/* Menu textures. */
 	static Texture *background_menu_tex;	/* Texture for the menu background. */

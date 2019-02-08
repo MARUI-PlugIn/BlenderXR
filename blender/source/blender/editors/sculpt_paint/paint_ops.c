@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,22 +12,17 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/sculpt_paint/paint_ops.c
- *  \ingroup edsculpt
+/** \file \ingroup edsculpt
  */
 
 #include "MEM_guardedalloc.h"
 
 #include <stdlib.h>
 #include "BLI_listbase.h"
-#include "BLI_string.h"
 #include "BLI_utildefines.h"
 #include "BLI_math_vector.h"
-#include "BLI_math_color.h"
 
 #include "DNA_customdata_types.h"
 #include "DNA_object_types.h"
@@ -561,13 +554,13 @@ typedef enum {
 
 typedef enum {
 	STENCIL_PRIMARY = 0,
-	STENCIL_SECONDARY = 1
+	STENCIL_SECONDARY = 1,
 } StencilTextureMode;
 
 
 typedef enum {
 	STENCIL_CONSTRAINT_X = 1,
-	STENCIL_CONSTRAINT_Y = 2
+	STENCIL_CONSTRAINT_Y = 2,
 } StencilConstraint;
 
 typedef struct {
@@ -799,13 +792,13 @@ static void BRUSH_OT_stencil_control(wmOperatorType *ot)
 		{STENCIL_TRANSLATE, "TRANSLATION", 0, "Translation", ""},
 		{STENCIL_SCALE, "SCALE", 0, "Scale", ""},
 		{STENCIL_ROTATE, "ROTATION", 0, "Rotation", ""},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	static const EnumPropertyItem stencil_texture_items[] = {
 		{STENCIL_PRIMARY, "PRIMARY", 0, "Primary", ""},
 		{STENCIL_SECONDARY, "SECONDARY", 0, "Secondary", ""},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 	/* identifiers */
 	ot->name = "Stencil Brush Control";

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2004 Blender Foundation.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): Joshua Leung
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/space_outliner/outliner_edit.c
- *  \ingroup spoutliner
+/** \file \ingroup spoutliner
  */
 
 #include <string.h>
@@ -43,9 +34,6 @@
 #include "BLI_blenlib.h"
 #include "BLI_utildefines.h"
 #include "BLI_path_util.h"
-#include "BLI_mempool.h"
-#include "BLI_stack.h"
-#include "BLI_string.h"
 
 #include "BLT_translation.h"
 
@@ -379,7 +367,7 @@ static void id_delete(bContext *C, ReportList *reports, TreeElement *te, TreeSto
 	}
 
 
-	BKE_libblock_delete(bmain, id);
+	BKE_id_delete(bmain, id);
 
 	WM_event_add_notifier(C, NC_WINDOW, NULL);
 }
@@ -486,7 +474,8 @@ static int outliner_id_remap_exec(bContext *C, wmOperator *op)
 	/* recreate dependency graph to include new objects */
 	DEG_relations_tag_update(bmain);
 
-	/* free gpu materials, some materials depend on existing objects, such as lamps so freeing correctly refreshes */
+	/* free gpu materials, some materials depend on existing objects,
+	 * such as lamps so freeing correctly refreshes */
 	GPU_materials_free(bmain);
 
 	WM_event_add_notifier(C, NC_WINDOW, NULL);
@@ -705,7 +694,8 @@ void OUTLINER_OT_lib_relocate(wmOperatorType *ot)
 }
 
 /* XXX This does not work with several items
- *     (it is only called once in the end, due to the 'deferred' filebrowser invocation through event system...). */
+ * (it is only called once in the end, due to the 'deferred'
+ * filebrowser invocation through event system...). */
 void lib_relocate_cb(
         bContext *C, ReportList *UNUSED(reports), Scene *UNUSED(scene), TreeElement *te,
         TreeStoreElem *UNUSED(tsep), TreeStoreElem *tselem, void *UNUSED(user_data))
@@ -1866,16 +1856,37 @@ static int outliner_orphans_purge_invoke(bContext *C, wmOperator *op, const wmEv
 	                                   "Click here to proceed...");
 }
 
+static bool outliner_orphans_purge_tag_cb(Main *UNUSED(bmain), ID *id, void *UNUSED(user_data))
+{
+	if (id->us == 0) {
+		id->tag |= LIB_TAG_DOIT;
+	}
+	else {
+		id->tag &= ~LIB_TAG_DOIT;
+	}
+	return true;
+}
+
 static int outliner_orphans_purge_exec(bContext *C, wmOperator *UNUSED(op))
 {
-	/* Firstly, ensure that the file has been saved,
-	 * so that the latest changes since the last save
-	 * are retained...
-	 */
-	WM_operator_name_call(C, "WM_OT_save_mainfile", WM_OP_EXEC_DEFAULT, NULL);
+	Main *bmain = CTX_data_main(C);
+	SpaceOops *soops = CTX_wm_space_outliner(C);
 
-	/* Now, reload the file to get rid of the orphans... */
-	WM_operator_name_call(C, "WM_OT_revert_mainfile", WM_OP_EXEC_DEFAULT, NULL);
+	/* Tag all IDs having zero users. */
+	BKE_main_foreach_id(bmain, false, outliner_orphans_purge_tag_cb, NULL);
+
+	BKE_id_multi_tagged_delete(bmain);
+
+	/* XXX: tree management normally happens from draw_outliner(), but when
+	 *      you're clicking to fast on Delete object from context menu in
+	 *      outliner several mouse events can be handled in one cycle without
+	 *      handling notifiers/redraw which leads to deleting the same object twice.
+	 *      cleanup tree here to prevent such cases. */
+	outliner_cleanup_tree(soops);
+
+	DEG_relations_tag_update(bmain);
+	WM_event_add_notifier(C, NC_ID | NA_EDITED, NULL);
+	WM_event_add_notifier(C, NC_SPACE | ND_SPACE_OUTLINER, NULL);
 	return OPERATOR_FINISHED;
 }
 
@@ -1884,8 +1895,7 @@ void OUTLINER_OT_orphans_purge(wmOperatorType *ot)
 	/* identifiers */
 	ot->idname = "OUTLINER_OT_orphans_purge";
 	ot->name = "Purge All";
-	ot->description = "Clear all orphaned data-blocks without any users from the file "
-	                  "(cannot be undone, saves to current .blend file)";
+	ot->description = "Clear all orphaned data-blocks without any users from the file";
 
 	/* callbacks */
 	ot->invoke = outliner_orphans_purge_invoke;

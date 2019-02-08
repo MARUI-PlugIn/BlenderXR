@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,14 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Joseph Gilbert
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/python/mathutils/mathutils_Euler.c
- *  \ingroup pymathutils
+/** \file \ingroup pymathutils
  */
 
 
@@ -602,7 +595,7 @@ static PySequenceMethods Euler_SeqMethods = {
 static PyMappingMethods Euler_AsMapping = {
 	(lenfunc)Euler_len,
 	(binaryfunc)Euler_subscript,
-	(objobjargproc)Euler_ass_subscript
+	(objobjargproc)Euler_ass_subscript,
 };
 
 /* euler axis, euler.x/y/z */
@@ -682,7 +675,7 @@ static struct PyMethodDef Euler_methods[] = {
 
 	/* base-math methods */
 	{"freeze", (PyCFunction)BaseMathObject_freeze, METH_NOARGS, BaseMathObject_freeze_doc},
-	{NULL, NULL, 0, NULL}
+	{NULL, NULL, 0, NULL},
 };
 
 /* ------------------PY_OBECT DEFINITION-------------------------- */

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file DNA_lamp_types.h
- *  \ingroup DNA
+/** \file \ingroup DNA
  */
 
 #ifndef __DNA_LAMP_TYPES_H__
@@ -40,14 +31,15 @@
 #endif
 
 struct AnimData;
-struct bNodeTree;
 struct CurveMapping;
 struct Ipo;
 struct MTex;
+struct bNodeTree;
 
 typedef struct Lamp {
 	ID id;
-	struct AnimData *adt;	/* animation data (must be immediately after id for utilities to use it) */
+	/** Animation data (must be immediately after id for utilities to use it). */
+	struct AnimData *adt;
 
 	short type, flag;
 	int mode;
@@ -57,7 +49,8 @@ typedef struct Lamp {
 
 	float energy, dist, spotsize, spotblend;
 
-	float att1, att2;	/* Quad1 and Quad2 attenuation */
+	/** Quad1 and Quad2 attenuation. */
+	float att1, att2;
 	float coeff_const, coeff_lin, coeff_quad, coeff_pad;
 	struct CurveMapping *curfalloff;
 	short falloff_type;
@@ -74,7 +67,8 @@ typedef struct Lamp {
 	/* texact is for buttons */
 	short texact, shadhalostep;
 
-	struct Ipo *ipo  DNA_DEPRECATED;  /* old animation system, deprecated for 2.5 */
+	/** Old animation system, deprecated for 2.5. */
+	struct Ipo *ipo  DNA_DEPRECATED;
 	short pr_texture, use_nodes;
 	char pad6[4];
 
@@ -147,8 +141,8 @@ typedef struct Lamp {
 /* area shape */
 #define LA_AREA_SQUARE	0
 #define LA_AREA_RECT	1
-#define LA_AREA_CUBE	2
-#define LA_AREA_BOX		3
+/* #define LA_AREA_CUBE 2 */ /* UNUSED */
+/* #define LA_AREA_BOX  3 */ /* UNUSED */
 #define LA_AREA_DISK	4
 #define LA_AREA_ELLIPSE	5
 

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,15 +15,9 @@
  *
  * The Original Code is Copyright (C) 2008 Blender Foundation.
  * All rights reserved.
- *
- *
- * Contributor(s): Blender Foundation
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/space_view3d/view3d_edit.c
- *  \ingroup spview3d
+/** \file \ingroup spview3d
  *
  * 3D view manipulation/operators.
  */
@@ -299,7 +291,7 @@ static bool view3d_orbit_calc_center(bContext *C, float r_dyn_ofs[3])
 
 		zero_v3(select_center);
 		for (base_eval = FIRSTBASE(view_layer_eval); base_eval; base_eval = base_eval->next) {
-			if (TESTBASE(v3d, base_eval)) {
+			if (BASE_SELECTED(v3d, base_eval)) {
 				/* use the boundbox if we can */
 				Object *ob_eval = base_eval->object;
 
@@ -457,8 +449,8 @@ static void viewops_data_create(
 
 				negate_v3_v3(my_origin, rv3d->ofs);             /* ofs is flipped */
 
-				/* Set the dist value to be the distance from this 3d point
-				 * this means youll always be able to zoom into it and panning wont go bad when dist was zero */
+				/* Set the dist value to be the distance from this 3d point this means youll
+				 * always be able to zoom into it and panning wont go bad when dist was zero */
 
 				/* remove dist value */
 				upvec[0] = upvec[1] = 0;
@@ -469,7 +461,8 @@ static void viewops_data_create(
 				sub_v3_v3v3(my_pivot, rv3d->ofs, upvec);
 				negate_v3(my_pivot);                /* ofs is flipped */
 
-				/* find a new ofs value that is along the view axis (rather than the mouse location) */
+				/* find a new ofs value that is along the view axis
+				 * (rather than the mouse location) */
 				closest_to_line_v3(dvec, vod->dyn_ofs, my_pivot, my_origin);
 				vod->init.dist = rv3d->dist = len_v3v3(my_pivot, dvec);
 
@@ -549,7 +542,7 @@ static void viewops_data_free(bContext *C, wmOperator *op)
 enum {
 	VIEW_PASS = 0,
 	VIEW_APPLY,
-	VIEW_CONFIRM
+	VIEW_CONFIRM,
 };
 
 /* NOTE: these defines are saved in keymap files, do not change values but just add new ones */
@@ -574,7 +567,7 @@ void viewrotate_modal_keymap(wmKeyConfig *keyconf)
 		{VIEWROT_MODAL_SWITCH_ZOOM, "SWITCH_TO_ZOOM", 0, "Switch to Zoom"},
 		{VIEWROT_MODAL_SWITCH_MOVE, "SWITCH_TO_MOVE", 0, "Switch to Move"},
 
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	wmKeyMap *keymap = WM_modalkeymap_get(keyconf, "View3D Rotate Modal");
@@ -1224,7 +1217,8 @@ void view3d_ndof_fly(
 		}
 
 		if (!is_zero_v3(trans)) {
-			/* move center of view opposite of hand motion (this is camera mode, not object mode) */
+			/* move center of view opposite of hand motion
+			 * (this is camera mode, not object mode) */
 			sub_v3_v3(rv3d->ofs, trans);
 			has_translate = true;
 		}
@@ -1579,7 +1573,7 @@ void viewmove_modal_keymap(wmKeyConfig *keyconf)
 		{VIEWROT_MODAL_SWITCH_ZOOM, "SWITCH_TO_ZOOM", 0, "Switch to Zoom"},
 		{VIEWROT_MODAL_SWITCH_ROTATE, "SWITCH_TO_ROTATE", 0, "Switch to Rotate"},
 
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	wmKeyMap *keymap = WM_modalkeymap_get(keyconf, "View3D Move Modal");
@@ -1771,7 +1765,7 @@ void viewzoom_modal_keymap(wmKeyConfig *keyconf)
 		{VIEWROT_MODAL_SWITCH_ROTATE, "SWITCH_TO_ROTATE", 0, "Switch to Rotate"},
 		{VIEWROT_MODAL_SWITCH_MOVE, "SWITCH_TO_MOVE", 0, "Switch to Move"},
 
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	wmKeyMap *keymap = WM_modalkeymap_get(keyconf, "View3D Zoom Modal");
@@ -2302,7 +2296,7 @@ void viewdolly_modal_keymap(wmKeyConfig *keyconf)
 		{VIEWROT_MODAL_SWITCH_ROTATE, "SWITCH_TO_ROTATE", 0, "Switch to Rotate"},
 		{VIEWROT_MODAL_SWITCH_MOVE, "SWITCH_TO_MOVE", 0, "Switch to Move"},
 
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	wmKeyMap *keymap = WM_modalkeymap_get(keyconf, "View3D Dolly Modal");
@@ -2659,12 +2653,13 @@ static void view3d_from_minmax(
 		        C, v3d, ar, smooth_viewtx,
 		        &(const V3D_SmoothParams) {
 		            .camera_old = v3d->camera, .ofs = new_ofs,
-		            .dist = ok_dist ? &new_dist : NULL});
+		            .dist = ok_dist ? &new_dist : NULL,
+		        });
 	}
 	else {
 		ED_view3d_smooth_view(
 		        C, v3d, ar, smooth_viewtx,
-		        &(const V3D_SmoothParams) {.ofs = new_ofs, .dist = ok_dist ? &new_dist : NULL});
+		        &(const V3D_SmoothParams) { .ofs = new_ofs, .dist = ok_dist ? &new_dist : NULL, });
 	}
 
 	/* smooth view does viewlock RV3D_BOXVIEW copy */
@@ -2818,10 +2813,11 @@ static int viewselected_exec(bContext *C, wmOperator *op)
 
 	if (ob_eval && (ob_eval->mode & OB_MODE_WEIGHT_PAINT)) {
 		/* hard-coded exception, we look for the one selected armature */
-		/* this is weak code this way, we should make a generic active/selection callback interface once... */
+		/* this is weak code this way, we should make a generic
+		 * active/selection callback interface once... */
 		Base *base_eval;
 		for (base_eval = view_layer_eval->object_bases.first; base_eval; base_eval = base_eval->next) {
-			if (TESTBASELIB(v3d, base_eval)) {
+			if (BASE_SELECTED_EDITABLE(v3d, base_eval)) {
 				if (base_eval->object->type == OB_ARMATURE)
 					if (base_eval->object->mode & OB_MODE_POSE)
 						break;
@@ -2888,15 +2884,17 @@ static int viewselected_exec(bContext *C, wmOperator *op)
 	else {
 		Base *base_eval;
 		for (base_eval = FIRSTBASE(view_layer_eval); base_eval; base_eval = base_eval->next) {
-			if (TESTBASE(v3d, base_eval)) {
+			if (BASE_SELECTED(v3d, base_eval)) {
 
 				if (skip_camera && base_eval->object == v3d->camera) {
 					continue;
 				}
 
 				/* account for duplis */
-				if (BKE_object_minmax_dupli(depsgraph, scene, base_eval->object, min, max, false) == 0)
-					BKE_object_minmax(base_eval->object, min, max, false);  /* use if duplis not found */
+				if (BKE_object_minmax_dupli(depsgraph, scene, base_eval->object, min, max, false) == 0) {
+					/* use if duplis not found */
+					BKE_object_minmax(base_eval->object, min, max, false);
+				}
 
 				ok = 1;
 			}
@@ -3135,7 +3133,7 @@ void VIEW3D_OT_view_center_pick(wmOperatorType *ot)
 /** \name View Camera Center Operator
  * \{ */
 
-static int view3d_center_camera_exec(bContext *C, wmOperator *UNUSED(op)) /* was view3d_home() in 2.4x */
+static int view3d_center_camera_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	Depsgraph *depsgraph = CTX_data_depsgraph(C);
 	Scene *scene = CTX_data_scene(C);
@@ -3187,7 +3185,7 @@ void VIEW3D_OT_view_center_camera(wmOperatorType *ot)
 /** \name View Lock Center Operator
  * \{ */
 
-static int view3d_center_lock_exec(bContext *C, wmOperator *UNUSED(op)) /* was view3d_home() in 2.4x */
+static int view3d_center_lock_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	RegionView3D *rv3d = CTX_wm_region_view3d(C);
 
@@ -3497,7 +3495,7 @@ static int view3d_zoom_border_exec(bContext *C, wmOperator *op)
 
 	ED_view3d_smooth_view(
 	        C, v3d, ar, smooth_viewtx,
-	        &(const V3D_SmoothParams) {.ofs = new_ofs, .dist = &new_dist});
+	        &(const V3D_SmoothParams) { .ofs = new_ofs, .dist = &new_dist, });
 
 	if (rv3d->viewlock & RV3D_BOXVIEW) {
 		view3d_boxview_sync(CTX_wm_area(C), ar);
@@ -3594,7 +3592,7 @@ static const EnumPropertyItem prop_view_items[] = {
 	{RV3D_VIEW_TOP, "TOP", ICON_TRIA_UP, "Top", "View From the Top"},
 	{RV3D_VIEW_FRONT, "FRONT", 0, "Front", "View From the Front"},
 	{RV3D_VIEW_BACK, "BACK", 0, "Back", "View From the Back"},
-	{0, NULL, 0, NULL, NULL}
+	{0, NULL, 0, NULL, NULL},
 };
 
 
@@ -3642,7 +3640,7 @@ static void axis_set_view(
 		/* to camera */
 		ED_view3d_smooth_view(
 		        C, v3d, ar, smooth_viewtx,
-		        &(const V3D_SmoothParams) {.camera_old = v3d->camera, .ofs = rv3d->ofs, .quat = quat});
+		        &(const V3D_SmoothParams) { .camera_old = v3d->camera, .ofs = rv3d->ofs, .quat = quat, });
 	}
 	else if (orig_persp == RV3D_CAMOB && v3d->camera) {
 		/* from camera */
@@ -3657,7 +3655,7 @@ static void axis_set_view(
 
 		ED_view3d_smooth_view(
 		        C, v3d, ar, smooth_viewtx,
-		        &(const V3D_SmoothParams) {.ofs = ofs, .quat = quat, .dist = &dist});
+		        &(const V3D_SmoothParams) { .ofs = ofs, .quat = quat, .dist = &dist, });
 	}
 	else {
 		/* rotate around selection */
@@ -3674,7 +3672,7 @@ static void axis_set_view(
 		/* no camera involved */
 		ED_view3d_smooth_view(
 		        C, v3d, ar, smooth_viewtx,
-		        &(const V3D_SmoothParams) {.quat = quat, .dyn_ofs = dyn_ofs_pt});
+		        &(const V3D_SmoothParams) { .quat = quat, .dyn_ofs = dyn_ofs_pt, });
 	}
 }
 
@@ -3872,7 +3870,8 @@ static int view_camera_exec(bContext *C, wmOperator *op)
 			        C, v3d, ar, smooth_viewtx,
 			        &(const V3D_SmoothParams) {
 			            .camera = v3d->camera, .ofs = rv3d->ofs, .quat = rv3d->viewquat,
-			            .dist = &rv3d->dist, .lens = &v3d->lens});
+			            .dist = &rv3d->dist, .lens = &v3d->lens,
+			        });
 		}
 		else {
 			/* return to settings of last view */
@@ -3912,7 +3911,7 @@ static const EnumPropertyItem prop_view_orbit_items[] = {
 	{V3D_VIEW_STEPRIGHT, "ORBITRIGHT", 0, "Orbit Right", "Orbit the view around to the Right"},
 	{V3D_VIEW_STEPUP, "ORBITUP", 0, "Orbit Up", "Orbit the view Up"},
 	{V3D_VIEW_STEPDOWN, "ORBITDOWN", 0, "Orbit Down", "Orbit the view Down"},
-	{0, NULL, 0, NULL, NULL}
+	{0, NULL, 0, NULL, NULL},
 };
 
 static int vieworbit_exec(bContext *C, wmOperator *op)
@@ -3998,7 +3997,7 @@ static int vieworbit_exec(bContext *C, wmOperator *op)
 
 			ED_view3d_smooth_view(
 			        C, v3d, ar, smooth_viewtx,
-			        &(const V3D_SmoothParams) {.quat = quat_new, .dyn_ofs = dyn_ofs_pt});
+			        &(const V3D_SmoothParams) { .quat = quat_new, .dyn_ofs = dyn_ofs_pt, });
 
 			return OPERATOR_FINISHED;
 		}
@@ -4138,7 +4137,7 @@ static const EnumPropertyItem prop_view_roll_items[] = {
 	{0, "ANGLE", 0, "Roll Angle", "Roll the view using an angle value"},
 	{V3D_VIEW_STEPLEFT, "LEFT", 0, "Roll Left", "Roll the view around to the Left"},
 	{V3D_VIEW_STEPRIGHT, "RIGHT", 0, "Roll Right", "Roll the view around to the Right"},
-	{0, NULL, 0, NULL, NULL}
+	{0, NULL, 0, NULL, NULL},
 };
 
 
@@ -4188,7 +4187,7 @@ static int viewroll_exec(bContext *C, wmOperator *op)
 
 		ED_view3d_smooth_view(
 		        C, v3d, ar, smooth_viewtx,
-		        &(const V3D_SmoothParams) {.quat = quat_new, .dyn_ofs = dyn_ofs_pt});
+		        &(const V3D_SmoothParams) { .quat = quat_new, .dyn_ofs = dyn_ofs_pt, });
 
 		viewops_data_free(C, op);
 		return OPERATOR_FINISHED;
@@ -4274,7 +4273,7 @@ static const EnumPropertyItem prop_view_pan_items[] = {
 	{V3D_VIEW_PANRIGHT, "PANRIGHT", 0, "Pan Right", "Pan the view to the Right"},
 	{V3D_VIEW_PANUP, "PANUP", 0, "Pan Up", "Pan the view Up"},
 	{V3D_VIEW_PANDOWN, "PANDOWN", 0, "Pan Down", "Pan the view Down"},
-	{0, NULL, 0, NULL, NULL}
+	{0, NULL, 0, NULL, NULL},
 };
 
 /** \} */
@@ -4558,8 +4557,6 @@ void ED_view3d_clipping_local(RegionView3D *rv3d, float mat[4][4])
 		calc_local_clipping(rv3d->clip_local, rv3d->clipbb, mat);
 }
 
-#if 0 /* TODO Missing from 2.8 drawing code. Find a solution to support clip border then uncomment it. */
-
 static int view3d_clipping_exec(bContext *C, wmOperator *op)
 {
 	ARegion *ar = CTX_wm_region(C);
@@ -4616,7 +4613,6 @@ void VIEW3D_OT_clip_border(wmOperatorType *ot)
 	/* properties */
 	WM_operator_properties_border(ot);
 }
-#endif
 
 /** \} */
 
@@ -4786,7 +4782,8 @@ void ED_view3d_cursor3d_update(
 			}
 		}
 		else {
-			/* Cursor may be outside of the view, prevent it getting 'lost', see: T40353 & T45301 */
+			/* Cursor may be outside of the view,
+			 * prevent it getting 'lost', see: T40353 & T45301 */
 			zero_v2(rv3d->ofs_lock);
 		}
 	}
@@ -4845,7 +4842,7 @@ void VIEW3D_OT_cursor3d(wmOperatorType *ot)
 		{V3D_CURSOR_ORIENT_VIEW,    "VIEW",  0, "View", "Orient to the viewport"},
 		{V3D_CURSOR_ORIENT_XFORM,   "XFORM", 0, "Transform", "Orient to the current transform setting"},
 		{V3D_CURSOR_ORIENT_GEOM,    "GEOM",  0, "Geometry", "Match the surface normal"},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	prop = RNA_def_boolean(
@@ -4870,7 +4867,7 @@ static const EnumPropertyItem prop_shading_type_items[] = {
 	{OB_SOLID, "SOLID", 0, "Solid", "Toggle solid shading"},
 	{OB_MATERIAL, "MATERIAL", 0, "LookDev", "Toggle lookdev shading"},
 	{OB_RENDER, "RENDERED", 0, "Rendered", "Toggle rendered shading"},
-	{0, NULL, 0, NULL, NULL}
+	{0, NULL, 0, NULL, NULL},
 };
 
 static int toggle_shading_exec(bContext *C, wmOperator *op)

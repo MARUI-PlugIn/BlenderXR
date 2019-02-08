@@ -1,6 +1,4 @@
 /*
- * Copyright 2016, Blender Foundation.
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,12 +13,10 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * Contributor(s): Blender Institute
- *
+ * Copyright 2016, Blender Foundation.
  */
 
-/** \file workbench_effect_aa.c
- *  \ingroup draw_engine
+/** \file \ingroup draw_engine
  */
 
 #include "ED_screen.h"
@@ -64,7 +60,7 @@ static void workspace_aa_draw_transform(GPUTexture *tx, WORKBENCH_PrivateData *w
 	}
 	else {
 		/* Display space result for viewport. */
-		DRW_transform_to_display(tx, wpd->use_color_view_settings);
+		DRW_transform_to_display(tx, wpd->use_color_render_settings, wpd->use_color_render_settings);
 	}
 }
 

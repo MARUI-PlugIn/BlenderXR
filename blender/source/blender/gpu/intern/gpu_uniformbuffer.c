@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2005 Blender Foundation.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): Clement Foucault.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file gpu_uniformbuffer.c
- *  \ingroup gpu
+/** \file \ingroup gpu
  */
 
 #include <string.h>
@@ -42,21 +33,21 @@
 #include "GPU_material.h"
 #include "GPU_uniformbuffer.h"
 
-typedef enum GPUUniformBufferFlag {
+typedef enum eGPUUniformBufferFlag {
 	GPU_UBO_FLAG_INITIALIZED = (1 << 0),
 	GPU_UBO_FLAG_DIRTY = (1 << 1),
-} GPUUniformBufferFlag;
+} eGPUUniformBufferFlag;
 
-typedef enum GPUUniformBufferType {
+typedef enum eGPUUniformBufferType {
 	GPU_UBO_STATIC = 0,
 	GPU_UBO_DYNAMIC = 1,
-} GPUUniformBufferType;
+} eGPUUniformBufferType;
 
 struct GPUUniformBuffer {
 	int size;           /* in bytes */
 	GLuint bindcode;    /* opengl identifier for UBO */
 	int bindpoint;      /* current binding point */
-	GPUUniformBufferType type;
+	eGPUUniformBufferType type;
 };
 
 #define GPUUniformBufferStatic GPUUniformBuffer
@@ -68,7 +59,7 @@ typedef struct GPUUniformBufferDynamic {
 } GPUUniformBufferDynamic;
 
 /* Prototypes */
-static GPUType get_padded_gpu_type(struct LinkData *link);
+static eGPUType get_padded_gpu_type(struct LinkData *link);
 static void gpu_uniformbuffer_inputs_sort(struct ListBase *inputs);
 
 /* Only support up to this type, if you want to extend it, make sure the
@@ -148,7 +139,7 @@ GPUUniformBuffer *GPU_uniformbuffer_dynamic_create(ListBase *inputs, char err_ou
 	gpu_uniformbuffer_inputs_sort(inputs);
 
 	for (LinkData *link = inputs->first; link; link = link->next) {
-		const GPUType gputype = get_padded_gpu_type(link);
+		const eGPUType gputype = get_padded_gpu_type(link);
 		ubo->buffer.size += gputype * sizeof(float);
 	}
 
@@ -231,10 +222,10 @@ void GPU_uniformbuffer_dynamic_update(GPUUniformBuffer *ubo_)
  * We need to pad some data types (vec3) on the C side
  * To match the GPU expected memory block alignment.
  */
-static GPUType get_padded_gpu_type(LinkData *link)
+static eGPUType get_padded_gpu_type(LinkData *link)
 {
 	GPUInput *input = link->data;
-	GPUType gputype = input->type;
+	eGPUType gputype = input->type;
 
 	/* Unless the vec3 is followed by a float we need to treat it as a vec4. */
 	if (gputype == GPU_VEC3 &&
@@ -269,7 +260,7 @@ static void gpu_uniformbuffer_inputs_sort(ListBase *inputs)
 
 	/* Creates a lookup table for the different types; */
 	LinkData *inputs_lookup[MAX_UBO_GPU_TYPE + 1] = {NULL};
-	GPUType cur_type = MAX_UBO_GPU_TYPE + 1;
+	eGPUType cur_type = MAX_UBO_GPU_TYPE + 1;
 
 	for (LinkData *link = inputs->first; link; link = link->next) {
 		GPUInput *input = link->data;

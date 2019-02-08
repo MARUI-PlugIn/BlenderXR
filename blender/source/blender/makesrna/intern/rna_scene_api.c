@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,15 +15,9 @@
  *
  * The Original Code is Copyright (C) 2009 Blender Foundation.
  * All rights reserved.
- *
- *
- * Contributor(s): Joshua Leung, Arystanbek Dyussenov
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/makesrna/intern/rna_scene_api.c
- *  \ingroup RNA
+/** \file \ingroup RNA
  */
 
 
@@ -367,15 +359,15 @@ void RNA_api_scene(StructRNA *srna)
 	RNA_def_int(func, "geom_samples", 1, 1, 128, "Geom samples", "Geometry samples per frame", 1, 128);
 	RNA_def_float(func, "shutter_open", 0.0f, -1.0f, 1.0f, "Shutter open", "", -1.0f, 1.0f);
 	RNA_def_float(func, "shutter_close", 1.0f, -1.0f, 1.0f, "Shutter close", "", -1.0f, 1.0f);
-	RNA_def_boolean(func, "selected_only"	, 0, "Selected only", "Export only selected objects");
-	RNA_def_boolean(func, "uvs"			, 1, "UVs", "Export UVs");
-	RNA_def_boolean(func, "normals"		, 1, "Normals", "Export normals");
-	RNA_def_boolean(func, "vcolors"		, 0, "Vertex colors", "Export vertex colors");
-	RNA_def_boolean(func, "apply_subdiv"	, 1, "Subsurfs as meshes", "Export subdivision surfaces as meshes");
-	RNA_def_boolean(func, "flatten"		, 0, "Flatten hierarchy", "Flatten hierarchy");
-	RNA_def_boolean(func, "visible_layers_only"	, 0, "Visible layers only", "Export only objects in visible layers");
-	RNA_def_boolean(func, "renderable_only"	, 0, "Renderable objects only", "Export only objects marked renderable in the outliner");
-	RNA_def_boolean(func, "face_sets"	, 0, "Facesets", "Export face sets");
+	RNA_def_boolean(func, "selected_only", 0, "Selected only", "Export only selected objects");
+	RNA_def_boolean(func, "uvs", 1, "UVs", "Export UVs");
+	RNA_def_boolean(func, "normals", 1, "Normals", "Export normals");
+	RNA_def_boolean(func, "vcolors", 0, "Vertex colors", "Export vertex colors");
+	RNA_def_boolean(func, "apply_subdiv", 1, "Subsurfs as meshes", "Export subdivision surfaces as meshes");
+	RNA_def_boolean(func, "flatten", 0, "Flatten hierarchy", "Flatten hierarchy");
+	RNA_def_boolean(func, "visible_layers_only", 0, "Visible layers only", "Export only objects in visible layers");
+	RNA_def_boolean(func, "renderable_only", 0, "Renderable objects only", "Export only objects marked renderable in the outliner");
+	RNA_def_boolean(func, "face_sets", 0, "Facesets", "Export face sets");
 	RNA_def_boolean(func, "subdiv_schema", 0, "Use Alembic subdivision Schema", "Use Alembic subdivision Schema");
 	RNA_def_boolean(func, "export_hair", 1, "Export Hair", "Exports hair particle systems as animated curves");
 	RNA_def_boolean(func, "export_particles", 1, "Export Particles", "Exports non-hair particle systems");

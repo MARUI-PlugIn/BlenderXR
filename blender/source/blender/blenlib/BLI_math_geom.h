@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -20,14 +18,12 @@
  *
  * The Original Code is: some of this file.
  *
- * ***** END GPL LICENSE BLOCK *****
  * */
 
 #ifndef __BLI_MATH_GEOM_H__
 #define __BLI_MATH_GEOM_H__
 
-/** \file BLI_math_geom.h
- *  \ingroup bli
+/** \file \ingroup bli
  */
 
 #ifdef __cplusplus
@@ -113,9 +109,9 @@ float dist_signed_squared_to_corner_v3v3v3(
         const float p[3],
         const float v1[3], const float v2[3], const float v3[3],
         const float axis_ref[3]);
-float dist_squared_to_ray_v3(
+float dist_squared_to_ray_v3_normalized(
         const float ray_origin[3], const float ray_direction[3],
-        const float co[3], float *r_depth);
+        const float co[3]);
 float dist_squared_ray_to_seg_v3(
         const float ray_origin[3], const float ray_direction[3],
         const float v0[3], const float v1[3],

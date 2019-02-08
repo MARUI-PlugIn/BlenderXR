@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -18,16 +16,10 @@
  * The Original Code is Copyright (C) 2015 Blender Foundation.
  * All rights reserved.
  *
- * Original Author: Joshua Leung
- * Contributor(s): None Yet
- *
- * ***** END GPL LICENSE BLOCK *****
- *
  * Defines and code for core node types
  */
 
-/** \file blender/blenkernel/intern/armature_update.c
- *  \ingroup bke
+/** \file \ingroup bke
  */
 
 #include "MEM_guardedalloc.h"
@@ -52,7 +44,6 @@
 
 #include "BIK_api.h"
 
-#include "BKE_main.h"
 
 #include "DEG_depsgraph.h"
 

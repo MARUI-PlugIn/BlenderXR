@@ -15,10 +15,6 @@
 # Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #
 # The Original Code is Copyright (C) 2011 Blender Foundation.
-#
-# Contributor(s): Blender Foundation,
-#                 Sergey Sharybin
-#
 # ***** END GPL LICENSE BLOCK *****
 
 set(INC
@@ -58,8 +54,8 @@ set(SRC
 	tracking_ops_orient.c
 	tracking_ops_plane.c
 	tracking_ops_solve.c
-	tracking_ops_track.c
 	tracking_ops_stabilize.c
+	tracking_ops_track.c
 	tracking_ops_utils.c
 	tracking_select.c
 

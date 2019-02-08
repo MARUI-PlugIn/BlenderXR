@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,17 +15,8 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
-/** \file DNA_text_types.h
- *  \ingroup DNA
- *  \since mar-2001
- *  \author nzc
+/** \file \ingroup DNA
  *
  * Text blocks used for Python-Scripts, OpenShadingLanguage
  * and arbitrary text data to store in blend files.
@@ -43,8 +32,10 @@ typedef struct TextLine {
 	struct TextLine *next, *prev;
 
 	char *line;
-	char *format; /* may be NULL if syntax is off or not yet formatted */
-	int len, blen; /* blen unused */
+	/** May be NULL if syntax is off or not yet formatted. */
+	char *format;
+	/** Blen unused. */
+	int len, blen;
 } TextLine;
 
 typedef struct Text {

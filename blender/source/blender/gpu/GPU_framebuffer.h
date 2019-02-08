@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2005 Blender Foundation.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): Brecht Van Lommel.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file GPU_framebuffer.h
- *  \ingroup gpu
+/** \file \ingroup gpu
  */
 
 #ifndef __GPU_FRAMEBUFFER_H__
@@ -45,11 +36,11 @@ typedef struct GPUAttachment {
 	int mip, layer;
 } GPUAttachment;
 
-typedef enum GPUFrameBufferBits {
+typedef enum eGPUFrameBufferBits {
 	GPU_COLOR_BIT    = (1 << 0),
 	GPU_DEPTH_BIT    = (1 << 1),
 	GPU_STENCIL_BIT  = (1 << 2),
-} GPUFrameBufferBits;
+} eGPUFrameBufferBits;
 
 #if WITH_VR
 typedef enum {
@@ -150,28 +141,28 @@ void GPU_framebuffer_texture_detach_slot(
 void GPU_framebuffer_config_array(GPUFrameBuffer *fb, const GPUAttachment *config, int config_len);
 
 #define GPU_ATTACHMENT_NONE \
-        {.tex = NULL, .layer = -1, .mip = 0}
+        { .tex = NULL, .layer = -1, .mip = 0, }
 #define GPU_ATTACHMENT_LEAVE \
-        {.tex = NULL, .layer = -1, .mip = -1}
+        { .tex = NULL, .layer = -1, .mip = -1, }
 #define GPU_ATTACHMENT_TEXTURE(_tex) \
-        {.tex = _tex, .layer = -1, .mip = 0}
+        { .tex = _tex, .layer = -1, .mip = 0, }
 #define GPU_ATTACHMENT_TEXTURE_MIP(_tex, _mip) \
-        {.tex = _tex, .layer = -1, .mip = _mip}
+        { .tex = _tex, .layer = -1, .mip = _mip, }
 #define GPU_ATTACHMENT_TEXTURE_LAYER(_tex, _layer) \
-        {.tex = _tex, .layer = _layer, .mip = 0}
+        { .tex = _tex, .layer = _layer, .mip = 0, }
 #define GPU_ATTACHMENT_TEXTURE_LAYER_MIP(_tex, _layer, _mip) \
-        {.tex = _tex, .layer = _layer, .mip = _mip}
+        { .tex = _tex, .layer = _layer, .mip = _mip, }
 #define GPU_ATTACHMENT_TEXTURE_CUBEFACE(_tex, _face) \
-        {.tex = _tex, .layer = _face, .mip = 0}
+        { .tex = _tex, .layer = _face, .mip = 0, }
 #define GPU_ATTACHMENT_TEXTURE_CUBEFACE_MIP(_tex, _face, _mip) \
-        {.tex = _tex, .layer = _face, .mip = _mip}
+        { .tex = _tex, .layer = _face, .mip = _mip, }
 
 /* Framebuffer operations */
 
 void GPU_framebuffer_viewport_set(GPUFrameBuffer *fb, int x, int y, int w, int h);
 
 void GPU_framebuffer_clear(
-        GPUFrameBuffer *fb, GPUFrameBufferBits buffers,
+        GPUFrameBuffer *fb, eGPUFrameBufferBits buffers,
         const float clear_col[4], float clear_depth, unsigned int clear_stencil);
 
 #define GPU_framebuffer_clear_color(fb, col) \
@@ -199,7 +190,7 @@ void GPU_framebuffer_read_color(
 void GPU_framebuffer_blit(
         GPUFrameBuffer *fb_read, int read_slot,
         GPUFrameBuffer *fb_write, int write_slot,
-        GPUFrameBufferBits blit_buffers);
+        eGPUFrameBufferBits blit_buffers);
 
 void GPU_framebuffer_recursive_downsample(
         GPUFrameBuffer *fb, int max_lvl,
@@ -226,7 +217,7 @@ void GPU_offscreen_viewport_data_get(
         GPUFrameBuffer **r_fb, struct GPUTexture **r_color, struct GPUTexture **r_depth);
 
 void GPU_clear_color(float red, float green, float blue, float alpha);
-void GPU_clear(GPUFrameBufferBits flags);
+void GPU_clear(eGPUFrameBufferBits flags);
 
 #ifdef __cplusplus
 }

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,23 +15,15 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 #ifndef __BKE_SCREEN_H__
 #define __BKE_SCREEN_H__
 
-/** \file BKE_screen.h
- *  \ingroup bke
- *  \since March 2001
- *  \author nzc
+/** \file \ingroup bke
  */
 
 struct ARegion;
+struct GPUFXSettings;
 struct Header;
 struct ID;
 struct ListBase;
@@ -41,25 +31,24 @@ struct Menu;
 struct Panel;
 struct Scene;
 struct ScrArea;
+struct ScrAreaMap;
 struct ScrVert;
 struct SpaceType;
 struct TransformOrientation;
 struct View3D;
 struct View3DShading;
+struct WorkSpace;
 struct bContext;
 struct bContextDataResult;
 struct bScreen;
 struct uiLayout;
 struct uiList;
-struct wmKeyConfig;
 struct wmGizmoMap;
+struct wmKeyConfig;
+struct wmMsgBus;
 struct wmNotifier;
 struct wmWindow;
 struct wmWindowManager;
-struct WorkSpace;
-struct GPUFXSettings;
-struct wmMsgBus;
-struct ScrAreaMap;
 
 #include "BLI_compiler_attrs.h"
 
@@ -238,7 +227,7 @@ typedef void (*uiListDrawItemFunc)(
 
 /* Draw the filtering part of an uiList */
 typedef void (*uiListDrawFilterFunc)(
-        struct uiList *ui_list, struct bContext *C, struct uiLayout *layout, bool reverse);
+        struct uiList *ui_list, struct bContext *C, struct uiLayout *layout);
 
 /* Filter items of an uiList */
 typedef void (*uiListFilterItemsFunc)(
@@ -367,5 +356,7 @@ void BKE_screen_remove_double_scrverts(struct bScreen *sc);
 void BKE_screen_remove_double_scredges(struct bScreen *sc);
 void BKE_screen_remove_unused_scredges(struct bScreen *sc);
 void BKE_screen_remove_unused_scrverts(struct bScreen *sc);
+
+void BKE_screen_header_alignment_reset(struct bScreen *screen);
 
 #endif

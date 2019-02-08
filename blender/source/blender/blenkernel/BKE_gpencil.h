@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,19 +15,10 @@
  *
  * The Original Code is Copyright (C) 2008, Blender Foundation
  * This is a new part of Blender
- *
- * Contributor(s): Joshua Leung
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
 #ifndef __BKE_GPENCIL_H__
 #define __BKE_GPENCIL_H__
-
- /** \file BKE_gpencil.h
-  *  \ingroup bke
-  *  \author Joshua Leung
-  */
 
 #include "../vr/vr_build.h"
 #if WITH_VR
@@ -39,27 +28,30 @@ extern "C"
 #endif
 #endif
 
+/** \file \ingroup bke
+ */
+
+struct ArrayGpencilModifierData;
+struct BoundBox;
+struct Brush;
 struct CurveMapping;
 struct Depsgraph;
 struct GpencilModifierData;
-struct ToolSettings;
+struct LatticeGpencilModifierData;
 struct ListBase;
-struct bGPdata;
-struct bGPDlayer;
-struct bGPDframe;
-struct bGPDspoint;
-struct bGPDstroke;
+struct Main;
 struct Material;
+struct Object;
+struct SimplifyGpencilModifierData;
+struct ToolSettings;
+struct bDeformGroup;
+struct bGPDframe;
+struct bGPDlayer;
 struct bGPDpalette;
 struct bGPDpalettecolor;
-struct Main;
-struct BoundBox;
-struct Brush;
-struct Object;
-struct bDeformGroup;
-struct SimplifyGpencilModifierData;
-struct ArrayGpencilModifierData;
-struct LatticeGpencilModifierData;
+struct bGPDspoint;
+struct bGPDstroke;
+struct bGPdata;
 
 struct MDeformVert;
 struct MDeformWeight;
@@ -135,7 +127,7 @@ typedef enum eGP_GetFrame_Mode {
 	/* Add a new empty/blank frame */
 	GP_GETFRAME_ADD_NEW   = 1,
 	/* Make a copy of the active frame */
-	GP_GETFRAME_ADD_COPY  = 2
+	GP_GETFRAME_ADD_COPY  = 2,
 } eGP_GetFrame_Mode;
 
 struct bGPDframe *BKE_gpencil_layer_getframe(struct bGPDlayer *gpl, int cframe, eGP_GetFrame_Mode addnew);
@@ -175,6 +167,13 @@ void BKE_gpencil_stroke_normal(const struct bGPDstroke *gps, float r_normal[3]);
 void BKE_gpencil_simplify_stroke(struct bGPDstroke *gps, float factor);
 void BKE_gpencil_simplify_fixed(struct bGPDstroke *gps);
 void BKE_gpencil_subdivide(struct bGPDstroke *gps, int level, int flag);
+
+void BKE_gpencil_stroke_2d_flat(
+	const struct bGPDspoint *points, int totpoints, float(*points2d)[2], int *r_direction);
+void BKE_gpencil_stroke_2d_flat_ref(
+	const struct bGPDspoint *ref_points, int ref_totpoints,
+	const struct bGPDspoint *points, int totpoints,
+	float(*points2d)[2], const float scale, int *r_direction);
 
 void BKE_gpencil_transform(struct bGPdata *gpd, float mat[4][4]);
 

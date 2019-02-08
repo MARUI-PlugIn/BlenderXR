@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,17 +12,12 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Campbell Barton
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
 #ifndef __BKE_OBJECT_DEFORM_H__
 #define __BKE_OBJECT_DEFORM_H__
 
-/** \file BKE_object_deform.h
- * \ingroup bke
+/** \file \ingroup bke
  * \brief Functions for dealing with objects and deform verts,
  *        used by painting and tools.
  */
@@ -33,9 +26,9 @@
 extern "C" {
 #endif
 
-struct Object;
 struct ID;
 struct MDeformVert;
+struct Object;
 struct bDeformGroup;
 
 /* General vgroup operations */
@@ -78,12 +71,5 @@ void BKE_object_defgroup_mirror_selection(
 #ifdef __cplusplus
 }
 #endif
-
-/* Select helpers */
-bool *BKE_objdef_vgroup_subset_from_select_type(
-        struct Object *ob, enum eVGroupSelect subset_type, int *r_vgroup_tot, int *r_subset_count);
-void BKE_objdef_vgroup_subset_to_index_array(
-        const bool *vgroup_validmap, const int vgroup_tot, int *r_vgroup_subset_map);
-
 
 #endif  /* __BKE_OBJECT_DEFORM_H__ */

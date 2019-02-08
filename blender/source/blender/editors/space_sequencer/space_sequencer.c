@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,15 +15,9 @@
  *
  * The Original Code is Copyright (C) 2008 Blender Foundation.
  * All rights reserved.
- *
- *
- * Contributor(s): Blender Foundation
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/space_sequencer/space_sequencer.c
- *  \ingroup spseq
+/** \file \ingroup spseq
  */
 
 
@@ -654,7 +646,7 @@ static void sequencer_preview_region_draw(const bContext *C, ARegion *ar)
 		rcti rect;
 		ED_region_visible_rect(ar, &rect);
 		int xoffset = rect.xmin + U.widget_unit;
-		int yoffset = rect.xmax;
+		int yoffset = rect.ymax;
 		ED_scene_draw_fps(scene, xoffset, &yoffset);
 	}
 }

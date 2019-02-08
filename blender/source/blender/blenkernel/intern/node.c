@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,17 +15,12 @@
  *
  * The Original Code is Copyright (C) 2005 Blender Foundation.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): Bob Holcomb.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenkernel/intern/node.c
- *  \ingroup bke
+/** \file \ingroup bke
  */
+
+#include "CLG_log.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -59,8 +52,6 @@
 #include "BKE_global.h"
 #include "BKE_idprop.h"
 #include "BKE_library.h"
-#include "BKE_library_query.h"
-#include "BKE_library_remap.h"
 #include "BKE_main.h"
 #include "BKE_node.h"
 
@@ -85,6 +76,7 @@ bNodeTreeType NodeTreeTypeUndefined;
 bNodeType NodeTypeUndefined;
 bNodeSocketType NodeSocketTypeUndefined;
 
+static CLG_LogRef LOG = {"bke.node"};
 
 static void node_add_sockets_from_type(bNodeTree *ntree, bNode *node, bNodeType *ntype)
 {
@@ -527,7 +519,7 @@ void nodeModifySocketType(bNodeTree *ntree, bNode *UNUSED(node), bNodeSocket *so
 	const char *idname = nodeStaticSocketType(type, subtype);
 
 	if (!idname) {
-		printf("Error: static node socket type %d undefined\n", type);
+		CLOG_ERROR(&LOG, "static node socket type %d undefined", type);
 		return;
 	}
 
@@ -698,7 +690,7 @@ bNodeSocket *nodeAddStaticSocket(bNodeTree *ntree, bNode *node, int in_out, int 
 	bNodeSocket *sock;
 
 	if (!idname) {
-		printf("Error: static node socket type %d undefined\n", type);
+		CLOG_ERROR(&LOG, "static node socket type %d undefined", type);
 		return NULL;
 	}
 
@@ -714,7 +706,7 @@ bNodeSocket *nodeInsertStaticSocket(bNodeTree *ntree, bNode *node, int in_out, i
 	bNodeSocket *sock;
 
 	if (!idname) {
-		printf("Error: static node socket type %d undefined\n", type);
+		CLOG_ERROR(&LOG, "static node socket type %d undefined", type);
 		return NULL;
 	}
 
@@ -931,7 +923,7 @@ bNode *nodeAddStaticNode(const struct bContext *C, bNodeTree *ntree, int type)
 		}
 	} NODE_TYPES_END;
 	if (!idname) {
-		printf("Error: static node type %d undefined\n", type);
+		CLOG_ERROR(&LOG, "static node type %d undefined", type);
 		return NULL;
 	}
 	return nodeAddNode(C, ntree, idname);
@@ -1298,7 +1290,7 @@ bNodeTree *ntreeAddTree(Main *bmain, const char *name, const char *idname)
 
 /**
  * Only copy internal data of NodeTree ID from source to already allocated/initialized destination.
- * You probably nerver want to use that directly, use id_copy or BKE_id_copy_ex for typical needs.
+ * You probably never want to use that directly, use BKE_id_copy or BKE_id_copy_ex for typical needs.
  *
  * WARNING! This function will not handle ID user count!
  *
@@ -1384,7 +1376,8 @@ void BKE_node_tree_copy_data(Main *UNUSED(bmain), bNodeTree *ntree_dst, const bN
 bNodeTree *ntreeCopyTree_ex(const bNodeTree *ntree, Main *bmain, const bool do_id_user)
 {
 	bNodeTree *ntree_copy;
-	BKE_id_copy_ex(bmain, (ID *)ntree, (ID **)&ntree_copy, do_id_user ? 0 : LIB_ID_CREATE_NO_USER_REFCOUNT, false);
+	const int flag = do_id_user ? LIB_ID_CREATE_NO_USER_REFCOUNT | LIB_ID_CREATE_NO_MAIN : 0;
+	BKE_id_copy_ex(bmain, (ID *)ntree, (ID **)&ntree_copy, flag);
 	return ntree_copy;
 }
 bNodeTree *ntreeCopyTree(Main *bmain, const bNodeTree *ntree)
@@ -2041,11 +2034,8 @@ bNodeTree *ntreeLocalize(bNodeTree *ntree)
 		 */
 		BKE_id_copy_ex(
 		        NULL, &ntree->id, (ID **)&ltree,
-		        (LIB_ID_CREATE_NO_MAIN |
-		         LIB_ID_CREATE_NO_USER_REFCOUNT |
-		         LIB_ID_COPY_NO_PREVIEW |
-		         LIB_ID_COPY_NO_ANIMDATA),
-		        false);
+		        (LIB_ID_COPY_LOCALIZE |
+		         LIB_ID_COPY_NO_ANIMDATA));
 
 		for (node = ltree->nodes.first; node; node = node->next) {
 			if (node->type == NODE_GROUP && node->id) {

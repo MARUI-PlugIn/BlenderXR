@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file DNA_mesh_types.h
- *  \ingroup DNA
+/** \file \ingroup DNA
  */
 
 #ifndef __DNA_MESH_TYPES_H__
@@ -73,8 +64,9 @@ typedef struct EditMeshData {
  * \warning Typical access is done via #BKE_mesh_runtime_looptri_ensure, #BKE_mesh_runtime_looptri_len.
  */
 struct MLoopTri_Store {
-	/* WARNING! swapping between array (ready-to-be-used data) and array_wip (where data is actually computed)
-	 *          shall always be protected by same lock as one used for looptris computing. */
+	/* WARNING! swapping between array (ready-to-be-used data) and array_wip
+	 * (where data is actually computed)
+	 * shall always be protected by same lock as one used for looptris computing. */
 	struct MLoopTri *array, *array_wip;
 	int len;
 	int len_alloc;
@@ -115,11 +107,13 @@ typedef struct Mesh_Runtime {
 
 typedef struct Mesh {
 	ID id;
-	struct AnimData *adt;		/* animation data (must be immediately after id for utilities to use it) */
+	/** Animation data (must be immediately after id for utilities to use it). */
+	struct AnimData *adt;
 
 	struct BoundBox *bb;
 
-	struct Ipo *ipo  DNA_DEPRECATED;  /* old animation system, deprecated for 2.5 */
+	/** Old animation system, deprecated for 2.5. */
+	struct Ipo *ipo  DNA_DEPRECATED;
 	struct Key *key;
 	struct Material **mat;
 	struct MSelect *mselect;
@@ -134,12 +128,18 @@ typedef struct Mesh {
 
 	/* mface stores the tessellation (triangulation) of the mesh,
 	 * real faces are now stored in nface.*/
-	struct MFace *mface;	/* array of mesh object mode faces for tessellation */
-	struct MTFace *mtface;	/* store tessellation face UV's and texture here */
-	struct TFace *tface	DNA_DEPRECATED; /* deprecated, use mtface */
-	struct MVert *mvert;	/* array of verts */
-	struct MEdge *medge;	/* array of edges */
-	struct MDeformVert *dvert;	/* deformgroup vertices */
+	/** Array of mesh object mode faces for tessellation. */
+	struct MFace *mface;
+	/** Store tessellation face UV's and texture here. */
+	struct MTFace *mtface;
+	/** Deprecated, use mtface. */
+	struct TFace *tface	DNA_DEPRECATED;
+	/** Array of verts. */
+	struct MVert *mvert;
+	/** Array of edges. */
+	struct MEdge *medge;
+	/** Deformgroup vertices. */
+	struct MDeformVert *dvert;
 
 	/* array of colors for the tessellated faces, must be number of tessellated
 	 * faces * 4 in length */
@@ -147,7 +147,8 @@ typedef struct Mesh {
 	struct Mesh *texcomesh;
 
 	/* When the object is available, the preferred access method is: BKE_editmesh_from_object(ob) */
-	struct BMEditMesh *edit_btmesh;	/* not saved in file! */
+	/** Not saved in file!. */
+	struct BMEditMesh *edit_btmesh;
 
 	struct CustomData vdata, edata, fdata;
 
@@ -179,12 +180,14 @@ typedef struct Mesh {
 	char cd_flag, pad;
 
 	char subdiv  DNA_DEPRECATED, subdivr  DNA_DEPRECATED;
-	char subsurftype  DNA_DEPRECATED; /* only kept for backwards compat, not used anymore */
+	/** Only kept for backwards compat, not used anymore. */
+	char subsurftype  DNA_DEPRECATED;
 	char editflag;
 
 	short totcol;
 
-	struct Multires *mr DNA_DEPRECATED; /* deprecated multiresolution modeling data, only keep for loading old files */
+	/** Deprecated multiresolution modeling data, only keep for loading old files. */
+	struct Multires *mr DNA_DEPRECATED;
 
 	Mesh_Runtime runtime;
 } Mesh;
@@ -192,7 +195,8 @@ typedef struct Mesh {
 /* deprecated by MTFace, only here for file reading */
 #ifdef DNA_DEPRECATED
 typedef struct TFace {
-	void *tpage;	/* the faces image for the active UVLayer */
+	/** The faces image for the active UVLayer. */
+	void *tpage;
 	float uv[4][2];
 	unsigned int col[4];
 	char flag, transp;

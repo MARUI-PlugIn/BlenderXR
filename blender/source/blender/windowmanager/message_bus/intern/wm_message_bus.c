@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,12 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/windowmanager/message_bus/intern/wm_message_bus.c
- *  \ingroup wm
+/** \file \ingroup wm
  */
 
 #include <string.h>
@@ -245,6 +240,10 @@ void WM_msg_id_remove(struct wmMsgBus *mbus, const struct ID *id)
  * \note While we could have a separate type for ID's, use RNA since there is enough overlap.
  * \{ */
 
+
+/**
+ * \note #wmMsgBus.messages_tag_count isn't updated, caller must handle.
+ */
 void wm_msg_subscribe_value_free(
         wmMsgSubscribeKey *msg_key, wmMsgSubscribeValueLink *msg_lnk)
 {

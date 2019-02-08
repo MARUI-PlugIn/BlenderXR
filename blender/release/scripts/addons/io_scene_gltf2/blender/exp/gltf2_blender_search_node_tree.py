@@ -73,7 +73,7 @@ def from_socket(start_socket: bpy.types.NodeSocket,
     :param shader_node_filter: should be a function(x: shader_node) -> bool
     :return: a list of shader nodes for which filter is true
     """
-    # hide implementation (especially the search path
+    # hide implementation (especially the search path)
     def __search_from_socket(start_socket: bpy.types.NodeSocket,
                              shader_node_filter: typing.Union[Filter, typing.Callable],
                              search_path: typing.List[bpy.types.NodeLink]) -> typing.List[NodeTreeSearchResult]:
@@ -82,17 +82,21 @@ def from_socket(start_socket: bpy.types.NodeSocket,
         for link in start_socket.links:
             # follow the link to a shader node
             linked_node = link.from_node
-            # add the link to the current path
-            search_path.append(link)
             # check if the node matches the filter
             if shader_node_filter(linked_node):
-                results.append(NodeTreeSearchResult(linked_node, search_path))
+                results.append(NodeTreeSearchResult(linked_node, search_path + [link]))
             # traverse into inputs of the node
             for input_socket in linked_node.inputs:
-                results += __search_from_socket(input_socket, shader_node_filter, search_path)
+                linked_results = __search_from_socket(input_socket, shader_node_filter, search_path + [link])
+                if linked_results:
+                    # add the link to the current path
+                    search_path.append(link)
+                    results += linked_results
 
         return results
 
-    return __search_from_socket(start_socket, shader_node_filter, [])
+    if start_socket is None:
+        return []
 
+    return __search_from_socket(start_socket, shader_node_filter, [])
 

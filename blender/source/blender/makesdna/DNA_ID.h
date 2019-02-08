@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file DNA_ID.h
- *  \ingroup DNA
+/** \file \ingroup DNA
  *  \brief ID and Library types, which are fundamental for sdna.
  */
 
@@ -39,11 +30,11 @@
 extern "C" {
 #endif
 
-struct Library;
 struct FileData;
-struct ID;
-struct PackedFile;
 struct GPUTexture;
+struct ID;
+struct Library;
+struct PackedFile;
 
 /* Runtime display data */
 struct DrawData;
@@ -69,19 +60,22 @@ typedef struct DrawDataList {
 typedef struct IDPropertyData {
 	void *pointer;
 	ListBase group;
-	int val, val2;  /* note, we actually fit a double into these two ints */
+	/** Note, we actually fit a double into these two ints. */
+	int val, val2;
 } IDPropertyData;
 
 typedef struct IDProperty {
 	struct IDProperty *next, *prev;
 	char type, subtype;
 	short flag;
-	char name[64];  /* MAX_IDPROP_NAME */
+	/** MAX_IDPROP_NAME. */
+	char name[64];
 
 	/* saved is used to indicate if this struct has been saved yet.
 	 * seemed like a good idea as a pad var was needed anyway :) */
 	int saved;
-	IDPropertyData data;  /* note, alignment for 64 bits */
+	/** Note, alignment for 64 bits. */
+	IDPropertyData data;
 
 	/* array length, also (this is important!) string length + 1.
 	 * the idea is to be able to reuse array realloc functions on strings.*/
@@ -130,11 +124,13 @@ enum {
 
 /*->flag*/
 enum {
-	/* This IDProp may be statically overridden. Should only be used/be relevant for custom properties. */
+	/** This IDProp may be statically overridden.
+	 * Should only be used/be relevant for custom properties. */
 	IDP_FLAG_OVERRIDABLE_STATIC = 1 << 0,
 
-	IDP_FLAG_GHOST       = 1 << 7,  /* this means the property is set but RNA will return false when checking
-	                                 * 'RNA_property_is_set', currently this is a runtime flag */
+	/** This means the property is set but RNA will return false when checking
+	 * 'RNA_property_is_set', currently this is a runtime flag */
+	IDP_FLAG_GHOST       = 1 << 7,
 };
 
 /* add any future new id property types here.*/
@@ -183,24 +179,32 @@ enum {
 
 /* IDOverridePropertyOperation->flag. */
 enum {
-	IDOVERRIDESTATIC_FLAG_MANDATORY     =   1 << 0,  /* User cannot remove that override operation. */
-	IDOVERRIDESTATIC_FLAG_LOCKED        =   1 << 1,  /* User cannot change that override operation. */
+	/** User cannot remove that override operation. */
+	IDOVERRIDESTATIC_FLAG_MANDATORY     =   1 << 0,
+	/** User cannot change that override operation. */
+	IDOVERRIDESTATIC_FLAG_LOCKED        =   1 << 1,
 };
 
-/* A single overridden property, contain all operations on this one. */
+/** A single overridden property, contain all operations on this one. */
 typedef struct IDOverrideStaticProperty {
 	struct IDOverrideStaticProperty *next, *prev;
 
-	/* Path from ID to overridden property. *Does not* include indices/names for final arrays/collections items. */
+	/**
+	 * Path from ID to overridden property.
+	 * *Does not* include indices/names for final arrays/collections items.
+	 */
 	char *rna_path;
 
-	ListBase operations;  /* List of overriding operations (IDOverridePropertyOperation) applied to this property. */
+	/** List of overriding operations (IDOverridePropertyOperation) applied to this property. */
+	ListBase operations;
 } IDOverrideStaticProperty;
 
 /* Main container for all overriding data info of a data-block. */
 typedef struct IDOverrideStatic {
-	struct ID *reference;  /* Reference linked ID which this one overrides. */
-	ListBase properties;  /* List of IDOverrideProperty structs. */
+	/** Reference linked ID which this one overrides. */
+	struct ID *reference;
+	/** List of IDOverrideProperty structs. */
+	ListBase properties;
 
 	short flag;
 	short pad[3];
@@ -230,9 +234,11 @@ typedef struct ID {
 	void *next, *prev;
 	struct ID *newid;
 	struct Library *lib;
-	char name[66]; /* MAX_ID_NAME */
+	/** MAX_ID_NAME. */
+	char name[66];
 	/**
-	 * LIB_... flags report on status of the datablock this ID belongs to (persistent, saved to and read from .blend).
+	 * LIB_... flags report on status of the datablock this ID belongs to
+	 * (persistent, saved to and read from .blend).
 	 */
 	short flag;
 	/**
@@ -245,9 +251,11 @@ typedef struct ID {
 	int pad;
 	IDProperty *properties;
 
-	IDOverrideStatic *override_static;  /* Reference linked ID which this one overrides. */
+	/** Reference linked ID which this one overrides. */
+	IDOverrideStatic *override_static;
 
-	/* Only set for datablocks which are coming from copy-on-write, points to
+	/**
+	 * Only set for datablocks which are coming from copy-on-write, points to
 	 * the original version of it.
 	 */
 	struct ID *orig_id;
@@ -262,28 +270,34 @@ typedef struct ID {
 typedef struct Library {
 	ID id;
 	struct FileData *filedata;
-	char name[1024];  /* path name used for reading, can be relative and edited in the outliner */
+	/** Path name used for reading, can be relative and edited in the outliner. */
+	char name[1024];
 
-	/* absolute filepath, this is only for convenience, 'name' is the real path used on file read but in
+	/**
+	 * Absolute filepath, this is only for convenience,
+	 * 'name' is the real path used on file read but in
 	 * some cases its useful to access the absolute one.
 	 * This is set on file read.
-	 * Use BKE_library_filepath_set() rather than setting 'name' directly and it will be kept in sync - campbell */
+	 * Use BKE_library_filepath_set() rather than setting 'name'
+	 * directly and it will be kept in sync - campbell */
 	char filepath[1024];
 
-	struct Library *parent;	/* set for indirectly linked libs, used in the outliner and while reading */
+	/** Set for indirectly linked libs, used in the outliner and while reading. */
+	struct Library *parent;
 
 	struct PackedFile *packedfile;
 
 	/* Temp data needed by read/write code. */
 	int temp_index;
-	short versionfile, subversionfile;  /* see BLENDER_VERSION, BLENDER_SUBVERSION, needed for do_versions */
+	/** See BLENDER_VERSION, BLENDER_SUBVERSION, needed for do_versions. */
+	short versionfile, subversionfile;
 } Library;
 
 enum eIconSizes {
 	ICON_SIZE_ICON = 0,
 	ICON_SIZE_PREVIEW = 1,
 
-	NUM_ICON_SIZES
+	NUM_ICON_SIZES,
 };
 
 /* for PreviewImage->flag */
@@ -309,9 +323,11 @@ typedef struct PreviewImage {
 
 	/* Runtime-only data. */
 	struct GPUTexture *gputexture[2];
-	int icon_id;  /* Used by previews outside of ID context. */
+	/** Used by previews outside of ID context. */
+	int icon_id;
 
-	short tag;  /* Runtime data. */
+	/** Runtime data. */
+	short tag;
 	char pad[2];
 } PreviewImage;
 
@@ -387,13 +403,13 @@ typedef enum ID_Type {
 
 /* NOTE! Fake IDs, needed for g.sipo->blocktype or outliner */
 #define ID_SEQ		MAKE_ID2('S', 'Q')
-			/* constraint */
+/* constraint */
 #define ID_CO		MAKE_ID2('C', 'O')
-			/* pose (action channel, used to be ID_AC in code, so we keep code for backwards compat) */
+/* pose (action channel, used to be ID_AC in code, so we keep code for backwards compat) */
 #define ID_PO		MAKE_ID2('A', 'C')
-			/* used in outliner... */
+/* used in outliner... */
 #define ID_NLA		MAKE_ID2('N', 'L')
-			/* fluidsim Ipo */
+/* fluidsim Ipo */
 #define ID_FLUIDSIM	MAKE_ID2('F', 'S')
 
 #define ID_FAKE_USERS(id) ((((ID *)id)->flag & LIB_FAKEUSER) ? 1 : 0)
@@ -443,31 +459,38 @@ enum {
  *
  * Those flags belong to three different categories, which have different expected handling in code:
  *
- *   - RESET_BEFORE_USE: piece of code that wants to use such flag has to ensure they are properly 'reset' first.
- *   - RESET_AFTER_USE: piece of code that wants to use such flag has to ensure they are properly 'reset' after usage
- *                      (though 'lifetime' of those flags is a bit fuzzy, e.g. _RECALC ones are reset on depsgraph
- *                       evaluation...).
- *   - RESET_NEVER: those flags are 'status' one, and never actually need any reset (except on initialization
- *                  during .blend file reading).
+ * - RESET_BEFORE_USE: piece of code that wants to use such flag
+ *   has to ensure they are properly 'reset' first.
+ * - RESET_AFTER_USE: piece of code that wants to use such flag has to ensure they are properly
+ *   'reset' after usage
+ *   (though 'lifetime' of those flags is a bit fuzzy, e.g. _RECALC ones are reset on depsgraph
+ *   evaluation...).
+ * - RESET_NEVER: those flags are 'status' one, and never actually need any reset
+ *   (except on initialization during .blend file reading).
  */
 enum {
 	/* RESET_NEVER Datablock is from current .blend file. */
 	LIB_TAG_LOCAL           = 0,
-	/* RESET_NEVER Datablock is from a library, but is used (linked) directly by current .blend file. */
+	/* RESET_NEVER Datablock is from a library,
+	 * but is used (linked) directly by current .blend file. */
 	LIB_TAG_EXTERN          = 1 << 0,
-	/* RESET_NEVER Datablock is from a library, and is only used (linked) inderectly through other libraries. */
+	/* RESET_NEVER Datablock is from a library,
+	 * and is only used (linked) inderectly through other libraries. */
 	LIB_TAG_INDIRECT        = 1 << 1,
 
-	/* RESET_AFTER_USE Three flags used internally in readfile.c, to mark IDs needing to be read (only done once). */
+	/* RESET_AFTER_USE Three flags used internally in readfile.c,
+	 * to mark IDs needing to be read (only done once). */
 	LIB_TAG_NEED_EXPAND     = 1 << 3,
 	LIB_TAG_TESTEXT         = (LIB_TAG_NEED_EXPAND | LIB_TAG_EXTERN),
 	LIB_TAG_TESTIND         = (LIB_TAG_NEED_EXPAND | LIB_TAG_INDIRECT),
-	/* RESET_AFTER_USE Flag used internally in readfile.c, to mark IDs needing to be linked from a library. */
+	/* RESET_AFTER_USE Flag used internally in readfile.c,
+	 * to mark IDs needing to be linked from a library. */
 	LIB_TAG_READ            = 1 << 4,
 	/* RESET_AFTER_USE */
 	LIB_TAG_NEED_LINK       = 1 << 5,
 
-	/* RESET_NEVER tag datablock as a place-holder (because the real one could not be linked from its library e.g.). */
+	/* RESET_NEVER tag datablock as a place-holder
+	 * (because the real one could not be linked from its library e.g.). */
 	LIB_TAG_MISSING         = 1 << 6,
 
 	/* RESET_NEVER tag datablock as being up-to-date regarding its reference. */
@@ -494,7 +517,8 @@ enum {
 	LIB_TAG_COPIED_ON_WRITE_EVAL_RESULT   = 1 << 13,
 	LIB_TAG_LOCALIZED = 1 << 14,
 
-	/* RESET_NEVER tag datablock for freeing etc. behavior (usually set when copying real one into temp/runtime one). */
+	/* RESET_NEVER tag datablock for freeing etc. behavior
+	 * (usually set when copying real one into temp/runtime one). */
 	LIB_TAG_NO_MAIN          = 1 << 15,  /* Datablock is not listed in Main database. */
 	LIB_TAG_NO_USER_REFCOUNT = 1 << 16,  /* Datablock does not refcount usages of other IDs. */
 	/* Datablock was not allocated by standard system (BKE_libblock_alloc), do not free its memory

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,15 +15,9 @@
  *
  * The Original Code is Copyright (C) 2008 Blender Foundation.
  * All rights reserved.
- *
- *
- * Contributor(s): Blender Foundation
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/space_view3d/space_view3d.c
- *  \ingroup spview3d
+/** \file \ingroup spview3d
  */
 
 
@@ -324,11 +316,11 @@ static SpaceLink *view3d_new(const ScrArea *UNUSED(sa), const Scene *scene)
 	v3d->gridsubdiv = 10;
 	BKE_screen_view3d_shading_init(&v3d->shading);
 
-	v3d->overlay.wireframe_threshold = 0.5f;
+	v3d->overlay.wireframe_threshold = 1.0f;
 	v3d->overlay.xray_alpha_bone = 0.5f;
-	v3d->overlay.texture_paint_mode_opacity = 0.8;
+	v3d->overlay.texture_paint_mode_opacity = 1.0f;
 	v3d->overlay.weight_paint_mode_opacity = 1.0f;
-	v3d->overlay.vertex_paint_mode_opacity = 0.8;
+	v3d->overlay.vertex_paint_mode_opacity = 1.0f;
 	v3d->overlay.edit_flag = V3D_OVERLAY_EDIT_FACES |
 	                         V3D_OVERLAY_EDIT_SEAMS |
 	                         V3D_OVERLAY_EDIT_SHARP |
@@ -568,7 +560,8 @@ static bool view3d_mat_drop_poll(bContext *UNUSED(C), wmDrag *drag, const wmEven
 static bool view3d_ima_drop_poll(bContext *UNUSED(C), wmDrag *drag, const wmEvent *UNUSED(event), const char **UNUSED(tooltip))
 {
 	if (drag->type == WM_DRAG_PATH) {
-		return (ELEM(drag->icon, 0, ICON_FILE_IMAGE, ICON_FILE_MOVIE));   /* rule might not work? */
+		/* rule might not work? */
+		return (ELEM(drag->icon, 0, ICON_FILE_IMAGE, ICON_FILE_MOVIE));
 	}
 	else {
 		return WM_drag_ID(drag, ID_IM) != NULL;
@@ -794,7 +787,7 @@ static void view3d_main_region_listener(
 						ED_region_tag_redraw(ar);
 					break;
 				case ND_ANIMCHAN:
-					if (wmn->action == NA_SELECTED)
+					if (ELEM(wmn->action, NA_EDITED, NA_ADDED, NA_REMOVED, NA_SELECTED))
 						ED_region_tag_redraw(ar);
 					break;
 			}
@@ -1363,12 +1356,13 @@ static void space_view3d_refresh(const bContext *C, ScrArea *UNUSED(sa))
 }
 
 const char *view3d_context_dir[] = {
-	"active_base", "active_object", NULL
+	"active_base", "active_object", NULL,
 };
 
 static int view3d_context(const bContext *C, const char *member, bContextDataResult *result)
 {
-	/* fallback to the scene layer, allows duplicate and other object operators to run outside the 3d view */
+	/* fallback to the scene layer,
+	 * allows duplicate and other object operators to run outside the 3d view */
 
 	if (CTX_data_dir(member)) {
 		CTX_data_dir_set(result, view3d_context_dir);
@@ -1436,7 +1430,8 @@ static void view3d_id_remap(ScrArea *sa, SpaceLink *slink, ID *old_id, ID *new_i
 		if (is_local == false) {
 			if ((ID *)v3d->ob_centre == old_id) {
 				v3d->ob_centre = (Object *)new_id;
-				/* Otherwise, bonename may remain valid... We could be smart and check this, too? */
+				/* Otherwise, bonename may remain valid...
+				 * We could be smart and check this, too? */
 				if (new_id == NULL) {
 					v3d->ob_centre_bone[0] = '\0';
 				}

@@ -16,12 +16,6 @@
 #
 # The Original Code is Copyright (C) 2006, Blender Foundation
 # All rights reserved.
-#
-# The Original Code is: all of this file.
-#
-# Contributor(s): Jacques Beaurain
-#                 Ben Batt
-#
 # ***** END GPL LICENSE BLOCK *****
 
 set(INC
@@ -96,8 +90,8 @@ set(SRC
 	intern/MOD_surfacedeform.c
 	intern/MOD_triangulate.c
 	intern/MOD_util.c
-	intern/MOD_uvwarp.c
 	intern/MOD_uvproject.c
+	intern/MOD_uvwarp.c
 	intern/MOD_warp.c
 	intern/MOD_wave.c
 	intern/MOD_weighted_normal.c

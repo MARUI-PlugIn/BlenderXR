@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,14 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Blender Foundation (2008).
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/makesrna/intern/rna_access.c
- *  \ingroup RNA
+/** \file \ingroup RNA
  */
 
 
@@ -523,7 +516,7 @@ static PropertyRNA *typemap[IDP_NUMTYPES] = {
 	(PropertyRNA *)&rna_PropertyGroupItem_group,
 	(PropertyRNA *)&rna_PropertyGroupItem_id,
 	(PropertyRNA *)&rna_PropertyGroupItem_double,
-	(PropertyRNA *)&rna_PropertyGroupItem_idp_array
+	(PropertyRNA *)&rna_PropertyGroupItem_idp_array,
 };
 
 static PropertyRNA *arraytypemap[IDP_NUMTYPES] = {
@@ -531,7 +524,7 @@ static PropertyRNA *arraytypemap[IDP_NUMTYPES] = {
 	(PropertyRNA *)&rna_PropertyGroupItem_float_array,
 	NULL, NULL, NULL,
 	(PropertyRNA *)&rna_PropertyGroupItem_collection, NULL,
-	(PropertyRNA *)&rna_PropertyGroupItem_double_array
+	(PropertyRNA *)&rna_PropertyGroupItem_double_array,
 };
 
 static void *rna_idproperty_check_ex(PropertyRNA **prop, PointerRNA *ptr, const bool return_rnaprop)
@@ -1986,13 +1979,13 @@ bool RNA_property_editable_info(PointerRNA *ptr, PropertyRNA *prop, const char *
 	if (id) {
 		if (ID_IS_LINKED(id) && (prop->flag & PROP_LIB_EXCEPTION) == 0) {
 			if (!(*r_info)[0]) {
-				*r_info = N_("Can't edit this property from a linked data-block.");
+				*r_info = N_("Can't edit this property from a linked data-block");
 			}
 			return false;
 		}
 		if (id->override_static != NULL && !RNA_property_overridable_get(ptr, prop)) {
 			if (!(*r_info)[0]) {
-				*r_info = N_("Can't edit this property from an override data-block.");
+				*r_info = N_("Can't edit this property from an override data-block");
 			}
 			return false;
 		}
@@ -2840,7 +2833,7 @@ int RNA_property_int_get_default(PointerRNA *UNUSED(ptr), PropertyRNA *prop)
 bool RNA_property_int_set_default(PointerRNA *ptr, PropertyRNA *prop, int value)
 {
 	if (value != 0) {
-		IDPropertyTemplate val = { .i = value };
+		IDPropertyTemplate val = { .i = value, };
 		return rna_idproperty_ui_set_default(ptr, prop, IDP_INT, &val);
 	}
 	else {
@@ -3160,7 +3153,7 @@ float RNA_property_float_get_default(PointerRNA *UNUSED(ptr), PropertyRNA *prop)
 bool RNA_property_float_set_default(PointerRNA *ptr, PropertyRNA *prop, float value)
 {
 	if (value != 0) {
-		IDPropertyTemplate val = { .d = value };
+		IDPropertyTemplate val = { .d = value, };
 		return rna_idproperty_ui_set_default(ptr, prop, IDP_DOUBLE, &val);
 	}
 	else {
@@ -6937,7 +6930,7 @@ static int rna_function_format_array_length(const char *format, int ofs, int fle
 	int idx = 0;
 
 	if (format[ofs++] == '[')
-		for (; ofs < flen && format[ofs] != ']' && idx < sizeof(*lenbuf) - 1; idx++, ofs++)
+		for (; ofs < flen && format[ofs] != ']' && idx < sizeof(lenbuf) - 1; idx++, ofs++)
 			lenbuf[idx] = format[ofs];
 
 	if (ofs < flen && format[ofs + 1] == ']') {
@@ -7464,7 +7457,7 @@ bool RNA_property_copy(Main *bmain, PointerRNA *ptr, PointerRNA *fromptr, Proper
 	IDOverrideStaticPropertyOperation opop = {
 	    .operation = IDOVERRIDESTATIC_OP_REPLACE,
 	    .subitem_reference_index = index,
-	    .subitem_local_index = index
+	    .subitem_local_index = index,
 	};
 	return rna_property_override_operation_apply(
 	            bmain,
@@ -7937,7 +7930,7 @@ bool RNA_struct_override_matches(
 						IDOverrideStaticPropertyOperation opop_tmp = {
 						    .operation = IDOVERRIDESTATIC_OP_REPLACE,
 						    .subitem_reference_index = -1,
-						    .subitem_local_index = -1
+						    .subitem_local_index = -1,
 						};
 						rna_property_override_operation_apply(
 						            bmain,

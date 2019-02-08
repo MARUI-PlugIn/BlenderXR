@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,12 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file BKE_workspace.h
- *  \ingroup bke
+/** \file \ingroup bke
  */
 
 #ifndef __BKE_WORKSPACE_H__
@@ -27,12 +22,12 @@
 
 #include "BLI_compiler_attrs.h"
 
-struct bScreen;
-struct bToolRef;
 struct Main;
 struct Scene;
 struct TransformOrientation;
 struct ViewLayer;
+struct bScreen;
+struct bToolRef;
 
 /* -------------------------------------------------------------------- */
 /* Create, delete, init */

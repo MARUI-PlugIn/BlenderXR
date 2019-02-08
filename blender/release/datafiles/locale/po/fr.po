@@ -2797,6 +2797,14 @@ msgid "Has Spacing"
 msgstr "A espacement"
 
 
+msgid "Settings for grease pencil brush"
+msgstr "Réglages de brosse de crayon gras"
+
+
+msgid "Amount of smoothing while drawing "
+msgstr "Quantité d’adoucissement durant le dessin"
+
+
 msgid "Angle"
 msgstr "Angle"
 
@@ -2841,36 +2849,96 @@ msgid "Mode"
 msgstr "Mode"
 
 
+msgid "Eraser Mode"
+msgstr "Mode gomme"
+
+
 msgid "Soft"
 msgstr "Doux"
+
+
+msgid "Use soft eraser"
+msgstr "Utiliser gomme douce"
 
 
 msgid "Hard"
 msgstr "Dur"
 
 
+msgid "Use hard eraser"
+msgstr "Utiliser gomme dure"
+
+
 msgid "Stroke"
 msgstr "Trait"
+
+
+msgid "Use stroke eraser"
+msgstr "Utiliser gomme de trait"
+
+
+msgid "Amount of erasing for strength "
+msgstr "Intensité d’effacement"
+
+
+msgid "Amount of erasing for thickness "
+msgstr "Épaisseur d’effacement"
+
+
+msgid "Mode to draw boundary limits"
+msgstr "Mode d’affichage des limites"
 
 
 msgid "Strokes"
 msgstr "Traits"
 
 
+msgid "Use visible strokes as fill boundary limits"
+msgstr "Utiliser les traits visibles pour déterminer les limites"
+
+
 msgid "Control"
 msgstr "Controle"
+
+
+msgid "Use internal control lines as fill boundary limits"
+msgstr "Utiliser les lignes de contrôle internes pour déterminer les limites"
 
 
 msgid "Both"
 msgstr "Les deux"
 
 
+msgid "Use visible strokes and control lines as fill boundary limits"
+msgstr "Utiliser les traits visibles et les lignes de contrôle internes pour déterminer les limites"
+
+
+msgid "Leak Size"
+msgstr "Taille de fuite"
+
+
+msgid "Size in pixels to consider the leak closed"
+msgstr "Taille en pixels pour considérer la fuite comme close"
+
+
 msgid "Simplify"
 msgstr "Simplifier"
 
 
+msgid "Number of simplify steps (large values reduce fill accuracy)"
+msgstr "Nombre d’étapes de simplification (de grandes valeurs réduisent la précision de remplissage)"
+
+
 msgid "Threshold"
 msgstr "Limite"
+
+
+msgid "Threshold to consider color transparent for filling"
+msgstr "Limite pour considérer la couleur comme transparente, pour le remplissage"
+
+
+msgid "Ink Noise"
+msgstr "Bruit d’encre"
 
 
 msgid "Marker"
@@ -2881,12 +2949,24 @@ msgid "Fill"
 msgstr "Remplir"
 
 
+msgid "Eraser Soft"
+msgstr "Gomme douce"
+
+
 msgid "Input Samples"
 msgstr "Échantillons d’entrée"
 
 
+msgid "Generate intermediate points for very fast mouse movements. Set to 0 to disable"
+msgstr "Générer des points intermédiaires pour les mouvements très rapide de souris (mettre à 0 pour désactiver)"
+
+
 msgid "Material"
 msgstr "Matériau"
+
+
+msgid "Material used for strokes drawn using this brush"
+msgstr "Matériau utiliser pour l’affichage des traits dessinés avec cette brosse"
 
 
 msgid "Jitter"
@@ -2929,12 +3009,48 @@ msgid "Number of times to subdivide newly created strokes, for less jagged strok
 msgstr "Nombre de fois à subdiviser les nouveaux traits, pour réduire l’effet anguleux"
 
 
+msgid "Iterations Thickness"
+msgstr "Épaisseur d’itérations"
+
+
+msgid "Pressure Randomness"
+msgstr "Niveau de pression aléatoire"
+
+
+msgid "Strength Randomness"
+msgstr "Niveau de force aléatoire"
+
+
 msgid "Random Subdivision"
 msgstr "Subdivision aléatoire"
 
 
 msgid "Randomness factor for new strokes after subdivision"
 msgstr "Facteur aléatoire pour les nouveaux traits après sub-division"
+
+
+msgid "Show transparent lines to use as boundary for filling"
+msgstr "Afficher des lignes transparentes à utiliser comme limites pour le remplissage."
+
+
+msgid "Show help lines for filling to see boundaries"
+msgstr "Afficher des lignes d’aide au remplissage pour visualiser les limites"
+
+
+msgid "Show Lasso"
+msgstr "Afficher lasso"
+
+
+msgid "Do not draw fill color while drawing the stroke"
+msgstr "Ne pas afficher la couleur de remplissage durant le dessin du trait"
+
+
+msgid "Enable cursor on screen"
+msgstr "Activer le curseur à l’écran"
+
+
+msgid "Use this brush when enable eraser with fast switch key"
+msgstr "Utiliser cette brosse à l’activation de la gomme avec la touche d’inversion rapide"
 
 
 msgid "Use Pressure Jitter"
@@ -2945,6 +3061,18 @@ msgid "Use tablet pressure for jitter"
 msgstr "Utiliser une valeur aléatoire pour la pression"
 
 
+msgid "Keep material assigned to brush"
+msgstr "Conserver le matériau assigné à la brosse"
+
+
+msgid "Occlude Eraser"
+msgstr "Gomme occlure"
+
+
+msgid "Erase only strokes visible and not occluded"
+msgstr "N’effacer que les traits visibles et non-occlus."
+
+
 msgid "Use Pressure"
 msgstr "Utiliser pression"
 
@@ -2953,12 +3081,36 @@ msgid "Use tablet pressure"
 msgstr "Utiliser la pression de la tablette"
 
 
+msgid "Use Post-Process Settings"
+msgstr "Utiliser réglages de post-process"
+
+
+msgid "Additional post processing options for new strokes"
+msgstr "Options de post-processing additionnels pour les nouveaux traits"
+
+
+msgid "Random brush settings"
+msgstr "Réglages de brosse aléatoire"
+
+
+msgid "Use Stabilizer"
+msgstr "Utiliser stabilisateur"
+
+
+msgid "Draw lines with a delay to allow smooth strokes. Press Shift key to override while drawing"
+msgstr "Afficher les lignes avec un délai, pour permettre des traits lissés (presser la touche Maj pour (dés)activer durant le dessin)"
+
+
 msgid "Use Pressure Strength"
 msgstr "Utiliser pression de force"
 
 
 msgid "Use tablet pressure for color strength"
 msgstr "Utiliser la pression de la tablette pour la force de couleur"
+
+
+msgid "Random factor for autogenerated UV rotation"
+msgstr "Facteur d’aléatoire pour la rotation UV auto-générée"
 
 
 msgid "Background Image"
@@ -3055,6 +3207,10 @@ msgstr "Rotation de l’image d’arrière-plan (vue ortho uniquement)"
 
 msgid "Scale"
 msgstr "Taille/échelle"
+
+
+msgid "Scale the background image"
+msgstr "Redimensionner l’image de fond"
 
 
 msgid "Show Background Image"
@@ -3245,6 +3401,10 @@ msgid "Cloth simulation settings for self collision and collision with other obj
 msgstr "Réglages de la simulation de tissu pour l’auto-collision et la collision avec d’autres objets"
 
 
+msgid "Collision Collection"
+msgstr "Collection de collision"
+
+
 msgid "Collision Quality"
 msgstr "Qualité de collision"
 
@@ -3271,6 +3431,14 @@ msgstr "Friction"
 
 msgid "Friction force if a collision happened (higher = less movement)"
 msgstr "Force de friction s’il y a collision (plus forte = moins de mouvement)"
+
+
+msgid "Impulse Clamping"
+msgstr "Tronquer impulsion"
+
+
+msgid "Clamp collision impulses to avoid instability (0.0 to disable clamping)"
+msgstr "Tronquer les impulsions de collision pour éviter l’instabilité (0.0 pour désactiver la troncature)"
 
 
 msgid "Self Minimum Distance"
@@ -3325,16 +3493,36 @@ msgid "Bending Spring Damping"
 msgstr "Amortissement du ressort de ploiement"
 
 
+msgid "Amount of damping in bending behavior"
+msgstr "Quantité d’amortissement dans le comportement de flexion"
+
+
+msgid "Physical model for simulating bending forces"
+msgstr "Modèle physique pour simuler les forces de flexion"
+
+
 msgid "Angular"
 msgstr "Angulaire"
+
+
+msgid "Cloth model with angular bending springs"
+msgstr "Modèle de tissu avec ressorts de flexion angulaire"
 
 
 msgid "Linear"
 msgstr "Linéaire"
 
 
+msgid "Cloth model with linear bending springs (legacy)"
+msgstr "Modèle de tissu avec ressorts de flexion linéaire (ancien)"
+
+
 msgid "Bending Stiffness"
 msgstr "Raideur de ploiement"
+
+
+msgid "How much the material resists bending"
+msgstr "Résistance du matériau à la flexion"
 
 
 msgid "Bending Stiffness Maximum"

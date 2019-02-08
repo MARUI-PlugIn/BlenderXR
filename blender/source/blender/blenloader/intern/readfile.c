@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- *
- * Contributor(s): Blender Foundation
- *
- * ***** END GPL LICENSE BLOCK *****
- *
  */
 
-/** \file blender/blenloader/intern/readfile.c
- *  \ingroup blenloader
+/** \file \ingroup blenloader
  */
 
 
@@ -129,7 +120,6 @@
 #include "BKE_collection.h"
 #include "BKE_colortools.h"
 #include "BKE_constraint.h"
-#include "BKE_context.h"
 #include "BKE_curve.h"
 #include "BKE_effect.h"
 #include "BKE_fcurve.h"
@@ -171,9 +161,10 @@
 #include "NOD_common.h"
 #include "NOD_socket.h"
 
+#include "BLO_blend_defs.h"
+#include "BLO_blend_validate.h"
 #include "BLO_readfile.h"
 #include "BLO_undofile.h"
-#include "BLO_blend_defs.h"
 
 #include "RE_engine.h"
 
@@ -1573,14 +1564,17 @@ static void change_idid_adr(ListBase *mainlist, FileData *basefd, void *old, voi
 /* lib linked proxy objects point to our local data, we need
  * to clear that pointer before reading the undo memfile since
  * the object might be removed, it is set again in reading
- * if the local object still exists */
+ * if the local object still exists.
+ * This is only valid for local proxy objects though, linked ones should not be affected here.
+ */
 void blo_clear_proxy_pointers_from_lib(Main *oldmain)
 {
 	Object *ob = oldmain->object.first;
 
 	for (; ob; ob = ob->id.next) {
-		if (ob->id.lib)
+		if (ob->id.lib != NULL && ob->proxy_from != NULL && ob->proxy_from->id.lib == NULL) {
 			ob->proxy_from = NULL;
+		}
 	}
 }
 
@@ -3943,6 +3937,12 @@ static void direct_link_image(FileData *fd, Image *ima)
 		}
 		ima->rr = NULL;
 	}
+	else {
+		for (int i = 0; i < TEXTARGET_COUNT; i++) {
+			ima->gputexture[i] = newimaadr(fd, ima->gputexture[i]);
+		}
+		ima->rr = newimaadr(fd, ima->rr);
+	}
 
 	/* undo system, try to restore render buffers */
 	link_list(fd, &(ima->renderslots));
@@ -4177,7 +4177,7 @@ static const char *ptcache_data_struct[] = {
 	"", // BPHYS_DATA_AVELOCITY / BPHYS_DATA_XCONST */
 	"", // BPHYS_DATA_SIZE:
 	"", // BPHYS_DATA_TIMES:
-	"BoidData" // case BPHYS_DATA_BOIDS:
+	"BoidData", // case BPHYS_DATA_BOIDS:
 };
 
 static void direct_link_pointcache_cb(FileData *fd, void *data)
@@ -5073,6 +5073,7 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb)
 			SubsurfModifierData *smd = (SubsurfModifierData *)md;
 
 			smd->emCache = smd->mCache = NULL;
+			smd->subdiv = NULL;
 		}
 		else if (md->type == eModifierType_Armature) {
 			ArmatureModifierData *amd = (ArmatureModifierData *)md;
@@ -5392,6 +5393,10 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb)
 			BevelModifierData *bmd = (BevelModifierData *)md;
 			bmd->clnordata.faceHash = NULL;
 		}
+		else if (md->type == eModifierType_Multires) {
+			MultiresModifierData *mmd = (MultiresModifierData *)md;
+			mmd->subdiv = NULL;
+		}
 	}
 }
 
@@ -5646,12 +5651,10 @@ static void direct_link_object(FileData *fd, Object *ob)
 	CLAMP(ob->rotmode, ROT_MODE_MIN, ROT_MODE_MAX);
 
 	if (ob->sculpt) {
-		if (ob->mode & OB_MODE_ALL_SCULPT) {
-			ob->sculpt = MEM_callocN(sizeof(SculptSession), "reload sculpt session");
-			ob->sculpt->mode_type = ob->mode;
-		}
-		else {
-			ob->sculpt = NULL;
+		ob->sculpt = NULL;
+		/* Only create data on undo, otherwise rely on editor mode switching. */
+		if (fd->memfile && (ob->mode & OB_MODE_ALL_SCULPT)) {
+			BKE_object_sculpt_data_create(ob);
 		}
 	}
 
@@ -5755,6 +5758,8 @@ static void lib_link_view_layer(FileData *fd, Library *lib, ViewLayer *view_laye
 	{
 		lib_link_layer_collection(fd, lib, layer_collection, true);
 	}
+
+	view_layer->mat_override = newlibadr_us(fd, lib, view_layer->mat_override);
 
 	IDP_LibLinkProperty(view_layer->id_properties, fd);
 }
@@ -6010,6 +6015,8 @@ static void lib_link_scene(FileData *fd, Main *main)
 
 			sce->toolsettings->particle.shape_object = newlibadr(fd, sce->id.lib, sce->toolsettings->particle.shape_object);
 
+			sce->toolsettings->gp_sculpt.guide.reference_object = newlibadr(fd, sce->id.lib, sce->toolsettings->gp_sculpt.guide.reference_object);
+
 			for (Base *base_legacy_next, *base_legacy = sce->base.first; base_legacy; base_legacy = base_legacy_next) {
 				base_legacy_next = base_legacy->next;
 
@@ -6058,6 +6065,10 @@ static void lib_link_scene(FileData *fd, Main *main)
 						id_us_plus_no_lib((ID *)seq->sound);
 						seq->scene_sound = BKE_sound_add_scene_sound_defaults(sce, seq);
 					}
+				}
+				if (seq->type == SEQ_TYPE_TEXT) {
+					TextVars *t = seq->effectdata;
+					t->text_font = newlibadr_us(fd, sce->id.lib, t->text_font);
 				}
 				BLI_listbase_clear(&seq->anims);
 
@@ -6312,6 +6323,11 @@ static void direct_link_scene(FileData *fd, Scene *sce)
 				s->frameMap = NULL;
 			}
 
+			if (seq->type == SEQ_TYPE_TEXT) {
+				TextVars *t = seq->effectdata;
+				t->text_blf_id = SEQ_FONT_NOT_LOADED;
+			}
+
 			seq->prop = newdataadr(fd, seq->prop);
 			IDP_DirectLinkGroup_OrFree(&seq->prop, (fd->flags & FD_FLAGS_SWITCH_ENDIAN), fd);
 
@@ -6485,9 +6501,9 @@ static void direct_link_scene(FileData *fd, Scene *sce)
 
 	if (sce->master_collection) {
 		sce->master_collection = newdataadr(fd, sce->master_collection);
-		direct_link_collection(fd, sce->master_collection);
 		/* Needed because this is an ID outside of Main. */
-		sce->master_collection->id.py_instance = NULL;
+		direct_link_id(fd, &sce->master_collection->id);
+		direct_link_collection(fd, sce->master_collection);
 	}
 
 	/* insert into global old-new map for reading without UI (link_global accesses it again) */
@@ -6597,7 +6613,7 @@ static void direct_link_gpencil(FileData *fd, bGPdata *gpd)
 				/* the triangulation is not saved, so need to be recalculated */
 				gps->triangles = NULL;
 				gps->tot_triangles = 0;
-				gps->flag |= GP_STROKE_RECALC_CACHES;
+				gps->flag |= GP_STROKE_RECALC_GEOMETRY;
 			}
 		}
 	}
@@ -8671,7 +8687,7 @@ static BHead *read_libblock(FileData *fd, Main *main, BHead *bhead, const short 
 	oldnewmap_clear(fd->datamap);
 
 	if (wrong_id) {
-		BKE_libblock_free(main, id);
+		BKE_id_free(main, id);
 	}
 
 	return (bhead);
@@ -8857,6 +8873,10 @@ static void lib_link_all(FileData *fd, Main *main)
 	lib_link_workspaces(fd, main);
 
 	lib_link_library(fd, main);    /* only init users */
+
+	/* We could integrate that to mesh/curve/lattice lib_link, but this is really cheap process,
+	 * so simpler to just use it directly in this single call. */
+	BLO_main_validate_shapekeys(main, NULL);
 }
 
 static void direct_link_keymapitem(FileData *fd, wmKeyMapItem *kmi)
@@ -9062,15 +9082,17 @@ BlendFileData *blo_read_file_internal(FileData *fd, const char *filepath)
 
 	BKE_main_id_tag_all(bfd->main, LIB_TAG_NEW, false);
 
+	/* Before static overrides, which needs typeinfo. */
+	lib_verify_nodetree(bfd->main, true);
+
 	/* Now that all our data-blocks are loaded, we can re-generate overrides from their references. */
 	if (fd->memfile == NULL) {
 		/* Do not apply in undo case! */
-		lib_verify_nodetree(bfd->main, true);  /* Needed to ensure we have typeinfo in nodes... */
 		BKE_main_override_static_update(bfd->main);
-		BKE_collections_after_lib_link(bfd->main);
 	}
 
-	lib_verify_nodetree(bfd->main, true);
+	BKE_collections_after_lib_link(bfd->main);
+
 	fix_relpaths_library(fd->relabase, bfd->main); /* make all relative paths, relative to the open blend file */
 
 	link_global(fd, bfd);   /* as last */
@@ -9947,6 +9969,11 @@ static void expand_scene(FileData *fd, Main *mainvar, Scene *sce)
 			if (seq->clip) expand_doit(fd, mainvar, seq->clip);
 			if (seq->mask) expand_doit(fd, mainvar, seq->mask);
 			if (seq->sound) expand_doit(fd, mainvar, seq->sound);
+
+			if (seq->type == SEQ_TYPE_TEXT && seq->effectdata) {
+				TextVars *data = seq->effectdata;
+				expand_doit(fd, mainvar, data->text_font);
+			}
 		} SEQ_END;
 	}
 
@@ -10818,7 +10845,6 @@ static void read_libraries(FileData *basefd, ListBase *mainlist)
 				FileData *fd = mainptr->curlib->filedata;
 
 				if (fd == NULL) {
-
 					/* printf and reports for now... its important users know this */
 
 					/* if packed file... */
@@ -10843,30 +10869,6 @@ static void read_libraries(FileData *basefd, ListBase *mainlist)
 						        library_parent_filepath(mainptr->curlib));
 						fd = blo_openblenderfile(mainptr->curlib->filepath, basefd->reports);
 					}
-					/* allow typing in a new lib path */
-					if (G.debug_value == -666) {
-						while (fd == NULL) {
-							char newlib_path[FILE_MAX] = {0};
-							printf("Missing library...'\n");
-							printf("	current file: %s\n", BKE_main_blendfile_path_from_global());
-							printf("	absolute lib: %s\n", mainptr->curlib->filepath);
-							printf("	relative lib: %s\n", mainptr->curlib->name);
-							printf("  enter a new path:\n");
-
-							if (scanf("%1023s", newlib_path) > 0) {  /* Warning, keep length in sync with FILE_MAX! */
-								BLI_strncpy(mainptr->curlib->name, newlib_path, sizeof(mainptr->curlib->name));
-								BLI_strncpy(mainptr->curlib->filepath, newlib_path, sizeof(mainptr->curlib->filepath));
-								BLI_cleanup_path(BKE_main_blendfile_path_from_global(), mainptr->curlib->filepath);
-
-								fd = blo_openblenderfile(mainptr->curlib->filepath, basefd->reports);
-
-								if (fd) {
-									fd->mainlist = mainlist;
-									printf("found: '%s', party on macuno!\n", mainptr->curlib->filepath);
-								}
-							}
-						}
-					}
 
 					if (fd) {
 						/* share the mainlist, so all libraries are added immediately in a
@@ -10890,7 +10892,6 @@ static void read_libraries(FileData *basefd, ListBase *mainlist)
 #ifdef USE_GHASH_BHEAD
 						read_file_bhead_idname_map_create(fd);
 #endif
-
 					}
 					else {
 						mainptr->curlib->filedata = NULL;

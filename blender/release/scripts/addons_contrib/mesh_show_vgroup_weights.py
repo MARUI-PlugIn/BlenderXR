@@ -46,7 +46,7 @@ def calc_callback(self, context):
         return
 
     # get color info from theme
-    acol = context.user_preferences.themes[0].view_3d.editmesh_active
+    acol = context.preferences.themes[0].view_3d.editmesh_active
     tcol = (acol[0] * 0.85, acol[1] * 0.85, acol[2] * 0.85)
 
     # get screen information
@@ -212,17 +212,17 @@ class ShowVGroupWeights(bpy.types.Operator):
             return {'CANCELLED'}
 
 class VGroupsWeights(bpy.types.PropertyGroup):
-    vgroup = bpy.props.IntProperty()
-    weight = bpy.props.FloatProperty(min=0.0, max=1.0)
+    vgroup: bpy.props.IntProperty()
+    weight: bpy.props.FloatProperty(min=0.0, max=1.0)
 
 class AssignVertexWeight(bpy.types.Operator):
     bl_idname = "mesh.vertex_group_assign"
     bl_label = "Assign Weights"
     bl_description = "Assign weights for all of the groups on a specific vertex"
 
-    index = bpy.props.IntProperty()
+    index: bpy.props.IntProperty()
 
-    vgroup_weights = bpy.props.CollectionProperty(
+    vgroup_weights: bpy.props.CollectionProperty(
         description="Vertex Group Weights",
         type=VGroupsWeights)
 
@@ -313,8 +313,8 @@ class AddToVertexGroup(bpy.types.Operator):
 
         return items
 
-    vertex = bpy.props.IntProperty()
-    available_vgroups = bpy.props.EnumProperty(items=avail_vgroups, name="Available Groups")
+    vertex: bpy.props.IntProperty()
+    available_vgroups: bpy.props.EnumProperty(items=avail_vgroups, name="Available Groups")
 
     @classmethod
     def poll(cls, context):

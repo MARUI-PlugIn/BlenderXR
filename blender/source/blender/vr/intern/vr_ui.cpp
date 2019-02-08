@@ -33,6 +33,8 @@
 
 #include "vr_main.h"
 #include "vr_widget.h"
+#include "vr_widget_menu.h"
+#include "vr_widget_transform.h"
 
 #include "vr_ui.h"
 
@@ -54,10 +56,14 @@
 #include "ED_object.h"
 #include "ED_undo.h"
 
-#include "vr_api.h"
+#include "GPU_batch_presets.h"
+#include "GPU_immediate.h"
+#include "GPU_matrix.h"
 
 #include "WM_types.h"
 #include "wm_window.h"
+
+#include "vr_api.h"
 
 /* Externed from vr_types.h. */
 ui64 VR_t_now(0);	/* Current (most recent) timestamp. This will be updated (1) when updating tracking (2) when starting rendering a new frame (3) before executing UI operations. */
@@ -1148,10 +1154,6 @@ VR_UI::Error VR_UI::update_cursor(Cursor& c)
 			/* Activate action settings menu. */
 			VR_Widget *tool = get_current_tool(c.side);
 			switch (tool->type()) {
-			case VR_Widget::TYPE_SELECT: {
-				Widget_Menu::menu_type[c.side] = VR_Widget::MENUTYPE_AS_SELECT;
-				break;
-			}
 			case VR_Widget::TYPE_TRANSFORM: {
 				Widget_Menu::menu_type[c.side] = VR_Widget::MENUTYPE_AS_TRANSFORM;
 				break;
@@ -1199,6 +1201,10 @@ VR_UI::Error VR_UI::update_cursor(Cursor& c)
 					Widget_Menu::menu_type[c.side] = VR_Widget::MENUTYPE_TS_SELECT;
 					break;
 				}
+				case VR_Widget::TYPE_CURSOR: {
+					Widget_Menu::menu_type[c.side] = VR_Widget::MENUTYPE_TS_CURSOR;
+					break;
+				}
 				case VR_Widget::TYPE_TRANSFORM: {
 					Widget_Menu::menu_type[c.side] = VR_Widget::MENUTYPE_TS_TRANSFORM;
 					break;
@@ -1211,8 +1217,28 @@ VR_UI::Error VR_UI::update_cursor(Cursor& c)
 					Widget_Menu::menu_type[c.side] = VR_Widget::MENUTYPE_TS_MEASURE;
 					break;
 				}
+				case VR_Widget::TYPE_ADDPRIMITIVE: {
+					Widget_Menu::menu_type[c.side] = VR_Widget::MENUTYPE_TS_ADDPRIMITIVE;
+					break;
+				}
 				case VR_Widget::TYPE_EXTRUDE: {
 					Widget_Menu::menu_type[c.side] = VR_Widget::MENUTYPE_TS_EXTRUDE;
+					break;
+				}
+				case VR_Widget::TYPE_INSETFACES: {
+					Widget_Menu::menu_type[c.side] = VR_Widget::MENUTYPE_TS_INSETFACES;
+					break;
+				}
+				case VR_Widget::TYPE_BEVEL: {
+					Widget_Menu::menu_type[c.side] = VR_Widget::MENUTYPE_TS_BEVEL;
+					break;
+				}
+				case VR_Widget::TYPE_LOOPCUT: {
+					Widget_Menu::menu_type[c.side] = VR_Widget::MENUTYPE_TS_LOOPCUT;
+					break;
+				}
+				case VR_Widget::TYPE_KNIFE: {
+					Widget_Menu::menu_type[c.side] = VR_Widget::MENUTYPE_TS_KNIFE;
 					break;
 				}
 				default: {
@@ -1662,15 +1688,12 @@ VR_UI::Error VR_UI::render_controller(VR_Side controller_side)
 					VR_Draw::controller_model[i]->render(t_controller_right);
 				}
 				VR_Draw::set_color(1.0f, 1.0f, 1.0f, 1.0f);
-				/* Check if the cursor widget has been enabled.
-				 * If it has, stop drawing the cursor at the controller. */
-				if (!Widget_Cursor::obj.cursor_enabled) {
-					/* Render crosshair cursor */
-					VR_Draw::vr_cursor_model->render();
-					VR_Draw::set_depth_test(true, false);
-					VR_Draw::render_rect(-0.005f, 0.005f, 0.005f, -0.005f, 0.001f, 1.0f, 1.0f, VR_Draw::cursor_tex);
-					VR_Draw::set_depth_test(true, true);
-				}
+				VR_Draw::vr_cursor_model->render();
+
+				/* Render crosshair cursor */
+				VR_Draw::set_depth_test(true, false);
+				VR_Draw::render_rect(-0.005f, 0.005f, 0.005f, -0.005f, 0.001f, 1.0f, 1.0f, VR_Draw::cursor_tex);
+				VR_Draw::set_depth_test(true, true);
 			}
 		}
 		else {
@@ -1695,15 +1718,12 @@ VR_UI::Error VR_UI::render_controller(VR_Side controller_side)
 				else { /* VR_SIDE_RIGHT */
 					VR_Draw::controller_model[i]->render(t_controller_right);
 				}
-				/* Check if the cursor widget has been enabled.
-				 * If it has, stop drawing the cursor at the controller. */
-				if (!Widget_Cursor::obj.cursor_enabled) {
-					/* Render crosshair cursor */
-					VR_Draw::vr_cursor_model->render();
-					VR_Draw::set_depth_test(true, false);
-					VR_Draw::render_rect(-0.005f, 0.005f, 0.005f, -0.005f, 0.001f, 1.0f, 1.0f, VR_Draw::cursor_tex);
-					VR_Draw::set_depth_test(true, true);
-				}
+				VR_Draw::vr_cursor_model->render();
+
+				/* Render crosshair cursor */
+				VR_Draw::set_depth_test(true, false);
+				VR_Draw::render_rect(-0.005f, 0.005f, 0.005f, -0.005f, 0.001f, 1.0f, 1.0f, VR_Draw::cursor_tex);
+				VR_Draw::set_depth_test(true, true);
 			}
 		}
 		render_widget_icons(VR_SIDE_LEFT, t_controller_left);
@@ -1737,13 +1757,13 @@ VR_UI::Error VR_UI::render_controller(VR_Side controller_side)
 		VR_Draw::set_color(1.0f, 1.0f, 1.0f, 1.0f);
 		VR_Draw::controller_model[controller_side]->render();
 	}
-	if (!Widget_Cursor::obj.cursor_enabled) {
-		/* Render crosshair cursor */
-		VR_Draw::vr_cursor_model->render();
-		VR_Draw::set_depth_test(true, false);
-		VR_Draw::render_rect(-0.005f, 0.005f, 0.005f, -0.005f, 0.001f, 1.0f, 1.0f, VR_Draw::cursor_tex);
-		VR_Draw::set_depth_test(true, true);
-	}
+	VR_Draw::vr_cursor_model->render();
+
+	/* Render crosshair cursor */
+	VR_Draw::set_depth_test(true, false);
+	VR_Draw::render_rect(-0.005f, 0.005f, 0.005f, -0.005f, 0.001f, 1.0f, 1.0f, VR_Draw::cursor_tex);
+	VR_Draw::set_depth_test(true, true);
+	
 	render_widget_icons(controller_side, t_controller);
 
 	return ERROR_NONE;
@@ -1912,30 +1932,6 @@ VR_UI::Error VR_UI::execute_widget_renders(VR_Side side)
 		}
 	}
 
-	if (Widget_Cursor::cursor_enabled) {
-		/* Cursor has been enabled and initialized. This means that the original cursor has been
-		 * moved from the controller's origin to the click location. From now on, instead of
-		 * drawing the cursor at the controller's top location, draw to wherever the cursor's
-		 * position is set at. */
-		Mat44f cursor_identity_local;
-		cursor_identity_local.set_to_identity();
-		
-		Coord3Df cursor_converted_position = VR_UI::convert_space(Widget_Cursor::cursor_current_location, 
-																	VR_SPACE_BLENDER, 
-																	VR_SPACE_REAL);
-		Mat44f current_HMD_pos = hmd_position_get(VR_SPACE_REAL);
-
-		memcpy(&cursor_identity_local.m[0], current_HMD_pos.m[0], sizeof(float) * 3);
-		memcpy(&cursor_identity_local.m[1], current_HMD_pos.m[1], sizeof(float) * 3);
-		memcpy(&cursor_identity_local.m[2], current_HMD_pos.m[2], sizeof(float) * 3);
-		memcpy(&cursor_identity_local.m[3], &cursor_converted_position, sizeof(float) * 3);
-
-		VR_Draw::update_modelview_matrix(&cursor_identity_local, 0);
-		VR_Draw::set_depth_test(true, false);
-		VR_Draw::render_rect(-0.005f, 0.005f, 0.005f, -0.005f, 0.001f, 1.0f, 1.0f, VR_Draw::cursor_tex);
-		VR_Draw::set_depth_test(true, true);
-	}
-
 	/* Apply widget render functions (if any). */
 	AltState alt = VR_UI::alt_key;
 	bool manip_rendered = false;
@@ -1960,6 +1956,15 @@ VR_UI::Error VR_UI::execute_widget_renders(VR_Side side)
 				}
 			}
 		}
+	}
+
+	/* TODO_XR: Hack to restore the OpenGL state so that the Blender cursor renders properly. */
+	if (!manip_rendered) {
+		static float zero[4][4] = { 0 };
+		GPU_matrix_mul(zero);
+		GPUBatch *sphere = GPU_batch_preset_sphere(0);
+		GPU_batch_program_set_builtin(sphere, GPU_SHADER_3D_UNIFORM_COLOR);
+		GPU_batch_draw(sphere);
 	}
 
 	return ERROR_NONE;
@@ -2059,6 +2064,12 @@ const float *vr_api_get_navigation_matrix(int inverse)
 		return (float*)VR_UI::navigation_matrix_get().m;
 	}
 	return 0;
+}
+
+/* Get the scale factor between real-world units and Blender units from the UI module. */
+float vr_api_get_navigation_scale()
+{
+    return VR_UI::navigation_scale_get();
 }
 
 /* Update the OpenGL view matrix for the UI module. */

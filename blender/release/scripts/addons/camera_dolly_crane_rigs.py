@@ -57,6 +57,9 @@ def create_widget(self, name):
         c.objects.link(obj)
     else:
         c = bpy.data.collections.new(collection_name)
+        c.hide_viewport = True
+        c.hide_render = True
+
         # link the collection
         scene.collection.children.link(c)
         c.objects.link(obj)
@@ -387,8 +390,8 @@ def add_DOF_Empty():
     cam.dof_object = obj
     # reselect the rig
     view_layer.objects.active = rig
-    obj.select = False
-    rig.select = True
+    obj.select_set(False)
+    rig.select_set(True)
 
     bpy.ops.object.mode_set(mode=smode, toggle=False)
 

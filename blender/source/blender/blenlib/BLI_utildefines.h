@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,19 +15,12 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
 #ifndef __BLI_UTILDEFINES_H__
 #define __BLI_UTILDEFINES_H__
 
-/** \file BLI_utildefines.h
- *  \ingroup bli
+/** \file \ingroup bli
  */
 
 #ifdef __cplusplus
@@ -222,45 +213,6 @@ extern "C" {
 	d = c;                                                                    \
 	c = b;                                                                    \
 	b = tmp;                                                                  \
-} (void)0
-
-#define VECCOPY(v1, v2) {                                                     \
-		*(v1) =   *(v2);                                                      \
-		*(v1 + 1) = *(v2 + 1);                                                \
-		*(v1 + 2) = *(v2 + 2);                                                \
-} (void)0
-#define VECCOPY2D(v1, v2) {                                                   \
-		*(v1) =   *(v2);                                                      \
-		*(v1 + 1) = *(v2 + 1);                                                \
-} (void)0
-#define VECADD(v1, v2, v3) {                                                  \
-		*(v1) =   *(v2)   + *(v3);                                            \
-		*(v1 + 1) = *(v2 + 1) + *(v3 + 1);                                    \
-		*(v1 + 2) = *(v2 + 2) + *(v3 + 2);                                    \
-} (void)0
-#define VECSUB(v1, v2, v3) {                                                  \
-		*(v1) =   *(v2)   - *(v3);                                            \
-		*(v1 + 1) = *(v2 + 1) - *(v3 + 1);                                    \
-		*(v1 + 2) = *(v2 + 2) - *(v3 + 2);                                    \
-} (void)0
-#define VECSUB2D(v1, v2, v3)     {                                            \
-		*(v1) =   *(v2)   - *(v3);                                            \
-		*(v1 + 1) = *(v2 + 1) - *(v3 + 1);                                    \
-} (void)0
-#define VECADDFAC(v1, v2, v3, fac) {                                          \
-		*(v1) =   *(v2)   + *(v3) * (fac);                                    \
-		*(v1 + 1) = *(v2 + 1) + *(v3 + 1) * (fac);                            \
-		*(v1 + 2) = *(v2 + 2) + *(v3 + 2) * (fac);                            \
-} (void)0
-#define VECMADD(v1, v2, v3, v4) {                                             \
-		*(v1) =   *(v2)   + *(v3) * (*(v4));                                  \
-		*(v1 + 1) = *(v2 + 1) + *(v3 + 1) * (*(v4 + 1));                      \
-		*(v1 + 2) = *(v2 + 2) + *(v3 + 2) * (*(v4 + 2));                      \
-} (void)0
-#define VECSUBFAC(v1, v2, v3, fac) {                                          \
-		*(v1) =   *(v2)   - *(v3) * (fac);                                    \
-		*(v1 + 1) = *(v2 + 1) - *(v3 + 1) * (fac);                            \
-		*(v1 + 2) = *(v2 + 2) - *(v3 + 2) * (fac);                            \
 } (void)0
 
 /* some misc stuff.... */

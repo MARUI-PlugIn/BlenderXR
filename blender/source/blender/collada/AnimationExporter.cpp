@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,14 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Chingiz Dyussenov, Arystanbek Dyussenov, Jan Diederich, Tod Liverseed.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file AnimationExporter.cpp
- *  \ingroup collada
+/** \file \ingroup collada
  */
 
 #include "GeometryExporter.h"
@@ -148,6 +141,7 @@ void AnimationExporter::exportAnimation(Object *ob, BCAnimationSampler &sampler)
 	 * However Armatures also can have Object animation.
 	 */
 	bool export_as_matrix = this->export_settings->export_transformation_type == BC_TRANSFORMATION_TYPE_MATRIX;
+
 	if (export_as_matrix) {
 		export_matrix_animation(ob, sampler); // export all transform_curves as one single matrix animation
 	}
@@ -179,11 +173,11 @@ void AnimationExporter::exportAnimation(Object *ob, BCAnimationSampler &sampler)
  * especially when negative scales are involved in the animation.
  * And when parent inverse matrices are involved (when exporting
  * object hierarchies)
- *
  */
 void AnimationExporter::export_curve_animation_set(Object *ob, BCAnimationSampler &sampler, bool export_as_matrix)
 {
 	BCAnimationCurveMap *curves = sampler.get_curves(ob);
+	bool keep_flat_curves = this->export_settings->keep_flat_curves;
 
 	BCAnimationCurveMap::iterator it;
 	for (it = curves->begin(); it != curves->end(); ++it) {
@@ -205,7 +199,7 @@ void AnimationExporter::export_curve_animation_set(Object *ob, BCAnimationSample
 			continue;
 		}
 
-		if (!curve.is_animated()) {
+		if (!keep_flat_curves && !curve.is_animated()) {
 			continue;
 		}
 
@@ -222,12 +216,14 @@ void AnimationExporter::export_curve_animation_set(Object *ob, BCAnimationSample
 
 void AnimationExporter::export_matrix_animation(Object *ob, BCAnimationSampler &sampler)
 {
+	bool keep_flat_curves = this->export_settings->keep_flat_curves;
+
 	std::vector<float> frames;
 	sampler.get_object_frames(frames, ob);
 	if (frames.size() > 0) {
 		BCMatrixSampleMap samples;
 		bool is_animated = sampler.get_object_samples(samples, ob);
-		if (is_animated) {
+		if (keep_flat_curves || is_animated) {
 			bAction *action = bc_getSceneObjectAction(ob);
 			std::string name = encode_xml(id_name(ob));
 			std::string action_name = (action == NULL) ? name + "-action" : id_name(action);
@@ -245,13 +241,15 @@ void AnimationExporter::export_matrix_animation(Object *ob, BCAnimationSampler &
 //write bone animations in transform matrix sources
 void AnimationExporter::export_bone_animations_recursive(Object *ob, Bone *bone, BCAnimationSampler &sampler)
 {
+	bool keep_flat_curves = this->export_settings->keep_flat_curves;
+
 	std::vector<float> frames;
 	sampler.get_bone_frames(frames, ob, bone);
 
 	if (frames.size()) {
 		BCMatrixSampleMap samples;
 		bool is_animated = sampler.get_bone_samples(samples, ob, bone);
-		if (is_animated) {
+		if (keep_flat_curves || is_animated) {
 			export_bone_animation(ob, bone, frames, samples);
 		}
 	}

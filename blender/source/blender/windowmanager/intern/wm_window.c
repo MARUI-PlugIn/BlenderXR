@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -18,14 +16,9 @@
  * The Original Code is Copyright (C) 2007 Blender Foundation but based
  * on ghostwinlay.c (C) 2001-2002 by NaN Holding BV
  * All rights reserved.
- *
- * Contributor(s): Blender Foundation, 2008
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/windowmanager/intern/wm_window.c
- *  \ingroup wm
+/** \file \ingroup wm
  *
  * Window management, wrap GHOST.
  */
@@ -109,7 +102,7 @@ static GHOST_SystemHandle g_system = NULL;
 
 typedef enum WinOverrideFlag {
 	WIN_OVERRIDE_GEOM     = (1 << 0),
-	WIN_OVERRIDE_WINSTATE = (1 << 1)
+	WIN_OVERRIDE_WINSTATE = (1 << 1),
 } WinOverrideFlag;
 
 /* set by commandline */
@@ -128,6 +121,7 @@ static struct WMInitStruct {
 /* ******** win open & close ************ */
 
 static void wm_window_set_drawable(wmWindowManager *wm, wmWindow *win, bool activate);
+static int wm_window_timer(const bContext *C);
 
 /* XXX this one should correctly check for apple top header...
  * done for Cocoa : returns window contents (and not frame) max size*/
@@ -449,7 +443,9 @@ static void wm_confirm_quit(bContext *C)
 	wmWindow *win = CTX_wm_window(C);
 
 	if (GHOST_SupportsNativeDialogs() == 0) {
-		UI_popup_block_invoke(C, block_create_confirm_quit, NULL);
+		if (!UI_popup_block_name_exists(C, "confirm_quit_popup")) {
+			UI_popup_block_invoke(C, block_create_confirm_quit, NULL);
+		}
 	}
 	else if (GHOST_confirmQuit(win->ghostwin)) {
 		wm_exit_schedule_delayed(C);
@@ -1107,6 +1103,11 @@ void wm_cursor_position_to_ghost(wmWindow *win, int *x, int *y)
 
 void wm_get_cursor_position(wmWindow *win, int *x, int *y)
 {
+	if (UNLIKELY(G.f & G_FLAG_EVENT_SIMULATE)) {
+		*x = win->eventstate->x;
+		*y = win->eventstate->y;
+		return;
+	}
 	GHOST_GetCursorPosition(g_system, x, y);
 	wm_cursor_position_from_ghost(win, x, y);
 }
@@ -1475,6 +1476,8 @@ static int ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr C_void_ptr
 
 #if defined(__APPLE__) || defined(WIN32)
 						/* OSX and Win32 don't return to the mainloop while resize */
+						wm_window_timer(C);
+						wm_event_do_handlers(C);
 						wm_event_do_notifiers(C);
 						wm_draw_update(C);
 
@@ -1749,6 +1752,8 @@ void wm_ghost_init(bContext *C)
 		}
 
 		GHOST_UseWindowFocus(wm_init_state.window_focus);
+
+		WM_init_tablet_api();
 	}
 }
 
@@ -2036,6 +2041,24 @@ void WM_init_window_focus_set(bool do_it)
 void WM_init_native_pixels(bool do_it)
 {
 	wm_init_state.native_pixels = do_it;
+}
+
+void WM_init_tablet_api(void)
+{
+	if (g_system) {
+		switch (U.tablet_api) {
+			case USER_TABLET_NATIVE:
+				GHOST_SetTabletAPI(g_system, GHOST_kTabletNative);
+				break;
+			case USER_TABLET_WINTAB:
+				GHOST_SetTabletAPI(g_system, GHOST_kTabletWintab);
+				break;
+			case USER_TABLET_AUTOMATIC:
+			default:
+				GHOST_SetTabletAPI(g_system, GHOST_kTabletAutomatic);
+				break;
+		}
+	}
 }
 
 /* This function requires access to the GHOST_SystemHandle (g_system) */

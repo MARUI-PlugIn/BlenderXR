@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,14 +15,9 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * Contributor(s): Blender Foundation, 2009
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/object/object_modifier.c
- *  \ingroup edobj
+/** \file \ingroup edobj
  */
 
 
@@ -432,10 +425,12 @@ int ED_object_modifier_move_down(ReportList *reports, Object *ob, ModifierData *
 	return 1;
 }
 
-int ED_object_modifier_convert(ReportList *UNUSED(reports), Main *bmain, Scene *scene, ViewLayer *view_layer, Object *ob, ModifierData *md)
+int ED_object_modifier_convert(ReportList *UNUSED(reports),
+                               Main *bmain, Depsgraph *depsgraph, Scene *scene, ViewLayer *view_layer,
+                               Object *ob, ModifierData *md)
 {
 	Object *obn;
-	ParticleSystem *psys;
+	ParticleSystem *psys_orig, *psys_eval;
 	ParticleCacheKey *key, **cache;
 	ParticleSettings *part;
 	Mesh *me;
@@ -448,20 +443,25 @@ int ED_object_modifier_convert(ReportList *UNUSED(reports), Main *bmain, Scene *
 	if (md->type != eModifierType_ParticleSystem) return 0;
 	if (ob && ob->mode & OB_MODE_PARTICLE_EDIT) return 0;
 
-	psys = ((ParticleSystemModifierData *)md)->psys;
-	part = psys->part;
+	psys_orig = ((ParticleSystemModifierData *)md)->psys;
+	part = psys_orig->part;
 
-	if (part->ren_as != PART_DRAW_PATH || psys->pathcache == NULL)
+	if (part->ren_as != PART_DRAW_PATH) {
 		return 0;
+	}
+	psys_eval = psys_eval_get(depsgraph, ob, psys_orig);
+	if (psys_eval->pathcache == NULL) {
+		return 0;
+	}
 
-	totpart = psys->totcached;
-	totchild = psys->totchildcache;
+	totpart = psys_eval->totcached;
+	totchild = psys_eval->totchildcache;
 
 	if (totchild && (part->draw & PART_DRAW_PARENT) == 0)
 		totpart = 0;
 
 	/* count */
-	cache = psys->pathcache;
+	cache = psys_eval->pathcache;
 	for (a = 0; a < totpart; a++) {
 		key = cache[a];
 
@@ -471,7 +471,7 @@ int ED_object_modifier_convert(ReportList *UNUSED(reports), Main *bmain, Scene *
 		}
 	}
 
-	cache = psys->childcache;
+	cache = psys_eval->childcache;
 	for (a = 0; a < totchild; a++) {
 		key = cache[a];
 
@@ -498,7 +498,7 @@ int ED_object_modifier_convert(ReportList *UNUSED(reports), Main *bmain, Scene *
 	medge = me->medge;
 
 	/* copy coordinates */
-	cache = psys->pathcache;
+	cache = psys_eval->pathcache;
 	for (a = 0; a < totpart; a++) {
 		key = cache[a];
 		kmax = key->segments;
@@ -517,7 +517,7 @@ int ED_object_modifier_convert(ReportList *UNUSED(reports), Main *bmain, Scene *
 		}
 	}
 
-	cache = psys->childcache;
+	cache = psys_eval->childcache;
 	for (a = 0; a < totchild; a++) {
 		key = cache[a];
 		kmax = key->segments;
@@ -1061,7 +1061,7 @@ static int modifier_apply_invoke(bContext *C, wmOperator *op, const wmEvent *UNU
 static const EnumPropertyItem modifier_apply_as_items[] = {
 	{MODIFIER_APPLY_DATA, "DATA", 0, "Object Data", "Apply modifier to the object's data"},
 	{MODIFIER_APPLY_SHAPE, "SHAPE", 0, "New Shape", "Apply deform-only modifier to a new shape on this object"},
-	{0, NULL, 0, NULL, NULL}
+	{0, NULL, 0, NULL, NULL},
 };
 
 void OBJECT_OT_modifier_apply(wmOperatorType *ot)
@@ -1086,12 +1086,13 @@ void OBJECT_OT_modifier_apply(wmOperatorType *ot)
 static int modifier_convert_exec(bContext *C, wmOperator *op)
 {
 	Main *bmain = CTX_data_main(C);
+	Depsgraph *depsgraph = CTX_data_depsgraph(C);
 	Scene *scene = CTX_data_scene(C);
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	Object *ob = ED_object_active_context(C);
 	ModifierData *md = edit_modifier_property_get(op, ob, 0);
 
-	if (!md || !ED_object_modifier_convert(op->reports, bmain, scene, view_layer, ob, md))
+	if (!md || !ED_object_modifier_convert(op->reports, bmain, depsgraph, scene, view_layer, ob, md))
 		return OPERATOR_CANCELLED;
 
 	DEG_id_tag_update(&ob->id, ID_RECALC_GEOMETRY);
@@ -1620,7 +1621,7 @@ void OBJECT_OT_skin_loose_mark_clear(wmOperatorType *ot)
 	static const EnumPropertyItem action_items[] = {
 		{SKIN_LOOSE_MARK, "MARK", 0, "Mark", "Mark selected vertices as loose"},
 		{SKIN_LOOSE_CLEAR, "CLEAR", 0, "Clear", "Set selected vertices as not loose"},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	ot->name = "Skin Mark/Clear Loose";
@@ -1880,6 +1881,7 @@ static bool correctivesmooth_poll(bContext *C)
 
 static int correctivesmooth_bind_exec(bContext *C, wmOperator *op)
 {
+	Depsgraph *depsgraph = CTX_data_depsgraph(C);
 	Scene *scene = CTX_data_scene(C);
 	Object *ob = ED_object_active_context(C);
 	CorrectiveSmoothModifierData *csmd = (CorrectiveSmoothModifierData *)edit_modifier_property_get(op, ob, eModifierType_CorrectiveSmooth);
@@ -1906,9 +1908,17 @@ static int correctivesmooth_bind_exec(bContext *C, wmOperator *op)
 	else {
 		/* signal to modifier to recalculate */
 		csmd->bind_coords_num = (unsigned int)-1;
+
+		/* Force modifier to run, it will call binding routine
+		 * (this has to happen outside of depsgraph evaluation). */
+		const int mode = csmd->modifier.mode;
+		csmd->modifier.mode |= eModifierMode_Realtime;
+		object_force_modifier_update_for_bind(depsgraph, scene, ob);
+		csmd->modifier.mode = mode;
 	}
 
-	DEG_id_tag_update(&ob->id, ID_RECALC_GEOMETRY);
+	/* We need ID_RECALC_COPY_ON_WRITE to ensure (un)binding is flushed to CoW copies of the object... */
+	DEG_id_tag_update(&ob->id, ID_RECALC_GEOMETRY | ID_RECALC_COPY_ON_WRITE);
 	WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, ob);
 
 	return OPERATOR_FINISHED;
@@ -2173,23 +2183,8 @@ static int ocean_bake_exec(bContext *C, wmOperator *op)
 
 	/* precalculate time variable before baking */
 	for (f = omd->bakestart; f <= omd->bakeend; f++) {
-		/* from physics_fluid.c:
-		 *
-		 * XXX: This can't be used due to an anim sys optimization that ignores recalc object animation,
-		 * leaving it for the depgraph (this ignores object animation such as modifier properties though... :/ )
-		 * --> BKE_animsys_evaluate_all_animation(bmain, eval_time);
-		 * This doesn't work with drivers:
-		 * --> BKE_animsys_evaluate_animdata(&fsDomain->id, fsDomain->adt, eval_time, ADT_RECALC_ALL);
-		 */
-
-		/* Modifying the global scene isn't nice, but we can do it in
-		 * this part of the process before a threaded job is created */
-
-		//scene->r.cfra = f;
-		//ED_update_for_newframe(bmain, scene);
-
-		/* ok, this doesn't work with drivers, but is way faster.
-		 * let's use this for now and hope nobody wants to drive the time value... */
+		/* For now only simple animation of time value is supported, nothing else.
+		 * No drivers or other modifier parameters. */
 		BKE_animsys_evaluate_animdata(CTX_data_depsgraph(C), scene, (ID *)ob, ob->adt, f, ADT_RECALC_ANIM);
 
 		och->time[i] = omd->time;
@@ -2287,7 +2282,8 @@ static int laplaciandeform_bind_exec(bContext *C, wmOperator *op)
 		lmd->flag |= MOD_LAPLACIANDEFORM_BIND;
 	}
 
-	/* Force modifier to run, it will call binding routine (this has to happen outside of depsgraph evaluation). */
+	/* Force modifier to run, it will call binding routine
+	 * (this has to happen outside of depsgraph evaluation). */
 	const int mode = lmd->modifier.mode;
 	lmd->modifier.mode |= eModifierMode_Realtime;
 	object_force_modifier_update_for_bind(depsgraph, scene, ob);
@@ -2349,7 +2345,8 @@ static int surfacedeform_bind_exec(bContext *C, wmOperator *op)
 		smd->flags |= MOD_SDEF_BIND;
 	}
 
-	/* Force modifier to run, it will call binding routine (this has to happen outside of depsgraph evaluation). */
+	/* Force modifier to run, it will call binding routine
+	 * (this has to happen outside of depsgraph evaluation). */
 	const int mode = smd->modifier.mode;
 	smd->modifier.mode |= eModifierMode_Realtime;
 	object_force_modifier_update_for_bind(depsgraph, scene, ob);

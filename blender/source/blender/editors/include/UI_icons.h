@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,15 +15,9 @@
  *
  * The Original Code is Copyright (C) 2009 Blender Foundation.
  * All rights reserved.
- *
- *
- * Contributor(s): Blender Foundation
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file UI_icons.h
- *  \ingroup editorui
+/** \file \ingroup editorui
  */
 
 /* Note: this is included multiple times with different #defines for DEF_ICON. */
@@ -151,7 +143,7 @@ DEF_ICON(SPEAKER)
 DEF_ICON_BLANK(151)
 DEF_ICON(TOOL_SETTINGS)
 DEF_ICON(SHADERFX)
-DEF_ICON_BLANK(154)
+DEF_ICON(MODIFIER)
 DEF_ICON_BLANK(155)
 DEF_ICON_BLANK(156)
 DEF_ICON_BLANK(157)
@@ -181,18 +173,18 @@ DEF_ICON(NODETREE)
 DEF_ICON_BLANK(181)
 DEF_ICON(CONSOLE)
 DEF_ICON_BLANK(183)
-DEF_ICON(CLIP)
+DEF_ICON(TRACKER)
 DEF_ICON(ASSET_MANAGER)
 DEF_ICON(NODE_COMPOSITING)
 DEF_ICON(NODE_TEXTURE)
 DEF_ICON(NODE_MATERIAL)
-DEF_ICON_BLANK(189)
+DEF_ICON(UV)
 DEF_ICON_BLANK(190)
 
 	/* MODES */
 DEF_ICON(OBJECT_DATAMODE)	// XXX fix this up
 DEF_ICON(EDITMODE_HLT)
-DEF_ICON(UV)
+DEF_ICON(UV_DATA)
 DEF_ICON(VPAINT_HLT)
 DEF_ICON(TPAINT_HLT)
 DEF_ICON(WPAINT_HLT)
@@ -294,7 +286,7 @@ DEF_ICON(DECORATE_UNLOCKED)
 DEF_ICON(DECORATE_LOCKED)
 DEF_ICON(DECORATE_OVERRIDE)
 DEF_ICON_BLANK(111)
-DEF_ICON(SEALED)
+DEF_ICON(TRACKER_DATA)
 DEF_ICON(HEART)
 DEF_ICON(ORPHAN_DATA)
 DEF_ICON(USER)
@@ -526,7 +518,7 @@ DEF_ICON_BLANK(525)
 DEF_ICON_BLANK(526)
 
 	/* MODIFIERS */
-DEF_ICON_MODIFIER(MODIFIER)
+DEF_ICON_MODIFIER(MODIFIER_DATA)
 DEF_ICON_MODIFIER(MOD_WAVE)
 DEF_ICON_MODIFIER(MOD_BUILD)
 DEF_ICON_MODIFIER(MOD_DECIM)

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenkernel/intern/key.c
- *  \ingroup bke
+/** \file \ingroup bke
  */
 
 
@@ -55,7 +46,6 @@
 #include "BKE_curve.h"
 #include "BKE_customdata.h"
 #include "BKE_deform.h"
-#include "BKE_global.h"
 #include "BKE_key.h"
 #include "BKE_lattice.h"
 #include "BKE_library.h"
@@ -63,7 +53,6 @@
 #include "BKE_mesh.h"
 #include "BKE_editmesh.h"
 #include "BKE_scene.h"
-
 
 #include "RNA_access.h"
 
@@ -162,7 +151,7 @@ Key *BKE_key_add(Main *bmain, ID *id)    /* common function */
 
 /**
  * Only copy internal data of ShapeKey ID from source to already allocated/initialized destination.
- * You probably nerver want to use that directly, use id_copy or BKE_id_copy_ex for typical needs.
+ * You probably never want to use that directly, use BKE_id_copy or BKE_id_copy_ex for typical needs.
  *
  * WARNING! This function will not handle ID user count!
  *
@@ -189,7 +178,7 @@ void BKE_key_copy_data(Main *UNUSED(bmain), Key *key_dst, const Key *key_src, co
 Key *BKE_key_copy(Main *bmain, const Key *key)
 {
 	Key *key_copy;
-	BKE_id_copy_ex(bmain, &key->id, (ID **)&key_copy, 0, false);
+	BKE_id_copy(bmain, &key->id, (ID **)&key_copy);
 	return key_copy;
 }
 
@@ -1333,9 +1322,6 @@ float *BKE_key_evaluate_object_ex(
 		out = (char *)arr;
 	}
 
-	/* prevent python from screwing this up? anyhoo, the from pointer could be dropped */
-	key->from = (ID *)ob->data;
-
 	if (ob->shapeflag & OB_SHAPE_LOCK) {
 		/* shape locked, copy the locked shape instead of blending */
 		KeyBlock *kb = BLI_findlink(&key->block, ob->shapenr - 1);
@@ -1375,6 +1361,18 @@ float *BKE_key_evaluate_object_ex(
 float *BKE_key_evaluate_object(Object *ob, int *r_totelem)
 {
 	return BKE_key_evaluate_object_ex(ob, r_totelem, NULL, 0);
+}
+
+bool BKE_key_idtype_support(const short id_type)
+{
+	switch (id_type) {
+		case ID_ME:
+		case ID_CU:
+		case ID_LT:
+			return true;
+		default:
+			return false;
+	}
 }
 
 Key **BKE_key_from_id_p(ID *id)

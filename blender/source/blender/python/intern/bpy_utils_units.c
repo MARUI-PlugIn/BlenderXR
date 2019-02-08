@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,14 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Bastien Montagne
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/python/intern/bpy_utils_units.c
- *  \ingroup pythonintern
+/** \file \ingroup pythonintern
  *
  * This file defines a singleton py object accessed via 'bpy.utils.units',
  * which exposes various data and functions useful in units handling.
@@ -81,13 +74,13 @@ static PyStructSequence_Desc bpyunits_systems_desc = {
 	(char *)"bpy.utils.units.systems",     /* name */
 	(char *)"This named tuple contains all pre-defined unit systems",    /* doc */
 	bpyunits_systems_fields,    /* fields */
-	ARRAY_SIZE(bpyunits_systems_fields) - 1
+	ARRAY_SIZE(bpyunits_systems_fields) - 1,
 };
 static PyStructSequence_Desc bpyunits_categories_desc = {
 	(char *)"bpy.utils.units.categories",     /* name */
 	(char *)"This named tuple contains all pre-defined unit names",    /* doc */
 	bpyunits_categories_fields,    /* fields */
-	ARRAY_SIZE(bpyunits_categories_fields) - 1
+	ARRAY_SIZE(bpyunits_categories_fields) - 1,
 };
 
 /**
@@ -301,7 +294,7 @@ static PyObject *bpyunits_to_string(PyObject *UNUSED(self), PyObject *args, PyOb
 static PyMethodDef bpyunits_methods[] = {
 	{"to_value", (PyCFunction)bpyunits_to_value, METH_VARARGS | METH_KEYWORDS, bpyunits_to_value_doc},
 	{"to_string", (PyCFunction)bpyunits_to_string, METH_VARARGS | METH_KEYWORDS, bpyunits_to_string_doc},
-	{NULL, NULL, 0, NULL}
+	{NULL, NULL, 0, NULL},
 };
 
 PyDoc_STRVAR(bpyunits_doc,
@@ -314,7 +307,7 @@ static struct PyModuleDef bpyunits_module = {
 	bpyunits_doc,
 	-1, /* multiple "initialization" just copies the module dict. */
 	bpyunits_methods,
-	NULL, NULL, NULL, NULL
+	NULL, NULL, NULL, NULL,
 };
 
 PyObject *BPY_utils_units(void)

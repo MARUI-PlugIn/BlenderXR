@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/interface/interface_intern.h
- *  \ingroup edinterface
+/** \file \ingroup edinterface
  */
 
 
@@ -39,19 +30,19 @@
 #include "DNA_listBase.h"
 
 struct ARegion;
+struct ID;
+struct ImBuf;
+struct Scene;
 struct bContext;
+struct bContextStore;
 struct uiHandleButtonData;
+struct uiLayout;
+struct uiStyle;
+struct uiWidgetColors;
 struct wmEvent;
 struct wmKeyConfig;
 struct wmOperatorType;
 struct wmTimer;
-struct uiStyle;
-struct uiWidgetColors;
-struct uiLayout;
-struct bContextStore;
-struct Scene;
-struct ID;
-struct ImBuf;
 
 /* ****************** general defines ************** */
 
@@ -106,7 +97,8 @@ typedef enum {
 } uiWidgetTypeEnum;
 
 #define UI_MENU_WIDTH_MIN       (UI_UNIT_Y * 9)
-#define UI_MENU_SUBMENU_PADDING (6 * UI_DPI_FAC) /* some extra padding added to menus containing submenu icons */
+/* some extra padding added to menus containing submenu icons */
+#define UI_MENU_SUBMENU_PADDING (6 * UI_DPI_FAC)
 
 /* menu scrolling */
 #define UI_MENU_SCROLL_ARROW	12
@@ -163,7 +155,7 @@ extern const short ui_radial_dir_to_angle[8];
 
 /* internal panel drawing defines */
 #define PNL_GRID    (UI_UNIT_Y / 5) /* 4 default */
-#define PNL_HEADER  (UI_UNIT_Y + 4) /* 24 default */
+#define PNL_HEADER  (UI_UNIT_Y * 1.2)  /* 24 default */
 
 /* bit button defines */
 /* Bit operations */
@@ -181,13 +173,20 @@ extern const short ui_radial_dir_to_angle[8];
 
 /* PieMenuData->flags */
 enum {
-	UI_PIE_DEGREES_RANGE_LARGE  = (1 << 0),  /* pie menu item collision is detected at 90 degrees */
-	UI_PIE_INITIAL_DIRECTION    = (1 << 1),  /* use initial center of pie menu to calculate direction */
-	UI_PIE_DRAG_STYLE           = (1 << 2),  /* pie menu is drag style */
-	UI_PIE_INVALID_DIR          = (1 << 3),  /* mouse not far enough from center position  */
-	UI_PIE_CLICK_STYLE          = (1 << 4),  /* pie menu changed to click style, click to confirm  */
-	UI_PIE_ANIMATION_FINISHED   = (1 << 5),  /* pie animation finished, do not calculate any more motion  */
-	UI_PIE_GESTURE_END_WAIT     = (1 << 6),  /* pie gesture selection has been done, now wait for mouse motion to end */
+	/** pie menu item collision is detected at 90 degrees */
+	UI_PIE_DEGREES_RANGE_LARGE  = (1 << 0),
+	/** use initial center of pie menu to calculate direction */
+	UI_PIE_INITIAL_DIRECTION    = (1 << 1),
+	/** pie menu is drag style */
+	UI_PIE_DRAG_STYLE           = (1 << 2),
+	/** mouse not far enough from center position  */
+	UI_PIE_INVALID_DIR          = (1 << 3),
+	/** pie menu changed to click style, click to confirm  */
+	UI_PIE_CLICK_STYLE          = (1 << 4),
+	/** pie animation finished, do not calculate any more motion  */
+	UI_PIE_ANIMATION_FINISHED   = (1 << 5),
+	/** pie gesture selection has been done, now wait for mouse motion to end */
+	UI_PIE_GESTURE_END_WAIT     = (1 << 6),
 };
 
 #define PIE_CLICK_THRESHOLD_SQ 50.0f
@@ -233,7 +232,7 @@ struct uiBut {
 	 */
 	float a2;
 
-	unsigned char col[4];
+	uchar col[4];
 
 	uiButHandleFunc func;
 	void *func_arg1;
@@ -256,7 +255,7 @@ struct uiBut {
 	void *rename_arg1;
 	void *rename_orig;
 
-	/* Run an action when holding the button down. */
+	/** Run an action when holding the button down. */
 	uiButHandleHoldFunc hold_func;
 	void *hold_argN;
 
@@ -264,14 +263,18 @@ struct uiBut {
 	uiButToolTipFunc tip_func;
 	void *tip_argN;
 
-	/* info on why button is disabled, displayed in tooltip */
+	/** info on why button is disabled, displayed in tooltip */
 	const char *disabled_info;
 
 	BIFIconID icon;
-	char dt; /* drawtype: UI_EMBOSS, UI_EMBOSS_NONE ... etc, copied from the block */
-	signed char pie_dir; /* direction in a pie menu, used for collision detection (RadialDirection) */
-	bool changed; /* could be made into a single flag */
-	unsigned char unit_type; /* so buttons can support unit systems which are not RNA */
+	/** drawtype: UI_EMBOSS, UI_EMBOSS_NONE ... etc, copied from the block */
+	char dt;
+	/** direction in a pie menu, used for collision detection (RadialDirection) */
+	signed char pie_dir;
+	/** could be made into a single flag */
+	bool changed;
+	/** so buttons can support unit systems which are not RNA */
+	uchar unit_type;
 	short modifier_key;
 	short iconadd;
 
@@ -295,7 +298,7 @@ struct uiBut {
 	struct wmOperatorType *optype;
 	struct PointerRNA *opptr;
 	short opcontext;
-	unsigned char menu_key; /* 'a'-'z', always lower case */
+	uchar menu_key; /* 'a'-'z', always lower case */
 
 	/* Draggable data, type is WM_DRAG_... */
 	char dragtype;
@@ -327,8 +330,11 @@ typedef struct uiButTab {
 
 typedef struct ColorPicker {
 	struct ColorPicker *next, *prev;
-	float color_data[3]; /* colr data may be HSV or HSL for now */
-	int representation; /* store hsv/hsl value */
+	/** Color data, may be HSV or HSL. */
+	float color_data[3];
+	/** Initial color data (detect changes). */
+	float color_data_init[3];
+	bool is_init;
 } ColorPicker;
 
 typedef struct ColorPickerData {
@@ -336,7 +342,7 @@ typedef struct ColorPickerData {
 } ColorPickerData;
 
 struct PieMenuData {
-	/* store title and icon to allow access when pie levels are created */
+	/** store title and icon to allow access when pie levels are created */
 	const char *title;
 	int icon;
 
@@ -346,13 +352,14 @@ struct PieMenuData {
 	float last_pos[2];
 	double duration_gesture;
 	int flags;
-	int event; /* initial event used to fire the pie menu, store here so we can query for release */
+	/** initial event used to fire the pie menu, store here so we can query for release */
+	int event;
 	float alphafac;
 };
 
 /* uiBlock.content_hints */
 enum eBlockContentHints {
-	/* In a menu block, if there is a single sub-menu button, we add some
+	/** In a menu block, if there is a single sub-menu button, we add some
 	 * padding to the right to put nicely aligned triangle icons there. */
 	UI_BLOCK_CONTAINS_SUBMENU_BUT = (1 << 0),
 };
@@ -378,7 +385,7 @@ struct uiBlock {
 	rctf rect;
 	float aspect;
 
-	unsigned int puphash;  /* popup menu hash for memory */
+	uint puphash;  /* popup menu hash for memory */
 
 	uiButHandleFunc func;
 	void *func_arg1;
@@ -403,14 +410,16 @@ struct uiBlock {
 
 	int flag;
 	short alignnr;
-	/* Hints about the buttons of this block. Used to avoid iterating over
+	/** Hints about the buttons of this block. Used to avoid iterating over
 	 * buttons to find out if some criteria is met by any. Instead, check this
 	 * criteria when adding the button and set a flag here if it's met. */
 	short content_hints; /* eBlockContentHints */
 
 	char direction;
-	char theme_style; /* UI_BLOCK_THEME_STYLE_* */
-	char dt; /* drawtype: UI_EMBOSS, UI_EMBOSS_NONE ... etc, copied to buttons */
+	/** UI_BLOCK_THEME_STYLE_* */
+	char theme_style;
+	/** drawtype: UI_EMBOSS, UI_EMBOSS_NONE ... etc, copied to buttons */
+	char dt;
 	bool auto_open;
 	char _pad[5];
 	double auto_open_last;
@@ -418,32 +427,46 @@ struct uiBlock {
 	const char *lockstr;
 
 	char lock;
-	char active;                /* to keep blocks while drawing and free them afterwards */
-	char tooltipdisabled;       /* to avoid tooltip after click */
-	char endblock;              /* UI_block_end done? */
+	/** to keep blocks while drawing and free them afterwards */
+	char active;
+	/** to avoid tooltip after click */
+	char tooltipdisabled;
+	/** UI_block_end done? */
+	char endblock;
 
-	eBlockBoundsCalc bounds_type;  /* for doing delayed */
+	/** for doing delayed */
+	eBlockBoundsCalc bounds_type;
 	int mx, my;
-	int bounds, minbounds;      /* for doing delayed */
+	/** for doing delayed */
+	int bounds, minbounds;
 
-	rctf safety;                /* pulldowns, to detect outside, can differ per case how it is created */
-	ListBase saferct;           /* uiSafetyRct list */
+	/** pulldowns, to detect outside, can differ per case how it is created */
+	rctf safety;
+	/** uiSafetyRct list */
+	ListBase saferct;
 
 	uiPopupBlockHandle *handle; /* handle */
 
-	struct wmOperator *ui_operator; /* use so presets can find the operator, */
-	                                /* across menus and from nested popups which fail for operator context. */
+	/** use so presets can find the operator,
+	 * across menus and from nested popups which fail for operator context. */
+	struct wmOperator *ui_operator;
 
-	void *evil_C;               /* XXX hack for dynamic operator enums */
+	/** XXX hack for dynamic operator enums */
+	void *evil_C;
 
-	struct UnitSettings *unit;  /* unit system, used a lot for numeric buttons so include here rather then fetching through the scene every time. */
-	ColorPickerData color_pickers; /* XXX, only accessed by color picker templates */
+	/** unit system, used a lot for numeric buttons so include here
+	 * rather then fetching through the scene every time. */
+	struct UnitSettings *unit;
+	/** \note only accessed by color picker templates. */
+	ColorPickerData color_pickers;
 
 	bool is_color_gamma_picker; /* Block for color picker with gamma baked in. */
 
-	char display_device[64]; /* display device name used to display this block,
-	                          * used by color widgets to transform colors from/to scene linear
-	                          */
+	/** display device name used to display this block,
+	 * used by color widgets to transform colors from/to scene linear
+	 */
+	char display_device[64];
+
 	struct PieMenuData pie_data;
 };
 
@@ -648,13 +671,6 @@ uiPopupBlockHandle *ui_popup_menu_create(
         uiMenuCreateFunc create_func, void *arg);
 
 /* interface_region_popover.c */
-uiBlock *ui_popover_block_refresh(
-        struct bContext *C, uiPopupBlockHandle *handle,
-        ARegion *butregion, uiBut *but);
-uiPopupBlockHandle *ui_popover_block_create(
-        struct bContext *C, struct ARegion *butregion, uiBut *but,
-        uiBlockCreateFunc create_func, uiBlockHandleCreateFunc handle_create_func,
-        void *arg);
 uiPopupBlockHandle *ui_popover_panel_create(
         struct bContext *C, struct ARegion *butregion, uiBut *but,
         uiMenuCreateFunc create_func, void *arg);
@@ -686,16 +702,16 @@ extern void ui_draw_dropshadow(const rctf *rct, float radius, float aspect, floa
 void ui_draw_gradient(const rcti *rect, const float hsv[3], const int type, const float alpha);
 
 
-void ui_draw_but_TAB_outline(const rcti *rect, float rad, unsigned char highlight[3], unsigned char highlight_fade[3]);
-void ui_draw_but_HISTOGRAM(ARegion *ar, uiBut *but, struct uiWidgetColors *wcol, const rcti *rect);
-void ui_draw_but_WAVEFORM(ARegion *ar, uiBut *but, struct uiWidgetColors *wcol, const rcti *rect);
-void ui_draw_but_VECTORSCOPE(ARegion *ar, uiBut *but, struct uiWidgetColors *wcol, const rcti *rect);
-void ui_draw_but_COLORBAND(uiBut *but, struct uiWidgetColors *wcol, const rcti *rect);
-void ui_draw_but_UNITVEC(uiBut *but, struct uiWidgetColors *wcol, const rcti *rect);
-void ui_draw_but_CURVE(ARegion *ar, uiBut *but, struct uiWidgetColors *wcol, const rcti *rect);
-void ui_draw_but_IMAGE(ARegion *ar, uiBut *but, struct uiWidgetColors *wcol, const rcti *rect);
-void ui_draw_but_TRACKPREVIEW(ARegion *ar, uiBut *but, struct uiWidgetColors *wcol, const rcti *rect);
-void ui_draw_but_NODESOCKET(ARegion *ar, uiBut *but, struct uiWidgetColors *wcol, const rcti *rect);
+void ui_draw_but_TAB_outline(const rcti *rect, float rad, uchar highlight[3], uchar highlight_fade[3]);
+void ui_draw_but_HISTOGRAM(ARegion *ar, uiBut *but, const struct uiWidgetColors *wcol, const rcti *rect);
+void ui_draw_but_WAVEFORM(ARegion *ar, uiBut *but, const struct uiWidgetColors *wcol, const rcti *rect);
+void ui_draw_but_VECTORSCOPE(ARegion *ar, uiBut *but, const struct uiWidgetColors *wcol, const rcti *rect);
+void ui_draw_but_COLORBAND(uiBut *but, const struct uiWidgetColors *wcol, const rcti *rect);
+void ui_draw_but_UNITVEC(uiBut *but, const struct uiWidgetColors *wcol, const rcti *rect);
+void ui_draw_but_CURVE(ARegion *ar, uiBut *but, const struct uiWidgetColors *wcol, const rcti *rect);
+void ui_draw_but_IMAGE(ARegion *ar, uiBut *but, const struct uiWidgetColors *wcol, const rcti *rect);
+void ui_draw_but_TRACKPREVIEW(ARegion *ar, uiBut *but, const struct uiWidgetColors *wcol, const rcti *rect);
+void ui_draw_but_NODESOCKET(ARegion *ar, uiBut *but, const struct uiWidgetColors *wcol, const rcti *rect);
 
 /* interface_handlers.c */
 PointerRNA *ui_handle_afterfunc_add_operator(struct wmOperatorType *ot, int opcontext, bool create_props);
@@ -711,7 +727,6 @@ extern void ui_but_text_password_hide(char password_str[UI_MAX_DRAW_STR], uiBut 
 extern uiBut *ui_but_find_select_in_enum(uiBut *but, int direction);
 extern uiBut *ui_but_find_active_in_region(struct ARegion *ar);
 extern uiBut *ui_but_find_mouse_over(struct ARegion *ar, const struct wmEvent *event);
-void ui_but_pie_dir_visual(RadialDirection dir, float vec[2]);
 void ui_but_pie_dir(RadialDirection dir, float vec[2]);
 float ui_block_calc_pie_segment(struct uiBlock *block, const float event_xy[2]);
 
@@ -765,7 +780,7 @@ void ui_draw_anti_tria_rect(const rctf *rect, char dir, const float color[4]);
 void ui_draw_menu_back(struct uiStyle *style, uiBlock *block, rcti *rect);
 void ui_draw_popover_back(ARegion *ar, struct uiStyle *style, uiBlock *block, rcti *rect);
 void ui_draw_pie_center(uiBlock *block);
-struct uiWidgetColors *ui_tooltip_get_theme(void);
+const struct uiWidgetColors *ui_tooltip_get_theme(void);
 
 void ui_draw_widget_back_color(
         uiWidgetTypeEnum type, bool use_shadow, const rcti *rect,
@@ -776,8 +791,8 @@ void ui_draw_tooltip_background(struct uiStyle *UNUSED(style), uiBlock *block, r
 
 extern void ui_draw_but(const struct bContext *C, ARegion *ar, struct uiStyle *style, uiBut *but, rcti *rect);
 
-void ui_draw_menu_item(struct uiFontStyle *fstyle, rcti *rect, const char *name, int iconid, int state, bool use_sep);
-void ui_draw_preview_item(struct uiFontStyle *fstyle, rcti *rect, const char *name, int iconid, int state);
+void ui_draw_menu_item(const struct uiFontStyle *fstyle, rcti *rect, const char *name, int iconid, int state, bool use_sep);
+void ui_draw_preview_item(const struct uiFontStyle *fstyle, rcti *rect, const char *name, int iconid, int state);
 
 #define UI_TEXT_MARGIN_X 0.4f
 #define UI_POPUP_MARGIN (UI_DPI_FAC * 12)
@@ -851,7 +866,6 @@ struct wmKeyMap *eyedropper_colorband_modal_keymap(struct wmKeyConfig *keyconf);
 
 /* interface_eyedropper_color.c */
 void UI_OT_eyedropper_color(struct wmOperatorType *ot);
-void UI_OT_eyedropper_color_crypto(struct wmOperatorType *ot);
 
 /* interface_eyedropper_colorband.c */
 void UI_OT_eyedropper_colorband(struct wmOperatorType *ot);

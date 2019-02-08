@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,14 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Chingiz Dyussenov, Arystanbek Dyussenov, Nathan Letwory.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/collada/collada_utils.cpp
- *  \ingroup collada
+/** \file \ingroup collada
  */
 
 
@@ -289,12 +282,7 @@ Mesh *bc_get_mesh_copy(
 		tmpmesh = (Mesh *)ob->data;
 	}
 
-	BKE_id_copy_ex(NULL, &tmpmesh->id, (ID **)&tmpmesh,
-	               LIB_ID_CREATE_NO_MAIN |
-	               LIB_ID_CREATE_NO_USER_REFCOUNT |
-	               LIB_ID_CREATE_NO_DEG_TAG |
-	               LIB_ID_COPY_NO_PREVIEW,
-	               false);
+	BKE_id_copy_ex(NULL, &tmpmesh->id, (ID **)&tmpmesh, LIB_ID_COPY_LOCALIZE);
 
 	if (triangulate) {
 		bc_triangulate_mesh(tmpmesh);
@@ -527,7 +515,6 @@ void bc_decompose(float mat[4][4], float *loc, float eul[3], float quat[4], floa
  *
  * Output:
  * rot     : the calculated result (quaternion)
- *
  */
 void bc_rotate_from_reference_quat(float quat_to[4], float quat_from[4], float mat_to[4][4])
 {

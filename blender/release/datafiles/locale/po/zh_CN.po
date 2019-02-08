@@ -13,7 +13,7 @@ msgstr ""
 "Language: zh_CN\n"
 "=====X-Generator: Poedit 1.6.9\n"
 "Language: zh_CN>>>>>> .r306\n"
-"X-Generator: Poedit 2.2"
+"X-Generator: Poedit 2.2.1"
 
 
 msgid "Action F-Curves"
@@ -2297,7 +2297,7 @@ msgstr "旋转"
 
 
 msgid "Scale"
-msgstr "比例"
+msgstr "缩放"
 
 
 msgid "Show Background Image"
@@ -9695,6 +9695,10 @@ msgstr "拖拽游标"
 
 msgid "Options"
 msgstr "选项"
+
+
+msgid "Use in 3D viewport"
+msgstr "使用3D视图"
 
 
 msgid "Persistent"
@@ -63883,7 +63887,7 @@ msgstr "分辨率不匹配"
 
 
 msgid "Cannot make segment"
-msgstr "无法创建段"
+msgstr "无法创建线段"
 
 
 msgid "Cannot spin"

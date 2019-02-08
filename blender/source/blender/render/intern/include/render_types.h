@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,14 +15,9 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * Contributor(s): (c) 2006 Blender Foundation, full refactor
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/render/intern/include/render_types.h
- *  \ingroup render
+/** \file \ingroup render
  */
 
 
@@ -44,10 +37,10 @@
 
 #include "RE_pipeline.h"
 
+struct Main;
 struct Object;
 struct RenderEngine;
 struct ReportList;
-struct Main;
 
 /* this is handed over to threaded hiding/passes/shading engine */
 typedef struct RenderPart {
@@ -66,7 +59,7 @@ enum {
 	PART_STATUS_NONE        = 0,
 	PART_STATUS_IN_PROGRESS = 1,
 	PART_STATUS_RENDERED    = 2,
-	PART_STATUS_MERGED      = 3
+	PART_STATUS_MERGED      = 3,
 };
 
 /* controls state of render, everything that's read-only during render stage */
@@ -103,8 +96,6 @@ struct Render {
 	int partx, party;
 
 	/* Camera transform, only used by Freestyle. */
-	float viewmat[4][4], viewinv[4][4];
-	float viewmat_orig[4][4];	/* for incremental render */
 	float winmat[4][4];
 
 	/* clippping */

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,16 +12,12 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/space_view3d/view3d_gizmo_empty.c
- *  \ingroup spview3d
+/** \file \ingroup spview3d
  */
 
 
-#include "BLI_blenlib.h"
 #include "BLI_math.h"
 #include "BLI_utildefines.h"
 
@@ -51,7 +45,6 @@
 #include "view3d_intern.h"  /* own include */
 
 /* -------------------------------------------------------------------- */
-
 /** \name Empty Image Gizmos
  * \{ */
 
@@ -120,7 +113,7 @@ static bool WIDGETGROUP_empty_image_poll(const bContext *C, wmGizmoGroupType *UN
 
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	Base *base = BASACT(view_layer);
-	if (base && BASE_VISIBLE(v3d, base)) {
+	if (base && BASE_SELECTABLE(v3d, base)) {
 		Object *ob = base->object;
 		if (ob->type == OB_EMPTY) {
 			if (ob->empty_drawtype == OB_EMPTY_IMAGE) {

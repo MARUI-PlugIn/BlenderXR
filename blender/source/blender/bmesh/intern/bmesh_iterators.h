@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,17 +12,12 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Joseph Eagar.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
 #ifndef __BMESH_ITERATORS_H__
 #define __BMESH_ITERATORS_H__
 
-/** \file blender/bmesh/intern/bmesh_iterators.h
- *  \ingroup bmesh
+/** \file \ingroup bmesh
  */
 
 /**
@@ -36,7 +29,6 @@
  * adjacency queries. Tool authors should use
  * the iterators provided in this file instead
  * of inspecting the structure directly.
- *
  */
 
 #include "BLI_compiler_attrs.h"
@@ -75,7 +67,7 @@ typedef enum BMIterType {
 	 * from the other faces in the radial cycle surrounding the
 	 * input loop's edge.*/
 	BM_LOOPS_OF_LOOP = 12,
-	BM_LOOPS_OF_EDGE = 13
+	BM_LOOPS_OF_EDGE = 13,
 } BMIterType;
 
 #define BM_ITYPE_MAX 14

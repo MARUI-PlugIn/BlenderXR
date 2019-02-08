@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,21 +15,12 @@
  *
  * The Original Code is Copyright (C) 2006 Blender Foundation.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): Ben Batt <benbatt@gmail.com>
- *
- * ***** END GPL LICENSE BLOCK *****
- *
  * Implementation of CustomData.
  *
  * BKE_customdata.h contains the function prototypes for this file.
- *
  */
 
-/** \file blender/blenkernel/intern/customdata.c
- *  \ingroup bke
+/** \file \ingroup bke
  */
 
 #include "MEM_guardedalloc.h"
@@ -52,14 +41,14 @@
 
 #include "BKE_customdata.h"
 #include "BKE_customdata_file.h"
-#include "BKE_global.h"
-#include "BKE_library.h"
 #include "BKE_main.h"
 #include "BKE_mesh_mapping.h"
 #include "BKE_mesh_remap.h"
 #include "BKE_multires.h"
 
 #include "bmesh.h"
+
+#include "CLG_log.h"
 
 /* only for customdata_data_transfer_interp_normal_normals */
 #include "data_transfer_intern.h"
@@ -70,6 +59,7 @@
 /* ensure typemap size is ok */
 BLI_STATIC_ASSERT(ARRAY_SIZE(((CustomData *)NULL)->typemap) == CD_NUMTYPES, "size mismatch");
 
+static CLG_LogRef LOG = {"bke.customdata"};
 
 /********************* Layer type information **********************/
 typedef struct LayerTypeInfo {
@@ -622,7 +612,7 @@ static int layerRead_mdisps(CDataFile *cdf, void *data, int count)
 			d[i].disps = MEM_calloc_arrayN(d[i].totdisp, 3 * sizeof(float), "mdisps read");
 
 		if (!cdf_read_data(cdf, d[i].totdisp * 3 * sizeof(float), d[i].disps)) {
-			printf("failed to read multires displacement %d/%d %d\n", i, count, d[i].totdisp);
+			CLOG_ERROR(&LOG, "failed to read multires displacement %d/%d %d", i, count, d[i].totdisp);
 			return 0;
 		}
 	}
@@ -637,7 +627,7 @@ static int layerWrite_mdisps(CDataFile *cdf, const void *data, int count)
 
 	for (i = 0; i < count; ++i) {
 		if (!cdf_write_data(cdf, d[i].totdisp * 3 * sizeof(float), d[i].disps)) {
-			printf("failed to write multires displacement %d/%d %d\n", i, count, d[i].totdisp);
+			CLOG_ERROR(&LOG, "failed to write multires displacement %d/%d %d", i, count, d[i].totdisp);
 			return 0;
 		}
 	}
@@ -2243,9 +2233,9 @@ static void CustomData_copy_data_layer(
 
 	if (!count || !src_data || !dst_data) {
 		if (count && !(src_data == NULL && dst_data == NULL)) {
-			printf("%s: warning null data for %s type (%p --> %p), skipping\n",
-				   __func__, layerType_getName(source->layers[src_i].type),
-				   (void *)src_data, (void *)dst_data);
+			CLOG_WARN(&LOG, "null data for %s type (%p --> %p), skipping",
+				      layerType_getName(source->layers[src_i].type),
+				      (void *)src_data, (void *)dst_data);
 		}
 		return;
 	}
@@ -3405,7 +3395,7 @@ void CustomData_file_write_prepare(
 		CustomDataLayer *layer = &data->layers[i];
 		if (layer->flag & CD_FLAG_NOCOPY) {  /* Layers with this flag set are not written to file. */
 			data->totlayer--;
-			/* printf("%s: skipping layer %p (%s)\n", __func__, layer, layer->name); */
+			/* CLOG_WARN(&LOG, "skipping layer %p (%s)", layer, layer->name); */
 		}
 		else {
 			if (UNLIKELY((size_t)j >= write_layers_size)) {
@@ -3658,7 +3648,7 @@ void CustomData_external_read(CustomData *data, ID *id, CustomDataMask mask, int
 	cdf = cdf_create(CDF_TYPE_MESH);
 	if (!cdf_read_open(cdf, filename)) {
 		cdf_free(cdf);
-		fprintf(stderr, "Failed to read %s layer from %s.\n", layerType_getName(layer->type), filename);
+		CLOG_ERROR(&LOG, "Failed to read %s layer from %s.", layerType_getName(layer->type), filename);
 		return;
 	}
 
@@ -3747,7 +3737,7 @@ void CustomData_external_write(CustomData *data, ID *id, CustomDataMask mask, in
 	}
 
 	if (!cdf_write_open(cdf, filename)) {
-		fprintf(stderr, "Failed to open %s for writing.\n", filename);
+		CLOG_ERROR(&LOG, "Failed to open %s for writing.", filename);
 		cdf_free(cdf);
 		return;
 	}
@@ -3774,7 +3764,7 @@ void CustomData_external_write(CustomData *data, ID *id, CustomDataMask mask, in
 	}
 
 	if (i != data->totlayer) {
-		fprintf(stderr, "Failed to write data to %s.\n", filename);
+		CLOG_ERROR(&LOG, "Failed to write data to %s.", filename);
 		cdf_write_close(cdf);
 		cdf_free(cdf);
 		return;
@@ -3879,7 +3869,7 @@ static void copy_bit_flag(void *dst, const void *src, const size_t data_size, co
 			COPY_BIT_FLAG(uint64_t, dst, src, flag);
 			break;
 		default:
-			//printf("ERROR %s: Unknown flags-container size (%zu)\n", __func__, datasize);
+			//CLOG_ERROR(&LOG, "Unknown flags-container size (%zu)", datasize);
 			break;
 	}
 
@@ -3898,7 +3888,7 @@ static bool check_bit_flag(const void *data, const size_t data_size, const uint6
 		case 8:
 			return ((*((uint64_t *)data) & ((uint64_t)flag)) != 0);
 		default:
-			//printf("ERROR %s: Unknown flags-container size (%zu)\n", __func__, datasize);
+			//CLOG_ERROR(&LOG, "Unknown flags-container size (%zu)", datasize);
 			return false;
 	}
 }

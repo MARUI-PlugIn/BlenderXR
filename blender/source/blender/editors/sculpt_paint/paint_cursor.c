@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,15 +15,9 @@
  *
  * The Original Code is Copyright (C) 2009 by Nicholas Bishop
  * All rights reserved.
- *
- * Contributor(s): Jason Wilkins, Tom Musgrove.
- *
- * ***** END GPL LICENSE BLOCK *****
- *
  */
 
-/** \file blender/editors/sculpt_paint/paint_cursor.c
- *  \ingroup edsculpt
+/** \file \ingroup edsculpt
  */
 
 #include "MEM_guardedalloc.h"
@@ -316,8 +308,10 @@ static int load_tex(Brush *br, ViewContext *vc, float zoom, bool col, bool prima
 
 		pool = BKE_image_pool_new();
 
-		if (mtex->tex && mtex->tex->nodetree)
-			ntreeTexBeginExecTree(mtex->tex->nodetree);  /* has internal flag to detect it only does it once */
+		if (mtex->tex && mtex->tex->nodetree) {
+			/* has internal flag to detect it only does it once */
+			ntreeTexBeginExecTree(mtex->tex->nodetree);
+		}
 
 		LoadTexData data = {
 		    .br = br, .vc = vc, .mtex = mtex, .buffer = buffer, .col = col,
@@ -527,7 +521,7 @@ static int project_brush_radius(
 	cross_v3_v3v3(ortho, nonortho, view);
 	normalize_v3(ortho);
 
-	/* make a point on the surface of the brush tagent to the view */
+	/* make a point on the surface of the brush tangent to the view */
 	mul_v3_fl(ortho, radius);
 	add_v3_v3v3(offset, location, ortho);
 
@@ -692,7 +686,7 @@ static void paint_draw_tex_overlay(
 		}
 
 		/* draw textured quad */
-		immUniform1i("image", GL_TEXTURE0);
+		immUniform1i("image", 0);
 
 		immBegin(GPU_PRIM_TRI_FAN, 4);
 		immAttr2f(texCoord, 0.0f, 0.0f);
@@ -801,10 +795,11 @@ static void paint_draw_alpha_overlay(
         UnifiedPaintSettings *ups, Brush *brush,
         ViewContext *vc, int x, int y, float zoom, ePaintMode mode)
 {
-	/* color means that primary brush texture is colured and secondary is used for alpha/mask control */
+	/* color means that primary brush texture is colured and
+	 * secondary is used for alpha/mask control */
 	bool col = ELEM(mode, PAINT_MODE_TEXTURE_3D, PAINT_MODE_TEXTURE_2D, PAINT_MODE_VERTEX) ? true : false;
 	eOverlayControlFlags flags = BKE_paint_get_overlay_flags();
-	gpuPushAttrib(GPU_DEPTH_BUFFER_BIT | GPU_BLEND_BIT);
+	gpuPushAttr(GPU_DEPTH_BUFFER_BIT | GPU_BLEND_BIT);
 
 	/* Translate to region. */
 	GPU_matrix_push();
@@ -829,7 +824,7 @@ static void paint_draw_alpha_overlay(
 	}
 
 	GPU_matrix_pop();
-	gpuPopAttrib();
+	gpuPopAttr();
 }
 
 
@@ -1079,8 +1074,9 @@ static void paint_draw_cursor(bContext *C, int x, int y, void *UNUSED(unused))
 	float translation[2] = { x, y };
 	float final_radius = (BKE_brush_size_get(scene, brush) * zoomx);
 
-	/* don't calculate rake angles while a stroke is active because the rake variables are global and
-	 * we may get interference with the stroke itself. For line strokes, such interference is visible */
+	/* don't calculate rake angles while a stroke is active because the rake variables are global
+	 * and we may get interference with the stroke itself.
+	 * For line strokes, such interference is visible */
 	if (!ups->stroke_active) {
 		paint_calculate_rake_rotation(ups, brush, translation);
 	}

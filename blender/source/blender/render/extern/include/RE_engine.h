@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2006 Blender Foundation.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file RE_engine.h
- *  \ingroup render
+/** \file \ingroup render
  */
 
 #ifndef __RE_ENGINE_H__
@@ -37,8 +28,8 @@
 #include "RNA_types.h"
 #include "RE_bake.h"
 
-struct bNode;
-struct bNodeTree;
+#include "BLI_threads.h"
+
 struct BakePixel;
 struct Depsgraph;
 struct IDProperty;
@@ -53,6 +44,8 @@ struct RenderResult;
 struct ReportList;
 struct Scene;
 struct ViewLayer;
+struct bNode;
+struct bNodeTree;
 
 /* External Engine */
 
@@ -76,11 +69,6 @@ struct ViewLayer;
 #define RE_ENGINE_RENDERING		16
 #define RE_ENGINE_HIGHLIGHT_TILES	32
 #define RE_ENGINE_USED_FOR_VIEWPORT	64
-
-/* RenderEngine.update_flag, used by internal now */
-#define RE_ENGINE_UPDATE_MA			1
-#define RE_ENGINE_UPDATE_OTHER		2
-#define RE_ENGINE_UPDATE_DATABASE	4
 
 extern ListBase R_engines;
 
@@ -111,6 +99,9 @@ typedef struct RenderEngineType {
 	ExtensionRNA ext;
 } RenderEngineType;
 
+typedef void (*update_render_passes_cb_t)(struct RenderEngine *engine, struct Scene *scene, struct ViewLayer *view_layer,
+                                          const char *name, int channels, const char *chanid, int type);
+
 typedef struct RenderEngine {
 	RenderEngineType *type;
 	void *py_instance;
@@ -133,9 +124,9 @@ typedef struct RenderEngine {
 	/* Depsgraph */
 	struct Depsgraph *depsgraph;
 
-	/* for blender internal only */
-	int update_flag;
-	int job_update_flag;
+	/* callback for render pass query */
+	ThreadMutex update_render_passes_mutex;
+	update_render_passes_cb_t update_render_passes_cb;
 
 	rctf last_viewplane;
 	rcti last_disprect;
@@ -175,6 +166,8 @@ bool RE_engine_is_external(struct Render *re);
 
 void RE_engine_frame_set(struct RenderEngine *engine, int frame, float subframe);
 
+void RE_engine_update_render_passes(struct RenderEngine *engine, struct Scene *scene, struct ViewLayer *view_layer,
+                                    update_render_passes_cb_t callback);
 void RE_engine_register_pass(struct RenderEngine *engine, struct Scene *scene, struct ViewLayer *view_layer,
                              const char *name, int channels, const char *chanid, int type);
 

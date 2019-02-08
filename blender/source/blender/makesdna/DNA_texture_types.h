@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,18 +15,9 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file DNA_texture_types.h
- *  \ingroup DNA
- *  \since mar-2001
- *  \author nzc
+/** \file \ingroup DNA
  */
 
 #ifndef __DNA_TEXTURE_TYPES_H__
@@ -43,28 +32,30 @@ extern "C" {
 #endif
 
 struct AnimData;
-struct Ipo;
 struct ColorBand;
-struct Object;
-struct Tex;
-struct Image;
-struct PreviewImage;
-struct ImBuf;
 struct CurveMapping;
+struct ImBuf;
+struct Image;
+struct Ipo;
+struct Object;
+struct PreviewImage;
+struct Tex;
 
 typedef struct MTex {
 
 	short texco, mapto, maptoneg, blendtype;
 	struct Object *object;
 	struct Tex *tex;
-	char uvname[64];	/* MAX_CUSTOMDATA_LAYER_NAME */
+	/** MAX_CUSTOMDATA_LAYER_NAME. */
+	char uvname[64];
 
 	char projx, projy, projz, mapping;
 	char brush_map_mode, brush_angle_mode;
 	char pad[2];
 	float ofs[3], size[3], rot, random_angle;
 
-	short texflag, colormodel, pmapto, pmaptoneg;
+	char _pad0[2];
+	short colormodel, pmapto, pmaptoneg;
 	short normapspace, which_output;
 	float r, g, b, k;
 	float def_var, rt;
@@ -128,19 +119,27 @@ typedef struct PointDensity {
 	short source;
 	short pad0;
 
-	short color_source; /* psys_color_source */
+	/** psys_color_source */
+	short color_source;
 	short ob_color_source;
 
 	int totpoints;
 
-	struct Object *object;	/* for 'Object' or 'Particle system' type - source object */
-	int psys;				/* index+1 in ob.particlesystem, non-ID pointer not allowed */
-	short psys_cache_space;		/* cache points in worldspace, object space, ... ? */
-	short ob_cache_space;		/* cache points in worldspace, object space, ... ? */
-	char vertex_attribute_name[64]; /* vertex attribute layer for color source, MAX_CUSTOMDATA_LAYER_NAME */
+	/** for 'Object' or 'Particle system' type - source object */
+	struct Object *object;
+	/** index+1 in ob.particlesystem, non-ID pointer not allowed */
+	int psys;
+	/** cache points in worldspace, object space, ... ? */
+	short psys_cache_space;
+	/** cache points in worldspace, object space, ... ? */
+	short ob_cache_space;
+	/** vertex attribute layer for color source, MAX_CUSTOMDATA_LAYER_NAME */
+	char vertex_attribute_name[64];
 
-	void *point_tree;		/* the acceleration tree containing points */
-	float *point_data;		/* dynamically allocated extra for extra information, like particle age */
+	/** The acceleration tree containing points. */
+	void *point_tree;
+	/** Dynamically allocated extra for extra information, like particle age. */
+	float *point_data;
 
 	float noise_size;
 	short noise_depth;
@@ -150,14 +149,17 @@ typedef struct PointDensity {
 	float noise_fac;
 
 	float speed_scale, falloff_speed_scale, pad2;
-	struct ColorBand *coba;	/* for time -> color */
+	/** For time -> color */
+	struct ColorBand *coba;
 
-	struct CurveMapping *falloff_curve; /* falloff density curve */
+	/** Falloff density curve. */
+	struct CurveMapping *falloff_curve;
 } PointDensity;
 
 typedef struct Tex {
 	ID id;
-	struct AnimData *adt;	/* animation data (must be immediately after id for utilities to use it) */
+	/** Animation data (must be immediately after id for utilities to use it). */
+	struct AnimData *adt;
 
 	float noisesize, turbul;
 	float bright, contrast, saturation, rfac, gfac, bfac;
@@ -169,7 +171,8 @@ typedef struct Tex {
 	/* newnoise: distorted noise amount, musgrave & voronoi output scale */
 	float dist_amount, ns_outscale;
 
-	/* newnoise: voronoi nearest neighbor weights, minkovsky exponent, distance metric & color type */
+	/* newnoise: voronoi nearest neighbor weights, minkovsky exponent,
+	 * distance metric & color type */
 	float vn_w1;
 	float vn_w2;
 	float vn_w3;
@@ -177,7 +180,8 @@ typedef struct Tex {
 	float vn_mexp;
 	short vn_distm, vn_coltype;
 
-	short noisedepth, noisetype; /* noisedepth MUST be <= 30 else we get floating point exceptions */
+	/* noisedepth MUST be <= 30 else we get floating point exceptions */
+	short noisedepth, noisetype;
 
 	/* newnoise: noisebasis type for clouds/marble/etc, noisebasis2 only used for distorted noise */
 	short noisebasis, noisebasis2;
@@ -202,7 +206,8 @@ typedef struct Tex {
 	struct ImageUser iuser;
 
 	struct bNodeTree *nodetree;
-	struct Ipo *ipo  DNA_DEPRECATED;  /* old animation system, deprecated for 2.5 */
+	/* old animation system, deprecated for 2.5 */
+	struct Ipo *ipo  DNA_DEPRECATED;
 	struct Image *ima;
 	struct ColorBand *coba;
 	struct PreviewImage *preview;
@@ -411,24 +416,6 @@ typedef struct ColorMapping {
 #define PROJ_X			1
 #define PROJ_Y			2
 #define PROJ_Z			3
-
-/* texflag */
-#define MTEX_RGBTOINT		(1 << 0)
-#define MTEX_STENCIL		(1 << 1)
-#define MTEX_NEGATIVE		(1 << 2)
-#define MTEX_ALPHAMIX		(1 << 3)
-#define MTEX_VIEWSPACE		(1 << 4)
-#define MTEX_DUPLI_MAPTO	(1 << 5)
-#define MTEX_OB_DUPLI_ORIG	(1 << 6)
-#define MTEX_COMPAT_BUMP	(1 << 7)
-#define MTEX_3TAP_BUMP		(1 << 8)
-#define MTEX_5TAP_BUMP		(1 << 9)
-#define MTEX_BUMP_OBJECTSPACE	(1 << 10)
-#define MTEX_BUMP_TEXTURESPACE	(1 << 11)
-/* #define MTEX_BUMP_FLIPPED 	(1 << 12) */ /* UNUSED */
-#define MTEX_TIPS				(1 << 12)  /* should use with_freestyle flag?  */
-#define MTEX_BICUBIC_BUMP		(1 << 13)
-#define MTEX_MAPTO_BOUNDS		(1 << 14)
 
 /* blendtype */
 #define MTEX_BLEND		0

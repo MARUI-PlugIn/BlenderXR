@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,17 +15,9 @@
  *
  * The Original Code is Copyright (C) 2006-2007 Blender Foundation.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
- *
  */
 
-/** \file blender/blenkernel/intern/studiolight.c
- *  \ingroup bke
+/** \file \ingroup bke
  */
 
 #include "BKE_studiolight.h"
@@ -43,7 +33,6 @@
 #include "BLI_math.h"
 #include "BLI_math_color.h"
 #include "BLI_path_util.h"
-#include "BLI_rand.h"
 #include "BLI_string.h"
 #include "BLI_string_utils.h"
 
@@ -87,6 +76,9 @@ static int last_studiolight_id = 0;
 static const char *STUDIOLIGHT_LIGHTS_FOLDER = "studiolights/studio/";
 static const char *STUDIOLIGHT_WORLD_FOLDER = "studiolights/world/";
 static const char *STUDIOLIGHT_MATCAP_FOLDER = "studiolights/matcap/";
+
+static const char *STUDIOLIGHT_WORLD_DEFAULT = "forest.exr";
+static const char *STUDIOLIGHT_MATCAP_DEFAULT = "basic_1.exr";
 
 /* ITER MACRO */
 
@@ -329,7 +321,7 @@ static void cube_face_uv_to_direction(float r_dir[3], float x, float y, int face
 		{{ 1.0f, 0.0f,  0.0f}, {0.0f,  0.0f, -1.0f}, { 0.0f,  1.0f,  0.0f}},
 		{{ 1.0f, 0.0f,  0.0f}, {0.0f,  0.0f,  1.0f}, { 0.0f, -1.0f,  0.0f}},
 		{{ 1.0f, 0.0f,  0.0f}, {0.0f, -1.0f,  0.0f}, { 0.0f,  0.0f, -1.0f}},
-		{{-1.0f, 0.0f,  0.0f}, {0.0f, -1.0f,  0.0f}, { 0.0f,  0.0f,  1.0f}}
+		{{-1.0f, 0.0f,  0.0f}, {0.0f, -1.0f,  0.0f}, { 0.0f,  0.0f,  1.0f}},
 	};
 
 	copy_v3_fl3(r_dir, x * 2.0f - 1.0f, y * 2.0f - 1.0f, 1.0f);
@@ -729,7 +721,7 @@ static void studiolight_spherical_harmonics_apply_band_factors(StudioLight *sl, 
 		2.0f / 3.0f,
 		1.0f / 4.0f,
 		0.0f,
-		-1.0f / 24.0f
+		-1.0f / 24.0f,
 	};
 
 	int index = 0, dst_idx = 0;
@@ -1249,8 +1241,23 @@ void BKE_studiolight_free(void)
 	}
 }
 
-struct StudioLight *BKE_studiolight_find_first(int flag)
+struct StudioLight *BKE_studiolight_find_default(int flag)
 {
+	const char *default_name = "";
+
+	if (flag & STUDIOLIGHT_TYPE_WORLD) {
+		default_name = STUDIOLIGHT_WORLD_DEFAULT;
+	}
+	else if (flag & STUDIOLIGHT_TYPE_MATCAP) {
+		default_name = STUDIOLIGHT_MATCAP_DEFAULT;
+	}
+
+	LISTBASE_FOREACH(StudioLight *, sl, &studiolights) {
+		if ((sl->flag & flag) && STREQ(sl->name, default_name)) {
+			return sl;
+		}
+	}
+
 	LISTBASE_FOREACH(StudioLight *, sl, &studiolights) {
 		if ((sl->flag & flag)) {
 			return sl;
@@ -1268,12 +1275,12 @@ struct StudioLight *BKE_studiolight_find(const char *name, int flag)
 			}
 			else {
 				/* flags do not match, so use default */
-				return BKE_studiolight_find_first(flag);
+				return BKE_studiolight_find_default(flag);
 			}
 		}
 	}
 	/* When not found, use the default studio light */
-	return BKE_studiolight_find_first(flag);
+	return BKE_studiolight_find_default(flag);
 }
 
 struct StudioLight *BKE_studiolight_findindex(int index, int flag)
@@ -1284,7 +1291,7 @@ struct StudioLight *BKE_studiolight_findindex(int index, int flag)
 		}
 	}
 	/* When not found, use the default studio light */
-	return BKE_studiolight_find_first(flag);
+	return BKE_studiolight_find_default(flag);
 }
 
 struct ListBase *BKE_studiolight_listbase(void)
@@ -1373,8 +1380,8 @@ StudioLight *BKE_studiolight_create(const char *path, const SolidLight light[4],
 
 	char filename[FILE_MAXFILE];
 	BLI_split_file_part(path, filename, FILE_MAXFILE);
-	BLI_snprintf(sl->path, FILE_MAXFILE, "%s%s", path, ".sl");
-	BLI_snprintf(sl->name, FILE_MAXFILE, "%s%s", filename, ".sl");
+	STRNCPY(sl->path, path);
+	STRNCPY(sl->name, filename);
 
 	memcpy(sl->light, light, sizeof(*light) * 4);
 	memcpy(sl->light_ambient, light_ambient, sizeof(*light_ambient) * 3);

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,14 +12,11 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 #ifndef __WM_TOOLSYSTEM_H__
 #define __WM_TOOLSYSTEM_H__
 
-/** \file blender/windowmanager/WM_toolsystem.h
- *  \ingroup wm
+/** \file \ingroup wm
  */
 
 /* dna-savable wmStructs here */
@@ -31,17 +26,17 @@
 extern "C" {
 #endif
 
+struct IDProperty;
+struct Main;
+struct PointerRNA;
+struct ScrArea;
+struct StructRNA;
+struct WorkSpace;
 struct bContext;
 struct bToolRef_Runtime;
-struct IDProperty;
 struct wmMsgSubscribeKey;
 struct wmMsgSubscribeValue;
 struct wmOperatorType;
-struct PointerRNA;
-struct ScrArea;
-struct Main;
-struct StructRNA;
-struct WorkSpace;
 
 /* wm_toolsystem.c  */
 
@@ -103,8 +98,15 @@ void WM_toolsystem_ref_properties_ensure_ex(
 
 #define WM_toolsystem_ref_properties_ensure_from_operator(tref, ot, r_ptr) \
 	WM_toolsystem_ref_properties_ensure_ex(tref, (ot)->idname, (ot)->srna, r_ptr)
-#define WM_toolsystem_ref_properties_ensure_from_gizmo_group(tref, ot, r_ptr) \
-	WM_toolsystem_ref_properties_ensure_ex(tref, (ot)->idname, (ot)->srna, r_ptr)
+#define WM_toolsystem_ref_properties_ensure_from_gizmo_group(tref, gzgroup, r_ptr) \
+	WM_toolsystem_ref_properties_ensure_ex(tref, (gzgroup)->idname, (gzgroup)->srna, r_ptr)
+
+bool WM_toolsystem_ref_properties_get_ex(
+        struct bToolRef *tref, const char *idname, struct StructRNA *type, struct PointerRNA *r_ptr);
+#define WM_toolsystem_ref_properties_get_from_operator(tref, ot, r_ptr) \
+	WM_toolsystem_ref_properties_get_ex(tref, (ot)->idname, (ot)->srna, r_ptr)
+#define WM_toolsystem_ref_properties_get_from_gizmo_group(tref, gzgroup, r_ptr) \
+	WM_toolsystem_ref_properties_get_ex(tref, (gzgroup)->idname, (gzgroup)->srna, r_ptr)
 
 void WM_toolsystem_ref_properties_init_for_keymap(
         struct bToolRef *tref, struct PointerRNA *dst_ptr, struct PointerRNA *src_ptr, struct wmOperatorType *ot);

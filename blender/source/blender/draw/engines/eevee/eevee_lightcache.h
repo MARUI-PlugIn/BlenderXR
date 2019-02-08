@@ -1,6 +1,4 @@
 /*
- * Copyright 2018, Blender Foundation.
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,12 +13,10 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * Contributor(s): Blender Institute
- *
+ * Copyright 2018, Blender Foundation.
  */
 
-/** \file eevee_lightcache.h
- *  \ingroup eevee
+/** \file \ingroup eevee
  */
 
 #ifndef __EEVEE_LIGHTCACHE_H__
@@ -28,13 +24,13 @@
 
 #include "BLI_sys_types.h"  /* for bool */
 
-struct ViewLayer;
-struct Scene;
-struct SceneEEVEE;
-struct LightCache;
-struct EEVEE_ViewLayerData;
 struct EEVEE_Data;
 struct EEVEE_LightBake;
+struct EEVEE_ViewLayerData;
+struct LightCache;
+struct Scene;
+struct SceneEEVEE;
+struct ViewLayer;
 
 /* Light Bake */
 struct wmJob *EEVEE_lightbake_job_create(

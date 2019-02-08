@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,14 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Peter Schlaile <peter@schlaile.de> 2005
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file memutil/MEM_Allocator.h
- *  \ingroup memutil
+/** \file \ingroup memutil
  */
 
 
@@ -43,8 +36,8 @@ struct MEM_Allocator
 	typedef _Tp        value_type;
 
 	template<typename _Tp1>
-        struct rebind { 
-		typedef MEM_Allocator<_Tp1> other; 
+        struct rebind {
+		typedef MEM_Allocator<_Tp1> other;
 	};
 
 	MEM_Allocator() throw() {}
@@ -75,16 +68,16 @@ struct MEM_Allocator
 		MEM_freeN(__p);
 	}
 
-	size_type max_size() const throw() { 
-		return size_t(-1) / sizeof(_Tp); 
+	size_type max_size() const throw() {
+		return size_t(-1) / sizeof(_Tp);
 	}
 
-	void construct(pointer __p, const _Tp& __val) { 
-		new(__p) _Tp(__val); 
+	void construct(pointer __p, const _Tp& __val) {
+		new(__p) _Tp(__val);
 	}
 
-	void destroy(pointer __p) { 
-		__p->~_Tp(); 
+	void destroy(pointer __p) {
+		__p->~_Tp();
 	}
 };
 

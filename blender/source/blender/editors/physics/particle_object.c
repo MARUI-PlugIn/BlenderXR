@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,14 +15,9 @@
  *
  * The Original Code is Copyright (C) 2009 Blender Foundation.
  * All rights reserved.
- *
- * Contributor(s): Blender Foundation
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/physics/particle_object.c
- *  \ingroup edphys
+/** \file \ingroup edphys
  */
 
 
@@ -669,7 +662,8 @@ void PARTICLE_OT_disconnect_hair(wmOperatorType *ot)
 	ot->exec = disconnect_hair_exec;
 
 	/* flags */
-	ot->flag = OPTYPE_UNDO;  /* No REGISTER, redo does not work due to missing update, see T47750. */
+	/* No REGISTER, redo does not work due to missing update, see T47750. */
+	ot->flag = OPTYPE_UNDO;
 
 	RNA_def_boolean(ot->srna, "all", 0, "All hair", "Disconnect all hair systems from the emitter mesh");
 }
@@ -722,13 +716,7 @@ static bool remap_hair_emitter(
 		return false;
 	}
 	/* don't modify the original vertices */
-	BKE_id_copy_ex(
-	            NULL, &mesh->id, (ID **)&mesh,
-	            LIB_ID_CREATE_NO_MAIN |
-	            LIB_ID_CREATE_NO_USER_REFCOUNT |
-	            LIB_ID_CREATE_NO_DEG_TAG |
-	            LIB_ID_COPY_NO_PREVIEW,
-	            false);
+	BKE_id_copy_ex(NULL, &mesh->id, (ID **)&mesh, LIB_ID_COPY_LOCALIZE);
 
 	/* BMESH_ONLY, deform dm may not have tessface */
 	BKE_mesh_tessface_ensure(mesh);
@@ -935,7 +923,8 @@ void PARTICLE_OT_connect_hair(wmOperatorType *ot)
 	ot->exec = connect_hair_exec;
 
 	/* flags */
-	ot->flag = OPTYPE_UNDO;  /* No REGISTER, redo does not work due to missing update, see T47750. */
+	/* No REGISTER, redo does not work due to missing update, see T47750. */
+	ot->flag = OPTYPE_UNDO;
 
 	RNA_def_boolean(ot->srna, "all", 0, "All hair", "Connect all hair systems to the emitter mesh");
 }
@@ -1103,13 +1092,7 @@ static bool copy_particle_systems_to_object(const bContext *C,
 		modifier_unique_name(&ob_to->modifiers, (ModifierData *)psmd);
 
 		psmd->psys = psys;
-		BKE_id_copy_ex(
-		            NULL, &final_mesh->id, (ID **)&psmd->mesh_final,
-		            LIB_ID_CREATE_NO_MAIN |
-		            LIB_ID_CREATE_NO_USER_REFCOUNT |
-		            LIB_ID_CREATE_NO_DEG_TAG |
-		            LIB_ID_COPY_NO_PREVIEW,
-		            false);
+		BKE_id_copy_ex(NULL, &final_mesh->id, (ID **)&psmd->mesh_final, LIB_ID_COPY_LOCALIZE);
 
 		BKE_mesh_calc_normals(psmd->mesh_final);
 		BKE_mesh_tessface_ensure(psmd->mesh_final);
@@ -1225,7 +1208,7 @@ void PARTICLE_OT_copy_particle_systems(wmOperatorType *ot)
 	static const EnumPropertyItem space_items[] = {
 		{PAR_COPY_SPACE_OBJECT, "OBJECT", 0, "Object", "Copy inside each object's local space"},
 		{PAR_COPY_SPACE_WORLD, "WORLD", 0, "World", "Copy in world space"},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	ot->name = "Copy Particle Systems";

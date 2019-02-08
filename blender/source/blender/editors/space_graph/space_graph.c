@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,15 +15,9 @@
  *
  * The Original Code is Copyright (C) 2008 Blender Foundation.
  * All rights reserved.
- *
- *
- * Contributor(s): Blender Foundation
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/space_graph/space_graph.c
- *  \ingroup spgraph
+/** \file \ingroup spgraph
  */
 
 
@@ -43,8 +35,6 @@
 #include "BLI_utildefines.h"
 
 #include "BKE_context.h"
-#include "BKE_global.h"
-#include "BKE_main.h"
 #include "BKE_fcurve.h"
 #include "BKE_screen.h"
 
@@ -306,7 +296,8 @@ static void graph_main_region_draw(const bContext *C, ARegion *ar)
 			/* cursor x-value */
 			float x = sipo->cursorTime;
 
-			/* to help differentiate this from the current frame, draw slightly darker like the horizontal one */
+			/* to help differentiate this from the current frame,
+			 * draw slightly darker like the horizontal one */
 			immUniformThemeColorShadeAlpha(TH_CFRAME, -40, -50);
 			GPU_blend(true);
 			GPU_line_width(2.0);
@@ -362,7 +353,10 @@ static void graph_channel_region_init(wmWindowManager *wm, ARegion *ar)
 
 	/* make sure we keep the hide flags */
 	ar->v2d.scroll |= V2D_SCROLL_RIGHT;
-	ar->v2d.scroll &= ~(V2D_SCROLL_LEFT | V2D_SCROLL_TOP | V2D_SCROLL_BOTTOM);	/* prevent any noise of past */
+
+	/* prevent any noise of past */
+	ar->v2d.scroll &= ~(V2D_SCROLL_LEFT | V2D_SCROLL_TOP | V2D_SCROLL_BOTTOM);
+
 	ar->v2d.scroll |= V2D_SCROLL_HORIZONTAL_HIDE;
 	ar->v2d.scroll |= V2D_SCROLL_VERTICAL_HIDE;
 
@@ -576,7 +570,8 @@ static void graph_listener(wmWindow *UNUSED(win), ScrArea *sa, wmNotifier *wmn, 
 	/* context changes */
 	switch (wmn->category) {
 		case NC_ANIMATION:
-			/* for selection changes of animation data, we can just redraw... otherwise autocolor might need to be done again */
+			/* for selection changes of animation data, we can just redraw...
+			 * otherwise autocolor might need to be done again */
 			if (ELEM(wmn->data, ND_KEYFRAME, ND_ANIMCHAN) && (wmn->action == NA_SELECTED))
 				ED_area_tag_redraw(sa);
 			else
@@ -584,7 +579,8 @@ static void graph_listener(wmWindow *UNUSED(win), ScrArea *sa, wmNotifier *wmn, 
 			break;
 		case NC_SCENE:
 			switch (wmn->data) {
-				case ND_OB_ACTIVE:  /* selection changed, so force refresh to flush (needs flag set to do syncing)  */
+				case ND_OB_ACTIVE:  /* selection changed, so force refresh to flush
+				                     * (needs flag set to do syncing)  */
 				case ND_OB_SELECT:
 					sipo->runtime.flag |= SIPO_RUNTIME_FLAG_NEED_CHAN_SYNC;
 					ED_area_tag_refresh(sa);
@@ -597,7 +593,8 @@ static void graph_listener(wmWindow *UNUSED(win), ScrArea *sa, wmNotifier *wmn, 
 			break;
 		case NC_OBJECT:
 			switch (wmn->data) {
-				case ND_BONE_SELECT:    /* selection changed, so force refresh to flush (needs flag set to do syncing) */
+				case ND_BONE_SELECT:    /* selection changed, so force refresh to flush
+				                         * (needs flag set to do syncing) */
 				case ND_BONE_ACTIVE:
 					sipo->runtime.flag |= SIPO_RUNTIME_FLAG_NEED_CHAN_SYNC;
 					ED_area_tag_refresh(sa);
@@ -877,7 +874,8 @@ void ED_spacetype_ipo(void)
 	/* regions: channels */
 	art = MEM_callocN(sizeof(ARegionType), "spacetype graphedit region");
 	art->regionid = RGN_TYPE_CHANNELS;
-	art->prefsizex = 200 + V2D_SCROLL_WIDTH; /* 200 is the 'standard', but due to scrollers, we want a bit more to fit the lock icons in */
+	/* 200 is the 'standard', but due to scrollers, we want a bit more to fit the lock icons in */
+	art->prefsizex = 200 + V2D_SCROLL_WIDTH;
 	art->keymapflag = ED_KEYMAP_UI | ED_KEYMAP_VIEW2D | ED_KEYMAP_FRAMES;
 	art->listener = graph_region_listener;
 	art->message_subscribe = graph_region_message_subscribe;

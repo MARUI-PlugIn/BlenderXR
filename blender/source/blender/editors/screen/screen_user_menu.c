@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,15 +15,9 @@
  *
  * The Original Code is Copyright (C) 2009 Blender Foundation.
  * All rights reserved.
- *
- *
- * Contributor(s): Blender Foundation
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/screen/screen_user_menu.c
- *  \ingroup spview3d
+/** \file \ingroup spview3d
  */
 
 #include <string.h>
@@ -62,11 +54,19 @@
 /** \name Menu Type
  * \{ */
 
-bUserMenu *ED_screen_user_menu_find(bContext *C)
+bUserMenu **ED_screen_user_menus_find(const bContext *C, uint *r_len)
 {
 	SpaceLink *sl = CTX_wm_space_data(C);
 	const char *context = CTX_data_mode_string(C);
-	return BKE_blender_user_menu_find(&U.user_menus, sl->spacetype, context);
+
+	uint array_len = 3;
+	bUserMenu **um_array = MEM_calloc_arrayN(array_len, sizeof(*um_array), __func__);
+	um_array[0] = BKE_blender_user_menu_find(&U.user_menus, sl->spacetype, context);
+	um_array[1] = (sl->spacetype != SPACE_TOPBAR) ? BKE_blender_user_menu_find(&U.user_menus, SPACE_TOPBAR, context) : NULL;
+	um_array[2] = (sl->spacetype == SPACE_VIEW3D) ? BKE_blender_user_menu_find(&U.user_menus, SPACE_BUTS, context) : NULL;
+
+	*r_len = array_len;
+	return um_array;
 }
 
 bUserMenu *ED_screen_user_menu_ensure(bContext *C)
@@ -182,15 +182,10 @@ void ED_screen_user_menu_item_remove(ListBase *lb, bUserMenuItem *umi)
 
 static void screen_user_menu_draw(const bContext *C, Menu *menu)
 {
-	SpaceLink *sl = CTX_wm_space_data(C);
-	const char *context = CTX_data_mode_string(C);
-	bUserMenu *um_array[] = {
-		BKE_blender_user_menu_find(&U.user_menus, sl->spacetype, context),
-		(sl->spacetype != SPACE_TOPBAR) ? BKE_blender_user_menu_find(&U.user_menus, SPACE_TOPBAR, context) : NULL,
-		(sl->spacetype == SPACE_VIEW3D) ? BKE_blender_user_menu_find(&U.user_menus, SPACE_BUTS, context) : NULL,
-	};
+	uint um_array_len;
+	bUserMenu **um_array = ED_screen_user_menus_find(C, &um_array_len);
 	bool is_empty = true;
-	for (int um_index = 0; um_index < ARRAY_SIZE(um_array); um_index++) {
+	for (int um_index = 0; um_index < um_array_len; um_index++) {
 		bUserMenu *um = um_array[um_index];
 		if (um == NULL) {
 			continue;
@@ -258,10 +253,11 @@ static void screen_user_menu_draw(const bContext *C, Menu *menu)
 			}
 		}
 	}
+	MEM_freeN(um_array);
 
 	if (is_empty) {
-		uiItemL(menu->layout, IFACE_("No menu items found."), ICON_NONE);
-		uiItemL(menu->layout, IFACE_("Right click on buttons to add them to this menu."), ICON_NONE);
+		uiItemL(menu->layout, IFACE_("No menu items found"), ICON_NONE);
+		uiItemL(menu->layout, IFACE_("Right click on buttons to add them to this menu"), ICON_NONE);
 	}
 }
 

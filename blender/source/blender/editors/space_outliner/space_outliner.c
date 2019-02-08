@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,15 +15,9 @@
  *
  * The Original Code is Copyright (C) 2008 Blender Foundation.
  * All rights reserved.
- *
- *
- * Contributor(s): Blender Foundation
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/space_outliner/space_outliner.c
- *  \ingroup spoutliner
+/** \file \ingroup spoutliner
  */
 
 
@@ -50,8 +42,6 @@
 #include "WM_api.h"
 #include "WM_message.h"
 #include "WM_types.h"
-
-#include "BIF_gl.h"
 
 #include "RNA_access.h"
 
@@ -225,6 +215,11 @@ static void outliner_main_region_listener(
 			break;
 		case NC_SCREEN:
 			if (ELEM(wmn->data, ND_LAYER)) {
+				ED_region_tag_redraw(ar);
+			}
+			break;
+		case NC_MASK:
+			if (ELEM(wmn->action, NA_ADDED)) {
 				ED_region_tag_redraw(ar);
 			}
 			break;

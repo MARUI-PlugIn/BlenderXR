@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,14 +15,9 @@
  *
  * The Original Code is Copyright (C) 2016 by Blender Foundation.
  * All rights reserved.
- *
- * Contributor(s): Bastien Montagne.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenkernel/intern/library_override.c
- *  \ingroup bke
+/** \file \ingroup bke
  */
 
 #include <stdlib.h>
@@ -170,7 +163,7 @@ static ID *override_static_create_from(Main *bmain, ID *reference_id)
 {
 	ID *local_id;
 
-	if (!id_copy(bmain, reference_id, (ID **)&local_id, false)) {
+	if (!BKE_id_copy(bmain, reference_id, (ID **)&local_id)) {
 		return NULL;
 	}
 	id_us_min(local_id);
@@ -627,7 +620,7 @@ void BKE_override_static_update(Main *bmain, ID *local)
 	 * a (performances) issue here. */
 
 	ID *tmp_id;
-	id_copy(bmain, local->override_static->reference, &tmp_id, false);
+	BKE_id_copy(bmain, local->override_static->reference, &tmp_id);
 
 	if (tmp_id == NULL) {
 		return;
@@ -649,13 +642,13 @@ void BKE_override_static_update(Main *bmain, ID *local)
 
 	/* Again, horribly innefficient in our case, we need something off-Main (aka moar generic nolib copy/free stuff)! */
 	/* XXX And crashing in complex cases (e.g. because depsgraph uses same data...). */
-	BKE_libblock_free_ex(bmain, tmp_id, true, false);
+	BKE_id_free_ex(bmain, tmp_id, LIB_ID_FREE_NO_UI_USER, true);
 
 	if (local->override_static->storage) {
 		/* We know this datablock is not used anywhere besides local->override->storage. */
 		/* XXX For until we get fully shadow copies, we still need to ensure storage releases
 		 *     its usage of any ID pointers it may have. */
-		BKE_libblock_free_ex(bmain, local->override_static->storage, true, false);
+		BKE_id_free_ex(bmain, local->override_static->storage, LIB_ID_FREE_NO_UI_USER, true);
 		local->override_static->storage = NULL;
 	}
 
@@ -733,7 +726,7 @@ ID *BKE_override_static_operations_store_start(Main *bmain, OverrideStaticStorag
 	/* This would imply change in handling of usercout all over RNA (and possibly all over Blender code).
 	 * Not impossible to do, but would rather see first is extra useless usual user handling is actually
 	 * a (performances) issue here, before doing it. */
-	id_copy((Main *)override_storage, local, &storage_id, false);
+	BKE_id_copy((Main *)override_storage, local, &storage_id);
 
 	if (storage_id != NULL) {
 		PointerRNA rnaptr_reference, rnaptr_final, rnaptr_storage;
@@ -744,7 +737,7 @@ ID *BKE_override_static_operations_store_start(Main *bmain, OverrideStaticStorag
 		if (!RNA_struct_override_store(
 		        bmain, &rnaptr_final, &rnaptr_reference, &rnaptr_storage, local->override_static))
 		{
-			BKE_libblock_free_ex(override_storage, storage_id, true, false);
+			BKE_id_free_ex(override_storage, storage_id, LIB_ID_FREE_NO_UI_USER, true);
 			storage_id = NULL;
 		}
 	}
@@ -781,7 +774,7 @@ void BKE_override_static_operations_store_finalize(OverrideStaticStorage *overri
 		ID *id;
 
 		while ((id = lb->first)) {
-			BKE_libblock_free_ex(override_storage, id, true, false);
+			BKE_id_free_ex(override_storage, id, LIB_ID_FREE_NO_UI_USER, true);
 		}
 	}
 

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,26 +15,17 @@
  *
  * The Original Code is Copyright (C) Blender Foundation.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenkernel/intern/lightprobe.c
- *  \ingroup bke
+/** \file \ingroup bke
  */
 
 #include "DNA_object_types.h"
 #include "DNA_lightprobe_types.h"
 
-#include "BLI_math.h"
 #include "BLI_utildefines.h"
 
 #include "BKE_animsys.h"
-#include "BKE_global.h"
 #include "BKE_library.h"
 #include "BKE_lightprobe.h"
 #include "BKE_main.h"
@@ -71,7 +60,7 @@ void *BKE_lightprobe_add(Main *bmain, const char *name)
 
 /**
  * Only copy internal data of LightProbe ID from source to already allocated/initialized destination.
- * You probably nerver want to use that directly, use id_copy or BKE_id_copy_ex for typical needs.
+ * You probably never want to use that directly, use BKE_id_copy or BKE_id_copy_ex for typical needs.
  *
  * WARNING! This function will not handle ID user count!
  *
@@ -86,7 +75,7 @@ void BKE_lightprobe_copy_data(
 LightProbe *BKE_lightprobe_copy(Main *bmain, const LightProbe *probe)
 {
 	LightProbe *probe_copy;
-	BKE_id_copy_ex(bmain, &probe->id, (ID **)&probe_copy, 0, false);
+	BKE_id_copy(bmain, &probe->id, (ID **)&probe_copy);
 	return probe_copy;
 }
 

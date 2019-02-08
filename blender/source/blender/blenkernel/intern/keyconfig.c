@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,12 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenkernel/intern/keyconfig.c
- *  \ingroup bke
+/** \file \ingroup bke
  */
 
 #include <stddef.h>
@@ -126,7 +121,7 @@ void BKE_keyconfig_pref_set_select_mouse(UserDef *userdef, int value, bool overr
 	wmKeyConfigPref *kpt = BKE_keyconfig_pref_ensure(userdef, WM_KEYCONFIG_STR_DEFAULT);
 	IDProperty *idprop = IDP_GetPropertyFromGroup(kpt->prop, "select_mouse");
 	if (!idprop) {
-		IDPropertyTemplate tmp = { .i = value };
+		IDPropertyTemplate tmp = { .i = value, };
 		IDP_AddToGroup(kpt->prop, IDP_New(IDP_INT, &tmp, "select_mouse"));
 	}
 	else if (override) {

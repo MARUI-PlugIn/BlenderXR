@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,29 +15,21 @@
  *
  * The Original Code is Copyright (C) 2016 Blender Foundation.
  * All rights reserved.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file arrow2d_gizmo.c
- *  \ingroup edgizmolib
+/** \file \ingroup edgizmolib
  *
  * \name 2D Arrow Gizmo
  *
  * \brief Simple arrow gizmo which is dragged into a certain direction.
  */
 
-#include "BLI_listbase.h"
 #include "BLI_math.h"
-#include "BLI_rect.h"
 
 #include "DNA_windowmanager_types.h"
 
 #include "BKE_context.h"
 
-#include "BIF_gl.h"
 
 #include "GPU_draw.h"
 #include "GPU_immediate.h"

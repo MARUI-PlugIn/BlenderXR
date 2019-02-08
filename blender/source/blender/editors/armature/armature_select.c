@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,10 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * Contributor(s): Blender Foundation, 2002-2009 full recode.
- *
- * ***** END GPL LICENSE BLOCK *****
- *
  * API's and Operators for selecting armature bones in EditMode
  */
 
-/** \file blender/editors/armature/armature_select.c
- *  \ingroup edarmature
+/** \file \ingroup edarmature
  */
 
 #include "MEM_guardedalloc.h"
@@ -44,8 +36,6 @@
 #include "BKE_object.h"
 #include "BKE_report.h"
 #include "BKE_layer.h"
-
-#include "BIF_gl.h"
 
 #include "RNA_access.h"
 #include "RNA_define.h"
@@ -269,7 +259,8 @@ void *get_nearest_bone(
 		if (vc.obedit != NULL) {
 			bases = BKE_view_layer_array_from_bases_in_mode(
 			        vc.view_layer, vc.v3d, &bases_len, {
-			            .object_mode = OB_MODE_EDIT});
+			            .object_mode = OB_MODE_EDIT,
+			        });
 		}
 		else {
 			bases = BKE_object_pose_base_array_get(vc.view_layer, vc.v3d, &bases_len);
@@ -1158,7 +1149,7 @@ static const EnumPropertyItem prop_similar_types[] = {
 	{SIMEDBONE_LAYER, "LAYER", 0, "Layer", ""},
 	{SIMEDBONE_GROUP, "GROUP", 0, "Group", ""},
 	{SIMEDBONE_SHAPE, "SHAPE", 0, "Shape", ""},
-	{0, NULL, 0, NULL, NULL}
+	{0, NULL, 0, NULL, NULL},
 };
 
 static float bone_length_squared_worldspace_get(Object *ob, EditBone *ebone)
@@ -1613,7 +1604,7 @@ void ARMATURE_OT_select_hierarchy(wmOperatorType *ot)
 	static const EnumPropertyItem direction_items[] = {
 		{BONE_SELECT_PARENT, "PARENT", 0, "Select Parent", ""},
 		{BONE_SELECT_CHILD, "CHILD", 0, "Select Child", ""},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	/* identifiers */

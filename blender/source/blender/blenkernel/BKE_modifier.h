@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,37 +12,38 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 #ifndef __BKE_MODIFIER_H__
 #define __BKE_MODIFIER_H__
 
-/** \file BKE_modifier.h
- *  \ingroup bke
+/** \file \ingroup bke
  */
 
 #include "DNA_modifier_types.h"     /* needed for all enum typdefs */
 #include "BLI_compiler_attrs.h"
 #include "BKE_customdata.h"
 
-struct ID;
+#include "../vr/vr_build.h"
+#if WITH_VR
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+#endif
+
+struct BMEditMesh;
+struct DepsNodeHandle;
 struct Depsgraph;
 struct DerivedMesh;
+struct ID;
+struct ListBase;
+struct Main;
 struct Mesh;
+struct ModifierData;
 struct Object;
 struct Scene;
 struct ViewLayer;
-struct ListBase;
 struct bArmature;
-struct Main;
-struct ModifierData;
-struct BMEditMesh;
-struct DepsNodeHandle;
 
 typedef enum {
 	/* Should not be used, only for None modifier type */
@@ -426,16 +425,6 @@ void modwrap_deformVertsEM(
         struct BMEditMesh *em, struct Mesh *me,
         float (*vertexCos)[3], int numVerts);
 
-#define applyModifier_DM_wrapper(NEW_FUNC_NAME, OLD_FUNC_NAME) \
-	static Mesh *NEW_FUNC_NAME(ModifierData *md, const ModifierEvalContext *ctx, Mesh *mesh) \
-	{ \
-		DerivedMesh *dm = CDDM_from_mesh_ex(mesh, CD_REFERENCE, CD_MASK_EVERYTHING); \
-		DerivedMesh *ndm = OLD_FUNC_NAME(md, ctx, dm); \
-		if (ndm != dm) dm->release(dm); \
-		DM_to_mesh(ndm, mesh, ctx->object, CD_MASK_EVERYTHING, true); \
-		return mesh; \
-	}
-
 /* wrappers for modifier callbacks that accept Mesh and select the proper implementation
  * depending on if the modifier has been ported to Mesh or is still using DerivedMesh
  */
@@ -447,4 +436,10 @@ struct DerivedMesh *modifier_applyModifier_DM_deprecated(
 struct Mesh *BKE_modifier_get_evaluated_mesh_from_evaluated_object(
         struct Object *ob_eval, bool *r_free_mesh);
 
+#if WITH_VR
+#ifdef __cplusplus
+}
+#endif
+#endif
+		
 #endif

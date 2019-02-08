@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,14 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Campbell Barton.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/bmesh/operators/bmo_connect_pair.c
- *  \ingroup bmesh
+/** \file \ingroup bmesh
  *
  * Connect vertex pair across multiple faces (splits faces).
  */
@@ -37,7 +30,6 @@
 #include "intern/bmesh_operators_private.h" /* own include */
 
 #include "BLI_mempool.h"
-#include "BLI_listbase.h"
 
 /**
  * Method for connecting across many faces.

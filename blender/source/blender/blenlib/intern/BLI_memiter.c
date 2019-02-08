@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,12 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenlib/intern/BLI_memiter.c
- *  \ingroup bli
+/** \file \ingroup bli
  *
  * Simple, fast memory allocator for allocating many small elements of different sizes
  * in fixed size memory chunks,
@@ -121,7 +116,6 @@ static void memiter_init(BLI_memiter *mi)
 }
 
 /* -------------------------------------------------------------------- */
-
 /** \name Public API's
  * \{ */
 
@@ -252,7 +246,6 @@ uint BLI_memiter_count(const BLI_memiter *mi)
 
 
 /* -------------------------------------------------------------------- */
-
 /** \name Helper API's
  * \{ */
 
@@ -286,7 +279,6 @@ void *BLI_memiter_elem_first_size(BLI_memiter *mi, uint *r_size)
 
 
 /* -------------------------------------------------------------------- */
-
 /** \name Iterator API's
  *
  * \note We could loop over elements until a NULL chunk is found,

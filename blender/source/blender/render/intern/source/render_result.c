@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2006 Blender Foundation.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/render/intern/source/render_result.c
- *  \ingroup render
+/** \file \ingroup render
  */
 
 #include <stdio.h>
@@ -56,6 +47,8 @@
 #include "IMB_colormanagement.h"
 
 #include "intern/openexr/openexr_multi.h"
+
+#include "RE_engine.h"
 
 #include "render_result.h"
 #include "render_types.h"
@@ -307,7 +300,6 @@ RenderResult *render_result_new(Render *re, rcti *partrct, int crop, int savebuf
 		BLI_strncpy(rl->name, view_layer->name, sizeof(rl->name));
 		rl->layflag = view_layer->layflag;
 		rl->passflag = view_layer->passflag; /* for debugging: view_layer->passflag | SCE_PASS_RAYHITS; */
-		rl->pass_xor = view_layer->pass_xor;
 		rl->rectx = rectx;
 		rl->recty = recty;
 
@@ -350,26 +342,14 @@ RenderResult *render_result_new(Render *re, rcti *partrct, int crop, int savebuf
 				RENDER_LAYER_ADD_PASS_SAFE(rr, rl, 3, RE_PASSNAME_NORMAL, view, "XYZ");
 			if (view_layer->passflag  & SCE_PASS_UV)
 				RENDER_LAYER_ADD_PASS_SAFE(rr, rl, 3, RE_PASSNAME_UV, view, "UVA");
-			if (view_layer->passflag  & SCE_PASS_RGBA)
-				RENDER_LAYER_ADD_PASS_SAFE(rr, rl, 4, RE_PASSNAME_RGBA, view, "RGBA");
 			if (view_layer->passflag  & SCE_PASS_EMIT)
 				RENDER_LAYER_ADD_PASS_SAFE(rr, rl, 3, RE_PASSNAME_EMIT, view, "RGB");
-			if (view_layer->passflag  & SCE_PASS_DIFFUSE)
-				RENDER_LAYER_ADD_PASS_SAFE(rr, rl, 3, RE_PASSNAME_DIFFUSE, view, "RGB");
-			if (view_layer->passflag  & SCE_PASS_SPEC)
-				RENDER_LAYER_ADD_PASS_SAFE(rr, rl, 3, RE_PASSNAME_SPEC, view, "RGB");
 			if (view_layer->passflag  & SCE_PASS_AO)
 				RENDER_LAYER_ADD_PASS_SAFE(rr, rl, 3, RE_PASSNAME_AO, view, "RGB");
 			if (view_layer->passflag  & SCE_PASS_ENVIRONMENT)
 				RENDER_LAYER_ADD_PASS_SAFE(rr, rl, 3, RE_PASSNAME_ENVIRONMENT, view, "RGB");
-			if (view_layer->passflag  & SCE_PASS_INDIRECT)
-				RENDER_LAYER_ADD_PASS_SAFE(rr, rl, 3, RE_PASSNAME_INDIRECT, view, "RGB");
 			if (view_layer->passflag  & SCE_PASS_SHADOW)
 				RENDER_LAYER_ADD_PASS_SAFE(rr, rl, 3, RE_PASSNAME_SHADOW, view, "RGB");
-			if (view_layer->passflag  & SCE_PASS_REFLECT)
-				RENDER_LAYER_ADD_PASS_SAFE(rr, rl, 3, RE_PASSNAME_REFLECT, view, "RGB");
-			if (view_layer->passflag  & SCE_PASS_REFRACT)
-				RENDER_LAYER_ADD_PASS_SAFE(rr, rl, 3, RE_PASSNAME_REFRACT, view, "RGB");
 			if (view_layer->passflag  & SCE_PASS_INDEXOB)
 				RENDER_LAYER_ADD_PASS_SAFE(rr, rl, 1, RE_PASSNAME_INDEXOB, view, "X");
 			if (view_layer->passflag  & SCE_PASS_INDEXMA)
@@ -495,6 +475,7 @@ void render_result_add_pass(RenderResult *rr, const char *name, int channels, co
 			for (rp = rl->passes.first; rp; rp = rp->next) {
 				if (!STREQ(rp->name, name)) continue;
 				if (!STREQ(rp->view, view)) continue;
+				break;
 			}
 
 			if (!rp) {
@@ -517,16 +498,10 @@ static int passtype_from_name(const char *name)
 	CHECK_PASS(VECTOR);
 	CHECK_PASS(NORMAL);
 	CHECK_PASS(UV);
-	CHECK_PASS(RGBA);
 	CHECK_PASS(EMIT);
-	CHECK_PASS(DIFFUSE);
-	CHECK_PASS(SPEC);
 	CHECK_PASS(SHADOW);
 	CHECK_PASS(AO);
 	CHECK_PASS(ENVIRONMENT);
-	CHECK_PASS(INDIRECT);
-	CHECK_PASS(REFLECT);
-	CHECK_PASS(REFRACT);
 	CHECK_PASS(INDEXOB);
 	CHECK_PASS(INDEXMA);
 	CHECK_PASS(MIST);
@@ -1082,8 +1057,25 @@ void render_result_save_empty_result_tiles(Render *re)
 	}
 }
 
+static void render_result_register_pass_cb(RenderEngine *engine, Scene *UNUSED(scene), ViewLayer *view_layer,
+                                           const char *name, int channels, const char *chanid, int UNUSED(type))
+{
+	RE_engine_add_pass(engine, name, channels, chanid, view_layer->name);
+}
+
+static void render_result_create_all_passes(RenderEngine *engine, Render *re, RenderLayer *rl)
+{
+	if (engine && engine->type->update_render_passes) {
+		ViewLayer *view_layer;
+		view_layer = BLI_findstring(&re->view_layers, rl->name, offsetof(ViewLayer, name));
+		if (view_layer) {
+			RE_engine_update_render_passes(engine, re->scene, view_layer, render_result_register_pass_cb);
+		}
+	}
+}
+
 /* begin write of exr tile file */
-void render_result_exr_file_begin(Render *re)
+void render_result_exr_file_begin(Render *re, RenderEngine *engine)
 {
 	RenderResult *rr;
 	RenderLayer *rl;
@@ -1091,6 +1083,8 @@ void render_result_exr_file_begin(Render *re)
 
 	for (rr = re->result; rr; rr = rr->next) {
 		for (rl = rr->layers.first; rl; rl = rl->next) {
+			render_result_create_all_passes(engine, re, rl);
+
 			render_result_exr_file_path(re->scene, rl->name, rr->sample_nr, str);
 			printf("write exr tmp file, %dx%d, %s\n", rr->rectx, rr->recty, str);
 			IMB_exrtile_begin_write(rl->exrhandle, str, 0, rr->rectx, rr->recty, re->partx, re->party);
@@ -1099,7 +1093,7 @@ void render_result_exr_file_begin(Render *re)
 }
 
 /* end write of exr tile file, read back first sample */
-void render_result_exr_file_end(Render *re)
+void render_result_exr_file_end(Render *re, RenderEngine *engine)
 {
 	RenderResult *rr;
 	RenderLayer *rl;
@@ -1116,7 +1110,7 @@ void render_result_exr_file_end(Render *re)
 	render_result_free_list(&re->fullresult, re->result);
 	re->result = NULL;
 
-	render_result_exr_file_read_sample(re, 0);
+	render_result_exr_file_read_sample(re, 0, engine);
 }
 
 /* save part into exr file */
@@ -1146,7 +1140,7 @@ void render_result_exr_file_path(Scene *scene, const char *layname, int sample, 
 }
 
 /* only for temp buffer, makes exact copy of render result */
-int render_result_exr_file_read_sample(Render *re, int sample)
+int render_result_exr_file_read_sample(Render *re, int sample, RenderEngine *engine)
 {
 	RenderLayer *rl;
 	char str[FILE_MAXFILE + MAX_ID_NAME + MAX_ID_NAME + 100] = "";
@@ -1156,6 +1150,8 @@ int render_result_exr_file_read_sample(Render *re, int sample)
 	re->result = render_result_new(re, &re->disprect, 0, RR_USE_MEM, RR_ALL_LAYERS, RR_ALL_VIEWS);
 
 	for (rl = re->result->layers.first; rl; rl = rl->next) {
+		render_result_create_all_passes(engine, re, rl);
+
 		render_result_exr_file_path(re->scene, rl->name, sample, str);
 		printf("read exr tmp file: %s\n", str);
 

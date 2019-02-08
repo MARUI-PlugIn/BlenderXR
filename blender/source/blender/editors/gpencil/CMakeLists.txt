@@ -13,9 +13,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software Foundation,
 # Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-# Contributor(s): Jacques Beaurain.
-#
 # ***** END GPL LICENSE BLOCK *****
 
 set(INC
@@ -45,20 +42,21 @@ set(SRC
 	editaction_gpencil.c
 	gpencil_add_monkey.c
 	gpencil_add_stroke.c
+	gpencil_armature.c
 	gpencil_brush.c
 	gpencil_convert.c
 	gpencil_data.c
 	gpencil_edit.c
+	gpencil_fill.c
 	gpencil_interpolate.c
-	gpencil_primitive.c
+	gpencil_merge.c
+	gpencil_old.c
 	gpencil_ops.c
 	gpencil_paint.c
-	gpencil_fill.c
+	gpencil_primitive.c
 	gpencil_select.c
 	gpencil_undo.c
 	gpencil_utils.c
-	gpencil_old.c
-	gpencil_armature.c
 
 	gpencil_intern.h
 )

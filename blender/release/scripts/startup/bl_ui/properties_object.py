@@ -142,28 +142,23 @@ class OBJECT_PT_relations(ObjectButtonsPanel, Panel):
 
         col = flow.column()
         col.prop(ob, "parent")
-        sub = col.row(align=True)
+        sub = col.column()
         sub.prop(ob, "parent_type")
         parent = ob.parent
         if parent and ob.parent_type == 'BONE' and parent.type == 'ARMATURE':
             sub.prop_search(ob, "parent_bone", parent.data, "bones")
         sub.active = (parent is not None)
 
-        col = flow.column()
-        col.active = (ob.parent is not None)
-        col.prop(ob, "use_slow_parent")
-        sub = col.row(align=True)
-        sub.active = (ob.use_slow_parent)
-        sub.prop(ob, "slow_parent_offset", text="Offset")
+        col.separator()
 
         col = flow.column()
-        col.separator()
 
         col.prop(ob, "track_axis", text="Tracking Axis")
         col.prop(ob, "up_axis", text="Up Axis")
 
-        col = flow.column()
         col.separator()
+
+        col = flow.column()
 
         col.prop(ob, "pass_index")
 
@@ -293,20 +288,7 @@ class OBJECT_PT_duplication(ObjectButtonsPanel, Panel):
         layout.use_property_split = True
         flow = layout.grid_flow(row_major=True, columns=0, even_columns=True, even_rows=False, align=False)
 
-        if ob.instance_type == 'FRAMES':
-
-            col = flow.column(align=True)
-            col.prop(ob, "instance_frames_start", text="Start")
-            col.prop(ob, "instance_frames_end", text="End")
-
-            col = flow.column(align=True)
-            col.prop(ob, "instance_frames_on", text="On")
-            col.prop(ob, "instance_frames_off", text="Off")
-
-            col = flow.column(align=True)
-            col.prop(ob, "use_instance_frames_speed", text="Speed")
-
-        elif ob.instance_type == 'VERTS':
+        if ob.instance_type == 'VERTS':
             layout.prop(ob, "use_instance_vertices_rotation", text="Rotation")
 
         elif ob.instance_type == 'FACES':
@@ -329,7 +311,6 @@ class OBJECT_PT_duplication(ObjectButtonsPanel, Panel):
 from .properties_animviz import (
     MotionPathButtonsPanel,
     MotionPathButtonsPanel_display,
-    OnionSkinButtonsPanel,
 )
 
 
@@ -370,20 +351,6 @@ class OBJECT_PT_motion_paths_display(MotionPathButtonsPanel_display, Panel):
         mpath = ob.motion_path
 
         self.draw_settings(context, avs, mpath)
-
-
-class OBJECT_PT_onion_skinning(OnionSkinButtonsPanel):  # , Panel): # inherit from panel when ready
-    #bl_label = "Object Onion Skinning"
-    bl_context = "object"
-
-    @classmethod
-    def poll(cls, context):
-        return (context.object)
-
-    def draw(self, context):
-        ob = context.object
-
-        self.draw_settings(context, ob.animation_visualization)
 
 
 class OBJECT_PT_custom_props(ObjectButtonsPanel, PropertyPanel, Panel):

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,18 +12,13 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
 #ifndef __FREESTYLE_STROKE_H__
 #define __FREESTYLE_STROKE_H__
 
-/** \file blender/freestyle/intern/stroke/Stroke.h
- *  \ingroup freestyle
+/** \file \ingroup freestyle
  *  \brief Classes to define a stroke
- *  \author Stephane Grabli
- *  \date 09/09/2002
  */
 
 #include <map>
@@ -303,9 +296,12 @@ private:
 	typedef std::map<const char *, Vec2f, StringUtils::ltstr> Vec2fMap;
 	typedef std::map<const char *, Vec3f, StringUtils::ltstr> Vec3fMap;
 
-	float _color[3];      //! the color
-	float _alpha;         //! alpha
-	float _thickness[2];  //! the thickness on the right and on the left of the backbone vertex (the stroke is oriented)
+	//! the color
+	float _color[3];
+	//! alpha
+	float _alpha;
+	//! the thickness on the right and on the left of the backbone vertex (the stroke is oriented)
+	float _thickness[2];
 	bool _visible;
 	realMap *_userAttributesReal;
 	Vec2fMap *_userAttributesVec2f;
@@ -522,7 +518,7 @@ public: // Implementation of Interface1D
 	/*! The different blending modes available to similate the interaction media-medium. */
 	typedef enum {
 		DRY_MEDIUM,     /*!< To simulate a dry medium such as Pencil or Charcoal.*/
-		HUMID_MEDIUM,   /*!< To simulate ink painting (color substraction blending).*/
+		HUMID_MEDIUM,   /*!< To simulate ink painting (color subtraction blending).*/
 		OPAQUE_MEDIUM,  /*!< To simulate an opaque medium (oil, spray...).*/
 	} MediumType;
 

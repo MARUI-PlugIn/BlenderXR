@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,15 +15,9 @@
  *
  * The Original Code is Copyright (C) 2009 Blender Foundation, Joshua Leung.
  * All rights reserved.
- *
- *
- * Contributor(s): Blender Foundation, Joshua Leung
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/space_nla/nla_intern.h
- *  \ingroup spnla
+/** \file \ingroup spnla
  */
 
 #ifndef __NLA_INTERN_H__
@@ -60,7 +52,7 @@ enum eNlaEdit_LeftRightSelect_Mode {
 	NLAEDIT_LRSEL_TEST  = -1,
 	NLAEDIT_LRSEL_NONE,
 	NLAEDIT_LRSEL_LEFT,
-	NLAEDIT_LRSEL_RIGHT
+	NLAEDIT_LRSEL_RIGHT,
 };
 
 /* --- */
@@ -78,7 +70,7 @@ enum eNlaEdit_Snap_Mode {
 	NLAEDIT_SNAP_CFRA = 1,
 	NLAEDIT_SNAP_NEAREST_FRAME,
 	NLAEDIT_SNAP_NEAREST_SECOND,
-	NLAEDIT_SNAP_NEAREST_MARKER
+	NLAEDIT_SNAP_NEAREST_MARKER,
 };
 
 /* --- */

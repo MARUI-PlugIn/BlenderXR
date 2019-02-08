@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,19 +15,12 @@
  *
  * The Original Code is Copyright (C) 2010 Blender Foundation.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
 #ifndef __BKE_LINESTYLE_H__
 #define __BKE_LINESTYLE_H__
 
-/** \file BKE_linestyle.h
- *  \ingroup bke
+/** \file \ingroup bke
  *  \brief Blender kernel freestyle line style functionality.
  */
 
@@ -44,11 +35,11 @@ extern "C" {
 #define LS_MODIFIER_TYPE_THICKNESS  3
 #define LS_MODIFIER_TYPE_GEOMETRY   4
 
+struct ColorBand;
 struct Main;
 struct Object;
-struct ColorBand;
-struct bContext;
 struct ViewLayer;
+struct bContext;
 
 void BKE_linestyle_init(struct FreestyleLineStyle *linestyle);
 FreestyleLineStyle *BKE_linestyle_new(struct Main *bmain, const char *name);

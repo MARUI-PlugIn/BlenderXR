@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,18 +15,9 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file ghost/intern/GHOST_SystemWin32.cpp
- *  \ingroup GHOST
- *
- * \author	Maarten Gribnau
+/** \file \ingroup GHOST
  */
 
 
@@ -121,6 +110,10 @@
 #ifndef WM_DPICHANGED
 #define WM_DPICHANGED 0x02E0
 #endif // WM_DPICHANGED
+
+#ifndef WM_POINTERUPDATE
+#define WM_POINTERUPDATE 0x0245
+#endif // WM_POINTERUPDATE
 
 /* Workaround for some laptop touchpads, some of which seems to
  * have driver issues which makes it so window function receives
@@ -361,7 +354,7 @@ GHOST_IContext *GHOST_SystemWin32::createOffscreenContext()
 			        NULL,
 			        "Blender requires a graphics driver with at least OpenGL 3.3 support.\n\n"
 			        "The program will now close.",
-			        "Blender - Unsupported Graphics Driver!",
+			        "Blender - Unsupported Graphics Driver",
 			        MB_OK | MB_ICONERROR);
 			delete context;
 			exit();
@@ -1233,6 +1226,9 @@ LRESULT WINAPI GHOST_SystemWin32::s_wndProc(HWND hwnd, UINT msg, WPARAM wParam, 
 				case WT_PROXIMITY:
 					window->processWin32TabletInitEvent();
 					break;
+				case WM_POINTERUPDATE:
+					window->processWin32PointerEvent(wParam);
+					break;
 				////////////////////////////////////////////////////////////////////////
 				// Mouse events, processed
 				////////////////////////////////////////////////////////////////////////
@@ -1450,8 +1446,6 @@ LRESULT WINAPI GHOST_SystemWin32::s_wndProc(HWND hwnd, UINT msg, WPARAM wParam, 
 					 * change such as when the window is moved to a monitor with a different DPI.
 					 */
 					{
-						WORD newYAxisDPI = HIWORD(wParam);
-						WORD newXAxisDPI = LOWORD(wParam);
 						// The suggested new size and position of the window.
 						RECT* const suggestedWindowRect = (RECT*)lParam;
 

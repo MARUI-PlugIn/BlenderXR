@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,20 +12,11 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Jörg Müller.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
 #ifndef __BKE_SPEAKER_H__
 #define __BKE_SPEAKER_H__
 
-/** \file BKE_speaker.h
- *  \ingroup bke
- *  \brief General operations for speakers.
- */
- 
 #include "../vr/vr_build.h"
 #if WITH_VR
 #ifdef __cplusplus
@@ -35,6 +24,10 @@ extern "C"
 {
 #endif
 #endif
+
+/** \file \ingroup bke
+ *  \brief General operations for speakers.
+ */
 
 struct Main;
 struct Speaker;

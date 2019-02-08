@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2007 Blender Foundation.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): Geoffrey Bantle.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/bmesh/intern/bmesh_interp.c
- *  \ingroup bmesh
+/** \file \ingroup bmesh
  *
  * Functions for interpolating data across the surface of a mesh.
  */
@@ -508,7 +499,7 @@ void BM_loop_interp_multires_ex(
 		.cd_loop_mdisp_offset = cd_loop_mdisp_offset,
 		.md_dst = md_dst, .f_src_center = f_src_center,
 		.axis_x = axis_x, .axis_y = axis_y, .v1 = v1, .v4 = v4, .e1 = e1, .e2 = e2,
-		.res = res, .d = 1.0f / (float)(res - 1)
+		.res = res, .d = 1.0f / (float)(res - 1),
 	};
 	ParallelRangeSettings settings;
 	BLI_parallel_range_settings_defaults(&settings);

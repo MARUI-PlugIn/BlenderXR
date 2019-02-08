@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2007 by Janne Karhu.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenkernel/intern/particle.c
- *  \ingroup bke
+/** \file \ingroup bke
  */
 
 
@@ -48,7 +39,6 @@
 #include "DNA_dynamicpaint_types.h"
 
 #include "BLI_blenlib.h"
-#include "BLI_noise.h"
 #include "BLI_math.h"
 #include "BLI_utildefines.h"
 #include "BLI_kdopbvh.h"
@@ -68,7 +58,6 @@
 #include "BKE_collection.h"
 #include "BKE_colortools.h"
 #include "BKE_effect.h"
-#include "BKE_global.h"
 #include "BKE_main.h"
 #include "BKE_lattice.h"
 
@@ -77,8 +66,6 @@
 #include "BKE_material.h"
 #include "BKE_key.h"
 #include "BKE_library.h"
-#include "BKE_library_query.h"
-#include "BKE_library_remap.h"
 #include "BKE_modifier.h"
 #include "BKE_mesh.h"
 #include "BKE_cdderivedmesh.h"  /* for weight_to_rgb() */
@@ -280,6 +267,24 @@ ParticleSystem *psys_orig_get(ParticleSystem *psys)
 		return psys;
 	}
 	return psys->orig_psys;
+}
+
+struct ParticleSystem *psys_eval_get(Depsgraph *depsgraph,
+                                     Object *object,
+                                     ParticleSystem *psys)
+{
+	Object *object_eval = DEG_get_evaluated_object(depsgraph, object);
+	if (object_eval == object) {
+		return psys;
+	}
+	ParticleSystem *psys_eval = object_eval->particlesystem.first;
+	while (psys_eval != NULL) {
+		if (psys_eval->orig_psys == psys) {
+			return psys_eval;
+		}
+		psys_eval = psys_eval->next;
+	}
+	return psys_eval;
 }
 
 static PTCacheEdit *psys_orig_edit_get(ParticleSystem *psys)
@@ -3282,7 +3287,7 @@ void BKE_particlesettings_twist_curve_init(ParticleSettings *part)
 
 /**
  * Only copy internal data of ParticleSettings ID from source to already allocated/initialized destination.
- * You probably nerver want to use that directly, use id_copy or BKE_id_copy_ex for typical needs.
+ * You probably never want to use that directly, use BKE_id_copy or BKE_id_copy_ex for typical needs.
  *
  * WARNING! This function will not handle ID user count!
  *
@@ -3320,7 +3325,7 @@ void BKE_particlesettings_copy_data(
 ParticleSettings *BKE_particlesettings_copy(Main *bmain, const ParticleSettings *part)
 {
 	ParticleSettings *part_copy;
-	BKE_id_copy_ex(bmain, &part->id, (ID **)&part_copy, 0, false);
+	BKE_id_copy(bmain, &part->id, (ID **)&part_copy);
 	return part_copy;
 }
 

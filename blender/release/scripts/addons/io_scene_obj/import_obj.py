@@ -125,6 +125,10 @@ def create_materials(filepath, relpath,
 
         map_offset = map_options.get(b'-o')
         map_scale = map_options.get(b'-s')
+        if map_offset is not None:
+            map_offset = tuple(map(float_func, map_offset))
+        if map_scale is not None:
+            map_scale = tuple(map(float_func, map_scale))
 
         def _generic_tex_set(nodetex, image, texcoords, translation, scale):
             nodetex.image = image
@@ -177,6 +181,64 @@ def create_materials(filepath, relpath,
         else:
             raise Exception("invalid type %r" % type)
 
+    def finalize_material(context_material, context_material_vars, spec_colors, emit_colors,
+                          do_highlight, do_reflection, do_transparency, do_glass):
+        # Finalize previous mat, if any.
+        if context_material:
+            if "specular" in context_material_vars:
+                # XXX This is highly approximated, not sure whether we can do better...
+                # TODO: Find a way to guesstimate best value from diffuse color...
+                # IDEA: Use standard deviation of both spec and diff colors (i.e. how far away they are
+                #       from some grey), and apply the the proportion between those two as tint factor?
+                spec = sum(spec_colors) / 3.0
+                # ~ spec_var = math.sqrt(sum((c - spec) ** 2 for c in spec_color) / 3.0)
+                # ~ diff = sum(context_mat_wrap.base_color) / 3.0
+                # ~ diff_var = math.sqrt(sum((c - diff) ** 2 for c in context_mat_wrap.base_color) / 3.0)
+                # ~ tint = min(1.0, spec_var / diff_var)
+                context_mat_wrap.specular = spec
+                context_mat_wrap.specular_tint = 0.0
+                if "roughness" not in context_material_vars:
+                    context_mat_wrap.roughness = 0.0
+
+
+            emit_value = sum(emit_colors) / 3.0
+            if emit_value > 1e-6:
+                print("WARNING, emit value unsupported by Principled BSDF shader, skipped.")
+                # We have to adapt it to diffuse color too...
+                emit_value /= sum(tuple(context_material.diffuse_color)[:3]) / 3.0
+            # ~ context_material.emit = emit_value
+
+            # FIXME, how else to use this?
+            if do_highlight:
+                if "specular" not in context_material_vars:
+                    context_mat_wrap.specular = 1.0
+                if "roughness" not in context_material_vars:
+                    context_mat_wrap.roughness = 0.0
+            else:
+                if "specular" not in context_material_vars:
+                    context_mat_wrap.specular = 0.0
+                if "roughness" not in context_material_vars:
+                    context_mat_wrap.roughness = 1.0
+
+            if do_reflection:
+                if "metallic" not in context_material_vars:
+                    context_mat_wrap.metallic = 1.0
+            else:
+                # since we are (ab)using ambient term for metallic (which can be non-zero)
+                context_mat_wrap.metallic = 0.0
+
+            if do_transparency:
+                if "ior" not in context_material_vars:
+                    context_mat_wrap.ior = 1.0
+                if "transmission" not in context_material_vars:
+                    context_mat_wrap.transmission = 1.0
+                # EEVEE only
+                context_material.blend_method = 'BLEND'
+
+            if do_glass:
+                if "ior" not in context_material_vars:
+                    context_mat_wrap.ior = 1.5
+
     # Try to find a MTL with the same name as the OBJ if no MTLs are specified.
     temp_mtl = os.path.splitext((os.path.basename(filepath)))[0] + ".mtl"
     if os.path.exists(os.path.join(DIR, temp_mtl)):
@@ -220,57 +282,8 @@ def create_materials(filepath, relpath,
 
                 if line_id == b'newmtl':
                     # Finalize previous mat, if any.
-                    if context_material:
-                        if "specular" in context_material_vars:
-                            # XXX This is highly approximated, not sure whether we can do better...
-                            # TODO: Find a way to guesstimate best value from diffuse color...
-                            # IDEA: Use standard deviation of both spec and diff colors (i.e. how far away they are
-                            #       from some grey), and apply the the proportion between those two as tint factor?
-                            spec = sum(spec_colors) / 3.0
-                            # ~ spec_var = math.sqrt(sum((c - spec) ** 2 for c in spec_color) / 3.0)
-                            # ~ diff = sum(context_mat_wrap.base_color) / 3.0
-                            # ~ diff_var = math.sqrt(sum((c - diff) ** 2 for c in context_mat_wrap.base_color) / 3.0)
-                            # ~ tint = min(1.0, spec_var / diff_var)
-                            context_mat_wrap.specular = spec
-                            context_mat_wrap.specular_tint = 0.0
-                            if "roughness" not in context_material_vars:
-                                context_mat_wrap.roughness = 0.0
-
-
-                        emit_value = sum(emit_colors) / 3.0
-                        if emit_value > 1e-6:
-                            print("WARNING, emit value unsupported by Principled BSDF shader, skipped.")
-                            # We have to adapt it to diffuse color too...
-                            emit_value /= sum(context_material.diffuse_color) / 3.0
-                        # ~ context_material.emit = emit_value
-
-                        # FIXME, how else to use this?
-                        if do_highlight:
-                            if "specular" not in context_material_vars:
-                                context_mat_wrap.specular = 1.0
-                            if "roughness" not in context_material_vars:
-                                context_mat_wrap.roughness = 0.0
-                        else:
-                            if "specular" not in context_material_vars:
-                                context_mat_wrap.specular = 0.0
-                            if "roughness" not in context_material_vars:
-                                context_mat_wrap.roughness = 1.0
-
-                        if do_reflection:
-                            if "metallic" not in context_material_vars:
-                                context_mat_wrap.metallic = 1.0
-
-                        if do_transparency:
-                            if "ior" not in context_material_vars:
-                                context_mat_wrap.ior = 1.0
-                            if "transmission" not in context_material_vars:
-                                context_mat_wrap.transmission = 1.0
-                            # EEVEE only
-                            context_material.blend_method = 'BLEND'
-
-                        if do_glass:
-                            if "ior" not in context_material_vars:
-                                context_mat_wrap.ior = 1.5
+                    finalize_material(context_material, context_material_vars, spec_colors, emit_colors,
+                                      do_highlight, do_reflection, do_transparency, do_glass)
 
                     context_material_name = line_value(line_split)
                     context_material = unique_materials.get(context_material_name)
@@ -321,7 +334,8 @@ def create_materials(filepath, relpath,
                         # rgb, filter color, blender has no support for this.
                         print("WARNING, currently unsupported 'tf' filter color option, skipped.")
                     elif line_id == b'illum':
-                        illum = get_int(line_split[1])
+                        # Some MTL files incorrectly use a float for this value, see T60135.
+                        illum = any_number_as_int(line_split[1])
 
                         # inline comments are from the spec, v4.2
                         if illum == 0:
@@ -415,6 +429,10 @@ def create_materials(filepath, relpath,
                                                 context_material_name, img_data, line, 'refl')
                     else:
                         print("WARNING: %r:%r (ignored)" % (filepath, line))
+
+            # Finalize last mat, if any.
+            finalize_material(context_material, context_material_vars, spec_colors, emit_colors,
+                              do_highlight, do_reflection, do_transparency, do_glass)
             mtl.close()
 
 
@@ -436,8 +454,10 @@ def split_mesh(verts_loc, faces, unique_materials, filepath, SPLIT_OB_OR_GROUP):
         # if the key is a tuple, join it to make a string
         if not key:
             return filename  # assume its a string. make sure this is true if the splitting code is changed
-        else:
+        elif isinstance(key, bytes):
             return key.decode('utf-8', 'replace')
+        else:
+            return "_".join(k.decode('utf-8', 'replace') for k in key)
 
     # Return a key that makes the faces unique.
     face_split_dict = {}
@@ -450,10 +470,10 @@ def split_mesh(verts_loc, faces, unique_materials, filepath, SPLIT_OB_OR_GROUP):
          face_vert_tex_indices,
          context_material,
          context_smooth_group,
-         context_object,
+         context_object_key,
          face_invalid_blenpoly,
          ) = face
-        key = context_object
+        key = context_object_key
 
         if oldkey != key:
             # Check the key has changed.
@@ -514,7 +534,7 @@ def create_mesh(new_objects,
     edges = []
     tot_loops = 0
 
-    context_object = None
+    context_object_key = None
 
     # reverse loop through face indices
     for f_idx in range(len(faces) - 1, -1, -1):
@@ -523,7 +543,7 @@ def create_mesh(new_objects,
          face_vert_tex_indices,
          context_material,
          context_smooth_group,
-         context_object,
+         context_object_key,
          face_invalid_blenpoly,
          ) = faces[f_idx]
 
@@ -573,7 +593,7 @@ def create_mesh(new_objects,
                                     ] if face_vert_tex_indices else [],
                                 context_material,
                                 context_smooth_group,
-                                context_object,
+                                context_object_key,
                                 [],
                                 )
                                 for ngon in ngon_face_indices]
@@ -818,9 +838,9 @@ def get_float_func(filepath):
     return float
 
 
-def get_int(svalue):
+def any_number_as_int(svalue):
     if b',' in svalue:
-        return int(float(svalue.replace(b',', b'.')))
+        svalue = svalue.replace(b',', b'.')
     return int(float(svalue))
 
 
@@ -831,7 +851,7 @@ def load(context,
          use_smooth_groups=True,
          use_edges=True,
          use_split_objects=True,
-         use_split_groups=True,
+         use_split_groups=False,
          use_image_search=True,
          use_groups_as_vgroups=False,
          relpath=None,
@@ -843,6 +863,14 @@ def load(context,
     This function passes the file and sends the data off
         to be split into objects and then converted into mesh objects
     """
+    def unique_name(existing_names, name_orig):
+        i = 0
+        name = name_orig
+        while name in existing_names:
+            name = b"%s.%03d" % (name_orig, i)
+            i += 1
+        existing_names.add(name)
+        return name
 
     def handle_vec(line_start, context_multi_line, line_split, tag, data, vec, vec_len):
         ret_context_multi_line = tag if strip_slash(line_split) else b''
@@ -854,7 +882,7 @@ def load(context,
             data.append(tuple(vec[:vec_len]))
         return ret_context_multi_line
 
-    def create_face(context_material, context_smooth_group, context_object):
+    def create_face(context_material, context_smooth_group, context_object_key):
         face_vert_loc_indices = []
         face_vert_nor_indices = []
         face_vert_tex_indices = []
@@ -864,7 +892,7 @@ def load(context,
             face_vert_tex_indices,
             context_material,
             context_smooth_group,
-            context_object,
+            context_object_key,
             [],  # If non-empty, that face is a Blender-invalid ngon (holes...), need a mutable object for that...
         )
 
@@ -892,8 +920,11 @@ def load(context,
         # Context variables
         context_material = None
         context_smooth_group = None
-        context_object = None
+        context_object_key = None
+        context_object_obpart = None
         context_vgroup = None
+
+        objects_names = set()
 
         # Nurbs
         context_nurbs = {}
@@ -916,7 +947,6 @@ def load(context,
         face_vert_loc_indices = None
         face_vert_nor_indices = None
         face_vert_tex_indices = None
-        face_vert_nor_valid = face_vert_tex_valid = False
         verts_loc_len = verts_nor_len = verts_tex_len = 0
         face_items_usage = set()
         face_invalid_blenpoly = None
@@ -942,9 +972,9 @@ def load(context,
                 # and only fallback to full multi-line parsing when needed, this gives significant speed-up
                 # (~40% on affected code).
                 if line_start == b'v':
-                    vdata, vdata_len, do_quick_vert = (verts_loc, 3, not skip_quick_vert)
+                    vdata, vdata_len, do_quick_vert = verts_loc, 3, not skip_quick_vert
                 elif line_start == b'vn':
-                    vdata, vdata_len, do_quick_vert = (verts_nor, 3, not skip_quick_vert)
+                    vdata, vdata_len, do_quick_vert = verts_nor, 3, not skip_quick_vert
                 elif line_start == b'vt':
                     vdata, vdata_len, do_quick_vert = verts_tex, 2, not skip_quick_vert
                 elif context_multi_line == b'v':
@@ -968,13 +998,14 @@ def load(context,
                             if quick_vert_failures > 10000:
                                 skip_quick_vert = True
                     if not do_quick_vert:
-                        context_multi_line = handle_vec(line_start, context_multi_line, line_split, b'v', vdata, vec, vdata_len)
+                        context_multi_line = handle_vec(line_start, context_multi_line, line_split,
+                                                        context_multi_line or line_start, vdata, vec, vdata_len)
 
                 elif line_start == b'f' or context_multi_line == b'f':
                     if not context_multi_line:
                         line_split = line_split[1:]
                         # Instantiate a face
-                        face = create_face(context_material, context_smooth_group, context_object)
+                        face = create_face(context_material, context_smooth_group, context_object_key)
                         (face_vert_loc_indices, face_vert_nor_indices, face_vert_tex_indices,
                          _1, _2, _3, face_invalid_blenpoly) = face
                         faces.append(face)
@@ -1011,25 +1042,16 @@ def load(context,
                         if len(obj_vert) > 1 and obj_vert[1] and obj_vert[1] != b'0':
                             idx = int(obj_vert[1])
                             face_vert_tex_indices.append((idx + verts_tex_len) if (idx < 1) else idx - 1)
-                            face_vert_tex_valid = True
                         else:
                             face_vert_tex_indices.append(0)
 
                         if len(obj_vert) > 2 and obj_vert[2] and obj_vert[2] != b'0':
                             idx = int(obj_vert[2])
                             face_vert_nor_indices.append((idx + verts_nor_len) if (idx < 1) else idx - 1)
-                            face_vert_nor_valid = True
                         else:
                             face_vert_nor_indices.append(0)
 
                     if not context_multi_line:
-                        # Clear nor/tex indices in case we had none defined for this face.
-                        if not face_vert_nor_valid:
-                            face_vert_nor_indices.clear()
-                        if not face_vert_tex_valid:
-                            face_vert_tex_indices.clear()
-                        face_vert_nor_valid = face_vert_tex_valid = False
-
                         # Means we have finished a face, we have to do final check if ngon is suspected to be blender-invalid...
                         if face_invalid_blenpoly:
                             face_invalid_blenpoly.clear()
@@ -1048,7 +1070,7 @@ def load(context,
                     if not context_multi_line:
                         line_split = line_split[1:]
                         # Instantiate a face
-                        face = create_face(context_material, context_smooth_group, context_object)
+                        face = create_face(context_material, context_smooth_group, context_object_key)
                         face_vert_loc_indices = face[0]
                         # XXX A bit hackish, we use special 'value' of face_vert_nor_indices (a single True item) to tag this
                         #     as a polyline, and not a regular face...
@@ -1073,14 +1095,16 @@ def load(context,
 
                 elif line_start == b'o':
                     if use_split_objects:
-                        context_object = line_value(line_split)
-                        # unique_obects[context_object]= None
+                        context_object_key = unique_name(objects_names, line_value(line_split))
+                        context_object_obpart = context_object_key
+                        # unique_objects[context_object_key]= None
 
                 elif line_start == b'g':
                     if use_split_groups:
-                        context_object = line_value(line.split())
-                        # print 'context_object', context_object
-                        # unique_obects[context_object]= None
+                        grppart = line_value(line_split)
+                        context_object_key = (context_object_obpart, grppart) if context_object_obpart else grppart
+                        # print 'context_object_key', context_object_key
+                        # unique_objects[context_object_key]= None
                     elif use_groups_as_vgroups:
                         context_vgroup = line_value(line.split())
                         if context_vgroup and context_vgroup != b'(null)':
@@ -1141,8 +1165,8 @@ def load(context,
                     context_nurbs[b'deg'] = [int(i) for i in line.split()[1:]]
                 elif line_start == b'end':
                     # Add the nurbs curve
-                    if context_object:
-                        context_nurbs[b'name'] = context_object
+                    if context_object_key:
+                        context_nurbs[b'name'] = context_object_key
                     nurbs.append(context_nurbs)
                     context_nurbs = {}
                     context_parm = b''

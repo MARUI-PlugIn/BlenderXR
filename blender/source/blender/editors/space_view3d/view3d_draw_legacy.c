@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,15 +15,9 @@
  *
  * The Original Code is Copyright (C) 2008 Blender Foundation.
  * All rights reserved.
- *
- *
- * Contributor(s): Blender Foundation
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/space_view3d/view3d_draw_legacy.c
- *  \ingroup spview3d
+/** \file \ingroup spview3d
  */
 
 #include <string.h>
@@ -48,7 +40,6 @@
 
 #include "BLI_blenlib.h"
 #include "BLI_math.h"
-#include "BLI_jitter_2d.h"
 #include "BLI_utildefines.h"
 #include "BLI_endian_switch.h"
 #include "BLI_threads.h"
@@ -60,12 +51,10 @@
 #include "BKE_image.h"
 #include "BKE_key.h"
 #include "BKE_layer.h"
-#include "BKE_main.h"
 #include "BKE_object.h"
 #include "BKE_global.h"
 #include "BKE_paint.h"
 #include "BKE_scene.h"
-#include "BKE_screen.h"
 #include "BKE_unit.h"
 #include "BKE_movieclip.h"
 
@@ -114,8 +103,13 @@
 
 /* ********* custom clipping *********** */
 
+/* Legacy 2.7x, now use shaders that use clip distance instead.
+ * Remove once clipping is working properly. */
+#define USE_CLIP_PLANES
+
 void ED_view3d_clipping_set(RegionView3D *rv3d)
 {
+#ifdef USE_CLIP_PLANES
 	double plane[4];
 	const unsigned int tot = (rv3d->viewlock & RV3D_BOXCLIP) ? 4 : 6;
 
@@ -123,39 +117,33 @@ void ED_view3d_clipping_set(RegionView3D *rv3d)
 		copy_v4db_v4fl(plane, rv3d->clip[a]);
 		glClipPlane(GL_CLIP_PLANE0 + a, plane);
 		glEnable(GL_CLIP_PLANE0 + a);
+		glEnable(GL_CLIP_DISTANCE0 + a);
 	}
+#else
+	for (unsigned a = 0; a < 6; a++) {
+		glEnable(GL_CLIP_DISTANCE0 + a);
+	}
+#endif
 }
 
 /* use these to temp disable/enable clipping when 'rv3d->rflag & RV3D_CLIPPING' is set */
 void ED_view3d_clipping_disable(void)
 {
 	for (unsigned a = 0; a < 6; a++) {
+#ifdef USE_CLIP_PLANES
 		glDisable(GL_CLIP_PLANE0 + a);
+#endif
+		glDisable(GL_CLIP_DISTANCE0 + a);
 	}
 }
 void ED_view3d_clipping_enable(void)
 {
 	for (unsigned a = 0; a < 6; a++) {
+#ifdef USE_CLIP_PLANES
 		glEnable(GL_CLIP_PLANE0 + a);
+#endif
+		glEnable(GL_CLIP_DISTANCE0 + a);
 	}
-}
-
-static bool view3d_clipping_test(const float co[3], const float clip[6][4])
-{
-	if (plane_point_side_v3(clip[0], co) > 0.0f)
-		if (plane_point_side_v3(clip[1], co) > 0.0f)
-			if (plane_point_side_v3(clip[2], co) > 0.0f)
-				if (plane_point_side_v3(clip[3], co) > 0.0f)
-					return false;
-
-	return true;
-}
-
-/* for 'local' ED_view3d_clipping_local must run first
- * then all comparisons can be done in localspace */
-bool ED_view3d_clipping_test(const RegionView3D *rv3d, const float co[3], const bool is_local)
-{
-	return view3d_clipping_test(co, is_local ? rv3d->clip_local : rv3d->clip);
 }
 
 /* *********************** backdraw for selection *************** */
@@ -257,7 +245,7 @@ static void backdrawview3d(
 	if (rv3d->rflag & RV3D_CLIPPING)
 		ED_view3d_clipping_set(rv3d);
 
-	G.f |= G_BACKBUFSEL;
+	G.f |= G_FLAG_BACKBUFSEL;
 
 	if (obact_eval && ((obact_eval->base_flag & BASE_VISIBLE) != 0)) {
 		draw_object_backbufsel(depsgraph, scene_eval, v3d, rv3d, obact_eval, select_mode);
@@ -268,7 +256,7 @@ static void backdrawview3d(
 
 	v3d->flag &= ~V3D_INVALID_BACKBUF;
 
-	G.f &= ~G_BACKBUFSEL;
+	G.f &= ~G_FLAG_BACKBUFSEL;
 	GPU_depth_test(false);
 	glEnable(GL_DITHER);
 
@@ -563,7 +551,8 @@ static void view3d_draw_bgpic(Scene *scene, Depsgraph *depsgraph,
 			if (ibuf == NULL)
 				continue;
 
-			if ((ibuf->rect == NULL && ibuf->rect_float == NULL) || ibuf->channels != 4) { /* invalid image format */
+			if ((ibuf->rect == NULL && ibuf->rect_float == NULL) || ibuf->channels != 4) {
+				/* invalid image format */
 				if (freeibuf)
 					IMB_freeImBuf(freeibuf);
 				if (releaseibuf)
@@ -767,7 +756,7 @@ void view3d_update_depths_rect(ARegion *ar, ViewDepths *d, rcti *rect)
 		.xmin = 0,
 		.xmax = ar->winx - 1,
 		.ymin = 0,
-		.ymax = ar->winy - 1
+		.ymax = ar->winy - 1,
 	};
 
 	/* Constrain rect to depth bounds */
@@ -888,7 +877,7 @@ void ED_view3d_draw_depth_gpencil(
 
 /* *********************** customdata **************** */
 
-CustomDataMask ED_view3d_datamask(const Scene *UNUSED(scene), const View3D *v3d)
+CustomDataMask ED_view3d_datamask(const bContext *C, const Scene *UNUSED(scene), const View3D *v3d)
 {
 	CustomDataMask mask = 0;
 	const int drawtype = view3d_effective_drawtype(v3d);
@@ -900,18 +889,24 @@ CustomDataMask ED_view3d_datamask(const Scene *UNUSED(scene), const View3D *v3d)
 			mask |= CD_MASK_ORCO;
 	}
 
+	if ((CTX_data_mode_enum(C) == CTX_MODE_EDIT_MESH) &&
+	    (v3d->overlay.edit_flag & V3D_OVERLAY_EDIT_WEIGHT))
+	{
+		mask |= CD_MASK_MDEFORMVERT;
+	}
+
 	return mask;
 }
 
 /* goes over all modes and view3d settings */
-CustomDataMask ED_view3d_screen_datamask(const Scene *scene, const bScreen *screen)
+CustomDataMask ED_view3d_screen_datamask(const bContext *C, const Scene *scene, const bScreen *screen)
 {
 	CustomDataMask mask = CD_MASK_BAREMESH;
 
 	/* check if we need tfaces & mcols due to view mode */
 	for (const ScrArea *sa = screen->areabase.first; sa; sa = sa->next) {
 		if (sa->spacetype == SPACE_VIEW3D) {
-			mask |= ED_view3d_datamask(scene, sa->spacedata.first);
+			mask |= ED_view3d_datamask(C, scene, sa->spacedata.first);
 		}
 	}
 

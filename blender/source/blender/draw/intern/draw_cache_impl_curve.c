@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,12 +15,9 @@
  *
  * The Original Code is Copyright (C) 2017 by Blender Foundation.
  * All rights reserved.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file draw_cache_impl_curve.c
- *  \ingroup draw
+/** \file \ingroup draw
  *
  * \brief Curve API for render engines
  */
@@ -304,16 +299,16 @@ static int curve_render_data_normal_len_get(const CurveRenderData *rdata)
 
 static void curve_cd_calc_used_gpu_layers(int *cd_layers, struct GPUMaterial **gpumat_array, int gpumat_array_len)
 {
-	GPUVertexAttribs gattribs = {{{0}}};
+	GPUVertAttrLayers gpu_attrs = {{{0}}};
 	for (int i = 0; i < gpumat_array_len; i++) {
 		struct GPUMaterial *gpumat = gpumat_array[i];
 		if (gpumat == NULL) {
 			continue;
 		}
-		GPU_material_vertex_attributes(gpumat, &gattribs);
-		for (int j = 0; j < gattribs.totlayer; j++) {
-			const char *name = gattribs.layer[j].name;
-			int type = gattribs.layer[j].type;
+		GPU_material_vertex_attrs(gpumat, &gpu_attrs);
+		for (int j = 0; j < gpu_attrs.totlayer; j++) {
+			const char *name = gpu_attrs.layer[j].name;
+			int type = gpu_attrs.layer[j].type;
 
 			/* Curves cannot have named layers.
 			 * Note: We could relax this assumption later. */
@@ -544,7 +539,6 @@ void DRW_curve_batch_cache_free(Curve *cu)
 }
 
 /* -------------------------------------------------------------------- */
-
 /** \name Private Curve Cache API
  * \{ */
 
@@ -663,7 +657,7 @@ static void curve_create_edit_curves_nor(CurveRenderData *rdata, GPUVertBuf *vbo
 			GPUPackedNormal pnor = GPU_normal_convert_i10_v3(nor);
 			GPUPackedNormal ptan = GPU_normal_convert_i10_v3(bevp->dir);
 
-			/* Only set attribs for one vertex. */
+			/* Only set attributes for one vertex. */
 			GPU_vertbuf_attr_set(vbo_curves_nor, attr_id.pos, vbo_len_used, bevp->vec);
 			GPU_vertbuf_attr_set(vbo_curves_nor, attr_id.rad, vbo_len_used, &bevp->radius);
 			GPU_vertbuf_attr_set(vbo_curves_nor, attr_id.nor, vbo_len_used, &pnor);
@@ -684,8 +678,8 @@ static void curve_create_edit_curves_nor(CurveRenderData *rdata, GPUVertBuf *vbo
 static char beztriple_vflag_get(CurveRenderData *rdata, char flag, char col_id, int v_idx, int nu_id)
 {
 	char vflag = 0;
-	SET_FLAG_FROM_TEST(vflag, (flag & SELECT), VFLAG_VERTEX_SELECTED);
-	SET_FLAG_FROM_TEST(vflag, (v_idx == rdata->actvert), VFLAG_VERTEX_ACTIVE);
+	SET_FLAG_FROM_TEST(vflag, (flag & SELECT), VFLAG_VERT_SELECTED);
+	SET_FLAG_FROM_TEST(vflag, (v_idx == rdata->actvert), VFLAG_VERT_ACTIVE);
 	SET_FLAG_FROM_TEST(vflag, (nu_id == rdata->actnu), ACTIVE_NURB);
 	/* handle color id */
 	vflag |= col_id << 4; /* << 4 because of EVEN_U_BIT */
@@ -695,8 +689,8 @@ static char beztriple_vflag_get(CurveRenderData *rdata, char flag, char col_id, 
 static char bpoint_vflag_get(CurveRenderData *rdata, char flag, int v_idx, int nu_id, int u)
 {
 	char vflag = 0;
-	SET_FLAG_FROM_TEST(vflag, (flag & SELECT), VFLAG_VERTEX_SELECTED);
-	SET_FLAG_FROM_TEST(vflag, (v_idx == rdata->actvert), VFLAG_VERTEX_ACTIVE);
+	SET_FLAG_FROM_TEST(vflag, (flag & SELECT), VFLAG_VERT_SELECTED);
+	SET_FLAG_FROM_TEST(vflag, (v_idx == rdata->actvert), VFLAG_VERT_ACTIVE);
 	SET_FLAG_FROM_TEST(vflag, (nu_id == rdata->actnu), ACTIVE_NURB);
 	SET_FLAG_FROM_TEST(vflag, ((u % 2) == 0), EVEN_U_BIT);
 	vflag |= COLOR_NURB_ULINE_ID << 4; /* << 4 because of EVEN_U_BIT */
@@ -757,7 +751,7 @@ static void curve_create_edit_data_and_handles(
 					char vflag[3] = {
 						beztriple_vflag_get(rdata, bezt->f1, bezt->h1, v_idx, nu_id),
 						beztriple_vflag_get(rdata, bezt->f2, bezt->h1, v_idx, nu_id),
-						beztriple_vflag_get(rdata, bezt->f3, bezt->h2, v_idx, nu_id)
+						beztriple_vflag_get(rdata, bezt->f3, bezt->h2, v_idx, nu_id),
 					};
 					for (int j = 0; j < 3; j++) {
 						GPU_vertbuf_attr_set(vbo_data, attr_id.data, vbo_len_used + j, &vflag[j]);
@@ -825,7 +819,6 @@ static void curve_create_edit_data_and_handles(
 /** \} */
 
 /* -------------------------------------------------------------------- */
-
 /** \name Public Object/Curve API
  * \{ */
 
@@ -896,10 +889,10 @@ void DRW_curve_batch_cache_create_requested(Object *ob)
 {
 	BLI_assert(ELEM(ob->type, OB_CURVE, OB_SURF, OB_FONT));
 
-	Curve *me = (Curve *)ob->data;
-	CurveBatchCache *cache = curve_batch_cache_get(me);
+	Curve *cu = ob->data;
+	CurveBatchCache *cache = curve_batch_cache_get(cu);
 
-	/* Verify that all surface batches have needed attrib layers. */
+	/* Verify that all surface batches have needed attribute layers. */
 	/* TODO(fclem): We could be a bit smarter here and only do it per material. */
 	for (int i = 0; i < cache->mat_len; ++i) {
 		if ((cache->cd_used & cache->cd_needed) != cache->cd_needed) {
@@ -979,7 +972,7 @@ void DRW_curve_batch_cache_create_requested(Object *ob)
 		DRW_ADD_FLAG_FROM_IBO_REQUEST(mr_flag, cache->surf_per_mat_tris[i], CU_DATATYPE_SURFACE);
 	}
 
-	CurveRenderData *rdata = curve_render_data_create(me, ob->runtime.curve_cache, mr_flag);
+	CurveRenderData *rdata = curve_render_data_create(cu, ob->runtime.curve_cache, mr_flag);
 
 	/* DispLists */
 	ListBase *lb = &rdata->ob_curve_cache->disp;

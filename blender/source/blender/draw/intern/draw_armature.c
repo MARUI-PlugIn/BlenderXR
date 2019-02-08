@@ -1,6 +1,4 @@
 /*
- * Copyright 2016, Blender Foundation.
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,47 +13,32 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * Contributor(s): Blender Institute
- *
+ * Copyright 2016, Blender Foundation.
  */
 
-/** \file draw_armature.c
- *  \ingroup draw
+/** \file \ingroup draw
  */
 
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
 
-#include "DNA_anim_types.h"
 #include "DNA_armature_types.h"
 #include "DNA_constraint_types.h"
 #include "DNA_scene_types.h"
-#include "DNA_screen_types.h"
 #include "DNA_view3d_types.h"
 #include "DNA_object_types.h"
 
 #include "DRW_render.h"
 
-#include "BLI_blenlib.h"
 #include "BLI_math.h"
-#include "BLI_dlrbTree.h"
 #include "BLI_utildefines.h"
 
-#include "BKE_animsys.h"
-#include "BKE_action.h"
 #include "BKE_armature.h"
-#include "BKE_global.h"
-#include "BKE_modifier.h"
-#include "BKE_nla.h"
-#include "BKE_curve.h"
 
-#include "BIF_gl.h"
 
 #include "ED_armature.h"
-#include "ED_keyframes_draw.h"
 
-#include "GPU_select.h"
 
 #include "UI_resources.h"
 
@@ -128,23 +111,24 @@ static struct {
 
 
 /* -------------------------------------------------------------------- */
-
 /** \name Shader Groups (DRW_shgroup)
  * \{ */
 
 /* Octahedral */
 static void drw_shgroup_bone_octahedral(
         const float (*bone_mat)[4],
-        const float bone_color[4], const float hint_color[4], const float outline_color[4])
+        const float bone_color[4], const float hint_color[4], const float outline_color[4],
+        const eGPUShaderConfig shader_cfg)
 {
 	if (g_data.bone_octahedral_outline == NULL) {
 		struct GPUBatch *geom = DRW_cache_bone_octahedral_wire_get();
-		g_data.bone_octahedral_outline = shgroup_instance_bone_shape_outline(g_data.passes.bone_outline, geom);
+		g_data.bone_octahedral_outline = shgroup_instance_bone_shape_outline(
+		        g_data.passes.bone_outline, geom, shader_cfg);
 	}
 	if (g_data.bone_octahedral_solid == NULL) {
 		struct GPUBatch *geom = DRW_cache_bone_octahedral_get();
-		g_data.bone_octahedral_solid = shgroup_instance_bone_shape_solid(g_data.passes.bone_solid, geom,
-		                                                                 g_data.transparent);
+		g_data.bone_octahedral_solid = shgroup_instance_bone_shape_solid(
+		        g_data.passes.bone_solid, geom, g_data.transparent, shader_cfg);
 	}
 	float final_bonemat[4][4];
 	mul_m4_m4m4(final_bonemat, g_data.ob->obmat, bone_mat);
@@ -157,15 +141,18 @@ static void drw_shgroup_bone_octahedral(
 /* Box / B-Bone */
 static void drw_shgroup_bone_box(
         const float (*bone_mat)[4],
-        const float bone_color[4], const float hint_color[4], const float outline_color[4])
+        const float bone_color[4], const float hint_color[4], const float outline_color[4],
+        const eGPUShaderConfig shader_cfg)
 {
 	if (g_data.bone_box_wire == NULL) {
 		struct GPUBatch *geom = DRW_cache_bone_box_wire_get();
-		g_data.bone_box_outline = shgroup_instance_bone_shape_outline(g_data.passes.bone_outline, geom);
+		g_data.bone_box_outline = shgroup_instance_bone_shape_outline(
+		        g_data.passes.bone_outline, geom, shader_cfg);
 	}
 	if (g_data.bone_box_solid == NULL) {
 		struct GPUBatch *geom = DRW_cache_bone_box_get();
-		g_data.bone_box_solid = shgroup_instance_bone_shape_solid(g_data.passes.bone_solid, geom, g_data.transparent);
+		g_data.bone_box_solid = shgroup_instance_bone_shape_solid(
+		        g_data.passes.bone_solid, geom, g_data.transparent, shader_cfg);
 	}
 	float final_bonemat[4][4];
 	mul_m4_m4m4(final_bonemat, g_data.ob->obmat, bone_mat);
@@ -323,7 +310,7 @@ extern void drw_batch_cache_generate_requested(Object *custom);
 static void drw_shgroup_bone_custom_solid(
         const float (*bone_mat)[4],
         const float bone_color[4], const float hint_color[4], const float outline_color[4],
-        Object *custom)
+        const eGPUShaderConfig shader_cfg, Object *custom)
 {
 	/* grr, not re-using instances! */
 	struct GPUBatch *surf = DRW_cache_object_surface_get(custom);
@@ -339,13 +326,14 @@ static void drw_shgroup_bone_custom_solid(
 	}
 
 	if (surf) {
-		DRWShadingGroup *shgrp_geom_solid = shgroup_instance_bone_shape_solid(g_data.passes.bone_solid, surf,
-		                                                                      g_data.transparent);
+		DRWShadingGroup *shgrp_geom_solid = shgroup_instance_bone_shape_solid(
+		        g_data.passes.bone_solid, surf, g_data.transparent, shader_cfg);
 		DRW_shgroup_call_dynamic_add(shgrp_geom_solid, final_bonemat, bone_color, hint_color);
 	}
 
 	if (edges && outline_color[3] > 0.0f) {
-		DRWShadingGroup *shgrp_geom_wire = shgroup_instance_bone_shape_outline(g_data.passes.bone_outline, edges);
+		DRWShadingGroup *shgrp_geom_wire = shgroup_instance_bone_shape_outline(
+		        g_data.passes.bone_outline, edges, shader_cfg);
 		DRW_shgroup_call_dynamic_add(shgrp_geom_wire, final_bonemat, outline_color);
 	}
 
@@ -469,7 +457,6 @@ static void drw_shgroup_bone_ik_spline_lines(const float start[3], const float e
 
 
 /* -------------------------------------------------------------------- */
-
 /** \name Drawing Theme Helpers
  *
  * Note, this section is duplicate of code in 'drawarmature.c'.
@@ -513,8 +500,9 @@ static void set_pchan_colorset(Object *ob, bPoseChannel *pchan)
 		 */
 		if (pchan->agrp_index) {
 			grp = (bActionGroup *)BLI_findlink(&pose->agroups, (pchan->agrp_index - 1));
-			if (grp)
+			if (grp) {
 				color_index = grp->customCol;
+			}
 		}
 	}
 
@@ -735,15 +723,17 @@ static bool set_pchan_color(short colCode, const int boneflag, const short const
 
 
 /* -------------------------------------------------------------------- */
-
 /** \name Drawing Color Helpers
  * \{ */
 
 /** See: 'set_pchan_color'*/
 static void update_color(const Object *ob, const float const_color[4])
 {
+	const bArmature *arm = ob->data;
 	g_theme.const_color = const_color;
-	g_theme.const_wire = ((ob->base_flag & BASE_SELECTED) != 0) ? 1.5f : 0.0f;
+	g_theme.const_wire = (
+	        ((ob->base_flag & BASE_SELECTED) ||
+	         (arm->drawtype == ARM_WIRE)) ? 1.5f : 0.0f);
 
 #define NO_ALPHA(c) (((c)[3] = 1.0f), (c))
 
@@ -769,8 +759,9 @@ static const float *get_bone_solid_color(
         const EditBone *UNUSED(eBone), const bPoseChannel *pchan, const bArmature *arm,
         const int boneflag, const short constflag)
 {
-	if (g_theme.const_color)
+	if (g_theme.const_color) {
 		return g_theme.bone_solid_color;
+	}
 
 	if (arm->flag & ARM_POSEMODE) {
 		static float disp_color[4];
@@ -786,8 +777,9 @@ static const float *get_bone_solid_with_consts_color(
         const EditBone *eBone, const bPoseChannel *pchan, const bArmature *arm,
         const int boneflag, const short constflag)
 {
-	if (g_theme.const_color)
+	if (g_theme.const_color) {
 		return g_theme.bone_solid_color;
+	}
 
 	const float *col = get_bone_solid_color(eBone, pchan, arm, boneflag, constflag);
 
@@ -803,12 +795,15 @@ static const float *get_bone_solid_with_consts_color(
 
 static float get_bone_wire_thickness(int boneflag)
 {
-	if (g_theme.const_color)
+	if (g_theme.const_color) {
 		return g_theme.const_wire;
-	else if (boneflag & (BONE_DRAW_ACTIVE | BONE_SELECTED))
+	}
+	else if (boneflag & (BONE_DRAW_ACTIVE | BONE_SELECTED)) {
 		return 2.0f;
-	else
+	}
+	else {
 		return 1.0f;
+	}
 }
 
 static const float *get_bone_wire_color(
@@ -882,7 +877,6 @@ static const float *get_bone_hint_color(
 
 
 /* -------------------------------------------------------------------- */
-
 /** \name Helper Utils
  * \{ */
 
@@ -1254,14 +1248,13 @@ static void draw_points(
 
 
 /* -------------------------------------------------------------------- */
-
 /** \name Draw Bones
  * \{ */
 
 static void draw_bone_custom_shape(
         EditBone *eBone, bPoseChannel *pchan, bArmature *arm,
         const int boneflag, const short constflag,
-        const int select_id)
+        const eGPUShaderConfig shader_cfg, const int select_id)
 {
 	const float *col_solid = get_bone_solid_color(eBone, pchan, arm, boneflag, constflag);
 	const float *col_wire = get_bone_wire_color(eBone, pchan, arm, boneflag, constflag);
@@ -1273,7 +1266,7 @@ static void draw_bone_custom_shape(
 	}
 
 	if ((boneflag & BONE_DRAWWIRE) == 0) {
-		drw_shgroup_bone_custom_solid(disp_mat, col_solid, col_hint, col_wire, pchan->custom);
+		drw_shgroup_bone_custom_solid(disp_mat, col_solid, col_hint, col_wire, shader_cfg, pchan->custom);
 	}
 	else {
 		drw_shgroup_bone_custom_wire(disp_mat, col_wire, pchan->custom);
@@ -1423,7 +1416,7 @@ static void draw_bone_wire(
 static void draw_bone_box(
         EditBone *eBone, bPoseChannel *pchan, bArmature *arm,
         const int boneflag, const short constflag,
-        const int select_id)
+        const eGPUShaderConfig shader_cfg, const int select_id)
 {
 	const float *col_solid = get_bone_solid_with_consts_color(eBone, pchan, arm, boneflag, constflag);
 	const float *col_wire = get_bone_wire_color(eBone, pchan, arm, boneflag, constflag);
@@ -1438,12 +1431,12 @@ static void draw_bone_box(
 		BLI_assert(bbones_mat != NULL);
 
 		for (int i = pchan->bone->segments; i--; bbones_mat++) {
-			drw_shgroup_bone_box(bbones_mat->mat, col_solid, col_hint, col_wire);
+			drw_shgroup_bone_box(bbones_mat->mat, col_solid, col_hint, col_wire, shader_cfg);
 		}
 	}
 	else if (eBone) {
 		for (int i = 0; i < eBone->segments; i++) {
-			drw_shgroup_bone_box(eBone->disp_bbone_mat[i], col_solid, col_hint, col_wire);
+			drw_shgroup_bone_box(eBone->disp_bbone_mat[i], col_solid, col_hint, col_wire, shader_cfg);
 		}
 	}
 
@@ -1459,7 +1452,7 @@ static void draw_bone_box(
 static void draw_bone_octahedral(
         EditBone *eBone, bPoseChannel *pchan, bArmature *arm,
         const int boneflag, const short constflag,
-        const int select_id)
+        const eGPUShaderConfig shader_cfg, const int select_id)
 {
 	const float *col_solid = get_bone_solid_with_consts_color(eBone, pchan, arm, boneflag, constflag);
 	const float *col_wire = get_bone_wire_color(eBone, pchan, arm, boneflag, constflag);
@@ -1469,7 +1462,7 @@ static void draw_bone_octahedral(
 		DRW_select_load_id(select_id | BONESEL_BONE);
 	}
 
-	drw_shgroup_bone_octahedral(BONE_VAR(eBone, pchan, disp_mat), col_solid, col_hint, col_wire);
+	drw_shgroup_bone_octahedral(BONE_VAR(eBone, pchan, disp_mat), col_solid, col_hint, col_wire, shader_cfg);
 
 	if (select_id != -1) {
 		DRW_select_load_id(-1);
@@ -1482,7 +1475,6 @@ static void draw_bone_octahedral(
 
 
 /* -------------------------------------------------------------------- */
-
 /** \name Draw Degrees of Freedom
  * \{ */
 
@@ -1559,7 +1551,6 @@ static void draw_bone_dofs(bPoseChannel *pchan)
 
 
 /* -------------------------------------------------------------------- */
-
 /** \name Draw Relationships
  * \{ */
 
@@ -1570,8 +1561,9 @@ static void pchan_draw_ik_lines(bPoseChannel *pchan, const bool only_temp, const
 	float *line_start = NULL, *line_end = NULL;
 
 	for (con = pchan->constraints.first; con; con = con->next) {
-		if (con->enforce == 0.0f)
+		if (con->enforce == 0.0f) {
 			continue;
+		}
 
 		switch (con->type) {
 			case CONSTRAINT_TYPE_KINEMATIC:
@@ -1580,8 +1572,9 @@ static void pchan_draw_ik_lines(bPoseChannel *pchan, const bool only_temp, const
 				int segcount = 0;
 
 				/* if only_temp, only draw if it is a temporary ik-chain */
-				if (only_temp && !(data->flag & CONSTRAINT_IK_TEMP))
+				if (only_temp && !(data->flag & CONSTRAINT_IK_TEMP)) {
 					continue;
+				}
 
 				/* exclude tip from chain? */
 				parchan = ((data->flag & CONSTRAINT_IK_TIP) == 0) ? pchan->parent : pchan;
@@ -1599,10 +1592,12 @@ static void pchan_draw_ik_lines(bPoseChannel *pchan, const bool only_temp, const
 				if (parchan) {
 					line_end = parchan->pose_head;
 
-					if (constflag & PCHAN_HAS_TARGET)
+					if (constflag & PCHAN_HAS_TARGET) {
 						drw_shgroup_bone_ik_lines(line_start, line_end);
-					else
+					}
+					else {
 						drw_shgroup_bone_ik_no_target_lines(line_start, line_end);
+					}
 				}
 				break;
 			}
@@ -1612,8 +1607,9 @@ static void pchan_draw_ik_lines(bPoseChannel *pchan, const bool only_temp, const
 				int segcount = 0;
 
 				/* don't draw if only_temp, as Spline IK chains cannot be temporary */
-				if (only_temp)
+				if (only_temp) {
 					continue;
+				}
 
 				parchan = pchan;
 				line_start = parchan->pose_tail;
@@ -1677,7 +1673,6 @@ static void draw_bone_relations(
 /** \} */
 
 /* -------------------------------------------------------------------- */
-
 /** \name Main Draw Loops
  * \{ */
 
@@ -1729,11 +1724,11 @@ static void draw_armature_edit(Object *ob)
 				}
 				else if (arm->drawtype == ARM_B_BONE) {
 					draw_bone_update_disp_matrix_bbone(eBone, NULL);
-					draw_bone_box(eBone, NULL, arm, boneflag, constflag, select_id);
+					draw_bone_box(eBone, NULL, arm, boneflag, constflag, draw_ctx->shader_cfg, select_id);
 				}
 				else {
 					draw_bone_update_disp_matrix_default(eBone, NULL);
-					draw_bone_octahedral(eBone, NULL, arm, boneflag, constflag, select_id);
+					draw_bone_octahedral(eBone, NULL, arm, boneflag, constflag, draw_ctx->shader_cfg, select_id);
 				}
 
 				/* Draw names of bone */
@@ -1820,14 +1815,15 @@ static void draw_armature_pose(Object *ob, const float const_color[4])
 				}
 
 				/* set temporary flag for drawing bone as active, but only if selected */
-				if (bone == arm->act_bone)
+				if (bone == arm->act_bone) {
 					boneflag |= BONE_DRAW_ACTIVE;
+				}
 
 				draw_bone_relations(NULL, pchan, arm, boneflag, constflag, show_relations);
 
 				if ((pchan->custom) && !(arm->flag & ARM_NO_CUSTOM)) {
 					draw_bone_update_disp_matrix_custom(pchan);
-					draw_bone_custom_shape(NULL, pchan, arm, boneflag, constflag, select_id);
+					draw_bone_custom_shape(NULL, pchan, arm, boneflag, constflag, draw_ctx->shader_cfg, select_id);
 				}
 				else if (arm->drawtype == ARM_ENVELOPE) {
 					draw_bone_update_disp_matrix_default(NULL, pchan);
@@ -1843,17 +1839,17 @@ static void draw_armature_pose(Object *ob, const float const_color[4])
 				}
 				else if (arm->drawtype == ARM_B_BONE) {
 					draw_bone_update_disp_matrix_bbone(NULL, pchan);
-					draw_bone_box(NULL, pchan, arm, boneflag, constflag, select_id);
+					draw_bone_box(NULL, pchan, arm, boneflag, constflag, draw_ctx->shader_cfg, select_id);
 				}
 				else {
 					draw_bone_update_disp_matrix_default(NULL, pchan);
-					draw_bone_octahedral(NULL, pchan, arm, boneflag, constflag, select_id);
+					draw_bone_octahedral(NULL, pchan, arm, boneflag, constflag, draw_ctx->shader_cfg, select_id);
 				}
 
 				if (!is_pose_select && show_relations &&
 				    (arm->flag & ARM_POSEMODE) &&
 				    (bone->flag & BONE_SELECTED) &&
-				    ((ob->base_flag & BASE_FROMDUPLI) == 0) &&
+				    ((ob->base_flag & BASE_FROM_DUPLI) == 0) &&
 				    (pchan->ikflag & (BONE_IK_XLIMIT | BONE_IK_ZLIMIT)))
 				{
 					draw_bone_dofs(pchan);

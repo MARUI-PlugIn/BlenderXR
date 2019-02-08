@@ -21,6 +21,7 @@ from mathutils.geometry import tessellate_polygon
 
 from . import gltf2_blender_export_keys
 from ...io.com.gltf2_io_debug import print_console
+from ...io.com.gltf2_io_color_management import color_srgb_to_scene_linear
 from io_scene_gltf2.blender.exp import gltf2_blender_gather_skins
 
 #
@@ -112,19 +113,6 @@ def decompose_transition(matrix, context, export_settings):
     rotation = Quaternion((rotation[1], rotation[2], rotation[3], rotation[0]))
 
     return translation, rotation, scale
-
-
-def color_srgb_to_scene_linear(c):
-    """
-    Convert from sRGB to scene linear color space.
-
-    Source: Cycles addon implementation, node_color.h.
-    """
-    if c < 0.04045:
-        return 0.0 if c < 0.0 else c * (1.0 / 12.92)
-    else:
-        return pow((c + 0.055) * (1.0 / 1.055), 2.4)
-
 
 def extract_primitive_floor(a, indices, use_tangents):
     """Shift indices, that the first one starts with 0. It is assumed, that the indices are packed."""
@@ -409,7 +397,7 @@ def extract_primitives(glTF, blender_mesh, blender_vertex_groups, modifiers, exp
     Furthermore, primitives are split up, if the indices range is exceeded.
     Finally, triangles are also split up/duplicated, if face normals are used instead of vertex normals.
     """
-    print_console('INFO', 'Extracting primitive')
+    print_console('INFO', 'Extracting primitive: ' + blender_mesh.name)
 
     use_tangents = False
     if blender_mesh.uv_layers.active and len(blender_mesh.uv_layers) > 0:
@@ -662,12 +650,16 @@ def extract_primitives(glTF, blender_mesh, blender_vertex_groups, modifiers, exp
 
                     #
 
-                    vertex_group_index = group_element.group
-                    vertex_group_name = blender_vertex_groups[vertex_group_index].name
+                    joint_weight = group_element.weight
+                    if joint_weight <= 0.0:
+                        continue
 
                     #
 
-                    joint_index = 0
+                    vertex_group_index = group_element.group
+                    vertex_group_name = blender_vertex_groups[vertex_group_index].name
+
+                    joint_index = None
 
                     if modifiers is not None:
                         modifiers_dict = {m.type: m for m in modifiers}
@@ -677,12 +669,12 @@ def extract_primitives(glTF, blender_mesh, blender_vertex_groups, modifiers, exp
                             for index, j in enumerate(skin.joints):
                                 if j.name == vertex_group_name:
                                     joint_index = index
-
-                    joint_weight = group_element.weight
+                                    break
 
                     #
-                    joint.append(joint_index)
-                    weight.append(joint_weight)
+                    if joint_index is not None:
+                        joint.append(joint_index)
+                        weight.append(joint_weight)
 
                 if len(joint) > 0:
                     bone_count += 1
@@ -971,7 +963,12 @@ def extract_primitives(glTF, blender_mesh, blender_vertex_groups, modifiers, exp
 
         #
 
-        range_indices = 65536
+        # NOTE: Values used by some graphics APIs as "primitive restart" values are disallowed.
+        # Specifically, the value 65535 (in UINT16) cannot be used as a vertex index.
+        # https://github.com/KhronosGroup/glTF/issues/1142
+        # https://github.com/KhronosGroup/glTF/pull/1476/files
+
+        range_indices = 65535
 
         #
 

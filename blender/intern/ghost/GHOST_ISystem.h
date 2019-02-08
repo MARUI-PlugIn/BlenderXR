@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file ghost/GHOST_ISystem.h
- *  \ingroup GHOST
+/** \file \ingroup GHOST
  * %Main interface file for C++ Api with declaration of GHOST_ISystem interface
  * class.
  * Contains the doxygen documentation main page.
@@ -135,8 +126,6 @@ class GHOST_IEventConsumer;
  *  -# Access to the state of the mouse buttons and the keyboard.
  *  -# Menus for windows with events generated when they are accessed (this is
  *     work in progress).
- * \author  Maarten Gribnau
- * \date    May 30, 2001
  */
 class GHOST_ISystem
 {
@@ -396,6 +385,12 @@ public:
 	 * \return          Indication of success.
 	 */
 	virtual GHOST_TSuccess getButtonState(GHOST_TButtonMask mask, bool& isDown) const = 0;
+
+	/**
+	 * Set which tablet API to use. Only affects Windows, other platforms have a single API.
+	 * \param api Enum indicating which API to use.
+	 */
+	virtual void setTabletAPI(GHOST_TTabletAPI api) = 0;
 
 #ifdef WITH_INPUT_NDOF
 	/**

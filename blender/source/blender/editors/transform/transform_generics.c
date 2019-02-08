@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/transform/transform_generics.c
- *  \ingroup edtransform
+/** \file \ingroup edtransform
  */
 
 #include <string.h>
@@ -237,27 +228,29 @@ static void clipMirrorModifier(TransInfo *t)
 static void editbmesh_apply_to_mirror(TransInfo *t)
 {
 	FOREACH_TRANS_DATA_CONTAINER (t, tc) {
-		TransData *td = tc->data;
-		BMVert *eve;
-		int i;
+		if (tc->mirror.axis_flag) {
+			TransData *td = tc->data;
+			BMVert *eve;
+			int i;
 
-		for (i = 0; i < tc->data_len; i++, td++) {
-			if (td->flag & TD_NOACTION)
-				break;
-			if (td->loc == NULL)
-				break;
-			if (td->flag & TD_SKIP)
-				continue;
+			for (i = 0; i < tc->data_len; i++, td++) {
+				if (td->flag & TD_NOACTION)
+					break;
+				if (td->loc == NULL)
+					break;
+				if (td->flag & TD_SKIP)
+					continue;
 
-			eve = td->extra;
-			if (eve) {
-				eve->co[0] = -td->loc[0];
-				eve->co[1] = td->loc[1];
-				eve->co[2] = td->loc[2];
-			}
+				eve = td->extra;
+				if (eve) {
+					eve->co[0] = -td->loc[0];
+					eve->co[1] = td->loc[1];
+					eve->co[2] = td->loc[2];
+				}
 
-			if (td->flag & TD_MIRROR_EDGE) {
-				td->loc[0] = 0;
+				if (td->flag & TD_MIRROR_EDGE) {
+					td->loc[0] = 0;
+				}
 			}
 		}
 	}
@@ -278,7 +271,8 @@ static void animrecord_check_state(Scene *scene, ID *id, wmTimer *animtimer)
 	 * - the option to add new actions for each round is not enabled
 	 */
 	if (IS_AUTOKEY_FLAG(scene, INSERTAVAIL) == 0 && (scene->toolsettings->autokey_flag & ANIMRECORD_FLAG_WITHNLA)) {
-		/* if playback has just looped around, we need to add a new NLA track+strip to allow a clean pass to occur */
+		/* if playback has just looped around,
+		 * we need to add a new NLA track+strip to allow a clean pass to occur */
 		if ((sad) && (sad->flag & ANIMPLAY_FLAG_JUMPED)) {
 			AnimData *adt = BKE_animdata_from_id(id);
 			const bool is_first = (adt) && (adt->nla_tracks.first == NULL);
@@ -571,7 +565,8 @@ static void recalcData_nla(TransInfo *t)
 		if (t->state != TRANS_CANCEL) {
 			switch (snla->autosnap) {
 				case SACTSNAP_FRAME: /* snap to nearest frame */
-				case SACTSNAP_STEP: /* frame step - this is basically the same, since we don't have any remapping going on */
+				case SACTSNAP_STEP: /* frame step - this is basically the same,
+				                     * since we don't have any remapping going on */
 				{
 					tdn->h1[0] = floorf(tdn->h1[0] + 0.5f);
 					tdn->h2[0] = floorf(tdn->h2[0] + 0.5f);
@@ -579,7 +574,8 @@ static void recalcData_nla(TransInfo *t)
 				}
 
 				case SACTSNAP_SECOND: /* snap to nearest second */
-				case SACTSNAP_TSTEP: /* second step - this is basically the same, since we don't have any remapping going on */
+				case SACTSNAP_TSTEP: /* second step - this is basically the same,
+				                      * since we don't have any remapping going on */
 				{
 					/* This case behaves differently from the rest, since lengths of strips
 					 * may not be multiples of a second. If we just naively resize adjust
@@ -777,7 +773,8 @@ static void recalcData_objects(TransInfo *t)
 
 				if (t->state == TRANS_CANCEL) {
 					while (nu) {
-						BKE_nurb_handles_calc(nu); /* Cant do testhandlesNurb here, it messes up the h1 and h2 flags */
+						/* Cant do testhandlesNurb here, it messes up the h1 and h2 flags */
+						BKE_nurb_handles_calc(nu);
 						nu = nu->next;
 					}
 				}
@@ -812,8 +809,11 @@ static void recalcData_objects(TransInfo *t)
 				applyProject(t);
 				clipMirrorModifier(t);
 			}
-			if ((t->options & CTX_NO_MIRROR) == 0 && (t->flag & T_MIRROR))
+			if ((t->flag & T_NO_MIRROR) == 0 &&
+			    (t->options & CTX_NO_MIRROR) == 0)
+			{
 				editbmesh_apply_to_mirror(t);
+			}
 
 			if (t->mode == TFM_EDGE_SLIDE) {
 				projectEdgeSlideData(t, false);
@@ -1080,7 +1080,7 @@ static void recalcData_gpencil_strokes(TransInfo *t)
 	for (int i = 0; i < tc->data_len; i++, td++) {
 		bGPDstroke *gps = td->extra;
 		if (gps != NULL) {
-			gps->flag |= GP_STROKE_RECALC_CACHES;
+			gps->flag |= GP_STROKE_RECALC_GEOMETRY;
 		}
 	}
 }
@@ -1227,6 +1227,12 @@ void initTransDataContainers_FromObjectData(TransInfo *t, Object *obact, Object 
 
 		for (int i = 0; i < objects_len; i++) {
 			TransDataContainer *tc = &t->data_container[i];
+			/* TODO, multiple axes. */
+			tc->mirror.axis_flag = (
+			        ((t->flag & T_NO_MIRROR) == 0) &&
+			        ((t->options & CTX_NO_MIRROR) == 0) &&
+			        (((Mesh *)objects[i]->data)->editflag & ME_EDIT_MIRROR_X) != 0);
+
 			if (object_mode & OB_MODE_EDIT) {
 				tc->obedit = objects[i];
 				/* Check needed for UV's */
@@ -1292,7 +1298,7 @@ void initTransInfo(bContext *C, TransInfo *t, wmOperator *op, const wmEvent *eve
 
 	t->flag = 0;
 
-	t->obedit_type = (object_mode == OB_MODE_EDIT) ? object_type : -1;
+	t->obedit_type = ((object_mode == OB_MODE_EDIT) || (object_mode == OB_MODE_EDIT_GPENCIL)) ? object_type : -1;
 
 	/* Many kinds of transform only use a single handle. */
 	if (t->data_container == NULL) {
@@ -1374,7 +1380,7 @@ void initTransInfo(bContext *C, TransInfo *t, wmOperator *op, const wmEvent *eve
 		}
 
 		if (prop_id && (prop = RNA_struct_find_property(op->ptr, prop_id))) {
-			SET_FLAG_FROM_TEST(t->flag, !RNA_property_boolean_get(op->ptr, prop), T_ALT_TRANSFORM);
+			SET_FLAG_FROM_TEST(t->flag, RNA_property_boolean_get(op->ptr, prop), T_ALT_TRANSFORM);
 		}
 	}
 
@@ -1548,18 +1554,16 @@ void initTransInfo(bContext *C, TransInfo *t, wmOperator *op, const wmEvent *eve
 	if (op && ((prop = RNA_struct_find_property(op->ptr, "mirror")) &&
 	           RNA_property_is_set(op->ptr, prop)))
 	{
-		if (RNA_property_boolean_get(op->ptr, prop)) {
-			t->flag |= T_MIRROR;
-			t->mirror = 1;
+		if (!RNA_property_boolean_get(op->ptr, prop)) {
+			t->flag |= T_NO_MIRROR;
 		}
 	}
-	// Need stuff to take it from edit mesh or whatnot here
-	else if (t->spacetype == SPACE_VIEW3D) {
-		/* TODO(campbell): xform, get mirror from each object. */
-		if (t->obedit_type == OB_MESH && (((Mesh *)OBACT(t->view_layer)->data)->editflag & ME_EDIT_MIRROR_X)) {
-			t->flag |= T_MIRROR;
-			t->mirror = 1;
-		}
+	else if ((t->spacetype == SPACE_VIEW3D) && (t->obedit_type == OB_MESH)) {
+		/* pass */
+	}
+	else {
+		/* Avoid mirroring for unsupported contexts. */
+		t->options |= CTX_NO_MIRROR;
 	}
 
 	/* setting PET flag only if property exist in operator. Otherwise, assume it's not supported */
@@ -2003,12 +2007,13 @@ bool calculateCenterActive(TransInfo *t, bool select_only, float r_center[3])
 {
 	TransDataContainer *tc = TRANS_DATA_CONTAINER_FIRST_OK(t);
 
-	bool ok = false;
-
-	if (tc->obedit) {
+	if (t->spacetype != SPACE_VIEW3D) {
+		return false;
+	}
+	else if (tc->obedit) {
 		if (ED_object_calc_active_center_for_editmode(tc->obedit, select_only, r_center)) {
 			mul_m4_v3(tc->obedit->obmat, r_center);
-			ok = true;
+			return true;
 		}
 	}
 	else if (t->flag & T_POSE) {
@@ -2016,7 +2021,7 @@ bool calculateCenterActive(TransInfo *t, bool select_only, float r_center[3])
 		Object *ob = OBACT(view_layer) ;
 		if (ED_object_calc_active_center_for_posemode(ob, select_only, r_center)) {
 			mul_m4_v3(ob->obmat, r_center);
-			ok = true;
+			return true;
 		}
 	}
 	else if (t->options & CTX_PAINT_CURVE) {
@@ -2025,7 +2030,7 @@ bool calculateCenterActive(TransInfo *t, bool select_only, float r_center[3])
 		PaintCurve *pc = br->paint_curve;
 		copy_v3_v3(r_center, pc->points[pc->add_index - 1].bez.vec[1]);
 		r_center[2] = 0.0f;
-		ok = true;
+		return true;
 	}
 	else {
 		/* object mode */
@@ -2034,11 +2039,11 @@ bool calculateCenterActive(TransInfo *t, bool select_only, float r_center[3])
 		Base *base = BASACT(view_layer);
 		if (ob && ((!select_only) || ((base->flag & BASE_SELECTED) != 0))) {
 			copy_v3_v3(r_center, ob->obmat[3]);
-			ok = true;
+			return true;
 		}
 	}
 
-	return ok;
+	return false;
 }
 
 static void calculateCenter_FromAround(TransInfo *t, int around, float r_center[3])
@@ -2167,7 +2172,7 @@ void calculatePropRatio(TransInfo *t)
 				if (td->flag & TD_SELECTED) {
 					td->factor = 1.0f;
 				}
-				else if (t->flag & T_MIRROR && td->loc[0] * t->mirror < -0.00001f) {
+				else if (tc->mirror.axis_flag && (td->loc[0] * tc->mirror.sign) < -0.00001f) {
 					td->flag |= TD_SKIP;
 					td->factor = 0.0f;
 					restoreElement(td);

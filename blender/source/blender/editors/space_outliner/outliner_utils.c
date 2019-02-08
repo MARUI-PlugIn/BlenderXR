@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,14 +15,9 @@
  *
  * The Original Code is Copyright (C) 2017 Blender Foundation.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/space_outliner/outliner_utils.c
- *  \ingroup spoutliner
+/** \file \ingroup spoutliner
  */
 
 #include "BLI_utildefines.h"
@@ -73,10 +66,13 @@ TreeElement *outliner_find_item_at_y(const SpaceOops *soops, const ListBase *tre
  */
 TreeElement *outliner_find_item_at_x_in_row(const SpaceOops *soops, const TreeElement *parent_te, float view_co_x)
 {
-	if (!TSELEM_OPEN(TREESTORE(parent_te), soops)) { /* if parent_te is opened, it doesn't show childs in row */
+	/* if parent_te is opened, it doesn't show childs in row */
+	if (!TSELEM_OPEN(TREESTORE(parent_te), soops)) {
 		/* no recursion, items can only display their direct children in the row */
 		for (TreeElement *child_te = parent_te->subtree.first;
-		     child_te && view_co_x >= child_te->xs; /* don't look further if co_x is smaller than child position*/
+		     /* don't look further if co_x is smaller than child position*/
+		     child_te && view_co_x >= child_te->xs;
+
 		     child_te = child_te->next)
 		{
 			if ((child_te->flag & TE_ICONROW) && (view_co_x > child_te->xs) && (view_co_x < child_te->xend)) {

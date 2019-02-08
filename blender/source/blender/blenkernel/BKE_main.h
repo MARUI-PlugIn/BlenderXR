@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,20 +15,11 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 #ifndef __BKE_MAIN_H__
 #define __BKE_MAIN_H__
 
-/** \file BKE_main.h
- *  \ingroup bke
- *  \since March 2001
- *  \author nzc
+/** \file \ingroup bke
  *  \section aboutmain Main struct
  * Main is the root of the 'database' of a Blender context. All data
  * is stuffed into lists, and all these lists are knotted to here. A
@@ -38,7 +27,6 @@
  * lists. This list of lists is not serialized itself.
  *
  * Oops... this should be a _types.h file.
- *
  */
 #include "DNA_listBase.h"
 
@@ -49,8 +37,8 @@
 extern "C" {
 #endif
 
-struct BlendThumbnail;
 struct BLI_mempool;
+struct BlendThumbnail;
 struct Depsgraph;
 struct GHash;
 struct ImBuf;
@@ -147,6 +135,16 @@ void BKE_main_unlock(struct Main *bmain);
 
 void BKE_main_relations_create(struct Main *bmain);
 void BKE_main_relations_free(struct Main *bmain);
+
+/* *** Generic utils to loop over whole Main database. *** */
+/** \return false to stop iteration, true to keep going. */
+typedef bool (*MainForeachIDCallback) (struct Main *bmain, struct ID *id, void *user_data);
+bool BKE_main_listbase_foreach_id(
+        struct Main *bmain, struct ListBase *lb,
+        MainForeachIDCallback callback, void *user_data);
+bool BKE_main_foreach_id(
+        struct Main *bmain, const bool reverse_type_order,
+        MainForeachIDCallback callback, void *user_data);
 
 struct BlendThumbnail *BKE_main_thumbnail_from_imbuf(struct Main *bmain, struct ImBuf *img);
 struct ImBuf *BKE_main_thumbnail_to_imbuf(struct Main *bmain, struct BlendThumbnail *data);

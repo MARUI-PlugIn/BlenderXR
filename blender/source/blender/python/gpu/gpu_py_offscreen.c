@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -16,12 +14,9 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
  * Copyright 2015, Blender Foundation.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/python/gpu/gpu_py_offscreen.c
- *  \ingroup bpygpu
+/** \file \ingroup bpygpu
  *
  * This file defines the offscreen functionalities of the 'gpu' module
  * used for off-screen OpenGL rendering.
@@ -36,7 +31,6 @@
 
 #include "BLI_utildefines.h"
 
-#include "BKE_global.h"
 #include "BKE_library.h"
 #include "BKE_scene.h"
 
@@ -53,6 +47,7 @@
 
 #include "../generic/py_capi_utils.h"
 
+#include "gpu_py_api.h"
 #include "gpu_py_offscreen.h" /* own include */
 
 
@@ -80,13 +75,14 @@ static int bpygpu_offscreen_valid_check(BPyGPUOffScreen *bpygpu_ofs)
 
 
 /* -------------------------------------------------------------------- */
-
 /** \name GPUOffscreen Type
  * \{ */
 
 
 static PyObject *bpygpu_offscreen_new(PyTypeObject *UNUSED(self), PyObject *args, PyObject *kwds)
 {
+	BPYGPU_IS_INIT_OR_ERROR_OBJ;
+
 	GPUOffScreen *ofs;
 	int width, height, samples = 0;
 	char err_out[256];
@@ -321,7 +317,7 @@ static struct PyMethodDef bpygpu_offscreen_methods[] = {
 	{"free", (PyCFunction)bpygpu_offscreen_free, METH_NOARGS, bpygpu_offscreen_free_doc},
 	{"__enter__", (PyCFunction)bpygpu_offscreen_bind_context_enter, METH_NOARGS},
 	{"__exit__",  (PyCFunction)bpygpu_offscreen_bind_context_exit,  METH_VARARGS},
-	{NULL, NULL, 0, NULL}
+	{NULL, NULL, 0, NULL},
 };
 
 PyDoc_STRVAR(bpygpu_offscreen_doc,
@@ -352,7 +348,6 @@ PyTypeObject BPyGPUOffScreen_Type = {
 
 
 /* -------------------------------------------------------------------- */
-
 /** \name Public API
  * \{ */
 

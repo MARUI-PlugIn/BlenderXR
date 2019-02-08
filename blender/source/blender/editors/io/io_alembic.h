@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,12 @@
  *
  * The Original Code is Copyright (C) 2016 Blender Foundation.
  * All rights reserved.
- *
- * ***** END GPL LICENSE BLOCK *****
- *
  */
 
 #ifndef __IO_ALEMBIC_H__
 #define __IO_ALEMBIC_H__
 
-/** \file blender/editors/io/io_alembic.h
- *  \ingroup editor/io
+/** \file \ingroup editor/io
  */
 
 struct wmOperatorType;

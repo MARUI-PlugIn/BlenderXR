@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,10 +12,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Chingiz Dyussenov, Arystanbek Dyussenov, Nathan Letwory.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
 #ifndef __MATERIAL_H__
@@ -40,7 +34,7 @@ extern "C" {
 typedef enum BC_pbr_inputs {
 	BC_PBR_DIFFUSE = 0,
 	BC_PBR_METALLIC = 4,
-	BC_PBR_IOR = 14
+	BC_PBR_IOR = 14,
 } BC_pbr_inputs;
 
 typedef std::map<std::string, bNode *> NodeMap;

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,14 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Joseph Eagar.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/bmesh/operators/bmo_extrude.c
- *  \ingroup bmesh
+/** \file \ingroup bmesh
  *
  * Extrude faces and solidify.
  */
@@ -44,7 +37,7 @@
 enum {
 	EXT_INPUT   = 1,
 	EXT_KEEP    = 2,
-	EXT_DEL     = 4
+	EXT_DEL     = 4,
 };
 
 #define VERT_MARK 1
@@ -339,6 +332,7 @@ void bmo_extrude_face_region_exec(BMesh *bm, BMOperator *op)
 	BMOpSlot *slot_facemap_out;
 	BMOpSlot *slot_edges_exclude;
 	const bool use_normal_flip = BMO_slot_bool_get(op->slots_in, "use_normal_flip");
+	const bool use_normal_from_adjacent = BMO_slot_bool_get(op->slots_in, "use_normal_from_adjacent");
 
 	/* initialize our sub-operators */
 	BMO_op_initf(
@@ -489,13 +483,22 @@ void bmo_extrude_face_region_exec(BMesh *bm, BMOperator *op)
 			continue;
 		}
 
-		/* orient loop to give same normal as a loop of newedge
-		 * if it exists (will be an extruded face),
-		 * else same normal as a loop of e, if it exists */
-		const bool edge_normal_flip = !(
-		        e_new->l ?
-		        (e_new->l->v == e_new->v1) :
-		        (!e->l || !(e->l->v == e->v1)));
+		bool edge_normal_flip;
+		if (use_normal_from_adjacent == false) {
+			/* Orient loop to give same normal as a loop of 'e_new'
+			 * if it exists (will be one of the faces from the region),
+			 * else same normal as a loop of e, if it exists. */
+			edge_normal_flip = !(
+			        e_new->l ?
+			        (e_new->l->v == e_new->v1) :
+			        (!e->l || !(e->l->v == e->v1)));
+		}
+		else {
+			/* Special case, needed for repetitive extrusions
+			 * that use the normals from the previously created faces. */
+			edge_normal_flip = !(e->l && e->v1 != e->l->v);
+		}
+
 		if (edge_normal_flip == use_normal_flip) {
 			f_verts[0] = e->v1;
 			f_verts[1] = e->v2;

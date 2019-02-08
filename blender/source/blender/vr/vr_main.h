@@ -37,6 +37,9 @@ extern "C"
 
 #define VR_MAX_CONTROLLERS 3 /* Maximum number of controllers that can be simultaneously supported. */
 
+#define VR_CLIP_NEAR 0.0001f	/* Default near clip plane for the VR viewport (eye) cameras. */
+#define VR_CLIP_FAR	10000.0f	/* Default far clip plane for the VR viewport (eye) cameras. */
+
 typedef enum VR_Space
 {
 	VR_SPACE_REAL		= 0	/* Real-world coordinates, units are meters, origin is dependent on VR device set-up (usually on the floor). */
@@ -130,6 +133,9 @@ typedef struct VR {
 	float aperture_u;	/* The aperture of the texture(0~u) that contains the rendering. */
 	float aperture_v;	/* The aperture of the texture(0~v) that contains the rendering. */
 
+	float clip_sta;	/* Near clip plane. */
+	float clip_end;	/* Far clip plane. */
+
 	float t_hmd[VR_SPACES][4][4];	/* Last tracked position of the HMD. */
 	float t_hmd_inv[VR_SPACES][4][4];	/* Inverses of t_hmd. */
 	float t_eye[VR_SPACES][VR_SIDES][4][4];	/* Last tracked position of the eyes. */
@@ -177,10 +183,11 @@ struct rcti;
 
 void vr_update_viewport_bounds(const struct rcti *bounds);	/* Update viewport (window) bounds for the VR module. */
 
+struct View3D;
 struct CameraParams;
 
 /* Utility functions. */
-void vr_compute_viewplane(int side, struct CameraParams *params, int winx, int winy);	/* Compute the VR camera viewplane. */
+void vr_compute_viewplane(const struct View3D *v3d,  struct CameraParams *params, int winx, int winy);	/* Compute the VR camera viewplane. */
 void vr_compute_viewmat(int side, float viewmat_out[4][4]);	/* Compute the VR camera viewmat. */
 
 #ifdef __cplusplus

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,14 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Chingiz Dyussenov, Arystanbek Dyussenov, Nathan Letwory.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file collada_utils.h
- *  \ingroup collada
+/** \file \ingroup collada
  */
 
 #ifndef __COLLADA_UTILS_H__
@@ -180,11 +173,13 @@ inline bool bc_startswith(std::string const & value, std::string const & startin
 	return (value.substr(0, starting.size()) == starting);
 }
 
+#if 0  /* UNUSED */
 inline bool bc_endswith(std::string const & value, std::string const & ending)
 {
 	if (ending.size() > value.size()) return false;
 	return std::equal(ending.rbegin(), ending.rend(), value.rbegin());
 }
+#endif
 
 extern std::string bc_replace_string(std::string data, const std::string& pattern, const std::string& replacement);
 extern std::string bc_url_encode(std::string data);

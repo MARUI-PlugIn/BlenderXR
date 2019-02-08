@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,21 +12,14 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Campbell Barton
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/space_view3d/view3d_camera_control.c
- *  \ingroup spview3d
+/** \file \ingroup spview3d
  *
  * The purpose of View3DCameraControl is to allow editing \a rv3d manipulation
  * (mainly \a ofs and \a viewquat) for the purpose of view navigation
  * without having to worry about positioning the camera, its parent...
  * or other details.
- *
- *
  * Typical view-control usage:
  *
  * - acquire a view-control (#ED_view3d_cameracontrol_acquire).
@@ -54,7 +45,6 @@
 #include "BLI_utildefines.h"
 
 #include "BKE_object.h"
-#include "BKE_context.h"
 
 #include "DEG_depsgraph.h"
 
@@ -94,20 +84,24 @@ typedef struct View3DCameraControl {
 	Object *root_parent;
 
 	/* backup values */
-	float dist_backup; /* backup the views distance since we use a zero dist for fly mode */
-	float ofs_backup[3]; /* backup the views offset in case the user cancels flying in non camera mode */
+	float dist_backup;
+	/* backup the views distance since we use a zero dist for fly mode */
+	float ofs_backup[3];
+	/* backup the views offset in case the user cancels flying in non camera mode */
 
 	/* backup the views quat in case the user cancels flying in non camera mode.
 	 * (quat for view, eul for camera) */
 	float rot_backup[4];
-	char persp_backup;  /* remember if were ortho or not, only used for restoring the view if it was a ortho view */
+	/* remember if were ortho or not, only used for restoring the view if it was a ortho view */
+	char persp_backup;
 
 	/* are we flying an ortho camera in perspective view,
 	 * which was originally in ortho view?
 	 * could probably figure it out but better be explicit */
 	bool is_ortho_cam;
 
-	void *obtfm; /* backup the objects transform */
+	/* backup the objects transform */
+	void *obtfm;
 } View3DCameraControl;
 
 
@@ -185,8 +179,10 @@ struct View3DCameraControl *ED_view3d_cameracontrol_acquire(
 	}
 	else {
 		/* perspective or ortho */
-		if (rv3d->persp == RV3D_ORTHO)
-			rv3d->persp = RV3D_PERSP;  /* if ortho projection, make perspective */
+		if (rv3d->persp == RV3D_ORTHO) {
+			/* if ortho projection, make perspective */
+			rv3d->persp = RV3D_PERSP;
+		}
 
 		copy_qt_qt(vctrl->rot_backup, rv3d->viewquat);
 		copy_v3_v3(vctrl->ofs_backup, rv3d->ofs);
@@ -217,7 +213,8 @@ void ED_view3d_cameracontrol_update(
         const bool use_autokey,
         struct bContext *C, const bool do_rotate, const bool do_translate)
 {
-	/* we are in camera view so apply the view ofs and quat to the view matrix and set the camera to the view */
+	/* we are in camera view so apply the view ofs and quat to the view matrix and set the camera
+	 * to the view */
 
 	Scene *scene       = vctrl->ctx_scene;
 	View3D *v3d        = vctrl->ctx_v3d;
@@ -303,7 +300,8 @@ void ED_view3d_cameracontrol_release(
 			DEG_id_tag_update(&ob_back->id, ID_RECALC_TRANSFORM);
 		}
 		else {
-			/* Non Camera we need to reset the view back to the original location because the user canceled*/
+			/* Non Camera we need to reset the view back
+			 * to the original location because the user canceled. */
 			copy_qt_qt(rv3d->viewquat, vctrl->rot_backup);
 			rv3d->persp = vctrl->persp_backup;
 		}

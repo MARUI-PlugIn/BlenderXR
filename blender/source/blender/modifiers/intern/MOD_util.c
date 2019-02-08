@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2005 Blender Foundation.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): Ben Batt
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/modifiers/intern/MOD_util.c
- *  \ingroup modifiers
+/** \file \ingroup modifiers
  */
 
 
@@ -194,12 +185,8 @@ Mesh *MOD_deform_mesh_eval_get(
 			Mesh *mesh_prior_modifiers = BKE_object_get_pre_modified_mesh(ob);
 			BKE_id_copy_ex(
 			        NULL, &mesh_prior_modifiers->id, (ID **)&mesh,
-			        (LIB_ID_CREATE_NO_MAIN |
-			         LIB_ID_CREATE_NO_USER_REFCOUNT |
-			         LIB_ID_CREATE_NO_DEG_TAG |
-			         LIB_ID_COPY_NO_PREVIEW |
-			         LIB_ID_COPY_CD_REFERENCE),
-			        false);
+			        (LIB_ID_COPY_LOCALIZE |
+			         LIB_ID_COPY_CD_REFERENCE));
 			mesh->runtime.deformed_only = 1;
 		}
 

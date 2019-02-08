@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,12 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file source/blender/freestyle/intern/python/Interface1D/Curve/BPy_Chain.cpp
- *  \ingroup freestyle
+/** \file \ingroup freestyle
  */
 
 #include "BPy_Chain.h"
@@ -147,7 +142,7 @@ static PyMethodDef BPy_Chain_methods[] = {
 	                       Chain_push_viewedge_back_doc},
 	{"push_viewedge_front", (PyCFunction)Chain_push_viewedge_front, METH_VARARGS | METH_KEYWORDS,
 	                        Chain_push_viewedge_front_doc},
-	{NULL, NULL, 0, NULL}
+	{NULL, NULL, 0, NULL},
 };
 
 /*-----------------------BPy_Chain type definition ------------------------------*/

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,14 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Blender Foundation (2009)
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/makesrna/intern/rna_render.c
- *  \ingroup RNA
+/** \file \ingroup RNA
  */
 
 #include <stdlib.h>
@@ -52,15 +45,10 @@
 const EnumPropertyItem rna_enum_render_pass_type_items[] = {
 	{SCE_PASS_COMBINED, "COMBINED", 0, "Combined", ""},
 	{SCE_PASS_Z, "Z", 0, "Z", ""},
-	{SCE_PASS_RGBA, "COLOR", 0, "Color", ""},
-	{SCE_PASS_DIFFUSE, "DIFFUSE", 0, "Diffuse", ""},
-	{SCE_PASS_SPEC, "SPECULAR", 0, "Specular", ""},
 	{SCE_PASS_SHADOW, "SHADOW", 0, "Shadow", ""},
 	{SCE_PASS_AO, "AO", 0, "Ambient Occlusion", ""},
-	{SCE_PASS_REFLECT, "REFLECTION", 0, "Reflection", ""},
 	{SCE_PASS_NORMAL, "NORMAL", 0, "Normal", ""},
 	{SCE_PASS_VECTOR, "VECTOR", 0, "Vector", ""},
-	{SCE_PASS_REFRACT, "REFRACTION", 0, "Refraction", ""},
 	{SCE_PASS_INDEXOB, "OBJECT_INDEX", 0, "Object Index", ""},
 	{SCE_PASS_UV, "UV", 0, "UV", ""},
 	{SCE_PASS_MIST, "MIST", 0, "Mist", ""},
@@ -82,7 +70,7 @@ const EnumPropertyItem rna_enum_render_pass_type_items[] = {
 #ifdef WITH_CYCLES_DEBUG
 	{SCE_PASS_DEBUG, "DEBUG", 0, "Pass used for render engine debugging", ""},
 #endif
-	{0, NULL, 0, NULL, NULL}
+	{0, NULL, 0, NULL, NULL},
 };
 
 const EnumPropertyItem rna_enum_bake_pass_type_items[] = {
@@ -98,7 +86,7 @@ const EnumPropertyItem rna_enum_bake_pass_type_items[] = {
 	{SCE_PASS_GLOSSY_COLOR, "GLOSSY", 0, "Glossy", ""},
 	{SCE_PASS_TRANSM_COLOR, "TRANSMISSION", 0, "Transmission", ""},
 	{SCE_PASS_SUBSURFACE_COLOR, "SUBSURFACE", 0, "Subsurface", ""},
-	{0, NULL, 0, NULL, NULL}
+	{0, NULL, 0, NULL, NULL},
 };
 
 #ifdef RNA_RUNTIME
@@ -472,7 +460,7 @@ static void rna_def_render_engine(BlenderRNA *brna)
 	        {SOCK_FLOAT,   "VALUE",     0,    "Value",     ""},
 	        {SOCK_VECTOR,  "VECTOR",    0,    "Vector",    ""},
 	        {SOCK_RGBA,    "COLOR",     0,    "Color",     ""},
-	        {0, NULL, 0, NULL, NULL}
+	        {0, NULL, 0, NULL, NULL},
 	};
 
 	srna = RNA_def_struct(brna, "RenderEngine", NULL);
@@ -911,7 +899,7 @@ static void rna_def_render_layer(BlenderRNA *brna)
 
 	RNA_define_verify_sdna(0);
 
-	rna_def_view_layer_common(srna, 0);
+	rna_def_view_layer_common(srna, false);
 
 	prop = RNA_def_property(srna, "passes", PROP_COLLECTION, PROP_NONE);
 	RNA_def_property_struct_type(prop, "RenderPass");

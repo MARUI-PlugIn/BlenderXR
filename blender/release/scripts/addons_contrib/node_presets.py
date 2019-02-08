@@ -21,7 +21,7 @@ bl_info = {
     "description": "Useful and time-saving tools for rendering workflow",
     "author": "Campbell Barton",
     "version": (1, 1),
-    "blender": (2, 69),
+    "blender": (2, 69, 0),
     "location": "Node > Add Template",
     "description": "Adds node presets",
     "warning": "",
@@ -106,8 +106,8 @@ def node_template_add(context, filepath, node_group, ungroup, report):
 # Node Template Prefs
 
 def node_search_path(context):
-    user_preferences = context.user_preferences
-    addon_prefs = user_preferences.addons[__name__].preferences
+    preferences = context.preferences
+    addon_prefs = preferences.addons[__name__].preferences
     dirpath = addon_prefs.search_path
     return dirpath
 
@@ -115,7 +115,7 @@ def node_search_path(context):
 class NodeTemplatePrefs(AddonPreferences):
     bl_idname = __name__
 
-    search_path = StringProperty(
+    search_path: StringProperty(
             name="Directory of blend files with node-groups",
             subtype='DIR_PATH',
             )
@@ -132,10 +132,10 @@ class NODE_OT_template_add(Operator):
     bl_description = "Add node group template"
     bl_options = {'REGISTER', 'UNDO'}
 
-    filepath = StringProperty(
+    filepath: StringProperty(
             subtype='FILE_PATH',
             )
-    group_name = StringProperty(
+    group_name: StringProperty(
             )
 
     def execute(self, context):
@@ -179,7 +179,7 @@ class NODE_MT_template_add(Menu):
 
         dirpath = node_search_path(context)
         if dirpath == "":
-            layout.label("Set search dir in the addon-prefs")
+            layout.label(text="Set search dir in the addon-prefs")
             return
 
         for filepath, group_name in node_template_cache(context):

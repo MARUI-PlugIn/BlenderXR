@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2006 by Nicholas Bishop
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/sculpt_paint/sculpt_intern.h
- *  \ingroup edsculpt
+/** \file \ingroup edsculpt
  */
 
 
@@ -42,11 +33,11 @@
 
 #include "BKE_pbvh.h"
 
-struct bContext;
 struct KeyBlock;
 struct Object;
-struct SculptUndoNode;
 struct SculptOrigVertData;
+struct SculptUndoNode;
+struct bContext;
 
 bool sculpt_mode_poll(struct bContext *C);
 bool sculpt_mode_poll_view3d(struct bContext *C);
@@ -66,7 +57,6 @@ void sculpt_update_after_dynamic_topology_toggle(
 void sculpt_dynamic_topology_enable_ex(
         struct Depsgraph *depsgraph,
         struct Scene *scene, struct Object *ob);
-void sculpt_dynamic_topology_enable(bContext *C);
 
 void sculpt_dynamic_topology_disable_ex(
         struct Depsgraph *depsgraph,

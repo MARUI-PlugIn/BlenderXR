@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,17 +12,16 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenkernel/intern/mesh_remap.c
- *  \ingroup bke
+/** \file \ingroup bke
  *
  * Functions for mapping data between meshes.
  */
 
 #include <limits.h>
+
+#include "CLG_log.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -49,9 +46,9 @@
 
 #include "BLI_strict_flags.h"
 
+static CLG_LogRef LOG = {"bke.mesh"};
 
 /* -------------------------------------------------------------------- */
-
 /** \name Some generic helpers.
  * \{ */
 
@@ -614,7 +611,7 @@ void BKE_mesh_remap_calc_verts_from_mesh(
 			MEM_freeN(weights);
 		}
 		else {
-			printf("WARNING! Unsupported mesh-to-mesh vertex mapping mode (%d)!\n", mode);
+			CLOG_WARN(&LOG, "Unsupported mesh-to-mesh vertex mapping mode (%d)!", mode);
 			memset(r_map->items, 0, sizeof(*r_map->items) * (size_t)numverts_dst);
 		}
 
@@ -941,7 +938,7 @@ void BKE_mesh_remap_calc_edges_from_mesh(
 			MEM_freeN(weights);
 		}
 		else {
-			printf("WARNING! Unsupported mesh-to-mesh edge mapping mode (%d)!\n", mode);
+			CLOG_WARN(&LOG, "Unsupported mesh-to-mesh edge mapping mode (%d)!", mode);
 			memset(r_map->items, 0, sizeof(*r_map->items) * (size_t)numedges_dst);
 		}
 
@@ -2214,7 +2211,7 @@ void BKE_mesh_remap_calc_polys_from_mesh(
 			BLI_rng_free(rng);
 		}
 		else {
-			printf("WARNING! Unsupported mesh-to-mesh poly mapping mode (%d)!\n", mode);
+			CLOG_WARN(&LOG, "Unsupported mesh-to-mesh poly mapping mode (%d)!", mode);
 			memset(r_map->items, 0, sizeof(*r_map->items) * (size_t)numpolys_dst);
 		}
 

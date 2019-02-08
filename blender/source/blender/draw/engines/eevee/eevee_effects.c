@@ -1,6 +1,4 @@
 /*
- * Copyright 2016, Blender Foundation.
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,12 +13,10 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * Contributor(s): Blender Institute
- *
+ * Copyright 2016, Blender Foundation.
  */
 
-/** \file eevee_effects.c
- *  \ingroup draw_engine
+/** \file \ingroup draw_engine
  *
  * Gather all screen space effects technique such as Bloom, Motion Blur, DoF, SSAO, SSR, ...
  */
@@ -28,8 +24,6 @@
 #include "DRW_render.h"
 
 #include "BKE_global.h" /* for G.debug_value */
-
-#include "BLI_string_utils.h"
 
 #include "eevee_private.h"
 #include "GPU_texture.h"
@@ -114,7 +108,7 @@ static void eevee_create_shader_downsample(void)
 }
 
 #define SETUP_BUFFER(tex, fb, fb_color) { \
-	GPUTextureFormat format = (DRW_state_is_scene_render()) ? GPU_RGBA32F : GPU_RGBA16F; \
+	eGPUTextureFormat format = (DRW_state_is_scene_render()) ? GPU_RGBA32F : GPU_RGBA16F; \
 	DRW_texture_ensure_fullscreen_2D(&tex, format, DRW_TEX_FILTER | DRW_TEX_MIPMAP); \
 	GPU_framebuffer_ensure_config(&fb, { \
 		GPU_ATTACHMENT_TEXTURE(dtxl->depth), \

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,14 +15,9 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * Contributor(s): Blender Foundation, 2002-2009 full recode.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/armature/pose_select.c
- *  \ingroup edarmature
+/** \file \ingroup edarmature
  */
 
 #include <string.h>
@@ -107,8 +100,7 @@ void ED_pose_bone_select_tag_update(Object *ob)
 		DEG_id_tag_update(&ob->id, ID_RECALC_GEOMETRY);
 	}
 
-	/* copy on write tag is needed (for the armature), or else no refresh happens */
-	DEG_id_tag_update(&arm->id, ID_RECALC_COPY_ON_WRITE);
+	DEG_id_tag_update(&arm->id, ID_RECALC_SELECT);
 }
 
 
@@ -239,7 +231,8 @@ bool ED_armature_pose_select_pick_with_buffer(
 }
 
 /* 'select_mode' is usual SEL_SELECT/SEL_DESELECT/SEL_TOGGLE/SEL_INVERT.
- * When true, 'ignore_visibility' makes this func also affect invisible bones (hidden or on hidden layers). */
+ * When true, 'ignore_visibility' makes this func also affect invisible bones
+ * (hidden or on hidden layers). */
 bool ED_pose_deselect_all(Object *ob, int select_mode, const bool ignore_visibility)
 {
 	bArmature *arm = ob->data;
@@ -643,7 +636,7 @@ void POSE_OT_select_hierarchy(wmOperatorType *ot)
 	static const EnumPropertyItem direction_items[] = {
 		{BONE_SELECT_PARENT, "PARENT", 0, "Select Parent", ""},
 		{BONE_SELECT_CHILD, "CHILD", 0, "Select Child", ""},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	/* identifiers */
@@ -988,7 +981,7 @@ void POSE_OT_select_grouped(wmOperatorType *ot)
 		{POSE_SEL_SAME_LAYER, "LAYER", 0, "Layer", "Shared layers"},
 		{POSE_SEL_SAME_GROUP, "GROUP", 0, "Group", "Shared group"},
 		{POSE_SEL_SAME_KEYINGSET, "KEYINGSET", 0, "Keying Set", "All bones affected by active Keying Set"},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	/* identifiers */

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,23 +12,18 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Joseph Eagar, Campbell Barton
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/python/generic/idprop_py_api.h
- *  \ingroup pygen
+/** \file \ingroup pygen
  */
 
 
 #ifndef __IDPROP_PY_API_H__
 #define __IDPROP_PY_API_H__
 
+struct BPy_IDGroup_Iter;
 struct ID;
 struct IDProperty;
-struct BPy_IDGroup_Iter;
 
 extern PyTypeObject BPy_IDArray_Type;
 extern PyTypeObject BPy_IDGroup_Iter_Type;

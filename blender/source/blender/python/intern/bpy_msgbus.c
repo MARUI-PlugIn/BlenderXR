@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,12 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/python/intern/bpy_msgbus.c
- *  \ingroup pythonintern
+/** \file \ingroup pythonintern
  * This file defines '_bpy_msgbus' module, exposed as 'bpy.msgbus'.
  */
 
@@ -241,7 +236,7 @@ static PyObject *bpy_msgbus_subscribe_rna(PyObject *UNUSED(self), PyObject *args
 	PyObject *py_options = NULL;
 	EnumPropertyItem py_options_enum[] = {
 		{IS_PERSISTENT, "PERSISTENT", 0, ""},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 	int options = 0;
 
@@ -253,7 +248,7 @@ static PyObject *bpy_msgbus_subscribe_rna(PyObject *UNUSED(self), PyObject *args
 		"options",
 		NULL,
 	};
-	static _PyArg_Parser _parser = {"$OOO!OO!:subscribe_rna", _keywords, 0};
+	static _PyArg_Parser _parser = {"$OOO!O|O!:subscribe_rna", _keywords, 0};
 	if (!_PyArg_ParseTupleAndKeywordsFast(
 	        args, kw, &_parser,
 	        &py_sub, &py_owner,
@@ -377,7 +372,7 @@ static struct PyMethodDef BPy_msgbus_methods[] = {
 	{"subscribe_rna", (PyCFunction)bpy_msgbus_subscribe_rna, METH_VARARGS | METH_KEYWORDS, bpy_msgbus_subscribe_rna_doc},
 	{"publish_rna", (PyCFunction)bpy_msgbus_publish_rna, METH_VARARGS | METH_KEYWORDS, bpy_msgbus_publish_rna_doc},
 	{"clear_by_owner", (PyCFunction)bpy_msgbus_clear_by_owner, METH_O, bpy_msgbus_clear_by_owner_doc},
-	{NULL, NULL, 0, NULL}
+	{NULL, NULL, 0, NULL},
 };
 
 static struct PyModuleDef _bpy_msgbus_def = {

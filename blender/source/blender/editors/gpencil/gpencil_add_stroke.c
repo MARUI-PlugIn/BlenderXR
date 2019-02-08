@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,17 +15,11 @@
  *
  * The Original Code is Copyright (C) 2017 Blender Foundation
  * This is a new part of Blender
- *
- * Contributor(s): Antonio Vazquez, Matias Mendiola
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/gpencil/gpencil_add_stroke.c
- *  \ingroup edgpencil
+/** \file \ingroup edgpencil
  */
 
-#include "BLI_blenlib.h"
 #include "BLI_math.h"
 #include "BLI_utildefines.h"
 
@@ -213,10 +205,9 @@ static const ColorTemplate gp_stroke_material_grey = {
 /* Stroke API */
 
 /* add a Simple stroke with colors (original design created by Daniel M. Lara and Matias Mendiola) */
-void ED_gpencil_create_stroke(bContext *C, float mat[4][4])
+void ED_gpencil_create_stroke(bContext *C, Object *ob, float mat[4][4])
 {
 	Main *bmain = CTX_data_main(C);
-	Object *ob = CTX_data_active_object(C);
 	Depsgraph *depsgraph = CTX_data_depsgraph(C);
 	int cfra_eval = (int)DEG_get_ctime(depsgraph);
 	bGPdata *gpd = (bGPdata *)ob->data;

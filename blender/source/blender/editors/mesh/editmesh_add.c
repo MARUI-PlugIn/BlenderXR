@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2004 by Blender Foundation.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): Joseph Eagar
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/mesh/editmesh_add.c
- *  \ingroup edmesh
+/** \file \ingroup edmesh
  */
 
 #include "DNA_meshdata_types.h"
@@ -69,14 +60,15 @@ static Object *make_prim_init(
         const float loc[3], const float rot[3], ushort local_view_bits,
         MakePrimitiveData *r_creation_data)
 {
+	struct Main *bmain = CTX_data_main(C);
+	Scene *scene = CTX_data_scene(C);
 	Object *obedit = CTX_data_edit_object(C);
 
 	r_creation_data->was_editmode = false;
 	if (obedit == NULL || obedit->type != OB_MESH) {
 		obedit = ED_object_add_type(C, OB_MESH, idname, loc, rot, false, local_view_bits);
+		ED_object_editmode_enter_ex(bmain, scene, obedit, 0);
 
-		/* create editmode */
-		ED_object_editmode_enter(C, EM_IGNORE_LAYER); /* rare cases the active layer is messed up */
 		r_creation_data->was_editmode = true;
 	}
 
@@ -215,7 +207,8 @@ static const EnumPropertyItem fill_type_items[] = {
 	{0, "NOTHING", 0, "Nothing", "Don't fill at all"},
 	{1, "NGON", 0, "Ngon", "Use ngons"},
 	{2, "TRIFAN", 0, "Triangle Fan", "Use triangle fans"},
-	{0, NULL, 0, NULL, NULL}};
+	{0, NULL, 0, NULL, NULL},
+};
 
 static int add_primitive_circle_exec(bContext *C, wmOperator *op)
 {

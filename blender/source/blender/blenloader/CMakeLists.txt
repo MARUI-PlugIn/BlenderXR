@@ -16,11 +16,6 @@
 #
 # The Original Code is Copyright (C) 2006, Blender Foundation
 # All rights reserved.
-#
-# The Original Code is: all of this file.
-#
-# Contributor(s): Jacques Beaurain.
-#
 # ***** END GPL LICENSE BLOCK *****
 
 set(INC
@@ -64,6 +59,7 @@ set(SRC
 	intern/writefile.c
 
 	BLO_blend_defs.h
+	BLO_blend_validate.h
 	BLO_readfile.h
 	BLO_undofile.h
 	BLO_writefile.h

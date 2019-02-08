@@ -286,6 +286,7 @@ NODE_DEFINE(Film)
 
 	SOCKET_BOOLEAN(denoising_data_pass,  "Generate Denoising Data Pass",  false);
 	SOCKET_BOOLEAN(denoising_clean_pass, "Generate Denoising Clean Pass", false);
+	SOCKET_BOOLEAN(denoising_prefiltered_pass, "Generate Denoising Prefiltered Pass", false);
 	SOCKET_INT(denoising_flags, "Denoising Flags", 0);
 
 	return type;
@@ -328,8 +329,17 @@ void Film::device_update(Device *device, DeviceScene *dscene, Scene *scene)
 	for(size_t i = 0; i < passes.size(); i++) {
 		Pass& pass = passes[i];
 
-		if(pass.type == PASS_NONE)
+		if(pass.type == PASS_NONE) {
 			continue;
+		}
+
+		/* Can't do motion pass if no motion vectors are available. */
+		if (pass.type == PASS_MOTION || pass.type == PASS_MOTION_WEIGHT) {
+			if (scene->need_motion() != Scene::MOTION_PASS) {
+				kfilm->pass_stride += pass.components;
+				continue;
+			}
+		}
 
 		int pass_flag = (1 << (pass.type % 32));
 		if(pass.type <= PASS_CATEGORY_MAIN_END) {
@@ -468,6 +478,9 @@ void Film::device_update(Device *device, DeviceScene *dscene, Scene *scene)
 			kfilm->pass_denoising_clean = kfilm->pass_stride;
 			kfilm->pass_stride += DENOISING_PASS_SIZE_CLEAN;
 			kfilm->use_light_pass = 1;
+		}
+		if(denoising_prefiltered_pass) {
+			kfilm->pass_stride += DENOISING_PASS_SIZE_PREFILTERED;
 		}
 	}
 

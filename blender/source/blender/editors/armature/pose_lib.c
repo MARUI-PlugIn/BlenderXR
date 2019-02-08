@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,14 +15,9 @@
  *
  * The Original Code is Copyright (C) 2007, Blender Foundation
  * This is a new part of Blender
- *
- * Contributor(s): Joshua Leung
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/armature/pose_lib.c
- *  \ingroup edarmature
+/** \file \ingroup edarmature
  */
 
 #include <string.h>
@@ -46,7 +39,6 @@
 #include "BKE_action.h"
 #include "BKE_animsys.h"
 #include "BKE_armature.h"
-#include "BKE_global.h"
 #include "BKE_idprop.h"
 #include "BKE_library.h"
 #include "BKE_main.h"
@@ -498,7 +490,10 @@ static int poselib_add_exec(bContext *C, wmOperator *op)
 	BLI_uniquename(&act->markers, marker, DATA_("Pose"), '.', offsetof(TimeMarker, name), sizeof(marker->name));
 
 	/* use Keying Set to determine what to store for the pose */
-	ks = ANIM_builtin_keyingset_get_named(NULL, ANIM_KS_WHOLE_CHARACTER_SELECTED_ID); /* this includes custom props :)*/
+
+	/* this includes custom props :)*/
+	ks = ANIM_builtin_keyingset_get_named(NULL, ANIM_KS_WHOLE_CHARACTER_SELECTED_ID);
+
 	ANIM_apply_keyingset(C, NULL, act, ks, MODIFYKEY_MODE_INSERT, (float)frame);
 
 	/* store new 'active' pose number */
@@ -730,7 +725,8 @@ void POSELIB_OT_pose_rename(wmOperatorType *ot)
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
 	/* properties */
-	/* NOTE: name not pose is the operator's "main" property, so that it will get activated in the popup for easy renaming */
+	/* NOTE: name not pose is the operator's "main" property,
+	 * so that it will get activated in the popup for easy renaming */
 	ot->prop = RNA_def_string(ot->srna, "name", "RenamedPose", 64, "New Pose Name", "New name for pose");
 	prop = RNA_def_enum(ot->srna, "pose", DummyRNA_NULL_items, 0, "Pose", "The pose to rename");
 	RNA_def_enum_funcs(prop, poselib_stored_pose_itemf);
@@ -792,7 +788,7 @@ void POSELIB_OT_pose_move(wmOperatorType *ot)
 	static const EnumPropertyItem pose_lib_pose_move[] = {
 		{-1, "UP", 0, "Up", ""},
 		{1, "DOWN", 0, "Down", ""},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	/* identifiers */
@@ -825,30 +821,49 @@ void POSELIB_OT_pose_move(wmOperatorType *ot)
 
 /* Simple struct for storing settings/data for use during PoseLib preview */
 typedef struct tPoseLib_PreviewData {
-	ListBase backups;       /* tPoseLib_Backup structs for restoring poses */
-	ListBase searchp;       /* LinkData structs storing list of poses which match the current search-string */
+	/** tPoseLib_Backup structs for restoring poses. */
+	ListBase backups;
+	/** LinkData structs storing list of poses which match the current search-string. */
+	ListBase searchp;
 
-	Scene *scene;           /* active scene */
-	ScrArea *sa;            /* active area */
+	/** active scene. */
+	Scene *scene;
+	/** active area. */
+	ScrArea *sa;
 
-	PointerRNA rna_ptr;     /* RNA-Pointer to Object 'ob' */
-	Object *ob;             /* object to work on */
-	bArmature *arm;         /* object's armature data */
-	bPose *pose;            /* object's pose */
-	bAction *act;           /* poselib to use */
-	TimeMarker *marker;     /* 'active' pose */
+	/** RNA-Pointer to Object 'ob' .*/
+	PointerRNA rna_ptr;
+	/** object to work on. */
+	Object *ob;
+	/** object's armature data. */
+	bArmature *arm;
+	/** object's pose. */
+	bPose *pose;
+	/** poselib to use. */
+	bAction *act;
+	/** 'active' pose. */
+	TimeMarker *marker;
 
-	int totcount;           /* total number of elements to work on */
+	/** total number of elements to work on. */
+	int totcount;
 
-	short state;            /* state of main loop */
-	short redraw;           /* redraw/update settings during main loop */
-	short flag;             /* flags for various settings */
+	/** state of main loop. */
+	short state;
+	/** redraw/update settings during main loop. */
+	short redraw;
+	/** flags for various settings. */
+	short flag;
 
-	short search_cursor;    /* position of cursor in searchstr (cursor occurs before the item at the nominated index) */
-	char searchstr[64];     /* (Part of) Name to search for to filter poses that get shown */
-	char searchold[64];     /* Previously set searchstr (from last loop run), so that we can detected when to rebuild searchp */
+	/** position of cursor in searchstr (cursor occurs before the item at the nominated index) */
+	short search_cursor;
+	/** (Part of) Name to search for to filter poses that get shown. */
+	char searchstr[64];
+	/** Previously set searchstr (from last loop run),
+	 * so that we can detected when to rebuild searchp. */
+	char searchold[64];
 
-	char headerstr[UI_MAX_DRAW_STR];    /* Info-text to print in header */
+	/** Info-text to print in header. */
+	char headerstr[UI_MAX_DRAW_STR];
 } tPoseLib_PreviewData;
 
 /* defines for tPoseLib_PreviewData->state values */
@@ -857,7 +872,7 @@ enum {
 	PL_PREVIEW_RUNNING,
 	PL_PREVIEW_CONFIRM,
 	PL_PREVIEW_CANCEL,
-	PL_PREVIEW_RUNONCE
+	PL_PREVIEW_RUNONCE,
 };
 
 /* defines for tPoseLib_PreviewData->redraw values */
@@ -944,7 +959,8 @@ static void poselib_backup_restore(tPoseLib_PreviewData *pld)
 		if (plb->oldprops)
 			IDP_SyncGroupValues(plb->pchan->prop, plb->oldprops);
 
-		/* TODO: constraints settings aren't restored yet, even though these could change (though not that likely) */
+		/* TODO: constraints settings aren't restored yet,
+		 * even though these could change (though not that likely) */
 	}
 }
 
@@ -1766,7 +1782,11 @@ void POSELIB_OT_browse_interactive(wmOperatorType *ot)
 
 	// XXX: percentage vs factor?
 	/* not used yet */
-	/* RNA_def_float_factor(ot->srna, "blend_factor", 1.0f, 0.0f, 1.0f, "Blend Factor", "Amount that the pose is applied on top of the existing poses", 0.0f, 1.0f); */
+#if 0
+	RNA_def_float_factor(
+	        ot->srna, "blend_factor", 1.0f, 0.0f, 1.0f, "Blend Factor",
+	        "Amount that the pose is applied on top of the existing poses", 0.0f, 1.0f);
+#endif
 }
 
 void POSELIB_OT_apply_pose(wmOperatorType *ot)

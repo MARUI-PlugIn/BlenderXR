@@ -55,6 +55,10 @@
 #include <GL/glxew.h>
 #endif
 
+#ifdef __APPLE__
+#include <libproc.h>
+#endif
+
 #include "vr_api.h"
 
 #ifndef WIN32
@@ -154,6 +158,17 @@ static int vr_load_dll_functions(void)
 			if (len != -1) {
 				/* Replace the "blender" tail */
 				sprintf(&path[len-7], "libBlenderXR_SteamVR.so");
+				vr_dll = dlopen(path, RTLD_NOW | RTLD_LOCAL);
+			}
+			#elif defined __APPLE__
+			static char proc_path[PROC_PIDPATHINFO_MAXSIZE];
+			static char path[PATH_MAX];
+			memset(path, 0, sizeof(path));
+			pid_t pid = getpid();
+			int len = proc_pidpath(pid, path, PATH_MAX);
+			if (len > 0) {
+				/* Replace the "blender.app/Contents/MacOS/blender" tail */
+				sprintf(&path[len-34], "libBlenderXR_SteamVR.dylib");
 				vr_dll = dlopen(path, RTLD_NOW | RTLD_LOCAL);
 			}
 			#endif
@@ -343,7 +358,11 @@ int vr_init(bContext *C)
 		error = vr_dll_init_vr((void*)device, (void*)context);
 #else
 		if (vr.type == VR_TYPE_STEAM) {
+#ifdef __APPLE__
+			Display* display = NULL;
+#else
 			Display* display = glXGetCurrentDisplay();
+#endif
 			GLXDrawable drawable = glXGetCurrentDrawable();
 			GLXContext context = glXGetCurrentContext();
 			error = vr_dll_init_vr((void*)display, (void*)&drawable, (void*)&context);
@@ -359,6 +378,8 @@ int vr_init(bContext *C)
 			vr_dll_get_default_eye_tex_size(&vr.tex_width, &vr.tex_height, 0);
 			vr.aperture_u = 1.0f;
 			vr.aperture_v = 1.0f;
+			vr.clip_sta = VR_CLIP_NEAR;
+			vr.clip_end = VR_CLIP_FAR;
 			vr_dll_get_eye_positions(vr.t_eye[VR_SPACE_REAL]);
 			vr_dll_get_hmd_position(vr.t_hmd[VR_SPACE_REAL]);
 			vr_dll_get_controller_positions(vr.t_controller[VR_SPACE_REAL]);
@@ -394,7 +415,11 @@ int vr_init_ui(void)
 	error = vr_api_init_ui((void*)device, (void*)context);
 #else
 	if (vr.type == VR_TYPE_STEAM) {
+#ifdef __APPLE__
+		Display* display = NULL;
+#else
 		Display* display = glXGetCurrentDisplay();
+#endif
 		GLXDrawable drawable = glXGetCurrentDrawable();
 		GLXContext context = glXGetCurrentContext();
 		error = vr_api_init_ui((void*)display, (void*)&drawable, (void*)&context);
@@ -637,16 +662,18 @@ void vr_update_viewport_bounds(const rcti *bounds)
 	vr_api_update_viewport_bounds(bounds);
 }
 
-void vr_compute_viewplane(int side, CameraParams *params, int winx, int winy)
+void vr_compute_viewplane(const View3D *v3d, CameraParams *params, int winx, int winy)
 {
 	BLI_assert(vr.initialized);
 	BLI_assert(params);
 
+	int side = v3d->multiview_eye;
 	rctf viewplane;
 	float xasp, yasp, pixsize, viewfac, sensor_size, dx, dy;
 
-	params->clipsta = 0.0001f;
-	params->clipend = 10000.0f;
+	// float navscale = vr_api_get_navigation_scale();
+	params->clipsta = vr.clip_sta; //  * navscale;
+	params->clipend = vr.clip_end; //  * navscale;
 	//params->zoom = 2.0f;
 
 	xasp = vr.aperture_u;
@@ -725,6 +752,39 @@ void vr_compute_viewplane(int side, CameraParams *params, int winx, int winy)
 	params->viewdx = pixsize;
 	params->viewdy = params->ycor * pixsize;
 	params->viewplane = viewplane;
+
+#if 0 /* Temporarily disabled to avoid possible new issues */
+	/*
+	 * OVERRIDE: due to the navigation, the clipping distance (in Blender coordinates) may change between frames.
+	 * Some tools rely on the View3D having the correct clipping distances set, so we have to override this value here.
+	 */
+	{
+		View3D* _v3d = (View3D*) v3d;
+/* Some compilers define near and far as special keywords... */
+#ifdef near
+#undef near
+#endif
+#ifdef far
+#undef far
+#endif
+		_v3d->near = params->clipsta;
+		_v3d->far  = params->clipend;
+		_v3d->lens = params->lens;
+		if (_v3d->camera && _v3d->camera->data) {
+			Camera *cam = (Camera *) v3d->camera->data;
+			/* cam->type = CAM_PERSP; */
+			cam->lens = params->lens;
+			/* cam->ortho_scale = params->ortho_scale; */
+			/* params->shiftx = cam->shiftx; */
+			/* params->shifty = cam->shifty; */
+			/* params->sensor_x = cam->sensor_x; */
+			/* params->sensor_y = cam->sensor_y; */
+			/* params->sensor_fit = cam->sensor_fit; */
+			cam->clipsta = params->clipsta;
+			cam->clipend = params->clipend;
+		}
+	}
+#endif
 }
 
 void vr_compute_viewmat(int side, float viewmat_out[4][4])

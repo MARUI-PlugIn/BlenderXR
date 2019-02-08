@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,17 +15,10 @@
  *
  * The Original Code is Copyright (C) 2008, Blender Foundation
  * This is a new part of Blender
- *
- * Contributor(s): Joshua Leung
- *                 Bastien Montagne
- *
- * ***** END GPL LICENSE BLOCK *****
- *
  * Operator for converting Grease Pencil data to geometry
  */
 
-/** \file blender/editors/gpencil/gpencil_convert.c
- *  \ingroup edgpencil
+/** \file \ingroup edgpencil
  */
 
 
@@ -68,7 +59,6 @@
 #include "BKE_object.h"
 #include "BKE_report.h"
 #include "BKE_scene.h"
-#include "BKE_screen.h"
 #include "BKE_tracking.h"
 
 #include "DEG_depsgraph.h"
@@ -115,7 +105,7 @@ static const EnumPropertyItem prop_gpencil_convertmodes[] = {
 	{GP_STROKECONVERT_PATH, "PATH", ICON_CURVE_PATH, "Path", "Animation path"},
 	{GP_STROKECONVERT_CURVE, "CURVE", ICON_CURVE_BEZCURVE, "Bezier Curve", "Smooth Bezier curve"},
 	{GP_STROKECONVERT_POLY, "POLY", ICON_MESH_DATA, "Polygon Curve", "Bezier curve with straight-line segments (vector handles)"},
-	{0, NULL, 0, NULL, NULL}
+	{0, NULL, 0, NULL, NULL},
 };
 
 static const EnumPropertyItem prop_gpencil_convert_timingmodes_restricted[] = {
@@ -1129,7 +1119,7 @@ static int gp_camera_view_subrect(bContext *C, rctf *subrect)
 		if (rv3d->persp == RV3D_CAMOB) {
 			Scene *scene = CTX_data_scene(C);
 			Depsgraph *depsgraph = CTX_data_depsgraph(C);
-			ED_view3d_calc_camera_border(scene, depsgraph, ar, v3d, rv3d, subrect, true); /* no shift */
+			ED_view3d_calc_camera_border(scene, depsgraph, ar, v3d, rv3d, subrect, true);
 			return 1;
 		}
 	}
@@ -1137,7 +1127,8 @@ static int gp_camera_view_subrect(bContext *C, rctf *subrect)
 	return 0;
 }
 
-/* convert a given grease-pencil layer to a 3d-curve representation (using current view if appropriate) */
+/* convert a given grease-pencil layer to a 3d-curve representation
+ * (using current view if appropriate) */
 static void gp_layer_to_curve(
         bContext *C, ReportList *reports, bGPdata *gpd, bGPDlayer *gpl, const int mode,
         const bool norm_weights, const float rad_fac, const bool link_strokes, tGpTimingData *gtd)
@@ -1179,6 +1170,7 @@ static void gp_layer_to_curve(
 	cu = ob->data = BKE_curve_add(bmain, gpl->info, OB_CURVE);
 	BKE_collection_object_add(bmain, collection, ob);
 	base_new = BKE_view_layer_base_find(view_layer, ob);
+	DEG_relations_tag_update(bmain); /* added object */
 
 	cu->flag |= CU_3D;
 
@@ -1189,7 +1181,8 @@ static void gp_layer_to_curve(
 		const bool add_start_point = (link_strokes && !(prev_gps));
 		const bool add_end_point = (link_strokes && !(gps->next));
 
-		/* Detect new strokes created because of GP_STROKE_BUFFER_MAX reached, and stitch them to previous one. */
+		/* Detect new strokes created because of GP_STROKE_BUFFER_MAX reached,
+		 * and stitch them to previous one. */
 		bool stitch = false;
 		if (prev_gps) {
 			bGPDspoint *pt1 = &prev_gps->points[prev_gps->totpoints - 1];

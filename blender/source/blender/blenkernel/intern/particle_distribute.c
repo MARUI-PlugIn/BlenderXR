@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,18 +15,9 @@
  *
  * The Original Code is Copyright (C) 2007 by Janne Karhu.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): Raul Fernandez Hernandez (Farsthary),
- *                 Stephen Swhitehorn,
- *                 Lukas Toenne
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenkernel/intern/particle_distribute.c
- *  \ingroup bke
+/** \file \ingroup bke
  */
 
 #include <string.h>
@@ -868,13 +857,7 @@ static int psys_thread_context_init_distribute(ParticleThreadContext *ctx, Parti
 				mesh = final_mesh;
 			}
 			else {
-				BKE_id_copy_ex(
-				        NULL, ob->data, (ID **)&mesh,
-				        LIB_ID_CREATE_NO_MAIN |
-				        LIB_ID_CREATE_NO_USER_REFCOUNT |
-				        LIB_ID_CREATE_NO_DEG_TAG |
-				        LIB_ID_COPY_NO_PREVIEW,
-				        false);
+				BKE_id_copy_ex(NULL, ob->data, (ID **)&mesh, LIB_ID_COPY_LOCALIZE);
 			}
 			BKE_mesh_tessface_ensure(mesh);
 
@@ -920,13 +903,7 @@ static int psys_thread_context_init_distribute(ParticleThreadContext *ctx, Parti
 		if (psys->part->use_modifier_stack)
 			mesh = final_mesh;
 		else
-			BKE_id_copy_ex(
-			            NULL, ob->data, (ID **)&mesh,
-			            LIB_ID_CREATE_NO_MAIN |
-			            LIB_ID_CREATE_NO_USER_REFCOUNT |
-			            LIB_ID_CREATE_NO_DEG_TAG |
-			            LIB_ID_COPY_NO_PREVIEW,
-			            false);
+			BKE_id_copy_ex(NULL, ob->data, (ID **)&mesh, LIB_ID_COPY_LOCALIZE);
 
 		BKE_mesh_tessface_ensure(mesh);
 

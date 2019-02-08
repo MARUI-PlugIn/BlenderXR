@@ -138,8 +138,8 @@ def write_mtl(scene, filepath, path_mode, copy_set, mtl_dict):
                                                        path_mode, "", copy_set, image.library)
                     options = []
                     if key == "map_Bump":
-                        if mat_wrap.normalmap_strengh != 1.0:
-                            options.append('-bm %.6f' % mat_wrap.normalmap_strengh)
+                        if mat_wrap.normalmap_strength != 1.0:
+                            options.append('-bm %.6f' % mat_wrap.normalmap_strength)
                     if tex_wrap.translation != Vector((0.0, 0.0, 0.0)):
                         options.append('-o %.6f %.6f %.6f' % tex_wrap.translation[:])
                     if tex_wrap.scale != Vector((1.0, 1.0, 1.0)):
@@ -325,20 +325,15 @@ def write_file(filepath, objects, depsgraph, scene,
             for i, ob_main in enumerate(objects):
                 # ignore dupli children
                 if ob_main.parent and ob_main.parent.instance_type in {'VERTS', 'FACES'}:
-                    # XXX
                     subprogress1.step("Ignoring %s, dupli child..." % ob_main.name)
                     continue
 
                 obs = [(ob_main, ob_main.matrix_world)]
-                if ob_main.instance_type != 'NONE':
-                    # XXX
-                    print('creating dupli_list on', ob_main.name)
-                    ob_main.dupli_list_create(scene)
-
-                    obs += [(dob.object, dob.matrix) for dob in ob_main.dupli_list]
-
-                    # XXX debug print
-                    print(ob_main.name, 'has', len(obs) - 1, 'dupli children')
+                if ob_main.is_instancer:
+                    obs += [(dup.instance_object.original, dup.matrix_world.copy())
+                            for dup in depsgraph.object_instances
+                            if dup.parent and dup.parent.original == ob_main]
+                    # ~ print(ob_main.name, 'has', len(obs) - 1, 'dupli children')
 
                 subprogress1.enter_substeps(len(obs))
                 for ob, ob_mat in obs:
@@ -399,7 +394,7 @@ def write_file(filepath, objects, depsgraph, scene,
                         loops = me.loops
 
                         if (EXPORT_SMOOTH_GROUPS or EXPORT_SMOOTH_GROUPS_BITFLAGS) and face_index_pairs:
-                            smooth_groups, smooth_groups_tot = me.calc_smooth_groups(EXPORT_SMOOTH_GROUPS_BITFLAGS)
+                            smooth_groups, smooth_groups_tot = me.calc_smooth_groups(use_bitflags=EXPORT_SMOOTH_GROUPS_BITFLAGS)
                             if smooth_groups_tot <= 1:
                                 smooth_groups, smooth_groups_tot = (), 0
                         else:
@@ -643,9 +638,6 @@ def write_file(filepath, objects, depsgraph, scene,
 
                         # clean up
                         bpy.data.meshes.remove(me)
-
-                if ob_main.instance_type != 'NONE':
-                    ob_main.dupli_list_clear()
 
                 subprogress1.leave_substeps("Finished writing geometry of '%s'." % ob_main.name)
             subprogress1.leave_substeps()

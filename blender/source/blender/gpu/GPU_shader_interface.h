@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,14 +15,9 @@
  *
  * The Original Code is Copyright (C) 2016 by Mike Erwin.
  * All rights reserved.
- *
- * Contributor(s): Blender Foundation
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/gpu/GPU_shader_interface.h
- *  \ingroup gpu
+/** \file \ingroup gpu
  *
  * GPU shader interface (C --> GLSL)
  */
@@ -69,9 +62,12 @@ typedef struct GPUShaderInput {
 	struct GPUShaderInput *next;
 	uint32_t name_offset;
 	uint name_hash;
-	GPUUniformBuiltin builtin_type; /* only for uniform inputs */
-	uint32_t gl_type; /* only for attrib inputs */
-	int32_t size; /* only for attrib inputs */
+	/** Only for uniform inputs. */
+	GPUUniformBuiltin builtin_type;
+	/** Only for attribute inputs. */
+	uint32_t gl_type;
+	/** Only for attribute inputs. */
+	int32_t size;
 	int32_t location;
 } GPUShaderInput;
 
@@ -81,7 +77,7 @@ typedef struct GPUShaderInput {
 typedef struct GPUShaderInterface {
 	int32_t program;
 	uint32_t name_buffer_offset;
-	GPUShaderInput *attrib_buckets[GPU_NUM_SHADERINTERFACE_BUCKETS];
+	GPUShaderInput *attr_buckets[GPU_NUM_SHADERINTERFACE_BUCKETS];
 	GPUShaderInput *uniform_buckets[GPU_NUM_SHADERINTERFACE_BUCKETS];
 	GPUShaderInput *ubo_buckets[GPU_NUM_SHADERINTERFACE_BUCKETS];
 	GPUShaderInput *builtin_uniforms[GPU_NUM_UNIFORMS];
@@ -94,6 +90,7 @@ GPUShaderInterface *GPU_shaderinterface_create(int32_t program_id);
 void GPU_shaderinterface_discard(GPUShaderInterface *);
 
 const GPUShaderInput *GPU_shaderinterface_uniform(const GPUShaderInterface *, const char *name);
+const GPUShaderInput *GPU_shaderinterface_uniform_ensure(const GPUShaderInterface *, const char *name);
 const GPUShaderInput *GPU_shaderinterface_uniform_builtin(const GPUShaderInterface *, GPUUniformBuiltin);
 const GPUShaderInput *GPU_shaderinterface_ubo(const GPUShaderInterface *, const char *name);
 const GPUShaderInput *GPU_shaderinterface_attr(const GPUShaderInterface *, const char *name);

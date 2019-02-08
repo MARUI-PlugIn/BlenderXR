@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,12 +15,6 @@
  *
  * The Original Code is Copyright (C) 2005 Blender Foundation.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): Brecht Van Lommel.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
 #include "MEM_guardedalloc.h"
@@ -32,8 +24,6 @@
 #include "BLI_blenlib.h"
 #include "BLI_utildefines.h"
 #include "BLI_math_base.h"
-#include "BLI_listbase.h"
-#include "BLI_threads.h"
 
 #include "BKE_global.h"
 
@@ -83,8 +73,8 @@ struct GPUTexture {
 	                     * use it for unbinding */
 	GLuint bindcode;    /* opengl identifier for texture */
 
-	GPUTextureFormat format;
-	GPUTextureFormatFlag format_flag;
+	eGPUTextureFormat format;
+	eGPUTextureFormatFlag format_flag;
 
 	uint bytesize;      /* number of byte for one pixel */
 	int components;     /* number of color/alpha channels */
@@ -182,7 +172,7 @@ static const char *gl_enum_to_str(GLenum e)
 	return enum_strings[e];
 }
 
-static int gpu_get_component_count(GPUTextureFormat format)
+static int gpu_get_component_count(eGPUTextureFormat format)
 {
 	switch (format) {
 		case GPU_RGBA8:
@@ -207,7 +197,7 @@ static int gpu_get_component_count(GPUTextureFormat format)
 }
 
 /* Definitely not complete, edit according to the gl specification. */
-static void gpu_validate_data_format(GPUTextureFormat tex_format, GPUDataFormat data_format)
+static void gpu_validate_data_format(eGPUTextureFormat tex_format, eGPUDataFormat data_format)
 {
 	(void)data_format;
 
@@ -249,7 +239,7 @@ static void gpu_validate_data_format(GPUTextureFormat tex_format, GPUDataFormat 
 	}
 }
 
-static GPUDataFormat gpu_get_data_format_from_tex_format(GPUTextureFormat tex_format)
+static eGPUDataFormat gpu_get_data_format_from_tex_format(eGPUTextureFormat tex_format)
 {
 	if (ELEM(tex_format,
 	         GPU_DEPTH_COMPONENT24,
@@ -289,7 +279,7 @@ static GPUDataFormat gpu_get_data_format_from_tex_format(GPUTextureFormat tex_fo
 }
 
 /* Definitely not complete, edit according to the gl specification. */
-static GLenum gpu_get_gl_dataformat(GPUTextureFormat data_type, GPUTextureFormatFlag *format_flag)
+static GLenum gpu_get_gl_dataformat(eGPUTextureFormat data_type, eGPUTextureFormatFlag *format_flag)
 {
 	if (ELEM(data_type,
 	         GPU_DEPTH_COMPONENT24,
@@ -339,7 +329,7 @@ static GLenum gpu_get_gl_dataformat(GPUTextureFormat data_type, GPUTextureFormat
 	return GL_RGBA;
 }
 
-static uint gpu_get_bytesize(GPUTextureFormat data_type)
+static uint gpu_get_bytesize(eGPUTextureFormat data_type)
 {
 	switch (data_type) {
 		case GPU_RGBA32F:
@@ -383,7 +373,7 @@ static uint gpu_get_bytesize(GPUTextureFormat data_type)
 	}
 }
 
-static GLenum gpu_get_gl_internalformat(GPUTextureFormat format)
+static GLenum gpu_get_gl_internalformat(eGPUTextureFormat format)
 {
 	/* You can add any of the available type to this list
 	 * For available types see GPU_texture.h */
@@ -428,7 +418,7 @@ static GLenum gpu_get_gl_internalformat(GPUTextureFormat format)
 	}
 }
 
-static GLenum gpu_get_gl_datatype(GPUDataFormat format)
+static GLenum gpu_get_gl_datatype(eGPUDataFormat format)
 {
 	switch (format) {
 		case GPU_DATA_FLOAT:
@@ -596,7 +586,7 @@ static bool gpu_texture_try_alloc(
 
 GPUTexture *GPU_texture_create_nD(
         int w, int h, int d, int n, const void *pixels,
-        GPUTextureFormat tex_format, GPUDataFormat gpu_data_format, int samples,
+        eGPUTextureFormat tex_format, eGPUDataFormat gpu_data_format, int samples,
         const bool can_rescale, char err_out[256])
 {
 	if (samples) {
@@ -769,7 +759,7 @@ static GPUTexture *GPU_texture_cube_create(
         int w, int d,
         const float *fpixels_px, const float *fpixels_py, const float *fpixels_pz,
         const float *fpixels_nx, const float *fpixels_ny, const float *fpixels_nz,
-        GPUTextureFormat tex_format, GPUDataFormat gpu_data_format,
+        eGPUTextureFormat tex_format, eGPUDataFormat gpu_data_format,
         char err_out[256])
 {
 	GPUTexture *tex = MEM_callocN(sizeof(GPUTexture), "GPUTexture");
@@ -855,7 +845,7 @@ static GPUTexture *GPU_texture_cube_create(
 }
 
 /* Special buffer textures. tex_format must be compatible with the buffer content. */
-GPUTexture *GPU_texture_create_buffer(GPUTextureFormat tex_format, const GLuint buffer)
+GPUTexture *GPU_texture_create_buffer(eGPUTextureFormat tex_format, const GLuint buffer)
 {
 	GPUTexture *tex = MEM_callocN(sizeof(GPUTexture), "GPUTexture");
 	tex->number = -1;
@@ -996,50 +986,57 @@ GPUTexture *GPU_texture_from_preview(PreviewImage *prv, int mipmap)
 }
 
 GPUTexture *GPU_texture_create_1D(
-        int w, GPUTextureFormat tex_format, const float *pixels, char err_out[256])
+        int w, eGPUTextureFormat tex_format, const float *pixels, char err_out[256])
 {
-	GPUDataFormat data_format = gpu_get_data_format_from_tex_format(tex_format);
+	BLI_assert(w > 0);
+	eGPUDataFormat data_format = gpu_get_data_format_from_tex_format(tex_format);
 	return GPU_texture_create_nD(w, 0, 0, 1, pixels, tex_format, data_format, 0, false, err_out);
 }
 
 GPUTexture *GPU_texture_create_1D_array(
-        int w, int h, GPUTextureFormat tex_format, const float *pixels, char err_out[256])
+        int w, int h, eGPUTextureFormat tex_format, const float *pixels, char err_out[256])
 {
-	GPUDataFormat data_format = gpu_get_data_format_from_tex_format(tex_format);
+	BLI_assert(w > 0 && h > 0);
+	eGPUDataFormat data_format = gpu_get_data_format_from_tex_format(tex_format);
 	return GPU_texture_create_nD(w, h, 0, 1, pixels, tex_format, data_format, 0, false, err_out);
 }
 
 GPUTexture *GPU_texture_create_2D(
-        int w, int h, GPUTextureFormat tex_format, const float *pixels, char err_out[256])
+        int w, int h, eGPUTextureFormat tex_format, const float *pixels, char err_out[256])
 {
-	GPUDataFormat data_format = gpu_get_data_format_from_tex_format(tex_format);
+	BLI_assert(w > 0 && h > 0);
+	eGPUDataFormat data_format = gpu_get_data_format_from_tex_format(tex_format);
 	return GPU_texture_create_nD(w, h, 0, 2, pixels, tex_format, data_format, 0, false, err_out);
 }
 
 GPUTexture *GPU_texture_create_2D_multisample(
-        int w, int h, GPUTextureFormat tex_format, const float *pixels, int samples, char err_out[256])
+        int w, int h, eGPUTextureFormat tex_format, const float *pixels, int samples, char err_out[256])
 {
-	GPUDataFormat data_format = gpu_get_data_format_from_tex_format(tex_format);
+	BLI_assert(w > 0 && h > 0);
+	eGPUDataFormat data_format = gpu_get_data_format_from_tex_format(tex_format);
 	return GPU_texture_create_nD(w, h, 0, 2, pixels, tex_format, data_format, samples, false, err_out);
 }
 
 GPUTexture *GPU_texture_create_2D_array(
-        int w, int h, int d, GPUTextureFormat tex_format, const float *pixels, char err_out[256])
+        int w, int h, int d, eGPUTextureFormat tex_format, const float *pixels, char err_out[256])
 {
-	GPUDataFormat data_format = gpu_get_data_format_from_tex_format(tex_format);
+	BLI_assert(w > 0 && h > 0 && d > 0);
+	eGPUDataFormat data_format = gpu_get_data_format_from_tex_format(tex_format);
 	return GPU_texture_create_nD(w, h, d, 2, pixels, tex_format, data_format, 0, false, err_out);
 }
 
 GPUTexture *GPU_texture_create_3D(
-        int w, int h, int d, GPUTextureFormat tex_format, const float *pixels, char err_out[256])
+        int w, int h, int d, eGPUTextureFormat tex_format, const float *pixels, char err_out[256])
 {
-	GPUDataFormat data_format = gpu_get_data_format_from_tex_format(tex_format);
+	BLI_assert(w > 0 && h > 0 && d > 0);
+	eGPUDataFormat data_format = gpu_get_data_format_from_tex_format(tex_format);
 	return GPU_texture_create_nD(w, h, d, 3, pixels, tex_format, data_format, 0, true, err_out);
 }
 
 GPUTexture *GPU_texture_create_cube(
-        int w, GPUTextureFormat tex_format, const float *fpixels, char err_out[256])
+        int w, eGPUTextureFormat tex_format, const float *fpixels, char err_out[256])
 {
+	BLI_assert(w > 0);
 	const float *fpixels_px, *fpixels_py, *fpixels_pz, *fpixels_nx, *fpixels_ny, *fpixels_nz;
 	const int channels = gpu_get_component_count(tex_format);
 
@@ -1063,7 +1060,7 @@ GPUTexture *GPU_texture_create_cube(
 GPUTexture *GPU_texture_create_from_vertbuf(GPUVertBuf *vert)
 {
 	GPUVertFormat *format = &vert->format;
-	GPUVertAttr *attr = &format->attribs[0];
+	GPUVertAttr *attr = &format->attrs[0];
 
 	/* Detect incompatible cases (not supported by texture buffers) */
 	BLI_assert(format->attr_len == 1 && vert->vbo_id != 0);
@@ -1079,7 +1076,7 @@ GPUTexture *GPU_texture_create_from_vertbuf(GPUVertBuf *vert)
 		BLI_assert(is_uint || byte_per_comp <= 2);
 	}
 
-	GPUTextureFormat data_type;
+	eGPUTextureFormat data_type;
 	switch (attr->fetch_mode) {
 		case GPU_FETCH_FLOAT:
 			switch (attr->comp_len) {
@@ -1130,7 +1127,7 @@ GPUTexture *GPU_texture_create_from_vertbuf(GPUVertBuf *vert)
 }
 
 void GPU_texture_add_mipmap(
-        GPUTexture *tex, GPUDataFormat gpu_data_format, int miplvl, const void *pixels)
+        GPUTexture *tex, eGPUDataFormat gpu_data_format, int miplvl, const void *pixels)
 {
 	BLI_assert((int)tex->format > -1);
 	BLI_assert(tex->components > -1);
@@ -1170,7 +1167,7 @@ void GPU_texture_add_mipmap(
 }
 
 void GPU_texture_update_sub(
-        GPUTexture *tex, GPUDataFormat gpu_data_format, const void *pixels,
+        GPUTexture *tex, eGPUDataFormat gpu_data_format, const void *pixels,
         int offset_x, int offset_y, int offset_z, int width, int height, int depth)
 {
 	BLI_assert((int)tex->format > -1);
@@ -1215,7 +1212,7 @@ void GPU_texture_update_sub(
 	glBindTexture(tex->target, 0);
 }
 
-void *GPU_texture_read(GPUTexture *tex, GPUDataFormat gpu_data_format, int miplvl)
+void *GPU_texture_read(GPUTexture *tex, eGPUDataFormat gpu_data_format, int miplvl)
 {
 	int size[3] = {0, 0, 0};
 	GPU_texture_get_mipmap_size(tex, miplvl, size);
@@ -1269,7 +1266,7 @@ void *GPU_texture_read(GPUTexture *tex, GPUDataFormat gpu_data_format, int miplv
 	return buf;
 }
 
-void GPU_texture_update(GPUTexture *tex, GPUDataFormat data_format, const void *pixels)
+void GPU_texture_update(GPUTexture *tex, eGPUDataFormat data_format, const void *pixels)
 {
 	GPU_texture_update_sub(tex, data_format, pixels, 0, 0, 0, tex->w, tex->h, tex->d);
 }
@@ -1374,7 +1371,7 @@ void GPU_texture_generate_mipmap(GPUTexture *tex)
 		 * In this case we just create a complete texture with mipmaps manually without downsampling.
 		 * You must initialize the texture levels using other methods like GPU_framebuffer_recursive_downsample(). */
 		int levels = 1 + floor(log2(max_ii(tex->w, tex->h)));
-		GPUDataFormat data_format = gpu_get_data_format_from_tex_format(tex->format);
+		eGPUDataFormat data_format = gpu_get_data_format_from_tex_format(tex->format);
 		for (int i = 1; i < levels; ++i) {
 			GPU_texture_add_mipmap(tex, data_format, i, NULL);
 		}
@@ -1445,7 +1442,7 @@ void GPU_texture_wrap_mode(GPUTexture *tex, bool use_repeat)
 		glTexParameteri(tex->target_base, GL_TEXTURE_WRAP_R, repeat);
 }
 
-static GLenum gpu_get_gl_filterfunction(GPUFilterFunction filter)
+static GLenum gpu_get_gl_filterfunction(eGPUFilterFunction filter)
 {
 	switch (filter) {
 		case GPU_NEAREST:
@@ -1458,7 +1455,7 @@ static GLenum gpu_get_gl_filterfunction(GPUFilterFunction filter)
 	}
 }
 
-void GPU_texture_filters(GPUTexture *tex, GPUFilterFunction min_filter, GPUFilterFunction mag_filter)
+void GPU_texture_filters(GPUTexture *tex, eGPUFilterFunction min_filter, eGPUFilterFunction mag_filter)
 {
 	WARN_NOT_BOUND(tex);
 
@@ -1519,7 +1516,7 @@ int GPU_texture_layers(const GPUTexture *tex)
 	return tex->d;
 }
 
-GPUTextureFormat GPU_texture_format(const GPUTexture *tex)
+eGPUTextureFormat GPU_texture_format(const GPUTexture *tex)
 {
 	return tex->format;
 }

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,12 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/screen/workspace_edit.c
- *  \ingroup edscr
+/** \file \ingroup edscr
  */
 
 #include <stdlib.h>
@@ -29,7 +24,6 @@
 #include "BLI_fileops.h"
 #include "BLI_listbase.h"
 #include "BLI_path_util.h"
-#include "BLI_string.h"
 
 #include "BKE_appdir.h"
 #include "BKE_blendfile.h"
@@ -238,7 +232,7 @@ bool ED_workspace_delete(
 
 		ED_workspace_change((prev != NULL) ? prev : next, C, wm, win);
 	}
-	BKE_libblock_free(bmain, workspace_id);
+	BKE_id_free(bmain, workspace_id);
 
 	return true;
 }

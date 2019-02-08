@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,21 +15,10 @@
  *
  * The Original Code is Copyright (C) 2005 by the Blender Foundation.
  * All rights reserved.
- *
- * Contributor(s): Daniel Dunbar
- *                 Ton Roosendaal,
- *                 Ben Batt,
- *                 Brecht Van Lommel,
- *                 Campbell Barton
- *
- * ***** END GPL LICENSE BLOCK *****
- *
  */
 
-/** \file blender/modifiers/intern/MOD_particleinstance.c
- *  \ingroup modifiers
+/** \file \ingroup modifiers
  */
-
 
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
@@ -45,7 +32,6 @@
 #include "BLI_utildefines.h"
 
 #include "BKE_effect.h"
-#include "BKE_global.h"
 #include "BKE_lattice.h"
 #include "BKE_library_query.h"
 #include "BKE_mesh.h"
@@ -55,6 +41,8 @@
 
 #include "DEG_depsgraph_build.h"
 #include "DEG_depsgraph_query.h"
+
+#include "MOD_modifiertypes.h"
 
 static void initData(ModifierData *md)
 {

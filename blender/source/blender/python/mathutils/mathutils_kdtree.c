@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,14 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Dan Eicher, Campbell Barton
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/python/mathutils/mathutils_kdtree.c
- *  \ingroup mathutils
+/** \file \ingroup mathutils
  *
  * This file defines the 'mathutils.kdtree' module, a general purpose module to access
  * blenders kdtree for 3d spatial lookups.
@@ -398,7 +391,7 @@ static PyMethodDef PyKDTree_methods[] = {
 	{"find", (PyCFunction)py_kdtree_find, METH_VARARGS | METH_KEYWORDS, py_kdtree_find_doc},
 	{"find_n", (PyCFunction)py_kdtree_find_n, METH_VARARGS | METH_KEYWORDS, py_kdtree_find_n_doc},
 	{"find_range", (PyCFunction)py_kdtree_find_range, METH_VARARGS | METH_KEYWORDS, py_kdtree_find_range_doc},
-	{NULL, NULL, 0, NULL}
+	{NULL, NULL, 0, NULL},
 };
 
 PyDoc_STRVAR(py_KDtree_doc,

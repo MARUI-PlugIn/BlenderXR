@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2005 Blender Foundation.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): Brecht Van Lommel.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file GPU_shader.h
- *  \ingroup gpu
+/** \file \ingroup gpu
  */
 
 #ifndef __GPU_SHADER_H__
@@ -44,12 +35,12 @@ struct GPUUniformBuffer;
  * - only for fragment shaders now
  * - must call texture bind before setting a texture as uniform! */
 
-typedef enum GPUShaderTFBType {
+typedef enum eGPUShaderTFBType {
 	GPU_SHADER_TFB_NONE         = 0, /* Transform feedback unsupported. */
 	GPU_SHADER_TFB_POINTS       = 1,
 	GPU_SHADER_TFB_LINES        = 2,
 	GPU_SHADER_TFB_TRIANGLES    = 3,
-} GPUShaderTFBType;
+} eGPUShaderTFBType;
 
 GPUShader *GPU_shader_create(
         const char *vertexcode,
@@ -64,10 +55,16 @@ GPUShader *GPU_shader_create_ex(
         const char *geocode,
         const char *libcode,
         const char *defines,
-        const GPUShaderTFBType tf_type,
+        const eGPUShaderTFBType tf_type,
         const char **tf_names,
         const int tf_count,
         const char *shader_name);
+struct GPU_ShaderCreateFromArray_Params { const char **vert, **geom, **frag, **defs; };
+struct GPUShader *GPU_shader_create_from_arrays_impl(
+        const struct GPU_ShaderCreateFromArray_Params *params);
+#define GPU_shader_create_from_arrays(...) \
+	GPU_shader_create_from_arrays_impl(&(const struct GPU_ShaderCreateFromArray_Params)__VA_ARGS__)
+
 void GPU_shader_free(GPUShader *shader);
 
 void GPU_shader_bind(GPUShader *shader);
@@ -82,6 +79,7 @@ int GPU_shader_get_program(GPUShader *shader);
 void *GPU_shader_get_interface(GPUShader *shader);
 
 int GPU_shader_get_uniform(GPUShader *shader, const char *name);
+int GPU_shader_get_uniform_ensure(GPUShader *shader, const char *name);
 int GPU_shader_get_builtin_uniform(GPUShader *shader, int builtin);
 int GPU_shader_get_uniform_block(GPUShader *shader, const char *name);
 void GPU_shader_uniform_vector(
@@ -95,12 +93,11 @@ void GPU_shader_uniform_buffer(GPUShader *shader, int location, struct GPUUnifor
 void GPU_shader_uniform_texture(GPUShader *shader, int location, struct GPUTexture *tex);
 void GPU_shader_uniform_float(GPUShader *shader, int location, float value);
 void GPU_shader_uniform_int(GPUShader *shader, int location, int value);
-void GPU_shader_geometry_stage_primitive_io(GPUShader *shader, int input, int output, int number);
 
 int GPU_shader_get_attribute(GPUShader *shader, const char *name);
 
 /* Builtin/Non-generated shaders */
-typedef enum GPUBuiltinShader {
+typedef enum eGPUBuiltinShader {
 	/* specialized drawing */
 	GPU_SHADER_TEXT,
 	GPU_SHADER_TEXT_SIMPLE,
@@ -162,7 +159,8 @@ typedef enum GPUBuiltinShader {
 	 * \param pos: in vec3
 	 */
 	GPU_SHADER_3D_UNIFORM_COLOR,
-	GPU_SHADER_3D_UNIFORM_COLOR_U32,
+	/* Sets Z-depth to 1.0 (draw onto background). */
+	GPU_SHADER_3D_UNIFORM_COLOR_BACKGROUND,
 	GPU_SHADER_3D_UNIFORM_COLOR_INSTANCE,
 	/**
 	 * Take a 3D position and color for each vertex without color interpolation.
@@ -171,7 +169,6 @@ typedef enum GPUBuiltinShader {
 	 * \param pos: in vec3
 	 */
 	GPU_SHADER_3D_FLAT_COLOR,
-	GPU_SHADER_3D_FLAT_COLOR_U32,  /* use for select-id's */
 	/**
 	 * Take a 3D position and color for each vertex with perspective correct interpolation.
 	 *
@@ -347,30 +344,44 @@ typedef enum GPUBuiltinShader {
 	GPU_SHADER_2D_NODELINK,
 	GPU_SHADER_2D_NODELINK_INST,
 	/* specialized for edituv drawing */
+	GPU_SHADER_2D_UV_UNIFORM_COLOR,
 	GPU_SHADER_2D_UV_VERTS,
 	GPU_SHADER_2D_UV_FACEDOTS,
 	GPU_SHADER_2D_UV_EDGES,
 	GPU_SHADER_2D_UV_EDGES_SMOOTH,
 	GPU_SHADER_2D_UV_FACES,
-	GPU_SHADER_2D_UV_FACES_STRETCH,
+	GPU_SHADER_2D_UV_FACES_STRETCH_AREA,
+	GPU_SHADER_2D_UV_FACES_STRETCH_ANGLE,
+	/* Selection */
+	GPU_SHADER_3D_FLAT_SELECT_ID,
+	GPU_SHADER_3D_UNIFORM_SELECT_ID,
+} eGPUBuiltinShader;
+#define GPU_SHADER_BUILTIN_LEN (GPU_SHADER_3D_UNIFORM_SELECT_ID + 1)
 
-	GPU_NUM_BUILTIN_SHADERS /* (not an actual shader) */
-} GPUBuiltinShader;
+/** Support multiple configurations. */
+typedef enum eGPUShaderConfig {
+	GPU_SHADER_CFG_DEFAULT     = 0,
+	GPU_SHADER_CFG_CLIPPED     = 1,
+} eGPUShaderConfig;
+#define GPU_SHADER_CFG_LEN (GPU_SHADER_CFG_CLIPPED + 1)
 
 /** Keep these in sync with:
  * - `gpu_shader_image_interlace_frag.glsl`
  * - `gpu_shader_image_rect_interlace_frag.glsl`
  */
-typedef enum GPUInterlaceShader {
+typedef enum eGPUInterlaceShader {
 	GPU_SHADER_INTERLACE_ROW               = 0,
 	GPU_SHADER_INTERLACE_COLUMN            = 1,
 	GPU_SHADER_INTERLACE_CHECKER           = 2,
-} GPUInterlaceShader;
+} eGPUInterlaceShader;
 
-GPUShader *GPU_shader_get_builtin_shader(GPUBuiltinShader shader);
+GPUShader *GPU_shader_get_builtin_shader_with_config(
+        eGPUBuiltinShader shader, eGPUShaderConfig shader_cfg);
+GPUShader *GPU_shader_get_builtin_shader(
+        eGPUBuiltinShader shader);
 
 void GPU_shader_get_builtin_shader_code(
-        GPUBuiltinShader shader,
+        eGPUBuiltinShader shader,
         const char **r_vert, const char **r_frag,
         const char **r_geom, const char **r_defines);
 
@@ -378,20 +389,20 @@ void GPU_shader_free_builtin_shaders(void);
 
 /* Vertex attributes for shaders */
 
-#define GPU_MAX_ATTRIB 32
+#define GPU_MAX_ATTR 32
 
-typedef struct GPUVertexAttribs {
+typedef struct GPUVertAttrLayers {
 	struct {
 		int type;
 		int glindex;
 		int glinfoindoex;
 		int gltexco;
-		int attribid;
+		int attr_id;
 		char name[64];  /* MAX_CUSTOMDATA_LAYER_NAME */
-	} layer[GPU_MAX_ATTRIB];
+	} layer[GPU_MAX_ATTR];
 
 	int totlayer;
-} GPUVertexAttribs;
+} GPUVertAttrLayers;
 
 #ifdef __cplusplus
 }

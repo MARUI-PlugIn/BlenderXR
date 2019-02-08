@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,26 +15,21 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * Contributor(s): Blender Foundation 2002-2008
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file BIF_glutil.h
- *  \ingroup editorui
+/** \file \ingroup editorui
  */
 
 #ifndef __BIF_GLUTIL_H__
 #define __BIF_GLUTIL_H__
 
-struct rcti;
 struct rctf;
+struct rcti;
 
+struct ColorManagedDisplaySettings;
+struct ColorManagedViewSettings;
 struct ImBuf;
 struct bContext;
-struct ColorManagedViewSettings;
-struct ColorManagedDisplaySettings;
 
 /* A few functions defined here are being DEPRECATED for Blender 2.8
  *
@@ -112,6 +105,7 @@ void set_inverted_drawing(int enable);
 void setlinestyle(int nr);
 
 /* own working polygon offset */
+float bglPolygonOffsetCalc(const float winmat[16], float viewdist, float dist);
 void bglPolygonOffset(float viewdist, float dist);
 
 /* **** Color management helper functions for GLSL display/transform ***** */

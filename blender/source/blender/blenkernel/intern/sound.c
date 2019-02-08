@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenkernel/intern/sound.c
- *  \ingroup bke
+/** \file \ingroup bke
  */
 
 #include <string.h>
@@ -155,7 +146,7 @@ void BKE_sound_free(bSound *sound)
 
 /**
  * Only copy internal data of Sound ID from source to already allocated/initialized destination.
- * You probably nerver want to use that directly, use id_copy or BKE_id_copy_ex for typical needs.
+ * You probably never want to use that directly, use BKE_id_copy or BKE_id_copy_ex for typical needs.
  *
  * WARNING! This function will not handle ID user count!
  *
@@ -515,7 +506,7 @@ void BKE_sound_update_scene_listener(struct Scene *scene)
 void *BKE_sound_scene_add_scene_sound(struct Scene *scene, struct Sequence *sequence,
                                   int startframe, int endframe, int frameskip)
 {
-	if (scene != sequence->scene) {
+	if (sequence->scene && scene != sequence->scene) {
 		const double fps = FPS;
 		return AUD_Sequence_add(scene->sound_scene, sequence->scene->sound_scene,
 		                       startframe / fps, endframe / fps, frameskip / fps);
@@ -532,6 +523,10 @@ void *BKE_sound_scene_add_scene_sound_defaults(struct Scene *scene, struct Seque
 
 void *BKE_sound_add_scene_sound(struct Scene *scene, struct Sequence *sequence, int startframe, int endframe, int frameskip)
 {
+	/* Happens when sequence's sound datablock was removed. */
+	if (sequence->sound == NULL) {
+		return NULL;
+	}
 	const double fps = FPS;
 	void *handle = AUD_Sequence_add(scene->sound_scene, sequence->sound->playback_handle,
 	                               startframe / fps, endframe / fps, frameskip / fps);
@@ -545,8 +540,8 @@ void *BKE_sound_add_scene_sound(struct Scene *scene, struct Sequence *sequence, 
 void *BKE_sound_add_scene_sound_defaults(struct Scene *scene, struct Sequence *sequence)
 {
 	return BKE_sound_add_scene_sound(scene, sequence,
-	                             sequence->startdisp, sequence->enddisp,
-	                             sequence->startofs + sequence->anim_startofs);
+	                                 sequence->startdisp, sequence->enddisp,
+	                                 sequence->startofs + sequence->anim_startofs);
 }
 
 void BKE_sound_remove_scene_sound(struct Scene *scene, void *handle)

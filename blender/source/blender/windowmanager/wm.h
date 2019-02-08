@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,23 +15,17 @@
  *
  * The Original Code is Copyright (C) 2007 Blender Foundation.
  * All rights reserved.
- *
- *
- * Contributor(s): Blender Foundation
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/windowmanager/wm.h
- *  \ingroup wm
+/** \file \ingroup wm
  */
 
 #ifndef __WM_H__
 #define __WM_H__
 
 struct ARegion;
-struct wmWindow;
 struct ReportList;
+struct wmWindow;
 
 #include "gizmo/wm_gizmo_wmapi.h"
 

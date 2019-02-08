@@ -53,7 +53,7 @@ class AMTH_SCREEN_OT_keyframe_jump_inbetween(Operator):
     bl_idname = "screen.amth_keyframe_jump_inbetween"
     bl_label = "Jump to Keyframe In-between"
 
-    backwards = BoolProperty()
+    backwards: BoolProperty()
 
     def execute(self, context):
         back = self.backwards
@@ -118,16 +118,16 @@ class AMTH_SCREEN_OT_frame_jump(Operator):
     bl_idname = "screen.amaranth_frame_jump"
     bl_label = "Jump Frames"
 
-    forward = BoolProperty(default=True)
+    forward: BoolProperty(default=True)
 
     def execute(self, context):
         scene = context.scene
 
-        get_addon = "amaranth" in context.user_preferences.addons.keys()
+        get_addon = "amaranth" in context.preferences.addons.keys()
         if not get_addon:
             return {"CANCELLED"}
 
-        preferences = context.user_preferences.addons["amaranth"].preferences
+        preferences = context.preferences.addons["amaranth"].preferences
 
         if preferences.use_framerate:
             framedelta = scene.render.fps
@@ -142,11 +142,11 @@ class AMTH_SCREEN_OT_frame_jump(Operator):
 
 
 def ui_userpreferences_edit(self, context):
-    get_addon = "amaranth" in context.user_preferences.addons.keys()
+    get_addon = "amaranth" in context.preferences.addons.keys()
     if not get_addon:
         return
 
-    preferences = context.user_preferences.addons["amaranth"].preferences
+    preferences = context.preferences.addons["amaranth"].preferences
 
     col = self.layout.column()
     split = col.split(percentage=0.21)
@@ -155,13 +155,13 @@ def ui_userpreferences_edit(self, context):
 
 
 def label(self, context):
-    get_addon = "amaranth" in context.user_preferences.addons.keys()
+    get_addon = "amaranth" in context.preferences.addons.keys()
     if not get_addon:
         return
 
     layout = self.layout
 
-    if context.user_preferences.addons["amaranth"].preferences.use_timeline_extra_info:
+    if context.preferences.addons["amaranth"].preferences.use_timeline_extra_info:
         row = layout.row(align=True)
 
         row.operator(AMTH_SCREEN_OT_keyframe_jump_inbetween.bl_idname,

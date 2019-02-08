@@ -21,7 +21,7 @@
 bl_info = {
     "name": "Import Images as Planes",
     "author": "Florian Meyer (tstscr), mont29, matali, Ted Schundler (SpkyElctrc)",
-    "version": (3, 2, 1),
+    "version": (3, 2, 2),
     "blender": (2, 80, 0),
     "location": "File > Import > Images as Planes or Add > Mesh > Images as Planes",
     "description": "Imports images and creates planes with the appropriate aspect ratio. "
@@ -418,7 +418,7 @@ def check_drivers(*args, **kwargs):
     """
     if not watched_objects:
         # if there is nothing to watch, don't bother running this
-        bpy.app.handlers.scene_update_post.remove(check_drivers)
+        bpy.app.handlers.depsgraph_update_post.remove(check_drivers)
         return
 
     update = False
@@ -449,7 +449,7 @@ def register_watched_object(obj):
 
     if not watched_objects:
         # make sure check_drivers is active
-        bpy.app.handlers.scene_update_post.append(check_drivers)
+        bpy.app.handlers.depsgraph_update_post.append(check_drivers)
 
     watched_objects[name] = None
 
@@ -728,7 +728,7 @@ class IMPORT_IMAGE_OT_to_plane(Operator, AddObjectHelper):
     # Properties - Material / Shader
     SHADERS = (
         ('DIFFUSE', "Diffuse", "Diffuse Shader"),
-        ('SHADELESS', "Shadeless", "Only visible to camera and reflections."),
+        ('SHADELESS', "Shadeless", "Only visible to camera and reflections"),
         ('EMISSION', "Emit", "Emission Shader"),
     )
     shader: EnumProperty(name="Shader", items=SHADERS, default='DIFFUSE', description="Node shader to use")
@@ -750,7 +750,7 @@ class IMPORT_IMAGE_OT_to_plane(Operator, AddObjectHelper):
     # Properties - Image
     use_transparency: BoolProperty(
         name="Use Alpha", default=True,
-        description="Use alphachannel for transparency")
+        description="Use alpha channel for transparency")
 
     t = bpy.types.Image.bl_rna.properties["alpha_mode"]
     alpha_mode_items = tuple((e.identifier, e.name, e.description) for e in t.enum_items)
@@ -794,7 +794,7 @@ class IMPORT_IMAGE_OT_to_plane(Operator, AddObjectHelper):
             box.prop(self, "emit_strength")
 
         engine = context.scene.render.engine
-        if engine not in ('CYCLES', 'BLENDER_EEVEE', 'BLENDER_OPENGL'):
+        if engine not in ('CYCLES', 'BLENDER_EEVEE', 'BLENDER_WORKBENCH'):
             box.label(text="%s is not supported" % engine, icon='ERROR')
 
         box.prop(self, "overwrite_material")
@@ -853,7 +853,7 @@ class IMPORT_IMAGE_OT_to_plane(Operator, AddObjectHelper):
     def invoke(self, context, event):
         engine = context.scene.render.engine
         if engine not in {'CYCLES', 'BLENDER_EEVEE'}:
-            if engine not in {'BLENDER_OPENGL'}:
+            if engine not in {'BLENDER_WORKBENCH'}:
                 self.report({'ERROR'}, "Cannot generate materials for unknown %s render engine" % engine)
                 return {'CANCELLED'}
             else:
@@ -922,7 +922,7 @@ class IMPORT_IMAGE_OT_to_plane(Operator, AddObjectHelper):
 
         # Configure material
         engine = context.scene.render.engine
-        if engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_OPENGL'}:
+        if engine in {'CYCLES', 'BLENDER_EEVEE', 'BLENDER_WORKBENCH'}:
             material = self.create_cycles_material(context, img_spec)
 
         # Create and position plane object
@@ -1046,7 +1046,7 @@ class IMPORT_IMAGE_OT_to_plane(Operator, AddObjectHelper):
             bpy.ops.object.mode_set(mode='OBJECT')
         plane.dimensions = width, height, 0.0
         plane.data.name = plane.name = name
-        bpy.ops.object.transform_apply(scale=True)
+        bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
 
         # If sizing for camera, also insert into the camera's field of view
         if self.size_mode == 'CAMERA':
@@ -1172,8 +1172,8 @@ def unregister():
     bpy.types.VIEW3D_MT_image_add.remove(import_images_button)
 
     # This will only exist if drivers are active
-    if check_drivers in bpy.app.handlers.scene_update_post:
-        bpy.app.handlers.scene_update_post.remove(check_drivers)
+    if check_drivers in bpy.app.handlers.depsgraph_update_post:
+        bpy.app.handlers.depsgraph_update_post.remove(check_drivers)
 
     bpy.app.handlers.load_post.remove(register_driver)
     del bpy.app.driver_namespace['import_image__find_plane_corner']

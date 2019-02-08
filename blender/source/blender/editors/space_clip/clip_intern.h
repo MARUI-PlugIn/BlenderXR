@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,22 +15,14 @@
  *
  * The Original Code is Copyright (C) 2011 Blender Foundation.
  * All rights reserved.
- *
- *
- * Contributor(s): Blender Foundation,
- *                 Sergey Sharybin
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/space_clip/clip_intern.h
- *  \ingroup spclip
+/** \file \ingroup spclip
  */
 
 #ifndef __CLIP_INTERN_H__
 #define __CLIP_INTERN_H__
 
-struct bContext;
 struct ARegion;
 struct MovieClip;
 struct MovieTrackingMarker;
@@ -40,6 +30,7 @@ struct MovieTrackingTrack;
 struct Scene;
 struct ScrArea;
 struct SpaceClip;
+struct bContext;
 struct wmOperatorType;
 
 /* channel heights */
@@ -120,7 +111,6 @@ void CLIP_OT_cursor_set(struct wmOperatorType *ot);
 struct ARegion *ED_clip_has_properties_region(struct ScrArea *sa);
 void CLIP_OT_tools(struct wmOperatorType *ot);
 void CLIP_OT_properties(struct wmOperatorType *ot);
-void ED_clip_tool_props_register(struct ARegionType *art);
 
 /* clip_utils.c */
 void clip_graph_tracking_values_iterate_track(struct SpaceClip *sc, struct MovieTrackingTrack *track, void *userdata,
@@ -144,8 +134,6 @@ void clip_delete_plane_track(struct bContext *C, struct MovieClip *clip, struct 
 void clip_view_center_to_point(SpaceClip *sc, float x, float y);
 
 void clip_draw_sfra_efra(struct View2D *v2d, struct Scene *scene);
-
-void clip_on_marker_selection_changed(struct bContext *C);
 
 /* tracking_ops.c */
 struct MovieTrackingTrack *tracking_marker_check_slide(struct bContext *C, const struct wmEvent *event,

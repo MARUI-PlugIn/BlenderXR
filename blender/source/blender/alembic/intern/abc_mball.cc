@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,10 +12,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Sybren A. Stüvel
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
 #include "abc_mball.h"
@@ -55,7 +49,7 @@ AbcMBallWriter::AbcMBallWriter(
 	m_mesh_ob->runtime.curve_cache = (CurveCache *)MEM_callocN(
 	                             sizeof(CurveCache),
 	                             "CurveCache for AbcMBallWriter");
-
+	/* TODO(Sybren): reimplement metaball writing as subclass of AbcGenericMeshWriter. */
 	m_mesh_writer = new AbcMeshWriter(m_mesh_ob, parent, time_sampling, settings);
 	m_mesh_writer->setIsAnimated(m_is_animated);
 }

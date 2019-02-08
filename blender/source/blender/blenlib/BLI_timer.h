@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,8 +15,6 @@
  *
  * The Original Code is Copyright (C) 2018 Blender Foundation.
  * All rights reserved.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
 #ifndef __BLI_TIMER_H__
@@ -26,8 +22,7 @@
 
 #include "BLI_sys_types.h"
 
-/** \file BLI_timer.h
- *  \ingroup BLI
+/** \file \ingroup BLI
  */
 
 /* ret < 0: the timer will be removed.

@@ -1,6 +1,4 @@
 /*
- * Copyright 2016, Blender Foundation.
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,12 +13,10 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * Contributor(s): Blender Institute
- *
+ * Copyright 2016, Blender Foundation.
  */
 
-/** \file eevee_screen_raytrace.c
- *  \ingroup draw_engine
+/** \file \ingroup draw_engine
  *
  * Screen space reflections and refractions techniques.
  */
@@ -156,7 +152,7 @@ int EEVEE_screen_raytrace_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
 		int tracing_res[2] = {(int)viewport_size[0] / divisor, (int)viewport_size[1] / divisor};
 		int size_fs[2] = {(int)viewport_size[0], (int)viewport_size[1]};
 		const bool high_qual_input = true; /* TODO dither low quality input */
-		const GPUTextureFormat format = (high_qual_input) ? GPU_RGBA16F : GPU_RGBA8;
+		const eGPUTextureFormat format = (high_qual_input) ? GPU_RGBA16F : GPU_RGBA8;
 
 		/* MRT for the shading pass in order to output needed data for the SSR pass. */
 		effects->ssr_specrough_input = DRW_texture_pool_query_2D(size_fs[0], size_fs[1], format,

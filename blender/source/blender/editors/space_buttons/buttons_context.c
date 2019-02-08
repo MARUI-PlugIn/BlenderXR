@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,14 +15,9 @@
  *
  * The Original Code is Copyright (C) 2009 Blender Foundation.
  * All rights reserved.
- *
- * Contributor(s): Blender Foundation
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/space_buttons/buttons_context.c
- *  \ingroup spbuttons
+/** \file \ingroup spbuttons
  */
 
 
@@ -120,7 +113,8 @@ static int buttons_context_path_view_layer(ButsContextPath *path, wmWindow *win)
 {
 	PointerRNA *ptr = &path->ptr[path->len - 1];
 
-	/* View Layer may have already been resolved in a previous call (e.g. in buttons_context_path_linestyle). */
+	/* View Layer may have already been resolved in a previous call
+	 * (e.g. in buttons_context_path_linestyle). */
 	if (RNA_struct_is_a(ptr->type, &RNA_ViewLayer)) {
 		return 1;
 	}
@@ -652,7 +646,10 @@ void buttons_context_compute(const bContext *C, SpaceButs *sbuts)
 				ptr = &path->ptr[path->len - 1];
 
 				if (ptr->type) {
-					sbuts->dataicon = RNA_struct_ui_icon(ptr->type);
+					if (RNA_struct_is_a(ptr->type, &RNA_Light))
+						sbuts->dataicon = ICON_OUTLINER_DATA_LIGHT;
+					else
+						sbuts->dataicon = RNA_struct_ui_icon(ptr->type);
 				}
 				else {
 					sbuts->dataicon = ICON_EMPTY_DATA;
@@ -710,7 +707,7 @@ const char *buttons_context_dir[] = {
 	"texture", "texture_user", "texture_user_property", "bone", "edit_bone",
 	"pose_bone", "particle_system", "particle_system_editable", "particle_settings",
 	"cloth", "soft_body", "fluid", "smoke", "collision", "brush", "dynamic_paint",
-	"line_style", "collection", NULL
+	"line_style", "collection", NULL,
 };
 
 int buttons_context(const bContext *C, const char *member, bContextDataResult *result)
@@ -732,7 +729,8 @@ int buttons_context(const bContext *C, const char *member, bContextDataResult *r
 		return 1;
 	}
 	else if (CTX_data_equals(member, "scene")) {
-		/* Do not return one here if scene not found in path, in this case we want to get default context scene! */
+		/* Do not return one here if scene not found in path,
+		 * in this case we want to get default context scene! */
 		return set_pointer_type(path, result, &RNA_Scene);
 	}
 	else if (CTX_data_equals(member, "world")) {
@@ -1104,7 +1102,7 @@ void buttons_context_register(ARegionType *art)
 
 	pt = MEM_callocN(sizeof(PanelType), "spacetype buttons panel context");
 	strcpy(pt->idname, "BUTTONS_PT_context");
-	strcpy(pt->label, N_("Context"));  /* XXX C panels are not available through RNA (bpy.types)! */
+	strcpy(pt->label, N_("Context"));  /* XXX C panels unavailable through RNA bpy.types! */
 	strcpy(pt->translation_context, BLT_I18NCONTEXT_DEFAULT_BPYRNA);
 	pt->poll = buttons_panel_context_poll;
 	pt->draw = buttons_panel_context_draw;

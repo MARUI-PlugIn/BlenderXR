@@ -26,8 +26,7 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/** \file guardedalloc/intern/mallocn_inline.h
- *  \ingroup MEM
+/** \file \ingroup MEM
  */
 
 #ifndef __MALLOCN_INLINE_H__
@@ -53,4 +52,3 @@ MEM_INLINE bool MEM_size_safe_multiply(size_t a, size_t b, size_t *result)
 }
 
 #endif  /* __MALLOCN_INLINE_H__ */
-

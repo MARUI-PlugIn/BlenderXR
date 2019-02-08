@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,14 +15,9 @@
  *
  * The Original Code is Copyright (C) 2008 Blender Foundation.
  * All rights reserved.
- *
- * Contributor(s): Blender Foundation
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/interface/interface_region_popover.c
- *  \ingroup edinterface
+/** \file \ingroup edinterface
  *
  * Pop-Over Region
  *
@@ -165,7 +158,8 @@ static uiBlock *ui_block_func_POPOVER(bContext *C, uiPopupBlockHandle *handle, v
 		if (!handle->refresh) {
 			float center[2] = {BLI_rctf_cent_x(&pup->but->rect), BLI_rctf_cent_y(&pup->but->rect)};
 			ui_block_to_window_fl(handle->ctx_region, pup->but->block, &center[0], &center[1]);
-			/* These variables aren't used for popovers, we could add new variables if there is a conflict. */
+			/* These variables aren't used for popovers,
+			 * we could add new variables if there is a conflict. */
 			handle->prev_mx = block->mx = (int)center[0];
 			handle->prev_my = block->my = (int)center[1];
 		}

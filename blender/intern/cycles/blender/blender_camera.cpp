@@ -228,12 +228,17 @@ static void blender_camera_from_object(BlenderCamera *bcam,
 			bcam->sensor_fit = BlenderCamera::HORIZONTAL;
 		else
 			bcam->sensor_fit = BlenderCamera::VERTICAL;
+	}
+	else if(b_ob_data.is_a(&RNA_Light)) {
+		/* Can also look through spot light. */
+		BL::SpotLight b_light(b_ob_data);
+		float lens = 16.0f / tanf(b_light.spot_size() * 0.5f);
+		if (lens > 0.0f) {
+			bcam->lens = lens;
+		}
+	}
 
-		bcam->motion_steps = object_motion_steps(b_ob, b_ob);
-	}
-	else {
-		/* from light not implemented yet */
-	}
+	bcam->motion_steps = object_motion_steps(b_ob, b_ob);
 }
 
 static Transform blender_camera_matrix(const Transform& tfm,
@@ -643,7 +648,7 @@ static void blender_camera_from_view(BlenderCamera *bcam,
 
 	if(b_rv3d.view_perspective() == BL::RegionView3D::view_perspective_CAMERA) {
 		/* camera view */
-		BL::Object b_ob = (b_v3d.lock_camera_and_layers())? b_scene.camera(): b_v3d.camera();
+		BL::Object b_ob = (b_v3d.use_local_camera())? b_v3d.camera(): b_scene.camera();
 
 		if(b_ob) {
 			blender_camera_from_object(bcam, b_engine, b_ob, skip_panorama);
@@ -779,7 +784,7 @@ static void blender_camera_border(BlenderCamera *bcam,
 		return;
 	}
 
-	BL::Object b_ob = (b_v3d.lock_camera_and_layers())? b_scene.camera(): b_v3d.camera();
+	BL::Object b_ob = (b_v3d.use_local_camera())? b_v3d.camera(): b_scene.camera();
 
 	if(!b_ob)
 		return;

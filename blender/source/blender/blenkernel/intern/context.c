@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,14 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Blender Foundation (2008).
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenkernel/intern/context.c
- *  \ingroup bke
+/** \file \ingroup bke
  */
 
 #include <string.h>
@@ -62,9 +55,13 @@
 
 #include "RNA_access.h"
 
+#include "CLG_log.h"
+
 #ifdef WITH_PYTHON
 #  include "BPY_extern.h"
 #endif
+
+static CLG_LogRef LOG = {"bke.context"};
 
 /* struct */
 
@@ -255,10 +252,10 @@ static void *ctx_wm_python_context_get(
 				return result.ptr.data;
 			}
 			else {
-				printf("PyContext '%s' is a '%s', expected a '%s'\n",
-				       member,
-				       RNA_struct_identifier(result.ptr.type),
-				       RNA_struct_identifier(member_type));
+				CLOG_WARN(&LOG, "PyContext '%s' is a '%s', expected a '%s'",
+				          member,
+				          RNA_struct_identifier(result.ptr.type),
+				          RNA_struct_identifier(member_type));
 			}
 		}
 	}
@@ -413,8 +410,8 @@ PointerRNA CTX_data_pointer_get_type(const bContext *C, const char *member, Stru
 			return ptr;
 		}
 		else {
-			printf("%s: warning, member '%s' is '%s', not '%s'\n",
-			       __func__, member, RNA_struct_identifier(ptr.type), RNA_struct_identifier(type));
+			CLOG_WARN(&LOG, "member '%s' is '%s', not '%s'",
+			          member, RNA_struct_identifier(ptr.type), RNA_struct_identifier(type));
 		}
 	}
 
@@ -1045,7 +1042,7 @@ static const char *data_mode_strings[] = {
 	"greasepencil_edit",
 	"greasepencil_sculpt",
 	"greasepencil_weight",
-	NULL
+	NULL,
 };
 BLI_STATIC_ASSERT(ARRAY_SIZE(data_mode_strings) == CTX_MODE_NUM + 1, "Must have a string for each context mode")
 const char *CTX_data_mode_string(const bContext *C)

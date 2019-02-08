@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,13 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software  Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
- *
  */
 
-/** \file blender/modifiers/intern/MOD_weighted_normal.c
- *  \ingroup modifiers
+/** \file \ingroup modifiers
  */
 
 #include "MEM_guardedalloc.h"
@@ -32,7 +26,6 @@
 #include "BKE_cdderivedmesh.h"
 #include "BKE_deform.h"
 #include "BKE_library.h"
-#include "BKE_library_query.h"
 #include "BKE_mesh.h"
 
 #include "BLI_math.h"
@@ -496,13 +489,7 @@ static Mesh *applyModifier(ModifierData *md, const ModifierEvalContext *ctx, Mes
 	}
 
 	Mesh *result;
-	BKE_id_copy_ex(
-		NULL, &mesh->id, (ID **)&result,
-		LIB_ID_CREATE_NO_MAIN |
-		LIB_ID_CREATE_NO_USER_REFCOUNT |
-		LIB_ID_CREATE_NO_DEG_TAG |
-		LIB_ID_COPY_NO_PREVIEW,
-		false);
+	BKE_id_copy_ex(NULL, &mesh->id, (ID **)&result, LIB_ID_COPY_LOCALIZE);
 
 	const int numVerts = result->totvert;
 	const int numEdges = result->totedge;

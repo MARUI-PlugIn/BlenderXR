@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,14 +15,9 @@
  *
  * The Original Code is Copyright (C) 2013 by Blender Foundation.
  * All rights reserved.
- *
- * Contributor(s): Campbell Barton
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/mesh/editmesh_bisect.c
- *  \ingroup edmesh
+/** \file \ingroup edmesh
  */
 
 #include "MEM_guardedalloc.h"
@@ -404,8 +397,8 @@ void MESH_OT_bisect(struct wmOperatorType *ot)
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
 
-	prop = RNA_def_float_vector(ot->srna, "plane_co", 3, NULL, -1e12f, 1e12f,
-	                            "Plane Point", "A point on the plane", -1e4f, 1e4f);
+	prop = RNA_def_float_vector_xyz(ot->srna, "plane_co", 3, NULL, -1e12f, 1e12f,
+	                                "Plane Point", "A point on the plane", -1e4f, 1e4f);
 	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 	prop = RNA_def_float_vector(ot->srna, "plane_no", 3, NULL, -1.0f, 1.0f,
 	                            "Plane Normal", "The direction the plane points", -1.0f, 1.0f);
@@ -429,7 +422,6 @@ void MESH_OT_bisect(struct wmOperatorType *ot)
 #ifdef USE_GIZMO
 
 /* -------------------------------------------------------------------- */
-
 /** \name Bisect Gizmo
  * \{ */
 

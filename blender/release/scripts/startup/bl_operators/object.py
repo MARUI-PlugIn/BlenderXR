@@ -62,11 +62,13 @@ class SelectPattern(Operator):
             pattern_match = (lambda a, b:
                              fnmatch.fnmatchcase(a.upper(), b.upper()))
         is_ebone = False
+        is_pbone = False
         obj = context.object
         if obj and obj.mode == 'POSE':
             items = obj.data.bones
             if not self.extend:
                 bpy.ops.pose.select_all(action='DESELECT')
+            is_pbone = True
         elif obj and obj.type == 'ARMATURE' and obj.mode == 'EDIT':
             items = obj.data.edit_bones
             if not self.extend:
@@ -77,7 +79,7 @@ class SelectPattern(Operator):
             if not self.extend:
                 bpy.ops.object.select_all(action='DESELECT')
 
-        # Can be pose bones or objects
+        # Can be pose bones, edit bones or objects
         for item in items:
             if pattern_match(item.name, self.pattern):
 
@@ -90,6 +92,8 @@ class SelectPattern(Operator):
                         item_parent = item.parent
                         if item_parent is not None:
                             item_parent.select_tail = True
+                elif is_pbone:
+                    item.select = True
                 else:
                     item.select_set(True)
 
@@ -106,6 +110,11 @@ class SelectPattern(Operator):
         row = layout.row()
         row.prop(self, "case_sensitive")
         row.prop(self, "extend")
+
+    @classmethod
+    def poll(cls, context):
+        obj = context.object
+        return (not obj) or (obj.mode == 'OBJECT') or (obj.type == 'ARMATURE')
 
 
 class SelectCamera(Operator):
@@ -124,7 +133,7 @@ class SelectCamera(Operator):
         scene = context.scene
         view_layer = context.view_layer
         view = context.space_data
-        if view.type == 'VIEW_3D' and not view.lock_camera_and_layers:
+        if view.type == 'VIEW_3D' and view.use_local_camera:
             camera = view.camera
         else:
             camera = scene.camera
@@ -944,7 +953,8 @@ class LoadReferenceImage(LoadImageAsEmpty, Operator):
 
 
 class OBJECT_OT_assign_property_defaults(Operator):
-    """Assign the current values of custom properties as their defaults, for use as part of the rest pose state in NLA track mixing"""
+    """Assign the current values of custom properties as their defaults, """ \
+    """for use as part of the rest pose state in NLA track mixing"""
     bl_idname = "object.assign_property_defaults"
     bl_label = "Assign Custom Property Values as Default"
     bl_options = {'UNDO', 'REGISTER'}

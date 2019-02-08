@@ -1,6 +1,4 @@
 /*
- * Copyright 2017, Blender Foundation.
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,20 +13,15 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * Contributor(s): Antonio Vazquez
- *
+ * Copyright 2017, Blender Foundation.
  */
 
-/** \file blender/draw/engines/gpencil/gpencil_engine.c
- *  \ingroup draw
+/** \file \ingroup draw
  */
 #include "DRW_engine.h"
 #include "DRW_render.h"
 
-#include "BKE_camera.h"
 #include "BKE_object.h"
-#include "BKE_paint.h"
-#include "BKE_gpencil.h"
 #include "BKE_shader_fx.h"
 
 #include "DNA_gpencil_types.h"
@@ -36,7 +29,6 @@
 
 #include "draw_mode_engines.h"
 
-#include "UI_resources.h"
 
 #include "GPU_texture.h"
 
@@ -45,9 +37,7 @@
 #include "DEG_depsgraph_query.h"
 
 #include "ED_screen.h"
-#include "ED_gpencil.h"
 
-#include "WM_api.h"
 
 extern char datatoc_gpencil_fill_vert_glsl[];
 extern char datatoc_gpencil_fill_frag_glsl[];
@@ -108,7 +98,7 @@ static void GPENCIL_create_framebuffers(void *vedata)
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 
 	/* Go full 32bits for rendering */
-	GPUTextureFormat fb_format = DRW_state_is_image_render() ? GPU_RGBA32F : GPU_RGBA16F;
+	eGPUTextureFormat fb_format = DRW_state_is_image_render() ? GPU_RGBA32F : GPU_RGBA16F;
 
 	if (DRW_state_is_fbo()) {
 		const float *viewport_size = DRW_viewport_size_get();
@@ -559,7 +549,7 @@ static void gpencil_add_draw_data(void *vedata, Object *ob)
 void GPENCIL_cache_populate(void *vedata, Object *ob)
 {
 	/* object must be visible */
-	if (!DRW_object_is_visible_in_active_context(ob)) {
+	if (!(DRW_object_visibility_in_active_context(ob) & OB_VISIBLE_SELF)) {
 		return;
 	}
 

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -25,15 +23,9 @@
  *      Campus Scientifique, BP 239
  *      54506 VANDOEUVRE LES NANCY CEDEX
  *      FRANCE
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/freestyle/intern/geometry/matrix_util.cpp
- *  \ingroup freestyle
- *  \author Bruno Levy
+/** \file \ingroup freestyle
  */
 
 #include "matrix_util.h"
@@ -242,7 +234,7 @@ namespace MatrixUtil {
 
 		// Step 7: save the eigen vectors
 
-		// back from Fortran to to C++
+		// back from Fortran to C++
 		v++;
 
 		ij = 0;

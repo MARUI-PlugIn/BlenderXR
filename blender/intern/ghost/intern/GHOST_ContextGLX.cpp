@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2014 Blender Foundation.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): Jason Wilkins
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file ghost/intern/GHOST_ContextGLX.cpp
- *  \ingroup GHOST
+/** \file \ingroup GHOST
  *
  * Definition of GHOST_ContextGLX class.
  */
@@ -298,7 +289,7 @@ const bool GLXEW_ARB_create_context_robustness =
 	}
 	else {
 		/* Don't create legacy context */
-		fprintf(stderr, "Warning! GLX_ARB_create_context not available.\n");
+		fprintf(stderr, "Error! GLX_ARB_create_context not available.\n");
 	}
 
 	GHOST_TSuccess success;
@@ -328,19 +319,16 @@ const bool GLXEW_ARB_create_context_robustness =
 		version = glGetString(GL_VERSION);
 
 		if (!version || version[0] < '3' || ((version[0] == '3') && (version[2] < '3'))) {
-			fprintf(stderr, "Error! Blender requires OpenGL 3.3 to run. Try updating your drivers.\n");
-			fflush(stderr);
-			/* ugly, but we get crashes unless a whole bunch of systems are patched. */
-			exit(0);
+			success = GHOST_kFailure;
 		}
-		else
+		else {
 			success = GHOST_kSuccess;
+		}
 	}
 	else {
 		/* freeing well clean up the context initialized above */
 		success = GHOST_kFailure;
 	}
-
 
 	GHOST_X11_ERROR_HANDLERS_RESTORE(handler_store);
 

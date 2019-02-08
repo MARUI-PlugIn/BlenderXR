@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,14 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Geoffrey Bantle.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/bmesh/intern/bmesh_mesh.c
- *  \ingroup bmesh
+/** \file \ingroup bmesh
  *
  * BM mesh level functions.
  */
@@ -352,7 +345,7 @@ static void bm_mesh_edges_calc_vectors(BMesh *bm, float (*edgevec)[3], const flo
 
 	BMEdgesCalcVectorsData data = {
 	    .vcos = vcos,
-	    .edgevec = edgevec
+	    .edgevec = edgevec,
 	};
 
 	BM_iter_parallel(bm, BM_EDGES_OF_MESH, mesh_edges_calc_vectors_cb, &data, bm->totedge >= BM_OMP_LIMIT);
@@ -464,7 +457,7 @@ static void bm_mesh_verts_calc_normals(
 	    .fnos = fnos,
 	    .edgevec = edgevec,
 	    .vcos = vcos,
-	    .vnos = vnos
+	    .vnos = vnos,
 	};
 
 	BM_iter_parallel(bm, BM_FACES_OF_MESH, mesh_verts_calc_normals_accum_cb, &data, bm->totface >= BM_OMP_LIMIT);

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2013 Blender Foundation
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): Joshua Leung, Sergej Reich
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file rigidbody_object.c
- *  \ingroup editor_physics
+/** \file \ingroup editor_physics
  *  \brief Rigid Body object editing operators
  */
 
@@ -51,6 +42,7 @@
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_build.h"
+#include "DEG_depsgraph_query.h"
 
 #include "RNA_access.h"
 #include "RNA_define.h"
@@ -446,7 +438,7 @@ static rbMaterialDensityItem RB_MATERIAL_DENSITY_TABLE[] = {
 	{N_("Steel"), 7860.0f},
 	{N_("Stone"), 2515.0f},
 	{N_("Stone (Crushed)"), 1602.0f},
-	{N_("Timber"), 610.0f}
+	{N_("Timber"), 610.0f},
 };
 static const int NUM_RB_MATERIAL_PRESETS = sizeof(RB_MATERIAL_DENSITY_TABLE) / sizeof(rbMaterialDensityItem);
 
@@ -490,6 +482,7 @@ static const EnumPropertyItem *rigidbody_materials_itemf(bContext *UNUSED(C), Po
 
 static int rigidbody_objects_calc_mass_exec(bContext *C, wmOperator *op)
 {
+	Depsgraph *depsgraph = CTX_data_depsgraph(C);
 	int material = RNA_enum_get(op->ptr, "material");
 	float density;
 	bool changed = false;
@@ -520,7 +513,8 @@ static int rigidbody_objects_calc_mass_exec(bContext *C, wmOperator *op)
 			/* mass is calculated from the approximate volume of the object,
 			 * and the density of the material we're simulating
 			 */
-			BKE_rigidbody_calc_volume(ob, &volume);
+			Object *ob_eval = DEG_get_evaluated_object(depsgraph, ob);
+			BKE_rigidbody_calc_volume(ob_eval, &volume);
 			mass = volume * density;
 
 			/* use RNA-system to change the property and perform all necessary changes */
@@ -561,7 +555,7 @@ void RIGIDBODY_OT_mass_calculate(wmOperatorType *ot)
 	ot->poll = ED_operator_scene_editable;
 
 	/* flags */
-	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_USE_EVAL_DATA;
 
 	/* properties */
 	ot->prop = prop = RNA_def_enum(ot->srna, "material",

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2007 Blender Foundation.
  * All rights reserved.
- *
- *
- * Contributor(s): Joseph Eagar, Joshua Leung, Howard Trickey,
- *                 Campbell Barton
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/mesh/editmesh_knife.c
- *  \ingroup edmesh
+/** \file \ingroup edmesh
  *
  * Interactive editmesh knife tool.
  */
@@ -96,12 +87,12 @@
 #define KNIFE_FLT_EPS_PX_FACE  0.05f
 
 typedef struct KnifeColors {
-	unsigned char line[3];
-	unsigned char edge[3];
-	unsigned char curpoint[3];
-	unsigned char curpoint_a[4];
-	unsigned char point[3];
-	unsigned char point_a[4];
+	uchar line[3];
+	uchar edge[3];
+	uchar curpoint[3];
+	uchar curpoint_a[4];
+	uchar point[3];
+	uchar point_a[4];
 } KnifeColors;
 
 /* knifetool operator */
@@ -1027,13 +1018,13 @@ static void knife_init_colors(KnifeColors *colors)
 	/* possible BMESH_TODO: add explicit themes or calculate these by
 	 * figuring out contrasting colors with grid / edges / verts
 	 * a la UI_make_axis_color */
-	UI_GetThemeColor3ubv(TH_NURB_VLINE, colors->line);
-	UI_GetThemeColor3ubv(TH_NURB_ULINE, colors->edge);
-	UI_GetThemeColor3ubv(TH_HANDLE_SEL_VECT, colors->curpoint);
-	UI_GetThemeColor3ubv(TH_HANDLE_SEL_VECT, colors->curpoint_a);
+	UI_GetThemeColorType3ubv(TH_NURB_VLINE, SPACE_VIEW3D, colors->line);
+	UI_GetThemeColorType3ubv(TH_NURB_ULINE, SPACE_VIEW3D, colors->edge);
+	UI_GetThemeColorType3ubv(TH_HANDLE_SEL_VECT, SPACE_VIEW3D, colors->curpoint);
+	UI_GetThemeColorType3ubv(TH_HANDLE_SEL_VECT, SPACE_VIEW3D, colors->curpoint_a);
 	colors->curpoint_a[3] = 102;
-	UI_GetThemeColor3ubv(TH_ACTIVE_SPLINE, colors->point);
-	UI_GetThemeColor3ubv(TH_ACTIVE_SPLINE, colors->point_a);
+	UI_GetThemeColorType3ubv(TH_ACTIVE_SPLINE, SPACE_VIEW3D, colors->point);
+	UI_GetThemeColorType3ubv(TH_ACTIVE_SPLINE, SPACE_VIEW3D, colors->point_a);
 	colors->point_a[3] = 102;
 }
 
@@ -2098,7 +2089,8 @@ static KnifeVert *knife_find_closest_vert(KnifeTool_OpData *kcd, float p[3], flo
 
 				knife_project_v2(kcd, kfv->cageco, kfv->sco);
 
-				/* be strict about angle snapping, the vertex needs to be very close to the angle, or we ignore */
+				/* be strict about angle snapping, the vertex needs to be very close to the angle,
+				 * or we ignore */
 				if (kcd->is_angle_snapping) {
 					if (dist_squared_to_line_segment_v2(kfv->sco, kcd->prev.mval, kcd->curr.mval) > KNIFE_FLT_EPSBIG) {
 						continue;
@@ -2756,7 +2748,7 @@ wmKeyMap *knifetool_modal_keymap(wmKeyConfig *keyconf)
 		{KNF_MODAL_NEW_CUT, "NEW_CUT", 0, "End Current Cut", ""},
 		{KNF_MODAL_ADD_CUT, "ADD_CUT", 0, "Add Cut", ""},
 		{KNF_MODAL_PANNING, "PANNING", 0, "Panning", ""},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	wmKeyMap *keymap = WM_modalkeymap_get(keyconf, "Knife Tool Modal Map");
@@ -3120,7 +3112,8 @@ void EDBM_mesh_knife(bContext *C, LinkNode *polys, bool use_tag, bool cut_throug
 				keep_search = false;
 				BM_ITER_MESH (f, &iter, bm, BM_FACES_OF_MESH) {
 					if (BM_elem_flag_test(f, BM_ELEM_TAG) == false && (F_ISECT_IS_UNKNOWN(f))) {
-						/* am I connected to a tagged face via an un-tagged edge (ie, not across a cut) */
+						/* am I connected to a tagged face via an un-tagged edge
+						 * (ie, not across a cut) */
 						BMLoop *l_first = BM_FACE_FIRST_LOOP(f);
 						BMLoop *l_iter = l_first;
 						bool found = false;

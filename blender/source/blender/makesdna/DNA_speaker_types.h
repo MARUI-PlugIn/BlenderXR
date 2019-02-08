@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,14 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Jörg Müller.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file DNA_speaker_types.h
- *  \ingroup DNA
+/** \file \ingroup DNA
  */
 
 #ifndef __DNA_SPEAKER_TYPES_H__
@@ -34,11 +27,12 @@ struct bSound;
 
 typedef struct Speaker {
 	ID id;
-	struct AnimData *adt;	/* animation data (must be immediately after id for utilities to use it) */
+	/** Animation data (must be immediately after id for utilities to use it). */
+	struct AnimData *adt;
 
 	struct bSound *sound;
 
-	// not animatable properties
+	/* not animatable properties */
 	float volume_max;
 	float volume_min;
 	float distance_max;
@@ -48,13 +42,13 @@ typedef struct Speaker {
 	float cone_angle_inner;
 	float cone_volume_outer;
 
-	// animatable properties
+	/* animatable properties */
 	float volume;
 	float pitch;
 
-	// flag
+	/* flag */
 	short flag;
-	short pad1[3];
+	char _pad1[6];
 } Speaker;
 
 /* **************** SPEAKER ********************* */

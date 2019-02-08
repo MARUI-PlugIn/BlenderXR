@@ -1,6 +1,4 @@
 /*
- * Copyright 2016, Blender Foundation.
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,18 +13,15 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * Contributor(s): Blender Institute
- *
+ * Copyright 2016, Blender Foundation.
  */
 
-/** \file eevee_lightprobes.c
- *  \ingroup draw_engine
+/** \file \ingroup draw_engine
  */
 
 #include "DRW_render.h"
 
 #include "BLI_utildefines.h"
-#include "BLI_string_utils.h"
 #include "BLI_rand.h"
 
 #include "DNA_world_types.h"
@@ -41,15 +36,12 @@
 
 #include "GPU_material.h"
 #include "GPU_texture.h"
-#include "GPU_glew.h"
 
 #include "DEG_depsgraph_query.h"
 
-#include "eevee_engine.h"
 #include "eevee_lightcache.h"
 #include "eevee_private.h"
 
-#include "ED_screen.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -65,7 +57,6 @@ static struct {
 	struct GPUVertFormat *format_probe_display_planar;
 } e_data = {NULL}; /* Engine data */
 
-extern GlobalsUboStorage ts;
 
 /* *********** FUNCTIONS *********** */
 
@@ -76,15 +67,18 @@ bool EEVEE_lightprobes_obj_visibility_cb(bool vis_in, void *user_data)
 	EEVEE_ObjectEngineData *oed = (EEVEE_ObjectEngineData *)user_data;
 
 	/* test disabled if group is NULL */
-	if (oed->test_data->collection == NULL)
+	if (oed->test_data->collection == NULL) {
 		return vis_in;
+	}
 
-	if (oed->test_data->cached == false)
+	if (oed->test_data->cached == false) {
 		oed->ob_vis_dirty = true;
+	}
 
 	/* early out, don't need to compute ob_vis yet. */
-	if (vis_in == false)
+	if (vis_in == false) {
 		return vis_in;
+	}
 
 	if (oed->ob_vis_dirty) {
 		oed->ob_vis_dirty = false;
@@ -316,7 +310,7 @@ void EEVEE_lightprobes_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedat
 		Scene *scene = draw_ctx->scene;
 		World *wo = scene->world;
 
-		float *col = ts.colorBackground;
+		const float *col = G_draw.block.colorBackground;
 
 		/* LookDev */
 		EEVEE_lookdev_cache_init(vedata, &grp, psl->probe_background, wo, pinfo);
@@ -328,7 +322,7 @@ void EEVEE_lightprobes_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedat
 				static float error_col[3] = {1.0f, 0.0f, 1.0f};
 				struct GPUMaterial *gpumat = EEVEE_material_world_lightprobe_get(scene, wo);
 
-				GPUMaterialStatus status = GPU_material_status(gpumat);
+				eGPUMaterialStatus status = GPU_material_status(gpumat);
 
 				switch (status) {
 					case GPU_MAT_SUCCESS:
@@ -407,8 +401,8 @@ void EEVEE_lightprobes_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedat
 
 		/* Planar Display */
 		DRW_shgroup_instance_format(e_data.format_probe_display_planar, {
-		    {"probe_id", DRW_ATTRIB_INT, 1},
-		    {"probe_mat", DRW_ATTRIB_FLOAT, 16},
+		    {"probe_id", DRW_ATTR_INT, 1},
+		    {"probe_mat", DRW_ATTR_FLOAT, 16},
 		});
 
 		DRWShadingGroup *grp = DRW_shgroup_instance_create(
@@ -742,7 +736,6 @@ void EEVEE_lightprobes_cache_finish(EEVEE_ViewLayerData *sldata, EEVEE_Data *ved
 }
 
 /* -------------------------------------------------------------------- */
-
 /** \name Rendering
  * \{ */
 
@@ -820,7 +813,7 @@ void EEVEE_lightbake_render_world(EEVEE_ViewLayerData *UNUSED(sldata), EEVEE_Dat
 {
 	EEVEE_BakeRenderData brdata = {
 		.vedata = vedata,
-		.face_fb = face_fb
+		.face_fb = face_fb,
 	};
 
 	render_cubemap(lightbake_render_world_face, &brdata, (float[3]){0.0f}, 1.0f, 10.0f);
@@ -854,7 +847,7 @@ void EEVEE_lightbake_render_scene(
 	EEVEE_BakeRenderData brdata = {
 		.vedata = vedata,
 		.sldata = sldata,
-		.face_fb = face_fb
+		.face_fb = face_fb,
 	};
 
 	render_cubemap(lightbake_render_scene_face, &brdata, pos, near_clip, far_clip);
@@ -898,7 +891,7 @@ static void lightbake_render_scene_reflected(int layer, EEVEE_BakeRenderData *us
 	sldata->clip_data.clip_planes[0][3] += eplanar->clipsta;
 	/* Set clipping plane */
 	DRW_uniformbuffer_update(sldata->clip_ubo, &sldata->clip_data);
-	DRW_state_clip_planes_count_set(1);
+	DRW_state_clip_planes_len_set(1);
 
 	GPU_framebuffer_bind(fbl->planarref_fb);
 	GPU_framebuffer_clear_depth(fbl->planarref_fb, 1.0);
@@ -953,7 +946,6 @@ static void eevee_lightbake_render_scene_to_planars(
 /** \} */
 
 /* -------------------------------------------------------------------- */
-
 /** \name Filtering
  * \{ */
 

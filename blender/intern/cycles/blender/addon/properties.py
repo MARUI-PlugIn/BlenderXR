@@ -272,7 +272,7 @@ class CyclesRenderSettings(bpy.types.PropertyGroup):
 
     use_layer_samples: EnumProperty(
         name="Layer Samples",
-        description="How to use per render layer sample settings",
+        description="How to use per view layer sample settings",
         items=enum_use_layer_samples,
         default='USE',
     )
@@ -360,7 +360,8 @@ class CyclesRenderSettings(bpy.types.PropertyGroup):
         description="Distance between volume shader samples when rendering the volume "
         "(lower values give more accurate and detailed results, but also increased render time)",
         default=0.1,
-        min=0.0000001, max=100000.0, soft_min=0.01, soft_max=1.0, precision=4
+        min=0.0000001, max=100000.0, soft_min=0.01, soft_max=1.0, precision=4,
+        unit='LENGTH'
     )
 
     volume_max_steps: IntProperty(
@@ -376,14 +377,14 @@ class CyclesRenderSettings(bpy.types.PropertyGroup):
         description="Size of a micropolygon in pixels",
         min=0.1, max=1000.0, soft_min=0.5,
         default=1.0,
-        subtype="PIXEL"
+        subtype='PIXEL'
     )
     preview_dicing_rate: FloatProperty(
         name="Preview Dicing Rate",
         description="Size of a micropolygon in pixels during preview render",
         min=0.1, max=1000.0, soft_min=0.5,
         default=8.0,
-        subtype="PIXEL"
+        subtype='PIXEL'
     )
 
     max_subdivisions: IntProperty(
@@ -456,6 +457,7 @@ class CyclesRenderSettings(bpy.types.PropertyGroup):
         description="Pixel filter width",
         min=0.01, max=10.0,
         default=1.5,
+        subtype='PIXEL'
     )
 
     seed: IntProperty(
@@ -502,6 +504,7 @@ class CyclesRenderSettings(bpy.types.PropertyGroup):
         "progressively increasing it to the full viewport size",
         min=8, max=16384,
         default=64,
+        subtype='PIXEL'
     )
 
     debug_reset_timeout: FloatProperty(
@@ -596,7 +599,8 @@ class CyclesRenderSettings(bpy.types.PropertyGroup):
         name="Camera Cull Margin",
         description="Margin for the camera space culling",
         default=0.1,
-        min=0.0, max=5.0
+        min=0.0, max=5.0,
+        subtype='FACTOR'
     )
 
     use_distance_cull: BoolProperty(
@@ -609,7 +613,8 @@ class CyclesRenderSettings(bpy.types.PropertyGroup):
         name="Cull Distance",
         description="Cull objects which are further away from camera than this distance",
         default=50,
-        min=0.0
+        min=0.0,
+        unit='LENGTH'
     )
 
     motion_blur_position: EnumProperty(
@@ -889,7 +894,7 @@ class CyclesMaterialSettings(bpy.types.PropertyGroup):
         name="Displacement Method",
         description="Method to use for the displacement",
         items=enum_displacement_methods,
-        default='DISPLACEMENT',
+        default='BUMP',
     )
 
     @classmethod
@@ -1144,7 +1149,7 @@ class CyclesObjectSettings(bpy.types.PropertyGroup):
         name="Holdout",
         description="Render objects as a holdout or matte, creating a "
         "hole in the image with zero alpha, to fill out in "
-        "compositing with real footange or another render",
+        "compositing with real footage or another render",
         default=False,
     )
 
@@ -1196,12 +1201,14 @@ class CyclesCurveRenderSettings(bpy.types.PropertyGroup):
         description="Minimal pixel width for strands (0 - deactivated)",
         min=0.0, max=100.0,
         default=0.0,
+        subtype='PIXEL'
     )
     maximum_width: FloatProperty(
         name="Maximal width",
         description="Maximum extension that strand radius can be increased by",
         min=0.0, max=100.0,
         default=0.1,
+        subtype='PIXEL'
     )
     subdivisions: IntProperty(
         name="Subdivisions",
@@ -1446,7 +1453,7 @@ class CyclesPreferences(bpy.types.AddonPreferences):
     def get_devices(self):
         import _cycles
         # Layout of the device tuples: (Name, Type, Persistent ID)
-        device_list = _cycles.available_devices()
+        device_list = _cycles.available_devices(self.compute_device_type)
         # Make sure device entries are up to date and not referenced before
         # we know we don't add new devices. This way we guarantee to not
         # hold pointers to a resized array.
@@ -1470,7 +1477,7 @@ class CyclesPreferences(bpy.types.AddonPreferences):
 
     def get_num_gpu_devices(self):
         import _cycles
-        device_list = _cycles.available_devices()
+        device_list = _cycles.available_devices(self.compute_device_type)
         num = 0
         for device in device_list:
             if device[1] != self.compute_device_type:
@@ -1483,26 +1490,32 @@ class CyclesPreferences(bpy.types.AddonPreferences):
     def has_active_device(self):
         return self.get_num_gpu_devices() > 0
 
-    def draw_impl(self, layout, context):
-        available_device_types = self.get_device_types(context)
-        layout.label(text="Cycles Compute Device:")
-        if len(available_device_types) == 1:
-            layout.label(text="No compatible GPUs found", icon='INFO')
+    def _draw_devices(self, layout, device_type, devices):
+        box = layout.box()
+
+        found_device = False
+        for device in devices:
+            if device.type == device_type:
+                found_device = True
+                break
+
+        if not found_device:
+            box.label(text="No compatible GPUs found", icon='INFO')
             return
-        layout.row().prop(self, "compute_device_type", expand=True)
+
+        for device in devices:
+            box.prop(device, "use", text=device.name)
+
+    def draw_impl(self, layout, context):
+        row = layout.row()
+        row.prop(self, "compute_device_type", expand=True)
 
         cuda_devices, opencl_devices = self.get_devices()
         row = layout.row()
-
-        if self.compute_device_type == 'CUDA' and cuda_devices:
-            box = row.box()
-            for device in cuda_devices:
-                box.prop(device, "use", text=device.name)
-
-        if self.compute_device_type == 'OPENCL' and opencl_devices:
-            box = row.box()
-            for device in opencl_devices:
-                box.prop(device, "use", text=device.name)
+        if self.compute_device_type == 'CUDA':
+            self._draw_devices(row, 'CUDA', cuda_devices)
+        elif self.compute_device_type == 'OPENCL':
+            self._draw_devices(row, 'OPENCL', opencl_devices)
 
     def draw(self, context):
         self.draw_impl(self.layout, context)

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,15 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Chingiz Dyussenov, Arystanbek Dyussenov, Jan Diederich, Tod Liverseed,
- *                 Nathan Letwory
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/collada/ArmatureExporter.cpp
- *  \ingroup collada
+/** \file \ingroup collada
  */
 
 
@@ -233,7 +225,7 @@ void ArmatureExporter::add_bone_node(
 
 					se->writeNodes(*i);
 					copy_m4_m4((*i)->parentinv, backup_parinv);
-					child_objects.erase(i++);
+					i = child_objects.erase(i);
 				}
 				else i++;
 			}

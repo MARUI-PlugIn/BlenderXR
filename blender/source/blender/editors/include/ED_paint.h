@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,24 +12,21 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file ED_paint.h
- *  \ingroup editors
+/** \file \ingroup editors
  */
 
 #ifndef __ED_PAINT_H__
 #define __ED_PAINT_H__
 
-struct bContext;
-struct wmKeyConfig;
-struct wmOperator;
 struct ImBuf;
 struct Image;
 struct UndoStep;
 struct UndoType;
+struct bContext;
+struct wmKeyConfig;
+struct wmOperator;
 
 /* paint_ops.c */
 void ED_operatortypes_paint(void);
@@ -44,7 +39,7 @@ void ED_imapaint_dirty_region(struct Image *ima, struct ImBuf *ibuf, int x, int 
 void ED_imapaint_bucket_fill(struct bContext *C, float color[3], struct wmOperator *op);
 
 /* paint_image_undo.c */
-void ED_image_undo_push_begin(const char *name);
+void ED_image_undo_push_begin(const char *name, int paint_mode);
 void ED_image_undo_push_end(void);
 void ED_image_undo_restore(struct UndoStep *us);
 

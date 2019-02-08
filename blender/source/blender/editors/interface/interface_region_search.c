@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,14 +15,9 @@
  *
  * The Original Code is Copyright (C) 2008 Blender Foundation.
  * All rights reserved.
- *
- * Contributor(s): Blender Foundation
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/interface/interface_region_search.c
- *  \ingroup edinterface
+/** \file \ingroup edinterface
  *
  * Search Box Region & Interaction
  */
@@ -52,7 +45,6 @@
 
 #include "RNA_access.h"
 
-#include "BIF_gl.h"
 
 #include "UI_interface.h"
 #include "UI_interface_icons.h"
@@ -90,10 +82,14 @@ typedef struct uiSearchboxData {
 	rcti bbox;
 	uiFontStyle fstyle;
 	uiSearchItems items;
-	int active;     /* index in items array */
-	bool noback;    /* when menu opened with enough space for this */
-	bool preview;   /* draw thumbnail previews, rather than list */
-	bool use_sep;   /* use the UI_SEP_CHAR char for splitting shortcuts (good for operators, bad for data) */
+	/** index in items array */
+	int active;
+	/** when menu opened with enough space for this */
+	bool noback;
+	/** draw thumbnail previews, rather than list */
+	bool preview;
+	/** use the UI_SEP_CHAR char for splitting shortcuts (good for operators, bad for data) */
+	bool use_sep;
 	int prv_rows, prv_cols;
 } uiSearchboxData;
 
@@ -262,7 +258,8 @@ bool ui_searchbox_apply(uiBut *but, ARegion *ar)
 		return true;
 	}
 	else if (but->flag & UI_BUT_VALUE_CLEAR) {
-		/* It is valid for _VALUE_CLEAR flavor to have no active element (it's a valid way to unlink). */
+		/* It is valid for _VALUE_CLEAR flavor to have no active element
+		 * (it's a valid way to unlink). */
 		but->editstr[0] = '\0';
 
 		return true;
@@ -516,7 +513,6 @@ ARegion *ui_searchbox_create_generic(bContext *C, ARegion *butregion, uiBut *but
 
 	/* set font, get bb */
 	data->fstyle = style->widget; /* copy struct */
-	data->fstyle.align = UI_STYLE_TEXT_CENTER;
 	ui_fontscale(&data->fstyle.points, aspect);
 	UI_fontstyle_set(&data->fstyle);
 

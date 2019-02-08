@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2007 Blender Foundation.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): Geoffrey Bantle.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/bmesh/intern/bmesh_structure.c
- *  \ingroup bmesh
+/** \file \ingroup bmesh
  *
  * Low level routines for manipulating the BM structure.
  */
@@ -108,8 +99,6 @@ void bmesh_disk_vert_replace(BMEdge *e, BMVert *v_dst, BMVert *v_src)
  * modification of specific cycle types.
  *
  * The three cycles explicitly stored in the BM data structure are as follows:
- *
- *
  * 1: The Disk Cycle - A circle of edges around a vertex
  * Base: vertex->edge pointer.
  *
@@ -133,8 +122,6 @@ void bmesh_disk_vert_replace(BMEdge *e, BMVert *v_dst, BMVert *v_src)
  * - #bmesh_disk_facevert_count
  * - #bmesh_disk_faceedge_find_first
  * - #bmesh_disk_faceedge_find_next
- *
- *
  * 2: The Radial Cycle - A circle of face edges (bmesh_Loop) around an edge
  * Base: edge->l->radial structure.
  *
@@ -150,8 +137,6 @@ void bmesh_disk_vert_replace(BMEdge *e, BMVert *v_dst, BMVert *v_src)
  * - #bmesh_radial_faceloop_find_first
  * - #bmesh_radial_faceloop_find_next
  * - #bmesh_radial_validate
- *
- *
  * 3: The Loop Cycle - A circle of face edges around a polygon.
  * Base: polygon->lbase.
  *
@@ -161,8 +146,6 @@ void bmesh_disk_vert_replace(BMEdge *e, BMVert *v_dst, BMVert *v_src)
  *
  * Functions relating to this cycle:
  * - bmesh_cycle_XXX family of functions.
- *
- *
  * \note the order of elements in all cycles except the loop cycle is undefined. This
  * leads to slightly increased seek time for deriving some adjacency relations, however the
  * advantage is that no intrinsic properties of the data structures are dependent upon the

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,12 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/sculpt_paint/paint_curve_undo.c
- *  \ingroup edsculpt
+/** \file \ingroup edsculpt
  */
 
 #include <string.h>
@@ -29,7 +24,6 @@
 #include "DNA_brush_types.h"
 #include "DNA_space_types.h"
 
-#include "BLI_string.h"
 #include "BLI_array_utils.h"
 
 #include "BKE_context.h"
@@ -99,7 +93,7 @@ static void paintcurve_undosys_step_encode_init(struct bContext *C, UndoStep *us
 	UNUSED_VARS(C, us_p);
 }
 
-static bool paintcurve_undosys_step_encode(struct bContext *C, UndoStep *us_p)
+static bool paintcurve_undosys_step_encode(struct bContext *C, struct Main *UNUSED(bmain), UndoStep *us_p)
 {
 	Paint *p = BKE_paint_get_active_from_context(C);
 	PaintCurve *pc = p ? (p->brush ? p->brush->paint_curve : NULL) : NULL;
@@ -116,7 +110,7 @@ static bool paintcurve_undosys_step_encode(struct bContext *C, UndoStep *us_p)
 	return true;
 }
 
-static void paintcurve_undosys_step_decode(struct bContext *UNUSED(C), UndoStep *us_p, int UNUSED(dir))
+static void paintcurve_undosys_step_decode(struct bContext *UNUSED(C), struct Main *UNUSED(bmain), UndoStep *us_p, int UNUSED(dir))
 {
 	PaintCurveUndoStep *us = (PaintCurveUndoStep *)us_p;
 	undocurve_to_paintcurve(&us->data, us->pc);
@@ -139,7 +133,6 @@ void ED_paintcurve_undosys_type(UndoType *ut)
 	ut->step_decode = paintcurve_undosys_step_decode;
 	ut->step_free = paintcurve_undosys_step_free;
 
-	ut->mode = BKE_UNDOTYPE_MODE_STORE;
 	ut->use_context = false;
 
 	ut->step_size = sizeof(PaintCurveUndoStep);

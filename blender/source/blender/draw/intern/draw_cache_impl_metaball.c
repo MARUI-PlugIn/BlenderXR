@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,12 +15,9 @@
  *
  * The Original Code is Copyright (C) 2017 by Blender Foundation.
  * All rights reserved.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file draw_cache_impl_metaball.c
- *  \ingroup draw
+/** \file \ingroup draw
  *
  * \brief MetaBall API for render engines
  */
@@ -39,7 +34,6 @@
 
 #include "GPU_batch.h"
 
-#include "DRW_render.h"
 
 #include "draw_cache_impl.h"  /* own include */
 
@@ -150,7 +144,6 @@ static GPUVertBuf *mball_batch_cache_get_pos_and_normals(Object *ob, MetaBallBat
 }
 
 /* -------------------------------------------------------------------- */
-
 /** \name Public Object/MetaBall API
  * \{ */
 

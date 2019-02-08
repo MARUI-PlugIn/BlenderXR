@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2011 Blender Foundation.
  * All rights reserved.
- *
- *
- * Contributor(s): Blender Foundation,
- *                 Sergey Sharybin
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/space_clip/clip_draw.c
- *  \ingroup spclip
+/** \file \ingroup spclip
  */
 
 #include "DNA_gpencil_types.h"
@@ -329,14 +320,15 @@ static void draw_movieclip_buffer(const bContext *C, SpaceClip *sc, ARegion *ar,
 
 	glaDrawImBuf_glsl_ctx(C, ibuf, x, y, filter, zoomx * width / ibuf->x, zoomy * height / ibuf->y);
 
+	if (ibuf->planes == 32) {
+		GPU_blend(false);
+	}
+
 	if (sc->flag & SC_SHOW_METADATA) {
 		rctf frame;
 		BLI_rctf_init(&frame, 0.0f, ibuf->x, 0.0f, ibuf->y);
 		ED_region_image_metadata_draw(x, y, ibuf, &frame, zoomx * width / ibuf->x, zoomy * height / ibuf->y);
 	}
-
-	if (ibuf->planes == 32)
-		GPU_blend(false);
 }
 
 static void draw_stabilization_border(SpaceClip *sc, ARegion *ar, int width, int height, float zoomx, float zoomy)
@@ -663,7 +655,8 @@ static void draw_marker_areas(SpaceClip *sc, MovieTrackingTrack *track, MovieTra
 
 	GPU_line_width(1.0f);
 
-	/* Since we are switching solid and dashed lines in rather complex logic here, just always go with dashed shader. */
+	/* Since we are switching solid and dashed lines in rather complex logic here,
+	 * just always go with dashed shader. */
 	immUnbindProgram();
 
 	immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_UNIFORM_COLOR);

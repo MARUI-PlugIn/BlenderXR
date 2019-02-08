@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,21 +15,15 @@
  *
  * The Original Code is Copyright (C) 2014 Blender Foundation.
  * All rights reserved.
- *
- * Contributor(s): Blender Foundation
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blank3d_gizmo.c
- *  \ingroup edgizmolib
+/** \file \ingroup edgizmolib
  *
  * \name Blank Gizmo
  *
  * \brief Gizmo to use as a fallback (catch events).
  */
 
-#include "BLI_math.h"
 
 #include "BKE_context.h"
 

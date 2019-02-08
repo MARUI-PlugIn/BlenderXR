@@ -1,6 +1,4 @@
 /*
- * Copyright 2016, Blender Foundation.
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,12 +13,10 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * Contributor(s): Blender Institute
- *
+ * Copyright 2016, Blender Foundation.
  */
 
-/** \file eevee_render.c
- *  \ingroup draw_engine
+/** \file \ingroup draw_engine
  */
 
 /**
@@ -33,7 +29,7 @@
 #include "DNA_node_types.h"
 #include "DNA_object_types.h"
 
-#include "BKE_camera.h"
+#include "BKE_object.h"
 
 #include "BLI_rand.h"
 #include "BLI_rect.h"
@@ -41,7 +37,6 @@
 #include "DEG_depsgraph_query.h"
 
 #include "GPU_framebuffer.h"
-#include "GPU_glew.h"
 #include "GPU_state.h"
 
 #include "RE_pipeline.h"
@@ -179,11 +174,12 @@ void EEVEE_render_cache(
 		RE_engine_update_stats(engine, NULL, info);
 	}
 
-	if (ob->base_flag & BASE_VISIBLE) {
+	const int ob_visibility = DRW_object_visibility_in_active_context(ob);
+	if (ob_visibility & OB_VISIBLE_PARTICLES) {
 		EEVEE_hair_cache_populate(vedata, sldata, ob, &cast_shadow);
 	}
 
-	if (DRW_object_is_visible_in_active_context(ob)) {
+	if (ob_visibility & OB_VISIBLE_SELF) {
 		if (ELEM(ob->type, OB_MESH, OB_CURVE, OB_SURF, OB_FONT, OB_MBALL)) {
 			EEVEE_materials_cache_populate(vedata, sldata, ob, &cast_shadow);
 		}
@@ -207,11 +203,12 @@ static void eevee_render_result_combined(
 	RenderPass *rp = RE_pass_find_by_name(rl, RE_PASSNAME_COMBINED, viewname);
 
 	GPU_framebuffer_bind(vedata->stl->effects->final_fb);
-	GPU_framebuffer_read_color(vedata->stl->effects->final_fb,
-	                           vedata->stl->g_data->overscan_pixels + rect->xmin,
-	                           vedata->stl->g_data->overscan_pixels + rect->ymin,
-	                           BLI_rcti_size_x(rect), BLI_rcti_size_y(rect),
-	                           4, 0, rp->rect);
+	GPU_framebuffer_read_color(
+	        vedata->stl->effects->final_fb,
+	        vedata->stl->g_data->overscan_pixels + rect->xmin,
+	        vedata->stl->g_data->overscan_pixels + rect->ymin,
+	        BLI_rcti_size_x(rect), BLI_rcti_size_y(rect),
+	        4, 0, rp->rect);
 
 	/* Premult alpha */
 	int pixels_len = BLI_rcti_size_x(rect) * BLI_rcti_size_y(rect);
@@ -236,11 +233,12 @@ static void eevee_render_result_subsurface(
 		RenderPass *rp = RE_pass_find_by_name(rl, RE_PASSNAME_SUBSURFACE_COLOR, viewname);
 
 		GPU_framebuffer_bind(vedata->fbl->sss_accum_fb);
-		GPU_framebuffer_read_color(vedata->fbl->sss_accum_fb,
-		                           vedata->stl->g_data->overscan_pixels + rect->xmin,
-		                           vedata->stl->g_data->overscan_pixels + rect->ymin,
-		                           BLI_rcti_size_x(rect), BLI_rcti_size_y(rect),
-		                           3, 1, rp->rect);
+		GPU_framebuffer_read_color(
+		        vedata->fbl->sss_accum_fb,
+		        vedata->stl->g_data->overscan_pixels + rect->xmin,
+		        vedata->stl->g_data->overscan_pixels + rect->ymin,
+		        BLI_rcti_size_x(rect), BLI_rcti_size_y(rect),
+		        3, 1, rp->rect);
 
 		/* This is the accumulated color. Divide by the number of samples. */
 		for (int i = 0; i < rp->rectx * rp->recty * 3; i++) {
@@ -252,11 +250,12 @@ static void eevee_render_result_subsurface(
 		RenderPass *rp = RE_pass_find_by_name(rl, RE_PASSNAME_SUBSURFACE_DIRECT, viewname);
 
 		GPU_framebuffer_bind(vedata->fbl->sss_accum_fb);
-		GPU_framebuffer_read_color(vedata->fbl->sss_accum_fb,
-		                           vedata->stl->g_data->overscan_pixels + rect->xmin,
-		                           vedata->stl->g_data->overscan_pixels + rect->ymin,
-		                           BLI_rcti_size_x(rect), BLI_rcti_size_y(rect),
-		                           3, 0, rp->rect);
+		GPU_framebuffer_read_color(
+		        vedata->fbl->sss_accum_fb,
+		        vedata->stl->g_data->overscan_pixels + rect->xmin,
+		        vedata->stl->g_data->overscan_pixels + rect->ymin,
+		        BLI_rcti_size_x(rect), BLI_rcti_size_y(rect),
+		        3, 0, rp->rect);
 
 		/* This is the accumulated color. Divide by the number of samples. */
 		for (int i = 0; i < rp->rectx * rp->recty * 3; i++) {
@@ -280,18 +279,20 @@ static void eevee_render_result_normal(
 	EEVEE_PrivateData *g_data = stl->g_data;
 
 	/* Only read the center texel. */
-	if (stl->effects->taa_current_sample > 1)
+	if (stl->effects->taa_current_sample > 1) {
 		return;
+	}
 
 	if ((view_layer->passflag & SCE_PASS_NORMAL) != 0) {
 		RenderPass *rp = RE_pass_find_by_name(rl, RE_PASSNAME_NORMAL, viewname);
 
 		GPU_framebuffer_bind(vedata->fbl->main_fb);
-		GPU_framebuffer_read_color(vedata->fbl->main_fb,
-		                           g_data->overscan_pixels + rect->xmin,
-		                           g_data->overscan_pixels + rect->ymin,
-		                           BLI_rcti_size_x(rect), BLI_rcti_size_y(rect),
-		                           3, 1, rp->rect);
+		GPU_framebuffer_read_color(
+		        vedata->fbl->main_fb,
+		        g_data->overscan_pixels + rect->xmin,
+		        g_data->overscan_pixels + rect->ymin,
+		        BLI_rcti_size_x(rect), BLI_rcti_size_y(rect),
+		        3, 1, rp->rect);
 
 		/* Convert Eevee encoded normals to Blender normals. */
 		for (int i = 0; i < rp->rectx * rp->recty * 3; i += 3) {
@@ -327,18 +328,20 @@ static void eevee_render_result_z(
 	EEVEE_PrivateData *g_data = stl->g_data;
 
 	/* Only read the center texel. */
-	if (stl->effects->taa_current_sample > 1)
+	if (stl->effects->taa_current_sample > 1) {
 		return;
+	}
 
 	if ((view_layer->passflag & SCE_PASS_Z) != 0) {
 		RenderPass *rp = RE_pass_find_by_name(rl, RE_PASSNAME_Z, viewname);
 
 		GPU_framebuffer_bind(vedata->fbl->main_fb);
-		GPU_framebuffer_read_depth(vedata->fbl->main_fb,
-		                           g_data->overscan_pixels + rect->xmin,
-		                           g_data->overscan_pixels + rect->ymin,
-		                           BLI_rcti_size_x(rect), BLI_rcti_size_y(rect),
-		                           rp->rect);
+		GPU_framebuffer_read_depth(
+		        vedata->fbl->main_fb,
+		        g_data->overscan_pixels + rect->xmin,
+		        g_data->overscan_pixels + rect->ymin,
+		        BLI_rcti_size_x(rect), BLI_rcti_size_y(rect),
+		        rp->rect);
 
 		bool is_persp = DRW_viewport_is_persp_get();
 
@@ -371,11 +374,12 @@ static void eevee_render_result_mist(
 		RenderPass *rp = RE_pass_find_by_name(rl, RE_PASSNAME_MIST, viewname);
 
 		GPU_framebuffer_bind(vedata->fbl->mist_accum_fb);
-		GPU_framebuffer_read_color(vedata->fbl->mist_accum_fb,
-		                           vedata->stl->g_data->overscan_pixels + rect->xmin,
-		                           vedata->stl->g_data->overscan_pixels + rect->ymin,
-		                           BLI_rcti_size_x(rect), BLI_rcti_size_y(rect),
-		                           1, 0, rp->rect);
+		GPU_framebuffer_read_color(
+		        vedata->fbl->mist_accum_fb,
+		        vedata->stl->g_data->overscan_pixels + rect->xmin,
+		        vedata->stl->g_data->overscan_pixels + rect->ymin,
+		        BLI_rcti_size_x(rect), BLI_rcti_size_y(rect),
+		        1, 0, rp->rect);
 
 		/* This is the accumulated color. Divide by the number of samples. */
 		for (int i = 0; i < rp->rectx * rp->recty; i++) {
@@ -400,11 +404,12 @@ static void eevee_render_result_occlusion(
 		RenderPass *rp = RE_pass_find_by_name(rl, RE_PASSNAME_AO, viewname);
 
 		GPU_framebuffer_bind(vedata->fbl->ao_accum_fb);
-		GPU_framebuffer_read_color(vedata->fbl->ao_accum_fb,
-		                           vedata->stl->g_data->overscan_pixels + rect->xmin,
-		                           vedata->stl->g_data->overscan_pixels + rect->ymin,
-		                           BLI_rcti_size_x(rect), BLI_rcti_size_y(rect),
-		                           3, 0, rp->rect);
+		GPU_framebuffer_read_color(
+		        vedata->fbl->ao_accum_fb,
+		        vedata->stl->g_data->overscan_pixels + rect->xmin,
+		        vedata->stl->g_data->overscan_pixels + rect->ymin,
+		        BLI_rcti_size_x(rect), BLI_rcti_size_y(rect),
+		        3, 0, rp->rect);
 
 		/* This is the accumulated color. Divide by the number of samples. */
 		for (int i = 0; i < rp->rectx * rp->recty * 3; i += 3) {
@@ -466,7 +471,7 @@ void EEVEE_render_draw(EEVEE_Data *vedata, RenderEngine *engine, RenderLayer *rl
 	/* Sort transparents before the loop. */
 	DRW_pass_sort_shgroup_z(psl->transparent_pass);
 
-	/* Push instances attribs to the GPU. */
+	/* Push instances attributes to the GPU. */
 	DRW_render_instance_buffer_finish();
 
 	/* Need to be called after DRW_render_instance_buffer_finish() */

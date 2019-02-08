@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,15 +15,9 @@
  *
  * The Original Code is Copyright (C) 2018, Blender Foundation
  * This is a new part of Blender
- *
- * Contributor(s): Antonio Vazquez
- *
- * ***** END GPL LICENSE BLOCK *****
- *
  */
 
-/** \file blender/shader_fx/intern/FX_shader_glow.c
- *  \ingroup shader_fx
+/** \file \ingroup shader_fx
  */
 
 #include <stdio.h>
@@ -34,10 +26,8 @@
 #include "DNA_object_types.h"
 #include "DNA_gpencil_types.h"
 
-#include "BLI_math_base.h"
 #include "BLI_utildefines.h"
 
-#include "BKE_library_query.h"
 #include "BKE_modifier.h"
 #include "BKE_shader_fx.h"
 

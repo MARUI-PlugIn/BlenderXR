@@ -1,6 +1,4 @@
 /*
- * Copyright 2016, Blender Foundation.
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,28 +13,27 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * Contributor(s): Blender Institute
- *
+ * Copyright 2016, Blender Foundation.
  */
 
-/** \file draw_cache_impl.h
- *  \ingroup draw
+/** \file \ingroup draw
  */
 
 #ifndef __DRAW_CACHE_IMPL_H__
 #define __DRAW_CACHE_IMPL_H__
 
 struct CurveCache;
-struct GPUMaterial;
-struct GPUTexture;
 struct GPUBatch;
 struct GPUIndexBuf;
+struct GPUMaterial;
+struct GPUTexture;
 struct GPUVertBuf;
 struct ListBase;
 struct ModifierData;
-struct ParticleSystem;
 struct PTCacheEdit;
+struct ParticleSystem;
 struct SpaceImage;
+struct ToolSettings;
 
 struct Curve;
 struct Lattice;
@@ -97,7 +94,9 @@ struct GPUBatch *DRW_lattice_batch_cache_get_all_verts(struct Lattice *lt);
 struct GPUBatch *DRW_lattice_batch_cache_get_edit_verts(struct Lattice *lt);
 
 /* Mesh */
-void DRW_mesh_batch_cache_create_requested(struct Object *ob, struct Mesh *me);
+void DRW_mesh_batch_cache_create_requested(
+        struct Object *ob, struct Mesh *me,
+        const struct ToolSettings *ts, const bool is_paint_mode, const bool use_hide);
 
 struct GPUBatch *DRW_mesh_batch_cache_get_all_verts(struct Mesh *me);
 struct GPUBatch *DRW_mesh_batch_cache_get_all_edges(struct Mesh *me);
@@ -114,60 +113,51 @@ struct GPUBatch *DRW_mesh_batch_cache_get_surface_vertpaint(struct Mesh *me);
 struct GPUBatch *DRW_mesh_batch_cache_get_surface_weights(struct Mesh *me);
 /* edit-mesh drawing */
 struct GPUBatch *DRW_mesh_batch_cache_get_edit_triangles(struct Mesh *me);
-struct GPUBatch *DRW_mesh_batch_cache_get_edit_triangles_nor(struct Mesh *me);
-struct GPUBatch *DRW_mesh_batch_cache_get_edit_triangles_lnor(struct Mesh *me);
 struct GPUBatch *DRW_mesh_batch_cache_get_edit_vertices(struct Mesh *me);
-struct GPUBatch *DRW_mesh_batch_cache_get_edit_loose_edges(struct Mesh *me);
-struct GPUBatch *DRW_mesh_batch_cache_get_edit_loose_edges_nor(struct Mesh *me);
-struct GPUBatch *DRW_mesh_batch_cache_get_edit_loose_verts(struct Mesh *me);
+struct GPUBatch *DRW_mesh_batch_cache_get_edit_edges(struct Mesh *me);
+struct GPUBatch *DRW_mesh_batch_cache_get_edit_lnors(struct Mesh *me);
 struct GPUBatch *DRW_mesh_batch_cache_get_edit_facedots(struct Mesh *me);
 /* edit-mesh selection */
-struct GPUBatch *DRW_mesh_batch_cache_get_triangles_with_select_id(struct Mesh *me, bool use_hide, uint select_id_offset);
-struct GPUBatch *DRW_mesh_batch_cache_get_triangles_with_select_mask(struct Mesh *me, bool use_hide);
-struct GPUBatch *DRW_mesh_batch_cache_get_facedots_with_select_id(struct Mesh *me, uint select_id_offset);
-struct GPUBatch *DRW_mesh_batch_cache_get_edges_with_select_id(struct Mesh *me, uint select_id_offset);
-struct GPUBatch *DRW_mesh_batch_cache_get_verts_with_select_id(struct Mesh *me, uint select_id_offset);
+struct GPUBatch *DRW_mesh_batch_cache_get_triangles_with_select_id(struct Mesh *me);
+struct GPUBatch *DRW_mesh_batch_cache_get_facedots_with_select_id(struct Mesh *me);
+struct GPUBatch *DRW_mesh_batch_cache_get_edges_with_select_id(struct Mesh *me);
+struct GPUBatch *DRW_mesh_batch_cache_get_verts_with_select_id(struct Mesh *me);
 /* Object mode Wireframe overlays */
 struct GPUBatch *DRW_mesh_batch_cache_get_wireframes_face(struct Mesh *me);
+/* edit-mesh UV editor */
+struct GPUBatch *DRW_mesh_batch_cache_get_edituv_faces_strech_area(struct Mesh *me);
+struct GPUBatch *DRW_mesh_batch_cache_get_edituv_faces_strech_angle(struct Mesh *me);
+struct GPUBatch *DRW_mesh_batch_cache_get_edituv_faces(struct Mesh *me);
+struct GPUBatch *DRW_mesh_batch_cache_get_edituv_edges(struct Mesh *me);
+struct GPUBatch *DRW_mesh_batch_cache_get_edituv_verts(struct Mesh *me);
+struct GPUBatch *DRW_mesh_batch_cache_get_edituv_facedots(struct Mesh *me);
+/* For Image UV editor. */
+struct GPUBatch *DRW_mesh_batch_cache_get_uv_edges(struct Mesh *me);
 
 void DRW_mesh_cache_sculpt_coords_ensure(struct Mesh *me);
 
-enum {
-	UVEDIT_EDGES          = (1 << 0),
-	UVEDIT_DATA           = (1 << 1),
-	UVEDIT_FACEDOTS       = (1 << 2),
-	UVEDIT_FACES          = (1 << 3),
-	UVEDIT_STRETCH_ANGLE  = (1 << 4),
-	UVEDIT_STRETCH_AREA   = (1 << 5),
-	UVEDIT_SYNC_SEL       = (1 << 6),
-};
-
-/* For Image UV editor. */
-struct GPUBatch *DRW_mesh_batch_cache_get_texpaint_loop_wire(struct Mesh *me);
-void DRW_mesh_cache_uvedit(
-        struct Object *me, struct SpaceImage *sima, struct Scene *scene, uchar state,
-        struct GPUBatch **faces, struct GPUBatch **edges, struct GPUBatch **verts, struct GPUBatch **facedots);
-
 /* Edit mesh bitflags (is this the right place?) */
-
 enum {
-	VFLAG_VERTEX_ACTIVE   = 1 << 0,
-	VFLAG_VERTEX_SELECTED = 1 << 1,
-	VFLAG_VERTEX_EXISTS   = 1 << 2,
-	VFLAG_FACE_ACTIVE     = 1 << 3,
-	VFLAG_FACE_SELECTED   = 1 << 4,
-	VFLAG_FACE_FREESTYLE  = 1 << 5,
+	VFLAG_VERT_ACTIVE    = 1 << 0,
+	VFLAG_VERT_SELECTED  = 1 << 1,
+	VFLAG_EDGE_ACTIVE    = 1 << 2,
+	VFLAG_EDGE_SELECTED  = 1 << 3,
+	VFLAG_EDGE_SEAM      = 1 << 4,
+	VFLAG_EDGE_SHARP     = 1 << 5,
+	VFLAG_EDGE_FREESTYLE = 1 << 6,
 	/* Beware to not go over 1 << 7 (it's a byte flag)
 	 * (see gpu_shader_edit_mesh_overlay_geom.glsl) */
 };
 
 enum {
-	VFLAG_EDGE_EXISTS   = 1 << 0,
-	VFLAG_EDGE_ACTIVE   = 1 << 1,
-	VFLAG_EDGE_SELECTED = 1 << 2,
-	VFLAG_EDGE_SEAM     = 1 << 3,
-	VFLAG_EDGE_SHARP    = 1 << 4,
-	VFLAG_EDGE_FREESTYLE = 1 << 5,
+	VFLAG_FACE_ACTIVE     = 1 << 0,
+	VFLAG_FACE_SELECTED   = 1 << 1,
+	VFLAG_FACE_FREESTYLE  = 1 << 2,
+	VFLAG_VERT_UV_SELECT  = 1 << 3,
+	VFLAG_VERT_UV_PINNED  = 1 << 4,
+	VFLAG_EDGE_UV_SELECT  = 1 << 5,
+	VFLAG_FACE_UV_ACTIVE  = 1 << 6,
+	VFLAG_FACE_UV_SELECT  = 1 << 7,
 	/* Beware to not go over 1 << 7 (it's a byte flag)
 	 * (see gpu_shader_edit_mesh_overlay_geom.glsl) */
 };

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,12 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file source/blender/freestyle/intern/python/Iterator/BPy_ChainingIterator.cpp
- *  \ingroup freestyle
+/** \file \ingroup freestyle
  */
 
 #include "BPy_ChainingIterator.h"
@@ -163,7 +158,7 @@ static PyObject *ChainingIterator_traverse(BPy_ChainingIterator *self, PyObject 
 static PyMethodDef BPy_ChainingIterator_methods[] = {
 	{"init", (PyCFunction) ChainingIterator_init, METH_NOARGS, ChainingIterator_init_doc},
 	{"traverse", (PyCFunction) ChainingIterator_traverse, METH_VARARGS | METH_KEYWORDS, ChainingIterator_traverse_doc},
-	{NULL, NULL, 0, NULL}
+	{NULL, NULL, 0, NULL},
 };
 
 /*----------------------ChainingIterator get/setters ----------------------------*/

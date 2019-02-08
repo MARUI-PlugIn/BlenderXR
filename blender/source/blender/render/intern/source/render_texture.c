@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,14 +15,9 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * Contributor(s): 2004-2006, Blender Foundation, full recode
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/render/intern/source/render_texture.c
- *  \ingroup render
+/** \file \ingroup render
  */
 
 
@@ -55,8 +48,6 @@
 
 #include "BKE_animsys.h"
 #include "BKE_colorband.h"
-#include "BKE_global.h"
-#include "BKE_main.h"
 #include "BKE_material.h"
 #include "BKE_scene.h"
 

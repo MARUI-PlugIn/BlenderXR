@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,17 +15,12 @@
  *
  * The Original Code is Copyright (C) 2014 Blender Foundation.
  * All rights reserved.
- *
- * Contributor(s): Antony Riakiotakis.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/gpu/intern/gpu_select.c
- *  \ingroup gpu
+/** \file \ingroup gpu
  *
- * Interface for accessing gpu-related methods for selection. The semantics will be
- * similar to glRenderMode(GL_SELECT) since the goal is to maintain compatibility.
+ * Interface for accessing gpu-related methods for selection. The semantics are
+ * similar to glRenderMode(GL_SELECT) from older OpenGL versions.
  */
 #include <stdlib.h>
 
@@ -45,21 +38,17 @@
 
 /* Internal algorithm used */
 enum {
-	/** GL_SELECT, legacy OpenGL selection */
-	ALGO_GL_LEGACY = 1,
 	/** glBegin/EndQuery(GL_SAMPLES_PASSED... ), `gpu_select_query.c`
 	 * Only sets 4th component (ID) correctly. */
-	ALGO_GL_QUERY = 2,
+	ALGO_GL_QUERY = 1,
 	/** Read depth buffer for every drawing pass and extract depths, `gpu_select_pick.c`
 	 * Only sets 4th component (ID) correctly. */
-	ALGO_GL_PICK = 3,
+	ALGO_GL_PICK = 2,
 };
 
 typedef struct GPUSelectState {
 	/* To ignore selection id calls when not initialized */
 	bool select_is_active;
-	/* flag to cache user preference for occlusion based selection */
-	bool use_gpu_select;
 	/* mode of operation */
 	char mode;
 	/* internal algorithm for selection */
@@ -82,29 +71,16 @@ void GPU_select_begin(uint *buffer, uint bufsize, const rcti *input, char mode, 
 	}
 
 	g_select_state.select_is_active = true;
-	g_select_state.use_gpu_select = GPU_select_query_check_active();
 	g_select_state.mode = mode;
 
 	if (ELEM(g_select_state.mode, GPU_SELECT_PICK_ALL, GPU_SELECT_PICK_NEAREST)) {
 		g_select_state.algorithm = ALGO_GL_PICK;
-	}
-	else if (!g_select_state.use_gpu_select) {
-		g_select_state.algorithm = ALGO_GL_LEGACY;
 	}
 	else {
 		g_select_state.algorithm = ALGO_GL_QUERY;
 	}
 
 	switch (g_select_state.algorithm) {
-		case ALGO_GL_LEGACY:
-		{
-			g_select_state.use_cache = false;
-			glSelectBuffer(bufsize, (GLuint *)buffer);
-			glRenderMode(GL_SELECT);
-			glInitNames();
-			glPushName(-1);
-			break;
-		}
 		case ALGO_GL_QUERY:
 		{
 			g_select_state.use_cache = false;
@@ -133,11 +109,6 @@ bool GPU_select_load_id(uint id)
 		return true;
 
 	switch (g_select_state.algorithm) {
-		case ALGO_GL_LEGACY:
-		{
-			glLoadName(id);
-			return true;
-		}
 		case ALGO_GL_QUERY:
 		{
 			return gpu_select_query_load_id(id);
@@ -159,12 +130,6 @@ uint GPU_select_end(void)
 	uint hits = 0;
 
 	switch (g_select_state.algorithm) {
-		case ALGO_GL_LEGACY:
-		{
-			glPopName();
-			hits = glRenderMode(GL_RENDER);
-			break;
-		}
 		case ALGO_GL_QUERY:
 		{
 			hits = gpu_select_query_end();
@@ -180,14 +145,6 @@ uint GPU_select_end(void)
 	g_select_state.select_is_active = false;
 
 	return hits;
-}
-
-/**
- * has user activated?
- */
-bool GPU_select_query_check_active(void)
-{
-	return ELEM(U.gpu_select_method, USER_SELECT_USE_OCCLUSION_QUERY, USER_SELECT_AUTO);
 }
 
 /* ----------------------------------------------------------------------------

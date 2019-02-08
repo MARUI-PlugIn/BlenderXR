@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,15 +15,9 @@
  *
  * The Original Code is Copyright (C) 2009 Blender Foundation.
  * All rights reserved.
- *
- *
- * Contributor(s): Blender Foundation
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/makesrna/intern/rna_ui_api.c
- *  \ingroup RNA
+/** \file \ingroup RNA
  */
 
 
@@ -53,7 +45,7 @@
 #define DEF_ICON_BLANK(name)
 const EnumPropertyItem rna_enum_icon_items[] = {
 #include "UI_icons.h"
-	{0, NULL, 0, NULL, NULL}
+	{0, NULL, 0, NULL, NULL},
 };
 
 #ifdef RNA_RUNTIME
@@ -508,13 +500,13 @@ void RNA_api_ui_layout(StructRNA *srna)
 		{'v', "VECTOR", 0, "Vector", ""},
 		{'c', "COLOR", 0, "Color", ""},
 		{'h', "HUE", 0, "Hue", ""},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	static const EnumPropertyItem id_template_filter_items[] = {
 		{UI_TEMPLATE_ID_FILTER_ALL, "ALL", 0, "All", ""},
 		{UI_TEMPLATE_ID_FILTER_AVAILABLE, "AVAILABLE", 0, "Available", ""},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	static float node_socket_color_default[] = { 0.0f, 0.0f, 0.0f, 1.0f };
@@ -941,7 +933,8 @@ void RNA_api_ui_layout(StructRNA *srna)
 	RNA_def_function_ui_description(func, "Enum. Large widget showing Icon previews");
 	api_ui_item_rna_common(func);
 	RNA_def_boolean(func, "show_labels", false, "", "Show enum label in preview buttons");
-	RNA_def_float(func, "scale", 5.0f, 1.0f, 100.0f, "Scale", "Scale the icon size (by the button size)", 1.0f, 100.0f);
+	RNA_def_float(func, "scale", 6.0f, 1.0f, 100.0f, "UI Units", "Scale the button icon size (by the button size)", 1.0f, 100.0f);
+	RNA_def_float(func, "scale_popup", 5.0f, 1.0f, 100.0f, "Scale", "Scale the popup icon size (by the button size)", 1.0f, 100.0f);
 
 	func = RNA_def_function(srna, "template_histogram", "uiTemplateHistogram");
 	RNA_def_function_ui_description(func, "Item. A histogramm widget to analyze imaga data");
@@ -1063,16 +1056,13 @@ void RNA_api_ui_layout(StructRNA *srna)
 	RNA_def_int(func, "maxrows", 5, 0, INT_MAX, "", "Default maximum number of rows to display", 0, INT_MAX);
 	RNA_def_enum(func, "type", rna_enum_uilist_layout_type_items, UILST_LAYOUT_DEFAULT, "Type", "Type of layout to use");
 	RNA_def_int(func, "columns", 9, 0, INT_MAX, "", "Number of items to display per row, for GRID layout", 0, INT_MAX);
-	RNA_def_boolean(func, "reverse", false, "", "Display items in reverse order");
+	RNA_def_boolean(func, "sort_reverse", false, "", "Display items in reverse order by default");
+	RNA_def_boolean(func, "sort_lock", false, "", "Lock display order to default value");
 
 	func = RNA_def_function(srna, "template_running_jobs", "uiTemplateRunningJobs");
 	RNA_def_function_flag(func, FUNC_USE_CONTEXT);
 
 	RNA_def_function(srna, "template_operator_search", "uiTemplateOperatorSearch");
-
-	func = RNA_def_function(srna, "template_header_3D", "uiTemplateHeader3D");
-	RNA_def_function_flag(func, FUNC_USE_CONTEXT);
-	RNA_def_function_ui_description(func, "Inserts common 3DView header UI (selectors for context mode, shading, etc.)");
 
 	func = RNA_def_function(srna, "template_header_3D_mode", "uiTemplateHeader3D_mode");
 	RNA_def_function_flag(func, FUNC_USE_CONTEXT);

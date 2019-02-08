@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,12 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file source/blender/freestyle/intern/python/BPy_MediumType.cpp
- *  \ingroup freestyle
+/** \file \ingroup freestyle
  */
 
 #include "BPy_MediumType.h"
@@ -41,7 +36,7 @@ PyDoc_STRVAR(MediumType_doc,
 "media-medium:\n"
 "\n"
 "* Stroke.DRY_MEDIUM: To simulate a dry medium such as Pencil or Charcoal.\n"
-"* Stroke.HUMID_MEDIUM: To simulate ink painting (color substraction blending).\n"
+"* Stroke.HUMID_MEDIUM: To simulate ink painting (color subtraction blending).\n"
 "* Stroke.OPAQUE_MEDIUM: To simulate an opaque medium (oil, spray...).");
 
 PyTypeObject MediumType_Type = {

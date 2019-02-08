@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2007 Blender Foundation
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): Andrea Weikert.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/imbuf/intern/thumbs.c
- *  \ingroup imbuf
+/** \file \ingroup imbuf
  */
 
 #include <stdio.h>
@@ -61,12 +52,15 @@
 #include <stdio.h>
 
 #ifdef WIN32
-#  include <windows.h> /* need to include windows.h so _WIN32_IE is defined  */
+   /* Need to include windows.h so _WIN32_IE is defined. */
+#  include <windows.h>
 #  ifndef _WIN32_IE
-#    define _WIN32_IE 0x0400 /* minimal requirements for SHGetSpecialFolderPath on MINGW MSVC has this defined already */
+     /* Minimal requirements for SHGetSpecialFolderPath on MINGW MSVC has this defined already. */
+#    define _WIN32_IE 0x0400
 #  endif
-#  include <shlobj.h>  /* for SHGetSpecialFolderPath, has to be done before BLI_winstuff
-                        * because 'near' is disabled through BLI_windstuff */
+   /* For SHGetSpecialFolderPath, has to be done before BLI_winstuff
+    * because 'near' is disabled through BLI_windstuff */
+#  include <shlobj.h>
 #  include <direct.h> /* chdir */
 #  include "BLI_winstuff.h"
 #  include "utfconv.h"
@@ -162,7 +156,7 @@ static const unsigned char acceptable[96] = {
 	/* `    a    b    c    d    e    f    g    h    i    j    k    l    m    n    o */
 	0x20,0x3F,0x3F,0x3F,0x3F,0x3F,0x3F,0x3F,0x3F,0x3F,0x3F,0x3F,0x3F,0x3F,0x3F,0x3F,
 	/* p    q    r    s    t    u    v    w    x    y    z    {    |    }    ~  DEL */
-	0x3F,0x3F,0x3F,0x3F,0x3F,0x3F,0x3F,0x3F,0x3F,0x3F,0x3F,0x20,0x20,0x20,0x3F,0x20
+	0x3F,0x3F,0x3F,0x3F,0x3F,0x3F,0x3F,0x3F,0x3F,0x3F,0x3F,0x20,0x20,0x20,0x3F,0x20,
 };
 
 static const char hex[17] = "0123456789abcdef";

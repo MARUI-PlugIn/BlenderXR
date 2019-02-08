@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,18 +15,14 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * Contributor(s): Blender Foundation, 2003-2009 full recode.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/interface/interface_panel.c
- *  \ingroup edinterface
+/** \file \ingroup edinterface
  */
 
 
-/* a full doc with API notes can be found in bf-blender/trunk/blender/doc/guides/interface_API.txt */
+/* a full doc with API notes can be found in
+ * bf-blender/trunk/blender/doc/guides/interface_API.txt */
 
 #include <math.h>
 #include <stdlib.h>
@@ -147,7 +141,7 @@ static int panel_aligned(ScrArea *sa, ARegion *ar)
 		return BUT_VERTICAL;
 	else if (sa->spacetype == SPACE_IMAGE && ar->regiontype == RGN_TYPE_PREVIEW)
 		return BUT_VERTICAL;
-	else if (ELEM(ar->regiontype, RGN_TYPE_UI, RGN_TYPE_TOOLS, RGN_TYPE_TOOL_PROPS, RGN_TYPE_HUD, RGN_TYPE_NAV_BAR))
+	else if (ELEM(ar->regiontype, RGN_TYPE_UI, RGN_TYPE_TOOLS, RGN_TYPE_TOOL_PROPS, RGN_TYPE_HUD, RGN_TYPE_NAV_BAR, RGN_TYPE_EXECUTE))
 		return BUT_VERTICAL;
 
 	return 0;
@@ -485,7 +479,7 @@ void UI_draw_icon_tri(float x, float y, char dir, const float color[4])
 	}
 }
 
-static void ui_draw_anti_x(unsigned int pos, float x1, float y1, float x2, float y2)
+static void ui_draw_anti_x(uint pos, float x1, float y1, float x2, float y2)
 {
 
 	/* set antialias line */
@@ -510,7 +504,7 @@ static void ui_draw_anti_x(unsigned int pos, float x1, float y1, float x2, float
 }
 
 /* x 'icon' for panel header */
-static void ui_draw_x_icon(unsigned int pos, float x, float y)
+static void ui_draw_x_icon(uint pos, float x, float y)
 {
 
 	ui_draw_anti_x(pos, x, y, x + 9.375f, y + 9.375f);
@@ -519,7 +513,7 @@ static void ui_draw_x_icon(unsigned int pos, float x, float y)
 
 #define PNL_ICON    UI_UNIT_X  /* could be UI_UNIT_Y too */
 
-static void ui_draw_panel_scalewidget(unsigned int pos, const rcti *rect)
+static void ui_draw_panel_scalewidget(uint pos, const rcti *rect)
 {
 	float xmin, xmax, dx;
 	float ymin, ymax, dy;
@@ -561,8 +555,8 @@ static void ui_draw_panel_scalewidget(unsigned int pos, const rcti *rect)
 }
 
 static void immRectf_tris_color_ex(
-        unsigned int pos, float x1, float y1, float x2, float y2,
-        unsigned int col, const float color[3])
+        uint pos, float x1, float y1, float x2, float y2,
+        uint col, const float color[3])
 {
 	immAttr4fv(col, color);
 	immVertex2f(pos, x1, y1);
@@ -579,7 +573,7 @@ static void immRectf_tris_color_ex(
 	immVertex2f(pos, x1, y2);
 }
 
-static void ui_draw_panel_dragwidget(unsigned int pos, unsigned int col, const rctf *rect)
+static void ui_draw_panel_dragwidget(uint pos, uint col, const rctf *rect)
 {
 	float col_high[4], col_dark[4];
 	const int col_tint = 84;
@@ -621,14 +615,13 @@ static void ui_draw_panel_dragwidget(unsigned int pos, unsigned int col, const r
 void UI_panel_label_offset(uiBlock *block, int *x, int *y)
 {
 	Panel *panel = block->panel;
-	uiStyle *style = UI_style_get_dpi();
 	const bool is_subpanel = (panel->type && panel->type->parent);
 
-	*x = UI_UNIT_X * 1.1f;
-	*y = (UI_UNIT_Y * 1.1f) + style->panelspace;
+	*x = UI_UNIT_X * 1.0f;
+	*y = UI_UNIT_Y * 1.5f;
 
 	if (is_subpanel) {
-		*x += 5.0f / block->aspect;
+		*x += (0.7f * UI_UNIT_X);
 	}
 }
 
@@ -646,9 +639,9 @@ static void ui_draw_aligned_panel_header(
 
 	/* + 0.001f to avoid flirting with float inaccuracy */
 	if (panel->control & UI_PNL_CLOSE)
-		pnl_icons = (panel->labelofs + 2 * PNL_ICON + 5) / block->aspect + 0.001f;
+		pnl_icons = (panel->labelofs + (2.0f * PNL_ICON)) / block->aspect + 0.001f;
 	else
-		pnl_icons = (panel->labelofs + PNL_ICON + 5) / block->aspect + 0.001f;
+		pnl_icons = (panel->labelofs + (1.1f * PNL_ICON)) / block->aspect + 0.001f;
 
 	/* draw text label */
 	panel_title_color_get(show_background, col_title);
@@ -657,8 +650,10 @@ static void ui_draw_aligned_panel_header(
 	hrect = *rect;
 	if (dir == 'h') {
 		hrect.xmin = rect->xmin + pnl_icons;
-		hrect.ymin += 2.0f / block->aspect;
-		UI_fontstyle_draw(fontstyle, &hrect, activename, col_title);
+		hrect.ymin -= 2.0f / block->aspect;
+		UI_fontstyle_draw(
+		        fontstyle, &hrect, activename, col_title,
+		        &(struct uiFontStyleDraw_Params) { .align = UI_STYLE_TEXT_LEFT, });
 	}
 	else {
 		/* ignore 'pnl_icons', otherwise the text gets offset horizontally
@@ -698,7 +693,7 @@ void ui_draw_aligned_panel(
 
 	rcti titlerect = headrect;
 	if (is_subpanel) {
-		titlerect.xmin += 5.0f / block->aspect;
+		titlerect.xmin += (0.7f * UI_UNIT_X);
 	}
 
 	uint pos = GPU_vertformat_attr_add(immVertexFormat(), "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
@@ -761,7 +756,7 @@ void ui_draw_aligned_panel(
 			col = GPU_vertformat_attr_add(format, "color", GPU_COMP_F32, 4, GPU_FETCH_FLOAT);
 
 			/* itemrect smaller */
-			itemrect.xmax = headrect.xmax - 5.0f / block->aspect;
+			itemrect.xmax = headrect.xmax - (0.2f * UI_UNIT_X);
 			itemrect.xmin = itemrect.xmax - BLI_rcti_size_y(&headrect);
 			itemrect.ymin = headrect.ymin;
 			itemrect.ymax = headrect.ymax;
@@ -833,7 +828,7 @@ void ui_draw_aligned_panel(
 	/* draw collapse icon */
 
 	/* itemrect smaller */
-	itemrect.xmin = titlerect.xmin + 3.0f / block->aspect;
+	itemrect.xmin = titlerect.xmin;
 	itemrect.xmax = itemrect.xmin + BLI_rcti_size_y(&titlerect);
 	itemrect.ymin = titlerect.ymin;
 	itemrect.ymax = titlerect.ymax;
@@ -1740,8 +1735,8 @@ static void ui_panel_category_draw_tab(
         bool filled, float minx, float miny, float maxx, float maxy, float rad,
         const int roundboxtype,
         const bool use_highlight, const bool use_shadow, const bool use_flip_x,
-        const unsigned char highlight_fade[3],
-        const unsigned char col[3])
+        const uchar highlight_fade[3],
+        const uchar col[3])
 {
 	float vec[4][2] = {
 	    {0.195, 0.02},
@@ -1871,8 +1866,10 @@ void UI_panel_category_draw_all(ARegion *ar, const char *category_id_active)
 	const int px_x_sign = is_left ? px : -px;
 	const int category_tabs_width = round_fl_to_int(UI_PANEL_CATEGORY_MARGIN_WIDTH * zoom);
 	const float dpi_fac = UI_DPI_FAC;
-	const int tab_v_pad_text = round_fl_to_int((2 + ((px * 3) * dpi_fac)) * zoom);  /* padding of tabs around text */
-	const int tab_v_pad = round_fl_to_int((4 + (2 * px * dpi_fac)) * zoom);  /* padding between tabs */
+	/* padding of tabs around text */
+	const int tab_v_pad_text = round_fl_to_int((2 + ((px * 3) * dpi_fac)) * zoom);
+	/* padding between tabs */
+	const int tab_v_pad = round_fl_to_int((4 + (2 * px * dpi_fac)) * zoom);
 	const float tab_curve_radius = ((px * 3) * dpi_fac) * zoom;
 	/* We flip the tab drawing, so always use these flags. */
 	const int roundboxtype = UI_CNR_TOP_LEFT | UI_CNR_BOTTOM_LEFT;
@@ -1891,20 +1888,20 @@ void UI_panel_category_draw_all(ARegion *ar, const char *category_id_active)
 	int y_ofs = tab_v_pad;
 
 	/* Primary theme colors */
-	unsigned char theme_col_back[4];
-	unsigned char theme_col_text[3];
-	unsigned char theme_col_text_hi[3];
+	uchar theme_col_back[4];
+	uchar theme_col_text[3];
+	uchar theme_col_text_hi[3];
 
 	/* Tab colors */
-	unsigned char theme_col_tab_bg[4];
-	unsigned char theme_col_tab_active[3];
-	unsigned char theme_col_tab_inactive[3];
+	uchar theme_col_tab_bg[4];
+	uchar theme_col_tab_active[3];
+	uchar theme_col_tab_inactive[3];
 
 	/* Secondary theme colors */
-	unsigned char theme_col_tab_outline[3];
-	unsigned char theme_col_tab_divider[3];  /* line that divides tabs from the main region */
-	unsigned char theme_col_tab_highlight[3];
-	unsigned char theme_col_tab_highlight_inactive[3];
+	uchar theme_col_tab_outline[3];
+	uchar theme_col_tab_divider[3];  /* line that divides tabs from the main region */
+	uchar theme_col_tab_highlight[3];
+	uchar theme_col_tab_highlight_inactive[3];
 
 
 
@@ -2152,7 +2149,8 @@ static int ui_handle_panel_category_cycling(const wmEvent *event, ARegion *ar, c
 					const bool backwards = event->shift;
 					pc_dyn = backwards ? pc_dyn->prev : pc_dyn->next;
 					if (!pc_dyn) {
-						/* proper cyclic behavior, back to first/last category (only used for ctrl+tab) */
+						/* proper cyclic behavior,
+						 * back to first/last category (only used for ctrl+tab) */
 						pc_dyn = backwards ? ar->panels_category.last : ar->panels_category.first;
 					}
 				}
@@ -2224,10 +2222,13 @@ int ui_handler_panel_region(bContext *C, const wmEvent *event, ARegion *ar, cons
 		/* checks for mouse position inside */
 		pa = block->panel;
 
-		if (!pa || pa->paneltab != NULL)
+		if (!pa || pa->paneltab != NULL) {
 			continue;
-		if (pa->type && pa->type->flag & PNL_NO_HEADER)  /* XXX - accessed freed panels when scripts reload, need to fix. */
+		}
+		/* XXX - accessed freed panels when scripts reload, need to fix. */
+		if (pa->type && pa->type->flag & PNL_NO_HEADER) {
 			continue;
+		}
 
 		mouse_state = ui_panel_mouse_state_get(block, pa, mx, my);
 

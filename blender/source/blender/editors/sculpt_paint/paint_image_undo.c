@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -13,12 +11,9 @@
  *
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/sculpt_paint/paint_image_undo.c
- *  \ingroup edsculpt
+/** \file \ingroup edsculpt
  */
 
 #include "MEM_guardedalloc.h"
@@ -40,13 +35,15 @@
 
 #include "BKE_context.h"
 #include "BKE_image.h"
-#include "BKE_main.h"
+#include "BKE_paint.h"
 #include "BKE_undo_system.h"
 
 #include "DEG_depsgraph.h"
 
 #include "ED_paint.h"
 #include "ED_undo.h"
+#include "ED_util.h"
+#include "ED_object.h"
 
 #include "GPU_draw.h"
 
@@ -98,7 +95,7 @@ void image_undo_end_locks(void)
 typedef enum {
 	COPY = 0,
 	RESTORE = 1,
-	RESTORE_COPY = 2
+	RESTORE_COPY = 2,
 } CopyMode;
 
 static void undo_copy_tile(UndoImageTile *tile, ImBuf *tmpibuf, ImBuf *ibuf, CopyMode mode)
@@ -346,24 +343,11 @@ static void image_undo_restore_list(ListBase *lb, struct UndoIDPtrMap *id_map)
 
 static void image_undo_free_list(ListBase *lb)
 {
-	UndoImageTile *tile;
-
-	for (tile = lb->first; tile; tile = tile->next) {
+	for (UndoImageTile *tile = lb->first, *tile_next; tile; tile = tile_next) {
+		tile_next = tile->next;
 		MEM_freeN(tile->rect.pt);
+		MEM_freeN(tile);
 	}
-}
-
-void ED_image_undo_push_begin(const char *name)
-{
-	UndoStack *ustack = ED_undo_stack_get();
-	bContext *C = NULL; /* special case, we never read from this. */
-	BKE_undosys_step_push_init_with_type(ustack, C, name, BKE_UNDOSYS_TYPE_IMAGE);
-}
-
-void ED_image_undo_push_end(void)
-{
-	UndoStack *ustack = ED_undo_stack_get();
-	BKE_undosys_step_push(ustack, NULL, NULL);
 }
 
 static void image_undo_invalidate(void)
@@ -385,6 +369,8 @@ static void image_undo_invalidate(void)
 typedef struct ImageUndoStep {
 	UndoStep step;
 	ListBase tiles;
+	bool is_encode_init;
+	ePaintMode paint_mode;
 
 	/* Use for all ID lookups (can be NULL). */
 	struct UndoIDPtrMap *id_map;
@@ -418,11 +404,13 @@ static bool image_undosys_poll(bContext *C)
 	ScrArea *sa = CTX_wm_area(C);
 	if (sa && (sa->spacetype == SPACE_IMAGE)) {
 		SpaceImage *sima = (SpaceImage *)sa->spacedata.first;
-		if ((obact && (obact->mode & OB_MODE_TEXTURE_PAINT)) || (sima->mode == SI_MODE_PAINT)) {
+		if ((obact && (obact->mode & OB_MODE_TEXTURE_PAINT)) ||
+		    (sima->mode == SI_MODE_PAINT))
+		{
 			return true;
 		}
 	}
-	else if (sa && (sa->spacetype == SPACE_VIEW3D)) {
+	else {
 		if (obact && (obact->mode & OB_MODE_TEXTURE_PAINT)) {
 			return true;
 		}
@@ -434,10 +422,11 @@ static void image_undosys_step_encode_init(struct bContext *UNUSED(C), UndoStep 
 {
 	ImageUndoStep *us = (ImageUndoStep *)us_p;
 	/* dummy, memory is cleared anyway. */
+	us->is_encode_init = true;
 	BLI_listbase_clear(&us->tiles);
 }
 
-static bool image_undosys_step_encode(struct bContext *UNUSED(C), UndoStep *us_p)
+static bool image_undosys_step_encode(struct bContext *C, struct Main *UNUSED(bmain), UndoStep *us_p)
 {
 	/* dummy, encoding is done along the way by adding tiles
 	 * to the current 'ImageUndoStep' added by encode_init. */
@@ -447,33 +436,103 @@ static bool image_undosys_step_encode(struct bContext *UNUSED(C), UndoStep *us_p
 
 	int allocsize = IMAPAINT_TILE_SIZE * IMAPAINT_TILE_SIZE * 4;
 
-
-	/* first dispose of invalid tiles (may happen due to drag dot for instance) */
-	for (UndoImageTile *tile = us->tiles.first; tile;) {
-		if (!tile->valid) {
-			UndoImageTile *tmp_tile = tile->next;
-			MEM_freeN(tile->rect.pt);
-			BLI_freelinkN(&us->tiles, tile);
-			tile = tmp_tile;
+	if (us->is_encode_init) {
+		/* first dispose of invalid tiles (may happen due to drag dot for instance) */
+		for (UndoImageTile *tile = us->tiles.first; tile;) {
+			if (!tile->valid) {
+				UndoImageTile *tmp_tile = tile->next;
+				MEM_freeN(tile->rect.pt);
+				BLI_freelinkN(&us->tiles, tile);
+				tile = tmp_tile;
+			}
+			else {
+				us->step.data_size += allocsize * ((tile->use_float) ? sizeof(float) : sizeof(char));
+				tile = tile->next;
+			}
 		}
-		else {
-			us->step.data_size += allocsize * ((tile->use_float) ? sizeof(float) : sizeof(char));
-			tile = tile->next;
-		}
+	}
+	else {
+		/* Happens when switching modes. */
+		ePaintMode paint_mode = BKE_paintmode_get_active_from_context(C);
+		BLI_assert(ELEM(paint_mode, PAINT_MODE_TEXTURE_2D, PAINT_MODE_TEXTURE_3D));
+		us->paint_mode = paint_mode;
 	}
 
 	image_undosys_step_encode_store_ids(us);
 
+	us_p->is_applied = true;
+
 	return true;
 }
 
-static void image_undosys_step_decode(struct bContext *UNUSED(C), UndoStep *us_p, int UNUSED(dir))
+
+static void image_undosys_step_decode_undo_impl(ImageUndoStep *us)
+{
+	BLI_assert(us->step.is_applied == true);
+	image_undo_restore_list(&us->tiles, us->id_map);
+	us->step.is_applied = false;
+}
+
+static void image_undosys_step_decode_redo_impl(ImageUndoStep *us)
+{
+	BLI_assert(us->step.is_applied == false);
+	image_undo_restore_list(&us->tiles, us->id_map);
+	us->step.is_applied = true;
+}
+
+static void image_undosys_step_decode_undo(ImageUndoStep *us)
+{
+	ImageUndoStep *us_iter = us;
+	while (us_iter->step.next && (us_iter->step.next->type == us_iter->step.type)) {
+		if (us_iter->step.next->is_applied == false) {
+			break;
+		}
+		us_iter = (ImageUndoStep *)us_iter->step.next;
+	}
+	while (us_iter != us) {
+		image_undosys_step_decode_undo_impl(us_iter);
+		us_iter = (ImageUndoStep *)us_iter->step.prev;
+	}
+}
+
+static void image_undosys_step_decode_redo(ImageUndoStep *us)
+{
+	ImageUndoStep *us_iter = us;
+	while (us_iter->step.prev && (us_iter->step.prev->type == us_iter->step.type)) {
+		if (us_iter->step.prev->is_applied == true) {
+			break;
+		}
+		us_iter = (ImageUndoStep *)us_iter->step.prev;
+	}
+	while (us_iter && (us_iter->step.is_applied == false)) {
+		image_undosys_step_decode_redo_impl(us_iter);
+		if (us_iter == us) {
+			break;
+		}
+		us_iter = (ImageUndoStep *)us_iter->step.next;
+	}
+}
+
+static void image_undosys_step_decode(struct bContext *C, struct Main *bmain, UndoStep *us_p, int dir)
 {
 	ImageUndoStep *us = (ImageUndoStep *)us_p;
 #if 0
 	paint_undosys_step_decode_restore_ids(us);
 #endif
-	image_undo_restore_list(&us->tiles, us->id_map);
+
+	if (dir < 0) {
+		image_undosys_step_decode_undo(us);
+	}
+	else {
+		image_undosys_step_decode_redo(us);
+	}
+
+	if (us->paint_mode == PAINT_MODE_TEXTURE_3D) {
+		ED_object_mode_set(C, OB_MODE_TEXTURE_PAINT);
+	}
+
+	/* Refresh texture slots. */
+	ED_editors_init_for_undo(bmain);
 }
 
 static void image_undosys_step_free(UndoStep *us_p)
@@ -504,7 +563,6 @@ void ED_image_undosys_type(UndoType *ut)
 
 	ut->step_foreach_ID_ref = image_undosys_foreach_ID_ref;
 
-	ut->mode = BKE_UNDOTYPE_MODE_ACCUMULATE;
 	ut->use_context = true;
 
 	ut->step_size = sizeof(ImageUndoStep);
@@ -526,8 +584,17 @@ ListBase *ED_image_undosys_step_get_tiles(UndoStep *us_p)
 ListBase *ED_image_undo_get_tiles(void)
 {
 	UndoStack *ustack = ED_undo_stack_get();
-	UndoStep *us = BKE_undosys_stack_init_or_active_with_type(ustack, BKE_UNDOSYS_TYPE_IMAGE);
-	return ED_image_undosys_step_get_tiles(us);
+	UndoStep *us_prev = ustack->step_init;
+	UndoStep *us_p = BKE_undosys_stack_init_or_active_with_type(ustack, BKE_UNDOSYS_TYPE_IMAGE);
+	ImageUndoStep *us = (ImageUndoStep *)us_p;
+	/* We should always have an undo push started when accessing tiles,
+	 * not doing this means we won't have paint_mode correctly set. */
+	BLI_assert(us_p == us_prev);
+	if (us_p != us_prev) {
+		/* Fallback value until we can be sure this never happens. */
+		us->paint_mode = PAINT_MODE_TEXTURE_2D;
+	}
+	return ED_image_undosys_step_get_tiles(us_p);
 }
 
 /* restore painting image to previous state. Used for anchored and drag-dot style brushes*/
@@ -536,6 +603,22 @@ void ED_image_undo_restore(UndoStep *us)
 	ListBase *lb = ED_image_undosys_step_get_tiles(us);
 	image_undo_restore_runtime(lb);
 	image_undo_invalidate();
+}
+
+void ED_image_undo_push_begin(const char *name, int paint_mode)
+{
+	UndoStack *ustack = ED_undo_stack_get();
+	bContext *C = NULL; /* special case, we never read from this. */
+	UndoStep *us_p = BKE_undosys_step_push_init_with_type(ustack, C, name, BKE_UNDOSYS_TYPE_IMAGE);
+	ImageUndoStep *us = (ImageUndoStep *)us_p;
+	BLI_assert(ELEM(paint_mode, PAINT_MODE_TEXTURE_2D, PAINT_MODE_TEXTURE_3D));
+	us->paint_mode = paint_mode;
+}
+
+void ED_image_undo_push_end(void)
+{
+	UndoStack *ustack = ED_undo_stack_get();
+	BKE_undosys_step_push(ustack, NULL, NULL);
 }
 
 /** \} */

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,14 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Blender Foundation
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/windowmanager/wm_event_types.h
- *  \ingroup wm
+/** \file \ingroup wm
  */
 
 
@@ -308,11 +301,10 @@ enum {
 	TIMERF                = 0x011F,  /* last timer */
 
 	/* Actionzones, tweak, gestures: 0x500x, 0x501x */
-#define EVT_ACTIONZONE_FIRST EVT_ACTIONZONE_AREA
+	/* Keep in sync with IS_EVENT_ACTIONZONE(...). */
 	EVT_ACTIONZONE_AREA   = 0x5000,
 	EVT_ACTIONZONE_REGION = 0x5001,
 	EVT_ACTIONZONE_FULLSCREEN = 0x5011,
-#define EVT_ACTIONZONE_LAST (EVT_ACTIONZONE_FULLSCREEN + 1)
 
 	/* NOTE: these values are saved in keymap files, do not change them but just add new ones */
 
@@ -376,7 +368,8 @@ enum {
 /* test whether the event is a NDOF event */
 #define ISNDOF(event_type)  ((event_type) >= NDOF_MOTION && (event_type) < NDOF_LAST)
 
-#define IS_EVENT_ACTIONZONE(event_type)  ((event_type) >= EVT_ACTIONZONE_FIRST && (event_type) < EVT_ACTIONZONE_LAST)
+#define IS_EVENT_ACTIONZONE(event_type) \
+	ELEM(event_type, EVT_ACTIONZONE_AREA, EVT_ACTIONZONE_REGION, EVT_ACTIONZONE_FULLSCREEN)
 
 /* test whether event type is acceptable as hotkey, excluding modifiers */
 #define ISHOTKEY(event_type)                                                  \

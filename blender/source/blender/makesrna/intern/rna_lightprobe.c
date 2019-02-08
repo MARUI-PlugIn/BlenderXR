@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,14 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Blender Foundation.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/makesrna/intern/rna_lightprobe.c
- *  \ingroup RNA
+/** \file \ingroup RNA
  */
 
 #include <stdlib.h>
@@ -57,14 +50,14 @@ static void rna_LightProbe_recalc(Main *UNUSED(bmain), Scene *UNUSED(scene), Poi
 static EnumPropertyItem parallax_type_items[] = {
 	{LIGHTPROBE_SHAPE_ELIPSOID, "ELIPSOID", ICON_NONE, "Sphere", ""},
 	{LIGHTPROBE_SHAPE_BOX, "BOX", ICON_NONE, "Box", ""},
-	{0, NULL, 0, NULL, NULL}
+	{0, NULL, 0, NULL, NULL},
 };
 
 static EnumPropertyItem lightprobe_type_items[] = {
 	{LIGHTPROBE_TYPE_CUBE, "CUBEMAP", ICON_LIGHTPROBE_CUBEMAP, "Reflection Cubemap", "Capture reflections"},
 	{LIGHTPROBE_TYPE_PLANAR, "PLANAR", ICON_LIGHTPROBE_PLANAR, "Reflection Plane", ""},
 	{LIGHTPROBE_TYPE_GRID, "GRID", ICON_LIGHTPROBE_GRID, "Irradiance Volume", "Volume used for precomputing indirect lighting"},
-	{0, NULL, 0, NULL, NULL}
+	{0, NULL, 0, NULL, NULL},
 };
 
 static void rna_def_lightprobe(BlenderRNA *brna)
@@ -74,7 +67,7 @@ static void rna_def_lightprobe(BlenderRNA *brna)
 
 	srna = RNA_def_struct(brna, "LightProbe", "ID");
 	RNA_def_struct_ui_text(srna, "LightProbe", "Light Probe data-block for lighting capture objects");
-	RNA_def_struct_ui_icon(srna, ICON_LIGHTPROBE_CUBEMAP);
+	RNA_def_struct_ui_icon(srna, ICON_OUTLINER_OB_LIGHTPROBE);
 
 	prop = RNA_def_property(srna, "type", PROP_ENUM, PROP_NONE);
 	RNA_def_property_enum_items(prop, lightprobe_type_items);
@@ -188,7 +181,7 @@ static void rna_def_lightprobe(BlenderRNA *brna)
 	RNA_def_property_float_sdna(prop, NULL, "vis_blur");
 	RNA_def_property_float_default(prop, 0.2f);
 	RNA_def_property_range(prop, 0.0f, 1.0f);
-	RNA_def_property_ui_text(prop, "Visibility Blur", "Filter size of the visibilty blur");
+	RNA_def_property_ui_text(prop, "Visibility Blur", "Filter size of the visibility blur");
 	RNA_def_property_update(prop, NC_MATERIAL | ND_SHADING, "rna_LightProbe_recalc");
 
 	prop = RNA_def_property(srna, "intensity", PROP_FLOAT, PROP_NONE);

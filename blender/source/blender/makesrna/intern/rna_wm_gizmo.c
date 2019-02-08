@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,12 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/makesrna/intern/rna_wm_gizmo.c
- *  \ingroup RNA
+/** \file \ingroup RNA
  */
 
 #include <stdlib.h>
@@ -31,7 +26,6 @@
 #include "DNA_windowmanager_types.h"
 
 #include "BLI_utildefines.h"
-#include "BLI_string_utils.h"
 
 #include "BLT_translation.h"
 
@@ -50,6 +44,8 @@
 #ifdef RNA_RUNTIME
 
 #include <assert.h>
+
+#include "BLI_string_utils.h"
 
 #include "WM_api.h"
 
@@ -70,7 +66,6 @@
 #endif
 
 /* -------------------------------------------------------------------- */
-
 /** \name Gizmo API
  * \{ */
 
@@ -407,6 +402,7 @@ RNA_GIZMO_GENERIC_FLAG_RW_DEF(flag_hide, flag, WM_GIZMO_HIDDEN);
 RNA_GIZMO_GENERIC_FLAG_RW_DEF(flag_hide_select, flag, WM_GIZMO_HIDDEN_SELECT);
 RNA_GIZMO_GENERIC_FLAG_RW_DEF(flag_use_grab_cursor, flag, WM_GIZMO_MOVE_CURSOR);
 RNA_GIZMO_GENERIC_FLAG_RW_DEF(flag_use_select_background, flag, WM_GIZMO_SELECT_BACKGROUND);
+RNA_GIZMO_GENERIC_FLAG_RW_DEF(flag_use_operator_tool_properties, flag, WM_GIZMO_OPERATOR_TOOL_INIT);
 
 /* wmGizmo.state */
 RNA_GIZMO_FLAG_RO_DEF(state_is_highlight, state, WM_GIZMO_STATE_HIGHLIGHT);
@@ -1018,14 +1014,14 @@ static void rna_def_gizmo(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
 	parm = RNA_def_int_array(func, "location", 2, NULL, INT_MIN, INT_MAX, "Location", "Region coordinates", INT_MIN, INT_MAX);
 	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
-	parm = RNA_def_int(func, "intersect_id", 0, 0, INT_MAX, "", "", 0, INT_MAX);
+	parm = RNA_def_int(func, "intersect_id", -1, -1, INT_MAX, "", "Use -1 to skip this gizmo", -1, INT_MAX);
 	RNA_def_function_return(func, parm);
 
 	/* wmGizmo.handler */
 	static EnumPropertyItem tweak_actions[] = {
 		{WM_GIZMO_TWEAK_PRECISE, "PRECISE", 0, "Precise", ""},
 		{WM_GIZMO_TWEAK_SNAP, "SNAP", 0, "Snap", ""},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 	func = RNA_def_function(srna, "modal", NULL);
 	RNA_def_function_ui_description(func, "");
@@ -1200,6 +1196,14 @@ static void rna_def_gizmo(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_property_ui_text(prop, "Select Background", "Don't write into the depth buffer");
 	RNA_def_property_update(prop, NC_SCREEN | NA_EDITED, NULL);
 
+	/* WM_GIZMO_OPERATOR_TOOL_INIT */
+	prop = RNA_def_property(srna, "use_operator_tool_properties", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_funcs(
+	        prop, "rna_Gizmo_flag_use_operator_tool_properties_get", "rna_Gizmo_flag_use_operator_tool_properties_set");
+	RNA_def_property_ui_text(prop, "Tool Property Init",
+	                         "Merge active tool properties on activation (does not overwrite existing)");
+	RNA_def_property_update(prop, NC_SCREEN | NA_EDITED, NULL);
+
 	/* wmGizmo.state (readonly) */
 	/* WM_GIZMO_STATE_HIGHLIGHT */
 	prop = RNA_def_property(srna, "is_highlight", PROP_BOOLEAN, PROP_NONE);
@@ -1298,7 +1302,7 @@ static void rna_def_gizmogroup(BlenderRNA *brna)
 		 "Show all while interacting"},
 		{WM_GIZMOGROUPTYPE_TOOL_INIT, "TOOL_INIT", 0, "Tool Init",
 		 "Postpone running until tool operator run (when used with a tool)"},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 	prop = RNA_def_property(srna, "bl_options", PROP_ENUM, PROP_NONE);
 	RNA_def_property_enum_sdna(prop, NULL, "type->flag");

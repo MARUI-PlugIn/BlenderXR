@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,12 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/interface/interface_icons_event.c
- *  \ingroup edinterface
+/** \file \ingroup edinterface
  *
  * A special set of icons to represent input devices,
  * this is a mix of text (via fonts) and a handful of custom glyphs for special keys.
@@ -41,7 +36,6 @@
 
 #include "BLI_blenlib.h"
 #include "BLI_utildefines.h"
-#include "BLI_fileops_types.h"
 #include "BLI_math_vector.h"
 
 #include "DNA_brush_types.h"
@@ -55,8 +49,6 @@
 #include "RNA_access.h"
 #include "RNA_enum_types.h"
 
-#include "BKE_context.h"
-#include "BKE_global.h"
 #include "BKE_icons.h"
 #include "BKE_appdir.h"
 #include "BKE_studiolight.h"
@@ -65,7 +57,6 @@
 #include "IMB_imbuf_types.h"
 #include "IMB_thumbs.h"
 
-#include "BIF_glutil.h"
 #include "BLF_api.h"
 
 #include "DEG_depsgraph.h"

@@ -1,6 +1,4 @@
 /*
- * Copyright 2016, Blender Foundation.
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,12 +13,10 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * Contributor(s): Blender Institute
- *
+ * Copyright 2016, Blender Foundation.
  */
 
-/** \file eevee_materials.c
- *  \ingroup draw_engine
+/** \file \ingroup draw_engine
  */
 
 #include "DRW_render.h"
@@ -34,7 +30,6 @@
 #include "BKE_particle.h"
 #include "BKE_paint.h"
 #include "BKE_pbvh.h"
-#include "BKE_studiolight.h"
 
 #include "DNA_world_types.h"
 #include "DNA_modifier_types.h"
@@ -108,7 +103,6 @@ extern char datatoc_volumetric_lib_glsl[];
 extern char datatoc_gpu_shader_uniform_color_frag_glsl[];
 
 extern Material defmaterial;
-extern GlobalsUboStorage ts;
 
 /* *********** FUNCTIONS *********** */
 
@@ -512,7 +506,7 @@ static void EEVEE_update_viewvecs(float invproj[4][4], float winmat[4][4], float
 	    {-1.0f, -1.0f, -1.0f, 1.0f},
 	    { 1.0f, -1.0f, -1.0f, 1.0f},
 	    {-1.0f,  1.0f, -1.0f, 1.0f},
-	    {-1.0f, -1.0f,  1.0f, 1.0f}
+	    {-1.0f, -1.0f,  1.0f, 1.0f},
 	};
 
 	/* convert the view vectors to view space */
@@ -782,8 +776,9 @@ struct GPUMaterial *EEVEE_material_mesh_depth_get(
 		options |= VAR_MAT_CLIP;
 	}
 
-	if (is_shadow)
+	if (is_shadow) {
 		options |= VAR_MAT_SHADOW;
+	}
 
 	GPUMaterial *mat = DRW_shader_find_from_material(ma, engine, options, true);
 	if (mat) {
@@ -961,7 +956,7 @@ void EEVEE_materials_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
 		Scene *scene = draw_ctx->scene;
 		World *wo = scene->world;
 
-		float *col = ts.colorBackground;
+		const float *col = G_draw.block.colorBackground;
 
 		/* LookDev */
 		EEVEE_lookdev_cache_init(vedata, &grp, psl->background_pass, wo, NULL);
@@ -1162,14 +1157,14 @@ static void material_opaque(
 		        scene, ma, vedata, false, false, use_ssrefract,
 		        use_sss, use_translucency, linfo->shadow_method);
 
-		GPUMaterialStatus status_mat_surface = GPU_material_status(*gpumat);
+		eGPUMaterialStatus status_mat_surface = GPU_material_status(*gpumat);
 
 		/* Alpha CLipped : Discard pixel from depth pass, then
 		 * fail the depth test for shading. */
 		if (ELEM(ma->blend_method, MA_BM_CLIP, MA_BM_HASHED)) {
 			*gpumat_depth = EEVEE_material_mesh_depth_get(scene, ma, (ma->blend_method == MA_BM_HASHED), false);
 
-			GPUMaterialStatus status_mat_depth = GPU_material_status(*gpumat_depth);
+			eGPUMaterialStatus status_mat_depth = GPU_material_status(*gpumat_depth);
 			if (status_mat_depth != GPU_MAT_SUCCESS) {
 				/* Mixing both flags. If depth shader fails, show it to the user by not using
 				 * the surface shader. */
@@ -1483,8 +1478,9 @@ void EEVEE_materials_cache_populate(EEVEE_Data *vedata, EEVEE_ViewLayerData *sld
 			shgrp_depth_array[i] = NULL;
 			shgrp_depth_clip_array[i] = NULL;
 
-			if (ma == NULL)
+			if (ma == NULL) {
 				ma = &defmaterial;
+			}
 
 			switch (ma->blend_method) {
 				case MA_BM_SOLID:
@@ -1534,8 +1530,9 @@ void EEVEE_materials_cache_populate(EEVEE_Data *vedata, EEVEE_ViewLayerData *sld
 					EEVEE_ObjectEngineData *oedata = NULL;
 					Material *ma = give_current_material(ob, i + 1);
 
-					if (ma == NULL)
+					if (ma == NULL) {
 						ma = &defmaterial;
+					}
 
 					/* Do not render surface if we are rendering a volume object
 					 * and do not have a surface closure. */
@@ -1547,7 +1544,7 @@ void EEVEE_materials_cache_populate(EEVEE_Data *vedata, EEVEE_ViewLayerData *sld
 
 					/* XXX TODO rewrite this to include the dupli objects.
 					 * This means we cannot exclude dupli objects from reflections!!! */
-					if ((ob->base_flag & BASE_FROMDUPLI) == 0) {
+					if ((ob->base_flag & BASE_FROM_DUPLI) == 0) {
 						oedata = EEVEE_object_data_ensure(ob);
 						oedata->ob = ob;
 						oedata->test_data = &sldata->probes->vis_data;

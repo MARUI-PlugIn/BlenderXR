@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,14 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Joseph Eagar.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/bmesh/operators/bmo_dupe.c
- *  \ingroup bmesh
+/** \file \ingroup bmesh
  *
  * Duplicate, Split, Split operators.
  */
@@ -383,7 +376,6 @@ void BMO_dupe_from_flag(BMesh *bm, int htype, const char hflag)
  *
  * \note Lower level uses of this operator may want to use #BM_mesh_separate_faces
  * Since it's faster for the 'use_only_faces' case.
- *
  */
 void bmo_split_exec(BMesh *bm, BMOperator *op)
 {
@@ -525,8 +517,9 @@ void bmo_spin_exec(BMesh *bm, BMOperator *op)
 			BMO_op_finish(bm, &dupop);
 		}
 		else {
-			BMO_op_initf(bm, &extop, op->flag, "extrude_face_region geom=%S use_normal_flip=%b",
-			             op, "geom_last.out", use_normal_flip && (a == 0));
+			BMO_op_initf(bm, &extop, op->flag,
+			             "extrude_face_region geom=%S use_normal_flip=%b use_normal_from_adjacent=%b",
+			             op, "geom_last.out", use_normal_flip && (a == 0), (a != 0));
 			BMO_op_exec(bm, &extop);
 			if ((use_merge && (a == steps - 1)) == false) {
 				BMO_op_callf(bm, op->flag,
@@ -556,13 +549,14 @@ void bmo_spin_exec(BMesh *bm, BMOperator *op)
 					if (elem_array[i]->head.htype == BM_EDGE) {
 						BMEdge *e_src = (BMEdge *)elem_array[i];
 						BMEdge *e_dst = BM_edge_find_double(e_src);
-						BM_edge_splice(bm, e_dst, e_src);
-						elem_array_len--;
-						elem_array[i] = elem_array[elem_array_len];
+						if (e_dst != NULL) {
+							BM_edge_splice(bm, e_dst, e_src);
+							elem_array_len--;
+							elem_array[i] = elem_array[elem_array_len];
+							continue;
+						}
 					}
-					else {
-						i++;
-					}
+					i++;
 				}
 				/* Full copies of faces may cause overlap. */
 				for (int i = 0; i < elem_array_len; ) {
@@ -573,11 +567,10 @@ void bmo_spin_exec(BMesh *bm, BMOperator *op)
 							BM_face_kill(bm, f_src);
 							elem_array_len--;
 							elem_array[i] = elem_array[elem_array_len];
+							continue;
 						}
 					}
-					else {
-						i++;
-					}
+					i++;
 				}
 				slot_geom_out->len = elem_array_len;
 			}

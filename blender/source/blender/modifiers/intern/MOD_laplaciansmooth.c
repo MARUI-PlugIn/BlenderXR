@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,15 +15,9 @@
  *
  * The Original Code is Copyright (C) 2005 by the Blender Foundation.
  * All rights reserved.
- *
- * Contributor(s): Alexander Pinzon
- *
- * ***** END GPL LICENSE BLOCK *****
- *
  */
 
-/** \file blender/modifiers/intern/MOD_laplaciansmooth.c
- *  \ingroup modifiers
+/** \file \ingroup modifiers
  */
 
 
@@ -47,11 +39,6 @@
 #include "MOD_util.h"
 
 #include "eigen_capi.h"
-
-#if 0
-#define MOD_LAPLACIANSMOOTH_MAX_EDGE_PERCENTAGE 1.8f
-#define MOD_LAPLACIANSMOOTH_MIN_EDGE_PERCENTAGE 0.02f
-#endif
 
 struct BLaplacianSystem {
 	float *eweights;        /* Length weights per Edge */

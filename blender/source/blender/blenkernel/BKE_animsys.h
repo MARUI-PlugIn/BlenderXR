@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,20 +15,11 @@
  *
  * The Original Code is Copyright (C) 2009 Blender Foundation, Joshua Leung
  * All rights reserved.
- *
- * Contributor(s): Joshua Leung (original author)
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
 #ifndef __BKE_ANIMSYS_H__
 #define __BKE_ANIMSYS_H__
 
-/** \file BKE_animsys.h
- *  \ingroup bke
- *  \author Joshua Leung
- */
- 
 #include "../vr/vr_build.h"
 #if WITH_VR
 #ifdef __cplusplus
@@ -38,6 +27,9 @@ extern "C"
 {
 #endif
 #endif
+
+/** \file \ingroup bke
+ */
 
 struct AnimData;
 struct ChannelDriver;
@@ -48,6 +40,7 @@ struct KS_Path;
 struct KeyingSet;
 struct ListBase;
 struct Main;
+struct NlaKeyframingContext;
 struct PathResolvedRNA;
 struct PointerRNA;
 struct PropertyRNA;
@@ -56,7 +49,6 @@ struct Scene;
 struct bAction;
 struct bActionGroup;
 struct bContext;
-struct NlaKeyframingContext;
 
 /* ************************************* */
 /* AnimData API */
@@ -95,7 +87,7 @@ typedef enum eAnimData_MergeCopy_Modes {
 	ADT_MERGECOPY_SRC_COPY = 1,
 
 	/* Use src action (but just reference the existing version) */
-	ADT_MERGECOPY_SRC_REF  = 2
+	ADT_MERGECOPY_SRC_REF  = 2,
 } eAnimData_MergeCopy_Modes;
 
 void BKE_animdata_merge_copy(
@@ -162,7 +154,7 @@ char *BKE_animdata_driver_path_hack(struct bContext *C, struct PointerRNA *ptr, 
                                     char *base_path);
 
 /* ************************************* */
-/* GPUBatch AnimData API */
+/* Batch AnimData API */
 
 /* Define for callback looper used in BKE_animdata_main_cb */
 typedef void (*ID_AnimData_Edit_Callback)(struct ID *id, struct AnimData *adt, void *user_data);
@@ -185,7 +177,7 @@ void BKE_fcurves_main_cb(struct Main *bmain, ID_FCurve_Edit_Callback func, void 
 typedef struct NlaKeyframingContext NlaKeyframingContext;
 
 struct NlaKeyframingContext *BKE_animsys_get_nla_keyframing_context(struct ListBase *cache, struct Depsgraph *depsgraph, struct PointerRNA *ptr, struct AnimData *adt, float ctime);
-bool BKE_animsys_nla_remap_keyframe_value(struct NlaKeyframingContext *context, struct PointerRNA *prop_ptr, struct PropertyRNA *prop, int index, float *r_value);
+bool BKE_animsys_nla_remap_keyframe_values(struct NlaKeyframingContext *context, struct PointerRNA *prop_ptr, struct PropertyRNA *prop, float *values, int count, int index, bool *r_force_all);
 void BKE_animsys_free_nla_keyframing_context_cache(struct ListBase *cache);
 
 /* ************************************* */
@@ -193,6 +185,13 @@ void BKE_animsys_free_nla_keyframing_context_cache(struct ListBase *cache);
 
 /* ------------- Main API -------------------- */
 /* In general, these ones should be called to do all animation evaluation */
+
+/* Flags for recalc parameter, indicating which part to recalculate. */
+typedef enum eAnimData_Recalc {
+	ADT_RECALC_DRIVERS      = (1 << 0),
+	ADT_RECALC_ANIM         = (1 << 1),
+	ADT_RECALC_ALL          = (ADT_RECALC_DRIVERS | ADT_RECALC_ANIM),
+} eAnimData_Recalc;
 
 /* Evaluation loop for evaluating animation data  */
 void BKE_animsys_evaluate_animdata(struct Depsgraph *depsgraph, struct Scene *scene, struct ID *id, struct AnimData *adt, float ctime, short recalc);

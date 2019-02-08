@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,13 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software  Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
- *
  */
 
-/** \file blender/modifiers/intern/MOD_wireframe.c
- *  \ingroup modifiers
+/** \file \ingroup modifiers
  */
 
 #include "DNA_mesh_types.h"
@@ -74,8 +68,8 @@ static Mesh *WireframeModifier_do(WireframeModifierData *wmd, Object *ob, Mesh *
 	        &(struct BMeshFromMeshParams){
 	            .calc_face_normal = true,
 	            .add_key_index = false,
-	            .use_shapekey = true,
-	            .active_shapekey = ob->shapenr,
+	            .use_shapekey = false,
+	            .active_shapekey = 0,
 	            .cd_mask_extra = CD_MASK_ORIGINDEX,
 	        });
 

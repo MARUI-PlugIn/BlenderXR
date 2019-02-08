@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,14 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Campbell Barton
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/bmesh/tools/bmesh_decimate_unsubdivide.c
- *  \ingroup bmesh
+/** \file \ingroup bmesh
  *
  * BMesh decimator that uses a grid un-subdivide method.
  */
@@ -168,7 +161,7 @@ static bool bm_vert_dissolve_fan(BMesh *bm, BMVert *v)
 enum {
 	VERT_INDEX_DO_COLLAPSE  = -1,
 	VERT_INDEX_INIT         =  0,
-	VERT_INDEX_IGNORE       =  1
+	VERT_INDEX_IGNORE       =  1,
 };
 
 // #define USE_WALKER  /* gives uneven results, disable for now */

@@ -16,11 +16,6 @@
 #
 # The Original Code is Copyright (C) 2006, Blender Foundation
 # All rights reserved.
-#
-# The Original Code is: all of this file.
-#
-# Contributor(s): Jacques Beaurain.
-#
 # ***** END GPL LICENSE BLOCK *****
 
 #-----------------------------------------------------------------------------
@@ -411,7 +406,7 @@ option(WITH_CYCLES_CUDA_BINARIES	"Build Cycles CUDA binaries" OFF)
 option(WITH_CYCLES_CUBIN_COMPILER	"Build cubins with nvrtc based compiler instead of nvcc" OFF)
 option(WITH_CYCLES_CUDA_BUILD_SERIAL "Build cubins one after another (useful on machines with limited RAM)" OFF)
 mark_as_advanced(WITH_CYCLES_CUDA_BUILD_SERIAL)
-set(CYCLES_CUDA_BINARIES_ARCH sm_30 sm_35 sm_37 sm_50 sm_52 sm_60 sm_61 sm_70 sm_72 sm_75 CACHE STRING "CUDA architectures to build binaries for")
+set(CYCLES_CUDA_BINARIES_ARCH sm_30 sm_35 sm_37 sm_50 sm_52 sm_60 sm_61 sm_70 sm_75 CACHE STRING "CUDA architectures to build binaries for")
 mark_as_advanced(CYCLES_CUDA_BINARIES_ARCH)
 unset(PLATFORM_DEFAULT)
 option(WITH_CYCLES_LOGGING	"Build Cycles with logging support" ON)
@@ -763,8 +758,8 @@ if(WITH_PYTHON)
 	# Do this before main 'platform_*' checks,
 	# because UNIX will search for the old Python paths which may not exist.
 	# giving errors about missing paths before this case is met.
-	if(DEFINED PYTHON_VERSION AND "${PYTHON_VERSION}" VERSION_LESS "3.6")
-		message(FATAL_ERROR "At least Python 3.6 is required to build")
+	if(DEFINED PYTHON_VERSION AND "${PYTHON_VERSION}" VERSION_LESS "3.7")
+		message(FATAL_ERROR "At least Python 3.7 is required to build")
 	endif()
 
 	if(NOT EXISTS "${CMAKE_SOURCE_DIR}/release/scripts/addons/modules")
@@ -1057,8 +1052,11 @@ if(WITH_GL_PROFILE_ES20)
 	endif()
 
 else()
-	list(APPEND BLENDER_GL_LIBRARIES "${OPENGL_LIBRARIES}")
-
+	if(OpenGL_GL_PREFERENCE STREQUAL "LEGACY" AND OPENGL_gl_LIBRARY)
+		list(APPEND BLENDER_GL_LIBRARIES ${OPENGL_gl_LIBRARY})
+	else()
+		list(APPEND BLENDER_GL_LIBRARIES ${OPENGL_opengl_LIBRARY} ${OPENGL_glx_LIBRARY})
+	endif()
 endif()
 
 if(WITH_GL_EGL)
@@ -1119,7 +1117,10 @@ endif()
 #-----------------------------------------------------------------------------
 # Configure OpenMP.
 if(WITH_OPENMP)
-	find_package(OpenMP)
+	if(NOT OPENMP_CUSTOM)
+		find_package(OpenMP)
+	endif()
+
 	if(OPENMP_FOUND)
 		if(NOT WITH_OPENMP_STATIC)
 			set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")

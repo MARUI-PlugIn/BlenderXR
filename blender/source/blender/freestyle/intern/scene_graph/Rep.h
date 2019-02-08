@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,19 +12,16 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
 #ifndef __FREESTYLE_REP_H__
 #define __FREESTYLE_REP_H__
 
-/** \file blender/freestyle/intern/scene_graph/Rep.h
- *  \ingroup freestyle
+/** \file \ingroup freestyle
  *  \brief Base class for all shapes. Inherits from BasicObjects for references counter management (addRef, release).
- *  \author Stephane Grabli
- *  \date 25/01/2002
  */
+
+#include <string>
 
 #include "FrsMaterial.h"
 #include "SceneVisitor.h"
@@ -38,6 +33,8 @@
 #include "../system/Id.h"
 #include "../system/Precision.h"
 
+using namespace std;
+
 namespace Freestyle {
 
 using namespace Geometry;
@@ -48,8 +45,6 @@ public:
 	inline Rep() : BaseObject()
 	{
 		_Id = 0;
-		_Name = 0;
-		_LibraryPath = 0;
 		_FrsMaterial = 0;
 	}
 
@@ -132,12 +127,12 @@ public:
 		return _Id;
 	}
 
-	inline const char *getName() const
+	inline const string& getName() const
 	{
 		return _Name;
 	}
 
-	inline const char *getLibraryPath() const
+	inline const string& getLibraryPath() const
 	{
 		return _LibraryPath;
 	}
@@ -158,12 +153,12 @@ public:
 		_Id = id;
 	}
 
-	inline void setName(const char *name)
+	inline void setName(const string& name)
 	{
 		_Name = name;
 	}
 
-	inline void setLibraryPath(const char *path)
+	inline void setLibraryPath(const string& path)
 	{
 		_LibraryPath = path;
 	}
@@ -176,8 +171,8 @@ public:
 private:
 	BBox<Vec3f> _BBox;
 	Id _Id;
-	const char *_Name;
-	const char *_LibraryPath;
+	string _Name;
+	string _LibraryPath;
 	FrsMaterial *_FrsMaterial;
 };
 

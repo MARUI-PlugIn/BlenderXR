@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,14 +15,9 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * Contributor(s): Blender Foundation, 2002-2008 full recode
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/object/object_transform.c
- *  \ingroup edobj
+/** \file \ingroup edobj
  */
 
 
@@ -491,7 +484,8 @@ static int apply_objects_internal(
 					bool has_unparented_layers = false;
 
 					for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
-						/* Parented layers aren't supported as we can't easily re-evaluate the scene to sample parent movement */
+						/* Parented layers aren't supported as we can't easily re-evaluate
+						 * the scene to sample parent movement */
 						if (gpl->parent == NULL) {
 							has_unparented_layers = true;
 							break;
@@ -785,9 +779,9 @@ void OBJECT_OT_transform_apply(wmOperatorType *ot)
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
-	RNA_def_boolean(ot->srna, "location", 0, "Location", "");
-	RNA_def_boolean(ot->srna, "rotation", 0, "Rotation", "");
-	RNA_def_boolean(ot->srna, "scale", 0, "Scale", "");
+	RNA_def_boolean(ot->srna, "location", true, "Location", "");
+	RNA_def_boolean(ot->srna, "rotation", true, "Rotation", "");
+	RNA_def_boolean(ot->srna, "scale", true, "Scale", "");
 	RNA_def_boolean(ot->srna, "properties", true, "Apply Properties",
 	                "Modify properties such as curve vertex radius, font size and bone envelope");
 }
@@ -810,9 +804,9 @@ static int object_origin_set_exec(bContext *C, wmOperator *op)
 	Object *obedit = CTX_data_edit_object(C);
 	Depsgraph *depsgraph = CTX_data_depsgraph(C);
 	Object *tob;
-	float cursor[3], cent[3], cent_neg[3], centn[3];
+	float cent[3], cent_neg[3], centn[3];
+	const float *cursor = scene->cursor.location;
 	int centermode = RNA_enum_get(op->ptr, "type");
-	int around = RNA_enum_get(op->ptr, "center"); /* initialized from v3d->around */
 
 	ListBase ctx_data_list;
 	CollectionPointerLink *ctx_ob;
@@ -825,12 +819,22 @@ static int object_origin_set_exec(bContext *C, wmOperator *op)
 		BKE_report(op->reports, RPT_ERROR, "Operation cannot be performed in edit mode");
 		return OPERATOR_CANCELLED;
 	}
-	else {
-		/* get the view settings if 'around' isn't set and the view is available */
-		View3D *v3d = CTX_wm_view3d(C);
-		copy_v3_v3(cursor, scene->cursor.location);
-		if (v3d && !RNA_struct_property_is_set(op->ptr, "center"))
-			around = scene->toolsettings->transform_pivot_point;
+
+	int around;
+	{
+		PropertyRNA *prop_center = RNA_struct_find_property(op->ptr, "center");
+		if (RNA_property_is_set(op->ptr, prop_center)) {
+			around = RNA_property_enum_get(op->ptr, prop_center);
+		}
+		else {
+			if (scene->toolsettings->transform_pivot_point == V3D_AROUND_CENTER_BOUNDS) {
+				around = V3D_AROUND_CENTER_BOUNDS;
+			}
+			else {
+				around = V3D_AROUND_CENTER_MEDIAN;
+			}
+			RNA_property_enum_set(op->ptr, prop_center, around);
+		}
 	}
 
 	zero_v3(cent);
@@ -1122,7 +1126,8 @@ static int object_origin_set_exec(bContext *C, wmOperator *op)
 						float diff_mat[4][4];
 						float inverse_diff_mat[4][4];
 
-						/* recalculate all strokes (all layers are considered without evaluating lock attributtes) */
+						/* recalculate all strokes
+						 * (all layers are considered without evaluating lock attributes) */
 						for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
 							/* calculate difference matrix */
 							ED_gpencil_parent_location(depsgraph, obact, gpd, gpl, diff_mat);
@@ -1203,7 +1208,8 @@ static int object_origin_set_exec(bContext *C, wmOperator *op)
 
 						BKE_object_where_is_calc(depsgraph, scene, ob_other);
 						if (ob_other->type == OB_ARMATURE) {
-							BKE_pose_where_is(depsgraph, scene, ob_other); /* needed for bone parents */
+							/* needed for bone parents */
+							BKE_pose_where_is(depsgraph, scene, ob_other);
 						}
 						ignore_parent_tx(C, bmain, scene, ob_other);
 					}
@@ -1250,13 +1256,13 @@ void OBJECT_OT_origin_set(wmOperatorType *ot)
 		 "Calculate the center of mass from the surface area"},
 		{ORIGIN_TO_CENTER_OF_MASS_VOLUME, "ORIGIN_CENTER_OF_VOLUME", 0, "Origin to Center of Mass (Volume)",
 		 "Calculate the center of mass from the volume (must be manifold geometry with consistent normals)"},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	static const EnumPropertyItem prop_set_bounds_types[] = {
 		{V3D_AROUND_CENTER_MEDIAN, "MEDIAN", 0, "Median Center", ""},
 		{V3D_AROUND_CENTER_BOUNDS, "BOUNDS", 0, "Bounds Center", ""},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	/* identifiers */
@@ -1278,7 +1284,6 @@ void OBJECT_OT_origin_set(wmOperatorType *ot)
 }
 
 /* -------------------------------------------------------------------- */
-
 /** \name Transform Axis Target
  *
  * Note this is an experemental operator to point lamps/cameras at objects.
@@ -1651,7 +1656,8 @@ static int object_transform_axis_target_modal(bContext *C, wmOperator *op, const
 									copy_v3_v3(loc, location_world);
 									madd_v3_v3fl(loc, target_normal, item->xform_dist);
 									object_apply_location(item->ob, loc);
-									copy_v3_v3(item->ob->obmat[3], loc);  /* so orient behaves as expected */
+									/* so orient behaves as expected */
+									copy_v3_v3(item->ob->obmat[3], loc);
 								}
 
 								object_orient_to_location(item->ob, item->rot_mat, item->rot_mat[2], location_world);

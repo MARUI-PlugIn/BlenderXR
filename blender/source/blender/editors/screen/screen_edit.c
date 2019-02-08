@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,13 +15,9 @@
  *
  * The Original Code is Copyright (C) 2008 Blender Foundation.
  * All rights reserved.
- *
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/screen/screen_edit.c
- *  \ingroup edscr
+/** \file \ingroup edscr
  */
 
 
@@ -38,7 +32,6 @@
 #include "DNA_workspace_types.h"
 #include "DNA_userdef_types.h"
 
-#include "BLI_math.h"
 #include "BLI_blenlib.h"
 #include "BLI_utildefines.h"
 
@@ -48,7 +41,6 @@
 #include "BKE_image.h"
 #include "BKE_layer.h"
 #include "BKE_library.h"
-#include "BKE_library_remap.h"
 #include "BKE_main.h"
 #include "BKE_node.h"
 #include "BKE_screen.h"
@@ -485,6 +477,12 @@ void ED_screens_initialize(Main *bmain, wmWindowManager *wm)
 			ED_screen_set_active_region(NULL, win, &win->eventstate->x);
 		}
 	}
+
+	if (U.uiflag & USER_HEADER_FROM_PREF) {
+		for (bScreen *screen = bmain->screen.first; screen; screen = screen->id.next) {
+			BKE_screen_header_alignment_reset(screen);
+		}
+	}
 }
 
 void ED_screen_ensure_updated(wmWindowManager *wm, wmWindow *win, bScreen *screen)
@@ -639,7 +637,7 @@ void ED_screen_set_active_region(bContext *C, wmWindow *win, const int xy[2])
 		ED_screen_areas_iter(win, scr, area_iter) {
 			if (xy[0] > area_iter->totrct.xmin && xy[0] < area_iter->totrct.xmax) {
 				if (xy[1] > area_iter->totrct.ymin && xy[1] < area_iter->totrct.ymax) {
-					if (ED_area_actionzone_refresh_xy(area_iter, xy) == NULL) {
+					if (ED_area_azones_update(area_iter, xy) == NULL) {
 						sa = area_iter;
 						break;
 					}
@@ -1251,7 +1249,7 @@ ScrArea *ED_screen_state_toggle(bContext *C, wmWindow *win, ScrArea *sa, const s
 			for (ar = newa->regionbase.first; ar; ar = ar->next) {
 				ar->flagfullscreen = ar->flag;
 
-				if (ELEM(ar->regiontype, RGN_TYPE_UI, RGN_TYPE_HEADER, RGN_TYPE_TOOLS, RGN_TYPE_NAV_BAR)) {
+				if (ELEM(ar->regiontype, RGN_TYPE_UI, RGN_TYPE_HEADER, RGN_TYPE_TOOLS, RGN_TYPE_NAV_BAR, RGN_TYPE_EXECUTE)) {
 					ar->flag |= RGN_FLAG_HIDDEN;
 				}
 			}

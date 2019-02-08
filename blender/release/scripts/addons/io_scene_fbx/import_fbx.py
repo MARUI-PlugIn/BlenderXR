@@ -252,9 +252,9 @@ def elem_props_get_bool(elem, elem_prop_id, default=None):
     elem_prop = elem_props_find_first(elem, elem_prop_id)
     if elem_prop is not None:
         assert(elem_prop.props[0] == elem_prop_id)
-        assert(elem_prop.props[1] == b'bool')
+        # b'Bool' with a capital seems to be used for animated property... go figure...
+        assert(elem_prop.props[1] in {b'bool', b'Bool'})
         assert(elem_prop.props[2] == b'')
-        assert(elem_prop.props[3] == b'')
 
         # we could allow other number types
         assert(elem_prop.props_type[4] == data_types.INT32)
@@ -1007,6 +1007,11 @@ def blen_read_geom_layer_uv(fbx_obj, mesh):
             fbx_layer_index = elem_prop_first(elem_find_first(fbx_layer, b'UVIndex'))
 
             uv_lay = mesh.uv_layers.new(name=fbx_layer_name)
+            if uv_lay is None:
+                print("Failed to add {%r %r} UVLayer to %r (probably too many of them?)"
+                      "" % (layer_id, fbx_layer_name, mesh.name))
+                continue
+
             blen_data = uv_lay.data
 
             # some valid files omit this data
@@ -1995,6 +2000,7 @@ class FbxImportHelperNode:
                         child.pre_matrix = self.bone_child_matrix
 
                     child_obj.matrix_basis = child.get_matrix()
+                child.link_skeleton_children(fbx_tmpl, settings, scene)
             return None
         else:
             obj = self.bl_obj

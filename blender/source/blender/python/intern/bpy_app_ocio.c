@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,14 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Sergey Sharybin
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/python/intern/bpy_app_ocio.c
- *  \ingroup pythonintern
+/** \file \ingroup pythonintern
  */
 
 #include <Python.h>
@@ -41,14 +34,14 @@ static PyStructSequence_Field app_ocio_info_fields[] = {
 	{(char *)"supported", (char *)("Boolean, True when Blender is built with OpenColorIO support")},
 	{(char *)("version"), (char *)("The OpenColorIO version as a tuple of 3 numbers")},
 	{(char *)("version_string"), (char *)("The OpenColorIO version formatted as a string")},
-	{NULL}
+	{NULL},
 };
 
 static PyStructSequence_Desc app_ocio_info_desc = {
 	(char *)"bpy.app.ocio",     /* name */
 	(char *)"This module contains information about OpenColorIO blender is linked against",    /* doc */
 	app_ocio_info_fields,    /* fields */
-	ARRAY_SIZE(app_ocio_info_fields) - 1
+	ARRAY_SIZE(app_ocio_info_fields) - 1,
 };
 
 static PyObject *make_ocio_info(void)

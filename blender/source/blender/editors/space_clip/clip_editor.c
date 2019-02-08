@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2011 Blender Foundation.
  * All rights reserved.
- *
- *
- * Contributor(s): Blender Foundation,
- *                 Sergey Sharybin
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/space_clip/clip_editor.c
- *  \ingroup spclip
+/** \file \ingroup spclip
  */
 
 #include <stddef.h>
@@ -781,7 +772,7 @@ static void prefetch_task_func(TaskPool * __restrict pool, void *task_data, int 
 	while ((mem = prefetch_thread_next_frame(queue, clip, &size, &current_frame))) {
 		ImBuf *ibuf;
 		MovieClipUser user = {0};
-		int flag = IB_rect | IB_alphamode_detect;
+		int flag = IB_rect | IB_multilayer | IB_alphamode_detect | IB_metadata;
 		int result;
 		char *colorspace_name = NULL;
 		const bool use_proxy = (clip->flag & MCLIP_USE_PROXY) &&
@@ -797,6 +788,10 @@ static void prefetch_task_func(TaskPool * __restrict pool, void *task_data, int 
 		}
 
 		ibuf = IMB_ibImageFromMemory(mem, size, flag, colorspace_name, "prefetch frame");
+		if (ibuf == NULL) {
+			continue;
+		}
+		BKE_movieclip_convert_multilayer_ibuf(ibuf);
 
 		result = BKE_movieclip_put_frame_if_possible(clip, &user, ibuf);
 

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,10 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * Contributor(s): Blender Foundation, 2002-2009 full recode.
- *
- * ***** END GPL LICENSE BLOCK *****
- *
  * Operators and API's for creating bones
  */
 
-/** \file blender/editors/armature/armature_add.c
- *  \ingroup edarmature
+/** \file \ingroup edarmature
  */
 
 #include "DNA_armature_types.h"
@@ -238,7 +230,7 @@ static int armature_click_extrude_invoke(bContext *C, wmOperator *op, const wmEv
 
 	copy_v3_v3(oldcurs, cursor->location);
 
-	VECCOPY2D(mval_f, event->mval);
+	copy_v2fl_v2i(mval_f, event->mval);
 	ED_view3d_win_to_3d(v3d, ar, cursor->location, mval_f, tvec);
 	copy_v3_v3(cursor->location, tvec);
 
@@ -491,7 +483,9 @@ static int armature_duplicate_selected_exec(bContext *C, wmOperator *op)
 	Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, CTX_wm_view3d(C), &objects_len);
 	for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
 		EditBone *ebone_iter;
-		EditBone *ebone_first_dupe = NULL;  /* The beginning of the duplicated bones in the edbo list */
+		/* The beginning of the duplicated bones in the edbo list */
+		EditBone *ebone_first_dupe = NULL;
+
 		Object *ob = objects[ob_index];
 		bArmature *arm = ob->data;
 
@@ -664,7 +658,8 @@ static int armature_symmetrize_exec(bContext *C, wmOperator *op)
 		bArmature *arm = obedit->data;
 
 		EditBone *ebone_iter;
-		EditBone *ebone_first_dupe = NULL;  /* The beginning of the duplicated mirrored bones in the edbo list */
+		/* The beginning of the duplicated mirrored bones in the edbo list */
+		EditBone *ebone_first_dupe = NULL;
 
 		ED_armature_edit_sync_selection(arm->edbo); // XXX why is this needed?
 
@@ -845,7 +840,7 @@ void ARMATURE_OT_symmetrize(wmOperatorType *ot)
 	static const EnumPropertyItem arm_symmetrize_direction_items[] = {
 		{-1, "NEGATIVE_X", 0, "-X to +X", ""},
 		{+1, "POSITIVE_X", 0, "+X to -X", ""},
-		{0, NULL, 0, NULL, NULL}
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	/* identifiers */

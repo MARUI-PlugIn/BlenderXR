@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,16 +15,9 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file DNA_meshdata_types.h
- *  \ingroup DNA
+/** \file \ingroup DNA
  */
 
 #ifndef __DNA_MESHDATA_TYPES_H__
@@ -41,7 +32,8 @@ struct Image;
 typedef struct MFace {
 	unsigned int v1, v2, v3, v4;
 	short mat_nr;
-	char edcode, flag;  /* we keep edcode, for conversion to edges draw flags in old files */
+	/** We keep edcode, for conversion to edges draw flags in old files. */
+	char edcode, flag;
 } MFace;
 
 typedef struct MEdge {
@@ -58,7 +50,8 @@ typedef struct MDeformWeight {
 typedef struct MDeformVert {
 	struct MDeformWeight *dw;
 	int totweight;
-	int flag;  /* flag only in use for weightpaint now */
+	/** Flag only in use for weightpaint now. */
+	int flag;
 } MDeformVert;
 
 typedef struct MVert {
@@ -78,15 +71,18 @@ typedef struct MCol {
 typedef struct MPoly {
 	/* offset into loop array and number of loops in the face */
 	int loopstart;
-	int totloop;  /* keep signed since we need to subtract when getting the previous loop */
+	/** Keep signed since we need to subtract when getting the previous loop. */
+	int totloop;
 	short mat_nr;
 	char flag, pad;
 } MPoly;
 
 /* the e here is because we want to move away from relying on edge hashes.*/
 typedef struct MLoop {
-	unsigned int v;  /* vertex index */
-	unsigned int e;  /* edge index */
+	/** Vertex index. */
+	unsigned int v;
+	/** Edge index. */
+	unsigned int e;
 } MLoop;
 
 /**
@@ -237,7 +233,8 @@ typedef struct MLoopCol {
 
 typedef struct MSelect {
 	int index;
-	int type;  /* ME_VSEL/ME_ESEL/ME_FSEL */
+	/** ME_VSEL/ME_ESEL/ME_FSEL. */
+	int type;
 } MSelect;
 
 /*tessellation uv face data*/
@@ -270,8 +267,11 @@ typedef struct MDisps {
 	int level;
 	float (*disps)[3];
 
-	/* Used for hiding parts of a multires mesh. Essentially the multires equivalent of MVert.flag's ME_HIDE bit.
-	 * NOTE: This is a bitmap, keep in sync with type used in BLI_bitmap.h
+	/**
+	 * Used for hiding parts of a multires mesh.
+	 * Essentially the multires equivalent of MVert.flag's ME_HIDE bit.
+	 *
+	 * \note This is a bitmap, keep in sync with type used in BLI_bitmap.h
 	 */
 	unsigned int *hidden;
 } MDisps;
@@ -341,19 +341,20 @@ typedef struct GridPaintMask {
 } GridPaintMask;
 
 typedef enum eMVertSkinFlag {
-	/* Marks a vertex as the edge-graph root, used for calculating rotations for all connected edges (recursively).
-	 * Also used to choose a root when generating an armature.
+	/** Marks a vertex as the edge-graph root, used for calculating rotations for all connected
+	 * edges (recursively). Also used to choose a root when generating an armature.
 	 */
 	MVERT_SKIN_ROOT = 1,
 
-	/* Marks a branch vertex (vertex with more than two connected edges), so that it's neighbors are
-	 * directly hulled together, rather than the default of generating intermediate frames.
+	/** Marks a branch vertex (vertex with more than two connected edges), so that it's neighbors
+	 * are directly hulled together, rather than the default of generating intermediate frames.
 	 */
 	MVERT_SKIN_LOOSE = 2,
 } eMVertSkinFlag;
 
 typedef struct MVertSkin {
-	/* Radii of the skin, define how big the generated frames are. Currently only the first two elements are used. */
+	/* Radii of the skin, define how big the generated frames are.
+	 * Currently only the first two elements are used. */
 	float radius[3];
 
 	/* eMVertSkinFlag */
