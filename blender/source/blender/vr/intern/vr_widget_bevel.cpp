@@ -78,6 +78,9 @@
 #define WIDGET_TRANSFORM_ROT_PRECISION (PI/36.0f)
 #define WIDGET_TRANSFORM_SCALE_PRECISION 0.005f
 
+/* Sensitivity multiplier for interactions. */
+#define WIDGET_BEVEL_SENSITIVITY 3.0f
+
 #include "vr_util.h"
 
 /***********************************************************************************************//**
@@ -90,6 +93,8 @@ Widget_Bevel Widget_Bevel::obj;
 
 Coord3Df Widget_Bevel::p0;
 Coord3Df Widget_Bevel::p1;
+Coord3Df Widget_Bevel::p0_b;
+Coord3Df Widget_Bevel::p1_b;
 VR_Side Widget_Bevel::cursor_side;
 
 float Widget_Bevel::offset(0.0f);
@@ -305,15 +310,10 @@ static bool edbm_bevel_init(bContext *C, wmOperator *op, const bool is_modal)
 	/* avoid the cost of allocating a bm copy */
 	//if (is_modal) {
 		View3D *v3d = CTX_wm_view3d(C);
-		ARegion *ar = CTX_wm_region(C);
-
 		for (uint ob_index = 0; ob_index < opdata->ob_store_len; ob_index++) {
 			opdata->ob_store[ob_index].mesh_backup = EDBM_redo_state_store(opdata->ob_store[ob_index].em);
 		}
-		opdata->draw_handle_pixel = ED_region_draw_cb_activate(ar->type, ED_region_draw_mouse_line_cb,
-			opdata->mcenter, REGION_DRAW_POST_PIXEL);
 		G.moving = G_TRANSFORM_EDIT;
-
 		if (v3d) {
 			opdata->gizmo_flag = v3d->gizmo_flag;
 			v3d->gizmo_flag = V3D_GIZMO_HIDE;
@@ -412,11 +412,9 @@ static void edbm_bevel_exit(bContext *C, wmOperator *op)
 
 	//if (opdata->is_modal) {
 		View3D *v3d = CTX_wm_view3d(C);
-		ARegion *ar = CTX_wm_region(C);
 		for (uint ob_index = 0; ob_index < opdata->ob_store_len; ob_index++) {
 			EDBM_redo_state_free(&opdata->ob_store[ob_index].mesh_backup, NULL, false);
 		}
-		ED_region_draw_cb_exit(ar->type, opdata->draw_handle_pixel);
 		if (v3d) {
 			v3d->gizmo_flag = opdata->gizmo_flag;
 		}
@@ -481,7 +479,8 @@ void Widget_Bevel::drag_start(VR_UI::Cursor& c)
 	}
 
 	cursor_side = c.side;
-	p1 = p0 = *(Coord3Df*)c.position.get(VR_SPACE_BLENDER).m[3];
+	p1 = p0 = *(Coord3Df*)c.position.get(VR_SPACE_REAL).m[3];
+	p1_b = p0_b = *(Coord3Df*)c.position.get(VR_SPACE_BLENDER).m[3];
 
 	/* Execute bevel operation */
 	edbm_bevel_init(C, &bevel_dummy_op, false);
@@ -521,8 +520,9 @@ void Widget_Bevel::drag_contd(VR_UI::Cursor& c)
 		return;
 	}
 
-	p1 = *(Coord3Df*)c.position.get(VR_SPACE_BLENDER).m[3];
-	offset = (p1 - p0).length();
+	p1 = *(Coord3Df*)c.position.get(VR_SPACE_REAL).m[3];
+	p1_b = *(Coord3Df*)c.position.get(VR_SPACE_BLENDER).m[3];
+	offset = (p1 - p0).length() * WIDGET_BEVEL_SENSITIVITY;
 	if (VR_UI::shift_key_get()) {
 		offset *= WIDGET_TRANSFORM_TRANS_PRECISION;
 	}
@@ -550,8 +550,9 @@ void Widget_Bevel::drag_stop(VR_UI::Cursor& c)
 	}
 
 	/* Execute bevel operation */
-	p1 = *(Coord3Df*)c.position.get(VR_SPACE_BLENDER).m[3];
-	offset = (p1 - p0).length();
+	p1 = *(Coord3Df*)c.position.get(VR_SPACE_REAL).m[3];
+	p1_b = *(Coord3Df*)c.position.get(VR_SPACE_BLENDER).m[3];
+	offset = (p1 - p0).length() * WIDGET_BEVEL_SENSITIVITY;
 	edbm_bevel_exit(C, &bevel_dummy_op);
 
 	BMEditMesh *em = BKE_editmesh_from_object(obedit);
@@ -569,28 +570,6 @@ void Widget_Bevel::drag_stop(VR_UI::Cursor& c)
 
 void Widget_Bevel::render(VR_Side side)
 {
-	if (!Widget_Bevel::obj.do_render[side]) {
-		return;
-	}
-
-	/* Render measurement (offset) text. */
-	//const Mat44f& prior_model_matrix = VR_Draw::get_model_matrix();
-	//static Mat44f m;
-	//m = VR_UI::hmd_position_get(VR_SPACE_REAL);
-	//const Mat44f& c = VR_UI::cursor_position_get(VR_SPACE_REAL, cursor_side);
-	//memcpy(m.m[3], c.m[3], sizeof(float) * 3);
-	//VR_Draw::update_modelview_matrix(&m, 0);
-
-	VR_Draw::set_depth_test(false, false);
-	VR_Draw::set_color(0.8f, 0.8f, 0.8f, 1.0f);
-
-	//static std::string distance;
-	//sprintf((char*)distance.data(), "%.3f", offset);
-	//VR_Draw::render_string(distance.c_str(), 0.02f, 0.02f, VR_HALIGN_CENTER, VR_VALIGN_TOP, 0.0f, 0.08f, 0.001f);
-	
-	//VR_Draw::set_depth_test(true, true);
-	//VR_Draw::update_modelview_matrix(&prior_model_matrix, 0);
-
 	/* Render dashed line from center. */
 	GPUVertFormat *format = immVertexFormat();
 	uint pos = GPU_vertformat_attr_add(format, "pos", GPU_COMP_F32, 3, GPU_FETCH_FLOAT);
@@ -602,12 +581,12 @@ void Widget_Bevel::render(VR_Side side)
 	immUniformColor4fv(c_black);
 	immUniform1f("dash_width", 6.0f);
 
-	immVertex3fv(pos, (float*)&p0);
-	immVertex3fv(pos, (float*)&p1);
+	immVertex3fv(pos, (float*)&p0_b);
+	immVertex3fv(pos, (float*)&p1_b);
 
-	if (p0 == p1) {
+	if (p0_b == p1_b) {
 		/* cyclic */
-		immVertex3fv(pos, (float*)&p0);
+		immVertex3fv(pos, (float*)&p0_b);
 	}
 	immEnd();
 	immUnbindProgram();

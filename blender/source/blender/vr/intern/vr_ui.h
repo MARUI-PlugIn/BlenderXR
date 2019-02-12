@@ -38,9 +38,8 @@
 #define VR_UI_DEFAULTWORKSPACEDIST    0.550f	/* Distance of default workspace center from the HMD in meters. */
 #define VR_UI_DEFAULTWORKSPACEHEIGHT -0.350f	/* Height of default workspace center (relative to HMD) in meters. */
 
-#define VR_UI_MAXUPDATEINTERVAL      (1000/1)	/* Maximum interval in ms at which the UI should perform updates on Blender. (1Hz) */
-#define VR_UI_MINUPDATEINTERVAL      (1000/60)	/* Minimum interval in ms at which the UI should perform updates on Blender. (60Hz) */
-#define VR_UI_OPTIMIZEPERFORMANCEMELTCPU 1		/* Whether to override the update interval limits and update as fast as possible. */
+#define VR_UI_MAXUPDATEINTERVAL      (1000/1)	/* Maximum interval in ms at which the UI should perform updates on Blender. (ie. minimum refresh rate: 1Hz) */
+#define VR_UI_MINUPDATEINTERVAL      (1000/120)	/* Minimum interval in ms at which the UI may perform updates on Blender. (ie. max refresh rate: 60Hz) */
 
 #define VR_UI_MINNAVIGATIONSCALE	  0.001f	/* Minimum navigation scale (Real to Blender) permitted. */
 #define VR_UI_MAXNAVIGATIONSCALE	  1000.0f	/* Maximum navigation scale (Real to Blender) permitted. */

@@ -39,6 +39,8 @@ class Widget_Bevel : public VR_Widget
 
 	static Coord3Df  p0;	/* Start / interaction point of the bevel. */
 	static Coord3Df  p1;	/* Current / end point of the bevel. */
+	static Coord3Df p0_b;	/* Start / interaction point of the bevel (Blender coordinates). */
+	static Coord3Df p1_b;	/* Current / end point of the bevel (Blender coordinates). */
 	static VR_Side cursor_side;	/* Side of the current interaction cursor. */
 public:
 	static float offset;	/* The bevel offset. */

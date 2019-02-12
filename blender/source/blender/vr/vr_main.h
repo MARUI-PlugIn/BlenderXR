@@ -37,8 +37,8 @@ extern "C"
 
 #define VR_MAX_CONTROLLERS 3 /* Maximum number of controllers that can be simultaneously supported. */
 
-#define VR_CLIP_NEAR 0.0001f	/* Default near clip plane for the VR viewport (eye) cameras. */
-#define VR_CLIP_FAR	10000.0f	/* Default far clip plane for the VR viewport (eye) cameras. */
+#define VR_CLIP_NEAR 0.01f	/* Default near clip plane for the VR viewport (eye) cameras. (in real-world meters). */
+#define VR_CLIP_FAR	100.0f	/* Default far clip plane for the VR viewport (eye) cameras. (in real-world meters). */
 
 typedef enum VR_Space
 {

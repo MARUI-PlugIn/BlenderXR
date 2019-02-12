@@ -35,66 +35,31 @@
 #include "vr_widget_knife.h"
 #include "vr_widget_transform.h"
 #include "vr_math.h"
-#include "vr_draw.h"
-#include "vr_util.h"
 
 #ifdef _MSC_VER
 #  define _USE_MATH_DEFINES
 #endif
 
 #include "MEM_guardedalloc.h"
-
-#include "BLI_listbase.h"
-#include "BLI_string.h"
-#include "BLI_array.h"
-#include "BLI_alloca.h"
-#include "BLI_linklist.h"
 #include "BLI_math.h"
-#include "BLI_smallhash.h"
-#include "BLI_memarena.h"
-
-#include "BLT_translation.h"
-
-#include "BKE_bvhutils.h"
+#include "BLI_listbase.h"
 #include "BKE_context.h"
-#include "BKE_editmesh.h"
-#include "BKE_editmesh_bvh.h"
 #include "BKE_report.h"
-
-#include "GPU_immediate.h"
-#include "GPU_matrix.h"
-#include "GPU_state.h"
-
+#include "BKE_editmesh.h"
 #include "ED_screen.h"
-#include "ED_space_api.h"
-#include "ED_view3d.h"
-#include "ED_mesh.h"
 #include "ED_undo.h"
-
 #include "WM_api.h"
 #include "WM_types.h"
-
-#include "DNA_object_types.h"
 #include "DNA_mesh_types.h"
-
-#include "UI_interface.h"
-#include "UI_resources.h"
-
-#include "RNA_access.h"
-#include "RNA_define.h"
-
 #include "DEG_depsgraph.h"
-#include "DEG_depsgraph_query.h"
-
-#include "mesh_intern.h"  /* own include */
-
 #include "wm_event_system.h"
 
+#include "vr_util.h"
+
+/* From editors/mesh/editmesh_knife.c */
 extern void EDBM_mesh_knife(bContext *C, LinkNode *polys, bool use_tag, bool cut_through);
 extern void MESH_OT_knife_tool(wmOperatorType *ot);
-extern void WM_operatortype_append(void (*opfunc)(wmOperatorType *));
 extern wmOperatorType *WM_operatortype_find(const char *idname, bool quiet);
-
 enum {
 	KNF_MODAL_CANCEL = 1,
 	KNF_MODAL_CONFIRM,
@@ -110,26 +75,23 @@ enum {
 	KNF_MODAL_ADD_CUT_CLOSED,
 };
 
-
-
 /***********************************************************************************************//**
  * \class									Widget_Knife
  ***************************************************************************************************
  * Interaction widget for the Knife tool.
- *
+ * This widget works by sending simulated mouse events to the knife tool implemented in
+ * editors/mesh/editmesh_knife.c
  **************************************************************************************************/
-Widget_Knife Widget_Knife::obj;
 
+Widget_Knife Widget_Knife::obj;
 Coord3Df Widget_Knife::p0;
 Coord3Df Widget_Knife::p1;
-VR_Side Widget_Knife::cursor_side;
 
-/* Dummy op */
-static wmOperator knife_dummy_op;
+static wmOperator knife_dummy_op; /* Dummy operator, used to send events to the knife tool. */
 
 bool Widget_Knife::has_click(VR_UI::Cursor& c) const
 {
-	return false;
+	return true;
 }
 
 void Widget_Knife::click(VR_UI::Cursor& c)
@@ -140,15 +102,13 @@ void Widget_Knife::click(VR_UI::Cursor& c)
 		return;
 	}
 
-	p0 = *(Coord3Df*)c.position.get(VR_SPACE_BLENDER).m[3];
-	
+	const Mat44f& m = c.position.get();
+	if (CTX_data_edit_object(vr_get_obj()->ctx)) {
+		VR_Util::raycast_select_single_edit(*(Coord3Df*)m.m[3], VR_UI::shift_key_get(), VR_UI::ctrl_key_get());
+	}
 
-    
-
-    // knifetool_invoke(C, &op, &event);
-
-	DEG_id_tag_update((ID*)obedit->data, ID_RECALC_GEOMETRY);
-	WM_main_add_notifier(NC_GEOM | ND_DATA, obedit->data);
+	/* Update manipulators */
+	Widget_Transform::update_manipulator();
 }
 
 void Widget_Knife::drag_start(VR_UI::Cursor& c)
@@ -163,10 +123,31 @@ void Widget_Knife::drag_start(VR_UI::Cursor& c)
 		return;
 	}
 
-	cursor_side = c.side;
 	p1 = p0 = *(Coord3Df*)c.interaction_position.get(VR_SPACE_BLENDER).m[3];
 
-	// Start knife tool operation
+	/* Start knife tool operation */
+    if (knife_dummy_op.type == 0) {
+        knife_dummy_op.type = WM_operatortype_find("MESH_OT_knife_tool", true);
+        if (knife_dummy_op.type == 0) {
+		    return;
+        }
+    }
+    if (knife_dummy_op.ptr == 0) {
+        knife_dummy_op.ptr = (PointerRNA*)MEM_callocN(sizeof(PointerRNA), __func__);
+        if (knife_dummy_op.ptr == 0) {
+		    return;
+        }
+        WM_operator_properties_create_ptr(knife_dummy_op.ptr, knife_dummy_op.type);
+	    WM_operator_properties_sanitize(knife_dummy_op.ptr, 0);
+    }
+    if (knife_dummy_op.reports == 0) {
+        knife_dummy_op.reports = (ReportList*)MEM_mallocN(sizeof(ReportList), "wmOperatorReportList");
+        if (knife_dummy_op.reports == 0) {
+		    return;
+        }
+	    BKE_reports_init(knife_dummy_op.reports, RPT_STORE | RPT_FREE);
+    }
+
     ARegion* ar = CTX_wm_region(C);
     RegionView3D *rv3d = (RegionView3D *)ar->regiondata;
 	
@@ -181,85 +162,22 @@ void Widget_Knife::drag_start(VR_UI::Cursor& c)
 	v0[1] = (float(ar->winy) / 2.0f) + (float(ar->winy) / 2.0f) * (v0[1]/v0[3]);
 
     wmEvent event;
-    event.next = event.prev = 0;
-    event.type = LEFTMOUSE;
-	event.val = KM_PRESS; // KM_CLICK;
+    memset(&event, 0, sizeof(wmEvent));
 	event.x = v0[0];
     event.y = v0[1];
 	event.mval[0] = v0[0];
     event.mval[1] = v0[1];
-	for (int i=7; i>=0; i--) {
-        event.utf8_buf[i] = 0;
-    }
-    event.ascii = 0;
-	event.pad = 0;
 
-    event.prevtype = 0;
-	event.prevval = 0;
-	event.prevx = event.prevy = 0;
-	event.prevclicktime = 0;
-	event.prevclickx = event.prevclicky = 0;
-    event.shift = event.ctrl = event.alt = event.oskey = 0;
-	event.keymodifier = 0;
-
-	/* set in case a KM_PRESS went by unhandled */
-	event.check_click = 0;
-	event.check_drag = 0;
-	event.is_motion_absolute = 0;
-
-	/* keymap item, set by handler (weak?) */
-	event.keymap_idname = 0;
-
-	/* tablet info, only use when the tablet is active */
-	event.tablet_data = 0;
-
-	/* custom data */
-	event.custom = 0;		/* custom data type, stylus, 6dof, see wm_event_types.h */
-	event.customdatafree = 0;
-	event.pad2 = 0;
-	event.customdata = 0;	/* ascii, unicode, mouse coords, angles, vectors, dragdrop info */
-    /*
-    const EnumPropertyItem rna_enum_operator_property_tags[] = {
-	    {OP_PROP_TAG_ADVANCED, "ADVANCED", 0, "Advanced", "The property is advanced so UI is suggested to hide it"},
-	    {0, NULL, 0, NULL, NULL}
-    };
-    knife_dummy_op.type = (wmOperatorType*)MEM_callocN(sizeof(wmOperatorType), "operatortype");
-    knife_dummy_op.type->srna = RNA_def_struct_ptr(&BLENDER_RNA, "", &RNA_OperatorProperties);
-	RNA_def_struct_property_tags(knife_dummy_op.type->srna, rna_enum_operator_property_tags);
-	/ * Set the default i18n context now, so that opfunc can redefine it if needed! * /
-	RNA_def_struct_translation_context(knife_dummy_op.type->srna, BLT_I18NCONTEXT_OPERATOR_DEFAULT);
-	knife_dummy_op.type->translation_context = BLT_I18NCONTEXT_OPERATOR_DEFAULT;
-
-    MESH_OT_knife_tool(knife_dummy_op.type);
-
-    WM_operatortype_props_advanced_end(knife_dummy_op.type);
-	RNA_def_struct_ui_text(knife_dummy_op.type->srna, knife_dummy_op.type->name, knife_dummy_op.type->description ? knife_dummy_op.type->description : N_("(undocumented operator)"));
-	RNA_def_struct_identifier(&BLENDER_RNA, knife_dummy_op.type->srna, knife_dummy_op.type->idname);
-
-	//BLI_ghash_insert(global_ops_hash, (void *)knife_dummy_op.type->idname, knife_dummy_op.type);
-
-    knife_dummy_op.type->invoke(C, &knife_dummy_op, &event); */
-    if (knife_dummy_op.type == 0) {
-        knife_dummy_op.type = WM_operatortype_find("MESH_OT_knife_tool", true);
-    }
-    if (knife_dummy_op.ptr == 0) {
-        knife_dummy_op.ptr = (PointerRNA*)MEM_callocN(sizeof(PointerRNA), __func__);
-        WM_operator_properties_create_ptr(knife_dummy_op.ptr, knife_dummy_op.type);
-	    WM_operator_properties_sanitize(knife_dummy_op.ptr, 0);
-    }
-    if (knife_dummy_op.reports == 0) {
-        knife_dummy_op.reports = (ReportList*)MEM_mallocN(sizeof(ReportList), "wmOperatorReportList");
-	    BKE_reports_init(knife_dummy_op.reports, RPT_STORE | RPT_FREE);
-    }
+    event.type = LEFTMOUSE;
+	event.val = KM_PRESS;
     knife_dummy_op.type->invoke(C, &knife_dummy_op, &event);
-
 
     event.type = EVT_MODAL_MAP;
     event.val = KNF_MODAL_ADD_CUT;
     knife_dummy_op.type->modal(C, &knife_dummy_op, &event);
 
-    // knifetool installs an eventhandler for modal that we don't need or want
-    // find it and remove it
+    /* The knifetool installs an eventhandler for modal that we don't need or want.
+     *  Find it and remove it... */
     wmWindow *win = CTX_wm_window(C);
     wmEventHandler* handler = (wmEventHandler*)win->modalhandlers.first;
     if (handler->op == &knife_dummy_op) {
@@ -303,7 +221,7 @@ void Widget_Knife::drag_contd(VR_UI::Cursor& c)
 	p1 = *(Coord3Df*)c.position.get(VR_SPACE_BLENDER).m[3];
 
 
-	// Continue knife operation
+	/* Continue knife operation */
     ARegion* ar = CTX_wm_region(C);
     RegionView3D *rv3d = (RegionView3D *)ar->regiondata;
 	
@@ -318,46 +236,17 @@ void Widget_Knife::drag_contd(VR_UI::Cursor& c)
 	v0[1] = (float(ar->winy) / 2.0f) + (float(ar->winy) / 2.0f) * (v0[1]/v0[3]);
 
     wmEvent event;
-    event.next = event.prev = 0;
-    event.type = LEFTMOUSE;
-	event.val = KM_RELEASE;
+    memset(&event, 0, sizeof(wmEvent));
 	event.x = v0[0];
     event.y = v0[1];
 	event.mval[0] = v0[0];
     event.mval[1] = v0[1];
-	for (int i=7; i>=0; i--) {
-        event.utf8_buf[i] = 0;
-    }
-    event.ascii = 0;
-	event.pad = 0;
 
-    event.prevtype = 0;
-	event.prevval = 0;
-	event.prevx = event.prevy = 0;
-	event.prevclicktime = 0;
-	event.prevclickx = event.prevclicky = 0;
-    event.shift = event.ctrl = event.alt = event.oskey = 0;
-	event.keymodifier = 0;
-
-	/* set in case a KM_PRESS went by unhandled */
-	event.check_click = 0;
-	event.check_drag = 0;
-	event.is_motion_absolute = 0;
-
-	/* keymap item, set by handler (weak?) */
-	event.keymap_idname = 0;
-
-	/* tablet info, only use when the tablet is active */
-	event.tablet_data = 0;
-
-	/* custom data */
-	event.custom = 0;		/* custom data type, stylus, 6dof, see wm_event_types.h */
-	event.customdatafree = 0;
-	event.pad2 = 0;
-	event.customdata = 0;	/* ascii, unicode, mouse coords, angles, vectors, dragdrop info */
-    
     event.type = MOUSEMOVE;
-    knife_dummy_op.type->modal(C, &knife_dummy_op, &event);
+	event.val = KM_RELEASE;
+	if (knife_dummy_op.type && knife_dummy_op.customdata) {
+		knife_dummy_op.type->modal(C, &knife_dummy_op, &event);
+	}
 
 	for (int i = 0; i < VR_SIDES; ++i) {
 		Widget_Knife::obj.do_render[i] = true;
@@ -376,10 +265,13 @@ void Widget_Knife::drag_stop(VR_UI::Cursor& c)
 		return;
 	}
 
-	// Finish knife operation
+	if (!knife_dummy_op.type || !knife_dummy_op.customdata) {
+		return;
+	}
+
+	/* Finish knife operation */
 	p1 = *(Coord3Df*)c.position.get(VR_SPACE_BLENDER).m[3];
-	
-    // Continue knife operation
+
     ARegion* ar = CTX_wm_region(C);
     RegionView3D *rv3d = (RegionView3D *)ar->regiondata;
 	
@@ -394,57 +286,32 @@ void Widget_Knife::drag_stop(VR_UI::Cursor& c)
 	v0[1] = (float(ar->winy) / 2.0f) + (float(ar->winy) / 2.0f) * (v0[1]/v0[3]);
 
     wmEvent event;
-    event.next = event.prev = 0;
-    event.type = EVT_MODAL_MAP;
-    event.val = KNF_MODAL_ADD_CUT;
+    memset(&event, 0, sizeof(wmEvent));
 	event.x = v0[0];
     event.y = v0[1];
 	event.mval[0] = v0[0];
     event.mval[1] = v0[1];
-	for (int i=7; i>=0; i--) {
-        event.utf8_buf[i] = 0;
-    }
-    event.ascii = 0;
-	event.pad = 0;
 
-    event.prevtype = 0;
-	event.prevval = 0;
-	event.prevx = event.prevy = 0;
-	event.prevclicktime = 0;
-	event.prevclickx = event.prevclicky = 0;
-    event.shift = event.ctrl = event.alt = event.oskey = 0;
-	event.keymodifier = 0;
-
-	/* set in case a KM_PRESS went by unhandled */
-	event.check_click = 0;
-	event.check_drag = 0;
-	event.is_motion_absolute = 0;
-
-	/* keymap item, set by handler (weak?) */
-	event.keymap_idname = 0;
-
-	/* tablet info, only use when the tablet is active */
-	event.tablet_data = 0;
-
-	/* custom data */
-	event.custom = 0;		/* custom data type, stylus, 6dof, see wm_event_types.h */
-	event.customdatafree = 0;
-	event.pad2 = 0;
-	event.customdata = 0;	/* ascii, unicode, mouse coords, angles, vectors, dragdrop info */
-    
-    knife_dummy_op.type->modal(C, &knife_dummy_op, &event);
+    event.type = EVT_MODAL_MAP;
+    event.val = KNF_MODAL_ADD_CUT;
+	//if (knife_dummy_op.type && knife_dummy_op.customdata) {
+		knife_dummy_op.type->modal(C, &knife_dummy_op, &event);
+	//}
 
     event.type = EVT_MODAL_MAP;
     event.val = KNF_MODAL_CONFIRM;
-    knife_dummy_op.type->modal(C, &knife_dummy_op, &event);
-
-    WM_operator_properties_free(knife_dummy_op.ptr);
-    knife_dummy_op.ptr = 0;
-    
-    BKE_reports_clear(knife_dummy_op.reports);
-    MEM_freeN(knife_dummy_op.reports);
-    knife_dummy_op.reports = 0;
-	
+	//if (knife_dummy_op.type && knife_dummy_op.customdata) {
+		knife_dummy_op.type->modal(C, &knife_dummy_op, &event);
+	//}
+	//if (knife_dummy_op.ptr) {
+		WM_operator_properties_free(knife_dummy_op.ptr);
+		knife_dummy_op.ptr = 0;
+	//}
+	//if (knife_dummy_op.reports) {
+		BKE_reports_clear(knife_dummy_op.reports);
+		MEM_freeN(knife_dummy_op.reports);
+		knife_dummy_op.reports = 0;
+	//}
 
     /*
     //Scene *scene = CTX_data_scene(C);
@@ -474,42 +341,12 @@ void Widget_Knife::drag_stop(VR_UI::Cursor& c)
 	EDBM_mesh_normals_update(em);
 	Widget_Transform::update_manipulator();
 
-	DEG_id_tag_update((ID*)obedit->data, ID_RECALC_GEOMETRY);
-	WM_main_add_notifier(NC_GEOM | ND_DATA, obedit->data);
-	ED_undo_push(C, "Knife");
-
 	for (int i = 0; i < VR_SIDES; ++i) {
 		Widget_Knife::obj.do_render[i] = false;
 	}
     */
-}
 
-void Widget_Knife::render(VR_Side side)
-{
-    if (!Widget_Knife::obj.do_render[side]) {
-        return;
-    }
-    /*
-	VR_Draw::set_depth_test(false, false);
-	VR_Draw::set_color(0.8f, 0.8f, 0.8f, 1.0f);
-
-	GPUVertFormat *format = immVertexFormat();
-	uint pos = GPU_vertformat_attr_add(format, "pos", GPU_COMP_F32, 3, GPU_FETCH_FLOAT);
-    GPU_line_width(10.0f);
-
-	static const float color[3] = { 0.5f, 0.0f, 0.0f };
-	immBindBuiltinProgram(GPU_SHADER_3D_LINE_DASHED_UNIFORM_COLOR);
-	immBeginAtMost(GPU_PRIM_LINES, 2);
-	immUniformColor3fvAlpha(color, 1.0f);
-	immUniform1f("dash_width", 6.0f);
-
-	immVertex3fv(pos, (float*)&p0);
-	immVertex3fv(pos, (float*)&p1);
-
-	if (p0 == p1) {
-		immVertex3fv(pos, (float*)&p0);
-	}
-	immEnd();
-    */
-	Widget_Knife::obj.do_render[side] = false;
+    DEG_id_tag_update((ID*)obedit->data, ID_RECALC_GEOMETRY);
+	WM_main_add_notifier(NC_GEOM | ND_DATA, obedit->data);
+	ED_undo_push(C, "Knife");
 }

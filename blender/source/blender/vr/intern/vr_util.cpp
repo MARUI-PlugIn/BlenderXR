@@ -199,7 +199,7 @@ void VR_Util::raycast_select_single_vertex(const Coord3Df& p, ViewContext *vc, b
 				(eV3DProjTest)(V3D_PROJ_TEST_CLIP_BB | V3D_PROJ_TEST_CLIP_NEAR)) == V3D_PROJ_RET_OK)
 			{
 				float dist_temp = len_manhattan_v2v2(mval_fl, screen_co);
-				dist_temp += 10.0f;
+				dist_temp += (dist * 0.1f); //10.0f
 				if (dist_temp < dist) {
 					dist = dist_temp;
 					sv = v;
@@ -267,7 +267,7 @@ void VR_Util::raycast_select_single_edge(const Coord3Df& p, ViewContext *vc, boo
 				(eV3DProjTest)(V3D_PROJ_TEST_CLIP_BB | V3D_PROJ_TEST_CLIP_NEAR)) == V3D_PROJ_RET_OK)
 			{
 				float dist_temp = len_manhattan_v2v2(mval_fl, screen_co);
-				dist_temp += 10.0f;
+				dist_temp += (dist * 0.1f); //10.0f
 				if (dist_temp < dist) {
 					dist = dist_temp;
 					se = e;
@@ -341,7 +341,7 @@ void VR_Util::raycast_select_single_face(const Coord3Df& p, ViewContext *vc, boo
 				(eV3DProjTest)(V3D_PROJ_TEST_CLIP_BB | V3D_PROJ_TEST_CLIP_NEAR)) == V3D_PROJ_RET_OK)
 			{
 				float dist_temp = len_manhattan_v2v2(mval_fl, screen_co);
-				dist_temp += 10.0f;
+				dist_temp += (dist * 0.1f); //10.0f
 				if (dist_temp < dist) {
 					dist = dist_temp;
 					sf = f;
@@ -481,7 +481,7 @@ void VR_Util::raycast_select_single(
 						(eV3DProjTest)(V3D_PROJ_TEST_CLIP_BB | V3D_PROJ_TEST_CLIP_NEAR)) == V3D_PROJ_RET_OK)
 					{
 						float dist_temp = len_manhattan_v2v2(mval_fl, screen_co);
-						if (base == BASACT(view_layer)) dist_temp += 10.0f;
+						if (base == BASACT(view_layer)) dist_temp += (dist * 0.1f); //10.0f
 						if (dist_temp < dist) {
 							dist = dist_temp;
 							basact = base;

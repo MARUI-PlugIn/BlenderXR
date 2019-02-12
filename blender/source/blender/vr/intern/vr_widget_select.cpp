@@ -1599,6 +1599,10 @@ bool Widget_Select::Proximity::has_click(VR_UI::Cursor& c) const
 
 void Widget_Select::Proximity::click(VR_UI::Cursor& c)
 {
+	if (VR_UI::ctrl_key_get() || VR_UI::shift_key_get()) {
+		return;
+	}
+
 	bContext *C = vr_get_obj()->ctx;
 	Scene *scene = CTX_data_scene(C);
 	ViewLayer *view_layer = CTX_data_view_layer(C);

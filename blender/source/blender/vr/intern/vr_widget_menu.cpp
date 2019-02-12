@@ -1414,6 +1414,11 @@ void Widget_Menu::drag_stop(VR_UI::Cursor& c)
 			/* Transform */
 			VR_UI::set_current_tool(&Widget_Transform::obj, c.side);
 			Widget_SwitchTool::obj.curr_tool[c.side] = &Widget_Transform::obj;
+			if (Widget_Transform::manipulator) {
+				for (int i = 0; i < VR_SIDES; ++i) {
+					Widget_Transform::obj.do_render[i] = true;
+				}
+			}
 		}
 		else if (angle2 >= PI && angle2 < 2 * PI) {
 			/* Annotate */
@@ -1429,6 +1434,14 @@ void Widget_Menu::drag_stop(VR_UI::Cursor& c)
 			/* Extrude */
 			VR_UI::set_current_tool(&Widget_Extrude::obj, c.side);
 			Widget_SwitchTool::obj.curr_tool[c.side] = &Widget_Extrude::obj;
+			/* Update manipulator rendering */
+			Widget_Transform::manipulator = true;
+			Widget_Transform::omni = true;
+			Widget_Transform::transform_mode = Widget_Transform::TRANSFORMMODE_OMNI;
+			Widget_Transform::snap_mode = VR_UI::SNAPMODE_TRANSLATION;
+			for (int i = 0; i < VR_SIDES; ++i) {
+				Widget_Extrude::obj.do_render[i] = true;
+			}
 		}
 		else if (angle2 >= 4 * PI && angle2 < 5 * PI) {
 			/* Bevel */

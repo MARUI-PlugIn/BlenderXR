@@ -37,7 +37,10 @@
 #include "vr_widget_measure.h"
 #include "vr_widget_annotate.h"
 
+#include "vr_math.h"
 #include "vr_draw.h"
+
+#include "BLI_math.h"
 
 #include "BKE_context.h"
 #include "BKE_gpencil.h"
@@ -45,12 +48,13 @@
 #include "DNA_gpencil_types.h"
 
 #include "GPU_immediate.h"
+#include "GPU_matrix.h"
 #include "GPU_state.h"
 
 /***********************************************************************************************//**
 * \class                               Widget_Measure
 ***************************************************************************************************
-* Interaction widget for the gpencil measure tool.
+* Interaction widget for the Measure tool.
 *
 **************************************************************************************************/
 
@@ -68,65 +72,7 @@ float Widget_Measure::line_thickness(10.0f);
 float Widget_Measure::color[4] = { 1.0f, 0.3f, 0.3f, 1.0f };
 
 float Widget_Measure::angle(0.0f);
-
 VR_Side Widget_Measure::cursor_side;
-
-void Widget_Measure::drag_start(VR_UI::Cursor& c)
-{
-	cursor_side = c.side;
-	c.reference = c.position.get();
-
-	memcpy(&measure_points[0], c.position.get(VR_SPACE_BLENDER).m[3], sizeof(float) * 3);
-}
-
-void Widget_Measure::drag_contd(VR_UI::Cursor& c)
-{
-	//if (measure_state == VR_UI::CTRLSTATE_OFF) {
-		memcpy(&measure_points[1], c.position.get(VR_SPACE_BLENDER).m[3], sizeof(float) * 3);
-	//}
-	/*else {
-		measure_points[2] = *(Coord3Df*)c.position.get(VR_SPACE_BLENDER).m[3];
-		Coord3Df dir_a = (measure_points[0] - measure_points[1]).normalize();
-		Coord3Df dir_b = (measure_points[2] - measure_points[1]).normalize();
-		angle = angle_normalized_v3v3((float*)&dir_a, (float*)&dir_b) * (180.0f / PI);
-		angle = (float)((int)(angle) % 180);
-	}
-	if (VR_UI::ctrl_key_get()) {
-		if (++measure_ctrl_count == 1) {
-			draw_line(c, measure_points[0], measure_points[1]);
-		}
-		measure_ctrl_state = VR_UI::CTRLSTATE_ON;
-	}*/
-
-	for (int i = 0; i < VR_SIDES; ++i) {
-		Widget_Measure::obj.do_render[i] = true;
-	}
-}
-
-void Widget_Measure::drag_stop(VR_UI::Cursor& c)
-{
-	//if (measure_ctrl_state == VR_UI::CTRLSTATE_OFF) {
-		draw_line(c, measure_points[0], measure_points[1]);
-	/*}
-	else {
-		draw_line(c, measure_points[1], measure_points[2]);
-	}*/
-
-	for (int i = 0; i < VR_SIDES; ++i) {
-		Widget_Measure::obj.do_render[i] = false;
-	}
-
-	//Coord3Df p = *(Coord3Df*)&current_stroke_points[0];
-	//render_GPFont(1, 5, p);
-
-	measure_state = Widget_Measure::Measure_State::INIT;
-	measure_ctrl_state = VR_UI::CTRLSTATE_OFF;
-	measure_ctrl_count = 0;
-
-	for (int i = 0; i < 3; ++i) {
-		memset(&measure_points[i], 0, sizeof(float) * 3);
-	}
-}
 
 void Widget_Measure::draw_line(VR_UI::Cursor& c, Coord3Df& localP0, Coord3Df& localP1) {
 	switch (measure_state) {
@@ -184,235 +130,58 @@ void Widget_Measure::draw_line(VR_UI::Cursor& c, Coord3Df& localP0, Coord3Df& lo
 	BKE_gpencil_layer_setactive(Widget_Annotate::gpd, Widget_Annotate::gpl[active_layer]);
 }
 
-void Widget_Measure::render_GPFont(const uint num, const uint numPoint, const Coord3Df& o)
+void Widget_Measure::drag_start(VR_UI::Cursor& c)
 {
-	uint active_layer = Widget_Annotate::num_layers - 1;
+	cursor_side = c.side;
+	c.reference = c.position.get();
 
-	bContext *C = vr_get_obj()->ctx;
-	Main *curr_main = CTX_data_main(C);
-	if (Widget_Annotate::gpl.size() < 1 || Widget_Annotate::main != curr_main) {
-		int error = Widget_Annotate::init(Widget_Annotate::main != curr_main ? true : false);
-		Widget_Annotate::main = curr_main;
-		if (error) {
-			return;
-		}
+	memcpy(&measure_points[0], c.position.get(VR_SPACE_BLENDER).m[3], sizeof(float) * 3);
+}
+
+void Widget_Measure::drag_contd(VR_UI::Cursor& c)
+{
+	if (measure_ctrl_state == VR_UI::CTRLSTATE_OFF) {
+		/* Line measurement */
+		memcpy(&measure_points[1], c.position.get(VR_SPACE_BLENDER).m[3], sizeof(float) * 3);
+	}
+	else {
+		/* Angle measurement */
+		measure_points[2] = *(Coord3Df*)c.position.get(VR_SPACE_BLENDER).m[3];
+		Coord3Df dir_a = (measure_points[0] - measure_points[1]).normalize();
+		Coord3Df dir_b = (measure_points[2] - measure_points[1]).normalize();
+		angle = angle_normalized_v3v3((float*)&dir_a, (float*)&dir_b) * (180.0f / PI);
+	}
+	if (VR_UI::ctrl_key_get() && measure_ctrl_state == VR_UI::CTRLSTATE_OFF) {
+		draw_line(c, measure_points[0], measure_points[1]);
+		measure_points[2] = measure_points[1];
+		measure_ctrl_state = VR_UI::CTRLSTATE_ON;
 	}
 
-	bGPDstroke *GPFStroke = NULL;
-
-	/* Based on the number and (o)rigin passed, we fill our stroke with points related to the requested number. */
-	switch (num) {
-	case 0: {
-		static bGPDspoint GPpoints[9];
-		GPpoints[0].x = -0.01f;	GPpoints[0].y = +0.01f;	GPpoints[0].z = 0.0f; GPpoints[0].pressure = 1.0f; GPpoints[0].strength = 1.0f;
-		GPpoints[1].x = +0.00f;	GPpoints[1].y = +0.02f;	GPpoints[1].z = 0.0f; GPpoints[1].pressure = 1.0f; GPpoints[1].strength = 1.0f;
-		GPpoints[2].x = +0.01f;	GPpoints[2].y = +0.02f;	GPpoints[2].z = 0.0f; GPpoints[2].pressure = 1.0f; GPpoints[2].strength = 1.0f;
-		GPpoints[3].x = +0.02f;	GPpoints[3].y = +0.01f;	GPpoints[3].z = 0.0f; GPpoints[3].pressure = 1.0f; GPpoints[3].strength = 1.0f;
-		GPpoints[4].x = +0.02f;	GPpoints[4].y = -0.01f;	GPpoints[4].z = 0.0f; GPpoints[4].pressure = 1.0f; GPpoints[4].strength = 1.0f;
-		GPpoints[5].x = +0.01f;	GPpoints[5].y = -0.02f;	GPpoints[5].z = 0.0f; GPpoints[5].pressure = 1.0f; GPpoints[5].strength = 1.0f;
-		GPpoints[6].x = +0.00f;	GPpoints[6].y = -0.02f;	GPpoints[6].z = 0.0f; GPpoints[6].pressure = 1.0f; GPpoints[6].strength = 1.0f;
-		GPpoints[7].x = -0.01f;	GPpoints[7].y = -0.01f;	GPpoints[7].z = 0.0f; GPpoints[7].pressure = 1.0f; GPpoints[7].strength = 1.0f;
-		GPpoints[8].x = -0.01f;	GPpoints[8].y = +0.01f;	GPpoints[8].z = 0.0f; GPpoints[8].pressure = 1.0f; GPpoints[8].strength = 1.0f;
-
-		GPFStroke = BKE_gpencil_add_stroke(Widget_Annotate::gpf[active_layer], 0, 9, line_thickness * 1.6f);
-		memcpy(GPFStroke->points, GPpoints, sizeof(bGPDspoint) * 9);
-		break;
+	for (int i = 0; i < VR_SIDES; ++i) {
+		Widget_Measure::obj.do_render[i] = true;
 	}
-	case 1: {
-		static bGPDspoint GPpoints[5];
-		GPpoints[0].x = -0.01f;	GPpoints[0].y = -0.01f;	GPpoints[0].z = 0.0f; GPpoints[0].pressure = 1.0f; GPpoints[0].strength = 1.0f;
-		GPpoints[1].x = 0.00f;	GPpoints[1].y = +0.02f;	GPpoints[1].z = 0.0f; GPpoints[1].pressure = 1.0f; GPpoints[1].strength = 1.0f;
-		GPpoints[2].x = 0.00f;	GPpoints[2].y = -0.02f;	GPpoints[2].z = 0.0f; GPpoints[2].pressure = 1.0f; GPpoints[2].strength = 1.0f;
-		GPpoints[3].x = -0.01f;	GPpoints[3].y = -0.02f;	GPpoints[3].z = 0.0f; GPpoints[3].pressure = 1.0f; GPpoints[3].strength = 1.0f;
-		GPpoints[4].x = +0.01f;	GPpoints[4].y = -0.02f;	GPpoints[4].z = 0.0f; GPpoints[4].pressure = 1.0f; GPpoints[4].strength = 1.0f;
+}
 
-		GPFStroke = BKE_gpencil_add_stroke(Widget_Annotate::gpf[active_layer], 0, 5, line_thickness * 1.6f);
-		memcpy(GPFStroke->points, GPpoints, sizeof(bGPDspoint) * 5);
-		break;
+void Widget_Measure::drag_stop(VR_UI::Cursor& c)
+{
+	if (measure_ctrl_state == VR_UI::CTRLSTATE_OFF) {
+		draw_line(c, measure_points[0], measure_points[1]);
 	}
-	case 2: {
-		static bGPDspoint GPpoints[6];
-		GPpoints[0].x = -0.02f;	GPpoints[0].y = +0.01f;	GPpoints[0].z = 0.0f; GPpoints[0].pressure = 1.0f; GPpoints[0].strength = 1.0f;
-		GPpoints[1].x = -0.01f;	GPpoints[1].y = +0.02f;	GPpoints[1].z = 0.0f; GPpoints[1].pressure = 1.0f; GPpoints[1].strength = 1.0f;
-		GPpoints[2].x = 0.00f;	GPpoints[2].y = +0.02f;	GPpoints[2].z = 0.0f; GPpoints[2].pressure = 1.0f; GPpoints[2].strength = 1.0f;
-		GPpoints[3].x = -0.01f;	GPpoints[3].y = +0.01f;	GPpoints[3].z = 0.0f; GPpoints[3].pressure = 1.0f; GPpoints[3].strength = 1.0f;
-		GPpoints[4].x = +0.02f;	GPpoints[4].y = -0.02f;	GPpoints[4].z = 0.0f; GPpoints[4].pressure = 1.0f; GPpoints[4].strength = 1.0f;
-		GPpoints[5].x = -0.01f;	GPpoints[5].y = -0.02f;	GPpoints[5].z = 0.0f; GPpoints[5].pressure = 1.0f; GPpoints[5].strength = 1.0f;
-
-		GPFStroke = BKE_gpencil_add_stroke(Widget_Annotate::gpf[active_layer], 0, 6, line_thickness * 1.6f);
-		memcpy(GPFStroke->points, GPpoints, sizeof(bGPDspoint) * 6);
-		break;
-	}
-	case 3: {
-		static bGPDspoint GPpoints[9];
-		GPpoints[0].x = -0.01f;	GPpoints[0].y = +0.02f;	GPpoints[0].z = 0.0f; GPpoints[0].pressure = 1.0f; GPpoints[0].strength = 1.0f;
-		GPpoints[1].x = +0.01f;	GPpoints[1].y = +0.02f;	GPpoints[1].z = 0.0f; GPpoints[1].pressure = 1.0f; GPpoints[1].strength = 1.0f;
-		GPpoints[2].x = +0.02f;	GPpoints[2].y = +0.01f;	GPpoints[2].z = 0.0f; GPpoints[2].pressure = 1.0f; GPpoints[2].strength = 1.0f;
-		GPpoints[3].x = +0.01f;	GPpoints[3].y = 0.00f;	GPpoints[3].z = 0.0f; GPpoints[3].pressure = 1.0f; GPpoints[3].strength = 1.0f;
-		GPpoints[4].x = 0.00f;	GPpoints[4].y = 0.00f;	GPpoints[4].z = 0.0f; GPpoints[4].pressure = 1.0f; GPpoints[4].strength = 1.0f;
-		GPpoints[5].x = +0.01f;	GPpoints[5].y = 0.00f;	GPpoints[5].z = 0.0f; GPpoints[5].pressure = 1.0f; GPpoints[5].strength = 1.0f;
-		GPpoints[6].x = +0.02f;	GPpoints[6].y = -0.01f;	GPpoints[6].z = 0.0f; GPpoints[6].pressure = 1.0f; GPpoints[6].strength = 1.0f;
-		GPpoints[7].x = +0.01f;	GPpoints[7].y = -0.02f;	GPpoints[7].z = 0.0f; GPpoints[7].pressure = 1.0f; GPpoints[7].strength = 1.0f;
-		GPpoints[8].x = -0.01f;	GPpoints[8].y = -0.02f;	GPpoints[8].z = 0.0f; GPpoints[8].pressure = 1.0f; GPpoints[8].strength = 1.0f;
-
-		GPFStroke = BKE_gpencil_add_stroke(Widget_Annotate::gpf[active_layer], 0, 9, line_thickness * 1.6f);
-		memcpy(GPFStroke->points, GPpoints, sizeof(bGPDspoint) * 9);
-		break;
-	}
-	case 4: {
-		static bGPDspoint GPpoints[8];
-		GPpoints[0].x = -0.02f;	GPpoints[0].y = 0.00f;	GPpoints[0].z = 0.0f; GPpoints[0].pressure = 1.0f; GPpoints[0].strength = 1.0f;
-		GPpoints[1].x = 0.00f;	GPpoints[1].y = +0.02f;	GPpoints[1].z = 0.0f; GPpoints[1].pressure = 1.0f; GPpoints[1].strength = 1.0f;
-		GPpoints[2].x = +0.01f;	GPpoints[2].y = +0.02f;	GPpoints[2].z = 0.0f; GPpoints[2].pressure = 1.0f; GPpoints[2].strength = 1.0f;
-		GPpoints[3].x = +0.01f;	GPpoints[3].y = -0.01f;	GPpoints[3].z = 0.0f; GPpoints[3].pressure = 1.0f; GPpoints[3].strength = 1.0f;
-		GPpoints[4].x = +0.01f;	GPpoints[4].y = -0.02f;	GPpoints[4].z = 0.0f; GPpoints[4].pressure = 1.0f; GPpoints[4].strength = 1.0f;
-		GPpoints[5].x = +0.01f;	GPpoints[5].y = -0.01f;	GPpoints[5].z = 0.0f; GPpoints[5].pressure = 1.0f; GPpoints[5].strength = 1.0f;
-		GPpoints[6].x = -0.02f;	GPpoints[6].y = -0.01f;	GPpoints[6].z = 0.0f; GPpoints[6].pressure = 1.0f; GPpoints[6].strength = 1.0f;
-		GPpoints[7].x = -0.02f;	GPpoints[7].y = -0.001;	GPpoints[7].z = 0.0f; GPpoints[7].pressure = 1.0f; GPpoints[7].strength = 1.0f;
-
-		GPFStroke = BKE_gpencil_add_stroke(Widget_Annotate::gpf[active_layer], 0, 8, line_thickness * 1.6f);
-		memcpy(GPFStroke->points, GPpoints, sizeof(bGPDspoint) * 8);
-		break;
-	}
-	case 5: {
-		static bGPDspoint GPpoints[7];
-		GPpoints[0].x = +0.02f;	GPpoints[0].y = +0.02f;	GPpoints[0].z = 0.0f; GPpoints[0].pressure = 1.0f; GPpoints[0].strength = 1.0f;
-		GPpoints[1].x = -0.01f;	GPpoints[1].y = +0.02f;	GPpoints[1].z = 0.0f; GPpoints[1].pressure = 1.0f; GPpoints[1].strength = 1.0f;
-		GPpoints[2].x = -0.01f;	GPpoints[2].y = 0.00f;	GPpoints[2].z = 0.0f; GPpoints[2].pressure = 1.0f; GPpoints[2].strength = 1.0f;
-		GPpoints[3].x = +0.02f;	GPpoints[3].y = 0.00f;	GPpoints[3].z = 0.0f; GPpoints[3].pressure = 1.0f; GPpoints[3].strength = 1.0f;
-		GPpoints[4].x = +0.02f;	GPpoints[4].y = -0.01f;	GPpoints[4].z = 0.0f; GPpoints[4].pressure = 1.0f; GPpoints[4].strength = 1.0f;
-		GPpoints[5].x = +0.01f;	GPpoints[5].y = -0.02f;	GPpoints[5].z = 0.0f; GPpoints[5].pressure = 1.0f; GPpoints[5].strength = 1.0f;
-		GPpoints[6].x = -0.01f;	GPpoints[6].y = -0.02f;	GPpoints[6].z = 0.0f; GPpoints[6].pressure = 1.0f; GPpoints[6].strength = 1.0f;
-
-		GPFStroke = BKE_gpencil_add_stroke(Widget_Annotate::gpf[active_layer], 0, 7, line_thickness * 1.6f);
-		memcpy(GPFStroke->points, GPpoints, sizeof(bGPDspoint) * 7);
-		break;
-	}
-	case 6: {
-		static bGPDspoint GPpoints[9];
-		GPpoints[0].x = +0.02f;	GPpoints[0].y = +0.02f;	GPpoints[0].z = 0.0f; GPpoints[0].pressure = 1.0f; GPpoints[0].strength = 1.0f;
-		GPpoints[1].x = 0.00f;	GPpoints[1].y = +0.02f;	GPpoints[1].z = 0.0f; GPpoints[1].pressure = 1.0f; GPpoints[1].strength = 1.0f;
-		GPpoints[2].x = -0.01f;	GPpoints[2].y = +0.01f;	GPpoints[2].z = 0.0f; GPpoints[2].pressure = 1.0f; GPpoints[2].strength = 1.0f;
-		GPpoints[3].x = -0.01f;	GPpoints[3].y = -0.01f;	GPpoints[3].z = 0.0f; GPpoints[3].pressure = 1.0f; GPpoints[3].strength = 1.0f;
-		GPpoints[4].x = 0.00f;	GPpoints[4].y = -0.02f;	GPpoints[4].z = 0.0f; GPpoints[4].pressure = 1.0f; GPpoints[4].strength = 1.0f;
-		GPpoints[5].x = +0.01f;	GPpoints[5].y = -0.02f;	GPpoints[5].z = 0.0f; GPpoints[5].pressure = 1.0f; GPpoints[5].strength = 1.0f;
-		GPpoints[6].x = +0.02f;	GPpoints[6].y = -0.01f;	GPpoints[6].z = 0.0f; GPpoints[6].pressure = 1.0f; GPpoints[6].strength = 1.0f;
-		GPpoints[7].x = +0.01f;	GPpoints[7].y = 0.00f;	GPpoints[7].z = 0.0f; GPpoints[7].pressure = 1.0f; GPpoints[7].strength = 1.0f;
-		GPpoints[8].x = -0.01f;	GPpoints[8].y = 0.00f;	GPpoints[8].z = 0.0f; GPpoints[8].pressure = 1.0f; GPpoints[8].strength = 1.0f;
-
-		GPFStroke = BKE_gpencil_add_stroke(Widget_Annotate::gpf[active_layer], 0, 9, line_thickness * 1.6f);
-		memcpy(GPFStroke->points, GPpoints, sizeof(bGPDspoint) * 9);
-		break;
-	}
-	case 7: {
-		static bGPDspoint GPpoints[5];
-		GPpoints[0].x = -0.01f;	GPpoints[0].y = +0.02f;	GPpoints[0].z = 0.0f; GPpoints[0].pressure = 1.0f; GPpoints[0].strength = 1.0f;
-		GPpoints[1].x = +0.02f;	GPpoints[1].y = +0.02f;	GPpoints[1].z = 0.0f; GPpoints[1].pressure = 1.0f; GPpoints[1].strength = 1.0f;
-		GPpoints[2].x = +0.02f;	GPpoints[2].y = +0.01f;	GPpoints[2].z = 0.0f; GPpoints[2].pressure = 1.0f; GPpoints[2].strength = 1.0f;
-		GPpoints[3].x = 0.00f;	GPpoints[3].y = -0.01f;	GPpoints[3].z = 0.0f; GPpoints[3].pressure = 1.0f; GPpoints[3].strength = 1.0f;
-		GPpoints[4].x = 0.00f;	GPpoints[4].y = -0.02f;	GPpoints[4].z = 0.0f; GPpoints[4].pressure = 1.0f; GPpoints[4].strength = 1.0f;
-
-		GPFStroke = BKE_gpencil_add_stroke(Widget_Annotate::gpf[active_layer], 0, 5, line_thickness * 1.6f);
-		memcpy(GPFStroke->points, GPpoints, sizeof(bGPDspoint) * 5);
-		break;
-	}
-	case 8: {
-		static bGPDspoint GPpoints[11];
-		GPpoints[0].x = 0.00f;	GPpoints[0].y = 0.00f;	GPpoints[0].z = 0.0f;	GPpoints[0].pressure = 1.0f;	GPpoints[0].strength = 1.0f;
-		GPpoints[1].x = -0.01f;	GPpoints[1].y = +0.01f;	GPpoints[1].z = 0.0f;	GPpoints[1].pressure = 1.0f;	GPpoints[1].strength = 1.0f;
-		GPpoints[2].x = 0.00f;	GPpoints[2].y = +0.02f;	GPpoints[2].z = 0.0f;	GPpoints[2].pressure = 1.0f;	GPpoints[2].strength = 1.0f;
-		GPpoints[3].x = +0.01f;	GPpoints[3].y = +0.02f;	GPpoints[3].z = 0.0f;	GPpoints[3].pressure = 1.0f;	GPpoints[3].strength = 1.0f;
-		GPpoints[4].x = +0.02f;	GPpoints[4].y = +0.01f;	GPpoints[4].z = 0.0f;	GPpoints[4].pressure = 1.0f;	GPpoints[4].strength = 1.0f;
-		GPpoints[5].x = +0.01f;	GPpoints[5].y = 0.00f;	GPpoints[5].z = 0.0f;	GPpoints[5].pressure = 1.0f;	GPpoints[5].strength = 1.0f;
-		GPpoints[6].x = +0.02f;	GPpoints[6].y = -0.01f;	GPpoints[6].z = 0.0f;	GPpoints[6].pressure = 1.0f;	GPpoints[6].strength = 1.0f;
-		GPpoints[7].x = +0.01f;	GPpoints[7].y = -0.02f;	GPpoints[7].z = 0.0f;	GPpoints[7].pressure = 1.0f;	GPpoints[7].strength = 1.0f;
-		GPpoints[8].x = 0.00f;	GPpoints[8].y = -0.02f;	GPpoints[8].z = 0.0f;	GPpoints[8].pressure = 1.0f;	GPpoints[8].strength = 1.0f;
-		GPpoints[9].x = -0.01f;	GPpoints[9].y = -0.01f;	GPpoints[9].z = 0.0f;	GPpoints[9].pressure = 1.0f;	GPpoints[9].strength = 1.0f;
-		GPpoints[10].x = 0.00f;	GPpoints[10].y = 0.00f;	GPpoints[10].z = 0.0f;	GPpoints[10].pressure = 1.0f;	GPpoints[10].strength = 1.0f;
-
-		GPFStroke = BKE_gpencil_add_stroke(Widget_Annotate::gpf[active_layer], 0, 11, line_thickness * 1.6f);
-		memcpy(GPFStroke->points, GPpoints, sizeof(bGPDspoint) * 11);
-		break;
-	}
-	case 9: {
-		static bGPDspoint GPpoints[9];
-		GPpoints[0].x = +0.01f;	GPpoints[0].y = 0.00f;	GPpoints[0].z = 0.0f; GPpoints[0].pressure = 1.0f; GPpoints[0].strength = 1.0f;
-		GPpoints[1].x = -0.01f;	GPpoints[1].y = 0.00f;	GPpoints[1].z = 0.0f; GPpoints[1].pressure = 1.0f; GPpoints[1].strength = 1.0f;
-		GPpoints[2].x = -0.02f;	GPpoints[2].y = +0.01f;	GPpoints[2].z = 0.0f; GPpoints[2].pressure = 1.0f; GPpoints[2].strength = 1.0f;
-		GPpoints[3].x = -0.01f;	GPpoints[3].y = +0.02f;	GPpoints[3].z = 0.0f; GPpoints[3].pressure = 1.0f; GPpoints[3].strength = 1.0f;
-		GPpoints[4].x = 0.00f;	GPpoints[4].y = +0.02f;	GPpoints[4].z = 0.0f; GPpoints[4].pressure = 1.0f; GPpoints[4].strength = 1.0f;
-		GPpoints[5].x = +0.01f;	GPpoints[5].y = +0.01f;	GPpoints[5].z = 0.0f; GPpoints[5].pressure = 1.0f; GPpoints[5].strength = 1.0f;
-		GPpoints[6].x = +0.01f;	GPpoints[6].y = -0.01f;	GPpoints[6].z = 0.0f; GPpoints[6].pressure = 1.0f; GPpoints[6].strength = 1.0f;
-		GPpoints[7].x = 0.00f;	GPpoints[7].y = -0.02f;	GPpoints[7].z = 0.0f; GPpoints[7].pressure = 1.0f; GPpoints[7].strength = 1.0f;
-		GPpoints[8].x = -0.02f;	GPpoints[8].y = -0.02f;	GPpoints[8].z = 0.0f; GPpoints[8].pressure = 1.0f; GPpoints[8].strength = 1.0f;
-
-		GPFStroke = BKE_gpencil_add_stroke(Widget_Annotate::gpf[active_layer], 0, 9, line_thickness * 1.6f);
-		memcpy(GPFStroke->points, GPpoints, sizeof(bGPDspoint) * 9);
-		break;
-	}
-	default: {
-		return;
-	}
+	else {
+		draw_line(c, measure_points[1], measure_points[2]);
 	}
 
-	/*static Mat44f hmd;
-	hmd = VR_UI::hmd_position_get(VR_SPACE_REAL);
-	memset(hmd.m[3], 0, sizeof(float) * 3);
-	static Mat44f hmd_temp;
-	hmd_temp = hmd;
-	*(Coord3Df*)hmd.m[1] = *(Coord3Df*)hmd_temp.m[2];
-	*(Coord3Df*)hmd.m[2] = *(Coord3Df*)hmd_temp.m[1];*/
-
-	//static Mat44f hmd2;
-	//hmd2 = VR_UI::hmd_position_get(VR_SPACE_BLENDER);
-	//memset(hmd2.m[3], 0, sizeof(float) * 3);
-
-	/* Rotation */
-	//static Coord3Df temp;
-	//for (int p = 0; p < numPoint; ++p) {
-	//	Coord3Df &curSP = *(Coord3Df*)&GPFStroke->points[p];
-	//	/* Rotate numbers to point upright */
-	//	temp = curSP;
-	//	VR_Math::multiply_mat44_coord3D(curSP, rot_matrix_x, temp);
-	//	/* Rotate numbers to match hmd local rotation */
-	//	temp = curSP;
-	//	VR_Math::multiply_mat44_coord3D(curSP, hmd, temp);
-	//	/* TODO: Rotate numbers around world axis to face hmd */
-	//	//temp = curSP;
-	//	//VR_Math::multiply_mat44_coord3D(curSP, hmd2, temp);
-	//}
-
-	//static float temp[4] = { 0, 0, 0, 1.0f };
-	//for (int p = 0; p < numPoint; p++)
-	//{
-	//	Coord3Df hmdX = { hmd.m[0][0], hmd.m[0][1], hmd.m[0][2] };
-	//	Coord3Df hmdY = { hmd.m[1][0], hmd.m[1][1], hmd.m[1][2] };
-	//	Coord3Df hmdZ = { hmd.m[2][0], hmd.m[2][1], hmd.m[2][2] };
-	//	Coord3Df spaceorigin = { 0.0f, 0.0f, 0.0f };
-	//	memcpy(temp, &GPFStroke->points[p], sizeof(float) * 3);
-	//	hmdX *= temp[0];
-	//	hmdY *= temp[1];
-	//	hmdZ *= temp[2];
-	//	spaceorigin += hmdX + hmdY + hmdZ;
-
-	//	memcpy(&GPFStroke->points[p], &spaceorigin, sizeof(float) * 3);
-	//}
-
-	/* Translation */
-	for (int p = 0; p < numPoint; p++)
-	{
-		bGPDspoint &curSP = GPFStroke->points[p];
-		curSP.x += o.x;
-		curSP.y += o.y;
-		curSP.z += o.z;
+	for (int i = 0; i < VR_SIDES; ++i) {
+		Widget_Measure::obj.do_render[i] = false;
 	}
 
-	if (!GPFStroke) {
-		return;
-	}
+	measure_state = Widget_Measure::Measure_State::INIT;
+	measure_ctrl_state = VR_UI::CTRLSTATE_OFF;
+	measure_ctrl_count = 0;
 
-	memcpy(Widget_Annotate::gpl[active_layer]->color, color, sizeof(float) * 4);
-	BKE_gpencil_layer_setactive(Widget_Annotate::gpd, Widget_Annotate::gpl[active_layer]);
+	for (int i = 0; i < 3; ++i) {
+		memset(&measure_points[i], 0, sizeof(float) * 3);
+	}
 }
 
 void Widget_Measure::render(VR_Side side)
@@ -427,32 +196,29 @@ void Widget_Measure::render(VR_Side side)
 
 	VR_Draw::set_depth_test(false, false);
 	VR_Draw::set_color(0.8f, 0.8f, 0.8f, 1.0f);
-	static std::string distance, degrees;
-	//if (measure_ctrl_state == VR_UI::CTRLSTATE_ON) {
-		/* Angle measurement */
-		//sprintf((char*)degrees.data(), "%.f", angle);
-		//VR_Draw::render_string(degrees.c_str(), 0.02f, 0.02f, VR_HALIGN_CENTER, VR_VALIGN_TOP, 0.0f, 0.08f, 0.001f);
-	//}
-	//else {
+	static std::string measure_str;
+	if (measure_ctrl_state == VR_UI::CTRLSTATE_OFF) {
 		/* Line measurement */
-		sprintf((char*)distance.data(), "%.3f", (measure_points[1] - measure_points[0]).length());
-		VR_Draw::render_string(distance.c_str(), 0.02f, 0.02f, VR_HALIGN_CENTER, VR_VALIGN_TOP, 0.0f, 0.08f, 0.001f);
-	//}
+		sprintf((char*)measure_str.data(), "%.3f", (measure_points[1] - measure_points[0]).length());
+		VR_Draw::render_string(measure_str.c_str(), 0.02f, 0.02f, VR_HALIGN_CENTER, VR_VALIGN_TOP, 0.0f, 0.08f, 0.001f);
+	}
+	else {
+		/* Angle measurement */
+		sprintf((char*)measure_str.data(), "%5.1fdeg", angle);
+		VR_Draw::render_string(measure_str.c_str(), 0.02f, 0.02f, VR_HALIGN_CENTER, VR_VALIGN_TOP, 0.0f, 0.08f, 0.001f);
+	}
 	VR_Draw::set_depth_test(true, true);
 	VR_Draw::update_modelview_matrix(&prior_model_matrix, 0);
 
-	/* Instead of working with multiple points that make up a whole line, we work with just p0/p1. */
+	/* Render measurement lines. */
 	GPUVertFormat *format = immVertexFormat();
 	uint pos = GPU_vertformat_attr_add(format, "pos", GPU_COMP_F32, 3, GPU_FETCH_FLOAT);
-
 	GPU_line_width(10.0f);
 
 	immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
-	//immBindBuiltinProgram(GPU_SHADER_3D_LINE_DASHED_UNIFORM_COLOR);
 	if (measure_ctrl_state == VR_UI::CTRLSTATE_OFF && measure_state == Widget_Measure::Measure_State::INIT) {
 		immBeginAtMost(GPU_PRIM_LINES, 2);
 		immUniformColor3fvAlpha(color, color[3]);
-		//immUniform1f("dash_width", 6.0f);
 
 		immVertex3fv(pos, (float*)&measure_points[0]);
 		immVertex3fv(pos, (float*)&measure_points[1]);
@@ -462,57 +228,59 @@ void Widget_Measure::render(VR_Side side)
 			immVertex3fv(pos, (float*)&measure_points[0]);
 		}
 		immEnd();
+		immUnbindProgram();
 	}
-	//else {
-	//	immBeginAtMost(GPU_PRIM_LINES, 2);
-	//	immUniformColor3fvAlpha(color, color[3]);
-	//	immVertex3fv(pos, (float*)&measure_points[1]);
-	//	immVertex3fv(pos, (float*)&measure_points[2]);
+	else {
+		immBeginAtMost(GPU_PRIM_LINES, 2);
+		immUniformColor3fvAlpha(color, color[3]);
+		immVertex3fv(pos, (float*)&measure_points[1]);
+		immVertex3fv(pos, (float*)&measure_points[2]);
 
-	//	if (measure_points[1] == measure_points[2]) {
-	//		/* cyclic */
-	//		immVertex3fv(pos, (float*)&measure_points[2]);
-	//	}
-	//	immEnd();
-	//	immUnbindProgram();
+		if (measure_points[1] == measure_points[2]) {
+			/* cyclic */
+			immVertex3fv(pos, (float*)&measure_points[2]);
+		}
+		immEnd();
+		immUnbindProgram();
 
-	//	static Mat44f m_circle = VR_Math::identity_f;
-	//	static float temp[3][3];
-	//	/* Set arc rotation and position. */
-	//	Coord3Df dir_a = (measure_points[0] - measure_points[1]).normalize();
-	//	Coord3Df dir_b = (measure_points[2] - measure_points[1]).normalize();
-	//	rotation_between_vecs_to_mat3(temp, (float*)&dir_a, (float*)&dir_b);
-	//	for (int i = 0; i < 3; ++i) {
-	//		memcpy(m_circle.m[i], temp[i], sizeof(float) * 3);
-	//	}
-	//	*(Coord3Df*)m_circle.m[3] = measure_points[1];
+		/* TODO_XR */
+		//static Mat44f m_circle = VR_Math::identity_f;
+		//static float temp[3][3];
+		///* Set arc rotation and position. */
+		//Coord3Df dir_a = (measure_points[0] - measure_points[1]).normalize();
+		//Coord3Df dir_b = (measure_points[2] - measure_points[1]).normalize();
+		//rotation_between_vecs_to_mat3(temp, (float*)&dir_a, (float*)&dir_b);
+		//for (int i = 0; i < 3; ++i) {
+		//	memcpy(m_circle.m[i], temp[i], sizeof(float) * 3);
+		//}
+		//*(Coord3Df*)m_circle.m[3] = measure_points[1];
 
-	//	GPU_matrix_push();
-	//	GPU_matrix_mul(m_circle.m);
-	//	GPU_blend(true);
+		//GPU_matrix_push();
+		//GPU_matrix_mul(m_circle.m);
+		//GPU_blend(true);
 
-	//	immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
-	//	immUniformColor3fvAlpha(color, color[3]);
-	//	int nsegments = 100;
-	//	float angle_start = PI;// 0.0f;
-	//	float angle_end = PI - (DEG2RADF(angle));
-	//	float rad = ((measure_points[0] - measure_points[1]) / 2.0f).length();
-	//	immBegin(GPU_PRIM_LINE_STRIP, nsegments);
-	//	static Coord3Df p(0.0f, 0.0f, 0.0f);
-	//	for (int i = 0; i < nsegments; ++i) {
-	//		const float angle_in = interpf(angle_start, angle_end, ((float)i / (float)(nsegments - 1)));
-	//		const float angle_sin = sinf(angle_in);
-	//		const float angle_cos = cosf(angle_in);
-	//		p.x = rad * angle_cos;
-	//		p.y = rad * angle_sin;
-	//		immVertex3fv(pos, (float*)&p);
-	//	}
-	//	immEnd();
-	//	immUnbindProgram();
+		//immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
+		//immUniformColor3fvAlpha(color, color[3]);
+		//int nsegments = 100;
+		//float angle_start = PI; //0.0f;
+		//float angle_end = PI - (DEG2RADF(angle));
+		//float rad = ((measure_points[0] - measure_points[1]) / 2.0f).length();
+		//immBegin(GPU_PRIM_LINE_STRIP, nsegments);
+		//static Coord3Df p(0.0f, 0.0f, 0.0f);
+		//for (int i = 0; i < nsegments; ++i) {
+		//	const float angle_in = interpf(angle_start, angle_end, ((float)i / (float)(nsegments - 1)));
+		//	const float angle_sin = sinf(angle_in);
+		//	const float angle_cos = cosf(angle_in);
+		//	p.x = rad * angle_cos;
+		//	p.y = rad * angle_sin;
+		//	immVertex3fv(pos, (float*)&p);
+		//}
+		//immEnd();
+		//immUnbindProgram();
 
-	//	GPU_blend(false);
-	//	GPU_matrix_pop();
-	//}
+		//GPU_blend(false);
+		//GPU_matrix_pop();
+	}
 
 	Widget_Measure::obj.do_render[side] = false;
 }

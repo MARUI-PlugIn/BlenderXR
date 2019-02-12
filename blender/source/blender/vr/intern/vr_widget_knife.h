@@ -39,7 +39,6 @@ class Widget_Knife : public VR_Widget
 
 	static Coord3Df  p0;	/* Start / interaction point of the bevel. */
 	static Coord3Df  p1;	/* Current / end point of the bevel. */
-	static VR_Side cursor_side;	/* Side of the current interaction cursor. */
 public:
 	static Widget_Knife obj;	/* Singleton implementation object. */
 	virtual std::string name() override { return "KNIFE"; };	/* Get the name of this widget. */
@@ -50,8 +49,6 @@ public:
 	virtual void drag_start(VR_UI::Cursor& c) override;	/* Start a drag/hold-motion with the index finger / trigger. */
 	virtual void drag_contd(VR_UI::Cursor& c) override;	/* Continue drag/hold with index finger / trigger. */
 	virtual void drag_stop(VR_UI::Cursor& c) override;	/* Stop drag/hold with index finger / trigger. */
-
-	virtual void render(VR_Side side) override;	/* Apply the widget's custom render function (if any). */
 };
 
 #endif /* __VR_WIDGET_KNIFE_H__ */

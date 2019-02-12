@@ -91,6 +91,9 @@
 #define WIDGET_TRANSFORM_ROT_PRECISION (PI/36.0f)
 #define WIDGET_TRANSFORM_SCALE_PRECISION 0.005f
 
+/* Sensitivity multiplier for interactions. */
+#define WIDGET_LOOPCUT_SENSITIVITY 3.0f
+
 #include "vr_util.h"
 
 /***********************************************************************************************//**
@@ -103,6 +106,8 @@ Widget_LoopCut Widget_LoopCut::obj;
 
 Coord3Df Widget_LoopCut::p0;
 Coord3Df Widget_LoopCut::p1;
+Coord3Df Widget_LoopCut::p0_b;
+Coord3Df Widget_LoopCut::p1_b;
 bool Widget_LoopCut::selection_empty(true);
 
 bool Widget_LoopCut::edge_slide(false);
@@ -338,7 +343,9 @@ static void ringsel_exit(bContext *UNUSED(C), wmOperator *op)
 
 	EDBM_preselect_edgering_destroy(lcd->presel_edgering);
 
-	MEM_freeN(lcd->objects);
+	if (lcd->objects) {
+		MEM_freeN(lcd->objects);
+	}
 
 	ED_region_tag_redraw(lcd->ar);
 
@@ -1976,7 +1983,6 @@ void Widget_LoopCut::drag_start(VR_UI::Cursor& c)
 		return;
 	}
 
-	p1 = p0 = *(Coord3Df*)c.position.get(VR_SPACE_BLENDER).m[3];
 	if (edge_slide) {
 		/* Test for empty selection. */
 		selection_empty = true;
@@ -2019,6 +2025,9 @@ void Widget_LoopCut::drag_start(VR_UI::Cursor& c)
 			return;
 		}
 
+		p1 = p0 = *(Coord3Df*)c.position.get(VR_SPACE_REAL).m[3];
+		p1_b = p0_b = *(Coord3Df*)c.position.get(VR_SPACE_BLENDER).m[3];
+
 		/* Execute edge slide operation */
 		loopcut_info.context = C;
 		loopcut_info.mode = TFM_EDGE_SLIDE;
@@ -2035,6 +2044,7 @@ void Widget_LoopCut::drag_start(VR_UI::Cursor& c)
 		Widget_Transform::update_manipulator();
 	}
 	else {
+		p1 = p0 = *(Coord3Df*)c.position.get(VR_SPACE_BLENDER).m[3];
 		/* Initialize ring selection */
 		ringsel_init(C, &loopcut_dummy_op, false);
 	}
@@ -2074,13 +2084,14 @@ void Widget_LoopCut::drag_contd(VR_UI::Cursor& c)
 		return;
 	}
 
-	p1 = *(Coord3Df*)c.position.get(VR_SPACE_BLENDER).m[3];
 	if (edge_slide) {
 		if (selection_empty) {
 			return;
 		}
+		p1 = *(Coord3Df*)c.position.get(VR_SPACE_REAL).m[3];
+		p1_b = *(Coord3Df*)c.position.get(VR_SPACE_BLENDER).m[3];
 		Coord3Df v = p1 - p0;
-		percent = v.length();
+		percent = v.length() * WIDGET_LOOPCUT_SENSITIVITY;
 		if (VR_UI::shift_key_get()) {
 			percent *= WIDGET_TRANSFORM_TRANS_PRECISION;
 		}
@@ -2094,8 +2105,11 @@ void Widget_LoopCut::drag_contd(VR_UI::Cursor& c)
 		DEG_id_tag_update((ID*)obedit->data, 0);
 	}
 	else {
+		p1 = *(Coord3Df*)c.position.get(VR_SPACE_BLENDER).m[3];
 		/* Update ring selection */
-		ringsel_update(C, &loopcut_dummy_op);
+		if (loopcut_dummy_op.customdata) {
+			ringsel_update(C, &loopcut_dummy_op);
+		}
 	}
 	
 	for (int i = 0; i < VR_SIDES; ++i) {
@@ -2115,13 +2129,14 @@ void Widget_LoopCut::drag_stop(VR_UI::Cursor& c)
 		return;
 	}
 
-	p1 = *(Coord3Df*)c.position.get(VR_SPACE_BLENDER).m[3];
 	if (edge_slide) {
 		if (selection_empty) {
 			return;
 		}
+		p1 = *(Coord3Df*)c.position.get(VR_SPACE_REAL).m[3];
+		p1_b = *(Coord3Df*)c.position.get(VR_SPACE_BLENDER).m[3];
 		Coord3Df v = p1 - p0;
-		percent = v.length();
+		percent = v.length() * WIDGET_LOOPCUT_SENSITIVITY;
 		if (VR_UI::shift_key_get()) {
 			percent *= WIDGET_TRANSFORM_TRANS_PRECISION;
 		}
@@ -2138,13 +2153,19 @@ void Widget_LoopCut::drag_stop(VR_UI::Cursor& c)
 		if (tc) {
 			if (tc->custom.mode.data) {
 				MEM_freeN(tc->custom.mode.data);
+				tc->custom.mode.data = NULL;
 			}
 			if (tc->data) {
 				MEM_freeN(tc->data);
+				tc->data = NULL;
 			}
 		}
 	}
 	else {
+		if (!loopcut_dummy_op.customdata) {
+			return;
+		}
+		p1 = *(Coord3Df*)c.position.get(VR_SPACE_BLENDER).m[3];
 		/* Finish ring selection */
 		ringsel_finish(C, &loopcut_dummy_op);
 		ringsel_exit(C, &loopcut_dummy_op);

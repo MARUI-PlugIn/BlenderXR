@@ -672,8 +672,8 @@ void vr_compute_viewplane(const View3D *v3d, CameraParams *params, int winx, int
 	float xasp, yasp, pixsize, viewfac, sensor_size, dx, dy;
 
 	// float navscale = vr_api_get_navigation_scale();
-	params->clipsta = vr.clip_sta; //  * navscale;
-	params->clipend = vr.clip_end; //  * navscale;
+	params->clipsta = vr.clip_sta; // * navscale; Don't need to apply, because the scale factor on the view matrix affects all transformations.
+	params->clipend = vr.clip_end; // * navscale;
 	//params->zoom = 2.0f;
 
 	xasp = vr.aperture_u;
@@ -753,7 +753,6 @@ void vr_compute_viewplane(const View3D *v3d, CameraParams *params, int winx, int
 	params->viewdy = params->ycor * pixsize;
 	params->viewplane = viewplane;
 
-#if 0 /* Temporarily disabled to avoid possible new issues */
 	/*
 	 * OVERRIDE: due to the navigation, the clipping distance (in Blender coordinates) may change between frames.
 	 * Some tools rely on the View3D having the correct clipping distances set, so we have to override this value here.
@@ -784,7 +783,6 @@ void vr_compute_viewplane(const View3D *v3d, CameraParams *params, int winx, int
 			cam->clipend = params->clipend;
 		}
 	}
-#endif
 }
 
 void vr_compute_viewmat(int side, float viewmat_out[4][4])

@@ -72,6 +72,9 @@
 #define WIDGET_TRANSFORM_ROT_PRECISION (PI/36.0f)
 #define WIDGET_TRANSFORM_SCALE_PRECISION 0.005f
 
+/* Sensitivity multiplier for interactions. */
+#define WIDGET_INSETFACES_SENSITIVITY 3.0f
+
 #include "vr_util.h"
 
 /***********************************************************************************************//**
@@ -84,6 +87,8 @@ Widget_InsetFaces Widget_InsetFaces::obj;
 
 Coord3Df Widget_InsetFaces::p0;
 Coord3Df Widget_InsetFaces::p1;
+Coord3Df Widget_InsetFaces::p0_b;
+Coord3Df Widget_InsetFaces::p1_b;
 VR_Side Widget_InsetFaces::cursor_side;
 
 float Widget_InsetFaces::thickness(0.01f);
@@ -171,14 +176,9 @@ static bool edbm_inset_init(bContext *C, wmOperator *op, const bool is_modal)
 
 	//if (is_modal) {
 		View3D *v3d = CTX_wm_view3d(C);
-		ARegion *ar = CTX_wm_region(C);
-
 		for (uint ob_index = 0; ob_index < opdata->ob_store_len; ob_index++) {
 			opdata->ob_store[ob_index].mesh_backup = EDBM_redo_state_store(opdata->ob_store[ob_index].em);
 		}
-
-		opdata->draw_handle_pixel = ED_region_draw_cb_activate(
-			ar->type, ED_region_draw_mouse_line_cb, opdata->mcenter, REGION_DRAW_POST_PIXEL);
 		G.moving = G_TRANSFORM_EDIT;
 		if (v3d) {
 			opdata->gizmo_flag = v3d->gizmo_flag;
@@ -267,16 +267,14 @@ static void edbm_inset_exit(bContext *C, wmOperator *op)
 	}
 
 	//if (opdata->is_modal) {
-	View3D *v3d = CTX_wm_view3d(C);
-	ARegion *ar = CTX_wm_region(C);
-	for (uint ob_index = 0; ob_index < opdata->ob_store_len; ob_index++) {
-		EDBM_redo_state_free(&opdata->ob_store[ob_index].mesh_backup, NULL, false);
-	}
-	ED_region_draw_cb_exit(ar->type, opdata->draw_handle_pixel);
-	if (v3d) {
-		v3d->gizmo_flag = opdata->gizmo_flag;
-	}
-	G.moving = 0;
+		View3D *v3d = CTX_wm_view3d(C);
+		for (uint ob_index = 0; ob_index < opdata->ob_store_len; ob_index++) {
+			EDBM_redo_state_free(&opdata->ob_store[ob_index].mesh_backup, NULL, false);
+		}
+		if (v3d) {
+			v3d->gizmo_flag = opdata->gizmo_flag;
+		}
+		G.moving = 0;
 	//}
 
 	MEM_SAFE_FREE(opdata->ob_store);
@@ -338,7 +336,8 @@ void Widget_InsetFaces::drag_start(VR_UI::Cursor& c)
 	}
 
 	cursor_side = c.side;
-	p1 = p0 = *(Coord3Df*)c.position.get(VR_SPACE_BLENDER).m[3];
+	p1 = p0 = *(Coord3Df*)c.position.get(VR_SPACE_REAL).m[3];
+	p1_b = p0_b = *(Coord3Df*)c.position.get(VR_SPACE_BLENDER).m[3];
 
 	/* Execute inset operation */
 	edbm_inset_init(C, &inset_dummy_op, false);
@@ -378,15 +377,16 @@ void Widget_InsetFaces::drag_contd(VR_UI::Cursor& c)
 		return;
 	}
 
-	p1 = *(Coord3Df*)c.position.get(VR_SPACE_BLENDER).m[3];
+	p1 = *(Coord3Df*)c.position.get(VR_SPACE_REAL).m[3];
+	p1_b = *(Coord3Df*)c.position.get(VR_SPACE_BLENDER).m[3];
 	if (VR_UI::ctrl_key_get()) {
-		depth = (p1 - p0).length();
+		depth = (p1 - p0).length() * WIDGET_INSETFACES_SENSITIVITY;
 		if (VR_UI::shift_key_get()) {
 			depth *= WIDGET_TRANSFORM_TRANS_PRECISION;
 		}
 	}
 	else {
-		thickness = (p1 - p0).length();
+		thickness = (p1 - p0).length() * WIDGET_INSETFACES_SENSITIVITY;
 		if (VR_UI::shift_key_get()) {
 			thickness *= WIDGET_TRANSFORM_TRANS_PRECISION;
 		}
@@ -415,15 +415,16 @@ void Widget_InsetFaces::drag_stop(VR_UI::Cursor& c)
 	}
 
 	/* Execute inset operation */
-	p1 = *(Coord3Df*)c.position.get(VR_SPACE_BLENDER).m[3];
+	p1 = *(Coord3Df*)c.position.get(VR_SPACE_REAL).m[3];
+	p1_b = *(Coord3Df*)c.position.get(VR_SPACE_BLENDER).m[3];
 	if (VR_UI::ctrl_key_get()) {
-		depth = (p1 - p0).length();
+		depth = (p1 - p0).length() * WIDGET_INSETFACES_SENSITIVITY;
 		if (VR_UI::shift_key_get()) {
 			depth *= WIDGET_TRANSFORM_TRANS_PRECISION;
 		}
 	}
 	else {
-		thickness = (p1 - p0).length();
+		thickness = (p1 - p0).length() * WIDGET_INSETFACES_SENSITIVITY;
 		if (VR_UI::shift_key_get()) {
 			thickness *= WIDGET_TRANSFORM_TRANS_PRECISION;
 		}
@@ -446,33 +447,6 @@ void Widget_InsetFaces::drag_stop(VR_UI::Cursor& c)
 
 void Widget_InsetFaces::render(VR_Side side)
 {
-	if (!Widget_InsetFaces::obj.do_render[side]) {
-		return;
-	}
-
-	/* Render measurement (thickness) text. */
-	//const Mat44f& prior_model_matrix = VR_Draw::get_model_matrix();
-	//static Mat44f m;
-	//m = VR_UI::hmd_position_get(VR_SPACE_REAL);
-	//const Mat44f& c = VR_UI::cursor_position_get(VR_SPACE_REAL, cursor_side);
-	//memcpy(m.m[3], c.m[3], sizeof(float) * 3);
-	//VR_Draw::update_modelview_matrix(&m, 0);
-
-	VR_Draw::set_depth_test(false, false);
-	VR_Draw::set_color(0.8f, 0.8f, 0.8f, 1.0f);
-
-	//static std::string distance;
-	//if (VR_UI::ctrl_key_get()) {
-	//	sprintf((char*)distance.data(), "%.3f", depth);
-	//}
-	//else {
-	//	sprintf((char*)distance.data(), "%.3f", thickness);
-	//}
-	//VR_Draw::render_string(distance.c_str(), 0.02f, 0.02f, VR_HALIGN_CENTER, VR_VALIGN_TOP, 0.0f, 0.08f, 0.001f);
-
-	//VR_Draw::set_depth_test(true, true);
-	//VR_Draw::update_modelview_matrix(&prior_model_matrix, 0);
-
 	/* Render dashed line from center. */
 	GPUVertFormat *format = immVertexFormat();
 	uint pos = GPU_vertformat_attr_add(format, "pos", GPU_COMP_F32, 3, GPU_FETCH_FLOAT);
@@ -484,12 +458,12 @@ void Widget_InsetFaces::render(VR_Side side)
 	immUniformColor4fv(c_black);
 	immUniform1f("dash_width", 6.0f);
 
-	immVertex3fv(pos, (float*)&p0);
-	immVertex3fv(pos, (float*)&p1);
+	immVertex3fv(pos, (float*)&p0_b);
+	immVertex3fv(pos, (float*)&p1_b);
 
-	if (p0 == p1) {
+	if (p0_b == p1_b) {
 		/* cyclic */
-		immVertex3fv(pos, (float*)&p0);
+		immVertex3fv(pos, (float*)&p0_b);
 	}
 	immEnd();
 	immUnbindProgram();

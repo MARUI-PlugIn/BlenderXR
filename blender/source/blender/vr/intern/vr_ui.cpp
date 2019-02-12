@@ -1026,23 +1026,40 @@ VR_UI::Error VR_UI::execute_operations()
 	ui64 now = VR_t_now;
 	static ui64 last_action_update = 0;
 	ui64 action_update_dt = now - last_action_update;
-	/* Upper cap: don't update more often than maximum frequency. */
-#if !VR_UI_OPTIMIZEPERFORMANCEMELTCPU
+	/*
 	if (action_update_dt < VR_UI_MINUPDATEINTERVAL) {
 		VR_UI::updating = false;
 		return VR_UI::ERROR_NONE;
 	}
-#endif
-	/* Lower cap: definitely update if we are falling below minimum frequency
-	 * (also make sure we have a valid FPS measurement). */
 	if (action_update_dt < VR_UI_MAXUPDATEINTERVAL && VR_UI::fps_render) {
-		/* Linearly degrade update frequency if rendering framerate drops below 60fps. */
 		const ui64 min_fps = 1000 / VR_UI_MAXUPDATEINTERVAL;
 		const ui64 max_fps = 1000 / VR_UI_MINUPDATEINTERVAL;
 		const float render_ratio = float(VR_UI::fps_render - min_fps) / (60.0f - float(min_fps));
 		const float target_fps = (render_ratio * float(max_fps - min_fps)) + min_fps;
 		const ui64 target_interval = ui64(1000.0f / target_fps);
 
+		if (action_update_dt < target_interval) {
+			VR_UI::updating = false;
+			return VR_UI::ERROR_NONE;
+		}
+	}*/
+
+    /* Upper cap: don't update more often than maximum frequency */
+	if (action_update_dt < VR_UI_MINUPDATEINTERVAL) {
+		VR_UI::updating = false;
+		return VR_UI::ERROR_NONE;
+	}
+	/* Lower cap: definitely update if we are falling below minimum frequency */
+	if (action_update_dt < VR_UI_MAXUPDATEINTERVAL) {
+        // Linearly degrade update frequency if rendering framerate drops below 60fps, hitting the minimum at 30fps
+        const ui64 min_fps      = 1000/VR_UI_MAXUPDATEINTERVAL;
+        const ui64 max_fps      = 1000/VR_UI_MINUPDATEINTERVAL;
+        const float curr_fps     = (float)VR_UI::fps_render; // fps estimate from the last frame
+        const float taget_fps    = (curr_fps > 30.0f) 
+                                 ? (((curr_fps - 30.0f) / (60.0f - 30.0f)) * float(max_fps-min_fps))+min_fps
+                                 : min_fps;
+        const ui64 target_interval = ui64(1000.0f/taget_fps);
+ 
 		if (action_update_dt < target_interval) {
 			VR_UI::updating = false;
 			return VR_UI::ERROR_NONE;
@@ -1270,7 +1287,7 @@ VR_UI::Error VR_UI::update_cursor(Cursor& c)
 
 		VR_Widget *menu = (VR_Widget*)VR_UI::pie_menu[c.side];
 		if (menu) {
-			if (VR_UI::ui_type == VR_UI_TYPE_VIVE) {
+			if (VR_UI::ui_type == VR_UI_TYPE_VIVE && Widget_Menu::action_settings[c.side]) {
 				/* Special case for action settings on the Vive:
 				 * It's easy to accidentally hit the dpad so only
 				 * execute action on dpad press. */

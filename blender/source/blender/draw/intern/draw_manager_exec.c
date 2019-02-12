@@ -665,10 +665,19 @@ static void draw_clipping_setup_from_view(void)
 		bsphere->center[0] = farcenter[0] * z / e;
 		bsphere->center[1] = farcenter[1] * z / e;
 		bsphere->center[2] = z;
+#if !WITH_VR
 		bsphere->radius = len_v3v3(bsphere->center, farpoint);
 
 		/* Transform to world space. */
 		mul_m4_v3(viewinv, bsphere->center);
+#else 
+		/* The view matrix may contain a scale factor. Then, transforming only the center into world space after calculating the radius will result in incorrect behavior.  */
+		/* Transform to world space. */
+		mul_m4_v3(viewinv, bsphere->center);
+		mul_m4_v3(viewinv, farpoint);
+		bsphere->radius = len_v3v3(bsphere->center, farpoint);
+		/* bsphere->radius *= len_v3(viewinv[0]); */
+#endif
 	}
 
 	DST.clipping.updated = true;

@@ -55,6 +55,8 @@
 #include "ED_mesh.h"
 #include "ED_undo.h"
 
+#include "GPU_batch_presets.h"
+#include "GPU_immediate.h"
 #include "GPU_matrix.h"
 #include "GPU_state.h"
 
@@ -488,6 +490,9 @@ void Widget_Extrude::click(VR_UI::Cursor& c)
 	}
 	/* Update manipulator transform. */
 	Widget_Transform::manipulator = true;
+	Widget_Transform::omni = true;
+	Widget_Transform::transform_mode = Widget_Transform::TRANSFORMMODE_OMNI;
+	Widget_Transform::snap_mode = VR_UI::SNAPMODE_TRANSLATION;
 	Widget_Transform::update_manipulator();
 
 	for (int i = 0; i < VR_SIDES; ++i) {
@@ -511,6 +516,7 @@ void Widget_Extrude::drag_start(VR_UI::Cursor& c)
 		return;
 	}
 
+	Widget_Transform::manipulator = true;
 	Widget_Transform::omni = true;
 	Widget_Transform::transform_mode = Widget_Transform::TRANSFORMMODE_OMNI;
 	Widget_Transform::snap_mode = VR_UI::SNAPMODE_TRANSLATION;
@@ -1639,7 +1645,8 @@ void Widget_Extrude::render(VR_Side side)
 	bContext *C = vr_get_obj()->ctx;
 	Object *obedit = CTX_data_edit_object(C);
 	if (!obedit) {
-		Widget_Extrude::obj.do_render[side] = false;
+		//Widget_Extrude::obj.do_render[side] = false;
+		return;
 	}
 
 	static float manip_length[3];
@@ -1826,6 +1833,12 @@ void Widget_Extrude::render(VR_Side side)
 		/* Box */
 		*((Coord3Df*)manip_length) /= 2.0f;
 		Widget_Transform::render_axes(manip_length, 1);
+		/* TODO_XR */
+		static float zero[4][4] = { 0 };
+		GPU_matrix_mul(zero);
+		GPUBatch *sphere = GPU_batch_preset_sphere(0);
+		GPU_batch_program_set_builtin(sphere, GPU_SHADER_3D_UNIFORM_COLOR);
+		GPU_batch_draw(sphere);
 		GPU_blend(false);
 		GPU_matrix_pop();
 		break;

@@ -126,6 +126,8 @@ void Widget_Transform::raycast_select_manipulator(const Coord3Df& p, bool *extru
 	ARegion *ar = CTX_wm_region(C);
 	/* TODO_XR: Use rv3d->persmat of dominant eye. */
 	RegionView3D *rv3d = (RegionView3D*)ar->regiondata;
+	/* IMPORTANT: Distance is based on display scaling (75.0f * U.pixelsize),
+	 * where U.pixelsize is the display scale (i.e. 1.0f, 2.0f, etc). */
 	float dist = ED_view3d_select_dist_px() * 1.3333f;
 	int mval[2];
 	float screen_co[2];
@@ -264,7 +266,9 @@ void Widget_Transform::raycast_select_manipulator(const Coord3Df& p, bool *extru
 			(eV3DProjTest)(V3D_PROJ_TEST_CLIP_BB | V3D_PROJ_TEST_CLIP_NEAR)) == V3D_PROJ_RET_OK)
 		{
 			float dist_temp = len_manhattan_v2v2(mval_fl, screen_co);
-			dist_temp += 150.0f; //50.0f;
+			/* IMPORTANT: Distance is based on display scaling (75.0f * U.pixelsize),
+			 * where U.pixelsize is the display scale (i.e. 1.0f, 2.0f, etc). */
+			dist_temp += (dist * 0.75f); //150.0f; //50.0f;
 			if (dist_temp < dist) {
 				hit = true;
 				switch (i) {

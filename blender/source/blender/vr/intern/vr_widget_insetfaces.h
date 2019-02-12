@@ -37,8 +37,10 @@ class Widget_InsetFaces : public VR_Widget
 {
 	friend class Widget_Menu;
 
-	static Coord3Df  p0;	/* Start / interaction point of the bevel. */
-	static Coord3Df  p1;	/* Current / end point of the bevel. */
+	static Coord3Df  p0;	/* Start / interaction point of the inset. */
+	static Coord3Df  p1;	/* Current / end point of the inset. */
+	static Coord3Df p0_b;	/* Start / interaction point of the inset (Blender coordinates). */
+	static Coord3Df p1_b;	/* Current / end point of the inset (Blender coordinates). */
 	static VR_Side cursor_side;	/* Side of the current interaction cursor. */
 public:
 	static float thickness;	/* The inset thickness. */

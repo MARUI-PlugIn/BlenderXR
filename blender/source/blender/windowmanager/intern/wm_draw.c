@@ -80,6 +80,10 @@
 #include "../vr/vr_main.h"
 #endif
 
+#if WITH_VR
+#define VR_PANCAKE 0	/* VR without HMD blitting... */
+#endif
+
 /* ******************* paint cursor *************** */
 
 static void wm_paintcursor_draw(bContext *C, ScrArea *sa, ARegion *ar)
@@ -603,7 +607,11 @@ static void wm_draw_window_offscreen(bContext *C, wmWindow *win, bool stereo)
 
 				/* Draw to VR offscreen buffers. */
 				vr_update_viewport_bounds(&ar->winrct);
+#if VR_PANCAKE
+				for (int view = 1; view < 2; ++view) {
+#else
 				for (int view = 0; view < 2; ++view) {
+#endif
 					wm_draw_region_stereo_set(bmain, sa, ar, view);
 					vr_draw_region_bind(ar, view);
 					ED_region_do_draw(C, ar);
@@ -703,12 +711,13 @@ static void wm_draw_window_onscreen(bContext *C, wmWindow *win, int view)
 #if WITH_VR
 			RegionView3D *rv3d = ar->regiondata;
 			if (win && win == vr_get_obj()->window && rv3d && (rv3d->rflag & RV3D_IS_VR)) {
+#if !VR_PANCAKE
 				/* Blit the HMD. */
 				vr_blit();
 
 				/* Restore screen viewport coordinates. */
 				wmWindowViewport(win);
-
+#endif
 				/* Blit the screen. */
 				if (ar->draw_buffer) {
 					if (ar->draw_buffer->offscreen[1]) {

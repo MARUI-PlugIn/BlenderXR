@@ -59,10 +59,8 @@ protected:
 	static float color[4];	/* Stroke color. */
 
 	static float angle;	/* The current measured angle. */
-
 	static VR_Side cursor_side;	/* Side of the current interaction cursor. */
 
-	static void render_GPFont(const uint num, const uint numPoint, const Coord3Df& o);
 	static void draw_line(VR_UI::Cursor& c, Coord3Df& p1, Coord3Df& p2);
 public:
 	static Widget_Measure obj;	/* Singleton implementation object. */

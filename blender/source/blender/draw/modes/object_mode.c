@@ -638,6 +638,15 @@ static void OBJECT_engine_init(void *vedata)
 			float viewdist = 1.0f / min_ff(fabsf(winmat[0][0]), fabsf(winmat[1][1]));
 			e_data.grid_mesh_size = viewdist * dist;
 		}
+
+#if WITH_VR
+		/* The calculations for the grid parameters assume that the view matrix has no scale component,
+		   which may not be correct if the user is "shrunk" or "enlarged" by zooming in or out.
+		   Therefore, we need to compensate the values here. */
+		float invviewmatscale = len_v3(invviewmat[0]); /* Assumption is uniform scaling (all column vectors are of same length). */
+		e_data.grid_settings[0] *= invviewmatscale; /* gridDistance */
+		e_data.grid_mesh_size   *= invviewmatscale;
+#endif
 	}
 
 	copy_v2_v2(e_data.inv_viewport_size, DRW_viewport_size_get());

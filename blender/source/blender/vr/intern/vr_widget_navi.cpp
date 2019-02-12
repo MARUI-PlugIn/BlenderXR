@@ -402,12 +402,12 @@ void Widget_Navi::Joystick::drag_contd(VR_UI::Cursor& c)
 	}
 	
 	delta.m[3][0] = curr.m[3][0] - c.reference.m[3][0];
-	delta.m[3][0] = delta.m[3][0] * abs(delta.m[3][0]) * -1.0f * move_speed;
+	delta.m[3][0] = delta.m[3][0] * fabsf(delta.m[3][0]) * -1.0f * move_speed;
 	delta.m[3][1] = curr.m[3][1] - c.reference.m[3][1];
-	delta.m[3][1] = delta.m[3][1] * abs(delta.m[3][1]) * -1.0f * move_speed;
+	delta.m[3][1] = delta.m[3][1] * fabsf(delta.m[3][1]) * -1.0f * move_speed;
 	if (VR_UI::ctrl_key_get()) {
 		delta.m[3][2] = curr.m[3][2] - c.reference.m[3][2];
-		delta.m[3][2] = delta.m[3][2] * abs(delta.m[3][2]) * -1.0f * move_speed;
+		delta.m[3][2] = delta.m[3][2] * fabsf(delta.m[3][2]) * -1.0f * move_speed;
 	}
 	else {
 		delta.m[3][2] = 0;
@@ -499,12 +499,12 @@ void Widget_Navi::Teleport::drag_contd(VR_UI::Cursor& c)
 
 		static Mat44f delta = VR_Math::identity_f;
 		delta.m[3][0] = curr.m[3][0] - c.reference.m[3][0];
-		delta.m[3][0] = delta.m[3][0] * abs(delta.m[3][0]);
+		delta.m[3][0] = delta.m[3][0] * fabsf(delta.m[3][0]);
 		delta.m[3][1] = curr.m[3][1] - c.reference.m[3][1];
-		delta.m[3][1] = delta.m[3][1] * abs(delta.m[3][1]);
+		delta.m[3][1] = delta.m[3][1] * fabsf(delta.m[3][1]);
 		if (!VR_UI::shift_key_get()) {
 			delta.m[3][2] = curr.m[3][2] - c.reference.m[3][2];
-			delta.m[3][2] = delta.m[3][2] * abs(delta.m[3][2]);
+			delta.m[3][2] = delta.m[3][2] * fabsf(delta.m[3][2]);
 		}
 		else {
 			delta.m[3][2] = 0;

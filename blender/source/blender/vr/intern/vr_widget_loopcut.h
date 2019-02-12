@@ -39,8 +39,10 @@ class Widget_LoopCut : public VR_Widget
 
 	static bool edge_slide;	/* Whether the loop cut tool is in edge slide mode. */
 public:
-	static Coord3Df  p0;	/* Start / interaction point of the loop cut. */
-	static Coord3Df  p1;	/* Current / end point of the loop cut. */
+	static Coord3Df	p0;	/* Start / interaction point of the loop cut. */
+	static Coord3Df	p1;	/* Current / end point of the loop cut. */
+	static Coord3Df p0_b;	/* Start / interaction point of the loop cut (Blender coordinates). */
+	static Coord3Df p1_b;	/* Current / end point of the loop cut (Blender coordinates). */
 	static bool selection_empty;	/* Whether the current selection is empty. */
 public:
 	static int object_index;	/* The object index for the loop cut. */
