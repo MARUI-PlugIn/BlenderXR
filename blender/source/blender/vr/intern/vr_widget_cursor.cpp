@@ -156,7 +156,7 @@ void Widget_Cursor::click(VR_UI::Cursor& c)
 void Widget_Cursor::drag_start(VR_UI::Cursor& c)
 {
 	/* Update the Blender 3D cursor */
-	const Mat44f& m = c.position.get(VR_SPACE_BLENDER);
+	const Mat44f& m = c.interaction_position.get(VR_SPACE_BLENDER);
 
 	bContext *C = vr_get_obj()->ctx;
 	Scene *scene = CTX_data_scene(C);

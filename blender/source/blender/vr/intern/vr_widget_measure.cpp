@@ -133,9 +133,9 @@ void Widget_Measure::draw_line(VR_UI::Cursor& c, Coord3Df& localP0, Coord3Df& lo
 void Widget_Measure::drag_start(VR_UI::Cursor& c)
 {
 	cursor_side = c.side;
-	c.reference = c.position.get();
+	c.reference = c.interaction_position.get();
 
-	memcpy(&measure_points[0], c.position.get(VR_SPACE_BLENDER).m[3], sizeof(float) * 3);
+	memcpy(&measure_points[0], c.interaction_position.get(VR_SPACE_BLENDER).m[3], sizeof(float) * 3);
 }
 
 void Widget_Measure::drag_contd(VR_UI::Cursor& c)

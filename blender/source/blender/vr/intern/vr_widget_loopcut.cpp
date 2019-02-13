@@ -2025,8 +2025,8 @@ void Widget_LoopCut::drag_start(VR_UI::Cursor& c)
 			return;
 		}
 
-		p1 = p0 = *(Coord3Df*)c.position.get(VR_SPACE_REAL).m[3];
-		p1_b = p0_b = *(Coord3Df*)c.position.get(VR_SPACE_BLENDER).m[3];
+		p1 = p0 = *(Coord3Df*)c.interaction_position.get(VR_SPACE_REAL).m[3];
+		p1_b = p0_b = *(Coord3Df*)c.interaction_position.get(VR_SPACE_BLENDER).m[3];
 
 		/* Execute edge slide operation */
 		loopcut_info.context = C;
@@ -2044,7 +2044,7 @@ void Widget_LoopCut::drag_start(VR_UI::Cursor& c)
 		Widget_Transform::update_manipulator();
 	}
 	else {
-		p1 = p0 = *(Coord3Df*)c.position.get(VR_SPACE_BLENDER).m[3];
+		p1 = p0 = *(Coord3Df*)c.interaction_position.get(VR_SPACE_BLENDER).m[3];
 		/* Initialize ring selection */
 		ringsel_init(C, &loopcut_dummy_op, false);
 	}

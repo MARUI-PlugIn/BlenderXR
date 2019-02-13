@@ -336,8 +336,8 @@ void Widget_InsetFaces::drag_start(VR_UI::Cursor& c)
 	}
 
 	cursor_side = c.side;
-	p1 = p0 = *(Coord3Df*)c.position.get(VR_SPACE_REAL).m[3];
-	p1_b = p0_b = *(Coord3Df*)c.position.get(VR_SPACE_BLENDER).m[3];
+	p1 = p0 = *(Coord3Df*)c.interaction_position.get(VR_SPACE_REAL).m[3];
+	p1_b = p0_b = *(Coord3Df*)c.interaction_position.get(VR_SPACE_BLENDER).m[3];
 
 	/* Execute inset operation */
 	edbm_inset_init(C, &inset_dummy_op, false);
@@ -468,5 +468,5 @@ void Widget_InsetFaces::render(VR_Side side)
 	immEnd();
 	immUnbindProgram();
 
-	Widget_InsetFaces::obj.do_render[side] = false;
+	//Widget_InsetFaces::obj.do_render[side] = false;
 }

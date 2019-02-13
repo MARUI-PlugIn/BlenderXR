@@ -479,8 +479,8 @@ void Widget_Bevel::drag_start(VR_UI::Cursor& c)
 	}
 
 	cursor_side = c.side;
-	p1 = p0 = *(Coord3Df*)c.position.get(VR_SPACE_REAL).m[3];
-	p1_b = p0_b = *(Coord3Df*)c.position.get(VR_SPACE_BLENDER).m[3];
+	p1 = p0 = *(Coord3Df*)c.interaction_position.get(VR_SPACE_REAL).m[3];
+	p1_b = p0_b = *(Coord3Df*)c.interaction_position.get(VR_SPACE_BLENDER).m[3];
 
 	/* Execute bevel operation */
 	edbm_bevel_init(C, &bevel_dummy_op, false);
@@ -591,5 +591,5 @@ void Widget_Bevel::render(VR_Side side)
 	immEnd();
 	immUnbindProgram();
 
-	Widget_Bevel::obj.do_render[side] = false;
+	//Widget_Bevel::obj.do_render[side] = false;
 }

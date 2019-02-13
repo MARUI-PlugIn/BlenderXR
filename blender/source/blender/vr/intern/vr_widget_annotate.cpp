@@ -299,7 +299,7 @@ void Widget_Annotate::drag_start(VR_UI::Cursor& c)
 
 		bGPDspoint pt;
 
-		const Mat44f& cursor = c.position.get(VR_SPACE_BLENDER);
+		const Mat44f& cursor = c.interaction_position.get(VR_SPACE_BLENDER);
 		memcpy(&pt, cursor.m[3], sizeof(float) * 3);
 		VR *vr = vr_get_obj();
 		pt.pressure = vr->controller[c.side]->trigger_pressure;

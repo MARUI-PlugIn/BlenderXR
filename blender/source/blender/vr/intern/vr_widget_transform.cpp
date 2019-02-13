@@ -158,7 +158,7 @@ void Widget_Transform::raycast_select_manipulator(const Coord3Df& p, bool *extru
 				i += 2;
 				continue;
 			}
-			length = axis_length[2] * manip_scale_factor * 1.6f;
+			length = axis_length[2] * manip_scale_factor * 1.5f; //1.6f
 			pos = manip_pos + axis[2] * length;
 			break;
 		}
@@ -167,12 +167,12 @@ void Widget_Transform::raycast_select_manipulator(const Coord3Df& p, bool *extru
 				++i;
 				continue;
 			}
-			length = axis_length[0] * manip_scale_factor * 1.6f;
+			length = axis_length[0] * manip_scale_factor * 1.5f; //1.6f
 			pos = manip_pos + axis[0] * length;
 			break;
 		}
 		case 2: { /* y extrude ball */
-			length = axis_length[1] * manip_scale_factor * 1.6f;
+			length = axis_length[1] * manip_scale_factor * 1.5f; //1.6f
 			pos = manip_pos + axis[1] * length;
 			break;
 		}
@@ -657,7 +657,7 @@ void Widget_Transform::drag_start(VR_UI::Cursor& c)
 
 	if (manipulator) {
 		/* Test for manipulator selection and set constraints. */
-		const Mat44f& m = c.position.get();
+		const Mat44f& m = c.interaction_position.get();
 		raycast_select_manipulator(*(Coord3Df*)m.m[3]);
 	}
 
@@ -943,8 +943,7 @@ void Widget_Transform::drag_contd(VR_UI::Cursor& c)
 			}
 			else {
 				*(Coord3Df*)delta.m[3] = *(Coord3Df*)curr.m[3] - *(Coord3Df*)prev.m[3];
-				float s = (*(Coord3Df*)delta.m[3]).length();
-				(*(Coord3Df*)delta.m[3]).normalize_in_place() *= s * WIDGET_TRANSFORM_SCALING_SENSITIVITY;
+				(*(Coord3Df*)delta.m[3]) *= WIDGET_TRANSFORM_SCALING_SENSITIVITY;
 			}
 			break;
 		}
@@ -2498,6 +2497,12 @@ void Widget_Transform::render(VR_Side side)
 		manip_length[i] = manip_scale_factor * 2.0f;
 	}
 	static float clip_plane[4] = { 0.0f };
+
+    /* If, during the Widget_Transform::update_manipulator() call no object was selected, we zeroed-out the manip_t matrix. 
+       For  better performance and to avoid potential issues (eg. when trying to calculate inverse), don't render anything at all. */
+    if (manip_t.m[3][3] == 0) {
+        return;
+    }
 
 	if (omni && manipulator) {
 		/* Dial and Gimbal */

@@ -977,7 +977,7 @@ bool Widget_Select::Raycast::has_click(VR_UI::Cursor& c) const
 
 void Widget_Select::Raycast::click(VR_UI::Cursor& c)
 {
-	const Mat44f& m = c.position.get();
+	const Mat44f& m = c.interaction_position.get();
 	if (CTX_data_edit_object(vr_get_obj()->ctx)) {
 		VR_Util::raycast_select_single_edit(*(Coord3Df*)m.m[3], VR_UI::shift_key_get(), VR_UI::ctrl_key_get());
 	}
@@ -990,7 +990,7 @@ void Widget_Select::Raycast::click(VR_UI::Cursor& c)
 
 void Widget_Select::Raycast::drag_start(VR_UI::Cursor& c)
 {
-	const Mat44f& m = c.position.get();
+	const Mat44f& m = c.interaction_position.get();
 
 	VR_Side side = VR_UI::eye_dominance_get();
 	VR_UI::get_screen_coordinates(*(Coord3Df*)m.m[3], selection_rect[side].x0, selection_rect[side].y0, side);

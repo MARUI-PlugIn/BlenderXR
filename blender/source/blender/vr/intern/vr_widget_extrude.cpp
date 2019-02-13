@@ -522,7 +522,7 @@ void Widget_Extrude::drag_start(VR_UI::Cursor& c)
 	Widget_Transform::snap_mode = VR_UI::SNAPMODE_TRANSLATION;
 
 	/* Test for manipulator selection and set constraints. */
-	const Mat44f& m = c.position.get();
+	const Mat44f& m = c.interaction_position.get();
 	extrude = false;
 	Widget_Transform::raycast_select_manipulator(*(Coord3Df*)m.m[3], &extrude);
 	if (extrude) {
@@ -671,8 +671,10 @@ void Widget_Extrude::drag_start(VR_UI::Cursor& c)
 
 void Widget_Extrude::drag_contd(VR_UI::Cursor& c)
 {
-	if (Widget_Transform::constraint_mode == VR_UI::CONSTRAINTMODE_NONE && !transform) {
-		/* Free transformation not allowed, so return */
+	if (Widget_Transform::constraint_mode == VR_UI::CONSTRAINTMODE_NONE && 
+		!transform && 
+		Widget_Transform::transform_mode != Widget_Transform::TRANSFORMMODE_SCALE) {
+		/* Free transformation not allowed (except for center scale cube), so return. */
 		return;
 	}
 
