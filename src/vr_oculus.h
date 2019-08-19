@@ -42,6 +42,7 @@
 #define VR_OCULUS_BTNBIT_Y				(uint64_t(1) << 19)		//!< Button bit for pressing the "Y" button.
 #define VR_OCULUS_BTNBIT_A				(uint64_t(1) << 20)		//!< Button bit for pressing the "A" button.
 #define VR_OCULUS_BTNBIT_B				(uint64_t(1) << 21)		//!< Button bit for pressing the "B" button.
+#define VR_OCULUS_BTNBIT_E				(uint64_t(1) << 22)		//!< Button bit for pressing the "Enter" button.
 
 // Static-use wrapper for use in C projects that can't use the class definition.
 extern "C" __declspec(dllexport) int c_createVR();	//!< Create n object internally. Must be called before the functions below.
