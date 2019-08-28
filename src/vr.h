@@ -124,6 +124,7 @@ public:
 		float  dpad[2]; //!< Dpad / touchpad position (u,v).
 		float  stick[2];   //!< Joystick / thumbstick position (u,v).
 		float trigger_pressure; //!< Analog trigger pressure (0~1) (if available).
+		float grip_pressure; //!< Analog grip pressure (0~1) (if available).
 		Controller();       //!< Constructor (null-init)
 	} Controller; //!< Controller
 

@@ -488,13 +488,16 @@ int VR_Oculus::updateTracking()
 
 		// Convert Oculus button bits to Widget_Layout button bits.
 		btn_press = btn_touch = 0;
-		if (input_state.Buttons & ovrTouch_X) {
+		if (input_state.Buttons & ovrButton_X) {
 			btn_press |= VR_OCULUS_BTNBIT_X;
 		}
-		if (input_state.Buttons & ovrTouch_Y) {
+		if (input_state.Buttons & ovrButton_Y) {
 			btn_press |= VR_OCULUS_BTNBIT_Y;
 		}
-		if (input_state.Buttons & ovrTouch_LThumb) {
+		if (input_state.Buttons & ovrButton_Enter) {
+			btn_press |= VR_OCULUS_BTNBIT_E;
+		}
+		if (input_state.Buttons & ovrButton_LThumb) {
 			btn_press |= VR_OCULUS_BTNBIT_LEFTSTICK;
 		}
 		btn_touch = btn_press;
@@ -540,10 +543,12 @@ int VR_Oculus::updateTracking()
 				this->controller[Side_Left].trigger_pressure = (input_state.IndexTrigger[ovrHand_Left] - VR_OCULUS_PRESSTHRESHOLD_INDEXTRIGGER) / (1.0 - VR_OCULUS_PRESSTHRESHOLD_INDEXTRIGGER);
 			}
 		}
+		this->controller[Side_Left].grip_pressure = 0.0f;
 		if (input_state.HandTrigger[ovrHand_Left] > VR_OCULUS_TOUCHTHRESHOLD_SHOULDERGRIP) {
 			btn_touch |= VR_OCULUS_BTNBIT_LEFTGRIP;
 			if (input_state.HandTrigger[ovrHand_Left] > VR_OCULUS_PRESSTHRESHOLD_SHOULDERGRIP) {
 				btn_press |= VR_OCULUS_BTNBIT_LEFTGRIP;
+				this->controller[Side_Left].grip_pressure = (input_state.HandTrigger[ovrHand_Left] - VR_OCULUS_PRESSTHRESHOLD_SHOULDERGRIP) / (1.0 - VR_OCULUS_PRESSTHRESHOLD_SHOULDERGRIP);
 			}
 		}
 		// add touch information
@@ -576,13 +581,13 @@ int VR_Oculus::updateTracking()
 
 		// Convert Oculus button bits to Widget_Layout button bits.
 		btn_press = btn_touch = 0;
-		if (input_state.Buttons & ovrTouch_A) {
+		if (input_state.Buttons & ovrButton_A) {
 			btn_press |= VR_OCULUS_BTNBIT_A;
 		}
-		if (input_state.Buttons & ovrTouch_B) {
+		if (input_state.Buttons & ovrButton_B) {
 			btn_press |= VR_OCULUS_BTNBIT_B;
 		}
-		if (input_state.Buttons & ovrTouch_RThumb) {
+		if (input_state.Buttons & ovrButton_RThumb) {
 			btn_press |= VR_OCULUS_BTNBIT_RIGHTSTICK;
 		}
 		btn_touch = btn_press;
@@ -627,10 +632,12 @@ int VR_Oculus::updateTracking()
 				this->controller[Side_Right].trigger_pressure = (input_state.IndexTrigger[ovrHand_Right] - VR_OCULUS_PRESSTHRESHOLD_INDEXTRIGGER) / (1.0 - VR_OCULUS_PRESSTHRESHOLD_INDEXTRIGGER);
 			}
 		}
+		this->controller[Side_Right].grip_pressure = 0.0f;
 		if (input_state.HandTrigger[ovrHand_Right] > VR_OCULUS_TOUCHTHRESHOLD_SHOULDERGRIP) {
 			btn_touch |= VR_OCULUS_BTNBIT_RIGHTGRIP;
 			if (input_state.HandTrigger[ovrHand_Right] > VR_OCULUS_PRESSTHRESHOLD_SHOULDERGRIP) {
 				btn_press |= VR_OCULUS_BTNBIT_RIGHTGRIP;
+				this->controller[Side_Right].grip_pressure = (input_state.HandTrigger[ovrHand_Right] - VR_OCULUS_PRESSTHRESHOLD_SHOULDERGRIP) / (1.0 - VR_OCULUS_PRESSTHRESHOLD_SHOULDERGRIP);
 			}
 		}
 		// add touch information
