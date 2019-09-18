@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup editors
+/** \file
+ * \ingroup editors
  */
 
 #ifndef __ED_PAINT_H__
@@ -35,7 +36,8 @@ void ED_keymap_paint(struct wmKeyConfig *keyconf);
 
 /* paint_image.c */
 void ED_imapaint_clear_partial_redraw(void);
-void ED_imapaint_dirty_region(struct Image *ima, struct ImBuf *ibuf, int x, int y, int w, int h, bool find_old);
+void ED_imapaint_dirty_region(
+    struct Image *ima, struct ImBuf *ibuf, int x, int y, int w, int h, bool find_old);
 void ED_imapaint_bucket_fill(struct bContext *C, float color[3], struct wmOperator *op);
 
 /* paint_image_undo.c */

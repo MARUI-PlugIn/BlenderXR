@@ -6,6 +6,7 @@
  ***************************************************************************************************
  * \brief     Oculus Rift HMD module.
  * \copyright MARUI-PlugIn (inc.)
+ * \contributors Multiplexed Reality
  **************************************************************************************************/
 
 #include "vr_oculus.h"
@@ -390,16 +391,16 @@ int VR_Oculus::uninit()
 }
 
 //                                                                      ____________________________
-//_____________________________________________________________________/ transferHMDTranformation()
+//_____________________________________________________________________/ transferHMDTransformation()
 /**
  * Helper function to transform Oculus transformations into BlenderXR transformation matrices.
- * \param   pos     Pose / tracking information.
+ * \param   pose     Pose / tracking information.
  * \param   m       [OUT] Transformation matrix (both translation and rotation).
  */
-static void transferHMDTranformation(const ovrPosef& pos, float m[4][4])
+static void transferHMDTransformation(const ovrPosef& pose, float m[4][4])
 {
-	const ovrVector3f& p = pos.Position;
-	const ovrQuatf& q = pos.Orientation;
+	const ovrVector3f& p = pose.Position;
+	const ovrQuatf& q = pose.Orientation;
 	m[0][0] = 1 - 2 * q.y*q.y - 2 * q.z*q.z;
 	m[1][0] = 2 * q.x*q.y - 2 * q.z*q.w;
 	m[2][0] = 2 * q.x*q.z + 2 * q.y*q.w;
@@ -419,16 +420,16 @@ static void transferHMDTranformation(const ovrPosef& pos, float m[4][4])
 }
 
 //                                                                      ____________________________
-//_____________________________________________________________________/ transferHMDTranformation()
+//_____________________________________________________________________/ transferControllerTransformation()
 /**
  * Helper function to transform Oculus transformations into BlenderXR transformation matrices.
- * \param   pos     Pose / tracking information.
+ * \param   pose     Pose / tracking information.
  * \param   m       [OUT] Transformation matrix (both translation and rotation).
  */
-static void transferControllerTranformation(const ovrPosef& pos, float m[4][4])
+static void transferControllerTransformation(const ovrPosef& pose, float m[4][4])
 {
-	const ovrVector3f& p = pos.Position;
-	const ovrQuatf& q = pos.Orientation;
+	const ovrVector3f& p = pose.Position;
+	const ovrQuatf& q = pose.Orientation;
 	// x-axis
 	m[0][0] = 1 - 2 * q.y*q.y - 2 * q.z*q.z;
 	m[0][1] = -(2 * q.x*q.z - 2 * q.y*q.w);
@@ -473,13 +474,13 @@ int VR_Oculus::updateTracking()
 	this->eye[Side_Right].pose = pose[ovrEye_Right];
 
 	// Save the HMD position as matrices
-	transferHMDTranformation(tracking_state.HeadPose.ThePose, this->t_hmd);
-	transferHMDTranformation(this->eye[Side_Left].pose, this->t_eye[Side_Left]);
-	transferHMDTranformation(this->eye[Side_Right].pose, this->t_eye[Side_Right]);
+	transferHMDTransformation(tracking_state.HeadPose.ThePose, this->t_hmd);
+	transferHMDTransformation(this->eye[Side_Left].pose, this->t_eye[Side_Left]);
+	transferHMDTransformation(this->eye[Side_Right].pose, this->t_eye[Side_Right]);
 
 	if (tracking_state.HandStatusFlags[ovrHand_Left] & ovrStatus_PositionTracked) {
-		this->controller[Side_Left].available = true;
-		transferControllerTranformation(tracking_state.HandPoses[ovrHand_Left].ThePose, this->t_controller[Side_Left]);
+		this->controller[Side_Left].available = 1;
+		transferControllerTransformation(tracking_state.HandPoses[ovrHand_Left].ThePose, this->t_controller[Side_Left]);
 		ovrInputState input_state;
 		ovr_GetInputState(this->hmd, ovrControllerType_LTouch, &input_state);
 
@@ -495,7 +496,7 @@ int VR_Oculus::updateTracking()
 			btn_press |= VR_OCULUS_BTNBIT_Y;
 		}
 		if (input_state.Buttons & ovrButton_Enter) {
-			btn_press |= VR_OCULUS_BTNBIT_E;
+			btn_press |= VR_OCULUS_BTNBIT_MENU;
 		}
 		if (input_state.Buttons & ovrButton_LThumb) {
 			btn_press |= VR_OCULUS_BTNBIT_LEFTSTICK;
@@ -540,15 +541,15 @@ int VR_Oculus::updateTracking()
 			btn_touch |= VR_OCULUS_BTNBIT_LEFTTRIGGER;
 			if (input_state.IndexTrigger[ovrHand_Left] > VR_OCULUS_PRESSTHRESHOLD_INDEXTRIGGER) {
 				btn_press |= VR_OCULUS_BTNBIT_LEFTTRIGGER;
-				this->controller[Side_Left].trigger_pressure = (input_state.IndexTrigger[ovrHand_Left] - VR_OCULUS_PRESSTHRESHOLD_INDEXTRIGGER) / (1.0 - VR_OCULUS_PRESSTHRESHOLD_INDEXTRIGGER);
+				this->controller[Side_Left].trigger_pressure = (input_state.IndexTrigger[ovrHand_Left] - VR_OCULUS_PRESSTHRESHOLD_INDEXTRIGGER) / (1.0f - VR_OCULUS_PRESSTHRESHOLD_INDEXTRIGGER);
 			}
 		}
 		this->controller[Side_Left].grip_pressure = 0.0f;
-		if (input_state.HandTrigger[ovrHand_Left] > VR_OCULUS_TOUCHTHRESHOLD_SHOULDERGRIP) {
+		if (input_state.HandTrigger[ovrHand_Left] > VR_OCULUS_TOUCHTHRESHOLD_HANDTRIGGER) {
 			btn_touch |= VR_OCULUS_BTNBIT_LEFTGRIP;
-			if (input_state.HandTrigger[ovrHand_Left] > VR_OCULUS_PRESSTHRESHOLD_SHOULDERGRIP) {
+			if (input_state.HandTrigger[ovrHand_Left] > VR_OCULUS_PRESSTHRESHOLD_HANDTRIGGER) {
 				btn_press |= VR_OCULUS_BTNBIT_LEFTGRIP;
-				this->controller[Side_Left].grip_pressure = (input_state.HandTrigger[ovrHand_Left] - VR_OCULUS_PRESSTHRESHOLD_SHOULDERGRIP) / (1.0 - VR_OCULUS_PRESSTHRESHOLD_SHOULDERGRIP);
+				this->controller[Side_Left].grip_pressure = (input_state.HandTrigger[ovrHand_Left] - VR_OCULUS_PRESSTHRESHOLD_HANDTRIGGER) / (1.0f - VR_OCULUS_PRESSTHRESHOLD_HANDTRIGGER);
 			}
 		}
 		// add touch information
@@ -567,12 +568,12 @@ int VR_Oculus::updateTracking()
 		}
 	}
 	else {
-		this->controller[Side_Left].available = false;
+		this->controller[Side_Left].available = 0;
 	}
 
 	if (tracking_state.HandStatusFlags[ovrHand_Right] & ovrStatus_PositionTracked) {
-		this->controller[Side_Right].available = true;
-		transferControllerTranformation(tracking_state.HandPoses[ovrHand_Right].ThePose, this->t_controller[Side_Right]);
+		this->controller[Side_Right].available = 1;
+		transferControllerTransformation(tracking_state.HandPoses[ovrHand_Right].ThePose, this->t_controller[Side_Right]);
 		ovrInputState input_state;
 		ovr_GetInputState(this->hmd, ovrControllerType_RTouch, &input_state);
 
@@ -586,6 +587,9 @@ int VR_Oculus::updateTracking()
 		}
 		if (input_state.Buttons & ovrButton_B) {
 			btn_press |= VR_OCULUS_BTNBIT_B;
+		}
+		if (input_state.Buttons & ovrButton_Home) {
+			btn_press |= VR_OCULUS_BTNBIT_SYSTEM;
 		}
 		if (input_state.Buttons & ovrButton_RThumb) {
 			btn_press |= VR_OCULUS_BTNBIT_RIGHTSTICK;
@@ -629,15 +633,15 @@ int VR_Oculus::updateTracking()
 			btn_touch |= VR_OCULUS_BTNBIT_RIGHTTRIGGER;
 			if (input_state.IndexTrigger[ovrHand_Right] > VR_OCULUS_PRESSTHRESHOLD_INDEXTRIGGER) {
 				btn_press |= VR_OCULUS_BTNBIT_RIGHTTRIGGER;
-				this->controller[Side_Right].trigger_pressure = (input_state.IndexTrigger[ovrHand_Right] - VR_OCULUS_PRESSTHRESHOLD_INDEXTRIGGER) / (1.0 - VR_OCULUS_PRESSTHRESHOLD_INDEXTRIGGER);
+				this->controller[Side_Right].trigger_pressure = (input_state.IndexTrigger[ovrHand_Right] - VR_OCULUS_PRESSTHRESHOLD_INDEXTRIGGER) / (1.0f - VR_OCULUS_PRESSTHRESHOLD_INDEXTRIGGER);
 			}
 		}
 		this->controller[Side_Right].grip_pressure = 0.0f;
-		if (input_state.HandTrigger[ovrHand_Right] > VR_OCULUS_TOUCHTHRESHOLD_SHOULDERGRIP) {
+		if (input_state.HandTrigger[ovrHand_Right] > VR_OCULUS_TOUCHTHRESHOLD_HANDTRIGGER) {
 			btn_touch |= VR_OCULUS_BTNBIT_RIGHTGRIP;
-			if (input_state.HandTrigger[ovrHand_Right] > VR_OCULUS_PRESSTHRESHOLD_SHOULDERGRIP) {
+			if (input_state.HandTrigger[ovrHand_Right] > VR_OCULUS_PRESSTHRESHOLD_HANDTRIGGER) {
 				btn_press |= VR_OCULUS_BTNBIT_RIGHTGRIP;
-				this->controller[Side_Right].grip_pressure = (input_state.HandTrigger[ovrHand_Right] - VR_OCULUS_PRESSTHRESHOLD_SHOULDERGRIP) / (1.0 - VR_OCULUS_PRESSTHRESHOLD_SHOULDERGRIP);
+				this->controller[Side_Right].grip_pressure = (input_state.HandTrigger[ovrHand_Right] - VR_OCULUS_PRESSTHRESHOLD_HANDTRIGGER) / (1.0f - VR_OCULUS_PRESSTHRESHOLD_HANDTRIGGER);
 			}
 		}
 		// add touch information
@@ -656,7 +660,7 @@ int VR_Oculus::updateTracking()
 		}
 	}
 	else {
-		this->controller[Side_Right].available = false;
+		this->controller[Side_Right].available = 0;
 	}
 
 	this->tracking = true;
@@ -667,7 +671,7 @@ int VR_Oculus::updateTracking()
 //_________________________________________________________________________/     blitEye()
 /**
  * Blit a rendered image into the internal eye texture.
- * TODO_MARUI: aperture_u and aperture_v currently don't do anything in the shader.
+ * TODO_XR: aperture_u and aperture_v currently don't do anything in the shader.
  */
 int VR_Oculus::blitEye(Side side, void* texture_resource, const float& aperture_u, const float& aperture_v)
 {
@@ -736,7 +740,7 @@ int VR_Oculus::blitEye(Side side, void* texture_resource, const float& aperture_
 //_________________________________________________________________________/     blitEyes()
 /**
  * Blit rendered images into the internal eye textures.
- * TODO_MARUI: aperture_u and aperture_v currently don't do anything in the shader.
+ * TODO_XR: aperture_u and aperture_v currently don't do anything in the shader.
  */
 int VR_Oculus::blitEyes(void* texture_resource_left, void* texture_resource_right, const float& aperture_u, const float& aperture_v)
 {
@@ -977,7 +981,7 @@ int VR_Oculus::getTrackerPosition(uint i, float t[4][4]) const
 		return VR::Error_InvalidParameter;
 	}
 	ovrTrackerPose p = ovr_GetTrackerPose(this->hmd, i);
-	transferHMDTranformation(p.Pose, t);
+	transferHMDTransformation(p.Pose, t);
 	return VR::Error_None;
 }
 
@@ -1126,5 +1130,11 @@ int c_submitFrame()
  */
 int c_uninitVR()
 {
-	return c_obj->uninit();
+	if (c_obj) {
+		int error = c_obj->uninit();
+		delete c_obj;
+		c_obj = 0;
+		return error;
+	}
+	return 0;
 }

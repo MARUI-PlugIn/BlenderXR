@@ -26,9 +26,14 @@ from rna_prop_ui import PropertyPanel
 
 
 class WorkSpaceButtonsPanel:
-    bl_space_type = 'PROPERTIES'
-    bl_region_type = 'WINDOW'
-    bl_context = ".workspace"
+    # bl_space_type = 'PROPERTIES'
+    # bl_region_type = 'WINDOW'
+    # bl_context = ".workspace"
+
+    # Developer note: this is displayed in tool settings as well as the 3D view.
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = "Tool"
 
 
 class WORKSPACE_PT_main(WorkSpaceButtonsPanel, Panel):
@@ -40,6 +45,7 @@ class WORKSPACE_PT_main(WorkSpaceButtonsPanel, Panel):
 
         layout = self.layout
         layout.use_property_split = True
+        layout.use_property_decorate = False
         layout.prop(workspace, "object_mode", text="Mode")
 
 
@@ -67,18 +73,21 @@ class WORKSPACE_PT_addons(WorkSpaceButtonsPanel, Panel):
 
         for addon in prefs.addons:
             module_name = addon.module
-            info = addon_utils.module_bl_info(addon_map[module_name])
+            module = addon_map.get(module_name)
+            if module is None:
+                continue
+            info = addon_utils.module_bl_info(module)
             if not info["use_owner"]:
                 continue
             is_enabled = module_name in owner_ids
             row = col.row()
+            row.alignment = 'LEFT'
             row.operator(
                 "wm.owner_disable" if is_enabled else "wm.owner_enable",
                 icon='CHECKBOX_HLT' if is_enabled else 'CHECKBOX_DEHLT',
-                text="",
+                text="%s: %s" % (info["category"], info["name"]),
                 emboss=False,
             ).owner_id = module_name
-            row.label(text="%s: %s" % (info["category"], info["name"]))
             if is_enabled:
                 owner_ids.remove(module_name)
 
@@ -88,13 +97,13 @@ class WORKSPACE_PT_addons(WorkSpaceButtonsPanel, Panel):
             col = layout.box().column(align=True)
             for module_name in sorted(owner_ids):
                 row = col.row()
+                row.alignment = 'LEFT'
                 row.operator(
                     "wm.owner_disable",
                     icon='CHECKBOX_HLT',
-                    text="",
+                    text=module_name,
                     emboss=False,
                 ).owner_id = module_name
-                row.label(text=module_name)
 
 
 class WORKSPACE_PT_custom_props(WorkSpaceButtonsPanel, PropertyPanel, Panel):

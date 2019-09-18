@@ -77,7 +77,7 @@ class AntAddLandscape(bpy.types.Operator):
             )
     smooth_mesh: BoolProperty(
             name="Smooth",
-            default=True,
+            default=False,
             description="Shade smooth"
             )
     tri_face: BoolProperty(
@@ -593,9 +593,9 @@ class AntAddLandscape(bpy.types.Operator):
         if not self.refresh:
             return {'PASS_THROUGH'}
 
-        # turn off undo
-        undo = bpy.context.preferences.edit.use_global_undo
-        bpy.context.preferences.edit.use_global_undo = False
+        # turn off 'Enter Edit Mode'
+        use_enter_edit_mode = bpy.context.preferences.edit.use_enter_edit_mode
+        bpy.context.preferences.edit.use_enter_edit_mode = False
 
         # deselect all objects when in object mode
         if bpy.ops.object.select_all.poll():
@@ -778,7 +778,7 @@ class AntAddLandscape(bpy.types.Operator):
         if self.auto_refresh is False:
             self.refresh = False
 
-        # restore pre operator undo state
-        context.preferences.edit.use_global_undo = undo
+        # restore pre operator state
+        bpy.context.preferences.edit.use_enter_edit_mode = use_enter_edit_mode
 
         return {'FINISHED'}

@@ -18,11 +18,10 @@
 
 # <pep8 compliant>
 
-import bpy
 from bpy.types import (
     Panel,
 )
-from .properties_physics_common import (
+from bl_ui.properties_physics_common import (
     basic_force_field_settings_ui,
     basic_force_field_falloff_ui,
 )
@@ -33,10 +32,12 @@ class PhysicButtonsPanel:
     bl_region_type = 'WINDOW'
     bl_context = "physics"
 
+    @staticmethod
     def poll_force_field(context):
         ob = context.object
         return (ob and (ob.field) and (ob.field.type != 'NONE'))
 
+    @staticmethod
     def poll_collision(context):
         ob = context.object
         return (ob and ob.type == 'MESH') and (context.collision)
@@ -132,7 +133,7 @@ class PHYSICS_PT_field_settings(PhysicButtonsPanel, Panel):
             col.prop(field, "use_smoke_density")
         else:
             del flow
-            basic_force_field_settings_ui(self, context, field)
+            basic_force_field_settings_ui(self, field)
 
 
 class PHYSICS_PT_field_settings_kink(PhysicButtonsPanel, Panel):
@@ -213,7 +214,7 @@ class PHYSICS_PT_field_falloff(PhysicButtonsPanel, Panel):
 
         layout.prop(field, "falloff_type", text="Shape")
 
-        basic_force_field_falloff_ui(self, context, field)
+        basic_force_field_falloff_ui(self, field)
 
 
 class PHYSICS_PT_field_falloff_angular(PhysicButtonsPanel, Panel):

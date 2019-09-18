@@ -79,7 +79,7 @@ class VIEW3D_stored_views_draw(Operator):
         VIEW3D_stored_views_draw._handle = bpy.types.SpaceView3D.draw_handler_add(
             _draw_callback_px, (self, context), 'WINDOW', 'POST_PIXEL')
         VIEW3D_stored_views_draw._timer = \
-            context.window_manager.event_timer_add(get_preferences_timer(), context.window)
+            context.window_manager.event_timer_add(get_preferences_timer(), window=context.window)
 
     @staticmethod
     def handle_remove(context):
@@ -154,6 +154,7 @@ class VIEW3D_PT_properties_stored_views(Panel):
     bl_label = "Stored Views"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
+    bl_category = "View"
 
     def draw(self, context):
         self.logger = logging.getLogger('%s Properties panel' % __name__)
@@ -174,8 +175,8 @@ class VIEW3D_PT_properties_stored_views(Panel):
 
         row = col.row(align=True)
         row.prop_enum(stored_views, "mode", 'POV')
-        row.prop_enum(stored_views, "mode", 'LAYERS')
-        row.prop_enum(stored_views, "mode", 'DISPLAY')
+        # row.prop_enum(stored_views, "mode", 'LAYERS')
+        # row.prop_enum(stored_views, "mode", 'DISPLAY')
 
         # UI : operators
         row = layout.row()
@@ -261,3 +262,16 @@ class VIEW3D_PT_properties_stored_views(Panel):
                                    text='', icon='MARKER')
         else:
             layout.label(text="No cameras in this scene")
+
+classes = (
+    VIEW3D_stored_views_draw,
+    VIEW3D_PT_properties_stored_views
+)
+
+def register():
+  for cls in classes:
+    bpy.utils.register_class(cls)
+
+def unregister():
+  for cls in classes:
+    bpy.utils.unregister_class(cls)

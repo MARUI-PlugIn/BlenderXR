@@ -1,4 +1,4 @@
-# Copyright 2018 The glTF-Blender-IO authors.
+# Copyright 2018-2019 The glTF-Blender-IO authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import time
 
 import bpy
 import sys
@@ -22,6 +23,7 @@ from io_scene_gltf2.blender.exp import gltf2_blender_gather
 from io_scene_gltf2.blender.exp.gltf2_blender_gltf2_exporter import GlTF2Exporter
 from io_scene_gltf2.io.com.gltf2_io_debug import print_console, print_newline
 from io_scene_gltf2.io.exp import gltf2_io_export
+from io_scene_gltf2.io.exp import gltf2_io_draco_compression_extension
 
 
 def save(context, export_settings):
@@ -29,10 +31,20 @@ def save(context, export_settings):
     if bpy.context.active_object is not None:
         bpy.ops.object.mode_set(mode='OBJECT')
 
+    original_frame = bpy.context.scene.frame_current
+    if not export_settings['gltf_current_frame']:
+        bpy.context.scene.frame_set(0)
+
     __notify_start(context)
+    start_time = time.time()
     json, buffer = __export(export_settings)
     __write_file(json, buffer, export_settings)
-    __notify_end(context)
+
+    end_time = time.time()
+    __notify_end(context, end_time - start_time)
+
+    if not export_settings['gltf_current_frame']:
+        bpy.context.scene.frame_set(original_frame)
     return {'FINISHED'}
 
 
@@ -55,6 +67,11 @@ def __get_copyright(export_settings):
 
 def __gather_gltf(exporter, export_settings):
     scenes, animations = gltf2_blender_gather.gather_gltf2(export_settings)
+
+    if export_settings['gltf_draco_mesh_compression']:
+        gltf2_io_draco_compression_extension.compress_scene_primitives(scenes, export_settings)
+        exporter.add_draco_extension()
+
     for scene in scenes:
         exporter.add_scene(scene)
     for animation in animations:
@@ -81,11 +98,7 @@ def __fix_json(obj):
     if isinstance(obj, dict):
         fixed = {}
         for key, value in obj.items():
-            if value is None:
-                continue
-            elif isinstance(value, dict) and len(value) == 0:
-                continue
-            elif isinstance(value, list) and len(value) == 0:
+            if not __should_include_json_value(key, value):
                 continue
             fixed[key] = __fix_json(value)
     elif isinstance(obj, list):
@@ -97,6 +110,20 @@ def __fix_json(obj):
         if int(obj) == obj:
             return int(obj)
     return fixed
+
+
+def __should_include_json_value(key, value):
+    allowed_empty_collections = ["KHR_materials_unlit"]
+
+    if value is None:
+        return False
+    elif __is_empty_collection(value) and key not in allowed_empty_collections:
+        return False
+    return True
+
+
+def __is_empty_collection(value):
+    return (isinstance(value, dict) or isinstance(value, list)) and len(value) == 0
 
 
 def __write_file(json, buffer, export_settings):
@@ -123,8 +150,8 @@ def __notify_start(context):
     context.window_manager.progress_update(0)
 
 
-def __notify_end(context):
-    print_console('INFO', 'Finished glTF 2.0 export')
+def __notify_end(context, elapsed):
+    print_console('INFO', 'Finished glTF 2.0 export in {} s'.format(elapsed))
     context.window_manager.progress_end()
     print_newline()
 

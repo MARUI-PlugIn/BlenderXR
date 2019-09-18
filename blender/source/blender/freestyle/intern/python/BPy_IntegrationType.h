@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup freestyle
+/** \file
+ * \ingroup freestyle
  */
 
 #ifndef __FREESTYLE_PYTHON_INTEGRATIONTYPE_H__
@@ -36,7 +37,8 @@ extern "C" {
 
 extern PyTypeObject IntegrationType_Type;
 
-#define BPy_IntegrationType_Check(v) (PyObject_IsInstance((PyObject *)v, (PyObject *)&IntegrationType_Type))
+#define BPy_IntegrationType_Check(v) \
+  (PyObject_IsInstance((PyObject *)v, (PyObject *)&IntegrationType_Type))
 
 /*---------------------------Python BPy_IntegrationType visible prototypes-----------*/
 

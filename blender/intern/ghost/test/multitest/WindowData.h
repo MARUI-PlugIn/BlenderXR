@@ -1,5 +1,4 @@
-/**
- *
+/*
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -21,8 +20,8 @@
 typedef void (*WindowDataHandler)(void *priv, GHOST_EventHandle evt);
 typedef struct _WindowData WindowData;
 
-	/***/
+/***/
 
-WindowData*	windowdata_new		(void *data, WindowDataHandler handler);
-void		windowdata_handle	(WindowData *wb, GHOST_EventHandle evt);
-void		windowdata_free		(WindowData *wb);
+WindowData *windowdata_new(void *data, WindowDataHandler handler);
+void windowdata_handle(WindowData *wb, GHOST_EventHandle evt);
+void windowdata_free(WindowData *wb);

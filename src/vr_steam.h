@@ -6,6 +6,7 @@
  ***************************************************************************************************
  * \brief     Valve openvr API module for use with SteamVR.
  * \copyright MARUI-PlugIn (inc.)
+ * \contributors Multiplexed Reality
  **************************************************************************************************/
 #ifndef __VR_STEAM_H__
 #define __VR_STEAM_H__
@@ -14,6 +15,7 @@
 
 #define VR_STEAM_DEBOUNCEPERIOD                 200		//!< Debounce period to avoid jumpy/slacky touchpad touches.
 #define VR_STEAM_TRIGGERPRESSURETHRESHOLD       0.3f	//!< Threshold for trigger pressure to be registered as "pressed".
+#define VR_STEAM_GRIPPRESSURETHRESHOLD			0.4f	//!< Threshold for grip pressure to be registered as "pressed".
 #define VR_STEAM_TRACKPADDIRECTIONTHRESHOLD     0.3f	//!< Threshold for trackpad interaction to be registered as an direction to somewhere.
 #define VR_STEAM_TOUCHTHRESHOLD_STICKDIRECTION  0.4f	//!< Threshold for thumb-stick interaction to be registered as an direction to somewhere to be a "touch".
 #define VR_STEAM_PRESSTHRESHOLD_STICKDIRECTION  0.9f	//!< Threshold for thumb-stick interaction to be registered as an direction to somewhere to be a "touch".
@@ -44,6 +46,10 @@
 #define VR_STEAM_BTNBITS_STICKANY		(VR_STEAM_BTNBIT_STICKLEFT|VR_STEAM_BTNBIT_STICKRIGHT|VR_STEAM_BTNBIT_STICKUP|VR_STEAM_BTNBIT_STICKDOWN) //!< Button bits for pushing any of the stick "buttons".
 #define VR_STEAM_BTNBIT_LEFTSTICK		(uint64_t(1) << 14)		//!< Button bit for pressing down on the left stick.
 #define VR_STEAM_BTNBIT_RIGHTSTICK		(uint64_t(1) << 15)		//!< Button bit for pressing down on the right stick.
+#define VR_STEAM_BTNBIT_LEFTA				(uint64_t(1) << 18)		//!< Button bit for pressing the "X" button on the left controller.
+#define VR_STEAM_BTNBIT_RIGHTA				(uint64_t(1) << 20)		//!< Button bit for pressing the "A" button on the right controller.
+#define VR_STEAM_BTNBIT_LEFTB				(uint64_t(1) << 19)		//!< Button bit for pressing the "Y" button on the left controller.
+#define VR_STEAM_BTNBIT_RIGHTB				(uint64_t(1) << 21)		//!< Button bit for pressing the "B" button on the right controller.
 #define VR_STEAM_BTNBIT_MENU			(uint64_t(1) << 22)		//!< Button bit for pressing the "X" button.
 #define VR_STEAM_BTNBIT_SYSTEM			(uint64_t(1) << 23)		//!< Button bit for pressing the "Y" button.
 
@@ -77,6 +83,42 @@ protected:
 	vr::IVRSystem*	hmd;		//!< HMD device.
 	HMDType			hmd_type;	//!< Type of hmd used for VR.
 
+private:
+private:
+	// New OpenVR Input System
+	struct Input {
+		vr::VRActionSetHandle_t action_set_handle;
+		vr::VRActiveActionSet_t active_action_set;
+		struct ActionHandles {
+			vr::VRActionHandle_t pos;
+			vr::VRActionHandle_t trigger;
+			vr::VRActionHandle_t grip;
+			vr::VRActionHandle_t grip_touch;
+			vr::VRActionHandle_t grip_force;
+			vr::VRActionHandle_t touchpad;
+			vr::VRActionHandle_t touchpad_press;
+			vr::VRActionHandle_t touchpad_touch;
+			vr::VRActionHandle_t thumbstick;
+			vr::VRActionHandle_t thumbstick_press;
+			vr::VRActionHandle_t button_a;
+			vr::VRActionHandle_t button_a_touch;
+			vr::VRActionHandle_t button_b;
+			vr::VRActionHandle_t button_b_touch;
+			vr::VRActionHandle_t button_menu;
+			vr::VRActionHandle_t button_menu_touch;
+			//vr::VRActionHandle_t button_system;
+			//vr::VRActionHandle_t button_system_touch;
+		};
+		ActionHandles action_handles[VR_MAX_CONTROLLERS];
+		static const char* const action_manifest;
+		static const char* const binding_vive;
+		static const char* const binding_windowsmr;
+		static const char* const binding_index;
+		static const char* const binding_logitechink;
+	};
+	Input input;
+
+protected:
 	uint texture_width;  //!< Width of the textures in pixels.
 	uint texture_height; //!< Height of the textures in pixels.
 
@@ -122,10 +164,10 @@ public:
 protected:
 	bool initialized; //!< Whether the module is initialized.
 
-	int acquireHMD(); //!< Initialize basic OVR operation and acquire the HMD object.
-	int releaseHMD(); //!< Delete the HMD object and uninitialize basic OVR operation.
+	int acquireHMD(); //!< Initialize basic VR operation and acquire the HMD object.
+	int releaseHMD(); //!< Delete the HMD object and uninitialize basic VR operation.
 
-	void interpretControllerState(const vr::VRControllerState_t& s, const float m[3][4], float t_controller[4][4], Controller& c); //!< Helper function to deal with Vive controller data.
+	void interpretControllerState(const vr::VRControllerState_t& s, const float m[3][4], float t_controller[4][4], Controller& c, const Input::ActionHandles *input_handles); //!< Helper function to deal with Vive controller data.
 
 public:
 	virtual Type type(); //<! Get which API was used in this implementation.

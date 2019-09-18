@@ -17,7 +17,8 @@
  * All rights reserved.
  */
 
-/** \file \ingroup depsgraph
+/** \file
+ * \ingroup depsgraph
  */
 
 #include "intern/node/deg_node_time.h"
@@ -30,10 +31,10 @@ namespace DEG {
 
 void TimeSourceNode::tag_update(Depsgraph *graph, eUpdateSource /*source*/)
 {
-	for (Relation *rel : outlinks) {
-		Node *node = rel->to;
-		node->tag_update(graph, DEG_UPDATE_SOURCE_TIME);
-	}
+  for (Relation *rel : outlinks) {
+    Node *node = rel->to;
+    node->tag_update(graph, DEG_UPDATE_SOURCE_TIME);
+  }
 }
 
 }  // namespace DEG

@@ -31,15 +31,14 @@ class TEXT_HT_header(Header):
         st = context.space_data
         text = st.text
 
-        row = layout.row(align=True)
-        row.template_header()
+        layout.template_header()
 
         TEXT_MT_editor_menus.draw_collapsible(context, layout)
 
         if text and text.is_modified:
-            sub = row.row(align=True)
-            sub.alert = True
-            sub.operator("text.resolve_conflict", text="", icon='HELP')
+            row = layout.row(align=True)
+            row.alert = True
+            row.operator("text.resolve_conflict", text="", icon='HELP')
 
         layout.separator_spacer()
 
@@ -57,6 +56,29 @@ class TEXT_HT_header(Header):
             is_osl = text.name.endswith((".osl", ".osl"))
 
             row = layout.row()
+            if is_osl:
+                row = layout.row()
+                row.operator("node.shader_script_update")
+            else:
+                row = layout.row()
+                row.active = text.name.endswith(".py")
+                row.prop(text, "use_module")
+
+                row = layout.row()
+                row.operator("text.run_script")
+
+
+class TEXT_HT_footer(Header):
+    bl_space_type = 'TEXT_EDITOR'
+    bl_region_type = 'FOOTER'
+
+    def draw(self, context):
+        layout = self.layout
+
+        st = context.space_data
+        text = st.text
+        if text:
+            row = layout.row()
             if text.filepath:
                 if text.is_dirty:
                     row.label(
@@ -72,18 +94,8 @@ class TEXT_HT_header(Header):
                 row.label(
                     text="Text: External"
                     if text.library
-                    else "Text: Internal"
+                    else "Text: Internal",
                 )
-            if is_osl:
-                row = layout.row()
-                row.operator("node.shader_script_update")
-            else:
-                row = layout.row()
-                row.active = text.name.endswith(".py")
-                row.prop(text, "use_module")
-
-                row = layout.row()
-                row.operator("text.run_script")
 
 
 class TEXT_MT_editor_menus(Menu):
@@ -175,7 +187,9 @@ class TEXT_MT_view(Menu):
     def draw(self, context):
         layout = self.layout
 
-        layout.operator("text.properties", icon='MENU_PANEL')
+        st = context.space_data
+
+        layout.prop(st, "show_region_ui")
 
         layout.separator()
 
@@ -200,49 +214,52 @@ class TEXT_MT_text(Menu):
         st = context.space_data
         text = st.text
 
-        layout.operator("text.new")
-        layout.operator("text.open")
+        layout.operator("text.new", text="New")
+        layout.operator("text.open", text="Open...", icon='FILE_FOLDER')
 
         if text:
+            layout.separator()
             layout.operator("text.reload")
 
-            layout.column()
-            layout.operator("text.save")
-            layout.operator("text.save_as")
+            layout.separator()
+            layout.operator("text.save", icon='FILE_TICK')
+            layout.operator("text.save_as", text="Save As...")
 
             if text.filepath:
                 layout.operator("text.make_internal")
 
-            layout.column()
+            layout.separator()
             layout.operator("text.run_script")
 
 
 class TEXT_MT_templates_py(Menu):
     bl_label = "Python"
 
-    def draw(self, context):
+    def draw(self, _context):
         self.path_menu(
             bpy.utils.script_paths("templates_py"),
             "text.open",
             props_default={"internal": True},
+            filter_ext=lambda ext: (ext.lower() == ".py")
         )
 
 
 class TEXT_MT_templates_osl(Menu):
     bl_label = "Open Shading Language"
 
-    def draw(self, context):
+    def draw(self, _context):
         self.path_menu(
             bpy.utils.script_paths("templates_osl"),
             "text.open",
             props_default={"internal": True},
+            filter_ext=lambda ext: (ext.lower() == ".osl")
         )
 
 
 class TEXT_MT_templates(Menu):
     bl_label = "Templates"
 
-    def draw(self, context):
+    def draw(self, _context):
         layout = self.layout
         layout.menu("TEXT_MT_templates_py")
         layout.menu("TEXT_MT_templates_osl")
@@ -251,7 +268,7 @@ class TEXT_MT_templates(Menu):
 class TEXT_MT_edit_select(Menu):
     bl_label = "Select"
 
-    def draw(self, context):
+    def draw(self, _context):
         layout = self.layout
 
         layout.operator("text.select_all")
@@ -261,7 +278,7 @@ class TEXT_MT_edit_select(Menu):
 class TEXT_MT_format(Menu):
     bl_label = "Format"
 
-    def draw(self, context):
+    def draw(self, _context):
         layout = self.layout
 
         layout.operator("text.indent")
@@ -280,7 +297,7 @@ class TEXT_MT_format(Menu):
 class TEXT_MT_edit_to3d(Menu):
     bl_label = "Text To 3D Object"
 
-    def draw(self, context):
+    def draw(self, _context):
         layout = self.layout
 
         layout.operator("text.to_3d_object",
@@ -298,7 +315,7 @@ class TEXT_MT_edit(Menu):
     def poll(cls, context):
         return (context.space_data.text)
 
-    def draw(self, context):
+    def draw(self, _context):
         layout = self.layout
 
         layout.operator("ed.undo")
@@ -336,7 +353,7 @@ class TEXT_MT_edit(Menu):
 class TEXT_MT_toolbox(Menu):
     bl_label = ""
 
-    def draw(self, context):
+    def draw(self, _context):
         layout = self.layout
 
         layout.operator_context = 'INVOKE_DEFAULT'
@@ -352,6 +369,7 @@ class TEXT_MT_toolbox(Menu):
 
 classes = (
     TEXT_HT_header,
+    TEXT_HT_footer,
     TEXT_MT_edit,
     TEXT_MT_editor_menus,
     TEXT_PT_properties,

@@ -15,10 +15,10 @@
 * along with this program; if not, write to the Free Software Foundation,
 * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 *
-* The Original Code is Copyright (C) 2018 by Blender Foundation.
+* The Original Code is Copyright (C) 2019 by Blender Foundation.
 * All rights reserved.
 *
-* Contributor(s): MARUI-PlugIn
+* Contributor(s): MARUI-PlugIn, Multiplexed Reality
 *
 * ***** END GPL LICENSE BLOCK *****
 */
@@ -38,15 +38,23 @@
 #define VR_UI_DEFAULTWORKSPACEDIST    0.550f	/* Distance of default workspace center from the HMD in meters. */
 #define VR_UI_DEFAULTWORKSPACEHEIGHT -0.350f	/* Height of default workspace center (relative to HMD) in meters. */
 
-#define VR_UI_MAXUPDATEINTERVAL      (1000/1)	/* Maximum interval in ms at which the UI should perform updates on Blender. (ie. minimum refresh rate: 1Hz) */
-#define VR_UI_MINUPDATEINTERVAL      (1000/120)	/* Minimum interval in ms at which the UI may perform updates on Blender. (ie. max refresh rate: 60Hz) */
+#define VR_UI_MAXUPDATEINTERVAL      (1000/1)	/* Maximum interval in ms at which the UI should perform updates on Blender. (1Hz) */
+#if 0
+#define VR_UI_MINUPDATEINTERVAL      (1000/60)	/* Minimum interval in ms at which the UI should perform updates on Blender. (60Hz) */
+#else
+#define VR_UI_MINUPDATEINTERVAL      (1000/120)	/* Minimum interval in ms at which the UI should perform updates on Blender. (120Hz) */
+#endif
+#define VR_UI_OPTIMIZEPERFORMANCEMELTCPU 0		/* Whether to override the update interval limits and update as fast as possible. */
 
 #define VR_UI_MINNAVIGATIONSCALE	  0.001f	/* Minimum navigation scale (Real to Blender) permitted. */
 #define VR_UI_MAXNAVIGATIONSCALE	  1000.0f	/* Maximum navigation scale (Real to Blender) permitted. */
 
+#include "DNA_userdef_types.h"
+
 #include <string>
 #include <vector>
 
+struct bGPDspoint;
 class VR_Widget; 
 
 /* User interation master controller/translator class. */
@@ -146,6 +154,15 @@ public:
 		,
 		NAVLOCKS = 7	/* Number of distinct navigation locks. */
 	} NavLock;
+
+	/* Selection mode (raycast or proximity). */
+	enum SelectionMode {
+		SELECTIONMODE_RAYCAST = 0	/* The default raycast / rectangle selection method. */
+		,
+		SELECTIONMODE_PROXIMITY = 1 /* The proximity / volume selection method. */
+		,
+		SELECTIONMODES = 2 /* Number of existing selection modes. */
+	};
 
 	/* Possible transformation spaces. */
 	typedef enum TransformSpace
@@ -288,8 +305,8 @@ public:
 // ---------------------------------------------------------------------------------------------- //
 //private:
 public:
-	static VR_UI*		  ui;				/* Currently used UI instance (singleton). */
-	static VR_UI_Type ui_type;				/* The type of the currently used UI. */
+	static VR_UI *ui; /* Currently used UI instance (singleton). */
+	static VR_Device_Type ui_type;  /* The type of the currently used UI. */
 protected:
 	static Mat44f		navigation_matrix;	/* Navigation matrix. */
 	static Mat44f		navigation_inverse;	/* Navigation matrix inverse. */
@@ -367,12 +384,15 @@ public:
 	static VR_Widget*	get_current_tool(VR_Side side);	/* Get the currently active tool for the controller. */
 	static VR_UI::Error set_current_tool(const VR_Widget* tool, VR_Side side);	/* Set the currently active tool for the controller. */
 
-	static Mat44f		convert_space(const Mat44f& m, VR_Space m_space, VR_Space target_space); //!< Convert a matrix into target space. */
-	static Coord3Df		convert_space(const Coord3Df& v, VR_Space v_space, VR_Space target_space); //!< Convert vector/position into target space. */
+	static Mat44f		convert_space(const Mat44f& m, VR_Space m_space, VR_Space target_space); /* Convert a matrix into target space. */
+	static Coord3Df		convert_space(const Coord3Df& v, VR_Space v_space, VR_Space target_space); /* Convert vector/position into target space. */
 	static int			get_screen_coordinates(const Coord3Df& c, float& x, float&, VR_Side side = VR_SIDE_DOMINANT);	/* Get 2D screen coordinates (-1 ~ 1) of a 3D point. */
 	static int			get_pixel_coordinates(const Coord3Df& c, int& x, int& y, VR_Side side = VR_SIDE_DOMINANT);		/* Get 2D pixel coordinates of a 3D point. */
 	
 	static float		scene_unit_scale(VR_Space space);	/* Get the length (scale) of Blender scene units in respective space. */
+
+	static SelectionMode selection_mode;	/* The current selection mode. */
+	static float        selection_tolerance;	/* The current selection tolerance (meters). */
 
 	static float		drag_threshold_distance;	/* Distance threshold (meters) to detect "dragging" (if the cursor moves farther than this with a button held down, it's dragging). */
 	static float		drag_threshold_rotation;	/* Rotation threshold (deg) to detect "dragging" (if the cursor rotates more than this with a button held down, it's dragging). */
@@ -381,17 +401,6 @@ public:
 	static int			undo_count;	/* Number of pending VR_UI undo operations to be executed post-scene render. */
 	static int			redo_count; /* Number of pending VR_UI redo operations to be executed post-scene render. */
 	static bool			editmode_exit;	/* Whether to exit edit mode (executed post-scene render). */
-
-	/* Selection mode (raycast or proximity). */
-	enum SelectionMode {
-		SELECTIONMODE_RAYCAST	= 0	/* The default raycast / rectangle selection method. */
-		,
-		SELECTIONMODE_PROXIMITY = 1 /* The proximity / volume selection method. */
-		,
-		SELECTIONMODES			= 2 /* Number of existing selection modes. */
-	};
-	static SelectionMode selection_mode;	/* The current selection mode. */
-	static float        selection_tolerance;	/* The current selection tolerance (meters). */
 
 	static bool pie_menu_active[VR_SIDES];	/* Whether a VR pie menu is active for the controller. */
 	static const VR_Widget *pie_menu[VR_SIDES];	/* The current VR pie menu for the controller (if any). */
@@ -405,10 +414,10 @@ protected:
 	virtual ~VR_UI();	/* Destructor (hidden - use static uninit method). */
 public:
 	static VR_UI*	i();	/* Access currently used instance of UI. */
-	static VR_UI_Type type();	/* Get the type of the currently used UI. */
+	static VR_Device_Type type();	/* Get the type of the currently used UI. */
 
-	static bool		is_available(VR_UI_Type type);	/* Test whether a certain UI type is available. */
-	static Error	set_ui(VR_UI_Type type);	/* Set desired UI implementation. */
+	static bool		is_available(VR_Device_Type type);	/* Test whether a certain UI type is available. */
+	static Error	set_ui(VR_Device_Type type);	/* Set desired UI implementation. */
 	static Error	shutdown();					/* Shutdown UI module. */
 
 	static Error	update_tracking();			/* Update HMD and cursor positions, button state, etc. (pre-render). */

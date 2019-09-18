@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup freestyle
+/** \file
+ * \ingroup freestyle
  */
 
 #ifndef __FREESTYLE_PYTHON_FEDGESHARP_H__
@@ -36,8 +37,8 @@ extern PyTypeObject FEdgeSharp_Type;
 
 /*---------------------------Python BPy_FEdgeSharp structure definition----------*/
 typedef struct {
-	BPy_FEdge py_fe;
-	FEdgeSharp *fes;
+  BPy_FEdge py_fe;
+  FEdgeSharp *fes;
 } BPy_FEdgeSharp;
 
 /*---------------------------Python BPy_FEdgeSharp visible prototypes-----------*/

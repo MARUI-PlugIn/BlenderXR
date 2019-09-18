@@ -1,6 +1,4 @@
 /*
- * Copyright 2011, Blender Foundation.
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,6 +12,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * Copyright 2011, Blender Foundation.
  */
 
 #ifndef __COM_MAPVALUEOPERATION_H__
@@ -26,37 +26,40 @@
  * it assumes we are in sRGB color space.
  */
 class MapValueOperation : public NodeOperation {
-private:
-	/**
-	 * Cached reference to the inputProgram
-	 */
-	SocketReader *m_inputOperation;
-	TexMapping *m_settings;
-public:
-	/**
-	 * Default constructor
-	 */
-	MapValueOperation();
+ private:
+  /**
+   * Cached reference to the inputProgram
+   */
+  SocketReader *m_inputOperation;
+  TexMapping *m_settings;
 
-	/**
-	 * the inner loop of this program
-	 */
-	void executePixelSampled(float output[4], float x, float y, PixelSampler sampler);
+ public:
+  /**
+   * Default constructor
+   */
+  MapValueOperation();
 
-	/**
-	 * Initialize the execution
-	 */
-	void initExecution();
+  /**
+   * the inner loop of this program
+   */
+  void executePixelSampled(float output[4], float x, float y, PixelSampler sampler);
 
-	/**
-	 * Deinitialize the execution
-	 */
-	void deinitExecution();
+  /**
+   * Initialize the execution
+   */
+  void initExecution();
 
-	/**
-	 * \brief set the TexMapping settings
-	 */
-	void setSettings(TexMapping *settings) { this->m_settings = settings; }
+  /**
+   * Deinitialize the execution
+   */
+  void deinitExecution();
 
+  /**
+   * \brief set the TexMapping settings
+   */
+  void setSettings(TexMapping *settings)
+  {
+    this->m_settings = settings;
+  }
 };
 #endif

@@ -25,12 +25,14 @@ import bpy
 import bmesh
 import bgl
 import blf
-from mathutils import geometry, Euler, Quaternion, Vector
+import gpu
+from mathutils import geometry, Euler, Matrix, Quaternion, Vector
 from bpy_extras import view3d_utils
 from bpy_extras.view3d_utils import location_3d_to_region_2d as loc3d_to_reg2d
 from bpy_extras.view3d_utils import region_2d_to_vector_3d as reg2d_to_vec3d
 from bpy_extras.view3d_utils import region_2d_to_location_3d as reg2d_to_loc3d
 from bpy_extras.view3d_utils import region_2d_to_origin_3d as reg2d_to_org3d
+from gpu_extras.batch import batch_for_shader
 
 # "Constant" values
 (
@@ -87,33 +89,33 @@ def editmode_refresh():
 def backup_blender_settings():
     backup = [
         deepcopy(bpy.context.tool_settings.use_snap),
-        deepcopy(bpy.context.tool_settings.snap_element),
+        deepcopy(bpy.context.tool_settings.snap_elements),
         deepcopy(bpy.context.tool_settings.snap_target),
-        deepcopy(bpy.context.space_data.pivot_point),
-        deepcopy(bpy.context.space_data.transform_orientation),
-        deepcopy(bpy.context.space_data.show_manipulator),
-        deepcopy(bpy.context.scene.cursor_location)]
+        deepcopy(bpy.context.tool_settings.transform_pivot_point),
+        deepcopy(bpy.context.scene.transform_orientation_slots[0].type),
+        deepcopy(bpy.context.space_data.show_gizmo),
+        deepcopy(bpy.context.scene.cursor.location)]
     return backup
 
 
 def init_blender_settings():
     bpy.context.tool_settings.use_snap = False
-    bpy.context.tool_settings.snap_element = 'VERTEX'
+    bpy.context.tool_settings.snap_elements = {'VERTEX'}
     bpy.context.tool_settings.snap_target = 'CLOSEST'
-    bpy.context.space_data.pivot_point = 'ACTIVE_ELEMENT'
-    bpy.context.space_data.transform_orientation = 'GLOBAL'
-    bpy.context.space_data.show_manipulator = False
+    bpy.context.tool_settings.transform_pivot_point = 'ACTIVE_ELEMENT'
+    bpy.context.scene.transform_orientation_slots[0].type = 'GLOBAL'
+    bpy.context.space_data.show_gizmo = False
     return
 
 
 def restore_blender_settings(backup):
     bpy.context.tool_settings.use_snap = deepcopy(backup[0])
-    bpy.context.tool_settings.snap_element = deepcopy(backup[1])
+    bpy.context.tool_settings.snap_elements = deepcopy(backup[1])
     bpy.context.tool_settings.snap_target = deepcopy(backup[2])
-    bpy.context.space_data.pivot_point = deepcopy(backup[3])
-    bpy.context.space_data.transform_orientation = deepcopy(backup[4])
-    bpy.context.space_data.show_manipulator = deepcopy(backup[5])
-    bpy.context.scene.cursor_location = deepcopy(backup[6])
+    bpy.context.tool_settings.transform_pivot_point = deepcopy(backup[3])
+    bpy.context.scene.transform_orientation_slots[0].type = deepcopy(backup[4])
+    bpy.context.space_data.show_gizmo = deepcopy(backup[5])
+    bpy.context.scene.cursor.location = deepcopy(backup[6])
     return
 
 
@@ -133,9 +135,9 @@ def vec3s_alm_eq(vec_a, vec_b):
 
 
 # assume both float lists are same size?
-def flt_lists_alm_eq(ls_a, ls_b):
+def flt_lists_alm_eq(ls_a, ls_b, tol=0.001):
     for i in range(len(ls_a)):
-        if not flts_alm_eq(ls_a[i], ls_b[i]):
+        if not (ls_a[i] > (ls_b[i] - tol) and ls_a[i] < (ls_b[i] + tol)):
             return False
     return True
 
@@ -165,7 +167,7 @@ class MenuHandler:
         self.reg = reg  # region
         self.active = False
 
-        view_offset = 36, 45  # box left top start
+        self.view_offset = 20, 95  # box left top start
         self.box_y_pad = 8  # vertical space between boxes
 
         fontid = 0
@@ -173,18 +175,19 @@ class MenuHandler:
         lcase_wid, lcase_hgt = blf.dimensions(fontid, "n")
         ucase_wid, ucase_hgt = blf.dimensions(fontid, "N")
         bot_space = blf.dimensions(fontid, "gp")[1] - lcase_hgt
-        self.full_hgt = blf.dimensions(fontid, "NTgp")[1]
+        self.full_txt_hgt = blf.dimensions(fontid, "NTgp")[1]
 
         arr_wid, arr_hgt = 12, 16
         arrow_base = (0, 0), (0, arr_hgt), (arr_wid, arr_hgt/2)
-        aw_adj, ah_adj = arr_wid * 1.5, (arr_hgt - ucase_hgt) / 2
+        aw_adj, ah_adj = arr_wid * 0.50, (arr_hgt - ucase_hgt) / 2
         self.arrow_pts = []
         for a in arrow_base:
             self.arrow_pts.append((a[0] - aw_adj, a[1] - ah_adj))
 
-        self.blef = view_offset[0] + toolwid  # box left start
-        self.titlco = self.blef // 2, self.reg.height - view_offset[1]
-        self.btop = self.titlco[1] - (self.full_hgt // 1.5)
+        self.blef = self.view_offset[0] + toolwid  # box left start
+        #self.titlco = self.blef // 2, self.reg.height - self.view_offset[1]
+        self.titlco = self.blef, self.reg.height - self.view_offset[1]
+        self.btop = self.titlco[1] - (self.full_txt_hgt // 1.5)
         self.txt_y_pad = bot_space * 2
 
     def add_menu(self, strings):
@@ -196,8 +199,8 @@ class MenuHandler:
         for i in range(new.cnt):
             new.txtcolrs.append(self.dis_colr)
             new.texts.append(strings[i])
-            bbot = btop - self.full_hgt
-            new.tcoords.append((tlef, bbot))
+            bbot = btop - self.full_txt_hgt
+            new.tcoords.append((tlef + self.view_offset[0], bbot))
             btop = bbot - self.box_y_pad
             new.arrows.append((
                 (self.arrow_pts[0][0] + tlef, self.arrow_pts[0][1] + bbot),
@@ -230,23 +233,31 @@ class MenuHandler:
         font_id = 0
         blf.size(font_id, self.tsize, self.dpi)
         # draw title
-        bgl.glColor4f(*self.dis_colr)
         blf.position(font_id, self.titlco[0], self.titlco[1], 0)
+        blf.color(font_id, *self.dis_colr)
         blf.draw(font_id, self.title)
         # draw menu
         if menu_visible and menu is not None:
             for i in range(menu.cnt):
-                bgl.glColor4f(*menu.txtcolrs[i])
                 blf.position(font_id, menu.tcoords[i][0], menu.tcoords[i][1], 0)
+                blf.color(font_id, *menu.txtcolrs[i])
                 blf.draw(font_id, menu.texts[i])
 
             # draw arrow
+            '''
             bgl.glEnable(bgl.GL_BLEND)
             bgl.glColor4f(*self.act_colr)
             bgl.glBegin(bgl.GL_LINE_LOOP)
             for p in menu.arrows[menu.active]:
                 bgl.glVertex2f(*p)
             bgl.glEnd()
+            '''
+            indices = ((0, 1), (1, 2), (2, 0))
+            shader = gpu.shader.from_builtin('2D_UNIFORM_COLOR')
+            batch = batch_for_shader(shader, 'LINES', {"pos": menu.arrows[menu.active]}, indices=indices)
+            shader.bind()
+            shader.uniform_float("color", self.act_colr)
+            batch.draw(shader)
 
 
 def test_reset_prev_popup_inputs():
@@ -276,9 +287,9 @@ def make_popup_enums(self, context):
     return prev_popup_inp_strings
 
 
-class XEditStoreMeasBtn(bpy.types.Operator):
+class XEDIT_OT_store_meas_btn(bpy.types.Operator):
     bl_idname = "object.store_meas_inp_op"
-    bl_label = "XEdit Store Measure Button"
+    bl_label = "Exact Edit Store Measure Button"
     bl_description = "Add current measure to stored measures"
     bl_options = {'INTERNAL'}
 
@@ -290,9 +301,9 @@ class XEditStoreMeasBtn(bpy.types.Operator):
 
 # == pop-up dialog code ==
 # todo: update with newer menu code if it can ever be made to work
-class XEditMeasureInputPanel(bpy.types.Operator):
+class XEDIT_OT_meas_inp_dlg(bpy.types.Operator):
     bl_idname = "object.ms_input_dialog_op"
-    bl_label = "XEdit Measure Input Panel"
+    bl_label = "Exact Edit Measure Input Dialog"
     bl_options = {'INTERNAL'}
 
     float_new_meas: bpy.props.FloatProperty(name="Measurement")
@@ -336,7 +347,7 @@ class XEditMeasureInputPanel(bpy.types.Operator):
         # split row into 3 cells: 1st 1/3, 2nd 75% of 2/3, 3rd 25% of 2/3
         split = row.split(align=False)
         split.label(text="Measurement")
-        split = row.split(percentage=0.75, align=False)
+        split = row.split(factor=0.75, align=False)
         split.prop(self, 'float_new_meas', text="")
         split.operator("object.store_meas_inp_op", text="Store")
         row = self.layout.row(align=True)
@@ -407,7 +418,7 @@ class ViewButton():
         if my < self.ms_chk[2] or my > self.ms_chk[3]:
             return False
         return True
-    
+
     def draw_btn(self, btn_loc, mouse_co, highlight_mouse=False):
         if btn_loc is not None:
             offs_loc = btn_loc + self.offset
@@ -420,27 +431,44 @@ class ViewButton():
             else:
                 self.ms_over = False
             # draw button box
+            '''
             bgl.glColor4f(*colr)
             bgl.glBegin(bgl.GL_LINE_STRIP)
             for coord in self.coords:
                 bgl.glVertex2f(coord[0], coord[1])
             bgl.glVertex2f(self.coords[0][0], self.coords[0][1])
             bgl.glEnd()
+            '''
+            indc = ((0, 1), (1, 2), (2, 3), (3, 0))
+            shader = gpu.shader.from_builtin('2D_UNIFORM_COLOR')
+            batch = batch_for_shader(shader, 'LINES', {"pos": self.coords}, indices=indc)
+            shader.bind()
+            shader.uniform_float("color", colr)
+            batch.draw(shader)
+
             # draw outline around button box
             if highlight_mouse and self.ms_over:
-                bgl.glColor4f(*self.colr_off)
+                #bgl.glColor4f(*self.colr_off)
                 HO = 4  # highlight_mouse offset
                 offs = (-HO, -HO), (-HO, HO), (HO, HO), (HO, -HO)
-                bgl.glBegin(bgl.GL_LINE_STRIP)
+                #bgl.glBegin(bgl.GL_LINE_STRIP)
+                off_co = []
                 for i, coord in enumerate(self.coords):
-                    bgl.glVertex2f(coord[0] + offs[i][0], coord[1] + offs[i][1])
-                bgl.glVertex2f(self.coords[0][0] + offs[0][0], self.coords[0][1] + offs[0][1])
-                bgl.glEnd()
+                    off_co.append((coord[0] + offs[i][0], coord[1] + offs[i][1]))
+                off_co.append((self.coords[0][0] + offs[0][0], self.coords[0][1] + offs[0][1]))
+
+                shader = gpu.shader.from_builtin('2D_UNIFORM_COLOR')
+                batch = batch_for_shader(shader, 'LINES', {"pos": off_co})
+                shader.bind()
+                shader.uniform_float("color", self.colr_off)
+                batch.draw(shader)
+
             # draw button text
-            bgl.glColor4f(*self.txt_colr)
-            blf.size(font_id, self.txt_sz, self.dpi)
             blf.position(font_id, self.txt_co[0], self.txt_co[1], 0)
+            blf.size(font_id, self.txt_sz, self.dpi)
+            blf.color(font_id, *self.txt_colr)
             blf.draw(font_id, self.txt)
+
         else:
             self.ms_over = False
 
@@ -627,7 +655,7 @@ def add_select(self):
                     elif type(sel) is bmesh.types.BMFace:
                         sel_verts = sel.verts
                     for v in sel_verts:
-                        v_co3d = m_w * v.co
+                        v_co3d = m_w @ v.co
                         add_pt(self, v_co3d)
                         if self.pt_cnt > 2:
                             exit_loop = True
@@ -659,7 +687,7 @@ def add_select_multi(self):
                     elif type(sel) is bmesh.types.BMFace:
                         sel_verts = sel.verts
                     for v in sel_verts:
-                        v_co3d = m_w * v.co
+                        v_co3d = m_w @ v.co
                         self.multi_tmp.try_add(v_co3d)
                         if self.multi_tmp.cnt == self.multi_tmp.max_cnt:
                             exit_loop = True
@@ -731,7 +759,7 @@ def new_select_multi(self):
                 elif type(sel) is bmesh.types.BMFace:
                     sel_verts = sel.verts
                 for v in sel_verts:
-                    v_co3d = m_w * v.co
+                    v_co3d = m_w @ v.co
                     self.multi_tmp.try_add(v_co3d)
                     if self.multi_tmp.cnt == self.multi_tmp.max_cnt:
                         exit_loop = True
@@ -776,7 +804,7 @@ def find_closest_point(loc):
         if obj.type == 'MESH':
             if len(obj.data.vertices) > 0:
                 for v in obj.data.vertices:
-                    v_co3d = obj.matrix_world * v.co
+                    v_co3d = obj.matrix_world @ v.co
                     v_co2d = loc3d_to_reg2d(region, rv3d, v_co3d)
                     if v_co2d is not None:
                         dist2d = (loc - v_co2d).length
@@ -785,7 +813,7 @@ def find_closest_point(loc):
                             closest = v_co3d
     return closest
 
-
+'''
 def draw_pt_2d(pt_co, pt_color, pt_size):
     if pt_co is not None:
         bgl.glEnable(bgl.GL_BLEND)
@@ -795,8 +823,19 @@ def draw_pt_2d(pt_co, pt_color, pt_size):
         bgl.glVertex2f(*pt_co)
         bgl.glEnd()
     return
+'''
 
+def draw_pt_2d(pt_co, pt_color, pt_size):
+    if pt_co is not None:
+        coords = [pt_co]
+        bgl.glPointSize(pt_size)
+        shader = gpu.shader.from_builtin('2D_UNIFORM_COLOR')
+        batch = batch_for_shader(shader, 'POINTS', {"pos": coords})
+        shader.bind()
+        shader.uniform_float("color", pt_color)
+        batch.draw(shader)
 
+'''
 def draw_line_2d(pt_co_1, pt_co_2, pt_color):
     if None not in (pt_co_1, pt_co_2):
         bgl.glEnable(bgl.GL_BLEND)
@@ -807,6 +846,16 @@ def draw_line_2d(pt_co_1, pt_co_2, pt_color):
         bgl.glVertex2f(*pt_co_2)
         bgl.glEnd()
     return
+'''
+
+def draw_line_2d(pt_co_1, pt_co_2, pt_color):
+    if None not in (pt_co_1, pt_co_2):
+        coords = [pt_co_1, pt_co_2]
+        shader = gpu.shader.from_builtin('2D_UNIFORM_COLOR')
+        batch = batch_for_shader(shader, 'LINES', {"pos": coords})
+        shader.bind()
+        shader.uniform_float("color", pt_color)
+        batch.draw(shader)
 
 
 def closest_to_point(pt, pts):
@@ -970,7 +1019,7 @@ def set_arc_pts(ref_pts):
         mid_piv_free = piv.lerp(fre, ratio)
         arc_pts = [mid_piv_free]
         steps = 36
-        ang_step = pi*2 / steps
+        ang_step = pi * 2 / steps
         mid_align = mid_piv_free - piv
         for a in range(1, steps+1):
             rot_val = Quaternion(piv_norm, ang_step * a)
@@ -1046,8 +1095,8 @@ def set_lock_pts(ref_pts, pt_cnt):
 # difference between the 3D locations in new_co and old_co to determine
 # the translation to apply to the selected geometry.
 def do_translation(new_co, old_co):
-    co_chg = -(old_co - new_co)  # co_chg = coordinate change
-    bpy.ops.transform.translate(value=(co_chg[0], co_chg[1], co_chg[2]))
+    co_chg = -(old_co - new_co)
+    bpy.ops.transform.translate(value=co_chg)
 
 
 # Performs a scale transformation using the provided s_fac (scale factor)
@@ -1058,10 +1107,10 @@ def do_translation(new_co, old_co):
 # takes:  ref_pts (ReferencePoints), s_fac (float)
 def do_scale(ref_pts, s_fac):
     # back up settings before changing them
-    piv_back = deepcopy(bpy.context.space_data.pivot_point)
-    curs_back = bpy.context.scene.cursor_location.copy()
-    bpy.context.space_data.pivot_point = 'CURSOR'
-    bpy.context.scene.cursor_location = ref_pts[1].co3d.copy()
+    piv_back = deepcopy(bpy.context.tool_settings.transform_pivot_point)
+    curs_back = bpy.context.scene.cursor.location.copy()
+    bpy.context.tool_settings.transform_pivot_point = 'CURSOR'
+    bpy.context.scene.cursor.location = ref_pts[1].co3d.copy()
     ax_multip, cnstrt_bls = (), ()
     if   RotDat.axis_lock is None:
         ax_multip, cnstrt_bls = (s_fac, s_fac, s_fac), (True, True, True)
@@ -1073,8 +1122,8 @@ def do_scale(ref_pts, s_fac):
         ax_multip, cnstrt_bls = (1, 1, s_fac), (False, False, True)
     bpy.ops.transform.resize(value=ax_multip, constraint_axis=cnstrt_bls)
     # restore settings back to their pre "do_scale" state
-    bpy.context.scene.cursor_location = curs_back.copy()
-    bpy.context.space_data.pivot_point = deepcopy(piv_back)
+    bpy.context.scene.cursor.location = curs_back.copy()
+    bpy.context.tool_settings.transform_pivot_point = deepcopy(piv_back)
 
 
 # end_a, piv_pt, and end_b are Vector based 3D coordinates
@@ -1138,39 +1187,39 @@ def find_correct_rot(ref_pts, pt_cnt):
 
 
 # Takes 2D Pivot Point (piv) for piv to temp lines, 2 possible rotation
-# coordinates to choose between (rot_co_pos, rot_co_neg), and a
+# coordinates to choose between (rot_co3d_pos, rot_co3d_neg), and a
 # 2D mouse location (mouse_co) for determining which rotation coordinate
 # is closest to the cursor.
 # Returns the rotation coordinate closest to the 2d mouse position and the
 # rotation angles used to obtain the coordinates (rot_ang_rad).
-# rot_co_pos == rotated coordinate positive,  rot_co_neg == rot coor Negative
-# todo : make r_p_co2d and r_n_co2d VertObj types ?
-#def choose_0_or_180(piv, rot_co_pos, r_p_ang_r, rot_co_neg, r_n_ang_r, mouse_co):
-def choose_0_or_180(piv, rot_co_pos, rot_co_neg, rot_ang_rad, mouse_co):
+# rot_co3d_pos == rotated coordinate positive,  rot_co3d_neg == rot coor Negative
+# todo : make rot_pos_co2d and rot_neg_co2d VertObj types ?
+#def choose_0_or_180(piv, rot_co3d_pos, rot_pos_ang_rad, rot_co3d_neg, r_n_ang_r, mouse_co):
+def choose_0_or_180(piv, rot_co3d_pos, rot_co3d_neg, rot_ang_rad, mouse_co):
     #global reg_rv3d
     #region, rv3d = reg_rv3d[0], reg_rv3d[1]
     region = bpy.context.region
     rv3d = bpy.context.region_data
-    r_p_co2d = loc3d_to_reg2d(region, rv3d, rot_co_pos)
-    r_n_co2d = loc3d_to_reg2d(region, rv3d, rot_co_neg)
+    rot_pos_co2d = loc3d_to_reg2d(region, rv3d, rot_co3d_pos)
+    rot_neg_co2d = loc3d_to_reg2d(region, rv3d, rot_co3d_neg)
     piv2d = loc3d_to_reg2d(region, rv3d, piv.co3d)
-    ms_co_1_dis = (r_p_co2d - mouse_co).length
-    ms_co_2_dis = (r_n_co2d - mouse_co).length
+    ms_co_1_dis = (rot_pos_co2d - mouse_co).length
+    ms_co_2_dis = (rot_neg_co2d - mouse_co).length
     # draw both buttons and show which is closer to mouse
     psize_small, psize_large = 8, 14
-    if   ms_co_1_dis < ms_co_2_dis:
-        draw_line_2d(piv2d, r_p_co2d, Colr.green)
-        draw_pt_2d(r_p_co2d, Colr.green, psize_large)
-        draw_pt_2d(r_n_co2d, Colr.grey, psize_small)
-        return rot_co_pos, rot_ang_rad
+    if ms_co_1_dis < ms_co_2_dis:
+        draw_line_2d(piv2d, rot_pos_co2d, Colr.green)
+        draw_pt_2d(rot_pos_co2d, Colr.green, psize_large)
+        draw_pt_2d(rot_neg_co2d, Colr.grey, psize_small)
+        return rot_co3d_pos, rot_ang_rad
     elif ms_co_2_dis < ms_co_1_dis:
-        draw_line_2d(piv2d, r_n_co2d, Colr.green)
-        draw_pt_2d(r_n_co2d, Colr.green, psize_large)
-        draw_pt_2d(r_p_co2d, Colr.grey, psize_small)
-        return rot_co_neg, -rot_ang_rad
+        draw_line_2d(piv2d, rot_neg_co2d, Colr.green)
+        draw_pt_2d(rot_neg_co2d, Colr.green, psize_large)
+        draw_pt_2d(rot_pos_co2d, Colr.grey, psize_small)
+        return rot_co3d_neg, -rot_ang_rad
     else:
-        draw_pt_2d(r_p_co2d, Colr.grey, psize_small)
-        draw_pt_2d(r_n_co2d, Colr.grey, psize_small)
+        draw_pt_2d(rot_pos_co2d, Colr.grey, psize_small)
+        draw_pt_2d(rot_neg_co2d, Colr.grey, psize_small)
     return None, None
 
 
@@ -1190,16 +1239,81 @@ def prep_rotation_info(curr_ms_stor, new_ms_stor):
     RotDat.ang_diff_r = radians(new_ms_stor - curr_ms_stor)
 
 
+def create_z_orient(rot_vec):
+    x_dir_p = Vector(( 1.0,  0.0,  0.0))
+    y_dir_p = Vector(( 0.0,  1.0,  0.0))
+    z_dir_p = Vector(( 0.0,  0.0,  1.0))
+    if flt_lists_alm_eq(rot_vec, (0.0, 0.0, 0.0)) or \
+            flt_lists_alm_eq(rot_vec, z_dir_p):
+        return Matrix((x_dir_p, y_dir_p, z_dir_p))  # 3x3 identity
+    new_z = rot_vec.copy()  # rot_vec already normalized
+    new_y = new_z.cross(z_dir_p)
+    if flt_lists_alm_eq(new_y, (0.0, 0.0, 0.0)):
+        new_y = y_dir_p
+    new_x = new_y.cross(new_z)
+    new_x.normalize()
+    new_y.normalize()
+    return Matrix(((new_x.x, new_y.x, new_z.x),
+                   (new_x.y, new_y.y, new_z.y),
+                   (new_x.z, new_y.z, new_z.z)))
+
+
 # Uses axis_lock or piv_norm from RotDat to obtain rotation axis.
 # Then rotates selected objects or selected vertices around the
 # 3D cursor using RotDat's ang_diff_r radian value.
 def do_rotate(self):
+    #print("def do_rotate(self):")  # debug
+
+    axis_lock = RotDat.axis_lock
+    pivot = self.pts[2].co3d.copy()
+    if axis_lock is None:
+        #rot_matr = Matrix.Rotation(RotDat.ang_diff_r, 4, RotDat.piv_norm)
+        norml = RotDat.piv_norm
+        o_mat = create_z_orient(norml)
+
+        bpy.ops.transform.rotate(
+            value=RotDat.ang_diff_r, 
+            orient_axis='Z',
+            orient_type='LOCAL',
+            #orient_type='GLOBAL',
+            orient_matrix=o_mat,
+            orient_matrix_type='LOCAL',
+            center_override=pivot,
+            constraint_axis=(False, False, False))
+
+    else:
+        const_ax = False, False, False
+
+        # back up settings before changing them
+        piv_back = deepcopy(bpy.context.tool_settings.transform_pivot_point)
+        bpy.context.tool_settings.transform_pivot_point = 'CURSOR'
+        curs_loc_back = bpy.context.scene.cursor.location.copy()
+        bpy.context.scene.cursor.location = pivot.copy()
+        '''
+        if   axis_lock == 'X':  const_ax = True, False, False
+        elif axis_lock == 'Y':  const_ax = False, True, False
+        elif axis_lock == 'Z':  const_ax = False, False, True
+        '''
+        bpy.ops.transform.rotate(value=-RotDat.ang_diff_r, orient_axis=axis_lock,
+            center_override=pivot.copy(), constraint_axis=const_ax)
+
+        # restore settings back to their pre "do_rotate" state
+        bpy.context.scene.cursor.location = curs_loc_back.copy()
+        bpy.context.tool_settings.transform_pivot_point = deepcopy(piv_back)
+
+    editmode_refresh()
+
+        
+# Uses axis_lock or piv_norm from RotDat to obtain rotation axis.
+# Then rotates selected objects or selected vertices around the
+# 3D cursor using RotDat's ang_diff_r radian value.
+def do_rotate_old(self):
     # back up settings before changing them
-    piv_back = deepcopy(bpy.context.space_data.pivot_point)
-    curs_back = bpy.context.scene.cursor_location.copy()
-    bpy.context.space_data.pivot_point = 'CURSOR'
-    bpy.context.scene.cursor_location = self.pts[2].co3d.copy()
-    
+    piv_back = deepcopy(bpy.context.tool_settings.transform_pivot_point)
+    curs_back = bpy.context.scene.cursor.location.copy()
+    bpy.context.tool_settings.transform_pivot_point = 'CURSOR'
+    bpy.context.scene.cursor.location = self.pts[2].co3d.copy()
+
     axis_lock = RotDat.axis_lock
     ops_lock = ()  # axis lock data for bpy.ops.transform
     if   axis_lock is None: ops_lock = RotDat.piv_norm
@@ -1207,18 +1321,14 @@ def do_rotate(self):
     elif axis_lock == 'Y':  ops_lock = 0, 1, 0
     elif axis_lock == 'Z':  ops_lock = 0, 0, 1
 
-    if bpy.context.mode == "OBJECT":
-        bpy.ops.transform.rotate(value=RotDat.ang_diff_r, axis=ops_lock,
-                constraint_axis=(False, False, False))
+    bpy.ops.transform.rotate(value=RotDat.ang_diff_r, axis=ops_lock,
+            constraint_axis=(False, False, False))
 
-    elif bpy.context.mode == "EDIT_MESH":
-        bpy.ops.transform.rotate(value=RotDat.ang_diff_r, axis=ops_lock,
-                constraint_axis=(False, False, False))
-        editmode_refresh()
+    editmode_refresh()
 
     # restore settings back to their pre "do_rotate" state
-    bpy.context.scene.cursor_location = curs_back.copy()
-    bpy.context.space_data.pivot_point = deepcopy(piv_back)
+    bpy.context.scene.cursor.location = curs_back.copy()
+    bpy.context.tool_settings.transform_pivot_point = deepcopy(piv_back)
 
 
 # Updates lock points and changes curr_meas_stor to use measure based on
@@ -1297,6 +1407,7 @@ def do_transform(self):
 
     # Onto Transformations...
     if self.transf_type == MOVE:
+        #print("  MOVE!!")  # debug
         new_coor = get_new_3d_co(self, curr_meas_stor, new_meas_stor)
         if new_coor is not None:
             do_translation(new_coor, self.pts[0].co3d)
@@ -1304,7 +1415,7 @@ def do_transform(self):
         reset_settings(self)
 
     elif self.transf_type == SCALE:
-        #print("SCALE!!")  # debug
+        #print("  SCALE!!")  # debug
         new_coor = get_new_3d_co(self, curr_meas_stor, new_meas_stor)
         if new_coor is not None:
             scale_factor = new_meas_stor / curr_meas_stor
@@ -1319,9 +1430,9 @@ def do_transform(self):
         reset_settings(self)
 
 
-# Run after for XEditMeasureInputPanel pop-up disables popup_active.
+# Run after XEDIT_OT_meas_inp_dlg pop-up disables popup_active.
 # Checks to see if a valid number was input into the pop-up dialog and
-# determines what to do based on what the pop-up was supplied (if anything).
+# determines what to do based on what value was supplied to the pop-up.
 def process_popup_input(self):
     global curr_meas_stor, new_meas_stor
     #print("process_popup_input")  # debug
@@ -1409,20 +1520,6 @@ def draw_callback_px(self, context):
     lk_pts2d = None  # lock points 2D
     self.meas_btn.is_drawn = False  # todo : cleaner btn activation
 
-    # if the addon_mode is WAIT_FOR_POPUP, wait on POPUP to disable
-    # popup_active, then run process_popup_input
-    # would prefer not to do pop-up check inside draw_callback, but not sure
-    # how else to check for input. need higher level "input handler" class?
-    if self.addon_mode == WAIT_FOR_POPUP:
-        global popup_active
-        if not popup_active:
-            process_popup_input(self)
-            set_help_text(self, "CLICK")
-        
-    elif self.addon_mode == GET_0_OR_180:
-        choose_0_or_180(RotDat.lock_pts[2], RotDat.rot_pt_pos,
-                RotDat.rot_pt_neg, RotDat.ang_diff_r, self.mouse_co)
-
     # note, can't chain above if-elif block in with one below as
     # it breaks axis lock drawing
     if self.grab_pt is not None:  # not enabled if mod_pt active
@@ -1473,7 +1570,7 @@ def draw_callback_px(self, context):
             dpi = bpy.context.preferences.system.dpi
             font_id, txt_sz = 0, 32
             x_pos, y_pos = self.rtoolsw + 80, 36
-            bgl.glColor4f(*txt_colr)
+            blf.color(font_id, *txt_colr)
             blf.size(font_id, txt_sz, dpi)
             blf.position(font_id, x_pos, y_pos, 0)
             blf.draw(font_id, RotDat.axis_lock)
@@ -1509,7 +1606,7 @@ def draw_callback_px(self, context):
 
 def exit_addon(self):
     restore_blender_settings(self.settings_backup)
-    bpy.context.area.header_text_set()
+    bpy.context.area.header_text_set(None)
     # todo : reset openGL settings?
     #bgl.glColor4f()
     #blf.size()
@@ -1517,7 +1614,7 @@ def exit_addon(self):
     #print("\n\nAdd-On Exited\n")  # debug
 
 
-# Sees if "use_region_overlap" is enabled and X offset is needed.
+# Checks if "use_region_overlap" is enabled and X offset is needed.
 def get_reg_overlap():
     rtoolsw = 0  # region tools (toolbar) width
     #ruiw = 0  # region ui (Number/n-panel) width
@@ -1533,9 +1630,9 @@ def get_reg_overlap():
     return rtoolsw
 
 
-class XEditSetMeas(bpy.types.Operator):
+class XEDIT_OT_set_meas(bpy.types.Operator):
     bl_idname = "view3d.xedit_set_meas_op"
-    bl_label = "XEdit Set Measaure"
+    bl_label = "Exact Edit Set Measure"
 
     # Only launch Add-On from OBJECT or EDIT modes
     @classmethod
@@ -1543,6 +1640,7 @@ class XEditSetMeas(bpy.types.Operator):
         return context.mode == 'OBJECT' or context.mode == 'EDIT_MESH'
 
     def modal(self, context, event):
+        global popup_active
         context.area.tag_redraw()
 
         if event.type in {'A', 'MIDDLEMOUSE', 'WHEELUPMOUSE',
@@ -1607,7 +1705,7 @@ class XEditSetMeas(bpy.types.Operator):
             elif self.meas_btn.is_drawn and self.meas_btn.ms_over:
                 #print("\nMeas Button Clicked")
                 if can_transf(self):
-                    global popup_active
+                    #global popup_active
                     self.addon_mode = WAIT_FOR_POPUP
                     popup_active = True
                     set_help_text(self, "POPUP")
@@ -1642,13 +1740,13 @@ class XEditSetMeas(bpy.types.Operator):
                             if not self.shift_held:
                                 for sel in bm.select_history:
                                     if type(sel) is bmesh.types.BMVert:
-                                        co3d = m_w * sel.co
+                                        co3d = m_w @ sel.co
                                         break
                                     elif type(sel) is bmesh.types.BMEdge or \
                                             type(sel) is bmesh.types.BMFace:
                                         co3d = Vector()
                                         for v in sel.verts:
-                                            co3d += m_w * v.co
+                                            co3d += m_w @ v.co
                                         co3d = co3d / len(sel.verts)
                                         break
                             else:
@@ -1824,6 +1922,19 @@ class XEditSetMeas(bpy.types.Operator):
             exit_addon(self)
             return {'FINISHED'}
 
+        # if the addon_mode is WAIT_FOR_POPUP, wait on POPUP to disable
+        # popup_active, then run process_popup_input
+        # would prefer not to do pop-up check inside draw_callback, but not sure
+        # how else to check for input. need higher level "input handler" class?
+        if self.addon_mode == WAIT_FOR_POPUP:
+            if not popup_active:
+                process_popup_input(self)
+                set_help_text(self, "CLICK")
+  
+        elif self.addon_mode == GET_0_OR_180:
+            choose_0_or_180(RotDat.lock_pts[2], RotDat.rot_pt_pos,
+                    RotDat.rot_pt_neg, RotDat.ang_diff_r, self.mouse_co)
+
         return {'RUNNING_MODAL'}
 
     def invoke(self, context, event):
@@ -1832,8 +1943,8 @@ class XEditSetMeas(bpy.types.Operator):
 
             # Add the region OpenGL drawing callback
             # draw in view space with 'POST_VIEW' and 'PRE_VIEW'
-            self._handle = bpy.types.SpaceView3D.draw_handler_add(draw_callback_px,
-                    args, 'WINDOW', 'POST_PIXEL')
+            self._handle = bpy.types.SpaceView3D.draw_handler_add(
+                    draw_callback_px, args, 'WINDOW', 'POST_PIXEL')
 
             self.settings_backup = backup_blender_settings()
             self.mouse_co = Vector((event.mouse_region_x, event.mouse_region_y))
@@ -1859,8 +1970,8 @@ class XEditSetMeas(bpy.types.Operator):
             #self.pt_find_md = SLOW3DTO2D  # point find mode
             self.lmb_held = False
 
-            self.menu = MenuHandler("Set Measaure", 18, Colr.yellow, Colr.white, \
-                    self.rtoolsw, context.region)
+            self.menu = MenuHandler("Set Measaure", 18, Colr.yellow, \
+                    Colr.white, self.rtoolsw, context.region)
             self.menu.add_menu(["Move", "Scale"])
             self.menu.add_menu(["Rotate"])
 

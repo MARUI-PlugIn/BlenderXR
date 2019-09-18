@@ -1,6 +1,4 @@
 /*
- * Copyright 2011, Blender Foundation.
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,6 +12,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * Copyright 2011, Blender Foundation.
  */
 
 #include "COM_ChunkOrderHotspot.h"
@@ -21,16 +21,16 @@
 
 ChunkOrderHotspot::ChunkOrderHotspot(int x, int y, float addition)
 {
-	this->m_x = x;
-	this->m_y = y;
-	this->m_addition = addition;
+  this->m_x = x;
+  this->m_y = y;
+  this->m_addition = addition;
 }
 
 double ChunkOrderHotspot::determineDistance(int x, int y)
 {
-	int dx = x - this->m_x;
-	int dy = y - this->m_y;
-	double result = sqrt((double)(dx * dx + dy * dy));
-	result += (double)this->m_addition;
-	return result;
+  int dx = x - this->m_x;
+  int dy = y - this->m_y;
+  double result = sqrt((double)(dx * dx + dy * dy));
+  result += (double)this->m_addition;
+  return result;
 }

@@ -15,10 +15,10 @@
 * along with this program; if not, write to the Free Software Foundation,
 * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 *
-* The Original Code is Copyright (C) 2018 by Blender Foundation.
+* The Original Code is Copyright (C) 2019 by Blender Foundation.
 * All rights reserved.
 *
-* Contributor(s): MARUI-PlugIn
+* Contributor(s): MARUI-PlugIn, Multiplexed Reality
 *
 * ***** END GPL LICENSE BLOCK *****
 */
@@ -35,6 +35,8 @@ extern "C"
 {
 #endif
 
+#include "DNA_userdef_types.h"
+
 #define VR_MAX_CONTROLLERS 3 /* Maximum number of controllers that can be simultaneously supported. */
 
 #define VR_CLIP_NEAR 0.01f	/* Default near clip plane for the VR viewport (eye) cameras. (in real-world meters). */
@@ -46,7 +48,7 @@ typedef enum VR_Space
 	,
 	VR_SPACE_BLENDER	= 1 /* Blender coordinates. */
 	,
-	VR_SPACES			= 2 /* Number of coordinate systems. */
+	VR_SPACES = 2 /* Number of coordinate systems. */
 } VR_Space;
 
 typedef enum VR_Side
@@ -71,30 +73,18 @@ typedef enum VR_Type
 {
 	VR_TYPE_NULL	= 0	/* Empty null-implementation. */
 	,
-	VR_TYPE_OCULUS	= 1	/* Oculus OVR API was used for implementation. */
-	,
-	VR_TYPE_STEAM	= 2	/* SteamVR (Valve OpenVR) was used for implementation. */
+  VR_TYPE_OCULUS = 1 /* Oculus API was used for implementation. */
+  ,
+	VR_TYPE_STEAM	= 2 /* SteamVR (Valve OpenVR) was used for implementation. */
 	,
 	VR_TYPE_FOVE	= 3	/* Fove API was used for implementation. */
 	,
-	VR_TYPES		= 4	/* Number of VR types. */
+  VR_TYPE_OPENXR = 4 /* OpenXR API was used for implementation. */
+  ,
+  VR_TYPE_MAGICLEAP = 5 /* Magic Leap API was used for implementation. */
+  ,
+	VR_TYPES = 6 /* Number of VR types. */
 } VR_Type; 
-
-/* Enum defining VR UIs. */
-typedef enum VR_UI_Type 
-{
-	VR_UI_TYPE_NULL		= 0 /* No UI processing. */
-	,
-	VR_UI_TYPE_OCULUS	= 1 /* Oculus Touch UI. */
-	,
-	VR_UI_TYPE_VIVE		= 2 /* HTC Vive controller UI. */
-	,
-	VR_UI_TYPE_MICROSOFT= 3 /* Windows MR UI. */
-	,
-	VR_UI_TYPE_FOVE		= 4 /* Fove eye-tracking UI. */
-	,
-	VR_UI_TYPES			= 5 /* Number of VR UI types. */
-} VR_UI_Type;
 
 /* Simple struct for 3D input device information. */
 typedef struct VR_Controller {
@@ -105,6 +95,7 @@ typedef struct VR_Controller {
 	float	dpad[2];	/* Dpad / touchpad position (u,v). */
 	float	stick[2];	/* Joystick / thumbstick position (u,v). */
 	float	trigger_pressure;	/* Analog trigger pressure (0~1) (if available). */
+  float grip_pressure;  /* Analog grip pressure (0~1) (if available). */
 } VR_Controller;
 
 struct GPUOffscreen;
@@ -115,7 +106,7 @@ struct bContext;
 /* VR module struct. */
 typedef struct VR {
 	VR_Type	type;	/* Type of API used for the VR device. */
-	VR_UI_Type ui_type;	/* Type of VR UI used. */
+	VR_Device_Type device_type; /* Type of VR device used. */
 
 	int initialized;	/* Whether the base VR module was successfully initialized and currently active. */
 	int ui_initialized; /* Whether the VR UI module was successfully initialized and currently active. */
@@ -195,4 +186,3 @@ void vr_compute_viewmat(int side, float viewmat_out[4][4]);	/* Compute the VR ca
 #endif
 
 #endif /* __VR_MAIN_H__ */
-

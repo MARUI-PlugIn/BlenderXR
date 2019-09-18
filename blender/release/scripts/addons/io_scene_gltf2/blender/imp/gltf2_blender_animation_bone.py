@@ -1,4 +1,4 @@
-# Copyright 2018 The glTF-Blender-IO authors.
+# Copyright 2018-2019 The glTF-Blender-IO authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ from mathutils import Matrix
 
 from ..com.gltf2_blender_conversion import loc_gltf_to_blender, quaternion_gltf_to_blender, scale_to_matrix
 from ...io.imp.gltf2_io_binary import BinaryData
+from .gltf2_blender_animation_utils import simulate_stash, restore_last_action
 
 
 class BlenderBoneAnim():
@@ -34,8 +35,34 @@ class BlenderBoneAnim():
             kf.interpolation = 'CONSTANT'
         elif interpolation == "CUBICSPLINE":
             kf.interpolation = 'BEZIER'
+            kf.handle_right_type = 'AUTO'
+            kf.handle_left_type = 'AUTO'
         else:
             kf.interpolation = 'LINEAR'
+
+    @staticmethod
+    def stash_action(gltf, anim_idx, node_idx, action_name):
+        node = gltf.data.nodes[node_idx]
+        obj = bpy.data.objects[gltf.data.skins[node.skin_id].blender_armature_name]
+
+        if anim_idx not in node.animations.keys():
+            return
+
+        if (obj.name, action_name) in gltf.actions_stashed.keys():
+            return
+
+        start_frame = bpy.context.scene.frame_start
+
+        simulate_stash(obj, bpy.data.actions[action_name], start_frame)
+
+        gltf.actions_stashed[(obj.name, action_name)] = True
+
+    @staticmethod
+    def restore_last_action(gltf, node_idx):
+        node = gltf.data.nodes[node_idx]
+        obj = bpy.data.objects[gltf.data.skins[node.skin_id].blender_armature_name]
+
+        restore_last_action(obj)
 
     @staticmethod
     def parse_translation_channel(gltf, node, obj, bone, channel, animation):
@@ -101,7 +128,7 @@ class BlenderBoneAnim():
             quat_keyframes = [quaternion_gltf_to_blender(vals) for vals in values]
 
 
-        if not node.parent:
+        if node.parent is None:
             final_rots = [
                 bind_rotation.inverted() @ quat_keyframe
                 for quat_keyframe in quat_keyframes
@@ -157,7 +184,7 @@ class BlenderBoneAnim():
             )
         else:
             scale_mats = (scale_to_matrix(loc_gltf_to_blender(vals)) for vals in values)
-        if not node.parent:
+        if node.parent is None:
             final_scales = [
                 (bind_scale.inverted() @ scale_mat).to_scale()
                 for scale_mat in scale_mats
@@ -205,6 +232,7 @@ class BlenderBoneAnim():
             # Setting interpolation
             for kf in fcurve.keyframe_points:
                 BlenderBoneAnim.set_interpolation(interpolation, kf)
+            fcurve.update() # force updating tangents (this may change when tangent will be managed)
 
     @staticmethod
     def anim(gltf, anim_idx, node_idx):
@@ -222,6 +250,12 @@ class BlenderBoneAnim():
             name = animation.name + "_" + obj.name
         else:
             name = "Animation_" + str(anim_idx) + "_" + obj.name
+        if len(name) >= 63:
+            # Name is too long to be kept, we are going to keep only animation name for now
+            name = animation.name
+            if len(name) >= 63:
+                # Very long name!
+                name = "Animation_" + str(anim_idx)
         if name not in bpy.data.actions:
             action = bpy.data.actions.new(name)
         else:

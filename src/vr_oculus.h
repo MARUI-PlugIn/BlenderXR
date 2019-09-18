@@ -6,24 +6,25 @@
  ***************************************************************************************************
  * \brief     Oculus Rift HMD module.
  * \copyright MARUI-PlugIn (inc.)
+ * \contributors Multiplexed Reality
  **************************************************************************************************/
 #ifndef __VR_OCULUS_H__
 #define __VR_OCULUS_H__
 
-#include <OVR_CAPI_D3D.h>
+#include "OVR_CAPI_D3D.h"
 
-#include <GL/CAPI_GLE.h>
-#include <OVR_CAPI_GL.h>
-#include <Extras/OVR_Math.h>
+#include "GL/CAPI_GLE.h"
+#include "OVR_CAPI_GL.h"
+#include "Extras/OVR_Math.h"
 
 #include "vr.h"
 
 #define VR_OCULUS_TOUCHTHRESHOLD_STICKDIRECTION		0.4f	//!< Threshold for thumb-stick interaction to be registered as an direction to somewhere to be a "touch".
 #define VR_OCULUS_PRESSTHRESHOLD_STICKDIRECTION		0.9f	//!< Threshold for thumb-stick interaction to be registered as an direction to somewhere to be a "touch".
-#define VR_OCULUS_PRESSTHRESHOLD_INDEXTRIGGER		0.35f   //!< Threshold for the index trigger to be considered a "button press".
 #define VR_OCULUS_TOUCHTHRESHOLD_INDEXTRIGGER		0.05f   //!< Threshold for the index trigger to be considered a "button touch".
-#define VR_OCULUS_PRESSTHRESHOLD_SHOULDERGRIP		0.85f   //!< Threshold for the shoulder/grip to be considered a "button press".
-#define VR_OCULUS_TOUCHTHRESHOLD_SHOULDERGRIP		0.4f	//!< Threshold for the shoulder/grip to be considered a "button touch".
+#define VR_OCULUS_PRESSTHRESHOLD_INDEXTRIGGER		0.35f   //!< Threshold for the index trigger to be considered a "button press".
+#define VR_OCULUS_TOUCHTHRESHOLD_HANDTRIGGER		0.4f	//!< Threshold for the hand trigger (grip) to be considered a "button touch".
+#define VR_OCULUS_PRESSTHRESHOLD_HANDTRIGGER		0.85f   //!< Threshold for the hand trigger (grip) to be considered a "button press".
 
 // Widget_Layout button bits.
 #define VR_OCULUS_BTNBIT_LEFTTRIGGER	(uint64_t(1) << 0)		//!< Button bit for the left trigger.
@@ -42,7 +43,8 @@
 #define VR_OCULUS_BTNBIT_Y				(uint64_t(1) << 19)		//!< Button bit for pressing the "Y" button.
 #define VR_OCULUS_BTNBIT_A				(uint64_t(1) << 20)		//!< Button bit for pressing the "A" button.
 #define VR_OCULUS_BTNBIT_B				(uint64_t(1) << 21)		//!< Button bit for pressing the "B" button.
-#define VR_OCULUS_BTNBIT_E				(uint64_t(1) << 22)		//!< Button bit for pressing the "Enter" button.
+#define VR_OCULUS_BTNBIT_MENU			(uint64_t(1) << 22)		//!< Button bit for pressing the menu (enter) button.
+#define VR_OCULUS_BTNBIT_SYSTEM			(uint64_t(1) << 23)		//!< Button bit for pressing the system (home) button.
 
 // Static-use wrapper for use in C projects that can't use the class definition.
 extern "C" __declspec(dllexport) int c_createVR();	//!< Create n object internally. Must be called before the functions below.

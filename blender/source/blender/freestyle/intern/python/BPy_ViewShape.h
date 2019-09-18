@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup freestyle
+/** \file
+ * \ingroup freestyle
  */
 
 #ifndef __FREESTYLE_PYTHON_VIEWSHAPE_H__
@@ -42,10 +43,9 @@ extern PyTypeObject ViewShape_Type;
 
 /*---------------------------Python BPy_ViewShape structure definition----------*/
 typedef struct {
-	PyObject_HEAD
-	ViewShape *vs;
-	bool borrowed; /* true if *vs a borrowed object */
-	BPy_SShape *py_ss;
+  PyObject_HEAD ViewShape *vs;
+  bool borrowed; /* true if *vs a borrowed object */
+  BPy_SShape *py_ss;
 } BPy_ViewShape;
 
 /*---------------------------Python BPy_ViewShape visible prototypes-----------*/

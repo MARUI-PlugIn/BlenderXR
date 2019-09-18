@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup freestyle
+/** \file
+ * \ingroup freestyle
  */
 
 #ifndef __FREESTYLE_PYTHON_CHAIN_H__
@@ -36,8 +37,8 @@ extern PyTypeObject Chain_Type;
 
 /*---------------------------Python BPy_Chain structure definition----------*/
 typedef struct {
-	BPy_FrsCurve py_c;
-	Chain *c;
+  BPy_FrsCurve py_c;
+  Chain *c;
 } BPy_Chain;
 
 ///////////////////////////////////////////////////////////////////////////////////////////

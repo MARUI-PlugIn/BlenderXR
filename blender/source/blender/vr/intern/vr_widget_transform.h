@@ -15,10 +15,10 @@
 * along with this program; if not, write to the Free Software Foundation,
 * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 *
-* The Original Code is Copyright (C) 2018 by Blender Foundation.
+* The Original Code is Copyright (C) 2019 by Blender Foundation.
 * All rights reserved.
 *
-* Contributor(s): MARUI-PlugIn
+* Contributor(s): MARUI-PlugIn, Multiplexed Reality
 *
 * ***** END GPL LICENSE BLOCK *****
 */
@@ -32,9 +32,13 @@
 
 #include "vr_widget.h"
 
+/* Whether to scale the manipulator to the selected object(s). */
+#define WIDGET_TRANSFORM_SCALE_MANIP_TO_SELECTION 0
+
 /* Interaction widget for the Transform tool. */
 class Widget_Transform : public VR_Widget
 {
+	friend class Widget_Sculpt;
 	friend class Widget_LoopCut;
 	friend class Widget_Extrude;
 	friend class Widget_SwitchLayout;
@@ -43,6 +47,7 @@ class Widget_Transform : public VR_Widget
 	friend class Widget_SwitchTool;
 	friend class Widget_Menu;
 
+  /* Possible transform modes. */
 	typedef enum TransformMode {
 		TRANSFORMMODE_OMNI = 0	/* 9DoF transformation mode. */
 		,
@@ -81,7 +86,7 @@ class Widget_Transform : public VR_Widget
 public:
 	static void update_manipulator();	/* Update the manipulator transform. */
 protected:
-	static void render_axes(const float length[3], int draw_style = 0); /* Render manipulator axes. */
+	static void render_axes(VR_Side side, const float length[3], int draw_style = 0); /* Render manipulator axes. */
 	static void render_planes(const float length[3]);	/* Render manipulator planes. */
 	static void render_gimbal(const float radius[3], const bool filled,
 							  const float axis_modal_mat[4][4], const float clip_plane[4],

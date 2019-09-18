@@ -14,8 +14,9 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup freestyle
- *  \brief Class to display an oriented line representation.
+/** \file
+ * \ingroup freestyle
+ * \brief Class to display an oriented line representation.
  */
 
 #include "OrientedLineRep.h"
@@ -24,13 +25,15 @@
 
 namespace Freestyle {
 
-void OrientedLineRep::accept(SceneVisitor& v)
+void OrientedLineRep::accept(SceneVisitor &v)
 {
-	Rep::accept(v);
-	if (!frs_material())
-		v.visitOrientedLineRep(*this);
-	else
-		v.visitLineRep(*this);
+  Rep::accept(v);
+  if (!frs_material()) {
+    v.visitOrientedLineRep(*this);
+  }
+  else {
+    v.visitLineRep(*this);
+  }
 }
 
 } /* namespace Freestyle */

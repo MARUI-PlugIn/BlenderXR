@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup freestyle
+/** \file
+ * \ingroup freestyle
  */
 
 #ifndef __FREESTYLE_PYTHON_STROKE_H__
@@ -32,12 +33,12 @@ extern "C" {
 
 extern PyTypeObject Stroke_Type;
 
-#define BPy_Stroke_Check(v)	(((PyObject *)v)->ob_type == &Stroke_Type)
+#define BPy_Stroke_Check(v) (((PyObject *)v)->ob_type == &Stroke_Type)
 
 /*---------------------------Python BPy_Stroke structure definition----------*/
 typedef struct {
-	BPy_Interface1D py_if1D;
-	Stroke *s;
+  BPy_Interface1D py_if1D;
+  Stroke *s;
 } BPy_Stroke;
 
 ///////////////////////////////////////////////////////////////////////////////////////////

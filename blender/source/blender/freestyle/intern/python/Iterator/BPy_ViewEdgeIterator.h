@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup freestyle
+/** \file
+ * \ingroup freestyle
  */
 
 #ifndef __FREESTYLE_PYTHON_VIEWEDGEITERATOR_H__
@@ -32,12 +33,13 @@ extern "C" {
 
 extern PyTypeObject ViewEdgeIterator_Type;
 
-#define BPy_ViewEdgeIterator_Check(v) (PyObject_IsInstance((PyObject *)v, (PyObject *)&ViewEdgeIterator_Type))
+#define BPy_ViewEdgeIterator_Check(v) \
+  (PyObject_IsInstance((PyObject *)v, (PyObject *)&ViewEdgeIterator_Type))
 
 /*---------------------------Python BPy_ViewEdgeIterator structure definition----------*/
 typedef struct {
-	BPy_Iterator py_it;
-	ViewEdgeInternal::ViewEdgeIterator *ve_it;
+  BPy_Iterator py_it;
+  ViewEdgeInternal::ViewEdgeIterator *ve_it;
 } BPy_ViewEdgeIterator;
 
 ///////////////////////////////////////////////////////////////////////////////////////////

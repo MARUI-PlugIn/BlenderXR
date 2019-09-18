@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup collada
+/** \file
+ * \ingroup collada
  */
 
 #ifndef __ARMATUREEXPORTER_H__
@@ -46,54 +47,61 @@ class SceneExporter;
 // XXX exporter writes wrong data for shared armatures.  A separate
 // controller should be written for each armature-mesh binding how do
 // we make controller ids then?
-class ArmatureExporter : public COLLADASW::LibraryControllers, protected TransformWriter, protected InstanceWriter
-{
-public:
+class ArmatureExporter : public COLLADASW::LibraryControllers,
+                         protected TransformWriter,
+                         protected InstanceWriter {
+ public:
+  // XXX exporter writes wrong data for shared armatures.  A separate
+  // controller should be written for each armature-mesh binding how do
+  // we make controller ids then?
+  ArmatureExporter(BlenderContext &blender_context,
+                   COLLADASW::StreamWriter *sw,
+                   BCExportSettings &export_settings)
+      : COLLADASW::LibraryControllers(sw),
+        blender_context(blender_context),
+        export_settings(export_settings)
+  {
+  }
 
-	// XXX exporter writes wrong data for shared armatures.  A separate
-	// controller should be written for each armature-mesh binding how do
-	// we make controller ids then?
-	ArmatureExporter(BlenderContext &blender_context, COLLADASW::StreamWriter *sw, const ExportSettings *export_settings) :
-		COLLADASW::LibraryControllers(sw),
-		blender_context(blender_context),
-		export_settings(export_settings)
-	{}
+  void add_armature_bones(Object *ob_arm,
+                          ViewLayer *view_layer,
+                          SceneExporter *se,
+                          std::vector<Object *> &child_objects);
 
-	void add_armature_bones(
-		Object *ob_arm,
-		ViewLayer *view_layer,
-		SceneExporter *se,
-		std::vector<Object *>& child_objects);
+  bool add_instance_controller(Object *ob);
 
-	bool add_instance_controller(Object *ob);
-
-private:
-	BlenderContext &blender_context;
-	const ExportSettings *export_settings;
+ private:
+  BlenderContext &blender_context;
+  BCExportSettings &export_settings;
 
 #if 0
-	std::vector<Object *> written_armatures;
+  std::vector<Object *> written_armatures;
 
-	bool already_written(Object *ob_arm);
+  bool already_written(Object *ob_arm);
 
-	void wrote(Object *ob_arm);
+  void wrote(Object *ob_arm);
 
-	void find_objects_using_armature(Object *ob_arm, std::vector<Object *>& objects, Scene *sce);
+  void find_objects_using_armature(Object *ob_arm, std::vector<Object *> &objects, Scene *sce);
 #endif
 
-	// Scene, SceneExporter and the list of child_objects
-	// are required for writing bone parented objects
-	void add_bone_node(
-		Bone *bone,
-		Object *ob_arm,
-		SceneExporter *se,
-		std::vector<Object *>& child_objects);
+  // Scene, SceneExporter and the list of child_objects
+  // are required for writing bone parented objects
+  void add_bone_node(Bone *bone,
+                     Object *ob_arm,
+                     SceneExporter *se,
+                     std::vector<Object *> &child_objects);
 
-	void add_bone_transform(Object *ob_arm, Bone *bone, COLLADASW::Node& node);
+  inline bool can_export(Bone *bone)
+  {
+    return !(export_settings.get_deform_bones_only() && bone->flag & BONE_NO_DEFORM);
+  }
 
-	std::string get_controller_id(Object *ob_arm, Object *ob);
+  bool is_export_root(Bone *bone);
+  void add_bone_transform(Object *ob_arm, Bone *bone, COLLADASW::Node &node);
 
-	void write_bone_URLs(COLLADASW::InstanceController &ins, Object *ob_arm, Bone *bone);
+  std::string get_controller_id(Object *ob_arm, Object *ob);
+
+  void write_bone_URLs(COLLADASW::InstanceController &ins, Object *ob_arm, Bone *bone);
 };
 
 #endif

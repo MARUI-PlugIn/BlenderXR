@@ -1,19 +1,16 @@
 
-uniform mat4 ModelViewProjectionMatrix;
+uniform float maskOpacity;
 
 in vec3 pos;
 in float msk;
 
-#ifdef SHADE_FLAT
-flat out vec4 finalColor;
-#else
 out vec4 finalColor;
-#endif
 
 void main()
 {
-	gl_Position = ModelViewProjectionMatrix * vec4(pos, 1.0);
+  vec3 world_pos = point_object_to_world(pos);
+  gl_Position = point_world_to_ndc(world_pos);
 
-	float mask = 1.0 - msk * 0.75;
-	finalColor = vec4(mask, mask, mask, 1.0);
+  float mask = 1.0 - (msk * maskOpacity);
+  finalColor = vec4(mask, mask, mask, 1.0);
 }

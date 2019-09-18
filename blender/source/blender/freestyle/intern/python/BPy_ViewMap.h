@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup freestyle
+/** \file
+ * \ingroup freestyle
  */
 
 #ifndef __FREESTYLE_PYTHON_VIEWMAP_H__
@@ -40,8 +41,7 @@ extern PyTypeObject ViewMap_Type;
 
 /*---------------------------Python BPy_ViewMap structure definition----------*/
 typedef struct {
-	PyObject_HEAD
-	ViewMap *vm;
+  PyObject_HEAD ViewMap *vm;
 } BPy_ViewMap;
 
 /*---------------------------Python BPy_ViewMap visible prototypes-----------*/

@@ -20,7 +20,8 @@
 #ifndef __SUBDIV_CONVERTER_H__
 #define __SUBDIV_CONVERTER_H__
 
-/** \file \ingroup bke
+/** \file
+ * \ingroup bke
  */
 
 #include "BKE_subdiv.h"
@@ -45,12 +46,10 @@ void BKE_subdiv_converter_free(struct OpenSubdiv_Converter *converter);
 
 /* TODO(sergey): Find a way to make it OpenSubdiv_VtxBoundaryInterpolation,
  * without breaking compilation without OpenSubdiv. */
-int BKE_subdiv_converter_vtx_boundary_interpolation_from_settings(
-        const SubdivSettings *settings);
+int BKE_subdiv_converter_vtx_boundary_interpolation_from_settings(const SubdivSettings *settings);
 
 /* TODO(sergey): Find a way to make it OpenSubdiv_FVarLinearInterpolation,
  * without breaking compilation without OpenSubdiv. */
-int BKE_subdiv_converter_fvar_linear_from_settings(
-        const SubdivSettings *settings);
+int BKE_subdiv_converter_fvar_linear_from_settings(const SubdivSettings *settings);
 
-#endif  /* __SUBDIV_CONVERTER_H__ */
+#endif /* __SUBDIV_CONVERTER_H__ */

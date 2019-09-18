@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup freestyle
+/** \file
+ * \ingroup freestyle
  */
 
 #ifndef __FREESTYLE_PYTHON_UNARYFUNCTION1DVOID_H__
@@ -30,17 +31,17 @@ extern "C" {
 
 extern PyTypeObject UnaryFunction1DVoid_Type;
 
-#define BPy_UnaryFunction1DVoid_Check(v) (PyObject_IsInstance((PyObject *)v, (PyObject *)&UnaryFunction1DVoid_Type))
+#define BPy_UnaryFunction1DVoid_Check(v) \
+  (PyObject_IsInstance((PyObject *)v, (PyObject *)&UnaryFunction1DVoid_Type))
 
 /*---------------------------Python BPy_UnaryFunction1DVoid structure definition----------*/
 typedef struct {
-	BPy_UnaryFunction1D py_uf1D;
-	UnaryFunction1D_void *uf1D_void;
+  BPy_UnaryFunction1D py_uf1D;
+  UnaryFunction1D_void *uf1D_void;
 } BPy_UnaryFunction1DVoid;
 
 /*---------------------------Python BPy_UnaryFunction1DVoid visible prototypes-----------*/
 int UnaryFunction1DVoid_Init(PyObject *module);
-
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 

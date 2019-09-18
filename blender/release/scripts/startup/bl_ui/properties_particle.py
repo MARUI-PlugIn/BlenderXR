@@ -21,9 +21,10 @@ import bpy
 from bpy.types import Panel, Menu
 from rna_prop_ui import PropertyPanel
 from bpy.app.translations import pgettext_iface as iface_
-from bl_operators.presets import PresetMenu
+from bpy.app.translations import contexts as i18n_contexts
+from bl_ui.utils import PresetPanel
 
-from .properties_physics_common import (
+from bl_ui.properties_physics_common import (
     point_cache_ui,
     effector_weights_ui,
     basic_force_field_settings_ui,
@@ -65,11 +66,11 @@ def particle_get_settings(context):
     return None
 
 
-class PARTICLE_MT_specials(Menu):
+class PARTICLE_MT_context_menu(Menu):
     bl_label = "Particle Specials"
     COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE', 'BLENDER_WORKBENCH'}
 
-    def draw(self, context):
+    def draw(self, _context):
         layout = self.layout
 
         props = layout.operator(
@@ -95,7 +96,7 @@ class PARTICLE_MT_specials(Menu):
         )
 
 
-class PARTICLE_PT_hair_dynamics_presets(PresetMenu):
+class PARTICLE_PT_hair_dynamics_presets(PresetPanel, Panel):
     bl_label = "Hair Dynamics Presets"
     preset_subdir = "hair_dynamics"
     preset_operator = "script.execute_preset"
@@ -122,7 +123,7 @@ def find_modifier(ob, psys):
 
 class PARTICLE_UL_particle_systems(bpy.types.UIList):
 
-    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index, flt_flag):
+    def draw_item(self, _context, layout, data, item, icon, _active_data, _active_propname, _index, _flt_flag):
         ob = data
         psys = item
 
@@ -179,12 +180,10 @@ class PARTICLE_PT_context_particles(ParticleButtonsPanel, Panel):
 
             col.separator()
 
-            col.menu("PARTICLE_MT_specials", icon='DOWNARROW_HLT', text="")
+            col.menu("PARTICLE_MT_context_menu", icon='DOWNARROW_HLT', text="")
 
         if psys is None:
             part = particle_get_settings(context)
-
-            layout.operator("object.particle_system_add", icon='ADD', text="New")
 
             if part is None:
                 return
@@ -225,7 +224,7 @@ class PARTICLE_PT_context_particles(ParticleButtonsPanel, Panel):
                 else:
                     row = split.row()
                     row.enabled = particle_panel_enabled(context, psys)
-                    row.prop(part, "regrow_hair")
+                    row.prop(part, "use_regrow_hair")
                     row.prop(part, "use_advanced_hair")
 
                 if psys is not None and psys.is_edited:
@@ -379,7 +378,6 @@ class PARTICLE_PT_hair_dynamics(ParticleButtonsPanel, Panel):
 
         col = layout.column()
         col.prop(cloth, "quality", text="Quality Steps", slider=True)
-        col.prop(psys.settings, "show_hair_grid", text="Display Hair Grid")
 
         layout.separator()
 
@@ -479,8 +477,10 @@ class PARTICLE_PT_cache(ParticleButtonsPanel, Panel):
 
     @classmethod
     def poll(cls, context):
-        psys = context.particle_system
         engine = context.engine
+        if engine not in cls.COMPAT_ENGINES:
+            return False
+        psys = context.particle_system
         if psys is None:
             return False
         if psys.settings is None:
@@ -488,19 +488,19 @@ class PARTICLE_PT_cache(ParticleButtonsPanel, Panel):
         if psys.settings.is_fluid:
             return False
         phystype = psys.settings.physics_type
-        if phystype == 'NO' or phystype == 'KEYED':
+        if phystype in {'NO', 'KEYED'}:
             return False
         return (
-            (psys.settings.type in {'EMITTER', 'REACTOR'} or
-             (psys.settings.type == 'HAIR' and
-              (psys.use_hair_dynamics or psys.point_cache.is_baked))) and
-            engine in cls.COMPAT_ENGINES
+            psys.settings.type in {'EMITTER', 'REACTOR'} or (
+                (psys.settings.type == 'HAIR') and
+                (psys.use_hair_dynamics or psys.point_cache.is_baked)
+            )
         )
 
     def draw(self, context):
         psys = context.particle_system
 
-        point_cache_ui(self, context, psys.point_cache, True, 'HAIR' if (psys.settings.type == 'HAIR') else 'PSYS')
+        point_cache_ui(self, psys.point_cache, True, 'HAIR' if (psys.settings.type == 'HAIR') else 'PSYS')
 
 
 class PARTICLE_PT_velocity(ParticleButtonsPanel, Panel):
@@ -662,7 +662,7 @@ class PARTICLE_PT_physics(ParticleButtonsPanel, Panel):
         if part.physics_type != 'NO':
             col = col.column()
             col.prop(part, "mass")
-            col.prop(part, "use_multiply_size_mass", text="Multiply mass with size")
+            col.prop(part, "use_multiply_size_mass", text="Multiply Mass with Size")
 
         if part.physics_type == 'FLUID':
             fluid = part.fluid
@@ -676,12 +676,10 @@ class PARTICLE_PT_physics(ParticleButtonsPanel, Panel):
         elif part.physics_type == 'KEYED':
 
             sub = col.column()
-            sub.active = not psys.use_keyed_timing
+            sub.active = not psys or not psys.use_keyed_timing
             sub.prop(part, "keyed_loops", text="Loops")
             if psys:
                 col.prop(psys, "use_keyed_timing", text="Use Timing")
-
-            col.label(text="Keys")
 
 
 class PARTICLE_PT_physics_fluid_advanced(ParticleButtonsPanel, Panel):
@@ -693,10 +691,7 @@ class PARTICLE_PT_physics_fluid_advanced(ParticleButtonsPanel, Panel):
     @classmethod
     def poll(cls, context):
         part = particle_get_settings(context)
-        if part.physics_type == 'FLUID':
-            return True
-        else:
-            return False
+        return part.physics_type == 'FLUID'
 
     def draw(self, context):
         layout = self.layout
@@ -709,15 +704,15 @@ class PARTICLE_PT_physics_fluid_advanced(ParticleButtonsPanel, Panel):
 
         if fluid.solver == 'DDR':
             sub = col.column()
-            sub.prop(fluid, "repulsion", slider=fluid.factor_repulsion)
-            sub.prop(fluid, "factor_repulsion")
+            sub.prop(fluid, "repulsion", slider=fluid.use_factor_repulsion)
+            sub.prop(fluid, "use_factor_repulsion")
 
-            sub.prop(fluid, "stiff_viscosity", slider=fluid.factor_stiff_viscosity)
-            sub.prop(fluid, "factor_stiff_viscosity")
+            sub.prop(fluid, "stiff_viscosity", slider=fluid.use_factor_stiff_viscosity)
+            sub.prop(fluid, "use_factor_stiff_viscosity")
 
         sub = col.column()
-        sub.prop(fluid, "fluid_radius", slider=fluid.factor_radius)
-        sub.prop(fluid, "factor_radius")
+        sub.prop(fluid, "fluid_radius", slider=fluid.use_factor_radius)
+        sub.prop(fluid, "use_factor_radius")
 
         sub.prop(fluid, "rest_density", slider=fluid.use_factor_density)
         sub.prop(fluid, "use_factor_density")
@@ -742,10 +737,7 @@ class PARTICLE_PT_physics_fluid_springs(ParticleButtonsPanel, Panel):
     def poll(cls, context):
         part = particle_get_settings(context)
         fluid = part.fluid
-        if part.physics_type == 'FLUID' and fluid.solver == 'DDR':
-            return True
-        else:
-            return False
+        return part.physics_type == 'FLUID' and fluid.solver == 'DDR'
 
     def draw(self, context):
         layout = self.layout
@@ -769,10 +761,7 @@ class PARTICLE_PT_physics_fluid_springs_viscoelastic(ParticleButtonsPanel, Panel
     def poll(cls, context):
         part = particle_get_settings(context)
         fluid = part.fluid
-        if part.physics_type == 'FLUID' and fluid.solver == 'DDR':
-            return True
-        else:
-            return False
+        return part.physics_type == 'FLUID' and fluid.solver == 'DDR'
 
     def draw_header(self, context):
         part = particle_get_settings(context)
@@ -808,10 +797,7 @@ class PARTICLE_PT_physics_fluid_springs_advanced(ParticleButtonsPanel, Panel):
     def poll(cls, context):
         part = particle_get_settings(context)
         fluid = part.fluid
-        if part.physics_type == 'FLUID' and fluid.solver == 'DDR':
-            return True
-        else:
-            return False
+        return part.physics_type == 'FLUID' and fluid.solver == 'DDR'
 
     def draw(self, context):
         layout = self.layout
@@ -821,8 +807,8 @@ class PARTICLE_PT_physics_fluid_springs_advanced(ParticleButtonsPanel, Panel):
         fluid = part.fluid
 
         sub = layout.column()
-        sub.prop(fluid, "rest_length", slider=fluid.factor_rest_length)
-        sub.prop(fluid, "factor_rest_length")
+        sub.prop(fluid, "rest_length", slider=fluid.use_factor_rest_length)
+        sub.prop(fluid, "use_factor_rest_length")
 
 
 class PARTICLE_PT_physics_boids_movement(ParticleButtonsPanel, Panel):
@@ -834,7 +820,7 @@ class PARTICLE_PT_physics_boids_movement(ParticleButtonsPanel, Panel):
     @classmethod
     def poll(cls, context):
         part = particle_get_settings(context)
-        return part.physics_type in {'BOIDS'}
+        return part.physics_type == 'BOIDS'
 
     def draw(self, context):
         layout = self.layout
@@ -887,7 +873,7 @@ class PARTICLE_PT_physics_boids_battle(ParticleButtonsPanel, Panel):
     @classmethod
     def poll(cls, context):
         part = particle_get_settings(context)
-        return part.physics_type in {'BOIDS'}
+        return part.physics_type == 'BOIDS'
 
     def draw(self, context):
         layout = self.layout
@@ -914,7 +900,7 @@ class PARTICLE_PT_physics_boids_misc(ParticleButtonsPanel, Panel):
     @classmethod
     def poll(cls, context):
         part = particle_get_settings(context)
-        return part.physics_type in {'BOIDS'}
+        return part.physics_type == 'BOIDS'
 
     def draw(self, context):
         layout = self.layout
@@ -938,8 +924,9 @@ class PARTICLE_PT_physics_relations(ParticleButtonsPanel, Panel):
 
     @classmethod
     def poll(cls, context):
+        psys = context.particle_system
         part = particle_get_settings(context)
-        return part.physics_type in {'KEYED', 'BOIDS', 'FLUID'}
+        return psys and part.physics_type in {'KEYED', 'BOIDS'}
 
     def draw(self, context):
         layout = self.layout
@@ -982,12 +969,47 @@ class PARTICLE_PT_physics_relations(ParticleButtonsPanel, Panel):
                 sub.prop(key, "object")
                 sub.prop(key, "system", text="System")
                 layout.prop(key, "alliance")
-            elif part.physics_type == 'FLUID':
-                sub = layout.column()
-                # doesn't work yet
-                #sub.alert = key.valid
-                sub.prop(key, "object")
-                sub.prop(key, "system", text="System")
+
+
+class PARTICLE_PT_physics_fluid_interaction(ParticleButtonsPanel, Panel):
+    bl_label = "Fluid Interaction"
+    bl_parent_id = "PARTICLE_PT_physics"
+    bl_options = {'DEFAULT_CLOSED'}
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE', 'BLENDER_WORKBENCH'}
+
+    @classmethod
+    def poll(cls, context):
+        part = particle_get_settings(context)
+        return part.physics_type == 'FLUID'
+
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = True
+
+        psys = context.particle_system
+
+        row = layout.row()
+        row.template_list("UI_UL_list", "particle_targets", psys, "targets",
+                          psys, "active_particle_target_index", rows=4)
+
+        col = row.column()
+        sub = col.row()
+        subsub = sub.column(align=True)
+        subsub.operator("particle.new_target", icon='ADD', text="")
+        subsub.operator("particle.target_remove", icon='REMOVE', text="")
+        sub = col.row()
+        subsub = sub.column(align=True)
+        subsub.operator("particle.target_move_up", icon='TRIA_UP', text="")
+        subsub.operator("particle.target_move_down", icon='TRIA_DOWN', text="")
+
+        key = psys.active_particle_target
+
+        if key:
+            sub = layout.column()
+            # doesn't work yet
+            #sub.alert = key.valid
+            sub.prop(key, "object")
+            sub.prop(key, "system", text="System")
 
 
 class PARTICLE_PT_physics_deflection(ParticleButtonsPanel, Panel):
@@ -1025,7 +1047,7 @@ class PARTICLE_PT_physics_forces(ParticleButtonsPanel, Panel):
     @classmethod
     def poll(cls, context):
         part = particle_get_settings(context)
-        return part.physics_type == 'NEWTON'
+        return part.physics_type in {'NEWTON', 'FLUID'}
 
     def draw(self, context):
         layout = self.layout
@@ -1052,7 +1074,7 @@ class PARTICLE_PT_physics_integration(ParticleButtonsPanel, Panel):
     @classmethod
     def poll(cls, context):
         part = particle_get_settings(context)
-        return part.physics_type == 'NEWTON'
+        return part.physics_type in {'NEWTON', 'FLUID'}
 
     def draw(self, context):
         layout = self.layout
@@ -1210,8 +1232,7 @@ class PARTICLE_PT_render(ParticleButtonsPanel, Panel):
                 part.type == 'EMITTER' or
                 (part.render_type in {'OBJECT', 'COLLECTION'} and part.type == 'HAIR')
         ):
-            if part.render_type not in {'NONE'}:
-
+            if part.render_type != 'NONE':
                 col = layout.column(align=True)
                 col.prop(part, "particle_size", text="Scale")
                 col.prop(part, "size_random", slider=True, text="Scale Randomness")
@@ -1253,31 +1274,6 @@ class PARTICLE_PT_render_extra(ParticleButtonsPanel, Panel):
         col.prop(part, "use_dead", text="Dead")
 
 
-class PARTICLE_PT_render_line(ParticleButtonsPanel, Panel):
-    bl_label = "Line"
-    bl_parent_id = "PARTICLE_PT_render"
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE', 'BLENDER_WORKBENCH'}
-
-    @classmethod
-    def poll(cls, context):
-        part = particle_get_settings(context)
-        return part.render_type == 'LINE'
-
-    def draw(self, context):
-        layout = self.layout
-        layout.use_property_split = True
-
-        part = particle_get_settings(context)
-
-        col = layout.column()
-
-        col.separator()
-        sub = col.column(align=True)
-        sub.prop(part, "line_length_tail", text="Length Tail")
-        sub.prop(part, "line_length_head", text="Head")
-        col.prop(part, "use_velocity_length", text="Velocity Length")
-
-
 class PARTICLE_PT_render_path(ParticleButtonsPanel, Panel):
     bl_label = "Path"
     bl_parent_id = "PARTICLE_PT_render"
@@ -1295,17 +1291,6 @@ class PARTICLE_PT_render_path(ParticleButtonsPanel, Panel):
         part = particle_get_settings(context)
 
         col = layout.column()
-
-        col.prop(part, "use_strand_primitive")
-        sub = col.column()
-        sub.active = (part.use_strand_primitive is False)
-        sub.prop(part, "use_render_adaptive")
-        sub = col.column()
-        sub.active = part.use_render_adaptive or part.use_strand_primitive is True
-        sub.prop(part, "adaptive_angle")
-        sub = col.column()
-        sub.active = (part.use_render_adaptive is True and part.use_strand_primitive is False)
-        sub.prop(part, "adaptive_pixel")
         col.prop(part, "use_hair_bspline")
         col.prop(part, "render_step", text="Steps")
 
@@ -1334,8 +1319,6 @@ class PARTICLE_PT_render_path_timing(ParticleButtonsPanel, Panel):
 
         if part.type == 'HAIR' or psys.point_cache.is_baked:
             col.prop(part, "path_start", text="Start", slider=not part.use_absolute_path_time)
-        else:
-            col.prop(part, "trail_count")
 
         col.prop(part, "path_end", text="End", slider=not part.use_absolute_path_time)
         col.prop(part, "length_random", text="Random", slider=True)
@@ -1444,126 +1427,6 @@ class PARTICLE_PT_render_collection_use_count(ParticleButtonsPanel, Panel):
             row.prop(weight, "count")
 
 
-class PARTICLE_PT_render_billboards_alignment(ParticleButtonsPanel, Panel):
-    bl_label = "Billboard Alignment"
-    bl_parent_id = "PARTICLE_PT_render"
-    bl_options = {'DEFAULT_CLOSED'}
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE', 'BLENDER_WORKBENCH'}
-
-    @classmethod
-    def poll(cls, context):
-        part = particle_get_settings(context)
-        return part.render_type == 'BILLBOARD'
-
-    def draw(self, context):
-        layout = self.layout
-        layout.use_property_split = True
-
-        part = particle_get_settings(context)
-
-        col = layout.column()
-
-        col.prop(part, "billboard_align", text="Align To")
-        col.prop(part, "lock_billboard", text="Lock Axis")
-        col.prop(part, "billboard_object")
-
-
-class PARTICLE_PT_render_billboards_tilt(ParticleButtonsPanel, Panel):
-    bl_label = "Billboard Tilt"
-    bl_parent_id = "PARTICLE_PT_render"
-    bl_options = {'DEFAULT_CLOSED'}
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE', 'BLENDER_WORKBENCH'}
-
-    @classmethod
-    def poll(cls, context):
-        part = particle_get_settings(context)
-        return part.render_type == 'BILLBOARD'
-
-    def draw(self, context):
-        layout = self.layout
-        layout.use_property_split = True
-
-        part = particle_get_settings(context)
-
-        col = layout.column()
-
-        sub = col.column(align=True)
-        sub.prop(part, "billboard_tilt", text="Angle", slider=True)
-        sub.prop(part, "billboard_tilt_random", text="Random", slider=True)
-
-        sub = col.column(align=True)
-        sub.prop(part, "billboard_offset")
-        col.prop(part, "billboard_size", text="Scale")
-        if part.billboard_align == 'VEL':
-            col = col.column(align=True)
-            col.prop(part, "billboard_velocity_head", text="Velocity ScaleHead")
-            col.prop(part, "billboard_velocity_tail", text="Tail")
-
-
-class PARTICLE_PT_render_billboards_uv(ParticleButtonsPanel, Panel):
-    bl_label = "Billboard UVs"
-    bl_parent_id = "PARTICLE_PT_render"
-    bl_options = {'DEFAULT_CLOSED'}
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE', 'BLENDER_WORKBENCH'}
-
-    @classmethod
-    def poll(cls, context):
-        part = particle_get_settings(context)
-        return part.render_type == 'BILLBOARD'
-
-    def draw(self, context):
-        layout = self.layout
-        layout.use_property_split = True
-
-        psys = context.particle_system
-        ob = context.object
-        part = particle_get_settings(context)
-
-        col = layout.column()
-
-        if psys:
-            col.prop_search(psys, "billboard_normal_uv", ob.data, "uv_layers")
-            col.prop_search(psys, "billboard_time_index_uv", ob.data, "uv_layers")
-
-        col.prop(part, "billboard_uv_split", text="Split UVs")
-
-        if psys:
-            sub = col.column()
-            sub.active = part.billboard_uv_split > 1
-            sub.prop_search(psys, "billboard_split_uv", ob.data, "uv_layers")
-
-        sub.prop(part, "billboard_animation")
-        sub.prop(part, "billboard_offset_split")
-
-
-class PARTICLE_PT_render_trails(ParticleButtonsPanel, Panel):
-    bl_label = "Trails"
-    bl_parent_id = "PARTICLE_PT_render"
-    bl_options = {'DEFAULT_CLOSED'}
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE', 'BLENDER_WORKBENCH'}
-
-    @classmethod
-    def poll(cls, context):
-        part = particle_get_settings(context)
-        return part.render_type in {'HALO', 'LINE', 'BILLBOARD'}
-
-    def draw(self, context):
-        layout = self.layout
-        layout.use_property_split = True
-
-        part = particle_get_settings(context)
-
-        col = layout.column()
-
-        col.prop(part, "trail_count")
-
-        sub = col.column()
-        sub.active = (part.trail_count > 1)
-        sub.prop(part, "use_absolute_path_time", text="Length in Frames")
-        sub.prop(part, "path_end", text="Length", slider=not part.use_absolute_path_time)
-        sub.prop(part, "length_random", text="Random Length", slider=True)
-
-
 class PARTICLE_PT_draw(ParticleButtonsPanel, Panel):
     bl_label = "Viewport Display"
     bl_options = {'DEFAULT_CLOSED'}
@@ -1617,14 +1480,6 @@ class PARTICLE_PT_draw(ParticleButtonsPanel, Panel):
         else:
             layout.separator()
 
-        col = layout.column()
-        col.prop(part, "show_guide_hairs", text="Guide Hairs")
-        col.prop(part, "show_size")
-        col.prop(part, "show_velocity")
-        col.prop(part, "show_number")
-        if part.physics_type == 'BOIDS':
-            col.prop(part, "show_health")
-
         if context.object:
             layout.separator()
             layout.prop(context.object, "show_instancer_for_viewport", text="Show Emitter")
@@ -1632,6 +1487,7 @@ class PARTICLE_PT_draw(ParticleButtonsPanel, Panel):
 
 class PARTICLE_PT_children(ParticleButtonsPanel, Panel):
     bl_label = "Children"
+    bl_translation_context = i18n_contexts.id_particlesettings
     bl_options = {'DEFAULT_CLOSED'}
     COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE', 'BLENDER_WORKBENCH'}
 
@@ -1680,9 +1536,6 @@ class PARTICLE_PT_children(ParticleButtonsPanel, Panel):
             col.separator()
             col.prop(part, "child_radius", text="Radius")
             col.prop(part, "child_roundness", text="Roundness", slider=True)
-        elif part.virtual_parents > 0.0:
-            sub = col.column(align=True)
-            sub.label(text="Parting not available with virtual parents")
 
 
 class PARTICLE_PT_children_parting(ParticleButtonsPanel, Panel):
@@ -1700,13 +1553,20 @@ class PARTICLE_PT_children_parting(ParticleButtonsPanel, Panel):
         layout = self.layout
 
         part = particle_get_settings(context)
+        is_virtual = part.virtual_parents > 0.0
 
         layout.use_property_split = True
 
+        if is_virtual:
+            layout.label(text="Parting not available with virtual parents")
+
         col = layout.column()
+        col.active = not is_virtual
         col.prop(part, "child_parting_factor", text="Parting", slider=True)
-        col.prop(part, "child_parting_min", text="Min")
-        col.prop(part, "child_parting_max", text="Max")
+
+        sub = col.column(align=True)
+        sub.prop(part, "child_parting_min", text="Min")
+        sub.prop(part, "child_parting_max", text="Max")
 
 
 class PARTICLE_PT_children_clumping(ParticleButtonsPanel, Panel):
@@ -1737,17 +1597,35 @@ class PARTICLE_PT_children_clumping(ParticleButtonsPanel, Panel):
         else:
             sub.prop(part, "clump_factor", slider=True)
             sub.prop(part, "clump_shape", slider=True)
-        sub = col.column(align=True)
-        sub.prop(part, "use_clump_noise")
-        subsub = sub.column()
-        subsub.enabled = part.use_clump_noise
-        subsub.prop(part, "clump_noise_size")
 
         if part.child_type == 'SIMPLE':
-            sub.prop(part, "twist")
-            sub.prop(part, "use_twist_curve")
+            col.prop(part, "twist")
+            col.prop(part, "use_twist_curve")
             if part.use_twist_curve:
-                sub.template_curve_mapping(part, "twist_curve")
+                col.template_curve_mapping(part, "twist_curve")
+
+
+class PARTICLE_PT_children_clumping_noise(ParticleButtonsPanel, Panel):
+    bl_label = "Clump Noise"
+    bl_parent_id = "PARTICLE_PT_children_clumping"
+    bl_options = {'DEFAULT_CLOSED'}
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE', 'BLENDER_WORKBENCH'}
+
+    def draw_header(self, context):
+
+        part = particle_get_settings(context)
+
+        self.layout.prop(part, "use_clump_noise", text="")
+
+    def draw(self, context):
+        layout = self.layout
+
+        part = particle_get_settings(context)
+
+        layout.use_property_split = True
+        layout.enabled = part.use_clump_noise
+
+        layout.prop(part, "clump_noise_size")
 
 
 class PARTICLE_PT_children_roughness(ParticleButtonsPanel, Panel):
@@ -1853,7 +1731,7 @@ class PARTICLE_PT_field_weights(ParticleButtonsPanel, Panel):
 
     def draw(self, context):
         part = particle_get_settings(context)
-        effector_weights_ui(self, context, part.effector_weights, 'PSYS')
+        effector_weights_ui(self, part.effector_weights, 'PSYS')
 
         if part.type == 'HAIR':
             row = self.layout.row()
@@ -1892,7 +1770,7 @@ class PARTICLE_PT_force_fields_type1(ParticleButtonsPanel, Panel):
 
         col = layout.column()
         col.prop(part.force_field_1, "type", text="Type 1")
-        basic_force_field_settings_ui(self, context, part.force_field_1)
+        basic_force_field_settings_ui(self, part.force_field_1)
 
 
 class PARTICLE_PT_force_fields_type2(ParticleButtonsPanel, Panel):
@@ -1908,7 +1786,7 @@ class PARTICLE_PT_force_fields_type2(ParticleButtonsPanel, Panel):
 
         col = layout.column()
         col.prop(part.force_field_2, "type", text="Type 2")
-        basic_force_field_settings_ui(self, context, part.force_field_2)
+        basic_force_field_settings_ui(self, part.force_field_2)
 
 
 class PARTICLE_PT_force_fields_type1_falloff(ParticleButtonsPanel, Panel):
@@ -1923,7 +1801,7 @@ class PARTICLE_PT_force_fields_type1_falloff(ParticleButtonsPanel, Panel):
 
         part = particle_get_settings(context)
 
-        basic_force_field_falloff_ui(self, context, part.force_field_1)
+        basic_force_field_falloff_ui(self, part.force_field_1)
 
 
 class PARTICLE_PT_force_fields_type2_falloff(ParticleButtonsPanel, Panel):
@@ -1938,7 +1816,7 @@ class PARTICLE_PT_force_fields_type2_falloff(ParticleButtonsPanel, Panel):
 
         part = particle_get_settings(context)
 
-        basic_force_field_falloff_ui(self, context, part.force_field_2)
+        basic_force_field_falloff_ui(self, part.force_field_2)
 
 
 class PARTICLE_PT_vertexgroups(ParticleButtonsPanel, Panel):
@@ -1961,35 +1839,51 @@ class PARTICLE_PT_vertexgroups(ParticleButtonsPanel, Panel):
 
         col = layout.column()
         row = col.row(align=True)
-        row.prop_search(psys, "vertex_group_density", ob, "vertex_groups", text="Density")
+        sub = row.row(align=True)
+        sub.use_property_decorate = False
+        sub.prop_search(psys, "vertex_group_density", ob, "vertex_groups", text="Density")
         row.prop(psys, "invert_vertex_group_density", text="", toggle=True, icon='ARROW_LEFTRIGHT')
 
         row = col.row(align=True)
-        row.prop_search(psys, "vertex_group_length", ob, "vertex_groups", text="Length")
+        sub = row.row(align=True)
+        sub.use_property_decorate = False
+        sub.prop_search(psys, "vertex_group_length", ob, "vertex_groups", text="Length")
         row.prop(psys, "invert_vertex_group_length", text="", toggle=True, icon='ARROW_LEFTRIGHT')
 
         row = col.row(align=True)
-        row.prop_search(psys, "vertex_group_clump", ob, "vertex_groups", text="Clump")
+        sub = row.row(align=True)
+        sub.use_property_decorate = False
+        sub.prop_search(psys, "vertex_group_clump", ob, "vertex_groups", text="Clump")
         row.prop(psys, "invert_vertex_group_clump", text="", toggle=True, icon='ARROW_LEFTRIGHT')
 
         row = col.row(align=True)
-        row.prop_search(psys, "vertex_group_kink", ob, "vertex_groups", text="Kink")
+        sub = row.row(align=True)
+        sub.use_property_decorate = False
+        sub.prop_search(psys, "vertex_group_kink", ob, "vertex_groups", text="Kink")
         row.prop(psys, "invert_vertex_group_kink", text="", toggle=True, icon='ARROW_LEFTRIGHT')
 
         row = col.row(align=True)
-        row.prop_search(psys, "vertex_group_roughness_1", ob, "vertex_groups", text="Roughness 1")
+        sub = row.row(align=True)
+        sub.use_property_decorate = False
+        sub.prop_search(psys, "vertex_group_roughness_1", ob, "vertex_groups", text="Roughness 1")
         row.prop(psys, "invert_vertex_group_roughness_1", text="", toggle=True, icon='ARROW_LEFTRIGHT')
 
         row = col.row(align=True)
-        row.prop_search(psys, "vertex_group_roughness_2", ob, "vertex_groups", text="Roughness 2")
+        sub = row.row(align=True)
+        sub.use_property_decorate = False
+        sub.prop_search(psys, "vertex_group_roughness_2", ob, "vertex_groups", text="Roughness 2")
         row.prop(psys, "invert_vertex_group_roughness_2", text="", toggle=True, icon='ARROW_LEFTRIGHT')
 
         row = col.row(align=True)
-        row.prop_search(psys, "vertex_group_roughness_end", ob, "vertex_groups", text="Roughness End")
+        sub = row.row(align=True)
+        sub.use_property_decorate = False
+        sub.prop_search(psys, "vertex_group_roughness_end", ob, "vertex_groups", text="Roughness End")
         row.prop(psys, "invert_vertex_group_roughness_end", text="", toggle=True, icon='ARROW_LEFTRIGHT')
 
         row = col.row(align=True)
-        row.prop_search(psys, "vertex_group_twist", ob, "vertex_groups", text="Twist")
+        sub = row.row(align=True)
+        sub.use_property_decorate = False
+        sub.prop_search(psys, "vertex_group_twist", ob, "vertex_groups", text="Twist")
         row.prop(psys, "invert_vertex_group_twist", text="", toggle=True, icon='ARROW_LEFTRIGHT')
 
         # Commented out vertex groups don't work and are still waiting for better implementation
@@ -2037,7 +1931,7 @@ class PARTICLE_PT_textures(ParticleButtonsPanel, Panel):
         col = row.column(align=True)
         col.operator("texture.slot_move", text="", icon='TRIA_UP').type = 'UP'
         col.operator("texture.slot_move", text="", icon='TRIA_DOWN').type = 'DOWN'
-        col.menu("TEXTURE_MT_specials", icon='DOWNARROW_HLT', text="")
+        col.menu("TEXTURE_MT_context_menu", icon='DOWNARROW_HLT', text="")
 
         if not part.active_texture:
             layout.template_ID(part, "active_texture", new="texture.new")
@@ -2053,9 +1947,10 @@ class PARTICLE_PT_hair_shape(ParticleButtonsPanel, Panel):
 
     @classmethod
     def poll(cls, context):
-        if context.particle_system is None:
+        psys = context.particle_system
+        if psys is None:
             return False
-        return particle_panel_poll(cls, context)
+        return particle_panel_poll(cls, context) and psys.settings.type == 'HAIR'
 
     def draw(self, context):
         layout = self.layout
@@ -2071,7 +1966,7 @@ class PARTICLE_PT_hair_shape(ParticleButtonsPanel, Panel):
         col.prop(part, "tip_radius", text="Tip")
 
         col = layout.column()
-        col.prop(part, "radius_scale", text="Radius Scaling")
+        col.prop(part, "radius_scale")
         col.prop(part, "use_close_tip")
 
 
@@ -2082,7 +1977,7 @@ class PARTICLE_PT_custom_props(ParticleButtonsPanel, PropertyPanel, Panel):
 
 
 classes = (
-    PARTICLE_MT_specials,
+    PARTICLE_MT_context_menu,
     PARTICLE_PT_hair_dynamics_presets,
     PARTICLE_UL_particle_systems,
     PARTICLE_PT_context_particles,
@@ -2096,10 +1991,6 @@ classes = (
     PARTICLE_PT_rotation,
     PARTICLE_PT_rotation_angular_velocity,
     PARTICLE_PT_physics,
-    PARTICLE_PT_physics_fluid_springs,
-    PARTICLE_PT_physics_fluid_springs_viscoelastic,
-    PARTICLE_PT_physics_fluid_springs_advanced,
-    PARTICLE_PT_physics_fluid_advanced,
     PARTICLE_PT_physics_boids_movement,
     PARTICLE_PT_physics_boids_battle,
     PARTICLE_PT_physics_boids_misc,
@@ -2107,22 +1998,24 @@ classes = (
     PARTICLE_PT_physics_deflection,
     PARTICLE_PT_physics_integration,
     PARTICLE_PT_physics_relations,
+    PARTICLE_PT_physics_fluid_springs,
+    PARTICLE_PT_physics_fluid_springs_viscoelastic,
+    PARTICLE_PT_physics_fluid_springs_advanced,
+    PARTICLE_PT_physics_fluid_advanced,
+    PARTICLE_PT_physics_fluid_interaction,
     PARTICLE_PT_boidbrain,
     PARTICLE_PT_render,
-    PARTICLE_PT_render_line,
     PARTICLE_PT_render_path,
     PARTICLE_PT_render_path_timing,
     PARTICLE_PT_render_object,
     PARTICLE_PT_render_collection,
     PARTICLE_PT_render_collection_use_count,
-    PARTICLE_PT_render_billboards_tilt,
-    PARTICLE_PT_render_billboards_uv,
-    PARTICLE_PT_render_trails,
     PARTICLE_PT_render_extra,
     PARTICLE_PT_draw,
     PARTICLE_PT_children,
     PARTICLE_PT_children_parting,
     PARTICLE_PT_children_clumping,
+    PARTICLE_PT_children_clumping_noise,
     PARTICLE_PT_children_roughness,
     PARTICLE_PT_children_kink,
     PARTICLE_PT_hair_shape,

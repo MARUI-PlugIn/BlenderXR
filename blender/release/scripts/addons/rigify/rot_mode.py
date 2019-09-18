@@ -50,7 +50,7 @@ class convert():
             if fc.data_path == data_path and (array_index < 0 or fc.array_index == array_index):
                 return fc
 
-        fc = action.fcurves.new(data_path, array_index)
+        fc = action.fcurves.new(data_path, index=array_index)
         fc.group = group
         return fc
 
@@ -221,7 +221,7 @@ class convert():
 convert = convert()
 
 
-class ToolsPanel(bpy.types.Panel):
+class VIEW3D_PT_rigify_rot_mode(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_category = 'View'
@@ -259,7 +259,7 @@ class CONVERT_OT_quat2eu_current_action(bpy.types.Operator):
     bl_label = 'Convert Current Action'
     bl_idname = 'rigify_quat2eu.current'
     bl_description = 'Converts bones in current Action'
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
     # on mouse up:
     def invoke(self, context, event):
@@ -285,7 +285,7 @@ class CONVERT_OT_quat2eu_all_actions(bpy.types.Operator):
     bl_label = 'Convert All Actions'
     bl_idname = 'rigify_quat2eu.all'
     bl_description = 'Converts bones in every Action'
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
     # on mouse up:
     def invoke(self, context, event):
@@ -309,7 +309,7 @@ class CONVERT_OT_quat2eu_all_actions(bpy.types.Operator):
 ### Registering ###
 
 classes = (
-    ToolsPanel,
+    VIEW3D_PT_rigify_rot_mode,
     CONVERT_OT_quat2eu_current_action,
     CONVERT_OT_quat2eu_all_actions,
 )

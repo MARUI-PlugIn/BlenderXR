@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup freestyle
+/** \file
+ * \ingroup freestyle
  */
 
 #ifndef __FREESTYLE_PYTHON_STROKEATTRIBUTE_H__
@@ -36,13 +37,13 @@ extern "C" {
 
 extern PyTypeObject StrokeAttribute_Type;
 
-#define BPy_StrokeAttribute_Check(v) (PyObject_IsInstance((PyObject *)v, (PyObject *)&StrokeAttribute_Type))
+#define BPy_StrokeAttribute_Check(v) \
+  (PyObject_IsInstance((PyObject *)v, (PyObject *)&StrokeAttribute_Type))
 
 /*---------------------------Python BPy_StrokeAttribute structure definition----------*/
 typedef struct {
-	PyObject_HEAD
-	StrokeAttribute *sa;
-	bool borrowed; /* true if *sa is a borrowed reference */
+  PyObject_HEAD StrokeAttribute *sa;
+  bool borrowed; /* true if *sa is a borrowed reference */
 } BPy_StrokeAttribute;
 
 /*---------------------------Python BPy_StrokeAttribute visible prototypes-----------*/

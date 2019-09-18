@@ -21,12 +21,12 @@
 bl_info = {
     "name": "FBX format",
     "author": "Campbell Barton, Bastien Montagne, Jens Restemeier",
-    "version": (4, 14, 3),
+    "version": (4, 14, 14),
     "blender": (2, 80, 0),
     "location": "File > Import-Export",
     "description": "FBX IO meshes, UV's, vertex colors, materials, textures, cameras, lamps and actions",
     "warning": "",
-    "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/Scripts/Import-Export/Autodesk_FBX",
+    "wiki_url": "https://docs.blender.org/manual/en/latest/addons/io_scene_fbx.html",
     "support": 'OFFICIAL',
     "category": "Import-Export",
 }
@@ -321,7 +321,7 @@ class ExportFBX(bpy.types.Operator, ExportHelper):
             )
     use_mesh_modifiers_render: BoolProperty(
             name="Use Modifiers Render Setting",
-            description="Use render settings when applying modifiers to mesh objects",
+            description="Use render settings when applying modifiers to mesh objects (DISABLED in Blender 2.8)",
             default=True,
             )
     mesh_smooth_type: EnumProperty(
@@ -504,7 +504,7 @@ class ExportFBX(bpy.types.Operator, ExportHelper):
         elif self.ui_tab == 'GEOMETRY':
             layout.prop(self, "use_mesh_modifiers")
             sub = layout.row()
-            sub.enabled = self.use_mesh_modifiers
+            sub.enabled = self.use_mesh_modifiers and False  # disabled in 2.8...
             sub.prop(self, "use_mesh_modifiers_render")
             layout.prop(self, "mesh_smooth_type")
             layout.prop(self, "use_mesh_edges")

@@ -5,7 +5,8 @@ from ...utils import strip_org, make_deformer_name, connected_children_names
 from ...utils import create_circle_widget, create_sphere_widget, create_neck_bend_widget, create_neck_tweak_widget
 from ..widgets import create_ballsocket_widget
 from ...utils import MetarigError, make_mechanism_name, create_cube_widget
-from rna_prop_ui import rna_idprop_ui_prop_get
+from ...utils import ControlLayersOption
+from ...utils.mechanism import make_property, make_driver
 
 script = """
 controls = [%s]
@@ -57,12 +58,6 @@ class Rig:
 
         if self.use_tail and self.pivot_pos - 2 > 0:
             self.tail_pos = params.tail_pos
-
-        # Assign values to tweak layers props if opted by user
-        if params.tweak_extra_layers:
-            self.tweak_layers = list(params.tweak_layers)
-        else:
-            self.tweak_layers = None
 
         # Report error of user created less than the minimum of bones for rig
         min_bone_number = 3
@@ -642,7 +637,7 @@ class Rig:
                     if len(bones['neck']['original_names']) > 3:
                         self.make_constraint(b, {
                             'constraint': 'COPY_SCALE',
-                            'subtarget': org(l['original_names'][j+1]),
+                            'subtarget': bones['neck']['ctrl_neck'],
                             'influence': 1.0
                         })
 
@@ -771,36 +766,16 @@ class Rig:
 
         for prop in props:
             if prop == 'neck_follow':
-                torso[prop] = 0.5
+                defval = 0.5
             else:
-                torso[prop] = 0.0
+                defval = 0.0
 
-            prop = rna_idprop_ui_prop_get(torso, prop, create=True)
-            prop["min"] = 0.0
-            prop["max"] = 1.0
-            prop["soft_min"] = 0.0
-            prop["soft_max"] = 1.0
-            prop["description"] = prop
+            make_property(torso, prop, defval)
 
         # driving the follow rotation switches for neck and head
         for bone, prop, in zip(owners, props):
             # Add driver to copy rotation constraint
-            drv = pb[bone].constraints[0].driver_add("influence").driver
-            drv.type = 'AVERAGE'
-
-            var = drv.variables.new()
-            var.name = prop
-            var.type = "SINGLE_PROP"
-            var.targets[0].id = self.obj
-            var.targets[0].data_path = \
-                torso.path_from_id() + '[' + '"' + prop + '"' + ']'
-
-            drv_modifier = self.obj.animation_data.drivers[-1].modifiers[0]
-
-            drv_modifier.mode = 'POLYNOMIAL'
-            drv_modifier.poly_order = 1
-            drv_modifier.coefficients[0] = 1.0
-            drv_modifier.coefficients[1] = -1.0
+            make_driver(pb[bone].constraints[0], "influence", variables=[(self.obj, torso, prop)], polynomial=[1.0, -1.0])
 
     def locks_and_widgets(self, bones):
         bpy.ops.object.mode_set(mode='OBJECT')
@@ -941,8 +916,7 @@ class Rig:
                 continue
             create_sphere_widget(self.obj, bone, bone_transform_name=None)
 
-            if self.tweak_layers:
-                pb[bone].bone.layers = self.tweak_layers
+        ControlLayersOption.TWEAK.assign(self.params, pb, tweaks)
 
     def generate(self):
         # Torso Rig Anatomy:
@@ -1058,17 +1032,7 @@ def add_parameters(params):
     )
 
     # Setting up extra layers for the FK and tweak
-    params.tweak_extra_layers = bpy.props.BoolProperty(
-        name="tweak_extra_layers",
-        default=True,
-        description=""
-        )
-
-    params.tweak_layers = bpy.props.BoolVectorProperty(
-        size        = 32,
-        description = "Layers for the tweak controls to be on",
-        default     = tuple( [ i == 1 for i in range(0, 32) ] )
-        )
+    ControlLayersOption.TWEAK.add_parameters(params)
 
 
 def parameters_ui(layout, params):
@@ -1096,45 +1060,7 @@ def parameters_ui(layout, params):
         row.prop(params, "copy_rotation_axes", index=i, toggle=True, text=axis)
     r.enabled = params.use_tail
 
-    r = layout.row()
-    r.prop(params, "tweak_extra_layers")
-    r.active = params.tweak_extra_layers
-
-    col = r.column(align=True)
-    row = col.row(align=True)
-
-    bone_layers = bpy.context.active_pose_bone.bone.layers[:]
-
-    for i in range(8):
-        icon = "NONE"
-        if bone_layers[i]:
-            icon = "LAYER_ACTIVE"
-        row.prop(params, "tweak_layers", index=i, toggle=True, text="", icon=icon)
-
-    row = col.row(align=True)
-
-    for i in range(16, 24):
-        icon = "NONE"
-        if bone_layers[i]:
-            icon = "LAYER_ACTIVE"
-        row.prop(params, "tweak_layers", index=i, toggle=True, text="", icon=icon)
-
-    col = r.column(align=True)
-    row = col.row(align=True)
-
-    for i in range(8, 16):
-        icon = "NONE"
-        if bone_layers[i]:
-            icon = "LAYER_ACTIVE"
-        row.prop(params, "tweak_layers", index=i, toggle=True, text="", icon=icon)
-
-    row = col.row(align=True)
-
-    for i in range(24, 32):
-        icon = "NONE"
-        if bone_layers[i]:
-            icon = "LAYER_ACTIVE"
-        row.prop(params, "tweak_layers", index=i, toggle=True, text="", icon=icon)
+    ControlLayersOption.TWEAK.parameters_ui(layout, params)
 
 
 def create_sample(obj):

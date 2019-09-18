@@ -20,9 +20,10 @@
 #ifndef __BLI_DYNSTR_H__
 #define __BLI_DYNSTR_H__
 
-/** \file \ingroup bli
- *  \brief A dynamically sized string ADT.
- *  \section aboutdynstr Dynamic String
+/** \file
+ * \ingroup bli
+ * \brief A dynamically sized string ADT.
+ * \section aboutdynstr Dynamic String
  * This ADT is designed purely for dynamic string creation
  * through appending, not for general usage, the intent is
  * to build up dynamic strings using a DynStr object, then
@@ -42,17 +43,19 @@ typedef struct DynStr DynStr;
 DynStr *BLI_dynstr_new(void) ATTR_MALLOC ATTR_WARN_UNUSED_RESULT;
 DynStr *BLI_dynstr_new_memarena(void) ATTR_MALLOC ATTR_WARN_UNUSED_RESULT;
 
-void    BLI_dynstr_append(DynStr *__restrict ds, const char *cstr) ATTR_NONNULL();
-void    BLI_dynstr_nappend(DynStr *__restrict ds, const char *cstr, int len) ATTR_NONNULL();
+void BLI_dynstr_append(DynStr *__restrict ds, const char *cstr) ATTR_NONNULL();
+void BLI_dynstr_nappend(DynStr *__restrict ds, const char *cstr, int len) ATTR_NONNULL();
 
-void    BLI_dynstr_appendf(DynStr *__restrict ds, const char *__restrict format, ...) ATTR_PRINTF_FORMAT(2, 3) ATTR_NONNULL(1, 2);
-void    BLI_dynstr_vappendf(DynStr *__restrict ds, const char *__restrict format, va_list args) ATTR_PRINTF_FORMAT(2, 0) ATTR_NONNULL(1, 2);
+void BLI_dynstr_appendf(DynStr *__restrict ds, const char *__restrict format, ...)
+    ATTR_PRINTF_FORMAT(2, 3) ATTR_NONNULL(1, 2);
+void BLI_dynstr_vappendf(DynStr *__restrict ds, const char *__restrict format, va_list args)
+    ATTR_PRINTF_FORMAT(2, 0) ATTR_NONNULL(1, 2);
 
-int     BLI_dynstr_get_len(DynStr *ds) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
-char   *BLI_dynstr_get_cstring(DynStr *ds) ATTR_MALLOC ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
-void    BLI_dynstr_get_cstring_ex(DynStr *__restrict ds, char *__restrict str) ATTR_NONNULL();
+int BLI_dynstr_get_len(DynStr *ds) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
+char *BLI_dynstr_get_cstring(DynStr *ds) ATTR_MALLOC ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
+void BLI_dynstr_get_cstring_ex(DynStr *__restrict ds, char *__restrict str) ATTR_NONNULL();
 
-void    BLI_dynstr_clear(DynStr *ds) ATTR_NONNULL();
-void    BLI_dynstr_free(DynStr *ds) ATTR_NONNULL();
+void BLI_dynstr_clear(DynStr *ds) ATTR_NONNULL();
+void BLI_dynstr_free(DynStr *ds) ATTR_NONNULL();
 
-#endif  /* __BLI_DYNSTR_H__ */
+#endif /* __BLI_DYNSTR_H__ */

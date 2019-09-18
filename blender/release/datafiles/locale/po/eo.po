@@ -1,8 +1,8 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: Blender 2.80 (sub 39) (b'6d89337257b6')\n"
+"Project-Id-Version: Blender 2.80 (sub 75) (b'8e1516b7bcca')\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2018-12-24 15:04:25\n"
+"POT-Creation-Date: 2019-07-29 00:00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -48,12 +48,21 @@ msgid "Sculpt Mode"
 msgstr "Skulptaĵo Modo"
 
 
+msgctxt "Operator"
+msgid "Add"
+msgstr "Aldonia"
+
+
 msgid "File"
 msgstr "Dosiero"
 
 
 msgid "Help"
 msgstr "Helpo"
+
+
+msgid "New"
+msgstr "Nova"
 
 
 msgctxt "Operator"
@@ -63,10 +72,6 @@ msgstr "Elektas"
 
 msgid "Timing Mode"
 msgstr "Prilaborado Modo"
-
-
-msgid "New"
-msgstr "Nova"
 
 
 msgid "Interpolation method"
@@ -104,19 +109,6 @@ msgid "Recover Last Session"
 msgstr "Restaŭri lasta kunsido"
 
 
-msgid "Recent"
-msgstr "Freŝaj"
-
-
-msgid "Keep Session"
-msgstr "Restaŭri lasta kunsido"
-
-
-msgctxt "Operator"
-msgid "Add"
-msgstr "Aldonia"
-
-
 msgid "UV Axis:"
 msgstr "Montri Z Axis"
 
@@ -127,11 +119,6 @@ msgstr "Freŝaj"
 
 
 msgctxt "Operator"
-msgid "New"
-msgstr "Nova"
-
-
-msgctxt "Operator"
 msgid "Set X Axis"
 msgstr "Montri X Axis"
 
@@ -139,6 +126,11 @@ msgstr "Montri X Axis"
 msgctxt "Operator"
 msgid "Interpolation Mode"
 msgstr "Interago:"
+
+
+msgctxt "Operator"
+msgid "New"
+msgstr "Nova"
 
 
 msgid "Not supported in sculpt mode"
@@ -186,11 +178,6 @@ msgstr "Nova"
 
 
 msgctxt "Lattice"
-msgid "New"
-msgstr "Nova"
-
-
-msgctxt "Lamp"
 msgid "New"
 msgstr "Nova"
 
@@ -266,4 +253,3 @@ msgstr "Interago:"
 msgctxt "Operator"
 msgid "Toggle System Console"
 msgstr "Elektas"
-

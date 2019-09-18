@@ -422,7 +422,7 @@ class ArchipackBoolManager(ArchipackCollectionManager):
         # parenting childs to wall reference point
         if wall.parent is None:
             x, y, z = wall.bound_box[0]
-            context.scene.cursor_location = wall.matrix_world @ Vector((x, y, z))
+            context.scene.cursor.location = wall.matrix_world @ Vector((x, y, z))
             # fix issue #9
             context.view_layer.objects.active = wall
             bpy.ops.archipack.reference_point()
@@ -505,7 +505,7 @@ class ArchipackBoolManager(ArchipackCollectionManager):
         # parenting childs to wall reference point
         if wall.parent is None:
             x, y, z = wall.bound_box[0]
-            context.scene.cursor_location = wall.matrix_world @ Vector((x, y, z))
+            context.scene.cursor.location = wall.matrix_world @ Vector((x, y, z))
             # fix issue #9
             context.view_layer.objects.active = wall
             bpy.ops.archipack.reference_point()
@@ -554,7 +554,7 @@ class ARCHIPACK_OT_single_boolean(Operator):
     @classmethod
     def poll(cls, context):
         w = context.active_object
-        return (w.data is not None and
+        return (w is not None and w.data is not None and
             ("archipack_wall2" in w.data or
             "archipack_wall" in w.data or
             "archipack_roof" in w.data) and

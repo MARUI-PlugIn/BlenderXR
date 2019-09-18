@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup freestyle
+/** \file
+ * \ingroup freestyle
  */
 
 #ifndef __FREESTYLE_PYTHON_GETPROJECTEDZF0D_H__
@@ -30,13 +31,13 @@ extern "C" {
 
 extern PyTypeObject GetProjectedZF0D_Type;
 
-#define BPy_GetProjectedZF0D_Check(v) (PyObject_IsInstance((PyObject *)v, (PyObject *)&GetProjectedZF0D_Type))
+#define BPy_GetProjectedZF0D_Check(v) \
+  (PyObject_IsInstance((PyObject *)v, (PyObject *)&GetProjectedZF0D_Type))
 
 /*---------------------------Python BPy_GetProjectedZF0D structure definition----------*/
 typedef struct {
-	BPy_UnaryFunction0DDouble py_uf0D_double;
+  BPy_UnaryFunction0DDouble py_uf0D_double;
 } BPy_GetProjectedZF0D;
-
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 

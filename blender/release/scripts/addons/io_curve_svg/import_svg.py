@@ -454,6 +454,12 @@ def SVGParseStyles(node, context):
 
     return styles
 
+def id_names_from_node(node, ob):
+    if node.getAttribute('id'):
+        name = node.getAttribute('id')
+        ob.name = name
+        ob.data.name = name
+
 #### SVG path helpers ####
 
 
@@ -1214,11 +1220,11 @@ class SVGGeometryPATH(SVGGeometry):
         ob = SVGCreateCurve(self._context)
         cu = ob.data
 
-        if self._node.getAttribute('id'):
-            cu.name = self._node.getAttribute('id')
+        id_names_from_node(self._node, ob)
 
         if self._styles['useFill']:
             cu.dimensions = '2D'
+            cu.fill_mode = 'BOTH'
             cu.materials.append(self._styles['fill'])
         else:
             cu.dimensions = '3D'
@@ -1447,6 +1453,7 @@ class SVGGeometryRECT(SVGGeometry):
 
         if self._styles['useFill']:
             cu.dimensions = '2D'
+            cu.fill_mode = 'BOTH'
             cu.materials.append(self._styles['fill'])
         else:
             cu.dimensions = '3D'
@@ -1555,11 +1562,11 @@ class SVGGeometryELLIPSE(SVGGeometry):
         ob = SVGCreateCurve(self._context)
         cu = ob.data
 
-        if self._node.getAttribute('id'):
-            cu.name = self._node.getAttribute('id')
+        id_names_from_node(self._node, ob)
 
         if self._styles['useFill']:
             cu.dimensions = '2D'
+            cu.fill_mode = 'BOTH'
             cu.materials.append(self._styles['fill'])
         else:
             cu.dimensions = '3D'
@@ -1672,6 +1679,8 @@ class SVGGeometryLINE(SVGGeometry):
         ob = SVGCreateCurve(self._context)
         cu = ob.data
 
+        id_names_from_node(self._node, ob)
+
         coords = [(x1, y1), (x2, y2)]
         spline = None
 
@@ -1741,8 +1750,11 @@ class SVGGeometryPOLY(SVGGeometry):
         ob = SVGCreateCurve(self._context)
         cu = ob.data
 
+        id_names_from_node(self._node, ob)
+
         if self._closed and self._styles['useFill']:
             cu.dimensions = '2D'
+            cu.fill_mode = 'BOTH'
             cu.materials.append(self._styles['fill'])
         else:
             cu.dimensions = '3D'

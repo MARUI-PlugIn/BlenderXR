@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup freestyle
+/** \file
+ * \ingroup freestyle
  */
 
 #ifndef __FREESTYLE_PYTHON_VIEWEDGE_H__
@@ -36,8 +37,8 @@ extern PyTypeObject ViewEdge_Type;
 
 /*---------------------------Python BPy_ViewEdge structure definition----------*/
 typedef struct {
-	BPy_Interface1D py_if1D;
-	ViewEdge *ve;
+  BPy_Interface1D py_if1D;
+  ViewEdge *ve;
 } BPy_ViewEdge;
 
 ///////////////////////////////////////////////////////////////////////////////////////////

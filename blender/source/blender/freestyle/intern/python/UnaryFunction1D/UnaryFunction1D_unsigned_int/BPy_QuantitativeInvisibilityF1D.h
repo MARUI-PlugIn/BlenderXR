@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup freestyle
+/** \file
+ * \ingroup freestyle
  */
 
 #ifndef __FREESTYLE_PYTHON_QUANTITATIVEINVISIBILITYF1D_H__
@@ -31,13 +32,13 @@ extern "C" {
 extern PyTypeObject QuantitativeInvisibilityF1D_Type;
 
 #define BPy_QuantitativeInvisibilityF1D_Check(v) \
-            (PyObject_IsInstance((PyObject *)v, (PyObject *)&QuantitativeInvisibilityF1D_Type))
+  (PyObject_IsInstance((PyObject *)v, (PyObject *)&QuantitativeInvisibilityF1D_Type))
 
-/*---------------------------Python BPy_QuantitativeInvisibilityF1D structure definition----------*/
+/*---------------------------Python BPy_QuantitativeInvisibilityF1D structure
+ * definition----------*/
 typedef struct {
-	BPy_UnaryFunction1DUnsigned py_uf1D_unsigned;
+  BPy_UnaryFunction1DUnsigned py_uf1D_unsigned;
 } BPy_QuantitativeInvisibilityF1D;
-
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 

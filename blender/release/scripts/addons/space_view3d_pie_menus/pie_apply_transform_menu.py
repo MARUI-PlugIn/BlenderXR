@@ -39,8 +39,8 @@ from bpy.props import EnumProperty
 
 
 # Pie Apply Transforms - Ctrl + A
-class PieApplyTransforms(Menu):
-    bl_idname = "pie.applytransforms"
+class PIE_MT_PieApplyTransforms(Menu):
+    bl_idname = "PIE_MT_applytransforms"
     bl_label = "Pie Apply Transforms"
 
     def draw(self, context):
@@ -51,7 +51,7 @@ class PieApplyTransforms(Menu):
         # 6 - RIGHT
         pie.operator("clear.all", text="Clear All", icon='NONE')
         # 2 - BOTTOM
-        pie.operator("object.duplicates_make_real", text="Make Duplicates Real")
+        pie.operator("object.duplicates_make_real", text="Make Instances Real")
         # 8 - TOP
         pie.operator("apply.transformlocrotscale", text="Rotation", icon='NONE').option = 'ROT'
         # 7 - TOP - LEFT
@@ -61,11 +61,11 @@ class PieApplyTransforms(Menu):
         # 1 - BOTTOM - LEFT
         pie.operator("object.visual_transform_apply", text="Visual Transforms")
         # 3 - BOTTOM - RIGHT
-        pie.menu("clear.menu", text="Clear Transform Menu")
+        pie.menu("PIE_MT_clear_menu", text="Clear Transform Menu")
 
 
 # Apply Transforms
-class ApplyTransLocRotPie(Operator):
+class PIE_OT_ApplyTransLocRotPie(Operator):
     bl_idname = "apply.transformlocrotscale"
     bl_label = "Apply Transforms"
     bl_description = "Apply Transform: Location, Rotation or Scale"
@@ -91,7 +91,7 @@ class ApplyTransLocRotPie(Operator):
 
 
 # Apply Transforms
-class ApplyTransformAll(Operator):
+class PIE_OT_ApplyTransformAll(Operator):
     bl_idname = "apply.transformall"
     bl_label = "Apply All Transforms"
     bl_description = "Apply Transform All"
@@ -103,8 +103,8 @@ class ApplyTransformAll(Operator):
 
 
 # Clear Menu
-class ClearMenu(Menu):
-    bl_idname = "clear.menu"
+class PIE_OT_ClearMenu(Menu):
+    bl_idname = "PIE_MT_clear_menu"
     bl_label = "Clear Menu"
 
     def draw(self, context):
@@ -116,7 +116,7 @@ class ClearMenu(Menu):
 
 
 # Clear all
-class ClearAll(Operator):
+class PIE_OT_ClearAll(Operator):
     bl_idname = "clear.all"
     bl_label = "Clear All"
     bl_description = "Clear All Transforms"
@@ -130,11 +130,11 @@ class ClearAll(Operator):
 
 
 classes = (
-    PieApplyTransforms,
-    ApplyTransLocRotPie,
-    ApplyTransformAll,
-    ClearMenu,
-    ClearAll,
+    PIE_MT_PieApplyTransforms,
+    PIE_OT_ApplyTransLocRotPie,
+    PIE_OT_ApplyTransformAll,
+    PIE_OT_ClearMenu,
+    PIE_OT_ClearAll,
     )
 
 addon_keymaps = []
@@ -149,7 +149,7 @@ def register():
         # Apply Transform
         km = wm.keyconfigs.addon.keymaps.new(name='Object Mode')
         kmi = km.keymap_items.new('wm.call_menu_pie', 'A', 'PRESS', ctrl=True)
-        kmi.properties.name = "pie.applytransforms"
+        kmi.properties.name = "PIE_MT_applytransforms"
         addon_keymaps.append((km, kmi))
 
 

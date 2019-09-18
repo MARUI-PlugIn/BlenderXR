@@ -17,6 +17,7 @@
 #include "util/util_logging.h"
 
 #include "util/util_math.h"
+#include "util/util_string.h"
 
 #include <stdio.h>
 #ifdef _MSC_VER
@@ -25,66 +26,77 @@
 
 CCL_NAMESPACE_BEGIN
 
+static bool is_verbosity_set()
+{
+#ifdef WITH_CYCLES_LOGGING
+  using CYCLES_GFLAGS_NAMESPACE::GetCommandLineOption;
+
+  std::string verbosity;
+  if (!GetCommandLineOption("v", &verbosity)) {
+    return false;
+  }
+  return verbosity != "0";
+#else
+  return false;
+#endif
+}
+
 void util_logging_init(const char *argv0)
 {
 #ifdef WITH_CYCLES_LOGGING
-	using CYCLES_GFLAGS_NAMESPACE::SetCommandLineOption;
+  using CYCLES_GFLAGS_NAMESPACE::SetCommandLineOption;
 
-	/* Make it so ERROR messages are always print into console. */
-	char severity_fatal[32];
-	snprintf(severity_fatal, sizeof(severity_fatal), "%d",
-	         google::GLOG_ERROR);
+  /* Make it so ERROR messages are always print into console. */
+  char severity_fatal[32];
+  snprintf(severity_fatal, sizeof(severity_fatal), "%d", google::GLOG_ERROR);
 
-	google::InitGoogleLogging(argv0);
-	SetCommandLineOption("logtostderr", "1");
-	SetCommandLineOption("v", "0");
-	SetCommandLineOption("stderrthreshold", severity_fatal);
-	SetCommandLineOption("minloglevel", severity_fatal);
+  google::InitGoogleLogging(argv0);
+  SetCommandLineOption("logtostderr", "1");
+  if (!is_verbosity_set()) {
+    SetCommandLineOption("v", "0");
+  }
+  SetCommandLineOption("stderrthreshold", severity_fatal);
+  SetCommandLineOption("minloglevel", severity_fatal);
 #else
-	(void) argv0;
+  (void)argv0;
 #endif
 }
 
 void util_logging_start()
 {
 #ifdef WITH_CYCLES_LOGGING
-	using CYCLES_GFLAGS_NAMESPACE::SetCommandLineOption;
-	SetCommandLineOption("logtostderr", "1");
-	SetCommandLineOption("v", "2");
-	SetCommandLineOption("stderrthreshold", "1");
-	SetCommandLineOption("minloglevel", "0");
+  using CYCLES_GFLAGS_NAMESPACE::SetCommandLineOption;
+  SetCommandLineOption("logtostderr", "1");
+  if (!is_verbosity_set()) {
+    SetCommandLineOption("v", "2");
+  }
+  SetCommandLineOption("stderrthreshold", "1");
+  SetCommandLineOption("minloglevel", "0");
 #endif
 }
 
 void util_logging_verbosity_set(int verbosity)
 {
 #ifdef WITH_CYCLES_LOGGING
-	using CYCLES_GFLAGS_NAMESPACE::SetCommandLineOption;
-	char val[10];
-	snprintf(val, sizeof(val), "%d", verbosity);
-	SetCommandLineOption("v", val);
+  using CYCLES_GFLAGS_NAMESPACE::SetCommandLineOption;
+  char val[10];
+  snprintf(val, sizeof(val), "%d", verbosity);
+  SetCommandLineOption("v", val);
 #else
-	(void) verbosity;
+  (void)verbosity;
 #endif
 }
 
-std::ostream& operator <<(std::ostream &os,
-                          const int2 &value)
+std::ostream &operator<<(std::ostream &os, const int2 &value)
 {
-	os << "(" << value.x
-	   << ", " << value.y
-	   << ")";
-	return os;
+  os << "(" << value.x << ", " << value.y << ")";
+  return os;
 }
 
-std::ostream& operator <<(std::ostream &os,
-                          const float3 &value)
+std::ostream &operator<<(std::ostream &os, const float3 &value)
 {
-	os << "(" << value.x
-	   << ", " << value.y
-	   << ", " << value.z
-	   << ")";
-	return os;
+  os << "(" << value.x << ", " << value.y << ", " << value.z << ")";
+  return os;
 }
 
 CCL_NAMESPACE_END

@@ -17,9 +17,9 @@
  * This is a new part of Blender (with some old code)
  */
 
-/** \file \ingroup edanimation
+/** \file
+ * \ingroup edanimation
  */
-
 
 #ifndef __ANIM_INTERN_H__
 #define __ANIM_INTERN_H__
@@ -37,6 +37,8 @@ extern ListBase builtin_keyingsets;
  */
 void ANIM_OT_keyframe_insert(struct wmOperatorType *ot);
 void ANIM_OT_keyframe_delete(struct wmOperatorType *ot);
+void ANIM_OT_keyframe_insert_by_name(struct wmOperatorType *ot);
+void ANIM_OT_keyframe_delete_by_name(struct wmOperatorType *ot);
 
 /* Main Keyframe Management operators:
  * These handle keyframes management from various spaces. They will handle the menus
@@ -76,4 +78,4 @@ void ANIM_OT_driver_button_edit(struct wmOperatorType *ot);
 void ANIM_OT_copy_driver_button(struct wmOperatorType *ot);
 void ANIM_OT_paste_driver_button(struct wmOperatorType *ot);
 
-#endif  /* __ANIM_INTERN_H__ */
+#endif /* __ANIM_INTERN_H__ */

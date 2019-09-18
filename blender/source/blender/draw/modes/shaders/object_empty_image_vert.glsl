@@ -1,7 +1,5 @@
-uniform mat4 ModelViewProjectionMatrix;
-uniform mat4 ModelMatrix;
-uniform float aspectX;
-uniform float aspectY;
+
+uniform vec2 aspect;
 uniform float size;
 uniform vec2 offset;
 #ifdef USE_WIRE
@@ -21,17 +19,18 @@ out vec2 texCoord_interp;
 
 void main()
 {
-	vec4 pos_4d = vec4((pos + offset) * (size * vec2(aspectX, aspectY)), 0.0, 1.0);
-	gl_Position = ModelViewProjectionMatrix * pos_4d;
+  vec3 pos = vec3((pos + offset) * (size * aspect), 0.0);
+  vec3 world_pos = point_object_to_world(pos);
+  gl_Position = point_world_to_ndc(world_pos);
 #ifdef USE_WIRE
-	gl_Position.z -= 1e-5;
-	finalColor = vec4(color, 1.0);
+  gl_Position.z -= 1e-5;
+  finalColor = vec4(color, 1.0);
 #else
-	texCoord_interp = texCoord;
-	finalColor = objectColor;
+  texCoord_interp = texCoord;
+  finalColor = objectColor;
 #endif
 
 #ifdef USE_WORLD_CLIP_PLANES
-	world_clip_planes_calc_clip_distance((ModelMatrix * pos_4d).xyz);
+  world_clip_planes_calc_clip_distance(world_pos);
 #endif
 }

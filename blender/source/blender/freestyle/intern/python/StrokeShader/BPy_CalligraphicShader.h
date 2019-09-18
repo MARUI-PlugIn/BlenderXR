@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup freestyle
+/** \file
+ * \ingroup freestyle
  */
 
 #ifndef __FREESTYLE_PYTHON_CALLIGRAPHICSHADER_H__
@@ -30,19 +31,18 @@ extern "C" {
 
 extern PyTypeObject CalligraphicShader_Type;
 
-#define BPy_CalligraphicShader_Check(v) (PyObject_IsInstance((PyObject *)v, (PyObject *)&CalligraphicShader_Type)
+#define BPy_CalligraphicShader_Check(v) \
+  (PyObject_IsInstance((PyObject *)v, (PyObject *)&CalligraphicShader_Type)
 
 /*---------------------------Python BPy_CalligraphicShader structure definition----------*/
 typedef struct {
-	BPy_StrokeShader py_ss;
+  BPy_StrokeShader py_ss;
 } BPy_CalligraphicShader;
-
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 
 #ifdef __cplusplus
 }
 #endif
-
 
 #endif /* __FREESTYLE_PYTHON_CALLIGRAPHICSHADER_H__ */

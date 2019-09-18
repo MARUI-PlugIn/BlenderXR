@@ -15,10 +15,10 @@
 * along with this program; if not, write to the Free Software Foundation,
 * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 *
-* The Original Code is Copyright (C) 2018 by Blender Foundation.
+* The Original Code is Copyright (C) 2019 by Blender Foundation.
 * All rights reserved.
 *
-* Contributor(s): MARUI-PlugIn
+* Contributor(s): MARUI-PlugIn, Multiplexed Reality
 *
 * ***** END GPL LICENSE BLOCK *****
 */
@@ -76,7 +76,7 @@
 
 #include "vr_util.h"
 
-/***********************************************************************************************//**
+/***************************************************************************************************
  * \class									Widget_Extrude
  ***************************************************************************************************
  * Interaction widget for the Extrude tool.
@@ -522,7 +522,7 @@ void Widget_Extrude::drag_start(VR_UI::Cursor& c)
 	Widget_Transform::snap_mode = VR_UI::SNAPMODE_TRANSLATION;
 
 	/* Test for manipulator selection and set constraints. */
-	const Mat44f& m = c.interaction_position.get();
+	const Mat44f& m = c.position.get();
 	extrude = false;
 	Widget_Transform::raycast_select_manipulator(*(Coord3Df*)m.m[3], &extrude);
 	if (extrude) {
@@ -671,9 +671,8 @@ void Widget_Extrude::drag_start(VR_UI::Cursor& c)
 
 void Widget_Extrude::drag_contd(VR_UI::Cursor& c)
 {
-	if (Widget_Transform::constraint_mode == VR_UI::CONSTRAINTMODE_NONE && 
-		!transform && 
-		Widget_Transform::transform_mode != Widget_Transform::TRANSFORMMODE_SCALE) {
+	if (Widget_Transform::constraint_mode == VR_UI::CONSTRAINTMODE_NONE && !transform &&
+		Widget_Transform::transform_mode != Widget_Transform::TRANSFORMMODE_MOVE) {
 		/* Free transformation not allowed (except for center scale cube), so return. */
 		return;
 	}
@@ -692,7 +691,7 @@ void Widget_Extrude::drag_contd(VR_UI::Cursor& c)
 			return;
 		}
 		if (obedit->type == OB_MESH) {
-			bm = ((Mesh*)obedit->data)->edit_btmesh->bm;
+			bm = ((Mesh*)obedit->data)->edit_mesh->bm;
 			if (!bm) {
 				return;
 			}
@@ -1618,7 +1617,8 @@ void Widget_Extrude::drag_stop(VR_UI::Cursor& c)
 	Widget_Transform::is_dragging = false;
 	extrude = false;
 
-	if (Widget_Transform::constraint_mode == VR_UI::CONSTRAINTMODE_NONE && !transform) {
+	if (Widget_Transform::constraint_mode == VR_UI::CONSTRAINTMODE_NONE && !transform && 
+		Widget_Transform::transform_mode != Widget_Transform::TRANSFORMMODE_MOVE) {
 		/* Free transformation not allowed, so return */
 		return;
 	}
@@ -1653,7 +1653,11 @@ void Widget_Extrude::render(VR_Side side)
 
 	static float manip_length[3];
 	for (int i = 0; i < 3; ++i) {
+#if WIDGET_TRANSFORM_SCALE_MANIP_TO_SELECTION
 		manip_length[i] = Widget_Transform::manip_scale_factor * 2.0f;
+#else
+		manip_length[i] = Widget_Transform::manip_scale_factor * 2.0f * VR_UI::navigation_scale_get();
+#endif
 	}
 	static float clip_plane[4] = { 0.0f };
 
@@ -1715,13 +1719,13 @@ void Widget_Extrude::render(VR_Side side)
 		Widget_Transform::render_gimbal(manip_length, false, Widget_Transform::manip_t.m, clip_plane, 3 * PI / 2.0f, 0.0f);
 		/* Extrude Ball and Arrow */
 		*((Coord3Df*)manip_length) /= 2.0f;
-		Widget_Transform::render_axes(manip_length, 3);
-		Widget_Transform::render_axes(manip_length, 0);
+		Widget_Transform::render_axes(side, manip_length, 3);
+		Widget_Transform::render_axes(side, manip_length, 0);
 		/* Box */
 		*((Coord3Df*)manip_length) /= 2.0f;
-		Widget_Transform::render_axes(manip_length, 1);
+		Widget_Transform::render_axes(side, manip_length, 1);
 		/* Ball */
-		Widget_Transform::render_axes(manip_length, 2);
+		Widget_Transform::render_axes(side, manip_length, 2);
 		GPU_blend(false);
 		GPU_matrix_pop();
 		return;
@@ -1734,8 +1738,8 @@ void Widget_Extrude::render(VR_Side side)
 		GPU_matrix_push();
 		GPU_matrix_mul(Widget_Transform::manip_t.m);
 		GPU_blend(true);
-		Widget_Transform::render_axes(manip_length, 3);
-		Widget_Transform::render_axes(manip_length, 0);
+		Widget_Transform::render_axes(side, manip_length, 3);
+		Widget_Transform::render_axes(side, manip_length, 0);
 		GPU_blend(false);
 		GPU_matrix_pop();
 		break;
@@ -1748,8 +1752,8 @@ void Widget_Extrude::render(VR_Side side)
 		Widget_Transform::render_planes(manip_length);
 		/* Extrude Ball and Arrow */
 		*((Coord3Df*)manip_length) /= 2.0f;
-		Widget_Transform::render_axes(manip_length, 3);
-		Widget_Transform::render_axes(manip_length, 0);
+		Widget_Transform::render_axes(side, manip_length, 3);
+		Widget_Transform::render_axes(side, manip_length, 0);
 		GPU_blend(false);
 		GPU_matrix_pop();
 		break;
@@ -1815,10 +1819,10 @@ void Widget_Extrude::render(VR_Side side)
 		}
 		/* Extrude Ball */
 		*((Coord3Df*)manip_length) /= 2.0f;
-		Widget_Transform::render_axes(manip_length, 3);
+		Widget_Transform::render_axes(side, manip_length, 3);
 		/* Ball */
 		*((Coord3Df*)manip_length) /= 2.0f;
-		Widget_Transform::render_axes(manip_length, 2);
+		Widget_Transform::render_axes(side, manip_length, 2);
 		GPU_blend(false);
 		GPU_matrix_pop();
 		break;
@@ -1831,10 +1835,10 @@ void Widget_Extrude::render(VR_Side side)
 		Widget_Transform::render_planes(manip_length);
 		/* Extrude Ball */
 		*((Coord3Df*)manip_length) /= 2.0f;
-		Widget_Transform::render_axes(manip_length, 3);
+		Widget_Transform::render_axes(side, manip_length, 3);
 		/* Box */
 		*((Coord3Df*)manip_length) /= 2.0f;
-		Widget_Transform::render_axes(manip_length, 1);
+		Widget_Transform::render_axes(side, manip_length, 1);
 		/* TODO_XR */
 		static float zero[4][4] = { 0 };
 		GPU_matrix_mul(zero);

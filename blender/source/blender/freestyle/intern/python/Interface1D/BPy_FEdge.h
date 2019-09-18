@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup freestyle
+/** \file
+ * \ingroup freestyle
  */
 
 #ifndef __FREESTYLE_PYTHON_FEDGE_H__
@@ -36,8 +37,8 @@ extern PyTypeObject FEdge_Type;
 
 /*---------------------------Python BPy_FEdge structure definition----------*/
 typedef struct {
-	BPy_Interface1D py_if1D;
-	FEdge *fe;
+  BPy_Interface1D py_if1D;
+  FEdge *fe;
 } BPy_FEdge;
 
 ///////////////////////////////////////////////////////////////////////////////////////////

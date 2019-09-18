@@ -1,6 +1,4 @@
 /*
- * Copyright 2011, Blender Foundation.
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,61 +12,72 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * Copyright 2011, Blender Foundation.
  */
 
 #ifndef __COM_CONVERTCOLORPROFILEOPERATION_H__
 #define __COM_CONVERTCOLORPROFILEOPERATION_H__
 #include "COM_NodeOperation.h"
 
-
 /**
  * this program converts an input color to an output value.
  * it assumes we are in sRGB color space.
  */
 class ConvertColorProfileOperation : public NodeOperation {
-private:
-	/**
-	 * Cached reference to the inputProgram
-	 */
-	SocketReader *m_inputOperation;
+ private:
+  /**
+   * Cached reference to the inputProgram
+   */
+  SocketReader *m_inputOperation;
 
-	/**
-	 * \brief color profile where to convert from
-	 */
-	int m_fromProfile;
+  /**
+   * \brief color profile where to convert from
+   */
+  int m_fromProfile;
 
-	/**
-	 * \brief color profile where to convert to
-	 */
-	int m_toProfile;
+  /**
+   * \brief color profile where to convert to
+   */
+  int m_toProfile;
 
-	/**
-	 * \brief is color predivided
-	 */
-	bool m_predivided;
-public:
-	/**
-	 * Default constructor
-	 */
-	ConvertColorProfileOperation();
+  /**
+   * \brief is color predivided
+   */
+  bool m_predivided;
 
-	/**
-	 * the inner loop of this program
-	 */
-	void executePixelSampled(float output[4], float x, float y, PixelSampler sampler);
+ public:
+  /**
+   * Default constructor
+   */
+  ConvertColorProfileOperation();
 
-	/**
-	 * Initialize the execution
-	 */
-	void initExecution();
+  /**
+   * the inner loop of this program
+   */
+  void executePixelSampled(float output[4], float x, float y, PixelSampler sampler);
 
-	/**
-	 * Deinitialize the execution
-	 */
-	void deinitExecution();
+  /**
+   * Initialize the execution
+   */
+  void initExecution();
 
-	void setFromColorProfile(int colorProfile) { this->m_fromProfile = colorProfile; }
-	void setToColorProfile(int colorProfile) { this->m_toProfile = colorProfile; }
-	void setPredivided(bool predivided) { this->m_predivided = predivided; }
+  /**
+   * Deinitialize the execution
+   */
+  void deinitExecution();
+
+  void setFromColorProfile(int colorProfile)
+  {
+    this->m_fromProfile = colorProfile;
+  }
+  void setToColorProfile(int colorProfile)
+  {
+    this->m_toProfile = colorProfile;
+  }
+  void setPredivided(bool predivided)
+  {
+    this->m_predivided = predivided;
+  }
 };
 #endif

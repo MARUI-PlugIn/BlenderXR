@@ -20,7 +20,8 @@
 #ifndef __BKE_NLA_H__
 #define __BKE_NLA_H__
 
-/** \file \ingroup bke
+/** \file
+ * \ingroup bke
  */
 
 struct AnimData;
@@ -41,14 +42,22 @@ void BKE_nlastrip_free(ListBase *strips, struct NlaStrip *strip, bool do_id_user
 void BKE_nlatrack_free(ListBase *tracks, struct NlaTrack *nlt, bool do_id_user);
 void BKE_nla_tracks_free(ListBase *tracks, bool do_id_user);
 
-struct NlaStrip *BKE_nlastrip_copy(struct Main *bmain, struct NlaStrip *strip, const bool use_same_action, const int flag);
-struct NlaTrack *BKE_nlatrack_copy(struct Main *bmain, struct NlaTrack *nlt, const bool use_same_actions, const int flag);
+struct NlaStrip *BKE_nlastrip_copy(struct Main *bmain,
+                                   struct NlaStrip *strip,
+                                   const bool use_same_action,
+                                   const int flag);
+struct NlaTrack *BKE_nlatrack_copy(struct Main *bmain,
+                                   struct NlaTrack *nlt,
+                                   const bool use_same_actions,
+                                   const int flag);
 void BKE_nla_tracks_copy(struct Main *bmain, ListBase *dst, ListBase *src, const int flag);
 
 struct NlaTrack *BKE_nlatrack_add(struct AnimData *adt, struct NlaTrack *prev);
 struct NlaStrip *BKE_nlastrip_new(struct bAction *act);
 struct NlaStrip *BKE_nlastack_add_strip(struct AnimData *adt, struct bAction *act);
-struct NlaStrip *BKE_nla_add_soundstrip(struct Scene *scene, struct Speaker *spk);
+struct NlaStrip *BKE_nla_add_soundstrip(struct Main *bmain,
+                                        struct Scene *scene,
+                                        struct Speaker *spk);
 
 /* ----------------------------- */
 /* API */
@@ -57,7 +66,6 @@ bool BKE_nlastrips_has_space(ListBase *strips, float start, float end);
 void BKE_nlastrips_sort_strips(ListBase *strips);
 
 bool BKE_nlastrips_add_strip(ListBase *strips, struct NlaStrip *strip);
-
 
 void BKE_nlastrips_make_metas(ListBase *strips, bool is_temp);
 void BKE_nlastrips_clear_metas(ListBase *strips, bool only_sel, bool only_temp);
@@ -97,7 +105,8 @@ bool BKE_nlatrack_has_animated_strips(struct NlaTrack *nlt);
 bool BKE_nlatracks_have_animated_strips(ListBase *tracks);
 void BKE_nlastrip_validate_fcurves(struct NlaStrip *strip);
 
-bool BKE_nlastrip_has_curves_for_property(const struct PointerRNA *ptr, const struct PropertyRNA *prop);
+bool BKE_nlastrip_has_curves_for_property(const struct PointerRNA *ptr,
+                                          const struct PropertyRNA *prop);
 
 void BKE_nla_validate_state(struct AnimData *adt);
 
@@ -118,14 +127,14 @@ void BKE_nla_tweakmode_exit(struct AnimData *adt);
 
 /* time mapping conversion modes */
 enum eNlaTime_ConvertModes {
-	/* convert from global time to strip time - for evaluation */
-	NLATIME_CONVERT_EVAL = 0,
-	/* convert from global time to strip time - for editing corrections */
-	// XXX old 0 invert
-	NLATIME_CONVERT_UNMAP,
-	/* convert from strip time to global time */
-	// xxx old 1 invert
-	NLATIME_CONVERT_MAP,
+  /* convert from global time to strip time - for evaluation */
+  NLATIME_CONVERT_EVAL = 0,
+  /* convert from global time to strip time - for editing corrections */
+  // XXX old 0 invert
+  NLATIME_CONVERT_UNMAP,
+  /* convert from strip time to global time */
+  // xxx old 1 invert
+  NLATIME_CONVERT_MAP,
 };
 
 float BKE_nla_tweakedit_remap(struct AnimData *adt, float cframe, short mode);

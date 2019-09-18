@@ -354,7 +354,7 @@ def create_room(self, context):
     # we create main object and mesh for walls
     roommesh = bpy.data.meshes.new("Room")
     roomobject = bpy.data.objects.new("Room", roommesh)
-    roomobject.location = bpy.context.scene.cursor_location
+    roomobject.location = bpy.context.scene.cursor.location
     bpy.context.collection.objects.link(roomobject)
     roomobject.RoomGenerator.add()
     roomobject.RoomGenerator[0].walls.add()
@@ -1620,7 +1620,7 @@ class ARCHIMESH_PT_RoomGenerator(Panel):
     bl_label = "Room"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
-    bl_category = 'View'
+    bl_category = 'Create'
 
     # -----------------------------------------------------
     # Verify if visible

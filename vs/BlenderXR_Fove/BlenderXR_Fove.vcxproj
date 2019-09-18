@@ -20,16 +20,16 @@
   <PropertyGroup Label="Globals">
     <ProjectGuid>{0C69939E-6873-40A9-8A7D-F7A1A6EFE684}</ProjectGuid>
     <RootNamespace>InputDev_LeapMotion</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0.17134.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
     <ProjectName>BlenderXR_Fove</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <ConfigurationType>DynamicLibrary</ConfigurationType>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <ConfigurationType>DynamicLibrary</ConfigurationType>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
@@ -49,12 +49,12 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
       <DebugInformationFormat>None</DebugInformationFormat>
-      <AdditionalIncludeDirectories>$(SolutionDir)..\inc;$(SolutionDir)..\inc\FoveSDK_0.15.0;$(SolutionDir)..\inc\glew_1.13.0</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)..\inc;$(SolutionDir)..\inc\FoveSDK_0.16.0;$(SolutionDir)..\inc\glew_1.13.0</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <PreprocessorDefinitions>%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalLibraryDirectories>$(SolutionDir)..\lib;$(SolutionDir)..\lib\FoveSDK_0.15.0;$(SolutionDir)..\lib\glew_1.13.0</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)..\lib;$(SolutionDir)..\lib\FoveSDK_0.16.0;$(SolutionDir)..\lib\glew_1.13.0</AdditionalLibraryDirectories>
       <AdditionalDependencies>OpenGL32.Lib;glew64s.lib;FoveClient.lib;User32.lib</AdditionalDependencies>
       <ImportLibrary>build/$(TargetName).lib</ImportLibrary>
       <GenerateDebugInformation>false</GenerateDebugInformation>
@@ -70,11 +70,11 @@
     <ClCompile>
       <Optimization>Disabled</Optimization>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
-      <AdditionalIncludeDirectories>$(SolutionDir)..\inc;$(SolutionDir)..\inc\FoveSDK_0.15.0;$(SolutionDir)..\inc\glew_1.13.0</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)..\inc;$(SolutionDir)..\inc\FoveSDK_0.16.0;$(SolutionDir)..\inc\glew_1.13.0</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalLibraryDirectories>$(SolutionDir)..\lib;$(SolutionDir)..\lib\FoveSDK_0.15.0;$(SolutionDir)..\lib\glew_1.13.0</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)..\lib;$(SolutionDir)..\lib\FoveSDK_0.16.0;$(SolutionDir)..\lib\glew_1.13.0</AdditionalLibraryDirectories>
       <AdditionalDependencies>OpenGL32.Lib;glew64s.lib;FoveClient.lib;User32.lib</AdditionalDependencies>
       <ImportLibrary>build/$(TargetName).lib</ImportLibrary>
       <GenerateDebugInformation>true</GenerateDebugInformation>

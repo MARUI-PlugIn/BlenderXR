@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup freestyle
+/** \file
+ * \ingroup freestyle
  */
 
 #ifndef __FREESTYLE_PYTHON_UNARYFUNCTION1DEDGENATURE_H__
@@ -33,17 +34,16 @@ extern "C" {
 extern PyTypeObject UnaryFunction1DEdgeNature_Type;
 
 #define BPy_UnaryFunction1DEdgeNature_Check(v) \
-            (PyObject_IsInstance((PyObject *)v, (PyObject *)&UnaryFunction1DEdgeNature_Type))
+  (PyObject_IsInstance((PyObject *)v, (PyObject *)&UnaryFunction1DEdgeNature_Type))
 
 /*---------------------------Python BPy_UnaryFunction1DEdgeNature structure definition----------*/
 typedef struct {
-	BPy_UnaryFunction1D py_uf1D;
-	UnaryFunction1D<Nature::EdgeNature> *uf1D_edgenature;
+  BPy_UnaryFunction1D py_uf1D;
+  UnaryFunction1D<Nature::EdgeNature> *uf1D_edgenature;
 } BPy_UnaryFunction1DEdgeNature;
 
 /*---------------------------Python BPy_UnaryFunction1DEdgeNature visible prototypes-----------*/
 int UnaryFunction1DEdgeNature_Init(PyObject *module);
-
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 

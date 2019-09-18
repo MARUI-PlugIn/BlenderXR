@@ -16,7 +16,8 @@
  * Copyright 2016, Blender Foundation.
  */
 
-/** \file \ingroup draw_engine
+/** \file
+ * \ingroup draw_engine
  *
  * Simple engine for drawing color and/or depth.
  * When we only need simple studio shaders.
@@ -32,62 +33,67 @@
 
 static void workbench_transparent_engine_init(void *vedata)
 {
-	WORKBENCH_Data *data = vedata;
-	workbench_forward_engine_init(data);
+  WORKBENCH_Data *data = vedata;
+  workbench_forward_engine_init(data);
 }
 
 static void workbench_transparent_cache_init(void *vedata)
 {
 
-	WORKBENCH_Data *data = vedata;
-	workbench_forward_cache_init(data);
+  WORKBENCH_Data *data = vedata;
+  workbench_forward_cache_init(data);
 }
 
 static void workbench_transparent_cache_populate(void *vedata, Object *ob)
 {
-	WORKBENCH_Data *data = vedata;
-	workbench_forward_cache_populate(data, ob);
+  WORKBENCH_Data *data = vedata;
+  workbench_forward_cache_populate(data, ob);
 }
 
 static void workbench_transparent_cache_finish(void *vedata)
 {
-	WORKBENCH_Data *data = vedata;
-	workbench_forward_cache_finish(data);
+  WORKBENCH_Data *data = vedata;
+  workbench_forward_cache_finish(data);
 }
 
 static void workbench_transparent_draw_background(void *vedata)
 {
-	WORKBENCH_Data *data = vedata;
-	workbench_forward_draw_background(data);
-	workbench_forward_draw_scene(data);
-	workbench_forward_draw_finish(data);
+  WORKBENCH_Data *data = vedata;
+  const int num_samples = workbench_num_viewport_rendering_iterations(data);
+
+  for (int sample = 0; sample < num_samples; sample++) {
+    workbench_forward_draw_background(data);
+    workbench_forward_draw_scene(data);
+  }
+  workbench_forward_draw_finish(data);
 }
 
 static void workbench_transparent_engine_free(void)
 {
-	workbench_forward_engine_free();
+  workbench_forward_engine_free();
 }
 
 static void workbench_transparent_view_update(void *vedata)
 {
-	WORKBENCH_Data *data = vedata;
-	workbench_taa_view_updated(data);
+  WORKBENCH_Data *data = vedata;
+  workbench_taa_view_updated(data);
 }
 
 static const DrawEngineDataSize workbench_data_size = DRW_VIEWPORT_DATA_SIZE(WORKBENCH_Data);
 
 DrawEngineType draw_engine_workbench_transparent = {
-	NULL, NULL,
-	N_("Workbench"),
-	&workbench_data_size,
-	&workbench_transparent_engine_init,
-	&workbench_transparent_engine_free,
-	&workbench_transparent_cache_init,
-	&workbench_transparent_cache_populate,
-	&workbench_transparent_cache_finish,
-	&workbench_transparent_draw_background,
-	NULL,
-	&workbench_transparent_view_update,
-	NULL,
-	NULL,
+    NULL,
+    NULL,
+    N_("Workbench"),
+    &workbench_data_size,
+    &workbench_transparent_engine_init,
+    &workbench_transparent_engine_free,
+    &workbench_transparent_cache_init,
+    &workbench_transparent_cache_populate,
+    &workbench_transparent_cache_finish,
+    &workbench_transparent_draw_background,
+    NULL,
+    &workbench_transparent_view_update,
+    NULL,
+    NULL,
 };

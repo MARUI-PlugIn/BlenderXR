@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup bpygpu
+/** \file
+ * \ingroup bpygpu
  */
 
 #ifndef __GPU_PY_SHADER_H__
@@ -22,12 +23,11 @@
 
 extern PyTypeObject BPyGPUShader_Type;
 
-#define BPyGPUShader_Check(v)     (Py_TYPE(v) == &BPyGPUShader_Type)
+#define BPyGPUShader_Check(v) (Py_TYPE(v) == &BPyGPUShader_Type)
 
 typedef struct BPyGPUShader {
-	PyObject_VAR_HEAD
-	struct GPUShader *shader;
-	bool is_builtin;
+  PyObject_VAR_HEAD struct GPUShader *shader;
+  bool is_builtin;
 } BPyGPUShader;
 
 PyObject *BPyGPUShader_CreatePyObject(struct GPUShader *shader, bool is_builtin);

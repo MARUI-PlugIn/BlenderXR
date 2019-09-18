@@ -38,7 +38,7 @@ from bpy.types import (
 
 
 # Sculpt Draw
-class SculptSculptDraw(Operator):
+class PIE_OT_SculptSculptDraw(Operator):
     bl_idname = "sculpt.sculptraw"
     bl_label = "Sculpt SculptDraw"
     bl_options = {'REGISTER', 'UNDO'}
@@ -49,8 +49,8 @@ class SculptSculptDraw(Operator):
 
 
 # Pie Sculp Pie Menus - W
-class PieSculptPie(Menu):
-    bl_idname = "pie.sculpt"
+class PIE_MT_SculptPie(Menu):
+    bl_idname = "PIE_MT_sculpt"
     bl_label = "Pie Sculpt"
 
     def draw(self, context):
@@ -63,7 +63,7 @@ class PieSculptPie(Menu):
         pie.operator("paint.brush_select",
                     text='Blob', icon='BRUSH_BLOB').sculpt_tool = 'BLOB'
         # 2 - BOTTOM
-        pie.menu(PieSculpttwo.bl_idname,
+        pie.menu(PIE_MT_Sculpttwo.bl_idname,
                     text="More Brushes", icon='BRUSH_SMOOTH')
         # 8 - TOP
         pie.operator("sculpt.sculptraw",
@@ -78,13 +78,13 @@ class PieSculptPie(Menu):
         pie.operator("paint.brush_select",
                     text='Inflate/Deflate', icon='BRUSH_INFLATE').sculpt_tool = 'INFLATE'
         # 3 - BOTTOM - RIGHT
-        pie.menu(PieSculptthree.bl_idname,
+        pie.menu(PIE_MT_Sculptthree.bl_idname,
                     text="Grab Brushes", icon='BRUSH_GRAB')
 
 
 # Pie Sculpt 2
-class PieSculpttwo(Menu):
-    bl_idname = "pie.sculpttwo"
+class PIE_MT_Sculpttwo(Menu):
+    bl_idname = "PIE_MT_sculpttwo"
     bl_label = "Pie Sculpt 2"
 
     def draw(self, context):
@@ -107,8 +107,8 @@ class PieSculpttwo(Menu):
 
 
 # Pie Sculpt Three
-class PieSculptthree(Menu):
-    bl_idname = "pie.sculptthree"
+class PIE_MT_Sculptthree(Menu):
+    bl_idname = "PIE_MT_sculptthree"
     bl_label = "Pie Sculpt 3"
 
     def draw(self, context):
@@ -123,14 +123,14 @@ class PieSculptthree(Menu):
         layout.operator("paint.brush_select",
                         text='Snakehook', icon='BRUSH_SNAKE_HOOK').sculpt_tool = 'SNAKE_HOOK'
         layout.operator("paint.brush_select",
-                        text='Twist', icon='BRUSH_ROTATE').sculpt_tool = 'NONE'
+                        text='Rotate', icon='BRUSH_ROTATE').sculpt_tool = 'ROTATE'
 
 
 classes = (
-    PieSculptPie,
-    PieSculpttwo,
-    PieSculptthree,
-    SculptSculptDraw,
+    PIE_MT_SculptPie,
+    PIE_MT_Sculpttwo,
+    PIE_MT_Sculptthree,
+    PIE_OT_SculptSculptDraw,
     )
 
 addon_keymaps = []
@@ -145,7 +145,7 @@ def register():
         # Sculpt Pie Menu
         km = wm.keyconfigs.addon.keymaps.new(name='Sculpt')
         kmi = km.keymap_items.new('wm.call_menu_pie', 'W', 'PRESS')
-        kmi.properties.name = "pie.sculpt"
+        kmi.properties.name = "PIE_MT_sculpt"
         addon_keymaps.append((km, kmi))
 
 

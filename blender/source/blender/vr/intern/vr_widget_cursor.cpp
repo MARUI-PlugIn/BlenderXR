@@ -15,10 +15,10 @@
 * along with this program; if not, write to the Free Software Foundation,
 * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 *
-* The Original Code is Copyright (C) 2018 by Blender Foundation.
+* The Original Code is Copyright (C) 2019 by Blender Foundation.
 * All rights reserved.
 *
-* Contributor(s): MARUI-PlugIn
+* Contributor(s): MARUI-PlugIn, Multiplexed Reality
 *
 * ***** END GPL LICENSE BLOCK *****
 */
@@ -40,7 +40,10 @@
 
 #include "BLI_math.h"
 
+#include "DNA_view3d_types.h"
+
 #include "BKE_context.h"
+#include "BKE_scene.h"
 
 #include "DEG_depsgraph.h"
 
@@ -65,7 +68,10 @@ void Widget_Cursor::cursor_teleport()
 	/* Convert cursor position from Blender to real space. */
 	Scene *scene = CTX_data_scene(vr_get_obj()->ctx);
 	static Mat44f m_blender;
-	ED_view3d_cursor3d_calc_mat4(scene, m_blender.m);
+
+	const View3DCursor *cursor = &scene->cursor;
+	BKE_scene_cursor_to_mat4(cursor, m_blender.m);
+
 	static Mat44f m_real = VR_Math::identity_f;
 	memcpy(m_real.m[3],	VR_UI::convert_space(m_blender, VR_SPACE_BLENDER, VR_SPACE_REAL).m[3], sizeof(float) * 3);
 
@@ -81,8 +87,7 @@ void Widget_Cursor::cursor_set_to_world_origin()
 	/* Update the Blender 3D cursor */
 	bContext *C = vr_get_obj()->ctx;
 	Scene *scene = CTX_data_scene(C);
-	mat4_to_quat(scene->cursor.rotation, (float(*)[4])VR_Math::identity_f.m);
-	memset(scene->cursor.location, 0, sizeof(float) * 3);
+	BKE_scene_cursor_from_mat4(&scene->cursor, (float(*)[4])VR_Math::identity_f.m, true);
 
 	WM_event_add_notifier(C, NC_SCENE | NA_EDITED, scene);
 	DEG_id_tag_update(&scene->id, ID_RECALC_COPY_ON_WRITE);
@@ -125,8 +130,10 @@ void Widget_Cursor::cursor_set_to_object_origin()
 
 	/* Update the Blender 3D cursor */
 	Scene *scene = CTX_data_scene(C);
-	mat3_to_quat(scene->cursor.rotation, rot);
-	memcpy(scene->cursor.location, &center.m[3], sizeof(float) * 3);
+	for (int i = 0; i < 3; ++i) {
+		memcpy(center.m[i], rot[i], sizeof(float) * 3);
+	}
+	BKE_scene_cursor_from_mat4(&scene->cursor, (float(*)[4])center.m, true);
 
 	WM_event_add_notifier(C, NC_SCENE | NA_EDITED, scene);
 	DEG_id_tag_update(&scene->id, ID_RECALC_COPY_ON_WRITE);
@@ -141,12 +148,14 @@ bool Widget_Cursor::has_click(VR_UI::Cursor& c) const
 void Widget_Cursor::click(VR_UI::Cursor& c)
 {
 	/* Update the Blender 3D cursor */
-	const Mat44f& m = c.position.get(VR_SPACE_BLENDER);
+	Mat44f m = c.position.get(VR_SPACE_BLENDER);
 
 	bContext *C = vr_get_obj()->ctx;
 	Scene *scene = CTX_data_scene(C);
-	mat4_to_quat(scene->cursor.rotation, (float(*)[4])m.m);
-	memcpy(scene->cursor.location, &m.m[3], sizeof(float) * 3);
+	for (int i = 0; i < 3; ++i) {
+		(*(Coord3Df*)m.m[i]).normalize_in_place();
+	}
+	BKE_scene_cursor_from_mat4(&scene->cursor, (float(*)[4])m.m, true);
 
 	WM_event_add_notifier(C, NC_SCENE | NA_EDITED, scene);
 	DEG_id_tag_update(&scene->id, ID_RECALC_COPY_ON_WRITE);
@@ -156,12 +165,14 @@ void Widget_Cursor::click(VR_UI::Cursor& c)
 void Widget_Cursor::drag_start(VR_UI::Cursor& c)
 {
 	/* Update the Blender 3D cursor */
-	const Mat44f& m = c.interaction_position.get(VR_SPACE_BLENDER);
+	Mat44f m = c.position.get(VR_SPACE_BLENDER);
 
-	bContext *C = vr_get_obj()->ctx;
-	Scene *scene = CTX_data_scene(C);
-	mat4_to_quat(scene->cursor.rotation, (float(*)[4])m.m);
-	memcpy(scene->cursor.location, &m.m[3], sizeof(float) * 3);
+	bContext* C = vr_get_obj()->ctx;
+	Scene* scene = CTX_data_scene(C);
+	for (int i = 0; i < 3; ++i) {
+		(*(Coord3Df*)m.m[i]).normalize_in_place();
+	}
+	BKE_scene_cursor_from_mat4(&scene->cursor, (float(*)[4])m.m, true);
 
 	DEG_id_tag_update(&scene->id, 0);
 }
@@ -169,12 +180,14 @@ void Widget_Cursor::drag_start(VR_UI::Cursor& c)
 void Widget_Cursor::drag_contd(VR_UI::Cursor& c)
 {
 	/* Update the Blender 3D cursor */
-	const Mat44f& m = c.position.get(VR_SPACE_BLENDER);
+	Mat44f m = c.position.get(VR_SPACE_BLENDER);
 
-	bContext *C = vr_get_obj()->ctx;
-	Scene *scene = CTX_data_scene(C);
-	mat4_to_quat(scene->cursor.rotation, (float(*)[4])m.m);
-	memcpy(scene->cursor.location, &m.m[3], sizeof(float) * 3);
+	bContext* C = vr_get_obj()->ctx;
+	Scene* scene = CTX_data_scene(C);
+	for (int i = 0; i < 3; ++i) {
+		(*(Coord3Df*)m.m[i]).normalize_in_place();
+	}
+	BKE_scene_cursor_from_mat4(&scene->cursor, (float(*)[4])m.m, true);
 
 	DEG_id_tag_update(&scene->id, 0);
 }
@@ -182,12 +195,14 @@ void Widget_Cursor::drag_contd(VR_UI::Cursor& c)
 void Widget_Cursor::drag_stop(VR_UI::Cursor& c)
 {
 	/* Update the Blender 3D cursor */
-	const Mat44f& m = c.position.get(VR_SPACE_BLENDER);
+	Mat44f m = c.position.get(VR_SPACE_BLENDER);
 
-	bContext *C = vr_get_obj()->ctx;
-	Scene *scene = CTX_data_scene(C);
-	mat4_to_quat(scene->cursor.rotation, (float(*)[4])m.m);
-	memcpy(scene->cursor.location, &m.m[3], sizeof(float) * 3);
+	bContext* C = vr_get_obj()->ctx;
+	Scene* scene = CTX_data_scene(C);
+	for (int i = 0; i < 3; ++i) {
+		(*(Coord3Df*)m.m[i]).normalize_in_place();
+	}
+	BKE_scene_cursor_from_mat4(&scene->cursor, (float(*)[4])m.m, true);
 
 	WM_event_add_notifier(C, NC_SCENE | NA_EDITED, scene);
 	DEG_id_tag_update(&scene->id, ID_RECALC_COPY_ON_WRITE);

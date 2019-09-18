@@ -15,13 +15,15 @@ class OBJECT_OT_property_example(bpy.types.Operator):
     bl_label = "Property Example"
     bl_options = {'REGISTER', 'UNDO'}
 
-    my_float = bpy.props.FloatProperty(name="Some Floating Point")
-    my_bool = bpy.props.BoolProperty(name="Toggle Option")
-    my_string = bpy.props.StringProperty(name="String Value")
+    my_float: bpy.props.FloatProperty(name="Some Floating Point")
+    my_bool: bpy.props.BoolProperty(name="Toggle Option")
+    my_string: bpy.props.StringProperty(name="String Value")
 
     def execute(self, context):
-        self.report({'INFO'}, 'F: %.2f  B: %s  S: %r' %
-                    (self.my_float, self.my_bool, self.my_string))
+        self.report(
+            {'INFO'}, 'F: %.2f  B: %s  S: %r' %
+            (self.my_float, self.my_bool, self.my_string)
+        )
         print('My float:', self.my_float)
         print('My bool:', self.my_bool)
         print('My string:', self.my_string)
@@ -32,8 +34,8 @@ class OBJECT_PT_property_example(bpy.types.Panel):
     bl_idname = "object_PT_property_example"
     bl_label = "Property Example"
     bl_space_type = 'VIEW_3D'
-    bl_region_type = 'TOOLS'
-    bl_category = "Tools"
+    bl_region_type = 'UI'
+    bl_category = "Tool"
 
     def draw(self, context):
         # You can set the property values that should be used when the user
@@ -53,5 +55,8 @@ bpy.utils.register_class(OBJECT_OT_property_example)
 bpy.utils.register_class(OBJECT_PT_property_example)
 
 # Demo call. Be sure to also test in the 3D Viewport.
-bpy.ops.object.property_example(my_float=47, my_bool=True,
-                                my_string="Shouldn't that be 327?")
+bpy.ops.object.property_example(
+    my_float=47,
+    my_bool=True,
+    my_string="Shouldn't that be 327?",
+)

@@ -16,7 +16,8 @@
  * Copyright 2016, Blender Foundation.
  */
 
-/** \file \ingroup draw_engine
+/** \file
+ * \ingroup draw_engine
  *
  * Simple engine for drawing color and/or depth.
  * When we only need simple studio shaders.
@@ -34,78 +35,87 @@
 
 static void workbench_solid_engine_init(void *vedata)
 {
-	WORKBENCH_Data *data = vedata;
-	workbench_deferred_engine_init(data);
+  WORKBENCH_Data *data = vedata;
+  workbench_deferred_engine_init(data);
 }
 
 static void workbench_solid_cache_init(void *vedata)
 {
 
-	WORKBENCH_Data *data = vedata;
-	workbench_deferred_cache_init(data);
+  WORKBENCH_Data *data = vedata;
+  workbench_deferred_cache_init(data);
 }
 
 static void workbench_solid_cache_populate(void *vedata, Object *ob)
 {
-	WORKBENCH_Data *data = vedata;
-	workbench_deferred_solid_cache_populate(data, ob);
+  WORKBENCH_Data *data = vedata;
+  workbench_deferred_solid_cache_populate(data, ob);
 }
 
 static void workbench_solid_cache_finish(void *vedata)
 {
-	WORKBENCH_Data *data = vedata;
-	workbench_deferred_cache_finish(data);
+  WORKBENCH_Data *data = vedata;
+  workbench_deferred_cache_finish(data);
 }
 
 static void workbench_solid_draw_background(void *vedata)
 {
-	WORKBENCH_Data *data = vedata;
-	workbench_deferred_draw_background(data);
-	workbench_deferred_draw_scene(data);
-	workbench_deferred_draw_finish(data);
+  WORKBENCH_Data *data = vedata;
+  const int num_samples = workbench_num_viewport_rendering_iterations(data);
+
+  for (int sample = 0; sample < num_samples; sample++) {
+    workbench_deferred_draw_background(data);
+    workbench_deferred_draw_scene(data);
+  }
+  workbench_deferred_draw_finish(data);
 }
 
 static void workbench_solid_engine_free(void)
 {
-	workbench_deferred_engine_free();
+  workbench_deferred_engine_free();
 }
 
 static void workbench_solid_view_update(void *vedata)
 {
-	WORKBENCH_Data *data = vedata;
-	workbench_taa_view_updated(data);
+  WORKBENCH_Data *data = vedata;
+  workbench_taa_view_updated(data);
 }
 
 static void workbench_solid_id_update(void *UNUSED(vedata), struct ID *id)
 {
-	if (GS(id->name) == ID_OB) {
-		WORKBENCH_ObjectData *oed = (WORKBENCH_ObjectData *)DRW_drawdata_get(id, &draw_engine_workbench_solid);
-		if (oed != NULL && oed->dd.recalc != 0) {
-			oed->shadow_bbox_dirty = (oed->dd.recalc & ID_RECALC_ALL) != 0;
-			oed->dd.recalc = 0;
-		}
-	}
+  if (GS(id->name) == ID_OB) {
+    WORKBENCH_ObjectData *oed = (WORKBENCH_ObjectData *)DRW_drawdata_get(
+        id, &draw_engine_workbench_solid);
+    if (oed != NULL && oed->dd.recalc != 0) {
+      oed->shadow_bbox_dirty = (oed->dd.recalc & ID_RECALC_ALL) != 0;
+      oed->dd.recalc = 0;
+    }
+  }
 }
 
-static void workbench_render_to_image(void *vedata, RenderEngine *engine, RenderLayer *render_layer, const rcti *rect)
+static void workbench_render_to_image(void *vedata,
+                                      RenderEngine *engine,
+                                      RenderLayer *render_layer,
+                                      const rcti *rect)
 {
-	workbench_render(vedata, engine, render_layer, rect);
+  workbench_render(vedata, engine, render_layer, rect);
 }
 
 static const DrawEngineDataSize workbench_data_size = DRW_VIEWPORT_DATA_SIZE(WORKBENCH_Data);
 
 DrawEngineType draw_engine_workbench_solid = {
-	NULL, NULL,
-	N_("Workbench"),
-	&workbench_data_size,
-	&workbench_solid_engine_init,
-	&workbench_solid_engine_free,
-	&workbench_solid_cache_init,
-	&workbench_solid_cache_populate,
-	&workbench_solid_cache_finish,
-	&workbench_solid_draw_background,
-	NULL,
-	&workbench_solid_view_update,
-	&workbench_solid_id_update,
-	&workbench_render_to_image,
+    NULL,
+    NULL,
+    N_("Workbench"),
+    &workbench_data_size,
+    &workbench_solid_engine_init,
+    &workbench_solid_engine_free,
+    &workbench_solid_cache_init,
+    &workbench_solid_cache_populate,
+    &workbench_solid_cache_finish,
+    &workbench_solid_draw_background,
+    NULL,
+    &workbench_solid_view_update,
+    &workbench_solid_id_update,
+    &workbench_render_to_image,
 };

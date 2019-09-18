@@ -6,12 +6,13 @@
  ***************************************************************************************************
  * \brief     Valve openvr API module for use with SteamVR.
  * \copyright MARUI-PlugIn (inc.)
+ * \contributors Multiplexed Reality
  **************************************************************************************************/
 
-#include <openvr.h>
+#include "openvr.h"
 
 #define GLEW_STATIC
-#include <glew.h>
+#include "glew.h"
 
 #ifdef _WIN32
 #include <Windows.h>
@@ -29,6 +30,10 @@
 #include <string.h>
 #endif
 #include <cmath>
+
+#define BITSET1(flagword, bits) {flagword=(decltype(flagword))(flagword|((decltype(flagword))bits));}    //!< Set specified bits in flagword to 1.
+#define BITSET0(flagword, bits) {flagword=(decltype(flagword))(flagword&(~((decltype(flagword))bits)));} //!< Set specified bits in flagword to 0.
+#define BITSET(flagword, bits, value) {if(value){BITSET1(flagword, bits)}else{BITSET0(flagword, bits)}}  //!< Set specified bits to specified value.
 
 /***********************************************************************************************//**
  * \class                                  VR_Steam
@@ -248,7 +253,7 @@ void VR_Steam::GL::release()
 			glBindFramebuffer(GL_FRAMEBUFFER, 0);
 			this->framebuffer[i] = 0;
 		}
-		if (this->texture) {
+		if (this->texture[i]) {
 			glDeleteTextures(1, &this->texture[i]);
 			this->texture[i] = 0;
 		}
@@ -280,7 +285,7 @@ int VR_Steam::acquireHMD()
 		this->releaseHMD();
 	}
 
-	// Create HMD object and initialze whatever necessary
+	// Create HMD object and initialize whatever necessary
 	vr::HmdError error = vr::HmdError::VRInitError_None;
 	this->hmd = vr::VR_Init(&error, vr::VRApplication_Scene);
 	if (error != vr::VRInitError_None || !this->hmd) {
@@ -297,14 +302,15 @@ int VR_Steam::acquireHMD()
 			continue;
 		}
 
-		char str[1024];
-		this->hmd->GetStringTrackedDeviceProperty(i, vr::ETrackedDeviceProperty::Prop_ManufacturerName_String, str, sizeof(str));
+		char str[64];
+		const size_t str_max = sizeof(str);
+		this->hmd->GetStringTrackedDeviceProperty(i, vr::ETrackedDeviceProperty::Prop_ManufacturerName_String, str, str_max);
 
 		// For Oculus Rift:
 		// Prop_ManufacturerName_String   == "Oculus"
 		// Prop_TrackingSystemName_String == "oculus"
 		// Prop_ModelNumber_String        == "Oculus Rift CV1"
-		if (strncmp(str, "Oculus", sizeof(str)) == 0) {
+		if (strncmp(str, "Oculus", str_max) == 0) {
 #if 1
 			// we do not handle Oculus HMDs via steam
 			vr::VR_Shutdown();
@@ -320,7 +326,7 @@ int VR_Steam::acquireHMD()
 		// Prop_ManufacturerName_String   == "FOV
 		// Prop_TrackingSystemName_String == "fove"
 		// Prop_ModelNumber_String        == "FOVE0001"
-		if (strncmp(str, "FOV", sizeof(str)) == 0) {
+		if (strncmp(str, "FOV", str_max) == 0) {
 #if 1
 			// we do not handle Fove HMDs via steam
 			vr::VR_Shutdown();
@@ -332,23 +338,41 @@ int VR_Steam::acquireHMD()
 #endif
 		}
 
-		// For WindowsMR / DELL:
-		// Prop_ManufacturerName_String   == "WindowsMR"
-		// Prop_TrackingSystemName_String == "holographic"
-		// Prop_ModelNumber_String        == "DELL VISOR VR118"
-		if (strncmp(str, "WindowsMR", sizeof(str)) == 0) {
-			this->hmd_type = VR::HMDType_Microsoft;
-			return VR::Error_None;
-		}
-
 		// For HTC Vive:
 		// Prop_ManufacturerName_String   == "HTC"
 		// Prop_TrackingSystemName_String == "lighthouse"
 		// Prop_ModelNumber_String        == "Vive. MV"
-		if (strncmp(str, "HTC", sizeof(str)) == 0) {
+		if (strncmp(str, "HTC", str_max) == 0) {
 			this->hmd_type = VR::HMDType_Vive;
 			return VR::Error_None;
 		}
+
+		// For WindowsMR / DELL:
+		// Prop_ManufacturerName_String   == "WindowsMR"
+		// Prop_TrackingSystemName_String == "holographic"
+		// Prop_ModelNumber_String        == "DELL VISOR VR118"
+		if (strncmp(str, "WindowsMR", str_max) == 0) {
+			this->hmd_type = VR::HMDType_WindowsMR;
+			return VR::Error_None;
+		}
+
+		// For Pimax VR:
+        // Prop_ManufacturerName_String   == "Pimax VR, Inc."
+        // Prop_TrackingSystemName_String == "aapvr"
+        // Prop_ModelNumber_String        == "Pimax 5K Plus"
+        if (strncmp(str, "Pimax", str_max) == 0) {
+            this->hmd_type = VR::HMDType_Pimax;
+            return VR::Error_None;
+        }
+
+        // For Valve Index:
+        // Prop_ManufacturerName_String   == "Valve"
+        // Prop_TrackingSystemName_String == "lighthouse"?
+        // Prop_ModelNumber_String        == "Index"?
+        if (strncmp(str, "Valve", str_max) == 0) {
+            this->hmd_type = VR::HMDType_Index;
+            return VR::Error_None;
+        }
 	}
 
 	// If we arrive here, we could not find any supported HMD
@@ -386,14 +410,32 @@ int VR_Steam::releaseHMD()
  * \return  Zero on success, an error code on failure.
  */
 int VR_Steam::init(void* device, void* context)
+#else
+//                                                                          ________________________
+//_________________________________________________________________________/        init()
+/**
+ * Initialize the VR device.
+ * \param   display     The connection to the X server (Display*).
+ * \param   drawable    Pointer to the GLX drawable (GLXDrawable*). Either an X window ID or a GLX pixmap ID.
+ * \param   context     Pointer to the GLX rendering context (GLXContext*) attached to drawable.
+ * \return  Zero on success, an error code on failure.
+ */
+int VR_Steam::init(void* display, void* drawable, void* context)
+#endif
 {
 	if (this->initialized) {
 		this->uninit();
 	}
 
 	// Get the Blender viewport window / context IDs.
+#ifdef _WIN32
 	this->gl.device = (HDC)device;
 	this->gl.context = (HGLRC)context; // save old context so that we can share
+#else
+	this->gl.display = (Display*)display;
+	this->gl.drawable = *(GLXDrawable*)drawable;
+	this->gl.context = *(GLXContext*)context;
+#endif
 
 	if (!this->hmd) {
 		int e = this->acquireHMD();
@@ -433,72 +475,110 @@ int VR_Steam::init(void* device, void* context)
 	this->hmd->GetRecommendedRenderTargetSize(&this->texture_width, &this->texture_height);
 	this->gl.create(this->texture_width, this->texture_height);
 
-	this->initialized = true;
-
-	return VR::Error_None;
-}
-#else
-//                                                                          ________________________
-//_________________________________________________________________________/        init()
-/**
- * Initialize the VR device.
- * \param   display     The connection to the X server (Display*).
- * \param   drawable    Pointer to the GLX drawable (GLXDrawable*). Either an X window ID or a GLX pixmap ID.
- * \param   context     Pointer to the GLX rendering context (GLXContext*) attached to drawable.
- * \return  Zero on success, an error code on failure.
- */
-int VR_Steam::init(void* display, void* drawable, void* context)
-{
-	if (this->initialized) {
-		this->uninit();
+	// Initialize new input system:
+	std::string tmp_folder;
+#ifdef _WIN32
+	char temp_path[128];
+	DWORD temp_path_len = GetTempPath(126, temp_path);
+	if (temp_path_len == 0) {
+		// Fallback option
+		tmp_folder = "C:/Temp/";
 	}
-
-	// Get the Blender viewport window / context IDs.
-	this->gl.display = (Display*)display;
-	this->gl.drawable = *(GLXDrawable*)drawable;
-	this->gl.context = *(GLXContext*)context;
-
-	if (!this->hmd) {
-		int e = this->acquireHMD();
-		if (e || !this->hmd) {
-			return VR::Error_InternalFailure;
+	else {
+		for (DWORD i = 0; i < temp_path_len; i++) {
+			if (temp_path[i] == '\\') {
+				temp_path[i] = '/';
+			}
 		}
+		temp_path[temp_path_len] = '/';
+		temp_path[temp_path_len + 1] = 0;
+		tmp_folder = temp_path;
 	}
+#else
+	// On Unix OSs, we can use /tmp/
+	tmp_folder = "/tmp/";
+#endif
 
-	// Initialize compositor
-	if (!vr::VRCompositor()) {
-		return VR::Error_InternalFailure;
-	}
+	std::string action_manifest_path = tmp_folder + std::string("action_manifest.json");
+	const char* action_manifest_path_str = action_manifest_path.c_str();
+	std::string binding_vive_path = tmp_folder + std::string("binding_vive.json");
+	const char* binding_vive_path_str = binding_vive_path.c_str();
+	std::string binding_windowsmr_path = tmp_folder + std::string("binding_windowsmr.json");
+	const char* binding_windowsmr_path_str = binding_windowsmr_path.c_str();
+	std::string binding_index_path = tmp_folder + std::string("binding_index.json");
+	const char* binding_index_path_str = binding_index_path.c_str();
+	std::string binding_logitechink_path = tmp_folder + std::string("binding_logitechink.json");
+	const char* binding_logitechink_path_str = binding_logitechink_path.c_str();
 
-	if (glewInit() != GLEW_OK) {
-		return VR::Error_InternalFailure;
-	}
+	FILE* fp;
+	fp = fopen(action_manifest_path_str, "w");
+	fwrite(Input::action_manifest, sizeof(char), strlen(Input::action_manifest), fp);
+	fflush(fp);
+	fclose(fp);
+	fp = fopen(binding_vive_path_str, "w");
+	fwrite(Input::binding_vive, sizeof(char), strlen(Input::binding_vive), fp);
+	fflush(fp);
+	fclose(fp);
+	fp = fopen(binding_windowsmr_path_str, "w");
+	fwrite(Input::binding_windowsmr, sizeof(char), strlen(Input::binding_windowsmr), fp);
+	fflush(fp);
+	fclose(fp);
+	fp = fopen(binding_index_path_str, "w");
+	fwrite(Input::binding_index, sizeof(char), strlen(Input::binding_index), fp);
+	fflush(fp);
+	fclose(fp);
+	fp = fopen(binding_logitechink_path_str, "w");
+	fwrite(Input::binding_logitechink, sizeof(char), strlen(Input::binding_logitechink), fp);
+	fflush(fp);
+	fclose(fp);
 
-	// Get head position data if not set manually
-	if (!this->eye_offset_override[Side_Left]) {
-		vr::HmdMatrix34_t m = this->hmd->GetEyeToHeadTransform(vr::Eye_Left);
-		t_hmd2eye[Side_Left][0][0] = m.m[0][0];  t_hmd2eye[Side_Left][1][0] = m.m[0][1];  t_hmd2eye[Side_Left][2][0] = m.m[0][2];  t_hmd2eye[Side_Left][3][0] = m.m[0][3];
-		t_hmd2eye[Side_Left][0][1] = m.m[1][0];  t_hmd2eye[Side_Left][1][1] = m.m[1][1];  t_hmd2eye[Side_Left][2][1] = m.m[1][2];  t_hmd2eye[Side_Left][3][1] = m.m[1][3];
-		t_hmd2eye[Side_Left][0][2] = m.m[2][0];  t_hmd2eye[Side_Left][1][2] = m.m[2][1];  t_hmd2eye[Side_Left][2][2] = m.m[2][2];  t_hmd2eye[Side_Left][3][2] = m.m[2][3];
-		t_hmd2eye[Side_Left][0][3] = 0;          t_hmd2eye[Side_Left][1][3] = 0;          t_hmd2eye[Side_Left][2][3] = 0;          t_hmd2eye[Side_Left][3][3] = 1;
-	}
-	if (!this->eye_offset_override[Side_Right]) {
-		vr::HmdMatrix34_t m = this->hmd->GetEyeToHeadTransform(vr::Eye_Right);
-		t_hmd2eye[Side_Right][0][0] = m.m[0][0];  t_hmd2eye[Side_Right][1][0] = m.m[0][1];  t_hmd2eye[Side_Right][2][0] = m.m[0][2];  t_hmd2eye[Side_Right][3][0] = m.m[0][3];
-		t_hmd2eye[Side_Right][0][1] = m.m[1][0];  t_hmd2eye[Side_Right][1][1] = m.m[1][1];  t_hmd2eye[Side_Right][2][1] = m.m[1][2];  t_hmd2eye[Side_Right][3][1] = m.m[1][3];
-		t_hmd2eye[Side_Right][0][2] = m.m[2][0];  t_hmd2eye[Side_Right][1][2] = m.m[2][1];  t_hmd2eye[Side_Right][2][2] = m.m[2][2];  t_hmd2eye[Side_Right][3][2] = m.m[2][3];
-		t_hmd2eye[Side_Right][0][3] = 0;          t_hmd2eye[Side_Right][1][3] = 0;          t_hmd2eye[Side_Right][2][3] = 0;          t_hmd2eye[Side_Right][3][3] = 1;
-	}
+	vr::EVRInputError input_error;
+	vr::IVRInput* vr_input = vr::VRInput();
+	input_error = vr_input->SetActionManifestPath(action_manifest_path_str);
 
-	// Create the render buffers and textures
-	this->hmd->GetRecommendedRenderTargetSize(&this->texture_width, &this->texture_height);
-	this->gl.create(this->texture_width, this->texture_height);
+	input_error = vr_input->GetActionHandle("/actions/main/in/pos_left", &this->input.action_handles[Side_Left].pos);
+	input_error = vr_input->GetActionHandle("/actions/main/in/pos_right", &this->input.action_handles[Side_Right].pos);
+	input_error = vr_input->GetActionHandle("/actions/main/in/trigger_left", &this->input.action_handles[Side_Left].trigger);
+	input_error = vr_input->GetActionHandle("/actions/main/in/trigger_right", &this->input.action_handles[Side_Right].trigger);
+	input_error = vr_input->GetActionHandle("/actions/main/in/grip_left", &this->input.action_handles[Side_Left].grip);
+	input_error = vr_input->GetActionHandle("/actions/main/in/grip_right", &this->input.action_handles[Side_Right].grip);
+	input_error = vr_input->GetActionHandle("/actions/main/in/grip_touch_left", &this->input.action_handles[Side_Left].grip_touch);
+	input_error = vr_input->GetActionHandle("/actions/main/in/grip_touch_right", &this->input.action_handles[Side_Right].grip_touch);
+	input_error = vr_input->GetActionHandle("/actions/main/in/grip_force_left", &this->input.action_handles[Side_Left].grip_force);
+	input_error = vr_input->GetActionHandle("/actions/main/in/grip_force_right", &this->input.action_handles[Side_Right].grip_force);
+	input_error = vr_input->GetActionHandle("/actions/main/in/touchpad_left", &this->input.action_handles[Side_Left].touchpad);
+	input_error = vr_input->GetActionHandle("/actions/main/in/touchpad_right", &this->input.action_handles[Side_Right].touchpad);
+	input_error = vr_input->GetActionHandle("/actions/main/in/touchpad_press_left", &this->input.action_handles[Side_Left].touchpad_press);
+	input_error = vr_input->GetActionHandle("/actions/main/in/touchpad_press_right", &this->input.action_handles[Side_Right].touchpad_press);
+	input_error = vr_input->GetActionHandle("/actions/main/in/touchpad_touch_left", &this->input.action_handles[Side_Left].touchpad_touch);
+	input_error = vr_input->GetActionHandle("/actions/main/in/touchpad_touch_right", &this->input.action_handles[Side_Right].touchpad_touch);
+	input_error = vr_input->GetActionHandle("/actions/main/in/thumbstick_left", &this->input.action_handles[Side_Left].thumbstick);
+	input_error = vr_input->GetActionHandle("/actions/main/in/thumbstick_right", &this->input.action_handles[Side_Right].thumbstick);
+	input_error = vr_input->GetActionHandle("/actions/main/in/thumbstick_press_left", &this->input.action_handles[Side_Left].thumbstick_press);
+	input_error = vr_input->GetActionHandle("/actions/main/in/thumbstick_press_right", &this->input.action_handles[Side_Right].thumbstick_press);
+	input_error = vr_input->GetActionHandle("/actions/main/in/button_a_left", &this->input.action_handles[Side_Left].button_a);
+	input_error = vr_input->GetActionHandle("/actions/main/in/button_a_right", &this->input.action_handles[Side_Right].button_a);
+	input_error = vr_input->GetActionHandle("/actions/main/in/button_a_touch_left", &this->input.action_handles[Side_Left].button_a_touch);
+	input_error = vr_input->GetActionHandle("/actions/main/in/button_a_touch_right", &this->input.action_handles[Side_Right].button_a_touch);
+	input_error = vr_input->GetActionHandle("/actions/main/in/button_b_left", &this->input.action_handles[Side_Left].button_b);
+	input_error = vr_input->GetActionHandle("/actions/main/in/button_b_right", &this->input.action_handles[Side_Right].button_b);
+	input_error = vr_input->GetActionHandle("/actions/main/in/button_b_touch_left", &this->input.action_handles[Side_Left].button_b_touch);
+	input_error = vr_input->GetActionHandle("/actions/main/in/button_b_touch_right", &this->input.action_handles[Side_Right].button_b_touch);
+	input_error = vr_input->GetActionHandle("/actions/main/in/button_menu_left", &this->input.action_handles[Side_Left].button_menu);
+	input_error = vr_input->GetActionHandle("/actions/main/in/button_menu_right", &this->input.action_handles[Side_Right].button_menu);
+	input_error = vr_input->GetActionHandle("/actions/main/in/button_menu_touch_left", &this->input.action_handles[Side_Left].button_menu_touch);
+	input_error = vr_input->GetActionHandle("/actions/main/in/button_menu_touch_right", &this->input.action_handles[Side_Right].button_menu_touch);
+	input_error = vr_input->GetActionSetHandle("/actions/main", &this->input.action_set_handle);
+	this->input.active_action_set.ulActionSet = this->input.action_set_handle;
+	this->input.active_action_set.ulRestrictedToDevice = vr::k_ulInvalidInputValueHandle; // for all devices
+	this->input.active_action_set.nPriority = 1;
+	this->input.active_action_set.ulSecondaryActionSet = 0; // ignored because of ulRestrictedToDevice is for all devices
+	this->input.active_action_set.unPadding = 0; // ignored
 
 	this->initialized = true;
 
 	return VR::Error_None;
 }
-#endif
 
 //                                                                          ________________________
 //_________________________________________________________________________/		uninit()
@@ -514,7 +594,6 @@ int VR_Steam::uninit()
 	// save current context so that we can return
 #ifdef _WIN32
 	HDC   dc = wglGetCurrentDC();
-	HWND  wnd = WindowFromDC(dc);
 	HGLRC rc = wglGetCurrentContext();
 	// switch to the context we had when initializing
 	if (rc != this->gl.context) {
@@ -654,20 +733,43 @@ int VR_Steam::updateTracking()
 		const vr::HmdMatrix34_t& m = poses[i].mDeviceToAbsoluteTracking;
 		switch (this->hmd->GetTrackedDeviceClass(i)) {
 		case vr::TrackedDeviceClass_Controller:
+			/* TODO_XR: Decouple controller type from HMD type. 
+			 * For now, we assume the controller type based on the HMD. */
+            /*
+			char controller_type_string[vr::k_unMaxPropertyStringSize];
+			if (uint32_t str_len = this->hmd->GetStringTrackedDeviceProperty(i, vr::ETrackedDeviceProperty::Prop_ControllerType_String, controller_type_string, vr::k_unMaxPropertyStringSize)) {
+				if (strncmp(controller_type_string, "vive_controller", str_len) == 0) {
+					this->hmd_type = HMDType_Vive;
+				}
+				else if (strncmp(controller_type_string, "holographic_controller", str_len) == 0) {
+					this->hmd_type = HMDType_WindowsMR;
+				}
+				else if (strncmp(controller_type_string, "knuckles", str_len) == 0) {
+					this->hmd_type = HMDType_Index;
+				}
+				else if (strncmp(controller_type_string, "logitech_stylus", str_len) == 0) {
+					/ * TODO_XR * /
+				} 
+				else {
+					// unsupported device / HMD
+				}
+			}
+            */
+
 			if (this->hmd->GetTrackedDeviceIndexForControllerRole(vr::TrackedControllerRole_LeftHand) == i) {
 				vr::VRControllerState_t controller_state;
 				this->hmd->GetControllerState(i, &controller_state, sizeof(controller_state));
-				this->interpretControllerState(controller_state, m.m, this->t_controller[Side_Left], this->controller[Side_Left]);
+				this->interpretControllerState(controller_state, m.m, this->t_controller[Side_Left], this->controller[Side_Left], &this->input.action_handles[Side_Left]);
 			}
 			else if (this->hmd->GetTrackedDeviceIndexForControllerRole(vr::TrackedControllerRole_RightHand) == i) {
 				vr::VRControllerState_t controller_state;
 				this->hmd->GetControllerState(i, &controller_state, sizeof(controller_state));
-				this->interpretControllerState(controller_state, m.m, this->t_controller[Side_Right], this->controller[Side_Right]);
+				this->interpretControllerState(controller_state, m.m, this->t_controller[Side_Right], this->controller[Side_Right], &this->input.action_handles[Side_Right]);
 			}
 			else {
 				vr::VRControllerState_t controller_state;
 				this->hmd->GetControllerState(i, &controller_state, sizeof(controller_state));
-				this->interpretControllerState(controller_state, m.m, this->t_controller[Side_AUX], this->controller[Side_AUX]);
+				this->interpretControllerState(controller_state, m.m, this->t_controller[Side_AUX], this->controller[Side_AUX], &this->input.action_handles[Side_AUX]);
 			}
 			break;
 		case vr::TrackedDeviceClass_HMD:
@@ -678,7 +780,7 @@ int VR_Steam::updateTracking()
 			break;
 		case vr::TrackedDeviceClass_GenericTracker:
 			convertMatrix(m.m, this->t_controller[Side_AUX]);
-			this->controller[Side_AUX].available = true;
+			this->controller[Side_AUX].available = 1;
 			break;
 		case vr::TrackedDeviceClass_TrackingReference:
 			if (base_station_index < VR_STEAM_NUMBASESTATIONS) {
@@ -716,9 +818,9 @@ int VR_Steam::getTrackerPosition(uint i, float t[4][4]) const
 /**
  * Helper function to deal with Vive controller data.
  */
-void VR_Steam::interpretControllerState(const vr::VRControllerState_t& s, const float m[3][4], float t_controller[4][4], Controller& c)
+void VR_Steam::interpretControllerState(const vr::VRControllerState_t& s, const float m[3][4], float t_controller[4][4], Controller& c, const Input::ActionHandles *input_handles)
 {
-	c.available = true;
+	c.available = 1;
 
 	t_controller[0][0] = m[0][0];      t_controller[1][0] = -m[0][2];      t_controller[2][0] = m[0][1];      t_controller[3][0] = m[0][3];
 	t_controller[0][1] = -m[2][0];     t_controller[1][1] = m[2][2];       t_controller[2][1] = -m[2][1];     t_controller[3][1] = -m[2][3];
@@ -729,26 +831,224 @@ void VR_Steam::interpretControllerState(const vr::VRControllerState_t& s, const 
 	// for HTC Vive contollers, the offset should be 60.0 mm
 	// for WindowsMR controllers, the offset should be 30.0 mm
 	float controller_offset;
-	if (this->hmd_type == VR::HMDType_Vive) {
+	switch (this->hmd_type) {
+	case HMDType_Vive:
+	case HMDType_Pimax: {
 		controller_offset = 0.06f;
+		break;
 	}
-	else if (this->hmd_type == VR::HMDType_Microsoft) {
+	case HMDType_WindowsMR: {
 		controller_offset = 0.03f;
+		break;
 	}
-	else {
+	default: {
 		controller_offset = 0.0f;
+		break;
 	}
+    }
 	t_controller[3][0] += t_controller[1][0] * controller_offset;
 	t_controller[3][1] += t_controller[1][1] * controller_offset;
 	t_controller[3][2] += t_controller[1][2] * controller_offset;
-
-	clock_t now = clock();
 
 	uint64_t prior_touchpad_pressed = c.buttons & VR_STEAM_BTNBITS_DPADANY;
 	uint64_t prior_thumbstick_pressed = c.buttons & VR_STEAM_BTNBITS_STICKANY;
 
 	// Convert Valve button bits to Widget_Layout button bits.
 	c.buttons = c.buttons_touched = 0;
+
+#if 1 // New OpenVR Input System
+	if (!input_handles) {
+		return; // no button-bearing controller
+	}
+
+	vr::EVRInputError input_error;
+	vr::IVRInput* vr_input = vr::VRInput();
+	if (!vr_input) {
+		return;
+	}
+	clock_t now = clock();
+
+	input_error = vr_input->UpdateActionState(&this->input.active_action_set, sizeof(vr::VRActiveActionSet_t), 1);
+	vr::InputAnalogActionData_t analog_action_data;
+	vr::InputDigitalActionData_t digital_action_data;
+
+	// Trigger:
+	input_error = vr_input->GetAnalogActionData(input_handles->trigger, &analog_action_data, sizeof(vr::InputDigitalActionData_t), vr::k_ulInvalidInputValueHandle);
+	if (input_error == vr::VRInputError_None && analog_action_data.bActive) {
+		BITSET(c.buttons_touched, (c.side == Side_Left ? VR_STEAM_BTNBIT_LEFTTRIGGER : VR_STEAM_BTNBIT_RIGHTTRIGGER), (analog_action_data.x > 0.1) ? 1 : 0);
+		if (analog_action_data.x >= VR_STEAM_TRIGGERPRESSURETHRESHOLD) {
+			BITSET1(c.buttons, (c.side == Side_Left ? VR_STEAM_BTNBIT_LEFTTRIGGER : VR_STEAM_BTNBIT_RIGHTTRIGGER))
+			// map pressure to 0~1 for everything above the threshold
+			c.trigger_pressure = (analog_action_data.x - VR_STEAM_TRIGGERPRESSURETHRESHOLD) / (1.0f - VR_STEAM_TRIGGERPRESSURETHRESHOLD);  // trigger is at index 1 for some reason
+		}
+		else {
+			BITSET0(c.buttons, (c.side == Side_Left ? VR_STEAM_BTNBIT_LEFTTRIGGER : VR_STEAM_BTNBIT_RIGHTTRIGGER))
+			c.trigger_pressure = 0.0f;
+		}
+	}
+	// grip
+	if (this->hmd_type == HMDType_Index) { // knuckles "click" is too sensitive - use force instead
+		input_error = vr_input->GetAnalogActionData(input_handles->grip_force, &analog_action_data, sizeof(vr::InputDigitalActionData_t), vr::k_ulInvalidInputValueHandle);
+		if (input_error == vr::VRInputError_None && analog_action_data.bActive) {
+			const ui64 btnbit = (c.side == Side_Left ? VR_STEAM_BTNBIT_LEFTGRIP : VR_STEAM_BTNBIT_RIGHTGRIP);
+			if ((c.buttons & btnbit) == 0 && (analog_action_data.x > VR_STEAM_GRIPPRESSURETHRESHOLD)) {
+				BITSET1(c.buttons, btnbit);
+				// map pressure to 0~1 for everything above the threshold
+				c.grip_pressure = (analog_action_data.x - VR_STEAM_GRIPPRESSURETHRESHOLD) / (1.0f - VR_STEAM_GRIPPRESSURETHRESHOLD);
+			}
+			else if ((c.buttons & btnbit) != 0 && (analog_action_data.x < 0.3)) {
+				BITSET0(c.buttons, btnbit);
+				c.grip_pressure = 0.0f;
+			}
+			if ((c.buttons_touched & btnbit) == 0 && (analog_action_data.x > 0.2)) {
+				BITSET1(c.buttons_touched, btnbit);
+			}
+			else if ((c.buttons_touched & btnbit) != 0 && (analog_action_data.x < 0.1)) {
+				BITSET0(c.buttons_touched, btnbit);
+			}
+		}
+	}
+	else {
+		const ui64 btnbit = (c.side == Side_Left ? VR_STEAM_BTNBIT_LEFTGRIP : VR_STEAM_BTNBIT_RIGHTGRIP);
+		input_error = vr_input->GetDigitalActionData(input_handles->grip, &digital_action_data, sizeof(vr::InputDigitalActionData_t), vr::k_ulInvalidInputValueHandle);
+		if (input_error == vr::VRInputError_None && digital_action_data.bActive) {
+			BITSET(c.buttons, btnbit, digital_action_data.bState ? 1 : 0);
+		}
+		input_error = vr_input->GetDigitalActionData(input_handles->grip_touch, &digital_action_data, sizeof(vr::InputDigitalActionData_t), vr::k_ulInvalidInputValueHandle);
+		if (input_error == vr::VRInputError_None && digital_action_data.bActive) {
+			BITSET(c.buttons_touched, btnbit, digital_action_data.bState ? 1 : 0);
+		}
+		c.grip_pressure = 0.0f;
+	}
+	// A button
+	input_error = vr_input->GetDigitalActionData(input_handles->button_a, &digital_action_data, sizeof(vr::InputDigitalActionData_t), vr::k_ulInvalidInputValueHandle);
+	if (input_error == vr::VRInputError_None && digital_action_data.bActive) {
+		const ui64 btnbit = (c.side == Side_Left ? VR_STEAM_BTNBIT_LEFTA : VR_STEAM_BTNBIT_RIGHTA);
+		BITSET(c.buttons_touched, btnbit, digital_action_data.bState ? 1 : 0);
+		BITSET(c.buttons, btnbit, digital_action_data.bState ? 1 : 0);
+	}
+	// B button
+	input_error = vr_input->GetDigitalActionData(input_handles->button_b, &digital_action_data, sizeof(vr::InputDigitalActionData_t), vr::k_ulInvalidInputValueHandle);
+	if (input_error == vr::VRInputError_None && digital_action_data.bActive) {
+		const ui64 btnbit = (c.side == Side_Left ? VR_STEAM_BTNBIT_LEFTB : VR_STEAM_BTNBIT_RIGHTB);
+		BITSET(c.buttons_touched, btnbit, digital_action_data.bState ? 1 : 0);
+		BITSET(c.buttons, btnbit, digital_action_data.bState ? 1 : 0);
+	}
+	// menu button
+	input_error = vr_input->GetDigitalActionData(input_handles->button_menu, &digital_action_data, sizeof(vr::InputDigitalActionData_t), vr::k_ulInvalidInputValueHandle);
+	if (input_error == vr::VRInputError_None && digital_action_data.bActive) {
+		const ui64 btnbit = VR_STEAM_BTNBIT_MENU;
+		BITSET(c.buttons_touched, btnbit, digital_action_data.bState ? 1 : 0);
+		BITSET(c.buttons, btnbit, digital_action_data.bState ? 1 : 0);
+	}
+	// touchpad
+	// Convert touchpad position to button
+	vr_input->GetAnalogActionData(input_handles->touchpad, &analog_action_data, sizeof(vr::InputDigitalActionData_t), vr::k_ulInvalidInputValueHandle);
+	if (input_error == vr::VRInputError_None && analog_action_data.bActive) {
+		c.dpad[0] = analog_action_data.x;
+		c.dpad[1] = analog_action_data.y;
+		static ui64 touchpad_btn[2] = { 0,0 }; // static, so that it stays on the last button until I move on some other button
+		if (abs(analog_action_data.x) > abs(analog_action_data.y)) { // LEFT or RIGHT
+			if (analog_action_data.x > VR_STEAM_TRACKPADDIRECTIONTHRESHOLD) { // RIGHT
+                touchpad_btn[c.side] = VR_STEAM_BTNBIT_DPADRIGHT;
+			}
+			else if (analog_action_data.x < -VR_STEAM_TRACKPADDIRECTIONTHRESHOLD) { // LEFT
+                touchpad_btn[c.side] = VR_STEAM_BTNBIT_DPADLEFT;
+			}
+			else { // CENTER
+				c.side == Side_Left ? touchpad_btn[c.side] = VR_STEAM_BTNBIT_LEFTDPAD :
+									  touchpad_btn[c.side] = VR_STEAM_BTNBIT_RIGHTDPAD;
+			}
+		}
+		else { // UP or DOWN
+			if (analog_action_data.y > 0.05f) { // UP (reduced threshold, because it's hard to hit)
+                touchpad_btn[c.side] = VR_STEAM_BTNBIT_DPADUP;
+			}
+			else if (analog_action_data.y < -VR_STEAM_TRACKPADDIRECTIONTHRESHOLD) { // DOWN
+                touchpad_btn[c.side] = VR_STEAM_BTNBIT_DPADDOWN;
+			}
+			else { // CENTER
+				c.side == Side_Left ? touchpad_btn[c.side] = VR_STEAM_BTNBIT_LEFTDPAD :
+									  touchpad_btn[c.side] = VR_STEAM_BTNBIT_RIGHTDPAD;
+			}
+		}
+
+		// Touchpad touch:
+		input_error = vr_input->GetDigitalActionData(input_handles->touchpad_touch, &digital_action_data, sizeof(vr::InputDigitalActionData_t), vr::k_ulInvalidInputValueHandle);
+		const bool touchpad_touched = digital_action_data.bActive && digital_action_data.bState;
+		static clock_t prior_touch_touchpad[2] = { 0, 0 }; // for smoothing micro touch-losses
+		if (touchpad_touched || (now - prior_touch_touchpad[c.side]) < VR_STEAM_DEBOUNCEPERIOD) {
+			// if we're pressing a button, we stick with that until we let go
+			if (prior_touchpad_pressed) {
+				c.buttons_touched |= prior_touchpad_pressed;
+			}
+			else {
+				c.buttons_touched |= touchpad_btn[c.side];
+			}
+			if (s.ulButtonTouched & (c.side == Side_Left ? VR_STEAM_BTNBIT_LEFTDPAD : VR_STEAM_BTNBIT_RIGHTDPAD)) {
+				prior_touch_touchpad[c.side] = now;
+			}
+		}
+
+		// Touchpad press:
+		input_error = vr_input->GetDigitalActionData(input_handles->touchpad_press, &digital_action_data, sizeof(vr::InputDigitalActionData_t), vr::k_ulInvalidInputValueHandle);
+		const bool touchpad_pressed = digital_action_data.bActive && digital_action_data.bState;
+		// When the touchpad is pressed, find out in what quadrant (left, right, up, down)
+		static clock_t prior_press_touchpad[2] = { 0, 0 }; // for smoothing micro touch-losses
+		if (touchpad_pressed || (now - prior_press_touchpad[c.side]) < VR_STEAM_DEBOUNCEPERIOD) {
+			// if we already are pressing one of the buttons, continue using it, 
+			if (prior_touchpad_pressed) {
+				c.buttons |= prior_touchpad_pressed;
+			}
+			else {
+				c.buttons |= touchpad_btn[c.side];
+			}
+			if (s.ulButtonPressed & (c.side == Side_Left ? VR_STEAM_BTNBIT_LEFTDPAD : VR_STEAM_BTNBIT_RIGHTDPAD)) {
+				prior_press_touchpad[c.side] = now;
+			}
+		}
+	}
+
+	// thumb-stick (if available): convert to buttons
+	vr_input->GetAnalogActionData(input_handles->thumbstick, &analog_action_data, sizeof(vr::InputDigitalActionData_t), vr::k_ulInvalidInputValueHandle);
+	if (input_error == vr::VRInputError_None && analog_action_data.bActive) {
+		c.stick[0] = analog_action_data.x;
+		c.stick[1] = analog_action_data.y;
+		if (analog_action_data.x != 0 || analog_action_data.y != 0) {
+			if (abs(analog_action_data.x) > abs(analog_action_data.y)) { // LEFT or RIGHT
+				if (analog_action_data.x > VR_STEAM_TOUCHTHRESHOLD_STICKDIRECTION) { // RIGHT
+					c.buttons_touched |= VR_STEAM_BTNBIT_STICKRIGHT;
+					if (analog_action_data.x > VR_STEAM_PRESSTHRESHOLD_STICKDIRECTION) { // "PRESS"
+						c.buttons |= VR_STEAM_BTNBIT_STICKRIGHT;
+					}
+				}
+				else if (analog_action_data.x < -VR_STEAM_TOUCHTHRESHOLD_STICKDIRECTION) { // LEFT
+					c.buttons_touched |= VR_STEAM_BTNBIT_STICKLEFT;
+					if (analog_action_data.x < -VR_STEAM_PRESSTHRESHOLD_STICKDIRECTION) { // "PRESS"
+						c.buttons |= VR_STEAM_BTNBIT_STICKLEFT;
+					}
+				} // else: center
+			}
+			else { // UP or DOWN
+				if (analog_action_data.y > VR_STEAM_TOUCHTHRESHOLD_STICKDIRECTION * 0.7f) { // UP (reduced threshold, because it's hard to hit)
+					c.buttons_touched |= VR_STEAM_BTNBIT_STICKUP;
+					if (analog_action_data.y > VR_STEAM_PRESSTHRESHOLD_STICKDIRECTION * 0.7f) { // "PRESS"
+						c.buttons |= VR_STEAM_BTNBIT_STICKUP;
+					}
+				}
+				else if (analog_action_data.y < -VR_STEAM_TOUCHTHRESHOLD_STICKDIRECTION) { // DOWN
+					c.buttons_touched |= VR_STEAM_BTNBIT_STICKDOWN;
+					if (analog_action_data.y < -VR_STEAM_PRESSTHRESHOLD_STICKDIRECTION) { // "PRESS"
+						c.buttons |= VR_STEAM_BTNBIT_STICKDOWN;
+					}
+				} // else: center
+			}
+		}
+	}
+#else
+	clock_t now = clock();
+
+	c.grip_pressure = 0.0f;
 	if (s.ulButtonPressed & VR_STEAM_SVRGRIPBTN) {
 		c.side == Side_Left ? c.buttons |= VR_STEAM_BTNBIT_LEFTGRIP :
 							  c.buttons |= VR_STEAM_BTNBIT_RIGHTGRIP;
@@ -763,7 +1063,7 @@ void VR_Steam::interpretControllerState(const vr::VRControllerState_t& s, const 
 
 	// Trigger:
 	// override the button with our own trigger pressure threshold
-	c.trigger_pressure = 0;
+	c.trigger_pressure = 0.0f;
 	if (s.rAxis[1].x > 0) {
 		c.side == Side_Left ? c.buttons_touched |= VR_STEAM_BTNBIT_LEFTTRIGGER :
 							  c.buttons_touched |= VR_STEAM_BTNBIT_RIGHTTRIGGER;
@@ -775,8 +1075,22 @@ void VR_Steam::interpretControllerState(const vr::VRControllerState_t& s, const 
 		}
 	}
 
-	// Touchpad touch
+	// Touchpad
+	bool touchpad_touched, touchpad_pressed;
 	if (s.ulButtonTouched & VR_STEAM_SVRDPADBTN) {
+		touchpad_touched = true;
+	}
+	else {
+		touchpad_touched = false;
+	}
+	if (s.ulButtonPressed & VR_STEAM_SVRDPADBTN) {
+		touchpad_pressed = true;
+	}
+	else {
+		touchpad_pressed = false;
+	}
+
+	if (touchpad_touched) {
 		const vr::VRControllerAxis_t& trackpad_axis = s.rAxis[0]; // trackpad is at index 0 for some reason
 		if (trackpad_axis.x != 0 || trackpad_axis.y != 0) {
 			memcpy(c.dpad, &trackpad_axis, sizeof(vr::VRControllerAxis_t));
@@ -785,34 +1099,36 @@ void VR_Steam::interpretControllerState(const vr::VRControllerState_t& s, const 
 
 	// Convert touchpad position to button
 	static ui64 touchpad_btn[2] = { 0,0 }; // static, so that it stays on the last button until I move on some other button
-	if (std::abs(c.dpad[0]) > std::abs(c.dpad[1])) { // LEFT or RIGHT
-		if (c.dpad[0] > VR_STEAM_TRACKPADDIRECTIONTHRESHOLD) { // RIGHT
-			touchpad_btn[c.side] = VR_STEAM_BTNBIT_DPADRIGHT;
+	if (c.dpad[0] != 0 || c.dpad[1] != 0) {
+		if (std::abs(c.dpad[0]) > std::abs(c.dpad[1])) { // LEFT or RIGHT
+			if (c.dpad[0] > VR_STEAM_TRACKPADDIRECTIONTHRESHOLD) { // RIGHT
+				touchpad_btn[c.side] = VR_STEAM_BTNBIT_DPADRIGHT;
+			}
+			else if (c.dpad[0] < -VR_STEAM_TRACKPADDIRECTIONTHRESHOLD) { // LEFT
+				touchpad_btn[c.side] = VR_STEAM_BTNBIT_DPADLEFT;
+			}
+			else { // CENTER
+				c.side == Side_Left ? touchpad_btn[c.side] = VR_STEAM_BTNBIT_LEFTDPAD :
+									  touchpad_btn[c.side] = VR_STEAM_BTNBIT_RIGHTDPAD;
+			}
 		}
-		else if (c.dpad[0] < -VR_STEAM_TRACKPADDIRECTIONTHRESHOLD) { // LEFT
-			touchpad_btn[c.side] = VR_STEAM_BTNBIT_DPADLEFT;
-		}
-		else if (c.dpad[0] != 0 || c.dpad[1] != 0) { // CENTER
-			c.side == Side_Left ? touchpad_btn[c.side] = VR_STEAM_BTNBIT_LEFTDPAD :
-								  touchpad_btn[c.side] = VR_STEAM_BTNBIT_RIGHTDPAD;
-		}
-	}
-	else { // UP or DOWN
-		if (c.dpad[1] > 0.05f) { // UP (reduced threshold, because it's hard to hit)
-			touchpad_btn[c.side] = VR_STEAM_BTNBIT_DPADUP;
-		}
-		else if (c.dpad[1] < -VR_STEAM_TRACKPADDIRECTIONTHRESHOLD) { // DOWN
-			touchpad_btn[c.side] = VR_STEAM_BTNBIT_DPADDOWN;
-		}
-		else if (c.dpad[0] != 0 || c.dpad[1] != 0) { // CENTER
-			c.side == Side_Left ? touchpad_btn[c.side] = VR_STEAM_BTNBIT_LEFTDPAD :
-								  touchpad_btn[c.side] = VR_STEAM_BTNBIT_RIGHTDPAD;
+		else { // UP or DOWN
+			if (c.dpad[1] > 0.05f) { // UP (reduced threshold, because it's hard to hit)
+				touchpad_btn[c.side] = VR_STEAM_BTNBIT_DPADUP;
+			}
+			else if (c.dpad[1] < -VR_STEAM_TRACKPADDIRECTIONTHRESHOLD) { // DOWN
+				touchpad_btn[c.side] = VR_STEAM_BTNBIT_DPADDOWN;
+			}
+			else { // CENTER
+				c.side == Side_Left ? touchpad_btn[c.side] = VR_STEAM_BTNBIT_LEFTDPAD :
+									  touchpad_btn[c.side] = VR_STEAM_BTNBIT_RIGHTDPAD;
+			}
 		}
 	}
 
 	// Touchpad touch:
 	static clock_t prior_touch_touchpad[2] = { 0, 0 }; // for smoothing micro touch-losses
-	if (s.ulButtonTouched & VR_STEAM_SVRDPADBTN || (now - prior_touch_touchpad[c.side]) < VR_STEAM_DEBOUNCEPERIOD) {
+	if (touchpad_touched || (now - prior_touch_touchpad[c.side]) < VR_STEAM_DEBOUNCEPERIOD) {
 		// if we're pressing a button, we stick with that until we let go
 		if (prior_touchpad_pressed) {
 			c.buttons_touched |= prior_touchpad_pressed;
@@ -820,7 +1136,7 @@ void VR_Steam::interpretControllerState(const vr::VRControllerState_t& s, const 
 		else {
 			c.buttons_touched |= touchpad_btn[c.side];
 		}
-		if (s.ulButtonTouched & VR_STEAM_SVRDPADBTN) {
+		if (touchpad_touched) {
 			prior_touch_touchpad[c.side] = now;
 		}
 	}
@@ -828,7 +1144,7 @@ void VR_Steam::interpretControllerState(const vr::VRControllerState_t& s, const 
 	// Touchpad press:
 	// When the touchpad is pressed, find out in what quadrant (left, right, up, down)
 	static clock_t prior_press_touchpad[2] = { 0, 0 }; // for smoothing micro touch-losses
-	if (s.ulButtonPressed & VR_STEAM_SVRDPADBTN || (now - prior_press_touchpad[c.side]) < VR_STEAM_DEBOUNCEPERIOD) {
+	if (touchpad_pressed || (now - prior_press_touchpad[c.side]) < VR_STEAM_DEBOUNCEPERIOD) {
 		// if we already are pressing one of the buttons, continue using it,
 		if (prior_touchpad_pressed) {
 			c.buttons |= prior_touchpad_pressed;
@@ -836,12 +1152,13 @@ void VR_Steam::interpretControllerState(const vr::VRControllerState_t& s, const 
 		else {
 			c.buttons |= touchpad_btn[c.side];
 		}
-		if (s.ulButtonPressed & VR_STEAM_SVRDPADBTN) {
+		if (touchpad_pressed) {
 			prior_press_touchpad[c.side] = now;
 		}
 	}
 
-	if (this->hmd_type != VR::HMDType_Microsoft) {
+	if ((this->hmd_type != HMDType_WindowsMR) && 
+		(this->hmd_type != HMDType_Index)) {
 		return;
 	}
 
@@ -880,13 +1197,14 @@ void VR_Steam::interpretControllerState(const vr::VRControllerState_t& s, const 
 			} // else: center
 		}
 	}
+#endif
 }
 
 //                                                                          ________________________
 //_________________________________________________________________________/     blitEye()
 /**
  * Blit a rendered image into the internal eye texture.
-  * TODO_MARUI: aperture_u and aperture_v currently don't do anything in the shader.
+  * TODO_XR: aperture_u and aperture_v currently don't do anything in the shader.
  */
 int VR_Steam::blitEye(Side side, void* texture_resource, const float& aperture_u, const float& aperture_v)
 {
@@ -947,7 +1265,7 @@ int VR_Steam::blitEye(Side side, void* texture_resource, const float& aperture_u
 //_________________________________________________________________________/     blitEyes()
 /**
  * Submit rendered images into the internal eye textures.
-  * TODO_MARUI: aperture_u and aperture_v currently don't do anything in the shader.
+  * TODO_XR: aperture_u and aperture_v currently don't do anything in the shader.
  */
 int VR_Steam::blitEyes(void* texture_resource_left, void* texture_resource_right, const float& aperture_u, const float& aperture_v)
 {
@@ -1131,6 +1449,840 @@ int VR_Steam::setEyeOffset(Side side, float x, float y, float z)
 	return VR_Steam::Error_None;
 }
 
+//                                                                          ________________________
+//_________________________________________________________________________/    action_manifest
+/**
+ * Action manifest file.
+ */
+const char* const VR_Steam::Input::action_manifest = R"ACTION_MANIFEST(
+{
+   "action_sets" : [
+      {
+         "name" : "/actions/main",
+         "usage" : "leftright"
+      }
+   ],
+   "actions" : [
+      {
+         "name" : "/actions/main/in/pos_left",
+         "requirement" : "optional",
+         "type" : "pose"
+      },
+      {
+         "name" : "/actions/main/in/pos_right",
+         "requirement" : "optional",
+         "type" : "pose"
+      },
+      {
+         "name" : "/actions/main/in/trigger_left",
+         "requirement" : "optional",
+         "type" : "vector1"
+      },
+      {
+         "name" : "/actions/main/in/trigger_right",
+         "requirement" : "optional",
+         "type" : "vector1"
+      },
+      {
+         "name" : "/actions/main/in/grip_left",
+         "requirement" : "optional",
+         "type" : "boolean"
+      },
+      {
+         "name" : "/actions/main/in/grip_right",
+         "requirement" : "optional",
+         "type" : "boolean"
+      },
+      {
+         "name" : "/actions/main/in/grip_touch_left",
+         "requirement" : "optional",
+         "type" : "boolean"
+      },
+      {
+         "name" : "/actions/main/in/grip_touch_right",
+         "requirement" : "optional",
+         "type" : "boolean"
+      },
+      {
+         "name" : "/actions/main/in/grip_force_left",
+         "requirement" : "optional",
+         "type" : "vector1"
+      },
+      {
+         "name" : "/actions/main/in/grip_force_right",
+         "requirement" : "optional",
+         "type" : "vector1"
+      },
+      {
+         "name" : "/actions/main/in/touchpad_left",
+         "requirement" : "optional",
+         "type" : "vector2"
+      },
+      {
+         "name" : "/actions/main/in/touchpad_right",
+         "requirement" : "optional",
+         "type" : "vector2"
+      },
+      {
+         "name" : "/actions/main/in/touchpad_press_left",
+         "requirement" : "optional",
+         "type" : "boolean"
+      },
+      {
+         "name" : "/actions/main/in/touchpad_press_right",
+         "requirement" : "optional",
+         "type" : "boolean"
+      },
+      {
+         "name" : "/actions/main/in/touchpad_touch_left",
+         "requirement" : "optional",
+         "type" : "boolean"
+      },
+      {
+         "name" : "/actions/main/in/touchpad_touch_right",
+         "requirement" : "optional",
+         "type" : "boolean"
+      },
+      {
+         "name" : "/actions/main/in/thumbstick_left",
+         "requirement" : "optional",
+         "type" : "vector2"
+      },
+      {
+         "name" : "/actions/main/in/thumbstick_right",
+         "requirement" : "optional",
+         "type" : "vector2"
+      },
+      {
+         "name" : "/actions/main/in/thumbstick_press_left",
+         "requirement" : "optional",
+         "type" : "boolean"
+      },
+      {
+         "name" : "/actions/main/in/thumbstick_press_right",
+         "requirement" : "optional",
+         "type" : "boolean"
+      },
+      {
+         "name" : "/actions/main/in/button_a_left",
+         "requirement" : "optional",
+         "type" : "boolean"
+      },
+      {
+         "name" : "/actions/main/in/button_a_right",
+         "requirement" : "optional",
+         "type" : "boolean"
+      },
+      {
+         "name" : "/actions/main/in/button_a_touch_left",
+         "requirement" : "optional",
+         "type" : "boolean"
+      },
+      {
+         "name" : "/actions/main/in/button_a_touch_right",
+         "requirement" : "optional",
+         "type" : "boolean"
+      },
+      {
+         "name" : "/actions/main/in/button_b_left",
+         "requirement" : "optional",
+         "type" : "boolean"
+      },
+      {
+         "name" : "/actions/main/in/button_b_right",
+         "requirement" : "optional",
+         "type" : "boolean"
+      },
+      {
+         "name" : "/actions/main/in/button_b_touch_left",
+         "requirement" : "optional",
+         "type" : "boolean"
+      },
+      {
+         "name" : "/actions/main/in/button_b_touch_right",
+         "requirement" : "optional",
+         "type" : "boolean"
+      },
+      {
+         "name" : "/actions/main/in/button_menu_left",
+         "requirement" : "optional",
+         "type" : "boolean"
+      },
+      {
+         "name" : "/actions/main/in/button_menu_right",
+         "requirement" : "optional",
+         "type" : "boolean"
+      },
+      {
+         "name" : "/actions/main/in/button_menu_touch_left",
+         "requirement" : "optional",
+         "type" : "boolean"
+      },
+      {
+         "name" : "/actions/main/in/button_menu_touch_right",
+         "requirement" : "optional",
+         "type" : "boolean"
+      },
+      {
+         "name" : "/actions/main/out/haptic_left",
+         "requirement" : "optional",
+         "type" : "vibration"
+      },
+      {
+         "name" : "/actions/main/out/haptic_right",
+         "requirement" : "optional",
+         "type" : "vibration"
+      }
+   ],
+   "default_bindings" : [
+      {
+         "controller_type": "vive_controller",
+         "binding_url" : "binding_vive.json"
+      },
+      {
+         "controller_type" : "holographic_controller",
+         "binding_url" : "binding_windowsmr.json"
+      },
+      {
+         "controller_type" : "knuckles",
+         "binding_url" : "binding_index.json"
+      },
+      {
+         "controller_type" : "logitech_stylus",
+         "binding_url" : "binding_logitechink.json"
+      }
+   ],
+   "localization" : [
+      {
+         "/actions/main" : "BlenderXR controller bindings",
+         "/actions/main/in/button_a_left" : "Left controller A button",
+         "/actions/main/in/button_a_right" : "Right controller A button",
+         "/actions/main/in/grip_left" : "Left controller grip (shoulder) button",
+         "/actions/main/in/grip_right" : "Right controller grip (shoulder) button",
+         "/actions/main/in/pos_left" : "Left controller position",
+         "/actions/main/in/pos_right" : "Right controller position",
+         "/actions/main/in/trigger_left" : "Left controller trigger button",
+         "/actions/main/in/trigger_right" : "Right controller trigger button",
+         "/actions/main/out/haptic_left" : "Left haptic feedback",
+         "/actions/main/out/haptic_right" : "Right haptic feedback",
+         "language_tag" : "en"
+      }
+   ]
+}
+)ACTION_MANIFEST";
+
+//                                                                          ________________________
+//_________________________________________________________________________/    binding_vive
+/**
+ * Binding for HTC Vive controllers.
+ */
+const char* const VR_Steam::Input::binding_vive = R"BINDING_VIVE({
+   "alias_info" : {},
+   "app_key" : "system.generated.blender.exe",
+   "bindings" : {
+      "/actions/main" : {
+         "haptics" : [
+            {
+               "output" : "/actions/main/out/haptic_right",
+               "path" : "/user/hand/right/output/haptic"
+            },
+            {
+               "output" : "/actions/main/out/haptic_left",
+               "path" : "/user/hand/left/output/haptic"
+            }
+         ],
+         "poses" : [
+            {
+               "output" : "/actions/main/in/pos_left",
+               "path" : "/user/hand/left/pose/raw"
+            },
+            {
+               "output" : "/actions/main/in/pos_right",
+               "path" : "/user/hand/right/pose/raw"
+            }
+         ],
+         "sources" : [
+            {
+               "inputs" : {
+                  "pull" : {
+                     "output" : "/actions/main/in/trigger_left"
+                  }
+               },
+               "mode" : "trigger",
+               "path" : "/user/hand/left/input/trigger"
+            },
+            {
+               "inputs" : {
+                  "pull" : {
+                     "output" : "/actions/main/in/trigger_right"
+                  }
+               },
+               "mode" : "trigger",
+               "path" : "/user/hand/right/input/trigger"
+            },
+            {
+                "path" : "/user/hand/left/input/grip",
+                "mode": "button",
+				"inputs": {
+					"click": {
+						"output": "/actions/main/in/grip_left"
+					},
+					"touch": {
+						"output": "/actions/main/in/grip_touch_left"
+					}
+				}
+            },
+            {
+               "path" : "/user/hand/right/input/grip",
+                "mode": "button",
+				"inputs": {
+					"click": {
+						"output": "/actions/main/in/grip_right"
+					},
+					"touch": {
+						"output": "/actions/main/in/grip_touch_right"
+					}
+				}
+            },
+            {
+               "inputs" : {
+                  "click" : {
+                     "output" : "/actions/main/in/touchpad_press_left"
+                  },
+				  "touch": {
+					 "output": "/actions/main/in/touchpad_touch_left"
+				  },
+                  "position" : {
+                     "output" : "/actions/main/in/touchpad_left"
+                  }
+               },
+               "mode" : "trackpad",
+               "path" : "/user/hand/left/input/trackpad"
+            },
+            {
+               "inputs" : {
+                  "click" : {
+                     "output" : "/actions/main/in/touchpad_press_right"
+                  },
+				  "touch": {
+					 "output": "/actions/main/in/touchpad_touch_right"
+				  },
+                  "position" : {
+                     "output" : "/actions/main/in/touchpad_right"
+                  }
+               },
+               "mode" : "trackpad",
+               "path" : "/user/hand/right/input/trackpad"
+            },
+            {
+               "inputs" : {
+                  "click" : {
+                     "output" : "/actions/main/in/button_a_left"
+                  }
+               },
+               "mode" : "button",
+               "path" : "/user/hand/right/input/b"
+            },
+            {
+               "inputs" : {
+                  "click" : {
+                     "output" : "/actions/main/in/button_a_right"
+                  }
+               },
+               "mode" : "button",
+               "path" : "/user/hand/right/input/b"
+            },
+            {
+               "inputs" : {
+                  "click" : {
+                     "output" : "/actions/main/in/button_menu_left"
+                  }
+               },
+               "mode" : "button",
+               "path" : "/user/hand/left/input/application_menu"
+            },
+            {
+               "inputs" : {
+                  "click" : {
+                     "output" : "/actions/main/in/button_menu_right"
+                  }
+               },
+               "mode" : "button",
+               "path" : "/user/hand/right/input/application_menu"
+            }
+         ]
+      }
+   },
+   "controller_type" : "vive_controller",
+   "description" : "Binding for BlenderXR for Vive controllers (v1)",
+   "name" : "BlenderXR binding for Vive controllers (v1)",
+   "options" : {},
+   "simulated_actions" : []
+}
+)BINDING_VIVE";
+
+//                                                                          ________________________
+//_________________________________________________________________________/    binding_windowsmr
+/**
+ * Binding for Microsoft Windows MR type controllers.
+ */
+ const char* const VR_Steam::Input::binding_windowsmr = R"BINDING_WINMR({
+   "alias_info" : {},
+   "app_key" : "system.generated.blender.exe",
+   "bindings" : {
+      "/actions/main" : {
+         "haptics" : [
+            {
+               "output" : "/actions/main/out/haptic_right",
+               "path" : "/user/hand/right/output/haptic"
+            },
+            {
+               "output" : "/actions/main/out/haptic_left",
+               "path" : "/user/hand/left/output/haptic"
+            }
+         ],
+         "poses" : [
+            {
+               "output" : "/actions/main/in/pos_left",
+               "path" : "/user/hand/left/pose/raw"
+            },
+            {
+               "output" : "/actions/main/in/pos_right",
+               "path" : "/user/hand/right/pose/raw"
+            }
+         ],
+         "sources" : [
+            {
+               "path" : "/user/hand/left/input/trigger",
+               "mode" : "trigger",
+               "inputs" : {
+                  "pull" : {
+                     "output" : "/actions/main/in/trigger_left"
+                  }
+               }
+            },
+            {
+               "path" : "/user/hand/right/input/trigger",
+               "mode" : "trigger",
+               "inputs" : {
+                  "pull" : {
+                     "output" : "/actions/main/in/trigger_right"
+                  }
+               }
+            },
+            {
+               "path" : "/user/hand/left/input/grip",
+               "mode" : "button",
+               "inputs" : {
+                  "click" : {
+                     "output" : "/actions/main/in/grip_left"
+                  },
+				  "touch": {
+					 "output": "/actions/main/in/grip_touch_left"
+				  }
+               }
+            },
+            {
+               "path" : "/user/hand/right/input/grip",
+               "mode" : "button",
+               "inputs" : {
+                  "click" : {
+                     "output" : "/actions/main/in/grip_right"
+                  },
+				  "touch": {
+					 "output": "/actions/main/in/grip_touch_right"
+				  }
+               }
+            },
+            {
+               "path" : "/user/hand/left/input/trackpad",
+               "mode" : "trackpad",
+               "inputs" : {
+                  "position" : {
+                     "output" : "/actions/main/in/touchpad_left"
+                  },
+                  "click" : {
+                     "output" : "/actions/main/in/touchpad_press_left"
+                  },
+				  "touch": {
+					 "output": "/actions/main/in/touchpad_touch_left"
+			      }
+               }
+            },
+            {
+               "path" : "/user/hand/right/input/trackpad",
+               "mode" : "trackpad",
+               "inputs" : {
+                  "position" : {
+                     "output" : "/actions/main/in/touchpad_right"
+                  },
+                  "click" : {
+                     "output" : "/actions/main/in/touchpad_press_right"
+                  },
+				  "touch": {
+					 "output": "/actions/main/in/touchpad_touch_right"
+			      }
+               }
+            },
+            {
+               "path" : "/user/hand/left/input/application_menu",
+               "mode" : "button",
+               "inputs" : {
+                  "click" : {
+                     "output" : "/actions/main/in/button_menu_left"
+                  }
+               }
+            },
+            {
+               "path" : "/user/hand/right/input/application_menu",
+               "mode" : "button",
+               "inputs" : {
+                  "click" : {
+                     "output" : "/actions/main/in/button_menu_right"
+                  }
+               }
+            },
+            {
+               "path" : "/user/hand/left/input/joystick",
+               "mode" : "joystick",
+               "inputs" : {
+                  "position" : {
+                     "output" : "/actions/main/in/thumbstick_left"
+                  },
+                  "click" : {
+                     "output" : "/actions/main/in/thumbstick_press_left"
+                  }
+               }
+            },
+            {
+               "path" : "/user/hand/right/input/joystick",
+               "mode" : "joystick",
+               "inputs" : {
+                  "position" : {
+                     "output" : "/actions/main/in/thumbstick_right"
+                  },
+                  "click" : {
+                     "output" : "/actions/main/in/thumbstick_press_right"
+                  }
+               }
+            }
+         ]
+      }
+   },
+   "controller_type" : "holographic_controller",
+   "description" : "Binding for BlenderXR for Windows MR controllers (v1)",
+   "name" : "BlenderXR binding for Windows MR controllers (v1)",
+   "options" : {},
+   "simulated_actions" : []
+}
+)BINDING_WINMR";
+
+//                                                                          ________________________
+//_________________________________________________________________________/    binding_index
+/**
+ * Binding for Valve Index (Knuckles) controllers.
+ */
+const char* const VR_Steam::Input::binding_index = R"BINDING_INDEX({
+   "alias_info" : {},
+   "app_key" : "system.generated.blender.exe",
+   "bindings" : {
+      "/actions/main": {
+        "poses": [
+            {
+                "path": "/user/hand/left/pose/raw",
+                "output": "/actions/main/in/pos_left"
+            },
+            {
+                "path": "/user/hand/right/pose/raw",
+                "output": "/actions/main/in/pos_right"
+            }
+        ],
+        "haptics": [
+            {
+                "output": "/actions/main/out/haptic_left",
+                "path": "/user/hand/left/output/haptic"
+            },
+            {
+                "output": "/actions/main/out/haptic_right",
+                "path": "/user/hand/right/output/haptic"
+            }
+        ],
+        "sources": [
+            {
+                "path": "/user/hand/left/input/trigger",
+                "mode": "trigger",
+                "inputs": {
+                    "pull": {
+                        "output": "/actions/main/in/trigger_left"
+                    }
+                }
+            },
+            {
+                "path": "/user/hand/right/input/trigger",
+                "mode": "trigger",
+                "inputs": {
+                    "pull": {
+                        "output": "/actions/main/in/trigger_right"
+                    }
+                }
+            },
+            {
+                "path": "/user/hand/left/input/grip",
+                "mode": "force_sensor",
+				"inputs": {
+					"force": {
+						"output": "/actions/main/in/grip_force_left"
+					}
+				}
+            },
+            {
+                "path": "/user/hand/right/input/grip",
+                "mode": "force_sensor",
+				"inputs": {
+					"force": {
+						"output": "/actions/main/in/grip_force_right"
+					}
+				}
+            },
+            {
+                "path": "/user/hand/left/input/a",
+                "mode": "button",
+                "inputs": {
+                    "click": {
+                        "output": "/actions/main/in/button_a_left"
+                    },
+					"touch": {
+						"output": "/actions/main/in/button_a_touch_left"
+					}
+                }
+            },
+            {
+                "path": "/user/hand/right/input/a",
+                "mode": "button",
+                "inputs": {
+                    "click": {
+                        "output": "/actions/main/in/button_a_right"
+                    },
+					"touch": {
+						"output": "/actions/main/in/button_a_touch_right"
+					}
+                }
+            },
+            {
+                "path": "/user/hand/left/input/b",
+                "mode": "button",
+                "inputs": {
+                    "click": {
+                        "output": "/actions/main/in/button_b_left"
+                    },
+					"touch": {
+						"output": "/actions/main/in/button_b_touch_left"
+					}
+                }
+            },
+            {
+                "path": "/user/hand/right/input/b",
+                "mode": "button",
+                "inputs": {
+                    "click": {
+                        "output": "/actions/main/in/button_b_right"
+                    },
+					"touch": {
+						"output": "/actions/main/in/button_b_touch_right"
+					}
+                }
+            },
+            {
+                "path": "/user/hand/left/input/thumbstick",
+                "mode": "joystick",
+                "inputs": {
+                    "position": {
+                        "output": "/actions/main/in/thumbstick_left"
+                    },
+                    "click": {
+                        "output": "/actions/main/in/thumbstick_press_left"
+                    }
+                }
+            },
+            {
+                "path": "/user/hand/right/input/thumbstick",
+                "mode": "joystick",
+                "inputs": {
+                    "position": {
+                        "output": "/actions/main/in/thumbstick_right"
+                    },
+                    "click": {
+                        "output": "/actions/main/in/thumbstick_press_right"
+                    }
+                }
+            },
+            {
+                "path": "/user/hand/left/input/trackpad",
+                "mode": "trackpad",
+                "inputs": {
+                    "position": {
+                        "output": "/actions/main/in/touchpad_left"
+                    },
+                    "touch": {
+                        "output": "/actions/main/in/touchpad_press_left"
+                    }
+                }
+            },
+            {
+                "path": "/user/hand/right/input/trackpad",
+                "mode": "trackpad",
+                "inputs": {
+                    "position": {
+                        "output": "/actions/main/in/touchpad_right"
+                    },
+                    "touch": {
+                        "output": "/actions/main/in/touchpad_press_right"
+                    }
+                }
+            }
+        ]
+      }
+   },
+   "controller_type" : "knuckles",
+   "description" : "BlenderXR default configuration for Index (Knuckles) controllers (v1)",
+   "name" : "BlenderXR default configuration for Index (Knuckles) controllers (v1)",
+   "options" : {},
+   "simulated_actions" : []
+}
+)BINDING_INDEX";
+
+//                                                                          ________________________
+//_________________________________________________________________________/    binding_logitechink
+/**
+ * Binding for Logitech VR Ink pen.
+ */
+ const char* const VR_Steam::Input::binding_logitechink = R"BINDING_LOGIINK({
+   "alias_info" : {},
+   "app_key" : "system.generated.blender.exe",
+   "bindings" : {
+      "/actions/main": {
+        "poses": [
+            {
+                "path": "/user/hand/left/pose/tip",
+                "output": "/actions/main/in/pos_left"
+            },
+            {
+                "path": "/user/hand/right/pose/tip",
+                "output": "/actions/main/in/pos_right"
+            }
+        ],
+        "haptics": [
+            {
+                "output": "/actions/main/out/haptic_left",
+                "path": "/user/hand/left/output/haptic"
+            },
+            {
+                "output": "/actions/main/out/haptic_right",
+                "path": "/user/hand/right/output/haptic"
+            }
+        ],
+        "sources": [
+            {
+                "path": "/user/hand/left/input/primary",
+                "mode": "force_sensor",
+                "inputs": {
+                    "force": {
+                        "output": "/actions/main/in/trigger_left"
+                    }
+                }
+            },
+            {
+                "path": "/user/hand/right/input/primary",
+                "mode": "force_sensor",
+                "inputs": {
+                    "force": {
+                        "output": "/actions/main/in/trigger_right"
+                    }
+                }
+            },
+            {
+                "path" : "/user/hand/left/input/grip",
+                "mode": "button",
+				"inputs": {
+					"click": {
+						"output": "/actions/main/in/grip_left"
+					},
+					"touch": {
+						"output": "/actions/main/in/grip_touch_left"
+					}
+				}
+            },
+            {
+               "path" : "/user/hand/right/input/grip",
+                "mode": "button",
+				"inputs": {
+					"click": {
+						"output": "/actions/main/in/grip_right"
+					},
+					"touch": {
+						"output": "/actions/main/in/grip_touch_right"
+					}
+				}
+            },
+            {
+                "path": "/user/hand/left/input/menu",
+                "mode": "button",
+                "inputs": {
+                    "click": {
+                        "output": "/actions/main/in/button_menu_left"
+                    }
+                }
+            },
+            {
+                "path": "/user/hand/right/input/menu",
+                "mode": "button",
+                "inputs": {
+                    "click": {
+                        "output": "/actions/main/in/button_menu_right"
+                    }
+                }
+            },
+            {
+                "path": "/user/hand/left/input/touchstrip",
+                "mode": "trackpad",
+                "inputs": {
+                    "position": {
+                        "output": "/actions/main/in/touchpad_left"
+                    },
+                    "click" : {
+                        "output" : "/actions/main/in/touchpad_press_left"
+                    },
+                    "touch": {
+                        "output": "/actions/main/in/touchpad_touch_left"
+                    }
+                }
+            },
+            {
+                "path": "/user/hand/right/input/touchstrip",
+                "mode": "trackpad",
+                "inputs": {
+                    "position": {
+                        "output": "/actions/main/in/touchpad_right"
+                    },
+                    "click" : {
+                        "output" : "/actions/main/in/touchpad_press_right"
+                    },
+                    "touch": {
+                        "output": "/actions/main/in/touchpad_touch_right"
+                    }
+                }
+            }
+        ]
+      }
+   },
+   "controller_type" : "logitech_stylus",
+   "description" : "BlenderXR default configuration for Logitech VR Ink stylus (v1)",
+   "name" : "BlenderXR default configuration for Logitech VR Ink stylus (v1)",
+   "options" : {},
+   "simulated_actions" : []
+}
+)BINDING_LOGIINK";
+
 /***********************************************************************************************//**
 *								Exported shared library functions.								   *
 ***************************************************************************************************/
@@ -1166,6 +2318,11 @@ int c_initVR(void* display, void* drawable, void* context)
  */
 int c_getHMDType(int* type)
 {
+	/* TODO_XR: Decouple controller type from HMD type.
+	 * For now, this will set the HMD type based on the controller type. 
+	 * (This function should only be called once when starting a new VR session from blender). */
+	c_obj->updateTracking();
+
 	*type = c_obj->hmdType();
 	return 0;
 }
@@ -1284,5 +2441,11 @@ int c_submitFrame()
  */
 int c_uninitVR()
 {
-	return c_obj->uninit();
+	if (c_obj) {
+		int error = c_obj->uninit();
+		delete c_obj;
+		c_obj = 0;
+		return error;
+	}
+	return 0;
 }

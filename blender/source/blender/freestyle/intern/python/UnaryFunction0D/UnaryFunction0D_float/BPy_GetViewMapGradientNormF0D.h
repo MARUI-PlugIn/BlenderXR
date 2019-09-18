@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup freestyle
+/** \file
+ * \ingroup freestyle
  */
 
 #ifndef __FREESTYLE_PYTHON_GETVIEWMAPGRADIENTNORMF0D_H__
@@ -31,13 +32,12 @@ extern "C" {
 extern PyTypeObject GetViewMapGradientNormF0D_Type;
 
 #define BPy_GetViewMapGradientNormF0D_Check(v) \
-            (PyObject_IsInstance((PyObject *)v, (PyObject *)&GetViewMapGradientNormF0D_Type))
+  (PyObject_IsInstance((PyObject *)v, (PyObject *)&GetViewMapGradientNormF0D_Type))
 
 /*---------------------------Python BPy_GetViewMapGradientNormF0D structure definition----------*/
 typedef struct {
-	BPy_UnaryFunction0DFloat py_uf0D_float;
+  BPy_UnaryFunction0DFloat py_uf0D_float;
 } BPy_GetViewMapGradientNormF0D;
-
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 

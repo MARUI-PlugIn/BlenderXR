@@ -20,7 +20,8 @@
 #ifndef __BKE_BOIDS_H__
 #define __BKE_BOIDS_H__
 
-/** \file \ingroup bke
+/** \file
+ * \ingroup bke
  */
 
 #include "DNA_boid_types.h"
@@ -28,18 +29,18 @@
 struct RNG;
 
 typedef struct BoidBrainData {
-	struct ParticleSimulationData *sim;
-	struct ParticleSettings *part;
-	float timestep, cfra, dfra;
-	float wanted_co[3], wanted_speed;
+  struct ParticleSimulationData *sim;
+  struct ParticleSettings *part;
+  float timestep, cfra, dfra;
+  float wanted_co[3], wanted_speed;
 
-	/* Goal stuff */
-	struct Object *goal_ob;
-	float goal_co[3];
-	float goal_nor[3];
-	float goal_priority;
+  /* Goal stuff */
+  struct Object *goal_ob;
+  float goal_co[3];
+  float goal_nor[3];
+  float goal_priority;
 
-	struct RNG *rng;
+  struct RNG *rng;
 } BoidBrainData;
 
 void boids_precalc_rules(struct ParticleSettings *part, float cfra);

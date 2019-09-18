@@ -1,4 +1,4 @@
-# Copyright 2018 The glTF-Blender-IO authors.
+# Copyright 2018-2019 The glTF-Blender-IO authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,7 +25,6 @@ FILTERED_OBJECTS = 'filtered_objects'
 FILTERED_CAMERAS = 'filtered_cameras'
 
 APPLY = 'gltf_apply'
-LAYERS = 'gltf_layers'
 SELECTED = 'gltf_selected'
 SKINS = 'gltf_skins'
 DISPLACEMENT = 'gltf_displacement'
@@ -39,14 +38,12 @@ FILE_DIRECTORY = 'gltf_filedirectory'
 BINARY_FILENAME = 'gltf_binaryfilename'
 YUP = 'gltf_yup'
 MORPH = 'gltf_morph'
-BAKE_SKINS = 'gltf_bake_skins'
 TEX_COORDS = 'gltf_texcoords'
 COLORS = 'gltf_colors'
 NORMALS = 'gltf_normals'
 TANGENTS = 'gltf_tangents'
 MORPH_TANGENT = 'gltf_morph_tangent'
 MORPH_NORMAL = 'gltf_morph_normal'
-MOVE_KEYFRAMES = 'gltf_move_keyframes'
 MATERIALS = 'gltf_materials'
 EXTRAS = 'gltf_extras'
 CAMERAS = 'gltf_cameras'
@@ -55,7 +52,6 @@ ANIMATIONS = 'gltf_animations'
 EMBED_IMAGES = 'gltf_embed_images'
 BINARY = 'gltf_binary'
 EMBED_BUFFERS = 'gltf_embed_buffers'
-TEXTURE_TRANSFORM = 'gltf_texture_transform'
 USE_NO_COLOR = 'gltf_use_no_color'
 
 METALLIC_ROUGHNESS_IMAGE = "metallic_roughness_image"

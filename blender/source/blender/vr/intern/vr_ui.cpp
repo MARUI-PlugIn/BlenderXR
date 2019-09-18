@@ -15,10 +15,10 @@
 * along with this program; if not, write to the Free Software Foundation,
 * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 *
-* The Original Code is Copyright (C) 2018 by Blender Foundation.
+* The Original Code is Copyright (C) 2019 by Blender Foundation.
 * All rights reserved.
 *
-* Contributor(s): MARUI-PlugIn
+* Contributor(s): MARUI-PlugIn, Multiplexed Reality
 *
 * ***** END GPL LICENSE BLOCK *****
 */
@@ -35,13 +35,16 @@
 #include "vr_widget.h"
 #include "vr_widget_menu.h"
 #include "vr_widget_transform.h"
+#include "vr_widget_navi.h"
+#include "vr_widget_animation.h"
 
 #include "vr_ui.h"
 
-#include "vr_widget_layout.h"
+#include "vr_layout.h"
 
 #include "vr_math.h"
 #include "vr_draw.h"
+#include "vr_network.h"
 
 #ifdef WIN32
 #include "BLI_winstuff.h"
@@ -53,12 +56,19 @@
 
 #include "DNA_vec_types.h"
 
+#include "DRW_engine.h"
+
 #include "ED_object.h"
 #include "ED_undo.h"
 
 #include "GPU_batch_presets.h"
 #include "GPU_immediate.h"
 #include "GPU_matrix.h"
+#include "GPU_state.h"
+#include "GPU_framebuffer.h"
+#include "GPU_viewport.h"
+
+#include "MEM_guardedalloc.h"
 
 #include "WM_types.h"
 #include "wm_window.h"
@@ -82,7 +92,7 @@ static ui64 currentSystemTime()
 #endif
 }
 
-/***********************************************************************************************//**
+/***************************************************************************************************
  * \class                               VR_UI
  ***************************************************************************************************
  * VR_UI is the core of VR user interaction in Blender.
@@ -93,7 +103,7 @@ static ui64 currentSystemTime()
  **************************************************************************************************/
 
 VR_UI* VR_UI::ui = 0;
-VR_UI_Type VR_UI::ui_type(VR_UI_TYPE_NULL);
+VR_Device_Type VR_UI::ui_type(VR_DEVICE_TYPE_NULL);
 
 Mat44f VR_UI::navigation_matrix;
 Mat44f VR_UI::navigation_inverse;
@@ -425,7 +435,7 @@ void VR_UI::alt_key_set(VR_UI::AltState state)
 
 VR_Widget* VR_UI::get_current_tool(VR_Side side)
 {
-	if (!VR_Widget_Layout::current_layout) {
+	if (!VR_Layout::current_layout) {
 		return NULL;
 	}
 
@@ -434,12 +444,11 @@ VR_Widget* VR_UI::get_current_tool(VR_Side side)
 		return NULL;
 	}
 	uint type = ui->type();
-	VR_UI::AltState alt = VR_UI::alt_key;
 
-	for (int i = 0; i < VR_Widget_Layout::layouts[type].size(); ++i) {
-		if (VR_Widget_Layout::layouts[type][i]->name == VR_Widget_Layout::current_layout->name) {
+	for (int i = 0; i < VR_Layout::layouts[type].size(); ++i) {
+		if (VR_Layout::layouts[type][i]->name == VR_Layout::current_layout->name) {
 			/* The currently active tool is the one mapped to the controller trigger. */
-			return VR_Widget_Layout::layouts[type][i]->m[side][VR_Widget_Layout::ButtonID::BUTTONID_TRIGGER][alt];
+			return VR_Layout::layouts[type][i]->m[side][VR_Layout::ButtonID::BUTTONID_TRIGGER];
 		}
 	}
 
@@ -448,7 +457,7 @@ VR_Widget* VR_UI::get_current_tool(VR_Side side)
 
 VR_UI::Error VR_UI::set_current_tool(const VR_Widget *tool, VR_Side side)
 {
-	if (!VR_Widget_Layout::current_layout) {
+	if (!VR_Layout::current_layout) {
 		return VR_UI::ERROR_NOTINITIALIZED;
 	}
 
@@ -457,12 +466,11 @@ VR_UI::Error VR_UI::set_current_tool(const VR_Widget *tool, VR_Side side)
 		return VR_UI::ERROR_INTERNALFAILURE;
 	}
 	uint type = ui->type();
-	VR_UI::AltState alt = VR_UI::alt_key;
 
-	for (int i = 0; i < VR_Widget_Layout::layouts[type].size(); ++i) {
-		if (VR_Widget_Layout::layouts[type][i]->name == VR_Widget_Layout::current_layout->name) {
+	for (int i = 0; i < VR_Layout::layouts[type].size(); ++i) {
+		if (VR_Layout::layouts[type][i]->name == VR_Layout::current_layout->name) {
 			/* The currently active tool is the one mapped to the controller trigger. */
-			VR_Widget_Layout::layouts[type][i]->m[side][VR_Widget_Layout::ButtonID::BUTTONID_TRIGGER][alt] = (VR_Widget*)tool;
+			VR_Layout::layouts[type][i]->m[side][VR_Layout::ButtonID::BUTTONID_TRIGGER] = (VR_Widget*)tool;
 			break;
 		}
 	}
@@ -540,7 +548,7 @@ const Mat44f& VR_UI::hmd_position_get(VR_Space space, bool inverse)
 	}
 	else { /* VR_SPACE_BLENDER */
 		if (!VR_UI::hmd_position_current[VR_SPACE_BLENDER][0]) {
-			_va_mul_m4_series_3(vr->t_hmd[VR_SPACE_BLENDER], vr->t_hmd[VR_SPACE_REAL], VR_UI::navigation_matrix.m);
+			_va_mul_m4_series_3(vr->t_hmd[VR_SPACE_BLENDER], VR_UI::navigation_matrix.m, vr->t_hmd[VR_SPACE_REAL]);
 			VR_UI::hmd_position_current[VR_SPACE_BLENDER][0] = true;
 		}
 		if (inverse) {
@@ -579,7 +587,7 @@ const Mat44f& VR_UI::eye_position_get(VR_Space space, VR_Side side, bool inverse
 	}
 	else { /* VR_SPACE_BLENDER */
 		if (!VR_UI::eye_position_current[VR_SPACE_BLENDER][side][0]) {
-			_va_mul_m4_series_3(vr->t_eye[VR_SPACE_BLENDER][side], vr->t_eye[VR_SPACE_REAL][side], VR_UI::navigation_matrix.m);
+			_va_mul_m4_series_3(vr->t_eye[VR_SPACE_BLENDER][side], VR_UI::navigation_matrix.m, vr->t_eye[VR_SPACE_REAL][side]);
 			VR_UI::eye_position_current[VR_SPACE_BLENDER][side][0] = true;
 		}
 		if (inverse) {
@@ -618,7 +626,7 @@ const Mat44f& VR_UI::controller_position_get(VR_Space space, VR_Side side, bool 
 	}
 	else { /* VR_SPACE_BLENDER */
 		if (!VR_UI::controller_position_current[VR_SPACE_BLENDER][side][0]) {
-			_va_mul_m4_series_3(vr->t_controller[VR_SPACE_BLENDER][side], vr->t_controller[VR_SPACE_REAL][side], VR_UI::navigation_matrix.m);
+			_va_mul_m4_series_3(vr->t_controller[VR_SPACE_BLENDER][side], VR_UI::navigation_matrix.m, vr->t_controller[VR_SPACE_REAL][side]);
 			VR_UI::controller_position_current[VR_SPACE_BLENDER][side][0] = true;
 		}
 		if (inverse) {
@@ -757,16 +765,19 @@ int VR_UI::get_pixel_coordinates(const Coord3Df& c, int& x, int& y, VR_Side side
 	return 0;
 }
 
-bool VR_UI::is_available(VR_UI_Type type)
+bool VR_UI::is_available(VR_Device_Type type)
 {
 	switch (type) {
-		case VR_UI_TYPE_NULL:
+		case VR_DEVICE_TYPE_NULL:
 #ifdef WIN32
-		case VR_UI_TYPE_OCULUS:
-		case VR_UI_TYPE_MICROSOFT:
-		case VR_UI_TYPE_FOVE:
+		case VR_DEVICE_TYPE_OCULUS:
+		case VR_DEVICE_TYPE_WINDOWSMR:
+		case VR_DEVICE_TYPE_FOVE:
+		case VR_DEVICE_TYPE_PIMAX:
 #endif
-		case VR_UI_TYPE_VIVE: {
+		case VR_DEVICE_TYPE_VIVE:
+		case VR_DEVICE_TYPE_INDEX:
+		case VR_DEVICE_TYPE_MAGICLEAP: {
 			return true;
 		}
 		default: {
@@ -775,7 +786,7 @@ bool VR_UI::is_available(VR_UI_Type type)
 	}
 }
 
-VR_UI::Error VR_UI::set_ui(VR_UI_Type type)
+VR_UI::Error VR_UI::set_ui(VR_Device_Type type)
 {
 	/* If we already have a UI implementation object, delete it first. */
 	if (VR_UI::ui) {
@@ -787,17 +798,20 @@ VR_UI::Error VR_UI::set_ui(VR_UI_Type type)
 	VR_UI::ui_type = type;
 
 	/* Will automatically assign widget layout based on ui_type */
-	//VR_Widget_Layout::resetToDefaultLayouts();
+	//VR_Layout::resetToDefaultLayouts();
 
 	return ERROR_NONE;
 }
 
 VR_UI::Error VR_UI::shutdown()
 {
+	/* Unbind any object bindings. */
+	Widget_Animation::clear_bindings();
+
 	/* If we have a UI implementation object, delete it. */
 	if (VR_UI::ui) {
 		delete VR_UI::ui;
-		VR_UI::ui = 0;
+		VR_UI::ui = NULL;
 	}
 
 	return ERROR_NONE;
@@ -840,7 +854,7 @@ VR_UI::~VR_UI()
 	//
 }
 
-VR_UI_Type VR_UI::type()
+VR_Device_Type VR_UI::type()
 {
 	return VR_UI::ui_type;
 }
@@ -1026,40 +1040,28 @@ VR_UI::Error VR_UI::execute_operations()
 	ui64 now = VR_t_now;
 	static ui64 last_action_update = 0;
 	ui64 action_update_dt = now - last_action_update;
-	/*
+	/* Upper cap: don't update more often than maximum frequency. */
+#if !VR_UI_OPTIMIZEPERFORMANCEMELTCPU
 	if (action_update_dt < VR_UI_MINUPDATEINTERVAL) {
 		VR_UI::updating = false;
 		return VR_UI::ERROR_NONE;
 	}
+#endif
+	/* Lower cap: definitely update if we are falling below minimum frequency
+	 * (also make sure we have a valid FPS measurement). */
 	if (action_update_dt < VR_UI_MAXUPDATEINTERVAL && VR_UI::fps_render) {
+		/* Linearly degrade update frequency if rendering framerate drops below 60fps. */
 		const ui64 min_fps = 1000 / VR_UI_MAXUPDATEINTERVAL;
 		const ui64 max_fps = 1000 / VR_UI_MINUPDATEINTERVAL;
+#if 0
 		const float render_ratio = float(VR_UI::fps_render - min_fps) / (60.0f - float(min_fps));
 		const float target_fps = (render_ratio * float(max_fps - min_fps)) + min_fps;
+#else 
+		const float curr_fps = (float)VR_UI::fps_render; // fps estimate from the last frame
+		const float target_fps = (curr_fps > 30.0f) ? (((curr_fps - 30.0f) / (60.0f - 30.0f)) * float(max_fps - min_fps)) + min_fps : min_fps;
+#endif
 		const ui64 target_interval = ui64(1000.0f / target_fps);
 
-		if (action_update_dt < target_interval) {
-			VR_UI::updating = false;
-			return VR_UI::ERROR_NONE;
-		}
-	}*/
-
-    /* Upper cap: don't update more often than maximum frequency */
-	if (action_update_dt < VR_UI_MINUPDATEINTERVAL) {
-		VR_UI::updating = false;
-		return VR_UI::ERROR_NONE;
-	}
-	/* Lower cap: definitely update if we are falling below minimum frequency */
-	if (action_update_dt < VR_UI_MAXUPDATEINTERVAL) {
-        // Linearly degrade update frequency if rendering framerate drops below 60fps, hitting the minimum at 30fps
-        const ui64 min_fps      = 1000/VR_UI_MAXUPDATEINTERVAL;
-        const ui64 max_fps      = 1000/VR_UI_MINUPDATEINTERVAL;
-        const float curr_fps     = (float)VR_UI::fps_render; // fps estimate from the last frame
-        const float taget_fps    = (curr_fps > 30.0f) 
-                                 ? (((curr_fps - 30.0f) / (60.0f - 30.0f)) * float(max_fps-min_fps))+min_fps
-                                 : min_fps;
-        const ui64 target_interval = ui64(1000.0f/taget_fps);
- 
 		if (action_update_dt < target_interval) {
 			VR_UI::updating = false;
 			return VR_UI::ERROR_NONE;
@@ -1086,15 +1088,15 @@ VR_UI::Error VR_UI::execute_operations()
 			VR_UI::cursor[VR_SIDE_LEFT].last_position = VR_UI::cursor[VR_SIDE_LEFT].position;
 			VR_UI::cursor[VR_SIDE_LEFT].last_buttons = vr->controller[VR_SIDE_LEFT]->buttons;
 
-			if (VR_UI::ui_type == VR_UI_TYPE_FOVE) {
+			if (VR_UI::ui_type == VR_DEVICE_TYPE_FOVE) {
 				/* Special case: Since Fove only has one cursor, transfer navigation 
 				 * to a dummy cursor so we can move and interact at the same time. */
-				if (VR_UI::cursor[VR_SIDE_LEFT].last_buttons & VR_Widget_Layout::BUTTONBITS_GRIPS) {
+				if (VR_UI::cursor[VR_SIDE_LEFT].last_buttons & VR_Layout::BUTTONBITS_GRIPS) {
 					VR_UI::cursor[VR_SIDE_RIGHT].position.position[VR_SPACE_REAL].mat = VR_UI::cursor[VR_SIDE_LEFT].position.position[VR_SPACE_REAL].mat;
-					vr->controller[VR_SIDE_RIGHT]->buttons = VR_Widget_Layout::BUTTONBITS_GRIPS;
+					vr->controller[VR_SIDE_RIGHT]->buttons = VR_Layout::BUTTONBITS_GRIPS;
 					VR_UI::update_cursor(VR_UI::cursor[VR_SIDE_RIGHT]);
 					VR_UI::cursor[VR_SIDE_RIGHT].last_position.position[VR_SPACE_REAL].mat = VR_UI::cursor[VR_SIDE_LEFT].position.position[VR_SPACE_REAL].mat;
-					VR_UI::cursor[VR_SIDE_RIGHT].last_buttons = VR_Widget_Layout::BUTTONBITS_GRIPS;
+					VR_UI::cursor[VR_SIDE_RIGHT].last_buttons = VR_Layout::BUTTONBITS_GRIPS;
 				}
 			}
 		}
@@ -1113,7 +1115,10 @@ VR_UI::Error VR_UI::execute_operations()
 
 	VR_UI::ctrl_key = CtrlState(VR_UI::cursor[VR_SIDE_LEFT].ctrl | VR_UI::cursor[VR_SIDE_RIGHT].ctrl);
 	VR_UI::shift_key = ShiftState(VR_UI::cursor[VR_SIDE_LEFT].shift | VR_UI::cursor[VR_SIDE_RIGHT].shift);
-	//VR_UI::alt_key = AltState(VR_UI::cursor[VR_SIDE_LEFT].alt | VR_UI::cursor[VR_SIDE_RIGHT].alt);
+	VR_UI::alt_key = AltState(VR_UI::cursor[VR_SIDE_LEFT].alt | VR_UI::cursor[VR_SIDE_RIGHT].alt);
+
+	/* Update any object bindings. */
+	Widget_Animation::update_bindings();
 
 	/* Update menus. */
 	//VR_UI::update_menus();
@@ -1125,7 +1130,7 @@ VR_UI::Error VR_UI::execute_operations()
 
 VR_UI::Error VR_UI::update_cursor(Cursor& c)
 {
-	if (!VR_Widget_Layout::current_layout) {
+	if (!VR_Layout::current_layout) {
 		return ERROR_NOTINITIALIZED;
 	}
 
@@ -1135,20 +1140,19 @@ VR_UI::Error VR_UI::update_cursor(Cursor& c)
 	ui64 buttons = vr->controller[c.side]->buttons;
 
 	/* Special treatment for the ctrl/shift/alt keys. */
-	if (buttons & VR_Widget_Layout::current_layout->ctrl_button_bits[c.side][VR_UI::ctrl_key]) {
+	if (buttons & VR_Layout::current_layout->ctrl_button_bits[c.side]) {
 		c.ctrl = CTRLSTATE_ON;
 	}
 	else {
 		c.ctrl = CTRLSTATE_OFF;
 	}
-	if (buttons & VR_Widget_Layout::current_layout->shift_button_bits[c.side][VR_UI::alt_key]) {
+	if (buttons & VR_Layout::current_layout->shift_button_bits[c.side]) {
 		c.shift = SHIFTSTATE_ON;
 	}
 	else {
 		c.shift = SHIFTSTATE_OFF;
 	}
-	//if (buttons & VR_Widget_Layout::current_layout->alt_button_bits[c.side]) {
-	if (VR_UI::alt_key) {
+	if (buttons & VR_Layout::current_layout->alt_button_bits[c.side]) {
 		c.alt = ALTSTATE_ON;
 	}
 	else {
@@ -1156,54 +1160,71 @@ VR_UI::Error VR_UI::update_cursor(Cursor& c)
 	}
 
 	/* Special recognition for the trigger button. */
-	c.trigger = (buttons & VR_Widget_Layout::BUTTONBITS_TRIGGERS) ? true : false;
+	c.trigger = (buttons & VR_Layout::BUTTONBITS_TRIGGERS) ? true : false;
 	/* Special recognition for the grip button. */
-	c.grip = (buttons & VR_Widget_Layout::BUTTONBITS_GRIPS) ? true : false;
+	c.grip = (buttons & VR_Layout::BUTTONBITS_GRIPS) ? true : false;
 
 	static bool pie_menu_init[VR_SIDES] = { true, true };
-	/* TODO_XR: Refactor this. Sometimes menus can stay open or be incorrect type
-	 * if both trigger and grip are pressed .*/
 	if (c.trigger) {
-		if (!(c.last_buttons & VR_Widget_Layout::BUTTONBITS_TRIGGERS) && 
+		if (!(c.last_buttons & VR_Layout::BUTTONBITS_TRIGGERS) && 
 			Widget_Menu::menu_type[c.side] != VR_Widget::MENUTYPE_AS_NAVI) {
 			/* First trigger interaction; close any open pie menus. */
 			pie_menu_init[c.side] = true;
 			/* Activate action settings menu. */
 			VR_Widget *tool = get_current_tool(c.side);
-			switch (tool->type()) {
-			case VR_Widget::TYPE_TRANSFORM: {
-				Widget_Menu::menu_type[c.side] = VR_Widget::MENUTYPE_AS_TRANSFORM;
-				break;
+			if (!tool) {
+				Widget_Menu::menu_type[c.side] = VR_Widget::MENUTYPE_MAIN_12;
 			}
-			case VR_Widget::TYPE_EXTRUDE: {
-				Widget_Menu::menu_type[c.side] = VR_Widget::MENUTYPE_AS_EXTRUDE;
-				break;
-			}
-			default: {
-				break;
-			}
+			else {
+				switch (tool->type()) {
+				case VR_Widget::TYPE_TRANSFORM: {
+					Widget_Menu::menu_type[c.side] = VR_Widget::MENUTYPE_AS_TRANSFORM;
+					VR_UI::pie_menu_active[c.side] = true;
+					break;
+				}
+				case VR_Widget::TYPE_EXTRUDE: {
+					Widget_Menu::menu_type[c.side] = VR_Widget::MENUTYPE_AS_EXTRUDE;
+					VR_UI::pie_menu_active[c.side] = true;
+					break;
+				}
+				case VR_Widget::TYPE_SCULPT: {
+					Widget_Menu::menu_type[c.side] = VR_Widget::MENUTYPE_AS_SCULPT;
+					VR_UI::pie_menu_active[c.side] = true;
+					break;
+				}
+				case VR_Widget::TYPE_ANIMATION: {
+					Widget_Menu::menu_type[c.side] = VR_Widget::MENUTYPE_AS_ANIMATION;
+					VR_UI::pie_menu_active[c.side] = true;
+					break;
+				}
+				default: {
+					VR_UI::pie_menu_active[c.side] = false;
+					break;
+				}
+				}
 			}
 			Widget_Menu::action_settings[c.side] = true;
-			VR_UI::pie_menu_active[c.side] = true;
 		}
 	}
-	else if (c.grip) {
-		if (!(c.last_buttons & VR_Widget_Layout::BUTTONBITS_GRIPS) &&
+	else if (c.grip && (VR_UI::ui_type != VR_DEVICE_TYPE_MAGICLEAP)) {
+		if (!(c.last_buttons & VR_Layout::BUTTONBITS_GRIPS) &&
 			!VR_UI::pie_menu_active[c.side]) {
 			pie_menu_init[c.side] = true;
 			/* Activate action settings menu. */
 			Widget_Menu::menu_type[c.side] = VR_Widget::MENUTYPE_AS_NAVI;
-			Widget_Menu::action_settings[c.side] = true;
 			VR_UI::pie_menu_active[c.side] = true;
+			Widget_Menu::action_settings[c.side] = true;
 		}
-		else if (Widget_Menu::menu_type[c.side] != VR_Widget::MENUTYPE_AS_NAVI && (c.last_buttons & VR_Widget_Layout::BUTTONBITS_TRIGGERS)) {
+		else if (Widget_Menu::menu_type[c.side] != VR_Widget::MENUTYPE_AS_NAVI && (c.last_buttons & VR_Layout::BUTTONBITS_TRIGGERS)) {
+			pie_menu_init[c.side] = true;
 			VR_UI::pie_menu_active[c.side] = false;
 			Widget_Menu::action_settings[c.side] = false;
-			pie_menu_init[c.side] = true;
+			Widget_Menu::highlight_index[c.side] = -1;
 		}
 	}
 	else {
 		if (Widget_Menu::action_settings[c.side]) {
+			pie_menu_init[c.side] = true;
 			VR_UI::pie_menu_active[c.side] = false;
 			Widget_Menu::action_settings[c.side] = false;
 			Widget_Menu::highlight_index[c.side] = -1;
@@ -1258,22 +1279,31 @@ VR_UI::Error VR_UI::update_cursor(Cursor& c)
 					Widget_Menu::menu_type[c.side] = VR_Widget::MENUTYPE_TS_KNIFE;
 					break;
 				}
+				case VR_Widget::TYPE_SCULPT: {
+					Widget_Menu::menu_type[c.side] = VR_Widget::MENUTYPE_TS_SCULPT;
+					break;
+				}
+				case VR_Widget::TYPE_ANIMATION: {
+					Widget_Menu::menu_type[c.side] = VR_Widget::MENUTYPE_TS_ANIMATION;
+					break;
+				}
 				default: {
 					Widget_Menu::menu_type[c.side] = VR_Widget::MENUTYPE_MAIN_12;
 					break;
 				}
 				}
 			}
-			pie_menu_init[c.side] = true;
 		}
 	}
 
 	/* Handle pie menu interaction first. */
-	/* TODO_XR: Fix issues with center dpad press (other dpad directions can't click). */
 	if (VR_UI::pie_menu_active[c.side]) {
+		const bool direction_use_dpad = (VR_UI::ui_type == VR_DEVICE_TYPE_VIVE) || (VR_UI::ui_type == VR_DEVICE_TYPE_PIMAX) || (VR_UI::ui_type == VR_DEVICE_TYPE_MAGICLEAP);
+		const bool center_use_stick = (VR_UI::ui_type == VR_DEVICE_TYPE_OCULUS) || (VR_UI::ui_type == VR_DEVICE_TYPE_INDEX);
+
 		ui64& buttons_touched = vr_get_obj()->controller[c.side]->buttons_touched;
-		bool touched = ((buttons_touched & (VR_UI::ui_type == VR_UI_TYPE_VIVE ? VR_Widget_Layout::BUTTONBITS_DPADANY : VR_Widget_Layout::BUTTONBITS_STICKANY)) != 0);
-		bool stick_pressed = ((buttons & (VR_UI::ui_type == VR_UI_TYPE_OCULUS ? VR_Widget_Layout::BUTTONBITS_STICKS : VR_Widget_Layout::BUTTONBITS_DPADS)) != 0);
+		bool touched = ((buttons_touched & (direction_use_dpad ? VR_Layout::BUTTONBITS_DPADANY : VR_Layout::BUTTONBITS_STICKANY)) != 0);
+		bool stick_pressed = ((buttons & (center_use_stick ? VR_Layout::BUTTONBITS_STICKS : VR_Layout::BUTTONBITS_DPADS)) != 0);
 		
 		static bool stick_init[VR_SIDES] = { true, true };
 		if (stick_init[c.side] && stick_pressed) {
@@ -1287,11 +1317,11 @@ VR_UI::Error VR_UI::update_cursor(Cursor& c)
 
 		VR_Widget *menu = (VR_Widget*)VR_UI::pie_menu[c.side];
 		if (menu) {
-			if (VR_UI::ui_type == VR_UI_TYPE_VIVE && Widget_Menu::action_settings[c.side]) {
-				/* Special case for action settings on the Vive:
+			if (direction_use_dpad && Widget_Menu::action_settings[c.side]) {
+				/* Special case for action settings on the Vive / Magic Leap:
 				 * It's easy to accidentally hit the dpad so only
 				 * execute action on dpad press. */
-				bool pressed = ((buttons & VR_Widget_Layout::BUTTONBITS_DPADANY) != 0);
+				bool pressed = ((buttons & VR_Layout::BUTTONBITS_DPADANY) != 0);
 				static bool press_init[VR_SIDES] = { true, true };
 				if (press_init[c.side] && pressed) {
 					press_init[c.side] = false;
@@ -1317,8 +1347,8 @@ VR_UI::Error VR_UI::update_cursor(Cursor& c)
 				}
 			}
 			else {
-				if (VR_UI::ui_type == VR_UI_TYPE_VIVE) {
-					bool stick_touched = ((buttons_touched & VR_Widget_Layout::BUTTONBITS_DPADS) != 0);
+				if (direction_use_dpad) {
+					bool stick_touched = ((buttons_touched & VR_Layout::BUTTONBITS_DPADS) != 0);
 					if (stick_pressed) {
 						//
 					}
@@ -1364,7 +1394,7 @@ VR_UI::Error VR_UI::update_cursor(Cursor& c)
 					else {
 						/* Stop drag (execute menu operation) on stick release. */
 						menu->drag_stop(c);
-						if (c.trigger || Widget_Menu::menu_type[c.side] == VR_Widget::MENUTYPE_AS_NAVI) {
+						if (Widget_Menu::action_settings[c.side]) {
 							VR_UI::pie_menu_active[c.side] = true;
 						}
 						pie_menu_init[c.side] = true;
@@ -1373,8 +1403,8 @@ VR_UI::Error VR_UI::update_cursor(Cursor& c)
 			}
 
 			/* If a pie menu is active, invalidate other widgets mapped to the stick. */
-			buttons &= ~(VR_UI::ui_type == VR_UI_TYPE_VIVE ? VR_Widget_Layout::BUTTONBITS_DPADANY : VR_Widget_Layout::BUTTONBITS_STICKANY);
-			buttons &= ~(VR_UI::ui_type == VR_UI_TYPE_OCULUS ? VR_Widget_Layout::BUTTONBITS_STICKS : VR_Widget_Layout::BUTTONBITS_DPADS);
+			buttons &= ~(direction_use_dpad ? VR_Layout::BUTTONBITS_DPADANY : VR_Layout::BUTTONBITS_STICKANY);
+			buttons &= ~(center_use_stick ? VR_Layout::BUTTONBITS_STICKS : VR_Layout::BUTTONBITS_DPADS);
 		}
 		else {
 			VR_UI::pie_menu_active[c.side] = false;
@@ -1383,21 +1413,25 @@ VR_UI::Error VR_UI::update_cursor(Cursor& c)
 
 	if (c.interaction_state == VR_UI::BUTTONSTATE_IDLE) {
 		/* No button in interaction (initial state). */
-		VR_Widget_Layout::ButtonBit dead_button_bits = VR_Widget_Layout::ButtonBit(VR_Widget_Layout::current_layout->ctrl_button_bits[c.side][VR_UI::alt_key] | VR_Widget_Layout::current_layout->shift_button_bits[c.side][VR_UI::alt_key]);// | VR_Widget_Layout::current_layout->alt_button_bits[c.side]);
-		if ((buttons & (~dead_button_bits)) == 0) { /* no buttons pressed except shift/alt: nothing to do */
+		VR_Layout::ButtonBit dead_button_bits = VR_Layout::ButtonBit(
+			VR_Layout::current_layout->ctrl_button_bits[c.side] | 
+			VR_Layout::current_layout->shift_button_bits[c.side] |
+			VR_Layout::current_layout->alt_button_bits[c.side]
+		);
+		if ((buttons & (~dead_button_bits)) == 0) { /* no buttons pressed except ctrl/shift/alt: nothing to do */
 			return ERROR_NONE;
 		}
 		/* else: button hit */
-		VR_Widget_Layout::ButtonID button_id = VR_Widget_Layout::buttonBitToID(VR_Widget_Layout::ButtonBit(buttons)); /* will get the main/dominant button */
-		if (button_id == VR_Widget_Layout::BUTTONID_UNKNOWN) {
+		VR_Layout::ButtonID button_id = VR_Layout::buttonBitToID(VR_Layout::ButtonBit(buttons)); /* will get the main/dominant button */
+		if (button_id == VR_Layout::BUTTONID_UNKNOWN) {
 			return ERROR_NONE;
 		}
 		/* Checked for widget. Buttons with no widgets attached are ignored. */
-		if (VR_Widget_Layout::current_layout->m[c.side][button_id][VR_UI::alt_key] == 0) {
+		if (VR_Layout::current_layout->m[c.side][button_id] == 0) {
 			return ERROR_NONE;
 		}
-		c.interaction_button = VR_Widget_Layout::buttonIDToBit(button_id); /* <- *only* the bits for the active button */
-		c.interaction_widget = VR_Widget_Layout::current_layout->m[c.side][button_id][VR_UI::alt_key];
+		c.interaction_button = VR_Layout::buttonIDToBit(button_id); /* <- *only* the bits for the active button */
+		c.interaction_widget = VR_Layout::current_layout->m[c.side][button_id];
 		c.interaction_state = VR_UI::BUTTONSTATE_DOWN;
 		c.interaction_time = now;
 		c.interaction_position = c.position;
@@ -1414,16 +1448,16 @@ VR_UI::Error VR_UI::update_cursor(Cursor& c)
 			return ERROR_NONE;
 		}
 		/* If an additional button was pressed linked to a widget that steals focus */
-		VR_Widget_Layout::ButtonBit new_button = VR_Widget_Layout::ButtonBit(buttons & ~c.last_buttons);
+		VR_Layout::ButtonBit new_button = VR_Layout::ButtonBit(buttons & ~c.last_buttons);
 		if (new_button) {
-			VR_Widget_Layout::ButtonID new_button_id = VR_Widget_Layout::buttonBitToID(new_button);
-			if (new_button_id != VR_Widget_Layout::BUTTONID_UNKNOWN) {
-				VR_Widget* new_button_widget = VR_Widget_Layout::current_layout->m[c.side][new_button_id][VR_UI::alt_key];
+			VR_Layout::ButtonID new_button_id = VR_Layout::buttonBitToID(new_button);
+			if (new_button_id != VR_Layout::BUTTONID_UNKNOWN) {
+				VR_Widget* new_button_widget = VR_Layout::current_layout->m[c.side][new_button_id];
 				if (new_button_widget) {
 					if (!c.interaction_widget
 						|| (c.interaction_widget->allows_focus_steal(new_button_widget->type()) && new_button_widget->steals_focus(c.interaction_widget->type()))) {
 						/* Focus steal */
-						c.interaction_widget = VR_Widget_Layout::current_layout->m[c.side][new_button_id][VR_UI::alt_key];
+						c.interaction_widget = VR_Layout::current_layout->m[c.side][new_button_id];
 						c.interaction_state = VR_UI::BUTTONSTATE_DOWN;
 						c.interaction_time = now;
 						c.interaction_position = c.position;
@@ -1462,8 +1496,7 @@ VR_UI::Error VR_UI::update_cursor(Cursor& c)
 			const Mat44f& pi = c.interaction_position.get();
 			const Mat44f& pc = c.position.get();
 			float d;
-			if (c.interaction_widget->type() == VR_Widget::TYPE_ANNOTATE || VR_Widget::TYPE_TRANSFORM || /* For annotation and transform widget, start dragging immediately. */
-				((d = VR_Math::matrix_distance(pi, pc)) >= VR_UI::drag_threshold_distance) ||
+			if (((d = VR_Math::matrix_distance(pi, pc)) >= VR_UI::drag_threshold_distance) ||
 				((d = VR_Math::matrix_rotation(pi, pc)) >= VR_UI::drag_threshold_rotation)) {
 				c.interaction_state = VR_UI::BUTTONSTATE_DRAG;
 				if (c.interaction_widget == c.other_hand->interaction_widget) {
@@ -1500,14 +1533,14 @@ VR_UI::Error VR_UI::update_cursor(Cursor& c)
 	if (c.interaction_state == VR_UI::BUTTONSTATE_DRAG) {
 		/* Button in holding/dragging action. */
 		/* If an additional button was pressed linked to a widget that steals focus */
-		VR_Widget_Layout::ButtonBit new_button = VR_Widget_Layout::ButtonBit(buttons & ~c.last_buttons);
-		VR_Widget_Layout::ButtonID new_button_id;
-		if (new_button && (new_button_id = VR_Widget_Layout::buttonBitToID(new_button)) != VR_Widget_Layout::BUTTONID_UNKNOWN) {
-			VR_Widget* new_button_widget = VR_Widget_Layout::current_layout->m[c.side][new_button_id][VR_UI::alt_key];
+		VR_Layout::ButtonBit new_button = VR_Layout::ButtonBit(buttons & ~c.last_buttons);
+		VR_Layout::ButtonID new_button_id;
+		if (new_button && (new_button_id = VR_Layout::buttonBitToID(new_button)) != VR_Layout::BUTTONID_UNKNOWN) {
+			VR_Widget* new_button_widget = VR_Layout::current_layout->m[c.side][new_button_id];
 			if (new_button_widget) {
 				if (!c.interaction_widget) {
 					/* Was an empty interaction anyway : just take over focus */
-					c.interaction_widget = VR_Widget_Layout::current_layout->m[c.side][new_button_id][VR_UI::alt_key];
+					c.interaction_widget = VR_Layout::current_layout->m[c.side][new_button_id];
 					c.interaction_state = VR_UI::BUTTONSTATE_DOWN;
 					c.interaction_time = now;
 					c.interaction_position = c.position;
@@ -1521,7 +1554,7 @@ VR_UI::Error VR_UI::update_cursor(Cursor& c)
 					 * old widget must first be allowed to finish its operation. */
 					c.interaction_widget->drag_stop(c);
 					/* now switch to new widget */
-					c.interaction_widget = VR_Widget_Layout::current_layout->m[c.side][new_button_id][VR_UI::alt_key];
+					c.interaction_widget = VR_Layout::current_layout->m[c.side][new_button_id];
 					c.interaction_state = VR_UI::BUTTONSTATE_DOWN;
 					c.interaction_time = now;
 					c.interaction_position = c.position;
@@ -1533,7 +1566,7 @@ VR_UI::Error VR_UI::update_cursor(Cursor& c)
 			}
 		}
 
-		/* Coninue dragging action
+		/* Continue dragging action
 		 * If the interaction button was released, */
 		if ((buttons & c.interaction_button) == 0) {
 			/* assume VR module already did de-bouncing of input, we can end the dragging immediately */
@@ -1567,11 +1600,56 @@ VR_UI::Error VR_UI::update_menus()
 
 VR_UI::Error VR_UI::execute_post_render_operations()
 {
+	if (VR_UI::ui_type == VR_DEVICE_TYPE_MAGICLEAP) {
+		/* Get viewport bitmap and send to client. */
+		if (VR_Network::network_status == VR_Network::NETWORKSTATUS_CONNECTED &&
+			!VR_Network::data_new) {
+#if VR_NETWORK_IMAGE_STREAMING
+			for (int i = 0; i < VR_SIDES; ++i) {
+				GPUViewport *viewport = vr_get_obj()->viewport[i];
+				if (viewport) {
+					GPUTexture *color_tex = NULL;
+					GPUTexture *depth_tex = NULL;
+					DefaultFramebufferList *dfbl = viewport->fbl;
+					if (dfbl->default_fb) {
+						DefaultTextureList *dtxl = viewport->txl;
+						color_tex = dtxl->color;
+						depth_tex = dtxl->depth;
+					}
+					if (color_tex && depth_tex) {
+						uchar *color_data = (uchar*)GPU_texture_read(color_tex, GPU_DATA_UNSIGNED_BYTE, 0);
+						uint *depth_data = (uint*)GPU_texture_read(depth_tex, GPU_DATA_UNSIGNED_INT_24_8, 0);
+						if (color_data && depth_data) {
+							/* Resample */
+							/* TODO_XR: Do this on image processing thread. */
+							VR_Network::ImageData& data = VR_Network::image_data[i];
+							VR_Network::resample_pixels(color_data, color_tex->w, color_tex->h,
+								data.buf, data.w, data.h, data.d,
+								depth_data);
+
+							VR_Network::data_new = true;
+						}
+						if (color_data) {
+							MEM_freeN(color_data);
+						}
+						if (depth_data) {
+							MEM_freeN(depth_data);
+						}
+					}
+				}
+			}
+#else
+			VR_Network::data_new = true;
+#endif
+		}
+	}
+
 	if (editmode_exit) {
 		ED_object_editmode_exit(vr_get_obj()->ctx, EM_FREEDATA);
 		editmode_exit = false;
 		/* Update manipulators */
 		Widget_Transform::update_manipulator();
+		ED_undo_push(vr_get_obj()->ctx, "Selectmode");
 		return ERROR_NONE;
 	}
 
@@ -1607,7 +1685,7 @@ VR_UI::Error VR_UI::post_render(VR_Side side)
 	/* Apply widget render functions (if any). */
 	execute_widget_renders(side);
 
-	if (VR_UI::ui_type == VR_UI_TYPE_FOVE) {
+	if (VR_UI::ui_type == VR_DEVICE_TYPE_FOVE) {
 		/* Render box for eye cursor (convergence) position. */
 		VR_Draw::update_modelview_matrix(&VR_Math::identity_f, 0);
 
@@ -1681,7 +1759,56 @@ VR_UI::Error VR_UI::render_controller(VR_Side controller_side)
 		const Mat44f& t_controller_left = VR_UI::cursor[VR_SIDE_LEFT].position.position->mat;
 		const Mat44f& t_controller_right = VR_UI::cursor[VR_SIDE_RIGHT].position.position->mat;
 
-		if (VR_UI::ui_type == VR_UI_TYPE_MICROSOFT) {
+		switch (VR_UI::ui_type) {
+		case VR_DEVICE_TYPE_MAGICLEAP: {
+			/* Need to add offset to the model. */
+			static Mat44f t_left;
+			static Mat44f t_right;
+			t_left = t_controller_left;
+			t_right = t_controller_right;
+			Coord3Df y_axis = (*(Coord3Df*)t_left.m[1]).normalize() * -0.063f;
+			*(Coord3Df*)t_left.m[3] += y_axis;
+			y_axis = (*(Coord3Df*)t_right.m[1]).normalize() * -0.063f;
+			*(Coord3Df*)t_right.m[3] += y_axis;
+
+			VR_Draw::set_depth_test(false, false);
+			for (int i = 0; i < 2; ++i) {
+				VR_Draw::set_color(0.211f, 0.219f, 0.223f, 0.2f);
+				if (i == VR_SIDE_LEFT) {
+					VR_Draw::controller_model[i]->render(t_left);
+					VR_Draw::set_color(1.0f, 1.0f, 1.0f, 0.2f);
+					VR_Draw::vr_cursor_model->render(t_controller_left);
+				}
+				else { /* VR_SIDE_RIGHT */
+					VR_Draw::controller_model[i]->render(t_right);
+					VR_Draw::set_color(1.0f, 1.0f, 1.0f, 0.2f);
+					VR_Draw::vr_cursor_model->render(t_controller_right);
+				}
+			}
+
+			VR_Draw::set_depth_test(true, true);
+			for (int i = 0; i < 2; ++i) {
+				VR_Draw::set_color(0.211f, 0.219f, 0.223f, 1.0f);
+				if (i == VR_SIDE_LEFT) {
+					VR_Draw::controller_model[i]->render(t_left);
+					VR_Draw::set_color(1.0f, 1.0f, 1.0f, 1.0f);
+					VR_Draw::vr_cursor_model->render(t_controller_left);
+				}
+				else { /* VR_SIDE_RIGHT */
+					VR_Draw::controller_model[i]->render(t_right);
+					VR_Draw::set_color(1.0f, 1.0f, 1.0f, 1.0f);
+					VR_Draw::vr_cursor_model->render(t_controller_right);
+				}
+
+				/* Render crosshair cursor */
+				VR_Draw::set_depth_test(true, false);
+				VR_Draw::render_rect(-0.005f, 0.005f, 0.005f, -0.005f, 0.001f, 1.0f, 1.0f, VR_Draw::cursor_tex);
+				VR_Draw::set_depth_test(true, true);
+			}
+			break;
+		}
+		case VR_DEVICE_TYPE_WINDOWSMR:
+		case VR_DEVICE_TYPE_INDEX: {
 			VR_Draw::set_depth_test(false, false);
 			for (int i = 0; i < 2; ++i) {
 				VR_Draw::set_color(0.211f, 0.219f, 0.223f, 0.2f);
@@ -1712,8 +1839,9 @@ VR_UI::Error VR_UI::render_controller(VR_Side controller_side)
 				VR_Draw::render_rect(-0.005f, 0.005f, 0.005f, -0.005f, 0.001f, 1.0f, 1.0f, VR_Draw::cursor_tex);
 				VR_Draw::set_depth_test(true, true);
 			}
+			break;
 		}
-		else {
+		default: {
 			VR_Draw::set_depth_test(false, false);
 			VR_Draw::set_color(1.0f, 1.0f, 1.0f, 0.2f);
 			for (int i = 0; i < 2; ++i) {
@@ -1742,6 +1870,8 @@ VR_UI::Error VR_UI::render_controller(VR_Side controller_side)
 				VR_Draw::render_rect(-0.005f, 0.005f, 0.005f, -0.005f, 0.001f, 1.0f, 1.0f, VR_Draw::cursor_tex);
 				VR_Draw::set_depth_test(true, true);
 			}
+			break;
+		}
 		}
 		render_widget_icons(VR_SIDE_LEFT, t_controller_left);
 		render_widget_icons(VR_SIDE_RIGHT, t_controller_right);
@@ -1752,29 +1882,52 @@ VR_UI::Error VR_UI::render_controller(VR_Side controller_side)
 	/* else: Render specified controller */
 	const Mat44f& t_controller = VR_UI::cursor[controller_side].position.position->mat;
 
-	VR_Draw::set_depth_test(false, false);
-	if (VR_UI::ui_type == VR_UI_TYPE_MICROSOFT) {
+	switch (VR_UI::ui_type) {
+	case VR_DEVICE_TYPE_MAGICLEAP: {
+		/* Need to add offset to the model. */
+		static Mat44f t;
+		t = t_controller;
+		Coord3Df y_axis = (*(Coord3Df*)t.m[1]).normalize() * -0.063f;
+		*(Coord3Df*)t.m[3] += y_axis;
+
+		VR_Draw::set_depth_test(false, false);
+		VR_Draw::set_color(0.211f, 0.219f, 0.223f, 0.2f);
+		VR_Draw::controller_model[controller_side]->render(t);
+		VR_Draw::set_color(1.0f, 1.0f, 1.0f, 0.2f);
+		VR_Draw::vr_cursor_model->render(t_controller);
+		VR_Draw::set_depth_test(true, true);
+		VR_Draw::set_color(0.211f, 0.219f, 0.223f, 1.0f);
+		VR_Draw::controller_model[controller_side]->render(t);
+		VR_Draw::set_color(1.0f, 1.0f, 1.0f, 1.0f);
+		VR_Draw::vr_cursor_model->render(t_controller);
+		break;
+	}
+	case VR_DEVICE_TYPE_WINDOWSMR:
+	case VR_DEVICE_TYPE_INDEX: {
+		VR_Draw::set_depth_test(false, false);
 		VR_Draw::set_color(0.211f, 0.219f, 0.223f, 0.2f);
 		VR_Draw::controller_model[controller_side]->render(t_controller);
 		VR_Draw::set_color(1.0f, 1.0f, 1.0f, 0.2f);
-	}
-	else {
-		VR_Draw::set_color(1.0f, 1.0f, 1.0f, 0.2f);
-		VR_Draw::controller_model[controller_side]->render(t_controller);
-	}
-	VR_Draw::vr_cursor_model->render();
-	
-	VR_Draw::set_depth_test(true, true);
-	if (VR_UI::ui_type == VR_UI_TYPE_MICROSOFT) {
+		VR_Draw::vr_cursor_model->render();
+		VR_Draw::set_depth_test(true, true);
 		VR_Draw::set_color(0.211f, 0.219f, 0.223f, 1.0f);
 		VR_Draw::controller_model[controller_side]->render();
 		VR_Draw::set_color(1.0f, 1.0f, 1.0f, 1.0f);
+		VR_Draw::vr_cursor_model->render();
+		break;
 	}
-	else {
+	default: {
+		VR_Draw::set_depth_test(false, false);
+		VR_Draw::set_color(1.0f, 1.0f, 1.0f, 0.2f);
+		VR_Draw::controller_model[controller_side]->render(t_controller);
+		VR_Draw::vr_cursor_model->render();
+		VR_Draw::set_depth_test(true, true);
 		VR_Draw::set_color(1.0f, 1.0f, 1.0f, 1.0f);
 		VR_Draw::controller_model[controller_side]->render();
+		VR_Draw::vr_cursor_model->render();
+		break;
 	}
-	VR_Draw::vr_cursor_model->render();
+	}
 
 	/* Render crosshair cursor */
 	VR_Draw::set_depth_test(true, false);
@@ -1788,70 +1941,81 @@ VR_UI::Error VR_UI::render_controller(VR_Side controller_side)
 
 VR_UI::Error VR_UI::render_widget_icons(VR_Side controller_side, const Mat44f& t_controller)
 {
-	if (!VR_Widget_Layout::current_layout) {
+	if (!VR_Layout::current_layout) {
 		return ERROR_NOTINITIALIZED;
 	}
 
 	static Mat44f t_icon = VR_Math::identity_f;
-	AltState alt = VR_UI::alt_key;
 
 	VR *vr = vr_get_obj();
 	ui64 buttons = vr->controller[controller_side]->buttons;
 	ui64 buttons_touched = vr->controller[controller_side]->buttons_touched;
 
 	/* Handle pie menu rendering first. */
-	if (VR_UI::pie_menu_active[controller_side]) {
+	if (VR_UI::pie_menu_active[controller_side] || Widget_Menu::action_settings[controller_side]) {
 		VR_Widget *menu = (VR_Widget*)VR_UI::pie_menu[controller_side];
-		if (!menu) {
-			return VR_UI::ERROR_INTERNALFAILURE;
+		if (menu && VR_UI::pie_menu_active[controller_side]) {
+			/* Render pie menu. */
+			const bool direction_use_dpad = (VR_UI::ui_type == VR_DEVICE_TYPE_VIVE) || (VR_UI::ui_type == VR_DEVICE_TYPE_PIMAX) || (VR_UI::ui_type == VR_DEVICE_TYPE_MAGICLEAP);
+			const bool center_use_stick = (VR_UI::ui_type == VR_DEVICE_TYPE_OCULUS) || (VR_UI::ui_type == VR_DEVICE_TYPE_INDEX);
+
+			VR_Layout::ButtonID btn = (direction_use_dpad ? VR_Layout::BUTTONID_DPAD : VR_Layout::BUTTONID_STICK);
+			VR_Layout::ButtonBit btnbit = (direction_use_dpad ? VR_Layout::BUTTONBITS_DPADANY : VR_Layout::BUTTONBITS_STICKANY);
+			*((Coord3Df*)t_icon.m[3]) = VR_Layout::button_positions[VR_UI::ui_type][controller_side][btn];
+			VR_Draw::set_depth_test(true, false);
+			if ((VR_UI::ui_type == VR_DEVICE_TYPE_WINDOWSMR || VR_UI::ui_type == VR_DEVICE_TYPE_INDEX) && !Widget_Menu::action_settings[controller_side]) {
+				static Mat44f temp;
+				/* Need to rotate the menu up */
+				if (VR_UI::ui_type == VR_DEVICE_TYPE_WINDOWSMR) {
+					t_icon.m[1][1] = t_icon.m[2][2] = -(float)cos(7.0f * PI / 8.0f);
+					t_icon.m[1][2] = -(t_icon.m[2][1] = (float)sin(7.0f * PI / 8.0f));
+				}
+				else if (VR_UI::ui_type == VR_DEVICE_TYPE_INDEX) {
+					t_icon.m[1][1] = t_icon.m[2][2] = -(float)cos(8.0f * PI / 9.0f);
+					t_icon.m[1][2] = -(t_icon.m[2][1] = (float)sin(8.0f * PI / 9.0f));
+				}
+				temp = t_controller;
+				*(Coord3Df*)temp.m[3] += ((*(Coord3Df*)t_controller.m[1]).normalize() + (*(Coord3Df*)t_controller.m[2]).normalize()) * 0.01f;
+				menu->render_icon(t_icon * temp,
+					controller_side,
+					((buttons & btnbit) != 0),
+					((buttons_touched & btnbit) != 0));
+			}
+			else {
+				menu->render_icon(t_icon * t_controller,
+					controller_side,
+					((buttons & btnbit) != 0),
+					((buttons_touched & btnbit) != 0));
+			}
+			VR_Draw::set_depth_test(true, true);
+			/* If a pie menu is active, invalidate other widgets mapped to the stick. */
+			buttons &= ~(direction_use_dpad ? VR_Layout::BUTTONBITS_DPADANY : VR_Layout::BUTTONBITS_STICKANY);
+			buttons &= ~(center_use_stick ? VR_Layout::BUTTONBITS_STICKS : VR_Layout::BUTTONBITS_DPADS);
+			buttons_touched &= ~(direction_use_dpad ? VR_Layout::BUTTONBITS_DPADANY : VR_Layout::BUTTONBITS_STICKANY);
+			buttons_touched &= ~(center_use_stick ? VR_Layout::BUTTONBITS_STICKS : VR_Layout::BUTTONBITS_DPADS);
 		}
-		/* Render pie menu. */
-		VR_Widget_Layout::ButtonID btn = (VR_UI::ui_type == VR_UI_TYPE_VIVE ? VR_Widget_Layout::BUTTONID_DPAD : VR_Widget_Layout::BUTTONID_STICK);
-		VR_Widget_Layout::ButtonBit btnbit = (VR_UI::ui_type == VR_UI_TYPE_VIVE ? VR_Widget_Layout::BUTTONBITS_DPADANY : VR_Widget_Layout::BUTTONBITS_STICKANY);
-		*((Coord3Df*)t_icon.m[3]) = VR_Widget_Layout::button_positions[VR_UI::ui_type][controller_side][btn];
-		VR_Draw::set_depth_test(true, false);
-		if (VR_UI::ui_type == VR_UI_TYPE_MICROSOFT && !Widget_Menu::action_settings[controller_side]) {
-			static Mat44f temp;
-			/* Need to rotate the menu up */
-			t_icon.m[1][1] = t_icon.m[2][2] = -(float)cos(7.0f * PI / 8.0f);
-			t_icon.m[1][2] = -(t_icon.m[2][1] = (float)sin(7.0f * PI / 8.0f));
-			temp = t_controller;
-			*(Coord3Df*)temp.m[3] += ((*(Coord3Df*)t_controller.m[1]).normalize() + (*(Coord3Df*)t_controller.m[2]).normalize()) * 0.01f;
-			menu->render_icon(t_icon * temp,
-				controller_side,
-				((buttons & btnbit) != 0),
-				((buttons_touched & btnbit) != 0));
-		}
-		else {
-			menu->render_icon(t_icon * t_controller,
-				controller_side,
-				((buttons & btnbit) != 0),
-				((buttons_touched & btnbit) != 0));
-		}
-		VR_Draw::set_depth_test(true, true);
-		/* If a pie menu is active, invalidate other widgets mapped to the stick. */
-		buttons &= ~(VR_UI::ui_type == VR_UI_TYPE_VIVE ? VR_Widget_Layout::BUTTONBITS_DPADANY : VR_Widget_Layout::BUTTONBITS_STICKANY);
-		buttons &= ~(VR_UI::ui_type == VR_UI_TYPE_OCULUS ? VR_Widget_Layout::BUTTONBITS_STICKS : VR_Widget_Layout::BUTTONBITS_DPADS);
-		buttons_touched &= ~(VR_UI::ui_type == VR_UI_TYPE_VIVE ? VR_Widget_Layout::BUTTONBITS_DPADANY : VR_Widget_Layout::BUTTONBITS_STICKANY);
-		buttons_touched &= ~(VR_UI::ui_type == VR_UI_TYPE_OCULUS ? VR_Widget_Layout::BUTTONBITS_STICKS : VR_Widget_Layout::BUTTONBITS_DPADS);
 
 		/* Render other enabled widget icons. */
-		if (VR_UI::ui_type == VR_UI_TYPE_MICROSOFT) {
+		if (VR_UI::ui_type == VR_DEVICE_TYPE_WINDOWSMR) {
 			/* Render the icons on top.
 			 * Need to rotate icons 45deg */
 			t_icon.m[1][1] = t_icon.m[2][2] = (float)cos(QUARTPI);
 			t_icon.m[1][2] = -(t_icon.m[2][1] = (float)sin(QUARTPI));
 		}
+		else if (VR_UI::ui_type == VR_DEVICE_TYPE_INDEX) {
+			t_icon.m[1][1] = t_icon.m[2][2] = (float)cos(EIGHTHPI);
+			t_icon.m[1][2] = -(t_icon.m[2][1] = (float)sin(EIGHTHPI));
+		}
 		if (Widget_Menu::action_settings[controller_side]) {
-			for (VR_Widget_Layout::ButtonID btn = VR_Widget_Layout::ButtonID(0); btn < VR_Widget_Layout::BUTTONIDS; btn = VR_Widget_Layout::ButtonID(btn + 1)) {
-				VR_Widget *w = VR_Widget_Layout::current_layout->m[controller_side][btn][alt];
+			for (VR_Layout::ButtonID btn = VR_Layout::ButtonID(0); btn < VR_Layout::BUTTONIDS; btn = VR_Layout::ButtonID(btn + 1)) {
+				VR_Widget *w = VR_Layout::current_layout->m[controller_side][btn];
 				if (w) {
 					switch (w->type()) {
 					case VR_Widget::TYPE_NAVI: {
 						if (Widget_Menu::menu_type[controller_side] == VR_Widget::MENUTYPE_AS_NAVI) {
-							VR_Widget_Layout::ButtonBit btnbit = VR_Widget_Layout::buttonIDToBit(btn);
-							*((Coord3Df*)t_icon.m[3]) = VR_Widget_Layout::button_positions[VR_UI::ui_type][controller_side][btn];
-							VR_Widget_Layout::current_layout->m[controller_side][btn][alt]->render_icon(
+							VR_Layout::ButtonBit btnbit = VR_Layout::buttonIDToBit(btn);
+							*((Coord3Df*)t_icon.m[3]) = VR_Layout::button_positions[VR_UI::ui_type][controller_side][btn];
+							VR_Layout::current_layout->m[controller_side][btn]->render_icon(
 								t_icon * t_controller,
 								controller_side,
 								((buttons & btnbit) != 0),
@@ -1861,10 +2025,11 @@ VR_UI::Error VR_UI::render_widget_icons(VR_Side controller_side, const Mat44f& t
 						break;
 					}
 					case VR_Widget::TYPE_CTRL:
-					case VR_Widget::TYPE_SHIFT: {
-						VR_Widget_Layout::ButtonBit btnbit = VR_Widget_Layout::buttonIDToBit(btn);
-						*((Coord3Df*)t_icon.m[3]) = VR_Widget_Layout::button_positions[VR_UI::ui_type][controller_side][btn];
-						VR_Widget_Layout::current_layout->m[controller_side][btn][alt]->render_icon(
+					case VR_Widget::TYPE_SHIFT: 
+					case VR_Widget::TYPE_ALT: {
+						VR_Layout::ButtonBit btnbit = VR_Layout::buttonIDToBit(btn);
+						*((Coord3Df*)t_icon.m[3]) = VR_Layout::button_positions[VR_UI::ui_type][controller_side][btn];
+						VR_Layout::current_layout->m[controller_side][btn]->render_icon(
 							t_icon * t_controller,
 							controller_side,
 							((buttons & btnbit) != 0),
@@ -1881,19 +2046,23 @@ VR_UI::Error VR_UI::render_widget_icons(VR_Side controller_side, const Mat44f& t
 			return ERROR_NONE;
 		}
 		else {
-			for (VR_Widget_Layout::ButtonID btn = VR_Widget_Layout::ButtonID(0); btn < VR_Widget_Layout::BUTTONIDS; btn = VR_Widget_Layout::ButtonID(btn + 1)) {
-				if (btn == VR_Widget_Layout::BUTTONID_DPADLEFT && VR_UI::ui_type == VR_UI_TYPE_VIVE) {
-					btn = VR_Widget_Layout::BUTTONID_DPAD;
+			const bool direction_use_dpad = (VR_UI::ui_type == VR_DEVICE_TYPE_VIVE) || (VR_UI::ui_type == VR_DEVICE_TYPE_PIMAX) || (VR_UI::ui_type == VR_DEVICE_TYPE_MAGICLEAP);
+			for (VR_Layout::ButtonID btn = VR_Layout::ButtonID(0); btn < VR_Layout::BUTTONIDS; btn = VR_Layout::ButtonID(btn + 1)) {
+				if (btn == VR_Layout::BUTTONID_DPADLEFT && direction_use_dpad) {
+					btn = VR_Layout::BUTTONID_DPAD;
 					continue;
 				}
-				else if (btn == VR_Widget_Layout::BUTTONID_STICKLEFT && VR_UI::ui_type != VR_UI_TYPE_VIVE) {
-					btn = VR_Widget_Layout::BUTTONID_STICK;
+				else if (btn == VR_Layout::BUTTONID_DPAD && VR_UI::ui_type == VR_DEVICE_TYPE_WINDOWSMR) {
 					continue;
 				}
-				if (VR_Widget_Layout::current_layout->m[controller_side][btn][alt]) {
-					VR_Widget_Layout::ButtonBit btnbit = VR_Widget_Layout::buttonIDToBit(btn);
-					*((Coord3Df*)t_icon.m[3]) = VR_Widget_Layout::button_positions[VR_UI::ui_type][controller_side][btn];
-					VR_Widget_Layout::current_layout->m[controller_side][btn][alt]->render_icon(
+				else if (btn == VR_Layout::BUTTONID_STICKLEFT && !direction_use_dpad) {
+					btn = VR_Layout::BUTTONID_STICK;
+					continue;
+				}
+				if (VR_Layout::current_layout->m[controller_side][btn]) {
+					VR_Layout::ButtonBit btnbit = VR_Layout::buttonIDToBit(btn);
+					*((Coord3Df*)t_icon.m[3]) = VR_Layout::button_positions[VR_UI::ui_type][controller_side][btn];
+					VR_Layout::current_layout->m[controller_side][btn]->render_icon(
 						t_icon * t_controller,
 						controller_side,
 						((buttons & btnbit) != 0),
@@ -1905,18 +2074,22 @@ VR_UI::Error VR_UI::render_widget_icons(VR_Side controller_side, const Mat44f& t
 		}
 	}
 
-	if (VR_UI::ui_type == VR_UI_TYPE_MICROSOFT) {
+	if (VR_UI::ui_type == VR_DEVICE_TYPE_WINDOWSMR) {
 		/* Render the icons on top.
 		 * Need to rotate icons 45deg */
 		t_icon.m[1][1] = t_icon.m[2][2] = (float)cos(QUARTPI);
 		t_icon.m[1][2] = -(t_icon.m[2][1] = (float)sin(QUARTPI));
 	}
+	else if (VR_UI::ui_type == VR_DEVICE_TYPE_INDEX) {
+		t_icon.m[1][1] = t_icon.m[2][2] = (float)cos(EIGHTHPI);
+		t_icon.m[1][2] = -(t_icon.m[2][1] = (float)sin(EIGHTHPI));
+	}
 
-	for (VR_Widget_Layout::ButtonID btn = VR_Widget_Layout::ButtonID(0); btn < VR_Widget_Layout::BUTTONIDS; btn = VR_Widget_Layout::ButtonID(btn + 1)) {
-		if (VR_Widget_Layout::current_layout->m[controller_side][btn][alt]) {
-			VR_Widget_Layout::ButtonBit btnbit = VR_Widget_Layout::buttonIDToBit(btn);
-			*((Coord3Df*)t_icon.m[3]) = VR_Widget_Layout::button_positions[VR_UI::ui_type][controller_side][btn];
-			VR_Widget_Layout::current_layout->m[controller_side][btn][alt]->render_icon(
+	for (VR_Layout::ButtonID btn = VR_Layout::ButtonID(0); btn < VR_Layout::BUTTONIDS; btn = VR_Layout::ButtonID(btn + 1)) {
+		if (VR_Layout::current_layout->m[controller_side][btn]) {
+			VR_Layout::ButtonBit btnbit = VR_Layout::buttonIDToBit(btn);
+			*((Coord3Df*)t_icon.m[3]) = VR_Layout::button_positions[VR_UI::ui_type][controller_side][btn];
+			VR_Layout::current_layout->m[controller_side][btn]->render_icon(
 				t_icon * t_controller,
 				controller_side,
 				((buttons & btnbit) != 0),
@@ -1935,7 +2108,7 @@ VR_UI::Error VR_UI::execute_widget_renders(VR_Side side)
 		VR_Draw::set_color(0.3f, 0.5f, 0.3f, 0.2f);
 
 		VR *vr = vr_get_obj();
-		if (VR_UI::ui_type == VR_UI_TYPE_FOVE) {
+		if (VR_UI::ui_type == VR_DEVICE_TYPE_FOVE) {
 			VR_Draw::update_modelview_matrix(&VR_Math::identity_f, 0);
 			const Mat44f& t_controller = VR_UI::controller_position_get(VR_SPACE_REAL, VR_SIDE_MONO);
 			VR_Draw::render_box(*(Coord3Df*)(t_controller.m[3]) + Coord3Df(1, 1, 1) * 0.02f,
@@ -1950,14 +2123,16 @@ VR_UI::Error VR_UI::execute_widget_renders(VR_Side side)
 	}
 
 	/* Apply widget render functions (if any). */
-	AltState alt = VR_UI::alt_key;
 	bool manip_rendered = false;
-	for (VR_Widget_Layout::ButtonID btn = VR_Widget_Layout::ButtonID(0); btn < VR_Widget_Layout::BUTTONIDS; btn = VR_Widget_Layout::ButtonID(btn + 1)) {
+	bool sculpt_rendered = false;
+	bool anim_rendered = false;
+	for (VR_Layout::ButtonID btn = VR_Layout::ButtonID(0); btn < VR_Layout::BUTTONIDS; btn = VR_Layout::ButtonID(btn + 1)) {
 		for (int controller_side = 0; controller_side < VR_SIDES; ++controller_side) {
-			VR_Widget* widget = VR_Widget_Layout::current_layout->m[controller_side][btn][alt];
+			VR_Widget* widget = VR_Layout::current_layout->m[controller_side][btn];
 			if (widget && widget->do_render[side]) {
-				if ((widget->type() == VR_Widget::TYPE_TRANSFORM 
-					|| widget->type() == VR_Widget::TYPE_EXTRUDE) && !manip_rendered) {
+				VR_Widget::Type type = widget->type();
+				if ((type == VR_Widget::TYPE_TRANSFORM 
+					|| type == VR_Widget::TYPE_EXTRUDE) && !manip_rendered) {
 					/* Manipulator */
 					VR_Draw::set_depth_test(false, false);
 					VR_Draw::set_color(1, 1, 1, 0.2f);
@@ -1968,6 +2143,16 @@ VR_UI::Error VR_UI::execute_widget_renders(VR_Side side)
 					/* Prevent rendering from duplicate widgets. */
 					manip_rendered = true;
 				}
+				else if (type == VR_Widget::TYPE_SCULPT && !sculpt_rendered) {
+					/* Sculpt sphere / circle */
+					widget->render(side);
+					sculpt_rendered = true;
+				}
+				else if (type == VR_Widget::TYPE_ANIMATION && !anim_rendered) {
+					/* Animation constraints */
+					widget->render(side);
+					anim_rendered = true;
+				}
 				else {
 					widget->render(side);
 				}
@@ -1976,13 +2161,13 @@ VR_UI::Error VR_UI::execute_widget_renders(VR_Side side)
 	}
 
 	/* TODO_XR: Hack to restore the OpenGL state so that the Blender cursor renders properly. */
-	if (!manip_rendered) {
+	//if (!manip_rendered) {
 		static float zero[4][4] = { 0 };
 		GPU_matrix_mul(zero);
 		GPUBatch *sphere = GPU_batch_preset_sphere(0);
 		GPU_batch_program_set_builtin(sphere, GPU_SHADER_3D_UNIFORM_COLOR);
 		GPU_batch_draw(sphere);
-	}
+	//}
 
 	return ERROR_NONE;
 }
@@ -2016,35 +2201,45 @@ VR_UI::Error VR_UI::render_menus(const Mat44f *_model, const Mat44f *_view)
 	return ERROR_NONE;
 }
 
-/***********************************************************************************************//**
+/***************************************************************************************************
  *											 vr_api									   
  ***************************************************************************************************
 /* Create an object internally. Must be called before the functions below. */
 int vr_api_create_ui()
 {
-	VR* vr = vr_get_obj();
-	VR_UI::set_ui(vr->ui_type);
+	VR *vr = vr_get_obj();
+	VR_UI::set_ui(vr->device_type);
 	return 0;
 }
 
 /* Initialize the internal object (OpenGL). */
 #ifdef WIN32
-int vr_api_init_ui(void* device, void* context)
+int vr_api_init_ui(void *device, void *context)
 {
 	int error = VR_Draw::init(device, context);
 	if (!error) {
 		/* Will automatically assign widget layout based on ui_type */
-		VR_Widget_Layout::reset_to_default_layouts();
+		VR_Layout::reset_to_default_layouts();
+		/* Initialize widgets. */
+		VR_Layout::set_current_layout("Default");
+		memset(Widget_Navi::nav_lock, 0, sizeof(int) * 3);
+		Widget_Menu::menu_type[VR_SIDE_LEFT] = VR_Widget::MENUTYPE_TS_SELECT;
+		Widget_Menu::menu_type[VR_SIDE_RIGHT] = VR_Widget::MENUTYPE_TS_TRANSFORM;
 	}
 	return error;
 }
 #else
-int vr_api_init_ui(void* display, void* drawable, void* context)
+int vr_api_init_ui(void *display, void *drawable, void *context)
 {
 	int error = VR_Draw::init(display, drawable, context);
 	if (!error) {
 		/* Will automatically assign widget layout based on ui_type */
-		VR_Widget_Layout::reset_to_default_layouts();
+		VR_Layout::reset_to_default_layouts();
+		/* Initialize widgets. */
+		VR_Layout::set_current_layout("Default");
+		memset(Widget_Navi::nav_lock, 0, sizeof(int) * 3);
+		Widget_Menu::menu_type[VR_SIDE_LEFT] = VR_Widget::MENUTYPE_TS_SELECT;
+		Widget_Menu::menu_type[VR_SIDE_RIGHT] = VR_Widget::MENUTYPE_TS_TRANSFORM;
 	}
 	return error;
 }

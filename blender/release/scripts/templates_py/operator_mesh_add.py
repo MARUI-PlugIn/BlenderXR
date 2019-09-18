@@ -1,6 +1,6 @@
 import bpy
 import bmesh
-
+from bpy_extras.object_utils import AddObjectHelper
 
 def add_box(width, height, depth):
     """
@@ -38,6 +38,7 @@ def add_box(width, height, depth):
 from bpy.props import (
     BoolProperty,
     BoolVectorProperty,
+    EnumProperty,
     FloatProperty,
     FloatVectorProperty,
 )
@@ -75,10 +76,17 @@ class AddBox(bpy.types.Operator):
     )
 
     # generic transform props
-    view_align: BoolProperty(
-        name="Align to View",
-        default=False,
+    align_items = (
+            ('WORLD', "World", "Align the new object to the world"),
+            ('VIEW', "View", "Align the new object to the view"),
+            ('CURSOR', "3D Cursor", "Use the 3D cursor orientation for the new object")
     )
+    align: EnumProperty(
+            name="Align",
+            items=align_items,
+            default='WORLD',
+            update=AddObjectHelper.align_update_callback,
+            )
     location: FloatVectorProperty(
         name="Location",
         subtype='TRANSLATION',

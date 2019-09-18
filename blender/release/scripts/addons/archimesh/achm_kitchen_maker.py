@@ -614,7 +614,7 @@ def create_kitchen_mesh(self):
     for o in bpy.data.objects:
         if o.select_get() is True:
             o.select_set(False)
-    bpy.ops.object.select_all(False)
+    bpy.ops.object.select_all(action='DESELECT')
     # Create cabinets
     generate_cabinets(self)
 
@@ -629,7 +629,7 @@ def generate_cabinets(self):
 
     boxes = []
     bases = []
-    location = bpy.context.scene.cursor_location
+    location = bpy.context.scene.cursor.location
     myloc = copy(location)  # copy location to keep 3D cursor position
     # Fit to floor
     if self.fitZ:

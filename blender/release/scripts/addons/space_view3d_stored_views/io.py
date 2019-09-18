@@ -15,7 +15,7 @@ from bpy_extras.io_utils import (
     ExportHelper,
     ImportHelper,
 )
-from . import bl_info
+from .import bl_info
 from .core import get_preferences
 from .operators import DataStore
 
@@ -327,3 +327,17 @@ class VIEW3D_stored_views_export(Operator, ExportHelper):
         IO_Utils.stored_views_export_to_blsv(self.filepath, self.preset_name)
 
         return{'FINISHED'}
+
+classes = (
+    VIEW3D_stored_views_import,
+    VIEW3D_stored_views_import_from_scene,
+    VIEW3D_stored_views_export
+)
+
+def register():
+  for cls in classes:
+    bpy.utils.register_class(cls)
+
+def unregister():
+  for cls in classes:
+    bpy.utils.unregister_class(cls)

@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup freestyle
+/** \file
+ * \ingroup freestyle
  */
 
 #ifndef __FREESTYLE_PYTHON_CHAININGTIMESTAMPF1D_H__
@@ -30,13 +31,13 @@ extern "C" {
 
 extern PyTypeObject ChainingTimeStampF1D_Type;
 
-#define BPy_ChainingTimeStampF1D_Check(v) (PyObject_IsInstance((PyObject *)v, (PyObject *)&ChainingTimeStampF1D_Type))
+#define BPy_ChainingTimeStampF1D_Check(v) \
+  (PyObject_IsInstance((PyObject *)v, (PyObject *)&ChainingTimeStampF1D_Type))
 
 /*---------------------------Python BPy_ChainingTimeStampF1D structure definition----------*/
 typedef struct {
-	BPy_UnaryFunction1DVoid py_uf1D_void;
+  BPy_UnaryFunction1DVoid py_uf1D_void;
 } BPy_ChainingTimeStampF1D;
-
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 

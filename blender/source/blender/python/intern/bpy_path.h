@@ -14,9 +14,9 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup pythonintern
+/** \file
+ * \ingroup pythonintern
  */
-
 
 #ifndef __BPY_PATH_H__
 #define __BPY_PATH_H__

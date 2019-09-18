@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup python
+/** \file
+ * \ingroup python
  *
  * Logging defines.
  */
@@ -22,9 +23,8 @@
 #ifndef __BPY_EXTERN_CLOG_H__
 #define __BPY_EXTERN_CLOG_H__
 
-
 /* bpy_interface.c */
 extern struct CLG_LogRef *BPY_LOG_RNA;
 extern struct CLG_LogRef *BPY_LOG_CONTEXT;
 
-#endif  /* __BPY_EXTERN_CLOG_H__ */
+#endif /* __BPY_EXTERN_CLOG_H__ */

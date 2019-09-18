@@ -42,6 +42,7 @@ class Prefs(bpy.types.KeyConfigPreferences):
 blender_default = bpy.utils.execfile(os.path.join(dirname, "keymap_data", "blender_default.py"))
 
 def load():
+    from sys import platform
     from bpy import context
     from bl_keymap_utils.io import keyconfig_init_from_data
 
@@ -55,9 +56,16 @@ def load():
             use_mouse_emulate_3_button=prefs.inputs.use_mouse_emulate_3_button,
             spacebar_action='SEARCH',
             use_select_all_toggle=True,
+            use_gizmo_drag=False,
             legacy=True,
         ),
     )
+
+    if platform == 'darwin':
+        from bl_keymap_utils.platform_helpers import keyconfig_data_oskey_from_ctrl_for_macos
+        keyconfig_data = keyconfig_data_oskey_from_ctrl_for_macos(keyconfig_data)
+
+
     keyconfig_init_from_data(kc, keyconfig_data)
 
 

@@ -24,17 +24,17 @@ import time
 import traceback
 import sys
 from rna_prop_ui import rna_idprop_ui_prop_get
+from collections import OrderedDict
 
-from .utils import MetarigError, new_bone, get_rig_type
-from .utils import ORG_PREFIX, MCH_PREFIX, DEF_PREFIX, WGT_PREFIX, ROOT_NAME, make_original_name
-from .utils import RIG_DIR
+from .utils import MetarigError, new_bone
+from .utils import MCH_PREFIX, DEF_PREFIX, WGT_PREFIX, ROOT_NAME, make_original_name
 from .utils import create_root_widget
-from .utils import ensure_widget_collection
+from .utils.collections import ensure_widget_collection, list_layer_collections, filter_layer_collections_by_object
 from .utils import random_id
 from .utils import copy_attributes
 from .utils import gamma_correct
-from .rig_ui_template import UI_SLIDERS, layers_ui, UI_REGISTER
-
+from . import rig_lists
+from . import rig_ui_template
 
 RIG_MODULE = "rigs"
 ORG_LAYER = [n == 31 for n in range(0, 32)]  # Armature layer that original bones should be moved to.
@@ -73,9 +73,16 @@ def generate_rig(context, metarig):
 
     scene = context.scene
     view_layer = context.view_layer
-    collection = context.collection
     layer_collection = context.layer_collection
     id_store = context.window_manager
+
+    usable_collections = list_layer_collections(view_layer.layer_collection, selectable=True)
+
+    if layer_collection not in usable_collections:
+        metarig_collections = filter_layer_collections_by_object(usable_collections, metarig)
+        layer_collection = (metarig_collections + [view_layer.layer_collection])[0]
+
+    collection = layer_collection.collection
 
     #------------------------------------------
     # Create/find the rig object and set it up
@@ -96,6 +103,11 @@ def generate_rig(context, metarig):
             obj = scene.objects[name]
             rig_old_name = name
             obj.name = rig_new_name or name
+
+            rig_collections = filter_layer_collections_by_object(usable_collections, obj)
+            layer_collection = (rig_collections + [layer_collection])[0]
+            collection = layer_collection.collection
+
         except KeyError:
             rig_old_name = name
             name = rig_new_name or name
@@ -114,6 +126,7 @@ def generate_rig(context, metarig):
     # Get rid of anim data in case the rig already existed
     print("Clear rig animation data.")
     obj.animation_data_clear()
+    obj.data.animation_data_clear()
 
     # Select generated rig object
     metarig.select_set(False)
@@ -123,6 +136,7 @@ def generate_rig(context, metarig):
     # Remove wgts if force update is set
     wgts_group_name = "WGTS_" + (rig_old_name or obj.name)
     if wgts_group_name in scene.objects and id_store.rigify_force_widget_update:
+        bpy.ops.object.mode_set(mode='OBJECT')
         bpy.ops.object.select_all(action='DESELECT')
         for wgt in bpy.data.objects[wgts_group_name].children:
             wgt.select_set(True)
@@ -153,7 +167,7 @@ def generate_rig(context, metarig):
     collection.objects.link(temp_rig_2)
 
     # Select the temp rigs for merging
-    for objt in scene.objects:
+    for objt in view_layer.objects:
         objt.select_set(False)  # deselect all objects
     temp_rig_1.select_set(True)
     temp_rig_2.select_set(True)
@@ -166,7 +180,7 @@ def generate_rig(context, metarig):
     bpy.ops.object.delete()
 
     # Select the generated rig
-    for objt in scene.objects:
+    for objt in view_layer.objects:
         objt.select_set(False)  # deselect all objects
     obj.select_set(True)
     view_layer.objects.active = obj
@@ -301,6 +315,8 @@ def generate_rig(context, metarig):
     rna_idprop_ui_prop_get(obj.data, "rig_id", create=True)
     obj.data["rig_id"] = rig_id
 
+    t.tick("Create root bone: ")
+
     # Create/find widge collection
     widget_collection = ensure_widget_collection(context)
 
@@ -332,6 +348,10 @@ def generate_rig(context, metarig):
 
         # Generate all the rigs.
         ui_scripts = []
+        ui_imports = rig_ui_template.UI_IMPORTS.copy()
+        ui_utilities = rig_ui_template.UI_UTILITIES.copy()
+        ui_register = rig_ui_template.UI_REGISTER.copy()
+        noparent_bones = []
         for rig in rigs:
             # Go into editmode in the rig armature
             bpy.ops.object.mode_set(mode='OBJECT')
@@ -339,9 +359,21 @@ def generate_rig(context, metarig):
             obj.select_set(True)
             bpy.ops.object.mode_set(mode='EDIT')
             scripts = rig.generate()
-            if scripts is not None:
+            if isinstance(scripts, dict):
+                if 'script' in scripts:
+                    ui_scripts += scripts['script']
+                if 'imports' in scripts:
+                    ui_imports += scripts['imports']
+                if 'utilities' in scripts:
+                    ui_utilities += scripts['utilities']
+                if 'register' in scripts:
+                    ui_register += scripts['register']
+                if 'noparent_bones' in scripts:
+                    noparent_bones += scripts['noparent_bones']
+            elif scripts is not None:
                 ui_scripts += [scripts[0]]
         t.tick("Generate rigs: ")
+
     except Exception as e:
         # Cleanup if something goes wrong
         print("Rigify: failed to generate rig.")
@@ -358,25 +390,8 @@ def generate_rig(context, metarig):
     # Get a list of all the bones in the armature
     bones = [bone.name for bone in obj.data.bones]
 
-    # Parent any free-floating bones to the root excluding bones with child of constraint.
-    pbones = obj.pose.bones
-
-
-    ik_follow_drivers = []
-
-    if obj.animation_data:
-        for drv in obj.animation_data.drivers:
-            for var in drv.driver.variables:
-                if 'IK_follow' == var.name:
-                    ik_follow_drivers.append(drv.data_path)
-
-    noparent_bones = []
-    for bone in bones:
-        # if 'IK_follow' in pbones[bone].keys():
-        #     noparent_bones += [bone]
-        for d in ik_follow_drivers:
-            if bone in d:
-                noparent_bones += [bone]
+    # Parent any free-floating bones to the root excluding noparent_bones
+    noparent_bones = dict.fromkeys(noparent_bones)
 
     bpy.ops.object.mode_set(mode='EDIT')
     for bone in bones:
@@ -486,11 +501,23 @@ def generate_rig(context, metarig):
 
     id_store.rigify_rig_ui = script.name
 
-    script.write(UI_SLIDERS % rig_id)
+    for s in OrderedDict.fromkeys(ui_imports):
+        script.write(s + "\n")
+    script.write(rig_ui_template.UI_BASE_UTILITIES % rig_id)
+    for s in OrderedDict.fromkeys(ui_utilities):
+        script.write(s + "\n")
+    script.write(rig_ui_template.UI_SLIDERS)
     for s in ui_scripts:
         script.write("\n        " + s.replace("\n", "\n        ") + "\n")
-    script.write(layers_ui(vis_layers, layer_layout))
-    script.write(UI_REGISTER)
+    script.write(rig_ui_template.layers_ui(vis_layers, layer_layout))
+    script.write("\ndef register():\n")
+    ui_register = OrderedDict.fromkeys(ui_register)
+    for s in ui_register:
+        script.write("    bpy.utils.register_class("+s+");\n")
+    script.write("\ndef unregister():\n")
+    for s in ui_register:
+        script.write("    bpy.utils.unregister_class("+s+");\n")
+    script.write("\nregister()\n")
     script.use_module = True
 
     # Run UI script
@@ -504,6 +531,16 @@ def generate_rig(context, metarig):
 
     # Add rig_ui to logic
     create_persistent_rig_ui(obj, script)
+
+    # Do final gluing
+    for rig in rigs:
+        if hasattr(rig, "glue"):
+            # update glue_bone rigs
+            bpy.ops.object.mode_set(mode='EDIT')
+            rig = rig.__class__(rig.obj, rig.base_bone, rig.params)
+
+            rig.glue()
+    t.tick("Glue pass")
 
     t.tick("The rest: ")
     #----------------------------------
@@ -598,6 +635,9 @@ def create_persistent_rig_ui(obj, script):
     skip = False
     driver = None
 
+    if not obj.animation_data:
+        obj.animation_data_create()
+
     for fcurve in obj.animation_data.drivers:
         if fcurve.data_path == 'pass_index':
             driver = fcurve.driver
@@ -633,8 +673,9 @@ def get_bone_rigs(obj, bone_name, halt_on_missing=False):
 
         # Get the rig
         try:
-            rig = get_rig_type(rig_type).Rig(obj, bone_name, params)
-        except ImportError:
+            rig = rig_lists.rigs[rig_type]["module"]
+            rig = rig.Rig(obj, bone_name, params)
+        except (KeyError, ImportError):
             message = "Rig Type Missing: python module for type '%s' not found (bone: %s)" % (rig_type, bone_name)
             if halt_on_missing:
                 raise MetarigError(message)

@@ -15,10 +15,10 @@
 * along with this program; if not, write to the Free Software Foundation,
 * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 *
-* The Original Code is Copyright (C) 2018 by Blender Foundation.
+* The Original Code is Copyright (C) 2019 by Blender Foundation.
 * All rights reserved.
 *
-* Contributor(s): MARUI-PlugIn
+* Contributor(s): MARUI-PlugIn, Multiplexed Reality
 *
 * ***** END GPL LICENSE BLOCK *****
 */
@@ -40,6 +40,9 @@ struct bGPDstroke;
 struct Main;
 class Widget_Measure;
 
+#define WIDGET_ANNOTATE_NUM_LAYERS 13 /* The total number of VR gpencil layers */
+#define WIDGET_ANNOTATE_MEASURE_LAYER 12 /* The gpencil layer index for the Measure tool. */
+
 /* Interaction widget for the Annotate tool. */
 class Widget_Annotate : public VR_Widget
 {
@@ -51,7 +54,6 @@ class Widget_Annotate : public VR_Widget
 	static std::vector<struct bGPDframe *>gpf;	/* The VR gpencil frame. */
 	static struct Main *main;	/* The current scene data. */
 
-	static uint num_layers;	/* The number of VR gpencil layers (one layer for each color + measure tool layer). */
 	static uint active_layer;	/* The currently active VR gpencil layer. */
 	static int init(bool new_scene); /* Initialize the VR gpencil structs. */
 
@@ -59,12 +61,15 @@ class Widget_Annotate : public VR_Widget
 
 	//static float point_thickness;	/* Stroke thickness for points. */
 	static float line_thickness;	/* Stroke thickness for lines. */
-	static float color[4];	/* Stroke color. */
+	static const float colors[WIDGET_ANNOTATE_NUM_LAYERS][4]; /* Stroke colors. */
 
 	static bool eraser;	/* Whether the annotate widget is in eraser mode. */
 	static VR_Side cursor_side;	/* Side of the current interaction cursor. */
 	static float eraser_radius;	/* Radius of the eraser ball. */
 	static void erase_stroke(bGPDstroke *gps, bGPDframe *gp_frame);	/*	Helper function to erase a stroke. */
+public:
+  static void add_stroke(const std::vector<bGPDspoint>& ptrs, uint layer, bool set_active); /* Helper function to add a stroke. */
+  static void render_points(const std::vector<bGPDspoint>& pts, uint layer);  /* Helper function to render annotation points. */
 public:
 	static Widget_Annotate obj;	/* Singleton implementation object. */
 	virtual std::string name() override { return "ANNOTATE"; };	/* Get the name of this widget. */

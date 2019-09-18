@@ -22,7 +22,7 @@ bl_info = {
     "author": "Jason van Gumster (Fweeb), Bassam Kurdali, Pablo Vazquez, Rainer Trummer",
     "version": (0, 9, 1),
     "blender": (2, 80, 0),
-    "location": "File > External Data > Edit Linked Library",
+    "location": "File > External Data / View3D > Sidebar > Item Tab",
     "description": "Allows editing of objects linked from a .blend library.",
     "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/"
                 "Scripts/Object/Edit_Linked_Library",
@@ -161,7 +161,7 @@ class VIEW3D_PT_PanelLinkedEdit(bpy.types.Panel):
     bl_label = "Edit Linked Library"
     bl_space_type = "VIEW_3D"
     bl_region_type = 'UI'
-    bl_category = "View"
+    bl_category = "Item"
     bl_context = 'objectmode'
 
     @classmethod
@@ -176,8 +176,10 @@ class VIEW3D_PT_PanelLinkedEdit(bpy.types.Panel):
         layout.prop(scene, "use_instance")
 
     def draw(self, context: bpy.context):
-        layout = self.layout
         scene = context.scene
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
         icon = "OUTLINER_DATA_" + context.active_object.type
 
         target = None
@@ -242,7 +244,6 @@ class VIEW3D_PT_PanelLinkedEdit(bpy.types.Panel):
 
 class TOPBAR_MT_edit_linked_submenu(bpy.types.Menu):
     bl_label = 'Edit Linked Library'
-    bl_idname = 'view3d.TOPBAR_MT_edit_linked_submenu'
 
     def draw(self, context):
         self.layout.separator()

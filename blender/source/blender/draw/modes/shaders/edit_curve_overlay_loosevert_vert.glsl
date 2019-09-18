@@ -1,6 +1,5 @@
 /* Draw Curve Vertices */
-uniform mat4 ModelViewProjectionMatrix;
-uniform mat4 ModelMatrix;
+
 uniform vec2 viewportSize;
 
 in vec3 pos;
@@ -10,22 +9,24 @@ out vec4 finalColor;
 
 void main()
 {
-	if ((data & VERT_SELECTED) != 0) {
-		if ((data & VERT_ACTIVE) != 0) {
-			finalColor = colorEditMeshActive;
-		}
-		else {
-			finalColor = colorVertexSelect;
-		}
-	}
-	else {
-		finalColor = colorVertex;
-	}
+  GPU_INTEL_VERTEX_SHADER_WORKAROUND
 
-	vec4 pos_4d = vec4(pos, 1.0);
-	gl_Position = ModelViewProjectionMatrix * pos_4d;
-	gl_PointSize = sizeVertex * 2.0;
+  if ((data & VERT_SELECTED) != 0) {
+    if ((data & VERT_ACTIVE) != 0) {
+      finalColor = colorEditMeshActive;
+    }
+    else {
+      finalColor = colorVertexSelect;
+    }
+  }
+  else {
+    finalColor = colorVertex;
+  }
+
+  vec3 world_pos = point_object_to_world(pos);
+  gl_Position = point_world_to_ndc(world_pos);
+  gl_PointSize = sizeVertex * 2.0;
 #ifdef USE_WORLD_CLIP_PLANES
-	world_clip_planes_calc_clip_distance((ModelMatrix * pos_4d).xyz);
+  world_clip_planes_calc_clip_distance(world_pos);
 #endif
 }

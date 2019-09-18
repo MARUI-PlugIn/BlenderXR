@@ -14,23 +14,27 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup freestyle
- *  \brief Class to define a Drawing Style to be applied to the underlying children. Inherits from NodeGroup.
+/** \file
+ * \ingroup freestyle
+ * \brief Class to define a Drawing Style to be applied to the underlying children. Inherits from
+ * NodeGroup.
  */
 
 #include "NodeDrawingStyle.h"
 
 namespace Freestyle {
 
-void NodeDrawingStyle::accept(SceneVisitor& v)
+void NodeDrawingStyle::accept(SceneVisitor &v)
 {
-	v.visitNodeDrawingStyle(*this);
+  v.visitNodeDrawingStyle(*this);
 
-	v.visitNodeDrawingStyleBefore(*this);
-	v.visitDrawingStyle(_DrawingStyle);
-	for (vector<Node*>::iterator node = _Children.begin(), end = _Children.end(); node != end; ++node)
-		(*node)->accept(v);
-	v.visitNodeDrawingStyleAfter(*this);
+  v.visitNodeDrawingStyleBefore(*this);
+  v.visitDrawingStyle(_DrawingStyle);
+  for (vector<Node *>::iterator node = _Children.begin(), end = _Children.end(); node != end;
+       ++node) {
+    (*node)->accept(v);
+  }
+  v.visitNodeDrawingStyleAfter(*this);
 }
 
 } /* namespace Freestyle */

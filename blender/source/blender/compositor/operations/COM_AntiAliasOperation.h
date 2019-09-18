@@ -1,6 +1,4 @@
 /*
- * Copyright 2011, Blender Foundation.
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,6 +12,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * Copyright 2011, Blender Foundation.
  */
 
 #ifndef __COM_ANTIALIASOPERATION_H__
@@ -27,30 +27,33 @@
  * \ingroup operation
  */
 class AntiAliasOperation : public NodeOperation {
-protected:
-	/**
-	 * \brief Cached reference to the reader
-	 */
-	SocketReader *m_valueReader;
-public:
-	AntiAliasOperation();
+ protected:
+  /**
+   * \brief Cached reference to the reader
+   */
+  SocketReader *m_valueReader;
 
-	/**
-	 * the inner loop of this program
-	 */
-	void executePixel(float output[4], int x, int y, void *data);
+ public:
+  AntiAliasOperation();
 
-	/**
-	 * Initialize the execution
-	 */
-	void initExecution();
+  /**
+   * the inner loop of this program
+   */
+  void executePixel(float output[4], int x, int y, void *data);
 
-	void *initializeTileData(rcti *rect);
+  /**
+   * Initialize the execution
+   */
+  void initExecution();
 
-	/**
-	 * Deinitialize the execution
-	 */
-	void deinitExecution();
-	bool determineDependingAreaOfInterest(rcti *input, ReadBufferOperation *readOperation, rcti *output);
+  void *initializeTileData(rcti *rect);
+
+  /**
+   * Deinitialize the execution
+   */
+  void deinitExecution();
+  bool determineDependingAreaOfInterest(rcti *input,
+                                        ReadBufferOperation *readOperation,
+                                        rcti *output);
 };
 #endif

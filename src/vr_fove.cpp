@@ -6,10 +6,11 @@
 ***************************************************************************************************
 * \brief     Fove HMD module.
 * \copyright MARUI-PlugIn (inc.)
+* \contributors Multiplexed Reality
 **************************************************************************************************/
 
 #define GLEW_STATIC
-#include <glew.h>
+#include "glew.h"
 
 #include <Windows.h> // For mouse input
 
@@ -63,12 +64,9 @@ void main()
  */
 VR_Fove::VR_Fove()
 	: VR()
-	, hmd(0)
 	, hmd_type(HMDType_Fove)
-	, compositor(0)
-	, compositor_layer(Fove::SFVR_CompositorLayer())
-	, compositor_create_info(Fove::SFVR_CompositorLayerCreateInfo())
-	, compositor_submit_info(Fove::SFVR_CompositorLayerSubmitInfo())
+	, compositor_create_info(Fove::CompositorLayerCreateInfo())
+	, compositor_submit_info(Fove::CompositorLayerSubmitInfo())
 	, initialized(false)
 	, eye_tracking_enabled(true)
 {
@@ -238,7 +236,7 @@ void VR_Fove::GL::release()
 			glBindFramebuffer(GL_FRAMEBUFFER, 0);
 			this->framebuffer[i] = 0;
 		}
-		if (this->texture) {
+		if (this->texture[i]) {
 			glDeleteTextures(1, &this->texture[i]);
 			this->texture[i] = 0;
 		}
@@ -267,26 +265,21 @@ void VR_Fove::GL::release()
 int VR_Fove::acquireHMD()
 {
 	// Connect to headset
-	hmd = Fove::GetFVRHeadset();
-	if (!hmd) {
-		return VR::Error_InternalFailure;
-	}
-
-	Fove::EFVR_ErrorCode error = Fove::EFVR_ErrorCode::None;
+	Fove::Result<Fove::Headset> ret_hmd;
 	if (eye_tracking_enabled) {
-		error = hmd->Initialise(Fove::EFVR_ClientCapabilities::Orientation | Fove::EFVR_ClientCapabilities::Position | Fove::EFVR_ClientCapabilities::Gaze);
+		hmd = Fove::Headset::create(Fove::ClientCapabilities::Orientation | Fove::ClientCapabilities::Position | Fove::ClientCapabilities::Gaze).getValue();
 	}
 	else {
 		// Initialize without eye tracking capabilities
-		error = hmd->Initialise(Fove::EFVR_ClientCapabilities::Orientation | Fove::EFVR_ClientCapabilities::Position);
+		hmd = Fove::Headset::create(Fove::ClientCapabilities::Orientation | Fove::ClientCapabilities::Position).getValue();
 	}
-	if (error != Fove::EFVR_ErrorCode::None) {
+	if (!hmd.isValid()) {
 		return VR::Error_InternalFailure;
 	}
 
 	// Connect to compositor
-	compositor = Fove::GetFVRCompositor();
-	if (!compositor) {
+	compositor = hmd.createCompositor().getValue();
+	if (!compositor.isValid()) {
 		return VR::Error_InternalFailure;
 	}
 
@@ -296,10 +289,11 @@ int VR_Fove::acquireHMD()
 	compositor_create_info.disableDistortion = false;
 	compositor_create_info.disableFading = false;
 	compositor_create_info.disableTimeWarp = false;*/
-	error = compositor->CreateLayer(compositor_create_info, &compositor_layer);
-	if (error != Fove::EFVR_ErrorCode::None) {
+	Fove::Result<Fove::CompositorLayer> ret_comp_layer = compositor.createLayer(compositor_create_info);
+	if (!ret_comp_layer.isValid()) {
 		return VR::Error_InternalFailure;
 	}
+	compositor_layer = ret_comp_layer.getValue();
 
 	return VR::Error_None;
 }
@@ -312,11 +306,11 @@ int VR_Fove::acquireHMD()
  */
 int VR_Fove::releaseHMD()
 {
-	if (hmd) {
-		delete hmd;
+	if (hmd.isValid()) {
+		hmd.destroy();
 	}
-	//if (compositor) {
-	//	delete compositor;
+	//if (compositor.isValid()) {
+	//	compositor.destroy();
 	//}
 
 	return VR::Error_None;
@@ -341,9 +335,9 @@ int VR_Fove::init(void* device, void* context)
 	this->gl.context = (HGLRC)context; // save old context so that we can share
 	BOOL r = wglMakeCurrent(this->gl.device, this->gl.context); // just to be sure...
 
-	if (!hmd) {
+	if (!hmd.isValid()) {
 		int e = this->acquireHMD();
-		if (e || !hmd) {
+		if (e || !hmd.isValid()) {
 			return VR::Error_InternalFailure;
 		}
 	}
@@ -373,7 +367,12 @@ int VR_Fove::init(void* device, void* context)
 	}
 
 	// Get eye offsets
-	hmd->GetEyeToHeadMatrices(&this->eye[Side_Left].offset, &this->eye[Side_Right].offset);
+	Fove::Result<Fove::Stereo<Fove::Matrix44>> ret_mat = hmd.getEyeToHeadMatrices(); 
+	if (!ret_mat.isValid()) {
+		return VR::Error_InternalFailure;
+	}
+	this->eye[Side_Left].offset = ret_mat.getValue().l;
+	this->eye[Side_Right].offset = ret_mat.getValue().r;
 	t_hmd2eye[Side_Left][0][0] = 1;   t_hmd2eye[Side_Left][0][1] = 0;   t_hmd2eye[Side_Left][0][2] = 0;   t_hmd2eye[Side_Left][0][3] = 0;
 	t_hmd2eye[Side_Left][1][0] = 0;   t_hmd2eye[Side_Left][1][1] = 1;   t_hmd2eye[Side_Left][1][2] = 0;   t_hmd2eye[Side_Left][1][3] = 0;
 	t_hmd2eye[Side_Left][2][0] = 0;   t_hmd2eye[Side_Left][2][1] = 0;   t_hmd2eye[Side_Left][2][2] = 1;   t_hmd2eye[Side_Left][2][3] = 0;
@@ -390,7 +389,7 @@ int VR_Fove::init(void* device, void* context)
 	t_hmd2eye[Side_Right][3][3] = 1;
 
 	// Get texture resolutions and initialize rendering
-	Fove::SFVR_Vec2i tex_size = compositor_layer.idealResolutionPerEye;
+	Fove::Vec2i tex_size = compositor_layer.idealResolutionPerEye;
 	texture_width = tex_size.x;
 	texture_height = tex_size.y;
 	this->gl.create(this->texture_width, this->texture_height);
@@ -440,10 +439,10 @@ int VR_Fove::uninit()
 * \param   pos     Pose / tracking information.
 * \param   m       [OUT] Transformation matrix (both translation and rotation).
 */
-static void transferHMDTranformation(const Fove::SFVR_Pose& pos, float m[4][4])
+static void transferHMDTranformation(const Fove::Pose& pos, float m[4][4])
 {
-	const Fove::SFVR_Vec3& p = pos.position;
-	const Fove::SFVR_Quaternion& q = pos.orientation;
+	const Fove::Vec3& p = pos.position;
+	const Fove::Quaternion& q = pos.orientation;
 
 	m[0][0] = 1 - 2 * q.y*q.y - 2 * q.z*q.z;
 	m[1][0] = 2 * q.x*q.y - 2 * q.z*q.w;
@@ -470,10 +469,10 @@ static void transferHMDTranformation(const Fove::SFVR_Pose& pos, float m[4][4])
 * \param   pos     Pose / tracking information.
 * \param   m       [OUT] Transformation matrix (both translation and rotation).
 */
-static void transferControllerTranformation(const Fove::SFVR_Pose& pos, float m[4][4])
+static void transferControllerTranformation(const Fove::Pose& pos, float m[4][4])
 {
-	const Fove::SFVR_Vec3& p = pos.position;
-	const Fove::SFVR_Quaternion& q = pos.orientation;
+	const Fove::Vec3& p = pos.position;
+	const Fove::Quaternion& q = pos.orientation;
 
 	// x-axis
 	m[0][0] = 1 - 2 * q.y*q.y - 2 * q.z*q.z;
@@ -502,7 +501,7 @@ static void transferControllerTranformation(const Fove::SFVR_Pose& pos, float m[
 /**
  * Helper functions for Fove structs (from Fove SDK examples).
  */
-static Fove::SFVR_Vec3 transformPoint(const Fove::SFVR_Matrix44& transform, Fove::SFVR_Vec3 point, float w)
+static Fove::Vec3 transformPoint(const Fove::Matrix44& transform, Fove::Vec3 point, float w)
 {
 	return {
 		transform.mat[0][0] * point.x + transform.mat[0][1] * point.y + transform.mat[0][2] * point.z + transform.mat[0][3] * w,
@@ -510,9 +509,9 @@ static Fove::SFVR_Vec3 transformPoint(const Fove::SFVR_Matrix44& transform, Fove
 		transform.mat[2][0] * point.x + transform.mat[2][1] * point.y + transform.mat[2][2] * point.z + transform.mat[2][3] * w,
 	};
 }
-static Fove::SFVR_Matrix44 quatToMatrix(const Fove::SFVR_Quaternion q)
+static Fove::Matrix44 quatToMatrix(const Fove::Quaternion q)
 {
-	Fove::SFVR_Matrix44 ret;
+	Fove::Matrix44 ret;
 	ret.mat[0][0] = 1 - 2 * q.y*q.y - 2 * q.z*q.z;
 	ret.mat[0][1] = 2 * q.x*q.y - 2 * q.z*q.w;
 	ret.mat[0][2] = 2 * q.x*q.z + 2 * q.y*q.w;
@@ -531,9 +530,9 @@ static Fove::SFVR_Matrix44 quatToMatrix(const Fove::SFVR_Quaternion q)
 	ret.mat[3][3] = 1;
 	return ret;
 }
-static Fove::SFVR_Matrix44 translationMatrix(const float x, const float y, const float z)
+static Fove::Matrix44 translationMatrix(const float x, const float y, const float z)
 {
-	Fove::SFVR_Matrix44 ret;
+	Fove::Matrix44 ret;
 	ret.mat[0][0] = 1;
 	ret.mat[0][1] = 0;
 	ret.mat[0][2] = 0;
@@ -617,13 +616,14 @@ int VR_Fove::updateTracking()
 	}
 
 	// Update gaze information
-	const Fove::EFVR_ErrorCode gaze_error = hmd->GetGazeConvergence(&this->convergence);
-	if (gaze_error == Fove::EFVR_ErrorCode::None) {
-		Fove::SFVR_Ray ray = convergence.ray;
+	Fove::Result<Fove::GazeConvergenceData> ret_gaze = hmd.getGazeConvergence();
+	this->convergence = ret_gaze.getValue();
+	if (ret_gaze.isValid()) {
+		Fove::Ray ray = convergence.ray;
 		ray.origin = transformPoint(camera_matrix, ray.origin, 1);
 		ray.direction = transformPoint(camera_matrix, ray.direction, 0);
 
-		Fove::SFVR_Pose controller;
+		Fove::Pose controller;
 		if (VR_FOVE_USE_CONVERGENCE_DEPTH) {
 			float ray_length = convergence.distance / 1000.0f;
 			controller.position.x = ray.origin.x + ray.direction.x * ray_length;
@@ -640,12 +640,12 @@ int VR_Fove::updateTracking()
 			controller.orientation = hmd_pose.orientation;
 			transferHMDTranformation(controller, this->t_controller[Side_Mono]);
 		}
-		this->controller[Side_Mono].available = true;
+		this->controller[Side_Mono].available = 1;
 	}
 	else {
 		convergence.attention = false;
 		convergence.pupilDilation = 1.0f;
-		this->controller[Side_Mono].available = false;
+		this->controller[Side_Mono].available = 0;
 	}
 
 	// Get emulated button presses from eye behavior
@@ -694,16 +694,17 @@ int VR_Fove::updateTracking()
 	//}
 #endif
 
-	Fove::EFVR_Eye eyes_closed;
-	if (hmd->CheckEyesClosed(&eyes_closed) == Fove::EFVR_ErrorCode::None) {
+	Fove::Result<Fove::Eye> ret_eye = hmd.checkEyesClosed();
+	Fove::Eye eyes_closed = ret_eye.getValue();
+	if (ret_eye.isValid()) {
 		switch (eyes_closed) {
-		case Fove::EFVR_Eye::Neither: {
+		case Fove::Eye::Neither: {
 			// Both eyes closed (no interaction)
 			eye_closed_left = 0;
 			eye_closed_right = 0;
 			break;
 		}
-		case Fove::EFVR_Eye::Left: {
+		case Fove::Eye::Left: {
 			// Only left eye closed so right must be open (no interaction)
 			eye_closed_right = 0;
 
@@ -720,7 +721,7 @@ int VR_Fove::updateTracking()
 			}
 			break;
 		}
-		case Fove::EFVR_Eye::Right: {
+		case Fove::Eye::Right: {
 			// Only right eye closed so left must be open (no interaction)
 			eye_closed_left = 0;
 
@@ -737,7 +738,7 @@ int VR_Fove::updateTracking()
 			}
 			break;
 		}
-		case Fove::EFVR_Eye::Both: {
+		case Fove::Eye::Both: {
 			//
 			break;
 		}
@@ -753,8 +754,9 @@ int VR_Fove::updateTracking()
 	}
 
 	// Wait until the compositor is ready for rendering 
-	const Fove::EFVR_ErrorCode pose_error = compositor->WaitForRenderPose(&hmd_pose);
-	if (pose_error != Fove::EFVR_ErrorCode::None) {
+	Fove::Result<Fove::Pose> ret_pose = compositor.waitForRenderPose();
+	hmd_pose = ret_pose.getValue();
+	if (!ret_pose.isValid()) {
 		Sleep(10);
 	}
 
@@ -780,7 +782,7 @@ int VR_Fove::updateTracking()
 //_________________________________________________________________________/     blitEye()
 /**
  * Blit a rendered image into the internal eye texture.
- * TODO_MARUI: aperture_u and aperture_v currently don't do anything in the shader.
+ * TODO_XR: aperture_u and aperture_v currently don't do anything in the shader.
  */
 int VR_Fove::blitEye(Side side, void* texture_resource, const float& aperture_u, const float& aperture_v)
 {
@@ -835,13 +837,13 @@ int VR_Fove::blitEye(Side side, void* texture_resource, const float& aperture_u,
 	glBindFramebuffer(GL_FRAMEBUFFER, prior_framebuffer);
 
 	// Update compositor texture submission info
-	Fove::SFVR_TextureBounds bounds;
+	Fove::TextureBounds bounds;
 	bounds.top = 0;
 	bounds.bottom = 1;
 	bounds.left = 0;
 	bounds.right = 1;
 
-	Fove::SFVR_GLTexture tex{ texture_id, NULL };
+	Fove::GLTexture tex{ texture_id, NULL };
 	compositor_submit_info.layerId = compositor_layer.layerId;
 	compositor_submit_info.pose = hmd_pose;
 	if (side == Side_Left) {
@@ -854,8 +856,8 @@ int VR_Fove::blitEye(Side side, void* texture_resource, const float& aperture_u,
 	}
 
 	// Present rendered results to compositor
-	if (side == Side_Right && compositor) {
-		compositor->Submit(compositor_submit_info);
+	if (side == Side_Right && compositor.isValid()) {
+		compositor.submit(compositor_submit_info);
 	}
 
 	return Error_None;
@@ -865,7 +867,7 @@ int VR_Fove::blitEye(Side side, void* texture_resource, const float& aperture_u,
 //_________________________________________________________________________/     blitEyes()
 /**
  * Blit rendered images into the internal eye textures.
- * TODO_MARUI: aperture_u and aperture_v currently don't do anything in the shader.
+ * TODO_XR: aperture_u and aperture_v currently don't do anything in the shader.
  */
 int VR_Fove::blitEyes(void* texture_resource_left, void* texture_resource_right, const float& aperture_u, const float& aperture_v)
 {
@@ -929,7 +931,7 @@ int VR_Fove::blitEyes(void* texture_resource_left, void* texture_resource_right,
 	glBindFramebuffer(GL_FRAMEBUFFER, prior_framebuffer);
 
 	// Update compositor texture submission info
-	Fove::SFVR_TextureBounds bounds;
+	Fove::TextureBounds bounds;
 	bounds.top = 0;
 	bounds.bottom = 1;
 	bounds.left = 0;
@@ -937,16 +939,16 @@ int VR_Fove::blitEyes(void* texture_resource_left, void* texture_resource_right,
 
 	compositor_submit_info.layerId = compositor_layer.layerId;
 	compositor_submit_info.pose = hmd_pose;
-	Fove::SFVR_GLTexture tex_left{ texture_id_left, NULL };
+	Fove::GLTexture tex_left{ texture_id_left, NULL };
 	compositor_submit_info.left.texInfo = &tex_left;
 	compositor_submit_info.left.bounds = bounds;
-	Fove::SFVR_GLTexture tex_right{ texture_id_right, NULL };
+	Fove::GLTexture tex_right{ texture_id_right, NULL };
 	compositor_submit_info.right.texInfo = &tex_right;
 	compositor_submit_info.right.bounds = bounds;
 
 	// Present rendered results to compositor
-	if (compositor) {
-		compositor->Submit(compositor_submit_info);
+	if (compositor.isValid()) {
+		compositor.submit(compositor_submit_info);
 	}
 
 	return Error_None;
@@ -978,14 +980,14 @@ int VR_Fove::submitFrame()
  */
 int VR_Fove::getDefaultEyeTexSize(uint& w, uint& h, Side side)
 {
-	if (!hmd) {
+	if (!hmd.isValid()) {
 		int e = this->acquireHMD();
-		if (e || !hmd) {
+		if (e || !hmd.isValid()) {
 			return VR::Error_InternalFailure;
 		}
 	}
 
-	Fove::SFVR_Vec2i tex_size = compositor_layer.idealResolutionPerEye;
+	Fove::Vec2i tex_size = compositor_layer.idealResolutionPerEye;
 	w = tex_size.x;
 	h = tex_size.y;
 
@@ -999,25 +1001,28 @@ int VR_Fove::getDefaultEyeTexSize(uint& w, uint& h, Side side)
  */
 int VR_Fove::getDefaultEyeParams(Side side, float& fx, float& fy, float& cx, float& cy)
 {
-	if (!hmd) {
+	if (!hmd.isValid()) {
 		int e = this->acquireHMD();
-		if (e || !hmd) {
+		if (e || !hmd.isValid()) {
 			return VR::Error_InternalFailure;
 		}
 	}
 
 	float left, right, top, bottom;
-	Fove::SFVR_ProjectionParams eye_left;
-	Fove::SFVR_ProjectionParams eye_right;
-	hmd->GetRawProjectionValues(&eye_left, &eye_right);
-
+	Fove::Result<Fove::Stereo<Fove::ProjectionParams>> ret_params = hmd.getRawProjectionValues();
+	if (!ret_params.isValid())
+	{
+		return VR::Error_InternalFailure;
+	}
 	if (side == Side_Left) {
+		Fove::ProjectionParams eye_left = ret_params.getValue().l;
 		left = eye_left.left;
 		right = eye_left.right;
 		top = eye_left.top;
 		bottom = eye_left.bottom;
 	}
 	else { // Side_Right
+		Fove::ProjectionParams eye_right = ret_params.getValue().r;
 		left = eye_right.left;
 		right = eye_right.right;
 		top = eye_right.top;
@@ -1236,5 +1241,11 @@ int c_submitFrame()
  */
 int c_uninitVR()
 {
-	return c_obj->uninit();
+	if (c_obj) {
+		int error = c_obj->uninit();
+		delete c_obj;
+		c_obj = 0;
+		return error;
+	}
+	return 0;
 }

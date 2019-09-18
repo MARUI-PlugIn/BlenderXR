@@ -20,9 +20,8 @@
 
 import bpy
 
+from bpy.utils import register_class
 from bpy.types import Node, ShaderNodeTree, CompositorNodeTree, TextureNodeTree#, NodeSocket
-
-
 from bpy.props import (
         StringProperty,
         BoolProperty,
@@ -343,17 +342,17 @@ class PovrayMultiplyNode(Node, ObjectNodeTree):
     bl_label = 'Multiply'
     bl_icon = 'SOUND'
 
-    amount_x = FloatProperty(
+    amount_x : FloatProperty(
             name="X",
             description="Number of repeats",
             min=1.0, max=10000.0, default=1.0)
 
-    amount_y = FloatProperty(
+    amount_y : FloatProperty(
             name="Y",
             description="Number of repeats",
             min=1.0, max=10000.0, default=1.0)
 
-    amount_z = FloatProperty(
+    amount_z : FloatProperty(
             name="Z",
             description="Number of repeats",
             min=1.0, max=10000.0, default=1.0)
@@ -365,7 +364,7 @@ class PovrayMultiplyNode(Node, ObjectNodeTree):
     def draw_buttons(self, context, layout):
 
         column=layout.column()
-        column.label("Amount")
+        column.label(text="Amount")
         row=column.row(align=True)
         row.prop(self,"amount_x")
         row.prop(self,"amount_y")
@@ -374,7 +373,7 @@ class PovrayMultiplyNode(Node, ObjectNodeTree):
     def draw_buttons_ext(self, context, layout):
 
         column=layout.column()
-        column.label("Amount")
+        column.label(text="Amount")
         row=column.row(align=True)
         row.prop(self,"amount_x")
         row.prop(self,"amount_y")
@@ -515,7 +514,7 @@ class PovrayColorImageNode(Node, ObjectNodeTree):
         for image in bpy.data.images:
             if image.name == self.image:
                 im=image
-        split = column.split(percentage=0.8,align=True)
+        split = column.split(factor=0.8,align=True)
         split.prop_search(self,"image",context.blend_data,"images",text="")
         split.operator("pov.imageopen",text="",icon="FILEBROWSER")
         if im is not None:
@@ -533,7 +532,7 @@ class PovrayColorImageNode(Node, ObjectNodeTree):
         for image in bpy.data.images:
             if image.name == self.image:
                 im=image
-        split = column.split(percentage=0.8,align=True)
+        split = column.split(factor=0.8,align=True)
         split.prop_search(self,"image",context.blend_data,"images",text="")
         split.operator("pov.imageopen",text="",icon="FILEBROWSER")
         if im is not None:
@@ -553,7 +552,7 @@ class PovrayBumpMapNode(Node, ObjectNodeTree):
     bl_label = 'Bump map'
     bl_icon = 'SOUND'
 
-    map_type = bpy.props.EnumProperty(
+    map_type : bpy.props.EnumProperty(
             name="Map type",
             description="",
             items=(
@@ -564,8 +563,8 @@ class PovrayBumpMapNode(Node, ObjectNodeTree):
                 ('5', "Torroidal", "Torus or donut shaped mapping")
             ),
             default='0')
-    image = StringProperty(maxlen=1024) # , subtype="FILE_PATH"
-    interpolate = EnumProperty(
+    image : StringProperty(maxlen=1024) # , subtype="FILE_PATH"
+    interpolate : EnumProperty(
             name="Interpolate",
             description="Adding the interpolate keyword can smooth the jagged look of a bitmap",
             items=(
@@ -573,7 +572,7 @@ class PovrayBumpMapNode(Node, ObjectNodeTree):
                 ('4', "Normalized", "Gives normalized distance"),
             ),
             default='2')
-    once = BoolProperty(description="Not to repeat", default=False)
+    once : BoolProperty(description="Not to repeat", default=False)
 
     def init(self, context):
 
@@ -666,7 +665,7 @@ class PovrayImagePatternNode(Node, ObjectNodeTree):
         for image in bpy.data.images:
             if image.name == self.image:
                 im=image
-        split = column.split(percentage=0.8,align=True)
+        split = column.split(factor=0.8,align=True)
         split.prop_search(self,"image",context.blend_data,"images",text="")
         split.operator("pov.imageopen",text="",icon="FILEBROWSER")
         if im is not None:
@@ -685,7 +684,7 @@ class PovrayImagePatternNode(Node, ObjectNodeTree):
         for image in bpy.data.images:
             if image.name == self.image:
                 im=image
-        split = column.split(percentage=0.8,align=True)
+        split = column.split(factor=0.8,align=True)
         split.prop_search(self,"image",context.blend_data,"images",text="")
         split.operator("pov.imageopen",text="",icon="FILEBROWSER")
         if im is not None:
@@ -704,7 +703,7 @@ class ShaderPatternNode(Node, ObjectNodeTree):
     bl_idname = 'ShaderPatternNode'
     bl_label = 'Other patterns'
 
-    pattern = EnumProperty(
+    pattern : EnumProperty(
             name="Pattern",
             description="Agate, Crackle, Gradient, Pavement, Spiral, Tiling",
             items=(('agate', "Agate", ""),('crackle', "Crackle", ""),('gradient', "Gradient", ""),
@@ -714,47 +713,47 @@ class ShaderPatternNode(Node, ObjectNodeTree):
                    ('tiling', "Tiling", "")),
             default='agate')
 
-    agate_turb = FloatProperty(
+    agate_turb : FloatProperty(
             name="Agate turb",
             description="Agate turbulence",
             min=0.0, max=100.0, default=0.5)
 
-    crackle_form_x = FloatProperty(
+    crackle_form_x : FloatProperty(
             name="X",
             description="Form vector X",
             min=-150.0, max=150.0, default=-1)
 
-    crackle_form_y = FloatProperty(
+    crackle_form_y : FloatProperty(
             name="Y",
             description="Form vector Y",
             min=-150.0, max=150.0, default=1)
 
-    crackle_form_z = FloatProperty(
+    crackle_form_z : FloatProperty(
             name="Z",
             description="Form vector Z",
             min=-150.0, max=150.0, default=0)
 
-    crackle_metric = FloatProperty(
+    crackle_metric : FloatProperty(
             name="Metric",
             description="Crackle metric",
             min=0.0, max=150.0, default=1)
 
-    crackle_solid = BoolProperty(
+    crackle_solid : BoolProperty(
             name="Solid",
             description="Crackle solid",
             default=False)
 
-    spiral_arms = FloatProperty(
+    spiral_arms : FloatProperty(
             name="Number",
             description="",
             min=0.0, max=256.0, default=2.0)
 
-    tiling_number = IntProperty(
+    tiling_number : IntProperty(
             name="Number",
             description="",
             min=1, max=27, default=1)
 
-    gradient_orient = EnumProperty(
+    gradient_orient : EnumProperty(
             name="Orient",
             description="",
             items=(('x', "X", ""),
@@ -774,7 +773,7 @@ class ShaderPatternNode(Node, ObjectNodeTree):
         if self.pattern=='crackle':
             layout.prop(self, "crackle_metric")
             layout.prop(self, "crackle_solid")
-            layout.label("Form:")
+            layout.label(text="Form:")
             layout.prop(self, "crackle_form_x")
             layout.prop(self, "crackle_form_y")
             layout.prop(self, "crackle_form_z")
@@ -857,22 +856,22 @@ class ShaderNormalMapNode(Node, ObjectNodeTree):
     bl_idname = 'ShaderNormalMapNode'
     bl_label = 'Normal map'
 
-    brick_size_x = FloatProperty(
+    brick_size_x : FloatProperty(
             name="X",
             description="",
             min=0.0000, max=1.0000, default=0.2500)
 
-    brick_size_y = FloatProperty(
+    brick_size_y : FloatProperty(
             name="Y",
             description="",
             min=0.0000, max=1.0000, default=0.0525)
 
-    brick_size_z = FloatProperty(
+    brick_size_z : FloatProperty(
             name="Z",
             description="",
             min=0.0000, max=1.0000, default=0.1250)
 
-    brick_mortar = FloatProperty(
+    brick_mortar : FloatProperty(
             name="Mortar",
             description="Mortar",
             min=0.000, max=1.500, default=0.01)
@@ -891,7 +890,7 @@ class ShaderNormalMapNode(Node, ObjectNodeTree):
 
         if self.inputs[0].default_value =='brick':
             layout.prop(self, "brick_mortar")
-            layout.label("Brick size:")
+            layout.label(text="Brick size:")
             layout.prop(self, "brick_size_x")
             layout.prop(self, "brick_size_y")
             layout.prop(self, "brick_size_z")
@@ -900,7 +899,7 @@ class ShaderNormalMapNode(Node, ObjectNodeTree):
 
         if self.inputs[0].default_value =='brick':
             layout.prop(self, "brick_mortar")
-            layout.label("Brick size:")
+            layout.label(text="Brick size:")
             layout.prop(self, "brick_size_x")
             layout.prop(self, "brick_size_y")
             layout.prop(self, "brick_size_z")
@@ -923,7 +922,7 @@ class IsoPropsNode(Node, CompositorNodeTree):
     '''ISO Props'''
     bl_idname = 'IsoPropsNode'
     bl_label = 'Iso'
-    node_label = StringProperty(maxlen=1024)
+    node_label : StringProperty(maxlen=1024)
     def init(self, context):
         ob = bpy.context.object
         self.node_label = ob.name
@@ -985,17 +984,17 @@ class PovraySlopeNode(Node, TextureNodeTree):
 
         layout.operator("pov.nodeinputadd")
         row = layout.row()
-        row.label('Value')
-        row.label('Height')
-        row.label('Slope')
+        row.label(text='Value')
+        row.label(text='Height')
+        row.label(text='Slope')
 
     def draw_buttons_ext(self, context, layout):
 
         layout.operator("pov.nodeinputadd")
         row = layout.row()
-        row.label('Value')
-        row.label('Height')
-        row.label('Slope')
+        row.label(text='Value')
+        row.label(text='Height')
+        row.label(text='Slope')
 
     def draw_label(self):
         return "Slope Map"
@@ -1201,8 +1200,8 @@ class NODE_OT_povray_image_open(bpy.types.Operator):
         # im=bpy.data.images.load(self.filepath)
         # tex = context.texture
         # tex.pov.image = im.name
-        # scene = context.scene
-        # scene.update()
+        # view_layer = context.view_layer
+        # view_layer.update()
         # return {'FINISHED'}
 
 class PovrayPatternNode(bpy.types.Operator):
@@ -1266,13 +1265,13 @@ class UpdatePreviewMaterial(bpy.types.Operator):
     bl_label = "Update preview"
 
     def execute(self, context):
-        scene=context.scene
+        scene=context.view_layer
         ob=context.object
         for obj in scene.objects:
             if obj != ob:
-                scene.objects.active=obj
+                scene.objects.active = ob
                 break
-        scene.objects.active=ob
+        scene.objects.active = ob
 
     def modal(self, context, event):
         if event.type == 'RIGHTMOUSE':
@@ -1305,3 +1304,59 @@ class UpdatePreviewKey(bpy.types.Operator):
         map = conf.keymaps[mapstr]
         map.keymap_items.new("node.updatepreview",type='RIGHTMOUSE',value="PRESS")
         return {'FINISHED'}
+
+classes = (
+    ObjectNodeTree,
+    PovrayOutputNode,
+    PovrayTextureNode,
+    PovrayFinishNode,
+    PovrayDiffuseNode,
+    PovrayPhongNode,
+    PovraySpecularNode,
+    PovrayMirrorNode,
+    PovrayAmbientNode,
+    PovrayIridescenceNode,
+    PovraySubsurfaceNode,
+    PovrayMappingNode,
+    PovrayMultiplyNode,
+    PovrayTransformNode,
+    PovrayValueNode,
+    PovrayModifierNode,
+    PovrayPigmentNode,
+    PovrayColorImageNode,
+    PovrayBumpMapNode,
+    PovrayImagePatternNode,
+    ShaderPatternNode,
+    ShaderTextureMapNode,
+    ShaderNormalMapNode,
+    ShaderNormalMapEntryNode,
+    IsoPropsNode,
+    PovrayFogNode,
+    PovraySlopeNode,
+    TextureOutputNode,
+    NODE_OT_iso_add,
+    NODE_OT_map_create,
+    NODE_OT_povray_node_texture_map_add,
+    NODE_OT_povray_node_output_add,
+    NODE_OT_povray_node_layered_add,
+    NODE_OT_povray_input_add,
+    NODE_OT_povray_input_remove,
+    NODE_OT_povray_image_open,
+    PovrayPatternNode,
+    UpdatePreviewMaterial,
+    UpdatePreviewKey,
+)
+
+
+def register():
+    #from bpy.utils import register_class
+
+    for cls in classes:
+        register_class(cls)
+
+
+def unregister():
+    from bpy.utils import unregister_class
+
+    for cls in classes:
+        unregister_class(cls)

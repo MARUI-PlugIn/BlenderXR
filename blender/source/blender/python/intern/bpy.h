@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup pythonintern
+/** \file
+ * \ingroup pythonintern
  */
 
 #ifndef __BPY_H__
@@ -27,4 +28,7 @@ extern PyObject *bpy_package_py;
 void BPY_atexit_register(void);
 void BPY_atexit_unregister(void);
 
-#endif  /* __BPY_H__ */
+extern struct CLG_LogRef *BPY_LOG_CONTEXT;
+extern struct CLG_LogRef *BPY_LOG_RNA;
+
+#endif /* __BPY_H__ */

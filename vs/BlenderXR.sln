@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.28010.2019
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29020.237
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BlenderXR_SteamVR", "BlenderXR_SteamVR\BlenderXR_SteamVR.vcxproj", "{BDB6716C-F89B-4BCB-9A07-4FB927F10B2A}"
 EndProject
@@ -9,24 +9,40 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BlenderXR_Oculus", "Blender
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BlenderXR_Fove", "BlenderXR_Fove\BlenderXR_Fove.vcxproj", "{0C69939E-6873-40A9-8A7D-F7A1A6EFE684}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BlenderXR_OpenXR", "BlenderXR_OpenXR\BlenderXR_OpenXR.vcxproj", "{942955C5-FF17-44F8-AF27-251DEA9511EA}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|ML = Debug|ML
 		Debug|x64 = Debug|x64
+		Release|ML = Release|ML
 		Release|x64 = Release|x64
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{BDB6716C-F89B-4BCB-9A07-4FB927F10B2A}.Debug|ML.ActiveCfg = Debug|x64
 		{BDB6716C-F89B-4BCB-9A07-4FB927F10B2A}.Debug|x64.ActiveCfg = Debug|x64
 		{BDB6716C-F89B-4BCB-9A07-4FB927F10B2A}.Debug|x64.Build.0 = Debug|x64
+		{BDB6716C-F89B-4BCB-9A07-4FB927F10B2A}.Release|ML.ActiveCfg = Release|x64
 		{BDB6716C-F89B-4BCB-9A07-4FB927F10B2A}.Release|x64.ActiveCfg = Release|x64
 		{BDB6716C-F89B-4BCB-9A07-4FB927F10B2A}.Release|x64.Build.0 = Release|x64
+		{E334E0F7-7117-4C47-88B8-5C8BAB1C3317}.Debug|ML.ActiveCfg = Debug|x64
 		{E334E0F7-7117-4C47-88B8-5C8BAB1C3317}.Debug|x64.ActiveCfg = Debug|x64
 		{E334E0F7-7117-4C47-88B8-5C8BAB1C3317}.Debug|x64.Build.0 = Debug|x64
+		{E334E0F7-7117-4C47-88B8-5C8BAB1C3317}.Release|ML.ActiveCfg = Release|x64
 		{E334E0F7-7117-4C47-88B8-5C8BAB1C3317}.Release|x64.ActiveCfg = Release|x64
 		{E334E0F7-7117-4C47-88B8-5C8BAB1C3317}.Release|x64.Build.0 = Release|x64
+		{0C69939E-6873-40A9-8A7D-F7A1A6EFE684}.Debug|ML.ActiveCfg = Debug|x64
 		{0C69939E-6873-40A9-8A7D-F7A1A6EFE684}.Debug|x64.ActiveCfg = Debug|x64
 		{0C69939E-6873-40A9-8A7D-F7A1A6EFE684}.Debug|x64.Build.0 = Debug|x64
+		{0C69939E-6873-40A9-8A7D-F7A1A6EFE684}.Release|ML.ActiveCfg = Release|x64
 		{0C69939E-6873-40A9-8A7D-F7A1A6EFE684}.Release|x64.ActiveCfg = Release|x64
 		{0C69939E-6873-40A9-8A7D-F7A1A6EFE684}.Release|x64.Build.0 = Release|x64
+		{942955C5-FF17-44F8-AF27-251DEA9511EA}.Debug|ML.ActiveCfg = Debug|x64
+		{942955C5-FF17-44F8-AF27-251DEA9511EA}.Debug|x64.ActiveCfg = Debug|x64
+		{942955C5-FF17-44F8-AF27-251DEA9511EA}.Debug|x64.Build.0 = Debug|x64
+		{942955C5-FF17-44F8-AF27-251DEA9511EA}.Release|ML.ActiveCfg = Release|x64
+		{942955C5-FF17-44F8-AF27-251DEA9511EA}.Release|x64.ActiveCfg = Release|x64
+		{942955C5-FF17-44F8-AF27-251DEA9511EA}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

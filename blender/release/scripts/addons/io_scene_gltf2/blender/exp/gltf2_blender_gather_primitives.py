@@ -1,4 +1,4 @@
-# Copyright 2018 The glTF-Blender-IO authors.
+# Copyright 2018-2019 The glTF-Blender-IO authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,12 +13,13 @@
 # limitations under the License.
 
 import bpy
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from .gltf2_blender_export_keys import NORMALS, MORPH_NORMAL, TANGENTS, MORPH_TANGENT, MORPH
 
 from io_scene_gltf2.blender.exp.gltf2_blender_gather_cache import cached
 from io_scene_gltf2.blender.exp import gltf2_blender_extract
+from io_scene_gltf2.blender.exp import gltf2_blender_gather_accessors
 from io_scene_gltf2.blender.exp import gltf2_blender_gather_primitive_attributes
 from io_scene_gltf2.blender.exp import gltf2_blender_utils
 from io_scene_gltf2.blender.exp import gltf2_blender_gather_materials
@@ -34,6 +35,7 @@ def gather_primitives(
         blender_mesh: bpy.types.Mesh,
         vertex_groups: Optional[bpy.types.VertexGroups],
         modifiers: Optional[bpy.types.ObjectModifiers],
+        material_names: Tuple[str],
         export_settings
         ) -> List[gltf2_io.MeshPrimitive]:
     """
@@ -42,32 +44,63 @@ def gather_primitives(
     :return: a list of glTF2 primitives
     """
     primitives = []
-    blender_primitives = gltf2_blender_extract.extract_primitives(
-        None, blender_mesh, vertex_groups, modifiers, export_settings)
+
+    blender_primitives = __gather_cache_primitives(blender_mesh,
+        vertex_groups, modifiers, export_settings)
 
     for internal_primitive in blender_primitives:
+        material_idx = internal_primitive['material']
+        double_sided = False
+        material = None
+        try:
+            blender_material = bpy.data.materials[material_names[material_idx]]
+            double_sided = not blender_material.use_backface_culling
+            material = gltf2_blender_gather_materials.gather_material(blender_material,
+                                                                  double_sided,
+                                                                  export_settings)
+        except IndexError:
+            # no material at that index
+            pass
+
 
         primitive = gltf2_io.MeshPrimitive(
-            attributes=__gather_attributes(internal_primitive, blender_mesh, modifiers, export_settings),
+            attributes=internal_primitive['attributes'],
             extensions=None,
             extras=None,
-            indices=__gather_indices(internal_primitive, blender_mesh, modifiers, export_settings),
-            material=__gather_materials(internal_primitive, blender_mesh, modifiers, export_settings),
+            indices=internal_primitive['indices'],
+            material=material,
             mode=None,
-            targets=__gather_targets(internal_primitive, blender_mesh, modifiers, export_settings)
+            targets=internal_primitive['targets']
         )
         primitives.append(primitive)
 
     return primitives
 
+@cached
+def __gather_cache_primitives(
+        blender_mesh: bpy.types.Mesh,
+        vertex_groups: Optional[bpy.types.VertexGroups],
+        modifiers: Optional[bpy.types.ObjectModifiers],
+        export_settings
+) -> List[dict]:
+    """
+    Gather parts that are identical for instances, i.e. excluding materials
+    """
+    primitives = []
 
-def __gather_materials(blender_primitive, blender_mesh, modifiers, export_settings):
-    if not blender_primitive['material']:
-        # TODO: fix 'extract_promitives' so that the value of 'material' is None and not empty string
-        return None
-    material = bpy.data.materials[blender_primitive['material']]
-    return gltf2_blender_gather_materials.gather_material(material, export_settings)
+    blender_primitives = gltf2_blender_extract.extract_primitives(
+        None, blender_mesh, vertex_groups, modifiers, export_settings)
 
+    for internal_primitive in blender_primitives:
+        primitive = {
+            "attributes": __gather_attributes(internal_primitive, blender_mesh, modifiers, export_settings),
+            "indices": __gather_indices(internal_primitive, blender_mesh, modifiers, export_settings),
+            "material": internal_primitive['material'],
+            "targets": __gather_targets(internal_primitive, blender_mesh, modifiers, export_settings)
+        }
+        primitives.append(primitive)
+
+    return primitives
 
 def __gather_indices(blender_primitive, blender_mesh, modifiers, export_settings):
     indices = blender_primitive['indices']
@@ -89,19 +122,14 @@ def __gather_indices(blender_primitive, blender_mesh, modifiers, export_settings
 
     element_type = gltf2_io_constants.DataType.Scalar
     binary_data = gltf2_io_binary_data.BinaryData.from_list(indices, component_type)
-    return gltf2_io.Accessor(
-        buffer_view=binary_data,
-        byte_offset=None,
-        component_type=component_type,
-        count=len(indices) // gltf2_io_constants.DataType.num_elements(element_type),
-        extensions=None,
-        extras=None,
-        max=None,
-        min=None,
-        name=None,
-        normalized=None,
-        sparse=None,
-        type=element_type
+    return gltf2_blender_gather_accessors.gather_accessor(
+        binary_data,
+        component_type,
+        len(indices) // gltf2_io_constants.DataType.num_elements(element_type),
+        None,
+        None,
+        element_type,
+        export_settings
     )
 
 

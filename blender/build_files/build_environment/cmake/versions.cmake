@@ -46,32 +46,32 @@ set(PTHREADS_URI http://sourceforge.mirrorservice.org/p/pt/pthreads4w/pthreads4w
 set(PTHREADS_HASH f3bf81bb395840b3446197bcf4ecd653)
 
 set(ILMBASE_VERSION 2.3.0)
-if (WIN32)
-	if(BUILD_MODE STREQUAL Release)
-		set(ILMBASE_VERSION_POSTFIX _s)
-		set(OPENEXR_VERSION_POSTFIX _s)
-	else()
-		set(ILMBASE_VERSION_POSTFIX _s_d)
-		set(OPENEXR_VERSION_POSTFIX _s_d)
-	endif()
+if(WIN32)
+  if(BUILD_MODE STREQUAL Release)
+    set(ILMBASE_VERSION_POSTFIX _s)
+    set(OPENEXR_VERSION_POSTFIX _s)
+  else()
+    set(ILMBASE_VERSION_POSTFIX _s_d)
+    set(OPENEXR_VERSION_POSTFIX _s_d)
+  endif()
 else()
-	set(ILMBASE_VERSION_POSTFIX)
+  set(ILMBASE_VERSION_POSTFIX)
 endif()
 set(ILMBASE_URI https://github.com/openexr/openexr/releases/download/v${ILMBASE_VERSION}/ilmbase-${ILMBASE_VERSION}.tar.gz)
 set(ILMBASE_HASH 354bf86de3b930ab87ac63619d60c860)
 
 set(OPENEXR_VERSION 2.3.0)
-if (WIN32) #release 2.3.0 tarball has broken cmake support
-	set(OPENEXR_URI https://github.com/openexr/openexr/archive/0ac2ea34c8f3134148a5df4052e40f155b76f6fb.tar.gz)
-	set(OPENEXR_HASH ed159435d508240712fbaaa21d94bafb)
+if(WIN32) #release 2.3.0 tarball has broken cmake support
+  set(OPENEXR_URI https://github.com/openexr/openexr/archive/0ac2ea34c8f3134148a5df4052e40f155b76f6fb.tar.gz)
+  set(OPENEXR_HASH ed159435d508240712fbaaa21d94bafb)
 else()
-	set(OPENEXR_VERSION_POSTFIX)
-	set(OPENEXR_URI https://github.com/openexr/openexr/releases/download/v${OPENEXR_VERSION}/openexr-${OPENEXR_VERSION}.tar.gz)
-	set(OPENEXR_HASH a157e8a46596bc185f2472a5a4682174)
+  set(OPENEXR_VERSION_POSTFIX)
+  set(OPENEXR_URI https://github.com/openexr/openexr/releases/download/v${OPENEXR_VERSION}/openexr-${OPENEXR_VERSION}.tar.gz)
+  set(OPENEXR_HASH a157e8a46596bc185f2472a5a4682174)
 endif()
 
 set(FREETYPE_VERSION 2.9.1)
-set(FREETYPE_URI http://download.savannah.gnu.org/releases/freetype/freetype-${FREETYPE_VERSION}.tar.gz)
+set(FREETYPE_URI http://prdownloads.sourceforge.net/freetype/freetype-${FREETYPE_VERSION}.tar.gz)
 set(FREETYPE_HASH 3adb0e35d3c100c456357345ccfa8056)
 
 set(GLEW_VERSION 1.13.0)
@@ -105,8 +105,8 @@ set(CUEW_GIT_UID 1744972026de9cf27c8a7dc39cf39cd83d5f922f)
 set(CUEW_URI https://github.com/CudaWrangler/cuew/archive/${CUEW_GIT_UID}.zip)
 set(CUEW_HASH 86760d62978ebfd96cd93f5aa1abaf4a)
 
-set(OPENSUBDIV_VERSION v3_3_3)
-set(OPENSUBDIV_Hash 29c79dc01ef616aab02670bed5544ddd)
+set(OPENSUBDIV_VERSION v3_4_0_RC2)
+set(OPENSUBDIV_Hash f6a10ba9efaa82fde86fe65aad346319)
 set(OPENSUBDIV_URI https://github.com/PixarAnimationStudios/OpenSubdiv/archive/${OPENSUBDIV_VERSION}.tar.gz)
 
 set(SDL_VERSION 2.0.8)
@@ -251,7 +251,7 @@ set(JEMALLOC_URI https://github.com/jemalloc/jemalloc/releases/download/${JEMALL
 set(JEMALLOC_HASH 507f7b6b882d868730d644510491d18f)
 
 set(XML2_VERSION 2.9.4)
-set(XML2_URI ftp://xmlsoft.org/libxml2/libxml2-${XML2_VERSION}.tar.gz)
+set(XML2_URI http://xmlsoft.org/sources/libxml2-${XML2_VERSION}.tar.gz)
 set(XML2_HASH ae249165c173b1ff386ee8ad676815f5)
 
 set(TINYXML_VERSION 2_6_2)
@@ -284,7 +284,7 @@ set(BZIP2_URI http://http.debian.net/debian/pool/main/b/bzip2/bzip2_${BZIP2_VERS
 set(BZIP2_HASH d70a9ccd8bdf47e302d96c69fecd54925f45d9c7b966bb4ef5f56b770960afa7)
 
 set(FFI_VERSION 3.2.1)
-set(FFI_URI ftp://sourceware.org/pub/libffi/libffi-${FFI_VERSION}.tar.gz)
+set(FFI_URI https://sourceware.org/pub/libffi/libffi-${FFI_VERSION}.tar.gz)
 set(FFI_HASH d06ebb8e1d9a22d19e38d63fdb83954253f39bedc5d46232a05645685722ca37)
 
 set(LZMA_VERSION 5.2.4)

@@ -15,10 +15,10 @@
 * along with this program; if not, write to the Free Software Foundation,
 * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 *
-* The Original Code is Copyright (C) 2018 by Blender Foundation.
+* The Original Code is Copyright (C) 2019 by Blender Foundation.
 * All rights reserved.
 *
-* Contributor(s): MARUI-PlugIn
+* Contributor(s): MARUI-PlugIn, Multiplexed Reality
 *
 * ***** END GPL LICENSE BLOCK *****
 */
@@ -377,7 +377,6 @@ void VR_Util::raycast_select_single_face(const Coord3Df& p, ViewContext *vc, boo
 	}
 }
 
-
 void VR_Util::raycast_select_single_edit(
 	const Coord3Df& p,
 	bool extend,
@@ -415,7 +414,7 @@ void VR_Util::raycast_select_single_edit(
 	}
 }
 
-void VR_Util::raycast_select_single(
+Base *VR_Util::raycast_select_single(
 	const Coord3Df& p,
 	bool extend,
 	bool deselect,
@@ -510,7 +509,7 @@ void VR_Util::raycast_select_single(
 	}
 #if 0 /* TODO_XR */
 	else {
-		unsigned int buffer[MAXPICKBUF];
+		uint buffer[MAXPICKBUF];
 		bool do_nearest;
 
 		// TIMEIT_START(select_time);
@@ -727,4 +726,6 @@ void VR_Util::raycast_select_single(
 			ED_undo_push(C, "Select");
 		}
 	}
+
+	return basact;
 }

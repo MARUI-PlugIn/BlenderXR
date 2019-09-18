@@ -20,11 +20,12 @@
 #ifndef __BLI_JITTER_2D_H__
 #define __BLI_JITTER_2D_H__
 
-/** \file \ingroup bli
+/** \file
+ * \ingroup bli
  */
 
 void BLI_jitter_init(float (*jitarr)[2], int num);
 void BLI_jitterate1(float (*jit1)[2], float (*jit2)[2], int num, float radius1);
 void BLI_jitterate2(float (*jit1)[2], float (*jit2)[2], int num, float radius2);
 
-#endif  /* __BLI_JITTER_2D_H__ */
+#endif /* __BLI_JITTER_2D_H__ */

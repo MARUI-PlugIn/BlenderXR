@@ -14,35 +14,39 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup collada
+/** \file
+ * \ingroup collada
  */
 
 #include <string>
 #include <map>
 #include <vector>
-#include <algorithm> // sort()
+#include <algorithm>  // sort()
 
 #include "COLLADASaxFWLIErrorHandler.h"
 
 /** \brief Handler class for parser errors
  */
-class ErrorHandler : public COLLADASaxFWL::IErrorHandler
-{
-public:
-	/** Constructor. */
-	ErrorHandler();
+class ErrorHandler : public COLLADASaxFWL::IErrorHandler {
+ public:
+  /** Constructor. */
+  ErrorHandler();
 
-	/** Destructor. */
-	virtual ~ErrorHandler();
-	/** handle any error thrown by the parser. */
-	bool virtual handleError(const COLLADASaxFWL::IError* error);
-	/** True if there was an error during parsing. */
-	bool hasError() { return mError; }
-private:
-	/** Disable default copy ctor. */
-	ErrorHandler(const ErrorHandler& pre);
-	/** Disable default assignment operator. */
-	const ErrorHandler& operator= ( const ErrorHandler& pre );
-	/** Hold error status. */
-	bool mError;
+  /** Destructor. */
+  virtual ~ErrorHandler();
+  /** handle any error thrown by the parser. */
+  bool virtual handleError(const COLLADASaxFWL::IError *error);
+  /** True if there was an error during parsing. */
+  bool hasError()
+  {
+    return mError;
+  }
+
+ private:
+  /** Disable default copy ctor. */
+  ErrorHandler(const ErrorHandler &pre);
+  /** Disable default assignment operator. */
+  const ErrorHandler &operator=(const ErrorHandler &pre);
+  /** Hold error status. */
+  bool mError;
 };

@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup shader_fx
+/** \file
+ * \ingroup shader_fx
  */
 
 #ifndef __FX_SHADER_TYPES_H__
@@ -39,4 +40,4 @@ extern ShaderFxTypeInfo shaderfx_Type_Wave;
 /* FX_shaderfx_util.c */
 void shaderfx_type_init(ShaderFxTypeInfo *types[]);
 
-#endif  /* __FX_SHADER_TYPES_H__ */
+#endif /* __FX_SHADER_TYPES_H__ */

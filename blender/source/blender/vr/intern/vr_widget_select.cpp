@@ -15,18 +15,16 @@
 * along with this program; if not, write to the Free Software Foundation,
 * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 *
-* The Original Code is Copyright (C) 2018 by Blender Foundation.
+* The Original Code is Copyright (C) 2019 by Blender Foundation.
 * All rights reserved.
 *
-* Contributor(s): MARUI-PlugIn
+* Contributor(s): MARUI-PlugIn, Multiplexed Reality
 *
 * ***** END GPL LICENSE BLOCK *****
 */
 
 /** \file blender/vr/intern/vr_widget_select.cpp
 *   \ingroup vr
-* 
-* Main module for the VR widget UI.
 */
 
 #include "vr_types.h"
@@ -38,6 +36,8 @@
 #include "vr_widget.h"
 #include "vr_widget_transform.h"
 #include "vr_widget_select.h"
+
+#include "vr_widget_sculpt.h"
 
 #include "vr_math.h"
 #include "vr_draw.h"
@@ -60,7 +60,7 @@
 
 #include "vr_util.h"
 
-/***********************************************************************************************//**
+/***************************************************************************************************
 * \class                               Widget_Select
 ***************************************************************************************************
 * Interaction widget for object selection in the default ray-casting mode
@@ -133,7 +133,7 @@ void Widget_Select::render(VR_Side side)
 	Widget_Select::obj.do_render[side] = false;
 }
 
-/***********************************************************************************************//**
+/***************************************************************************************************
 * \class                               Widget_Select::Raycast
 ***************************************************************************************************
 * Interaction widget for object selection in the default ray-casting mode
@@ -143,12 +143,11 @@ Widget_Select::Raycast Widget_Select::Raycast::obj;
 
 Widget_Select::Raycast::SelectionRect Widget_Select::Raycast::selection_rect[VR_SIDES];
 
-
 #if 0
 /* From view3d_select.c */
 static bool selectbuffer_has_bones(const uint *buffer, const uint hits)
 {
-	unsigned int i;
+	uint i;
 	for (i = 0; i < hits; i++) {
 		if (buffer[(4 * i) + 3] & 0xFFFF0000) {
 			return true;
@@ -157,29 +156,29 @@ static bool selectbuffer_has_bones(const uint *buffer, const uint hits)
 	return false;
 }
 
-static int selectbuffer_ret_hits_15(unsigned int *UNUSED(buffer), const int hits15)
+static int selectbuffer_ret_hits_15(uint *UNUSED(buffer), const int hits15)
 {
 	return hits15;
 }
 
-static int selectbuffer_ret_hits_9(unsigned int *buffer, const int hits15, const int hits9)
+static int selectbuffer_ret_hits_9(uint *buffer, const int hits15, const int hits9)
 {
 	const int offs = 4 * hits15;
-	memcpy(buffer, buffer + offs, 4 * hits9 * sizeof(unsigned int));
+	memcpy(buffer, buffer + offs, 4 * hits9 * sizeof(uint));
 	return hits9;
 }
 
-static int selectbuffer_ret_hits_5(unsigned int *buffer, const int hits15, const int hits9, const int hits5)
+static int selectbuffer_ret_hits_5(uint *buffer, const int hits15, const int hits9, const int hits5)
 {
 	const int offs = 4 * hits15 + 4 * hits9;
-	memcpy(buffer, buffer + offs, 4 * hits5 * sizeof(unsigned int));
+	memcpy(buffer, buffer + offs, 4 * hits5 * sizeof(uint));
 	return hits5;
 }
 
 /* we want a select buffer with bones, if there are... */
 /* so check three selection levels and compare */
 static int mixed_bones_object_selectbuffer(
-	ViewContext *vc, unsigned int *buffer, const int mval[2],
+	ViewContext *vc, uint *buffer, const int mval[2],
 	bool use_cycle, bool enumerate, eV3DSelectObjectFilter select_filter,
 	bool *r_do_nearest)
 {
@@ -294,7 +293,7 @@ static Base *mouse_select_eval_buffer(
 	int a;
 
 	if (do_nearest) {
-		unsigned int min = 0xFFFFFFFF;
+		uint min = 0xFFFFFFFF;
 		int selcol = 0, notcol = 0;
 
 		if (has_bones) {
@@ -387,7 +386,6 @@ static void deselect_all_tracks(MovieTracking *tracking)
 	}
 }
 #endif
-
  
 /* Select multiple objects with raycast selection.
  * p0 and p1 should be in screen coordinates (-1, 1). */
@@ -562,7 +560,7 @@ static void raycast_select_multiple(
 	}
 #if 0 /* TODO_XR */
 	else {
-		unsigned int buffer[MAXPICKBUF];
+		uint buffer[MAXPICKBUF];
 		bool do_nearest;
 
 		// TIMEIT_START(select_time);
@@ -977,7 +975,11 @@ bool Widget_Select::Raycast::has_click(VR_UI::Cursor& c) const
 
 void Widget_Select::Raycast::click(VR_UI::Cursor& c)
 {
-	const Mat44f& m = c.interaction_position.get();
+	if (Widget_Sculpt::is_dragging) {
+		return;
+	}
+
+	const Mat44f& m = c.position.get();
 	if (CTX_data_edit_object(vr_get_obj()->ctx)) {
 		VR_Util::raycast_select_single_edit(*(Coord3Df*)m.m[3], VR_UI::shift_key_get(), VR_UI::ctrl_key_get());
 	}
@@ -990,7 +992,7 @@ void Widget_Select::Raycast::click(VR_UI::Cursor& c)
 
 void Widget_Select::Raycast::drag_start(VR_UI::Cursor& c)
 {
-	const Mat44f& m = c.interaction_position.get();
+	const Mat44f& m = c.position.get();
 
 	VR_Side side = VR_UI::eye_dominance_get();
 	VR_UI::get_screen_coordinates(*(Coord3Df*)m.m[3], selection_rect[side].x0, selection_rect[side].y0, side);
@@ -1014,18 +1016,21 @@ void Widget_Select::Raycast::drag_contd(VR_UI::Cursor& c)
 
 void Widget_Select::Raycast::drag_stop(VR_UI::Cursor& c)
 {
-	const Mat44f& m = c.position.get();
 	VR_Side side = VR_UI::eye_dominance_get();
-	VR_UI::get_screen_coordinates(*(Coord3Df*)m.m[3], selection_rect[side].x1, selection_rect[side].y1, side);
 
-	if (CTX_data_edit_object(vr_get_obj()->ctx)) {
-		raycast_select_multiple_edit(selection_rect[side].x0, selection_rect[side].y0, selection_rect[side].x1, selection_rect[side].y1, VR_UI::shift_key_get(), VR_UI::ctrl_key_get());
+	if (!Widget_Sculpt::is_dragging) {
+		const Mat44f& m = c.position.get();
+		VR_UI::get_screen_coordinates(*(Coord3Df*)m.m[3], selection_rect[side].x1, selection_rect[side].y1, side);
+
+		if (CTX_data_edit_object(vr_get_obj()->ctx)) {
+			raycast_select_multiple_edit(selection_rect[side].x0, selection_rect[side].y0, selection_rect[side].x1, selection_rect[side].y1, VR_UI::shift_key_get(), VR_UI::ctrl_key_get());
+		}
+		else {
+			raycast_select_multiple(selection_rect[side].x0, selection_rect[side].y0, selection_rect[side].x1, selection_rect[side].y1, VR_UI::shift_key_get(), VR_UI::ctrl_key_get());
+		}
+		/* Update manipulators */
+		Widget_Transform::update_manipulator();
 	}
-	else {
-		raycast_select_multiple(selection_rect[side].x0, selection_rect[side].y0, selection_rect[side].x1, selection_rect[side].y1, VR_UI::shift_key_get(), VR_UI::ctrl_key_get());
-	}
-	/* Update manipulators */
-	Widget_Transform::update_manipulator();
 
 	Widget_Select::Raycast::obj.do_render[side] = false;
 }
@@ -1052,7 +1057,7 @@ void Widget_Select::Raycast::render(VR_Side side)
 	Widget_Select::Raycast::obj.do_render[side] = false;
 }
 
-/***********************************************************************************************//**
+/***************************************************************************************************
 * \class                               Widget_Select::Proximity
 ***************************************************************************************************
 * Interaction widget for object selection in the proximity selection mode
@@ -1224,7 +1229,7 @@ static void proximity_select_multiple(
 	}
 #if 0 /* TODO_XR */
 	else {
-		unsigned int buffer[MAXPICKBUF];
+		uint buffer[MAXPICKBUF];
 		bool do_nearest;
 
 		// TIMEIT_START(select_time);
@@ -1603,6 +1608,10 @@ void Widget_Select::Proximity::click(VR_UI::Cursor& c)
 		return;
 	}
 
+	if (Widget_Sculpt::is_dragging) {
+		return;
+	}
+
 	bContext *C = vr_get_obj()->ctx;
 	Scene *scene = CTX_data_scene(C);
 	ViewLayer *view_layer = CTX_data_view_layer(C);
@@ -1663,20 +1672,22 @@ void Widget_Select::Proximity::drag_contd(VR_UI::Cursor& c)
 
 void Widget_Select::Proximity::drag_stop(VR_UI::Cursor& c)
 {
-	const Mat44f& m1 = c.position.get();
-	memcpy(&p1, m1.m[3], sizeof(float) * 3);
+	if (!Widget_Sculpt::is_dragging) {
+		const Mat44f& m1 = c.position.get();
+		memcpy(&p1, m1.m[3], sizeof(float) * 3);
 
-	p0 = VR_UI::convert_space(p0, VR_SPACE_REAL, VR_SPACE_BLENDER);
-	p1 = VR_UI::convert_space(p1, VR_SPACE_REAL, VR_SPACE_BLENDER);
+		p0 = VR_UI::convert_space(p0, VR_SPACE_REAL, VR_SPACE_BLENDER);
+		p1 = VR_UI::convert_space(p1, VR_SPACE_REAL, VR_SPACE_BLENDER);
 
-	if (CTX_data_edit_object(vr_get_obj()->ctx)) {
-		proximity_select_multiple_edit(p0, p1, VR_UI::shift_key_get(), VR_UI::ctrl_key_get());
+		if (CTX_data_edit_object(vr_get_obj()->ctx)) {
+			proximity_select_multiple_edit(p0, p1, VR_UI::shift_key_get(), VR_UI::ctrl_key_get());
+		}
+		else {
+			proximity_select_multiple(p0, p1, VR_UI::shift_key_get(), VR_UI::ctrl_key_get());
+		}
+		/* Update manipulators */
+		Widget_Transform::update_manipulator();
 	}
-	else {
-		proximity_select_multiple(p0, p1, VR_UI::shift_key_get(), VR_UI::ctrl_key_get());
-	}
-	/* Update manipulators */
-	Widget_Transform::update_manipulator();
 
 	for (int i = 0; i < VR_SIDES; ++i) {
 		Widget_Select::Proximity::obj.do_render[i] = false;

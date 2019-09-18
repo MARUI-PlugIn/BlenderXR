@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup modifiers
+/** \file
+ * \ingroup modifiers
  */
 
 #ifndef __MOD_GPENCIL_MODIFIERTYPES_H__
@@ -45,4 +46,4 @@ extern GpencilModifierTypeInfo modifierType_Gpencil_Time;
 /* MOD_gpencil_util.c */
 void gpencil_modifier_type_init(GpencilModifierTypeInfo *types[]);
 
-#endif  /* __MOD_GPENCIL_MODIFIERTYPES_H__ */
+#endif /* __MOD_GPENCIL_MODIFIERTYPES_H__ */

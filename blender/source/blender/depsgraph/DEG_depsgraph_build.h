@@ -17,7 +17,8 @@
  * All rights reserved.
  */
 
-/** \file \ingroup depsgraph
+/** \file
+ * \ingroup depsgraph
  *
  * Public API for Depsgraph
  */
@@ -34,6 +35,7 @@ struct Depsgraph;
 
 struct CacheFile;
 struct Collection;
+struct CustomData_MeshMasks;
 struct EffectorWeights;
 struct ID;
 struct Main;
@@ -41,6 +43,7 @@ struct ModifierData;
 struct Object;
 struct Scene;
 struct ViewLayer;
+struct bNodeTree;
 
 #ifdef __cplusplus
 extern "C" {
@@ -50,13 +53,29 @@ extern "C" {
 
 /* Graph Building -------------------------------- */
 
-/* Build depsgraph for the given scene, and dump results in given
- * graph container.
- */
+/* Build depsgraph for the given scene, and dump results in given graph container. */
 void DEG_graph_build_from_view_layer(struct Depsgraph *graph,
-                                      struct Main *bmain,
-                                      struct Scene *scene,
-                                      struct ViewLayer *view_layer);
+                                     struct Main *bmain,
+                                     struct Scene *scene,
+                                     struct ViewLayer *view_layer);
+
+/* Special version of builder which produces dependency graph suitable for the render pipeline.
+ * It will contain sequencer and compositor (if needed) and all their dependencies. */
+void DEG_graph_build_for_render_pipeline(struct Depsgraph *graph,
+                                         struct Main *bmain,
+                                         struct Scene *scene,
+                                         struct ViewLayer *view_layer);
+
+/* Builds minimal dependency graph for compositor preview.
+ *
+ * Note that compositor editor might have pinned node tree, which is different from scene's node
+ * tree.
+ */
+void DEG_graph_build_for_compositor_preview(struct Depsgraph *graph,
+                                            struct Main *bmain,
+                                            struct Scene *scene,
+                                            struct ViewLayer *view_layer,
+                                            struct bNodeTree *nodetree);
 
 /* Tag relations from the given graph for update. */
 void DEG_graph_tag_relations_update(struct Depsgraph *graph);
@@ -80,43 +99,46 @@ void DEG_relations_tag_update(struct Main *bmain);
 struct DepsNodeHandle;
 
 typedef enum eDepsSceneComponentType {
-	/* Parameters Component - Default when nothing else fits
-	 * (i.e. just SDNA property setting). */
-	DEG_SCENE_COMP_PARAMETERS,
-	/* Animation Component
-	 * TODO(sergey): merge in with parameters?  */
-	DEG_SCENE_COMP_ANIMATION,
-	/* Sequencer Component (Scene Only). */
-	DEG_SCENE_COMP_SEQUENCER,
+  /* Parameters Component - Default when nothing else fits
+   * (i.e. just SDNA property setting). */
+  DEG_SCENE_COMP_PARAMETERS,
+  /* Animation Component
+   * TODO(sergey): merge in with parameters?  */
+  DEG_SCENE_COMP_ANIMATION,
+  /* Sequencer Component (Scene Only). */
+  DEG_SCENE_COMP_SEQUENCER,
 } eDepsSceneComponentType;
 
 typedef enum eDepsObjectComponentType {
-	/* Parameters Component - Default when nothing else fits
-	 * (i.e. just SDNA property setting). */
-	DEG_OB_COMP_PARAMETERS,
-	/* Generic "Proxy-Inherit" Component.
-	 * TODO(sergey): Also for instancing of subgraphs? */
-	DEG_OB_COMP_PROXY,
-	/* Animation Component.
-	 *
-	 * TODO(sergey): merge in with parameters? */
-	DEG_OB_COMP_ANIMATION,
-	/* Transform Component (Parenting/Constraints) */
-	DEG_OB_COMP_TRANSFORM,
-	/* Geometry Component (Mesh/Displist) */
-	DEG_OB_COMP_GEOMETRY,
+  /* Used in query API, to denote which component caller is interested in. */
+  DEG_OB_COMP_ANY,
 
-	/* Evaluation-Related Outer Types (with Subdata) */
+  /* Parameters Component - Default when nothing else fits
+   * (i.e. just SDNA property setting). */
+  DEG_OB_COMP_PARAMETERS,
+  /* Generic "Proxy-Inherit" Component.
+   * TODO(sergey): Also for instancing of subgraphs? */
+  DEG_OB_COMP_PROXY,
+  /* Animation Component.
+   *
+   * TODO(sergey): merge in with parameters? */
+  DEG_OB_COMP_ANIMATION,
+  /* Transform Component (Parenting/Constraints) */
+  DEG_OB_COMP_TRANSFORM,
+  /* Geometry Component (Mesh/Displist) */
+  DEG_OB_COMP_GEOMETRY,
 
-	/* Pose Component - Owner/Container of Bones Eval */
-	DEG_OB_COMP_EVAL_POSE,
-	/* Bone Component - Child/Subcomponent of Pose */
-	DEG_OB_COMP_BONE,
+  /* Evaluation-Related Outer Types (with Sub-data) */
 
-	/* Material Shading Component */
-	DEG_OB_COMP_SHADING,
-	/* Cache Component */
-	DEG_OB_COMP_CACHE,
+  /* Pose Component - Owner/Container of Bones Eval */
+  DEG_OB_COMP_EVAL_POSE,
+  /* Bone Component - Child/Sub-component of Pose */
+  DEG_OB_COMP_BONE,
+
+  /* Material Shading Component */
+  DEG_OB_COMP_SHADING,
+  /* Cache Component */
+  DEG_OB_COMP_CACHE,
 } eDepsObjectComponentType;
 
 void DEG_add_scene_relation(struct DepsNodeHandle *node_handle,
@@ -142,16 +164,26 @@ void DEG_add_generic_id_relation(struct DepsNodeHandle *node_handle,
                                  struct ID *id,
                                  const char *description);
 
+/* Special function which is used from modifiers' updateDepsgraph() callback
+ * to indicate that the modifier needs to know transformation of the object
+ * which that modifier belongs to.
+ * This function will take care of checking which operation is required to
+ * have transformation for the modifier, taking into account possible simulation
+ * solvers. */
+void DEG_add_modifier_to_transform_relation(struct DepsNodeHandle *node_handle,
+                                            const char *description);
+
 /* Adds relations from the given component of a given object to the given node
- * handle AND the component to the point cache component of the node's ID.
- */
+ * handle AND the component to the point cache component of the node's ID. */
 void DEG_add_object_pointcache_relation(struct DepsNodeHandle *node_handle,
                                         struct Object *object,
                                         eDepsObjectComponentType component,
                                         const char *description);
 
 void DEG_add_special_eval_flag(struct DepsNodeHandle *handle, struct ID *id, uint32_t flag);
-void DEG_add_customdata_mask(struct DepsNodeHandle *handle, struct Object *object, uint64_t mask);
+void DEG_add_customdata_mask(struct DepsNodeHandle *handle,
+                             struct Object *object,
+                             const struct CustomData_MeshMasks *masks);
 
 struct ID *DEG_get_id_from_handle(struct DepsNodeHandle *node_handle);
 struct Depsgraph *DEG_get_graph_from_handle(struct DepsNodeHandle *node_handle);
@@ -162,4 +194,4 @@ struct Depsgraph *DEG_get_graph_from_handle(struct DepsNodeHandle *node_handle);
 } /* extern "C" */
 #endif
 
-#endif  /* __DEG_DEPSGRAPH_BUILD_H__ */
+#endif /* __DEG_DEPSGRAPH_BUILD_H__ */

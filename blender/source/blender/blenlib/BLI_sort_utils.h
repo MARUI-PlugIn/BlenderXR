@@ -20,7 +20,8 @@
 #ifndef __BLI_SORT_UTILS_H__
 #define __BLI_SORT_UTILS_H__
 
-/** \file \ingroup bli
+/** \file
+ * \ingroup bli
  */
 
 /**
@@ -28,23 +29,23 @@
  * so cmp functions can be reused.
  */
 struct SortPtrByFloat {
-	float sort_value;
-	void *data;
+  float sort_value;
+  void *data;
 };
 
 struct SortIntByFloat {
-	float sort_value;
-	int data;
+  float sort_value;
+  int data;
 };
 
 struct SortPtrByInt {
-	int sort_value;
-	void *data;
+  int sort_value;
+  void *data;
 };
 
 struct SortIntByInt {
-	int sort_value;
-	int data;
+  int sort_value;
+  int data;
 };
 
 int BLI_sortutil_cmp_float(const void *a_, const void *b_);
@@ -56,4 +57,4 @@ int BLI_sortutil_cmp_int_reverse(const void *a_, const void *b_);
 int BLI_sortutil_cmp_ptr(const void *a_, const void *b_);
 int BLI_sortutil_cmp_ptr_reverse(const void *a_, const void *b_);
 
-#endif  /* __BLI_SORT_UTILS_H__ */
+#endif /* __BLI_SORT_UTILS_H__ */

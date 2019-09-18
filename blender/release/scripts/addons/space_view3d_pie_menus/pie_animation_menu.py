@@ -19,7 +19,7 @@
 # <pep8 compliant>
 
 bl_info = {
-    "name": "Hotkey: 'Alt A'",
+    "name": "Hotkey: 'Ctrl Shift Spacebar'",
     "description": "Pie menu for Timeline controls",
     "author": "pitiwazou, meta-androcto",
     "version": (0, 1, 1),
@@ -39,8 +39,8 @@ from bpy.types import (
 # Pie Animation
 
 
-class PieAnimation(Menu):
-    bl_idname = "pie.animation"
+class PIE_MT_PieAnimation(Menu):
+    bl_idname = "PIE_MT_animation"
     bl_label = "Pie Animation"
 
     def draw(self, context):
@@ -68,7 +68,7 @@ class PieAnimation(Menu):
 
 
 # Insert Auto Keyframe
-class InsertAutoKeyframe(Operator):
+class PIE_OT_InsertAutoKeyframe(Operator):
     bl_idname = "insert.autokeyframe"
     bl_label = "Insert Auto Keyframe"
     bl_description = "Toggle Insert Auto Keyframe"
@@ -80,15 +80,15 @@ class InsertAutoKeyframe(Operator):
         ts.use_keyframe_insert_auto ^= 1
 
         for area in context.screen.areas:
-            if area.type in ('TIMELINE'):
+            if area.type == 'TIMELINE':
                 area.tag_redraw()
 
         return {'FINISHED'}
 
 
 classes = (
-    PieAnimation,
-    InsertAutoKeyframe
+    PIE_MT_PieAnimation,
+    PIE_OT_InsertAutoKeyframe
     )
 
 addon_keymaps = []
@@ -102,8 +102,8 @@ def register():
     if wm.keyconfigs.addon:
         # Animation
         km = wm.keyconfigs.addon.keymaps.new(name='Object Non-modal')
-        kmi = km.keymap_items.new('wm.call_menu_pie', 'A', 'PRESS', alt=True)
-        kmi.properties.name = "pie.animation"
+        kmi = km.keymap_items.new('wm.call_menu_pie', 'SPACE', 'PRESS', ctrl=True, shift=True)
+        kmi.properties.name = "PIE_MT_animation"
         addon_keymaps.append((km, kmi))
 
 

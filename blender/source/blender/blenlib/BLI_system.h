@@ -19,12 +19,12 @@
 
 #include <stdio.h>
 
-/** \file \ingroup bli
+/** \file
+ * \ingroup bli
  */
 
 int BLI_cpu_support_sse2(void);
 void BLI_system_backtrace(FILE *fp);
-
 
 /* Get CPU brand, result is to be MEM_freeN()-ed. */
 char *BLI_cpu_brand_string(void);
@@ -41,6 +41,10 @@ char *BLI_cpu_brand_string(void);
  */
 void BLI_hostname_get(char *buffer, size_t bufsize);
 
+/* Get maximum addressable memory in megabytes. */
+size_t BLI_system_memory_max_in_megabytes(void);
+int BLI_system_memory_max_in_megabytes_int(void);
+
 /* getpid */
 #ifdef WIN32
 #  define BLI_SYSTEM_PID_H <process.h>
@@ -48,4 +52,4 @@ void BLI_hostname_get(char *buffer, size_t bufsize);
 #  define BLI_SYSTEM_PID_H <unistd.h>
 #endif
 
-#endif  /* __BLI_SYSTEM_H__ */
+#endif /* __BLI_SYSTEM_H__ */

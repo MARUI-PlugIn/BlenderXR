@@ -22,7 +22,7 @@ bl_info = {
     "author": "Antonio Osprite, Liero, Atom, Jimmy Hazevoet",
     "version": (0, 2, 2),
     "blender": (2, 80, 0),
-    "location": "Toolshelf > Create Tab",
+    "location": "Sidebar > Create Tab",
     "description": "SpiroFit, BounceSpline and Catenary adds "
                    "splines to selected mesh or objects",
     "warning": "",
@@ -317,9 +317,6 @@ class SpiroFitSpline(Operator):
                         "Active Object is not a Mesh. Operation Cancelled")
             return {'CANCELLED'}
 
-        #undo = context.preferences.edit.use_global_undo
-        #context.preferences.edit.use_global_undo = False
-
         bpy.ops.object.select_all(action='DESELECT')
 
         r.seed(self.random_seed)
@@ -357,7 +354,6 @@ class SpiroFitSpline(Operator):
         if self.auto_refresh is False:
             self.refresh = False
 
-        #context.preferences.edit.use_global_undo = undo
         return {'FINISHED'}
 
 
@@ -585,9 +581,6 @@ class BounceSpline(Operator):
         if obj.type != 'MESH':
             return {'CANCELLED'}
 
-        #undo = context.preferences.edit.use_global_undo
-        #context.preferences.edit.use_global_undo = False
-
         bpy.ops.object.select_all(action='DESELECT')
 
         r.seed(self.random_seed)
@@ -622,7 +615,6 @@ class BounceSpline(Operator):
         if self.auto_refresh is False:
             self.refresh = False
 
-        #context.preferences.edit.use_global_undo = undo
         return {'FINISHED'}
 
 
@@ -823,9 +815,6 @@ class CatenaryCurve(Operator):
 
         bpy.ops.object.select_all(action='DESELECT')
 
-        #undo = context.preferences.edit.use_global_undo
-        #context.preferences.edit.use_global_undo = False
-
         r.seed(self.random_seed)
 
         points = catenary_curve(
@@ -857,7 +846,6 @@ class CatenaryCurve(Operator):
         if self.auto_refresh is False:
             self.refresh = False
 
-        #context.preferences.edit.use_global_undo = undo
         return {'FINISHED'}
 
 
@@ -926,10 +914,10 @@ def move_origin_to_start():
         start = active.matrix_world @ spline.points[0].co
         start = start[:-1]
 
-    cursor = bpy.context.scene.cursor_location.copy()
-    bpy.context.scene.cursor_location = start
+    cursor = bpy.context.scene.cursor.location.copy()
+    bpy.context.scene.cursor.location = start
     bpy.ops.object.origin_set(type='ORIGIN_CURSOR')
-    bpy.context.scene.cursor_location = cursor
+    bpy.context.scene.cursor.location = cursor
 
 
 def draw_spline_settings(self):
@@ -965,7 +953,7 @@ class SplinePanel(Panel):
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_context = "objectmode"
-    bl_category = "Spline"
+    bl_category = "Create"
     #bl_options = {'DEFAULT_CLOSED'}
 
     def draw(self, context):

@@ -17,7 +17,6 @@
 # ##### END GPL LICENSE BLOCK #####
 
 # <pep8 compliant>
-import bpy
 from bpy.types import Panel
 
 
@@ -35,8 +34,17 @@ class ConstraintButtonsPanel:
             # match enum type to our functions, avoids a lookup table.
             getattr(self, con.type)(context, box, con)
 
-            if con.type not in {'RIGID_BODY_JOINT', 'NULL'}:
+            if con.type in {'RIGID_BODY_JOINT', 'NULL'}:
+                return
+
+            if con.type in {'IK', 'SPLINE_IK'}:
+                # constraint.disable_keep_transform doesn't work well
+                # for these constraints.
                 box.prop(con, "influence")
+            else:
+                row = box.row(align=True)
+                row.prop(con, "influence")
+                row.operator("constraint.disable_keep_transform", text="", icon='CANCEL')
 
     @staticmethod
     def space_template(layout, con, target=True, owner=True):
@@ -94,7 +102,7 @@ class ConstraintButtonsPanel:
         col = split.column()
         col.prop(con, "chain_count")
 
-    def CHILD_OF(self, context, layout, con):
+    def CHILD_OF(self, _context, layout, con):
         self.target_template(layout, con)
 
         split = layout.split()
@@ -121,7 +129,7 @@ class ConstraintButtonsPanel:
         row.operator("constraint.childof_set_inverse")
         row.operator("constraint.childof_clear_inverse")
 
-    def TRACK_TO(self, context, layout, con):
+    def TRACK_TO(self, _context, layout, con):
         self.target_template(layout, con)
 
         row = layout.row()
@@ -177,7 +185,7 @@ class ConstraintButtonsPanel:
             sub.active = con.use_rotation
             sub.prop(con, "orient_weight", text="Rotation", slider=True)
 
-    def IK_COPY_POSE(self, context, layout, con):
+    def IK_COPY_POSE(self, _context, layout, con):
         self.target_template(layout, con)
         self.ik_template(layout, con)
 
@@ -212,7 +220,7 @@ class ConstraintButtonsPanel:
         row.prop(con, "lock_rotation_z", text="Z")
         split.active = con.use_rotation
 
-    def IK_DISTANCE(self, context, layout, con):
+    def IK_DISTANCE(self, _context, layout, con):
         self.target_template(layout, con)
         self.ik_template(layout, con)
 
@@ -222,7 +230,7 @@ class ConstraintButtonsPanel:
         row.prop(con, "weight", text="Weight", slider=True)
         row.prop(con, "distance", text="Distance", slider=True)
 
-    def FOLLOW_PATH(self, context, layout, con):
+    def FOLLOW_PATH(self, _context, layout, con):
         self.target_template(layout, con)
         layout.operator("constraint.followpath_path_animate", text="Animate Path", icon='ANIM_DATA')
 
@@ -247,7 +255,7 @@ class ConstraintButtonsPanel:
         row.prop(con, "up_axis", text="Up")
         row.label()
 
-    def LIMIT_ROTATION(self, context, layout, con):
+    def LIMIT_ROTATION(self, _context, layout, con):
         split = layout.split()
 
         col = split.column(align=True)
@@ -277,7 +285,7 @@ class ConstraintButtonsPanel:
         row.label(text="Convert:")
         row.prop(con, "owner_space", text="")
 
-    def LIMIT_LOCATION(self, context, layout, con):
+    def LIMIT_LOCATION(self, _context, layout, con):
         split = layout.split()
 
         col = split.column()
@@ -318,7 +326,7 @@ class ConstraintButtonsPanel:
         row.label(text="Convert:")
         row.prop(con, "owner_space", text="")
 
-    def LIMIT_SCALE(self, context, layout, con):
+    def LIMIT_SCALE(self, _context, layout, con):
         split = layout.split()
 
         col = split.column()
@@ -359,7 +367,7 @@ class ConstraintButtonsPanel:
         row.label(text="Convert:")
         row.prop(con, "owner_space", text="")
 
-    def COPY_ROTATION(self, context, layout, con):
+    def COPY_ROTATION(self, _context, layout, con):
         self.target_template(layout, con)
 
         split = layout.split()
@@ -386,7 +394,7 @@ class ConstraintButtonsPanel:
 
         self.space_template(layout, con)
 
-    def COPY_LOCATION(self, context, layout, con):
+    def COPY_LOCATION(self, _context, layout, con):
         self.target_template(layout, con)
 
         split = layout.split()
@@ -413,13 +421,15 @@ class ConstraintButtonsPanel:
 
         self.space_template(layout, con)
 
-    def COPY_SCALE(self, context, layout, con):
+    def COPY_SCALE(self, _context, layout, con):
         self.target_template(layout, con)
 
         row = layout.row(align=True)
         row.prop(con, "use_x", text="X")
         row.prop(con, "use_y", text="Y")
         row.prop(con, "use_z", text="Z")
+
+        layout.prop(con, "power")
 
         row = layout.row()
         row.prop(con, "use_offset")
@@ -429,7 +439,9 @@ class ConstraintButtonsPanel:
 
         self.space_template(layout, con)
 
-    def MAINTAIN_VOLUME(self, context, layout, con):
+    def MAINTAIN_VOLUME(self, _context, layout, con):
+
+        layout.prop(con, "mode")
 
         row = layout.row()
         row.label(text="Free:")
@@ -441,14 +453,14 @@ class ConstraintButtonsPanel:
         row.label(text="Convert:")
         row.prop(con, "owner_space", text="")
 
-    def COPY_TRANSFORMS(self, context, layout, con):
+    def COPY_TRANSFORMS(self, _context, layout, con):
         self.target_template(layout, con)
 
         self.space_template(layout, con)
 
     # def SCRIPT(self, context, layout, con):
 
-    def ACTION(self, context, layout, con):
+    def ACTION(self, _context, layout, con):
         self.target_template(layout, con)
 
         split = layout.split()
@@ -475,7 +487,7 @@ class ConstraintButtonsPanel:
         col.prop(con, "frame_start", text="Start")
         col.prop(con, "frame_end", text="End")
 
-    def LOCKED_TRACK(self, context, layout, con):
+    def LOCKED_TRACK(self, _context, layout, con):
         self.target_template(layout, con)
 
         row = layout.row()
@@ -486,7 +498,7 @@ class ConstraintButtonsPanel:
         row.label(text="Lock:")
         row.prop(con, "lock_axis", expand=True)
 
-    def LIMIT_DISTANCE(self, context, layout, con):
+    def LIMIT_DISTANCE(self, _context, layout, con):
         self.target_template(layout, con)
 
         col = layout.column(align=True)
@@ -503,7 +515,7 @@ class ConstraintButtonsPanel:
 
         self.space_template(layout, con)
 
-    def STRETCH_TO(self, context, layout, con):
+    def STRETCH_TO(self, _context, layout, con):
         self.target_template(layout, con)
 
         row = layout.row()
@@ -533,13 +545,10 @@ class ConstraintButtonsPanel:
         row.label(text="Plane:")
         row.prop(con, "keep_axis", expand=True)
 
-    def FLOOR(self, context, layout, con):
+    def FLOOR(self, _context, layout, con):
         self.target_template(layout, con)
 
-        row = layout.row()
-        row.prop(con, "use_sticky")
-        row.prop(con, "use_rotation")
-
+        layout.prop(con, "use_rotation")
         layout.prop(con, "offset")
 
         row = layout.row()
@@ -548,7 +557,7 @@ class ConstraintButtonsPanel:
 
         self.space_template(layout, con)
 
-    def RIGID_BODY_JOINT(self, context, layout, con):
+    def RIGID_BODY_JOINT(self, _context, layout, con):
         self.target_template(layout, con, subtargets=False)
 
         layout.prop(con, "pivot_type")
@@ -657,7 +666,7 @@ class ConstraintButtonsPanel:
             col.active = con.use_angular_limit_x
             col.prop(con, "limit_angle_max_x", text="Max")
 
-    def CLAMP_TO(self, context, layout, con):
+    def CLAMP_TO(self, _context, layout, con):
         self.target_template(layout, con)
 
         row = layout.row()
@@ -666,7 +675,7 @@ class ConstraintButtonsPanel:
 
         layout.prop(con, "use_cyclic")
 
-    def TRANSFORM(self, context, layout, con):
+    def TRANSFORM(self, _context, layout, con):
         self.target_template(layout, con)
 
         layout.prop(con, "use_motion_extrapolate", text="Extrapolate")
@@ -743,7 +752,7 @@ class ConstraintButtonsPanel:
 
         self.space_template(layout, con)
 
-    def SHRINKWRAP(self, context, layout, con):
+    def SHRINKWRAP(self, _context, layout, con):
         self.target_template(layout, con, False)
 
         layout.prop(con, "distance")
@@ -777,14 +786,14 @@ class ConstraintButtonsPanel:
             row.active = con.use_track_normal
             row.prop(con, "track_axis", expand=True)
 
-    def DAMPED_TRACK(self, context, layout, con):
+    def DAMPED_TRACK(self, _context, layout, con):
         self.target_template(layout, con)
 
         row = layout.row()
         row.label(text="To:")
         row.prop(con, "track_axis", expand=True)
 
-    def SPLINE_IK(self, context, layout, con):
+    def SPLINE_IK(self, _context, layout, con):
         self.target_template(layout, con)
 
         col = layout.column()
@@ -795,10 +804,13 @@ class ConstraintButtonsPanel:
 
         col = layout.column()
         col.label(text="Chain Scaling:")
-        col.prop(con, "use_y_stretch")
         col.prop(con, "use_curve_radius")
 
+        layout.prop(con, "y_scale_mode")
         layout.prop(con, "xz_scale_mode")
+
+        if con.xz_scale_mode in {'INVERSE_PRESERVE', 'VOLUME_PRESERVE'}:
+            layout.prop(con, "use_original_scale")
 
         if con.xz_scale_mode == 'VOLUME_PRESERVE':
             layout.prop(con, "bulge", text="Volume Variation")
@@ -817,7 +829,7 @@ class ConstraintButtonsPanel:
             col.active = con.use_bulge_min or con.use_bulge_max
             col.prop(con, "bulge_smooth", text="Smooth")
 
-    def PIVOT(self, context, layout, con):
+    def PIVOT(self, _context, layout, con):
         self.target_template(layout, con)
 
         if con.target:
@@ -877,7 +889,7 @@ class ConstraintButtonsPanel:
 
         layout.operator("clip.constraint_to_fcurve")
 
-    def CAMERA_SOLVER(self, context, layout, con):
+    def CAMERA_SOLVER(self, _context, layout, con):
         layout.prop(con, "use_active_clip")
 
         if not con.use_active_clip:
@@ -904,7 +916,7 @@ class ConstraintButtonsPanel:
 
         layout.operator("clip.constraint_to_fcurve")
 
-    def TRANSFORM_CACHE(self, context, layout, con):
+    def TRANSFORM_CACHE(self, _context, layout, con):
         layout.label(text="Cache File Properties:")
         box = layout.box()
         box.template_cache_file(con, "cache_file")
@@ -917,7 +929,7 @@ class ConstraintButtonsPanel:
         if cache_file is not None:
             box.prop_search(con, "object_path", cache_file, "object_paths")
 
-    def SCRIPT(self, context, layout, con):
+    def SCRIPT(self, _context, layout, _con):
         layout.label(text="Blender 2.6 doesn't support python constraints yet")
 
     def ARMATURE(self, context, layout, con):
@@ -975,14 +987,7 @@ class OBJECT_PT_constraints(ConstraintButtonsPanel, Panel):
 
         obj = context.object
 
-        if obj.type == 'ARMATURE' and obj.mode == 'POSE':
-            box = layout.box()
-            box.alert = True  # XXX: this should apply to the box background
-            box.label(icon='INFO', text="Constraints for active bone do not live here")
-            box.operator("wm.properties_context_change", icon='CONSTRAINT_BONE',
-                         text="Go to Bone Constraints tab...").context = 'BONE_CONSTRAINT'
-        else:
-            layout.operator_menu_enum("object.constraint_add", "type", text="Add Object Constraint")
+        layout.operator_menu_enum("object.constraint_add", "type", text="Add Object Constraint")
 
         for con in obj.constraints:
             self.draw_constraint(context, con)

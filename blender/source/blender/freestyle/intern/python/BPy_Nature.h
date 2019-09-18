@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup freestyle
+/** \file
+ * \ingroup freestyle
  */
 
 #ifndef __FREESTYLE_PYTHON_NATURE_H__
@@ -40,7 +41,7 @@ extern PyTypeObject Nature_Type;
 
 /*---------------------------Python BPy_Nature structure definition----------*/
 typedef struct {
-	PyLongObject i;
+  PyLongObject i;
 } BPy_Nature;
 
 /*---------------------------Python BPy_Nature visible prototypes-----------*/

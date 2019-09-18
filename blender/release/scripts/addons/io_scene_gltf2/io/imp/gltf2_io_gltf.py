@@ -1,4 +1,4 @@
-# Copyright 2018 The glTF-Blender-IO authors.
+# Copyright 2018-2019 The glTF-Blender-IO authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -45,7 +45,8 @@ class glTFImporter():
         self.extensions_managed = [
             'KHR_materials_pbrSpecularGlossiness',
             'KHR_lights_punctual',
-            'KHR_materials_unlit'
+            'KHR_materials_unlit',
+            'KHR_texture_transform'
         ]
 
         # TODO : merge with io_constants

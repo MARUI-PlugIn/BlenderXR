@@ -32,14 +32,14 @@ from bpy.types import (
 )
 
 from rna_prop_ui import PropertyPanel
-from .properties_paint_common import brush_texture_settings
+from bl_ui.properties_paint_common import brush_texture_settings
 
 
-class TEXTURE_MT_specials(Menu):
+class TEXTURE_MT_context_menu(Menu):
     bl_label = "Texture Specials"
     COMPAT_ENGINES = {'BLENDER_RENDER'}
 
-    def draw(self, context):
+    def draw(self, _context):
         layout = self.layout
 
         layout.operator("texture.slot_copy", icon='COPYDOWN')
@@ -48,7 +48,7 @@ class TEXTURE_MT_specials(Menu):
 
 class TEXTURE_UL_texslots(UIList):
 
-    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+    def draw_item(self, _context, layout, _data, item, icon, _active_data, _active_propname, _index):
         slot = item
         tex = slot.texture if slot else None
 
@@ -166,50 +166,6 @@ class TEXTURE_PT_node(TextureButtonsPanel, Panel):
         node = context.texture_node
         ntree = node.id_data
         layout.template_node_view(ntree, node, None)
-
-
-class TEXTURE_PT_node_mapping(TextureButtonsPanel, Panel):
-    bl_label = "Mapping"
-    bl_context = "texture"
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE', 'BLENDER_WORKBENCH'}
-
-    @classmethod
-    def poll(cls, context):
-        node = context.texture_node
-        # TODO(sergey): perform a faster/nicer check?
-        return node and hasattr(node, "texture_mapping") and (context.engine in cls.COMPAT_ENGINES)
-
-    def draw(self, context):
-        layout = self.layout
-        layout.use_property_split = True
-        layout.use_property_decorate = False  # No animation.
-
-        flow = layout.grid_flow(row_major=True, columns=0, even_columns=True, even_rows=False, align=False)
-
-        node = context.texture_node
-
-        mapping = node.texture_mapping
-
-        col = flow.column()
-        col.prop(mapping, "vector_type")
-
-        col.separator()
-
-        col = col.column(align=True)
-        col.prop(mapping, "mapping_x", text="Projection X")
-        col.prop(mapping, "mapping_y", text="Y")
-        col.prop(mapping, "mapping_z", text="Z")
-
-        col.separator()
-
-        col = flow.column()
-        col.column().prop(mapping, "translation")
-
-        col = flow.column()
-        col.column().prop(mapping, "rotation")
-
-        col = flow.column()
-        col.column().prop(mapping, "scale")
 
 
 class TextureTypePanel(TextureButtonsPanel):
@@ -401,7 +357,7 @@ class TEXTURE_PT_image(TextureTypePanel, Panel):
     tex_type = 'IMAGE'
     COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE', 'BLENDER_WORKBENCH'}
 
-    def draw(self, context):
+    def draw(self, _context):
         # TODO: maybe expose the template_ID from the template image here.
         layout = self.layout
         del layout
@@ -482,7 +438,7 @@ class TEXTURE_PT_image_alpha(TextureTypePanel, Panel):
         tex = context.texture
 
         col = layout.column()
-        col.active = bool(tex.image and tex.image.use_alpha)
+        col.active = bool(tex.image and tex.image.alpha_mode != 'NONE')
         col.prop(tex, "use_calculate_alpha", text="Calculate")
         col.prop(tex, "invert_alpha", text="Invert")
 
@@ -913,12 +869,11 @@ class TEXTURE_PT_custom_props(TextureButtonsPanel, PropertyPanel, Panel):
 
 
 classes = (
-    TEXTURE_MT_specials,
+    TEXTURE_MT_context_menu,
     TEXTURE_UL_texslots,
     TEXTURE_PT_preview,
     TEXTURE_PT_context,
     TEXTURE_PT_node,
-    TEXTURE_PT_node_mapping,
     TEXTURE_PT_clouds,
     TEXTURE_PT_wood,
     TEXTURE_PT_marble,

@@ -1,5 +1,4 @@
-/**
- *
+/*
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -20,13 +19,13 @@
 
 #if defined(WIN32) || defined(__APPLE__)
 
-	#ifdef WIN32
-		#include <windows.h>
-		#include <GL/gl.h>
-	#else // WIN32
-		// __APPLE__ is defined
-		#include <AGL/gl.h>
-	#endif // WIN32
-#else // defined(WIN32) || defined(__APPLE__)
-	#include <GL/gl.h>
-#endif // defined(WIN32) || defined(__APPLE__)
+#  ifdef WIN32
+#    include <windows.h>
+#    include <GL/gl.h>
+#  else  // WIN32
+// __APPLE__ is defined
+#    include <AGL/gl.h>
+#  endif  // WIN32
+#else     // defined(WIN32) || defined(__APPLE__)
+#  include <GL/gl.h>
+#endif  // defined(WIN32) || defined(__APPLE__)

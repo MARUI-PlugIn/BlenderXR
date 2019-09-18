@@ -1,6 +1,4 @@
 /*
- * Copyright 2011, Blender Foundation.
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,6 +12,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * Copyright 2011, Blender Foundation.
  */
 
 #include "COM_SetVectorOperation.h"
@@ -21,20 +21,22 @@
 
 SetVectorOperation::SetVectorOperation() : NodeOperation()
 {
-	this->addOutputSocket(COM_DT_VECTOR);
+  this->addOutputSocket(COM_DT_VECTOR);
 }
 
 void SetVectorOperation::executePixelSampled(float output[4],
-                                             float /*x*/, float /*y*/,
+                                             float /*x*/,
+                                             float /*y*/,
                                              PixelSampler /*sampler*/)
 {
-	output[0] = this->m_x;
-	output[1] = this->m_y;
-	output[2] = this->m_z;
+  output[0] = this->m_x;
+  output[1] = this->m_y;
+  output[2] = this->m_z;
 }
 
-void SetVectorOperation::determineResolution(unsigned int resolution[2], unsigned int preferredResolution[2])
+void SetVectorOperation::determineResolution(unsigned int resolution[2],
+                                             unsigned int preferredResolution[2])
 {
-	resolution[0] = preferredResolution[0];
-	resolution[1] = preferredResolution[1];
+  resolution[0] = preferredResolution[0];
+  resolution[1] = preferredResolution[1];
 }

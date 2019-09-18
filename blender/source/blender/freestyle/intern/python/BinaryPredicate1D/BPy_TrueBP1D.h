@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup freestyle
+/** \file
+ * \ingroup freestyle
  */
 
 #ifndef __FREESTYLE_PYTHON_TRUEBP1D_H__
@@ -34,7 +35,7 @@ extern PyTypeObject TrueBP1D_Type;
 
 /*---------------------------Python BPy_TrueBP1D structure definition----------*/
 typedef struct {
-	BPy_BinaryPredicate1D py_bp1D;
+  BPy_BinaryPredicate1D py_bp1D;
 } BPy_TrueBP1D;
 
 ///////////////////////////////////////////////////////////////////////////////////////////

@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup freestyle
+/** \file
+ * \ingroup freestyle
  */
 
 #ifndef __FREESTYLE_PYTHON_GETSHAPEF1D_H__
@@ -30,13 +31,13 @@ extern "C" {
 
 extern PyTypeObject GetShapeF1D_Type;
 
-#define BPy_GetShapeF1D_Check(v) (PyObject_IsInstance((PyObject *)v, (PyObject *)&GetShapeF1D_Type))
+#define BPy_GetShapeF1D_Check(v) \
+  (PyObject_IsInstance((PyObject *)v, (PyObject *)&GetShapeF1D_Type))
 
 /*---------------------------Python BPy_GetShapeF1D structure definition----------*/
 typedef struct {
-	BPy_UnaryFunction1DVectorViewShape py_uf1D_vectorviewshape;
+  BPy_UnaryFunction1DVectorViewShape py_uf1D_vectorviewshape;
 } BPy_GetShapeF1D;
-
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 

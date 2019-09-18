@@ -47,7 +47,14 @@ def object_ensure_material(obj, mat_name):
     return mat
 
 
-class QuickFur(Operator):
+class ObjectModeOperator:
+    @classmethod
+    def poll(cls, context):
+        return context.mode == 'OBJECT'
+
+
+class QuickFur(ObjectModeOperator, Operator):
+    """Add fur setup to the selected objects"""
     bl_idname = "object.quick_fur"
     bl_label = "Quick Fur"
     bl_options = {'REGISTER', 'UNDO'}
@@ -77,7 +84,7 @@ class QuickFur(Operator):
     def execute(self, context):
         fake_context = context.copy()
         mesh_objects = [obj for obj in context.selected_objects
-                        if obj.type == 'MESH' and obj.mode == 'OBJECT']
+                        if obj.type == 'MESH']
 
         if not mesh_objects:
             self.report({'ERROR'}, "Select at least one mesh object")
@@ -112,7 +119,8 @@ class QuickFur(Operator):
         return {'FINISHED'}
 
 
-class QuickExplode(Operator):
+class QuickExplode(ObjectModeOperator, Operator):
+    """Make selected objects explode"""
     bl_idname = "object.quick_explode"
     bl_label = "Quick Explode"
     bl_options = {'REGISTER', 'UNDO'}
@@ -219,13 +227,13 @@ class QuickExplode(Operator):
 
                 mat = object_ensure_material(obj, "Explode Fade")
                 mat.blend_method = 'BLEND'
-                mat.transparent_shadow_method = 'HASHED'
+                mat.shadow_method = 'HASHED'
                 if not mat.use_nodes:
                     mat.use_nodes = True
 
                 nodes = mat.node_tree.nodes
                 for node in nodes:
-                    if (node.type == 'OUTPUT_MATERIAL'):
+                    if node.type == 'OUTPUT_MATERIAL':
                         node_out_mat = node
                         break
 
@@ -237,7 +245,7 @@ class QuickExplode(Operator):
 
                 node_mix = nodes.new('ShaderNodeMixShader')
                 node_mix.location = (node_x - offset_x, node_y)
-                mat.node_tree.links.new(node_surface.outputs["BSDF"], node_mix.inputs[1])
+                mat.node_tree.links.new(node_surface.outputs[0], node_mix.inputs[1])
                 mat.node_tree.links.new(node_mix.outputs["Shader"], node_out_mat.inputs['Surface'])
                 offset_x += 200
 
@@ -296,7 +304,7 @@ class QuickExplode(Operator):
 
         return {'FINISHED'}
 
-    def invoke(self, context, event):
+    def invoke(self, context, _event):
         self.frame_start = context.scene.frame_current
         self.frame_end = self.frame_start + self.frame_duration
         return self.execute(context)
@@ -318,7 +326,8 @@ def grid_location(x, y):
     return (x * 200, y * 150)
 
 
-class QuickSmoke(Operator):
+class QuickSmoke(ObjectModeOperator, Operator):
+    """Use selected objects as smoke emitters"""
     bl_idname = "object.quick_smoke"
     bl_label = "Quick Smoke"
     bl_options = {'REGISTER', 'UNDO'}
@@ -422,7 +431,8 @@ class QuickSmoke(Operator):
         return {'FINISHED'}
 
 
-class QuickFluid(Operator):
+class QuickFluid(ObjectModeOperator, Operator):
+    """Use selected objects in a fluid simulation"""
     bl_idname = "object.quick_fluid"
     bl_label = "Quick Fluid"
     bl_options = {'REGISTER', 'UNDO'}
@@ -503,10 +513,11 @@ class QuickFluid(Operator):
         # and scale with initial velocity
         v = 0.5 * self.initial_velocity
         obj.location = 0.5 * (max_co + min_co) + Vector((0.0, 0.0, -1.0)) + v
-        obj.scale = (0.5 * (max_co - min_co) +
-                     Vector((1.0, 1.0, 2.0)) +
-                     Vector((abs(v[0]), abs(v[1]), abs(v[2])))
-                     )
+        obj.scale = (
+            0.5 * (max_co - min_co) +
+            Vector((1.0, 1.0, 2.0)) +
+            Vector((abs(v[0]), abs(v[1]), abs(v[2])))
+        )
 
         # setup smoke domain
         bpy.ops.object.modifier_add(type='FLUID_SIMULATION')

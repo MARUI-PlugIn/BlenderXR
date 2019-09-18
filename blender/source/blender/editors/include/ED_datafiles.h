@@ -17,7 +17,8 @@
  * All rights reserved.
  */
 
-/** \file \ingroup editors
+/** \file
+ * \ingroup editors
  */
 
 #ifndef __ED_DATAFILES_H__
@@ -28,8 +29,8 @@
 extern int datatoc_startup_blend_size;
 extern char datatoc_startup_blend[];
 
-extern int datatoc_preview_cycles_blend_size;
-extern char datatoc_preview_cycles_blend[];
+extern int datatoc_preview_blend_size;
+extern char datatoc_preview_blend[];
 
 extern int datatoc_preview_grease_pencil_blend_size;
 extern char datatoc_preview_grease_pencil_blend[];

@@ -4,7 +4,8 @@ from ...utils import copy_bone, flip_bone, put_bone, org
 from ...utils import strip_org, make_deformer_name, connected_children_names
 from ...utils import create_circle_widget, create_sphere_widget, create_widget
 from ...utils import MetarigError, make_mechanism_name, create_cube_widget
-from rna_prop_ui import rna_idprop_ui_prop_get
+
+from ....utils.mechanism import make_property
 
 script = """
 controls = [%s]
@@ -518,21 +519,17 @@ class Rig:
 
         for prop in props:
             if prop == 'neck_follow':
-                torso[prop] = 0.5
+                defval = 0.5
             else:
-                torso[prop] = 0.0
+                defval = 0.0
 
-            prop = rna_idprop_ui_prop_get( torso, prop, create=True )
-            prop["min"]         = 0.0
-            prop["max"]         = 1.0
-            prop["soft_min"]    = 0.0
-            prop["soft_max"]    = 1.0
-            prop["description"] = prop
+            make_property(torso, prop, defval)
 
         # driving the follow rotation switches for neck and head
         for bone, prop, in zip( owners, props ):
             # Add driver to copy rotation constraint
-            drv = pb[ bone ].constraints[ 0 ].driver_add("influence").driver
+            drv_fcu = pb[ bone ].constraints[ 0 ].driver_add("influence")
+            drv = drv_fcu.driver
             drv.type = 'AVERAGE'
 
             var = drv.variables.new()
@@ -542,7 +539,7 @@ class Rig:
             var.targets[0].data_path = \
                 torso.path_from_id() + '['+ '"' + prop + '"' + ']'
 
-            drv_modifier = self.obj.animation_data.drivers[-1].modifiers[0]
+            drv_modifier = drv_fcu.modifiers[0]
 
             drv_modifier.mode            = 'POLYNOMIAL'
             drv_modifier.poly_order      = 1

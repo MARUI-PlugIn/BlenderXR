@@ -166,7 +166,7 @@ def create_japan_mesh(self):
     for o in bpy.data.objects:
         if o.select_get() is True:
             o.select_set(False)
-    bpy.ops.object.select_all(False)
+    bpy.ops.object.select_all(action='DESELECT')
     # Create units
     generate_japan(self)
 
@@ -252,7 +252,7 @@ def create_roller_mesh(self):
     for o in bpy.data.objects:
         if o.select_get() is True:
             o.select_set(False)
-    bpy.ops.object.select_all(False)
+    bpy.ops.object.select_all(action='DESELECT')
     generate_roller(self)
 
     return
@@ -266,7 +266,7 @@ def generate_japan(self):
     support = []
     panel = []
 
-    location = bpy.context.scene.cursor_location
+    location = bpy.context.scene.cursor.location
     myloc = copy(location)  # copy location to keep 3D cursor position
 
     # ------------------
@@ -625,7 +625,7 @@ def create_bezier(objname, points, origin, depth=0.001, fill='FULL'):
 # All custom values are passed using self container (self.myvariable)
 # ------------------------------------------------------------------------------
 def generate_roller(self):
-    location = bpy.context.scene.cursor_location
+    location = bpy.context.scene.cursor.location
     myloc = copy(location)  # copy location to keep 3D cursor position
 
     # ------------------

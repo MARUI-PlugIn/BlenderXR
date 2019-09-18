@@ -17,9 +17,9 @@
  * All rights reserved.
  */
 
-/** \file \ingroup render
+/** \file
+ * \ingroup render
  */
-
 
 #ifndef __INITRENDER_H__
 #define __INITRENDER_H__

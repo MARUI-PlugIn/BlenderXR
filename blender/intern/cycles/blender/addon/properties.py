@@ -68,11 +68,6 @@ enum_filter_types = (
     ('BLACKMAN_HARRIS', "Blackman-Harris", "Blackman-Harris filter"),
 )
 
-enum_aperture_types = (
-    ('RADIUS', "Radius", "Directly change the size of the aperture"),
-    ('FSTOP', "F-stop", "Change the size of the aperture by f-stop"),
-)
-
 enum_panorama_types = (
     ('EQUIRECTANGULAR', "Equirectangular", "Render the scene with a spherical camera, also known as Lat Long panorama"),
     ('FISHEYE_EQUIDISTANT', "Fisheye Equidistant", "Ideal for fulldomes, ignore the sensor dimensions"),
@@ -192,13 +187,13 @@ class CyclesRenderSettings(bpy.types.PropertyGroup):
     samples: IntProperty(
         name="Samples",
         description="Number of samples to render for each pixel",
-        min=1, max=2147483647,
+        min=1, max=(1 << 24),
         default=128,
     )
     preview_samples: IntProperty(
         name="Preview Samples",
         description="Number of samples to render in the viewport, unlimited if 0",
-        min=0, max=2147483647,
+        min=0, max=(1 << 24),
         default=32,
     )
     preview_pause: BoolProperty(
@@ -294,6 +289,21 @@ class CyclesRenderSettings(bpy.types.PropertyGroup):
         "Zero disables the test and never ignores lights",
         min=0.0, max=1.0,
         default=0.01,
+    )
+
+    min_light_bounces: IntProperty(
+            name="Min Light Bounces",
+            description="Minimum number of light bounces. Setting this higher reduces noise in the first bounces, "
+                        "but can also be less efficient for more complex geometry like hair and volumes",
+            min=0, max=1024,
+            default=0,
+    )
+    min_transparent_bounces: IntProperty(
+            name="Min Transparent Bounces",
+            description="Minimum number of transparent bounces. Setting this higher reduces noise in the first bounces, "
+                        "but can also be less efficient for more complex geometry like hair and volumes",
+            min=0, max=1024,
+            default=0,
     )
 
     caustics_reflective: BoolProperty(
@@ -416,11 +426,6 @@ class CyclesRenderSettings(bpy.types.PropertyGroup):
         description="Image brightness scale",
         min=0.0, max=10.0,
         default=1.0,
-    )
-    film_transparent: BoolProperty(
-        name="Transparent",
-        description="World background is transparent, for compositing the render over another background",
-        default=False,
     )
     film_transparent_glass: BoolProperty(
         name="Transparent Glass",
@@ -644,6 +649,7 @@ class CyclesRenderSettings(bpy.types.PropertyGroup):
         description="Scanline \"exposure\" time for the rolling shutter effect",
         default=0.1,
         min=0.0, max=1.0,
+        subtype='FACTOR',
     )
 
     texture_limit: EnumProperty(
@@ -721,11 +727,6 @@ class CyclesRenderSettings(bpy.types.PropertyGroup):
         update=_devices_update_callback
     )
 
-    debug_opencl_kernel_single_program: BoolProperty(
-        name="Single Program",
-        default=True,
-        update=_devices_update_callback,
-    )
     del _devices_update_callback
 
     debug_use_opencl_debug: BoolProperty(name="Debug OpenCL", default=False)
@@ -751,49 +752,6 @@ class CyclesRenderSettings(bpy.types.PropertyGroup):
 
 class CyclesCameraSettings(bpy.types.PropertyGroup):
 
-    aperture_type: EnumProperty(
-        name="Aperture Type",
-        description="Use f-stop number or aperture radius",
-        items=enum_aperture_types,
-        default='RADIUS',
-    )
-    aperture_fstop: FloatProperty(
-        name="Aperture f-stop",
-        description="F-stop ratio (lower numbers give more defocus, higher numbers give a sharper image)",
-        min=0.0, soft_min=0.1, soft_max=64.0,
-        default=5.6,
-        step=10,
-        precision=1,
-    )
-    aperture_size: FloatProperty(
-        name="Aperture Size",
-        description="Radius of the aperture for depth of field (higher values give more defocus)",
-        min=0.0, soft_max=10.0,
-        default=0.0,
-        step=1,
-        precision=4,
-        subtype='DISTANCE',
-    )
-    aperture_blades: IntProperty(
-        name="Aperture Blades",
-        description="Number of blades in aperture for polygonal bokeh (at least 3)",
-        min=0, max=100,
-        default=0,
-    )
-    aperture_rotation: FloatProperty(
-        name="Aperture Rotation",
-        description="Rotation of blades in aperture",
-        soft_min=-pi, soft_max=pi,
-        subtype='ANGLE',
-        default=0,
-    )
-    aperture_ratio: FloatProperty(
-        name="Aperture Ratio",
-        description="Distortion to simulate anamorphic lens bokeh",
-        min=0.01, soft_min=1.0, soft_max=2.0,
-        default=1.0,
-        precision=4,
-    )
     panorama_type: EnumProperty(
         name="Panorama Type",
         description="Distortion to use for the calculation",
@@ -1196,20 +1154,6 @@ class CyclesCurveRenderSettings(bpy.types.PropertyGroup):
         min=3, max=64,
         default=3,
     )
-    minimum_width: FloatProperty(
-        name="Minimal width",
-        description="Minimal pixel width for strands (0 - deactivated)",
-        min=0.0, max=100.0,
-        default=0.0,
-        subtype='PIXEL'
-    )
-    maximum_width: FloatProperty(
-        name="Maximal width",
-        description="Maximum extension that strand radius can be increased by",
-        min=0.0, max=100.0,
-        default=0.1,
-        subtype='PIXEL'
-    )
     subdivisions: IntProperty(
         name="Subdivisions",
         description="Number of subdivisions used in Cardinal curve intersection (power of 2)",
@@ -1343,6 +1287,7 @@ class CyclesRenderLayerSettings(bpy.types.PropertyGroup):
         description="Size of the image area that's used to denoise a pixel (higher values are smoother, but might lose detail and are slower)",
         min=1, max=25,
         default=8,
+        subtype="PIXEL",
     )
     denoising_relative_pca: BoolProperty(
         name="Relative filter",
@@ -1354,6 +1299,12 @@ class CyclesRenderLayerSettings(bpy.types.PropertyGroup):
         description="Store the denoising feature passes and the noisy image",
         default=False,
         update=update_render_passes,
+    )
+    denoising_neighbor_frames: IntProperty(
+        name="Neighbor Frames",
+        description="Number of neighboring frames to use for denoising animations (more frames produce smoother results at the cost of performance)",
+        min=0, max=7,
+        default=0,
     )
     use_pass_crypto_object: BoolProperty(
         name="Cryptomatte Object",
@@ -1450,10 +1401,11 @@ class CyclesPreferences(bpy.types.AddonPreferences):
                 # Update name in case it changed
                 entry.name = device[0]
 
-    def get_devices(self):
+    # Gets all devices types by default.
+    def get_devices(self, compute_device_type=''):
         import _cycles
         # Layout of the device tuples: (Name, Type, Persistent ID)
-        device_list = _cycles.available_devices(self.compute_device_type)
+        device_list = _cycles.available_devices(compute_device_type)
         # Make sure device entries are up to date and not referenced before
         # we know we don't add new devices. This way we guarantee to not
         # hold pointers to a resized array.
@@ -1500,7 +1452,9 @@ class CyclesPreferences(bpy.types.AddonPreferences):
                 break
 
         if not found_device:
-            box.label(text="No compatible GPUs found", icon='INFO')
+            col = box.column(align=True)
+            col.label(text="No compatible GPUs found for path tracing", icon='INFO')
+            col.label(text="Cycles will render on the CPU", icon='BLANK1')
             return
 
         for device in devices:
@@ -1510,7 +1464,7 @@ class CyclesPreferences(bpy.types.AddonPreferences):
         row = layout.row()
         row.prop(self, "compute_device_type", expand=True)
 
-        cuda_devices, opencl_devices = self.get_devices()
+        cuda_devices, opencl_devices = self.get_devices(self.compute_device_type)
         row = layout.row()
         if self.compute_device_type == 'CUDA':
             self._draw_devices(row, 'CUDA', cuda_devices)

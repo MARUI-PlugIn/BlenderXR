@@ -25,9 +25,9 @@
 bl_info = {
     "name": "3D Navigation",
     "author": "Demohero, uriel",
-    "version": (1, 2, 3),
+    "version": (1, 2, 5),
     "blender": (2, 80, 0),
-    "location": "View3D > Tool Shelf > Display Tab",
+    "location": "View3D > Sidebar > View Tab",
     "description": "Navigate the Camera & 3D View from the Toolshelf",
     "warning": "",
     "wiki_url": "https://wiki.blender.org/index.php/Extensions:2.6/Py/"
@@ -47,7 +47,7 @@ from bpy.props import StringProperty
 # main class of this toolbar
 
 # re-ordered (reversed) Orbit Operators
-class OrbitUpView1(Operator):
+class VIEW3D_OT_OrbitUpView1(Operator):
     bl_idname = "opr.orbit_up_view1"
     bl_label = "Orbit Up View"
     bl_description = "Orbit the view towards you"
@@ -57,7 +57,7 @@ class OrbitUpView1(Operator):
         return {'FINISHED'}
 
 
-class OrbitLeftView1(Operator):
+class VIEW3D_OT_OrbitLeftView1(Operator):
     bl_idname = "opr.orbit_left_view1"
     bl_label = "Orbit Left View"
     bl_description = "Orbit the view around to your Right"
@@ -67,7 +67,7 @@ class OrbitLeftView1(Operator):
         return {'FINISHED'}
 
 
-class OrbitRightView1(Operator):
+class VIEW3D_OT_OrbitRightView1(Operator):
     bl_idname = "opr.orbit_right_view1"
     bl_label = "Orbit Right View"
     bl_description = "Orbit the view around to your Left"
@@ -77,7 +77,7 @@ class OrbitRightView1(Operator):
         return {'FINISHED'}
 
 
-class OrbitDownView1(Operator):
+class VIEW3D_OT_OrbitDownView1(Operator):
     bl_idname = "opr.orbit_down_view1"
     bl_label = "Orbit Down View"
     bl_description = "Orbit the view away from you"
@@ -89,7 +89,7 @@ class OrbitDownView1(Operator):
 
 # re-ordered (reversed) Pan Operators
 # just pass the enum from the VIEW3D_PT_pan_navigation1 Panel
-class PanUpViewsAll(Operator):
+class VIEW3D_OT_PanUpViewsAll(Operator):
     bl_idname = "opr.pan_up_views_all"
     bl_label = "Pan View"
     bl_description = "Pan the 3D View"
@@ -113,7 +113,7 @@ class PanUpViewsAll(Operator):
 
 
 # Zoom Operators
-class ZoomInView1(Operator):
+class VIEW3D_OT_ZoomInView1(Operator):
     bl_idname = "opr.zoom_in_view1"
     bl_label = "Zoom In View"
     bl_description = "Zoom In the View/Camera View"
@@ -123,7 +123,7 @@ class ZoomInView1(Operator):
         return {'FINISHED'}
 
 
-class ZoomOutView1(Operator):
+class VIEW3D_OT_ZoomOutView1(Operator):
     bl_idname = "opr.zoom_out_view1"
     bl_label = "Zoom Out View"
     bl_description = "Zoom out In the View/Camera View"
@@ -134,7 +134,7 @@ class ZoomOutView1(Operator):
 
 
 # Roll Operators
-class RollLeftView1(Operator):
+class VIEW3D_OT_RollLeftView1(Operator):
     bl_idname = "opr.roll_left_view1"
     bl_label = "Roll Left View"
     bl_description = "Roll the view Left"
@@ -144,7 +144,7 @@ class RollLeftView1(Operator):
         return {'FINISHED'}
 
 
-class RollRightView1(Operator):
+class VIEW3D_OT_RollRightView1(Operator):
     bl_idname = "opr.roll_right_view1"
     bl_label = "Roll Right View"
     bl_description = "Roll the view Right"
@@ -155,7 +155,7 @@ class RollRightView1(Operator):
 
 
 # View Operators
-class LeftViewpoint1(Operator):
+class VIEW3D_OT_LeftViewpoint1(Operator):
     bl_idname = "opr.left_viewpoint1"
     bl_label = "Left Viewpoint"
     bl_description = "View from the Left"
@@ -165,7 +165,7 @@ class LeftViewpoint1(Operator):
         return {'FINISHED'}
 
 
-class RightViewpoint1(Operator):
+class VIEW3D_OT_RightViewpoint1(Operator):
     bl_idname = "opr.right_viewpoint1"
     bl_label = "Right Viewpoint"
     bl_description = "View from the Right"
@@ -175,7 +175,7 @@ class RightViewpoint1(Operator):
         return {'FINISHED'}
 
 
-class FrontViewpoint1(Operator):
+class VIEW3D_OT_FrontViewpoint1(Operator):
     bl_idname = "opr.front_viewpoint1"
     bl_label = "Front Viewpoint"
     bl_description = "View from the Front"
@@ -185,7 +185,7 @@ class FrontViewpoint1(Operator):
         return {'FINISHED'}
 
 
-class BackViewpoint1(Operator):
+class VIEW3D_OT_BackViewpoint1(Operator):
     bl_idname = "opr.back_viewpoint1"
     bl_label = "Back Viewpoint"
     bl_description = "View from the Back"
@@ -195,7 +195,7 @@ class BackViewpoint1(Operator):
         return {'FINISHED'}
 
 
-class TopViewpoint1(Operator):
+class VIEW3D_OT_TopViewpoint1(Operator):
     bl_idname = "opr.top_viewpoint1"
     bl_label = "Top Viewpoint"
     bl_description = "View from the Top"
@@ -205,7 +205,7 @@ class TopViewpoint1(Operator):
         return {'FINISHED'}
 
 
-class BottomViewpoint1(Operator):
+class VIEW3D_OT_BottomViewpoint1(Operator):
     bl_idname = "opr.bottom_viewpoint1"
     bl_label = "Bottom Viewpoint"
     bl_description = "View from the Bottom"
@@ -217,10 +217,10 @@ class BottomViewpoint1(Operator):
 
 # Panel class of this toolbar
 class VIEW3D_PT_3dnavigationPanel(Panel):
-    bl_category = "Display"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_label = "3D Nav"
+    bl_category = "View"
 
     def draw(self, context):
         layout = self.layout
@@ -259,12 +259,11 @@ class VIEW3D_PT_3dnavigationPanel(Panel):
         col.operator("view3d.snap_cursor_to_selected", text="Cursor to Selected")
 
 
-class VIEW3D_PT_pan_navigation1(Panel):
-    bl_idname = "pan.navigation1"
-    bl_label = "Pan Orbit Zoom Roll"
+class VIEW3D_PT_3dnavigationPanel2(Panel):
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = "Display"
+    bl_label = "Pan Orbit Zoom Roll"
+    bl_category = "View"
     bl_options = {'DEFAULT_CLOSED'}
 
     def draw(self, context):
@@ -314,7 +313,7 @@ class VIEW3D_PT_pan_navigation1(Panel):
 # Define Panel classes for updating
 panels = (
         VIEW3D_PT_3dnavigationPanel,
-        VIEW3D_PT_pan_navigation1,
+        VIEW3D_PT_3dnavigationPanel2,
         )
 
 
@@ -342,7 +341,7 @@ class NavAddonPreferences(AddonPreferences):
     category: StringProperty(
             name="Tab Category",
             description="Choose a name for the category of the panel",
-            default="Display",
+            default="View",
             update=update_panel
             )
 
@@ -357,24 +356,24 @@ class NavAddonPreferences(AddonPreferences):
 
 classes = (
     VIEW3D_PT_3dnavigationPanel,
-    VIEW3D_PT_pan_navigation1,
-    OrbitUpView1,
-    OrbitLeftView1,
-    OrbitRightView1,
-    OrbitDownView1,
-    ZoomInView1,
-    ZoomOutView1,
-    RollLeftView1,
-    RollRightView1,
-    LeftViewpoint1,
-    RightViewpoint1,
-    FrontViewpoint1,
-    BackViewpoint1,
-    TopViewpoint1,
-    BottomViewpoint1,
+    VIEW3D_PT_3dnavigationPanel2,
+    VIEW3D_OT_OrbitUpView1,
+    VIEW3D_OT_OrbitLeftView1,
+    VIEW3D_OT_OrbitRightView1,
+    VIEW3D_OT_OrbitDownView1,
+    VIEW3D_OT_ZoomInView1,
+    VIEW3D_OT_ZoomOutView1,
+    VIEW3D_OT_RollLeftView1,
+    VIEW3D_OT_RollRightView1,
+    VIEW3D_OT_LeftViewpoint1,
+    VIEW3D_OT_RightViewpoint1,
+    VIEW3D_OT_FrontViewpoint1,
+    VIEW3D_OT_BackViewpoint1,
+    VIEW3D_OT_TopViewpoint1,
+    VIEW3D_OT_BottomViewpoint1,
+    VIEW3D_OT_PanUpViewsAll,
     NavAddonPreferences,
-    PanUpViewsAll,
-)
+    )
 
 
 # Register

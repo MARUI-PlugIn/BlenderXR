@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup collada
+/** \file
+ * \ingroup collada
  */
 
 #ifndef __IMAGEEXPORTER_H__
@@ -34,17 +35,17 @@
 #include "ExportSettings.h"
 #include "collada_utils.h"
 
-class ImagesExporter: COLLADASW::LibraryImages
-{
-public:
-	ImagesExporter(COLLADASW::StreamWriter *sw, const ExportSettings *export_settings, KeyImageMap &key_image_map);
-	void exportImages(Scene *sce);
+class ImagesExporter : COLLADASW::LibraryImages {
+ public:
+  ImagesExporter(COLLADASW::StreamWriter *sw,
+                 BCExportSettings &export_settings,
+                 KeyImageMap &key_image_map);
+  void exportImages(Scene *sce);
 
-private:
-	const ExportSettings *export_settings;
-	KeyImageMap &key_image_map;
-	void export_UV_Image(Image *image, bool use_texture_copies);
-
+ private:
+  BCExportSettings &export_settings;
+  KeyImageMap &key_image_map;
+  void export_UV_Image(Image *image, bool use_texture_copies);
 };
 
 #endif

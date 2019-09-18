@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup collada
+/** \file
+ * \ingroup collada
  */
 
 #ifndef __GEOMETRYEXPORTER_H__
@@ -40,105 +41,104 @@
 
 struct Depsgraph;
 
-extern Object *bc_get_highest_selected_ancestor_or_self(Object *ob);
+class Normal {
+ public:
+  float x;
+  float y;
+  float z;
 
-class Normal
-{
-	public:
-		float x;
-		float y;
-		float z;
-
-		friend bool operator<  (const Normal &, const Normal &);
-
+  friend bool operator<(const Normal &, const Normal &);
 };
 
-bool operator<  (const Normal &, const Normal &);
+bool operator<(const Normal &, const Normal &);
 
+/* TODO: optimize UV sets by making indexed list with duplicates removed */
+class GeometryExporter : COLLADASW::LibraryGeometries {
+  struct Face {
+    unsigned int v1, v2, v3, v4;
+  };
 
-// TODO: optimize UV sets by making indexed list with duplicates removed
-class GeometryExporter : COLLADASW::LibraryGeometries
-{
-	struct Face
-	{
-		unsigned int v1, v2, v3, v4;
-	};
+  Normal n;
 
-	Normal n;
+ public:
+  /* TODO: optimize UV sets by making indexed list with duplicates removed */
+  GeometryExporter(BlenderContext &blender_context,
+                   COLLADASW::StreamWriter *sw,
+                   BCExportSettings &export_settings)
+      : COLLADASW::LibraryGeometries(sw),
+        blender_context(blender_context),
+        export_settings(export_settings)
+  {
+  }
 
-public:
+  void exportGeom();
 
-	// TODO: optimize UV sets by making indexed list with duplicates removed
-	GeometryExporter(BlenderContext &blender_context, COLLADASW::StreamWriter *sw, const ExportSettings *export_settings) :
-		COLLADASW::LibraryGeometries(sw),
-		blender_context(blender_context),
-		export_settings(export_settings)
-	{}
+  void operator()(Object *ob);
 
-	void exportGeom();
+  void createLooseEdgeList(Object *ob, Mesh *me, std::string &geom_id);
 
-	void operator()(Object *ob);
+  /* powerful because it handles both cases when there is material and when there's not */
+  void create_mesh_primitive_list(short material_index,
+                                  bool has_uvs,
+                                  bool has_color,
+                                  Object *ob,
+                                  Mesh *me,
+                                  std::string &geom_id,
+                                  std::vector<BCPolygonNormalsIndices> &norind);
 
-	void createLooseEdgeList(Object *ob,
-						     Mesh   *me,
-						     std::string& geom_id);
+  /* creates <source> for positions */
+  void createVertsSource(std::string geom_id, Mesh *me);
 
-	// powerful because it handles both cases when there is material and when there's not
-	void createPolylist(short material_index,
-						bool has_uvs,
-						bool has_color,
-						Object *ob,
-						Mesh   *me,
-						std::string& geom_id,
-						std::vector<BCPolygonNormalsIndices>& norind);
+  void createVertexColorSource(std::string geom_id, Mesh *me);
 
-	// creates <source> for positions
-	void createVertsSource(std::string geom_id, Mesh *me);
+  std::string makeTexcoordSourceId(std::string &geom_id, int layer_index, bool is_single_layer);
 
-	void createVertexColorSource(std::string geom_id, Mesh *me);
+  /* creates <source> for texcoords */
+  void createTexcoordsSource(std::string geom_id, Mesh *me);
+  void createTesselatedTexcoordsSource(std::string geom_id, Mesh *me);
 
-	std::string makeTexcoordSourceId(std::string& geom_id, int layer_index, bool is_single_layer);
+  /* creates <source> for normals */
+  void createNormalsSource(std::string geom_id, Mesh *me, std::vector<Normal> &nor);
 
-	//creates <source> for texcoords
-	void createTexcoordsSource(std::string geom_id, Mesh *me);
-	void createTesselatedTexcoordsSource(std::string geom_id, Mesh *me);
+  void create_normals(std::vector<Normal> &nor,
+                      std::vector<BCPolygonNormalsIndices> &ind,
+                      Mesh *me);
 
-	//creates <source> for normals
-	void createNormalsSource(std::string geom_id, Mesh *me, std::vector<Normal>& nor);
+  std::string getIdBySemantics(std::string geom_id,
+                               COLLADASW::InputSemantic::Semantics type,
+                               std::string other_suffix = "");
+  std::string makeVertexColorSourceId(std::string &geom_id, char *layer_name);
 
-	void create_normals(std::vector<Normal> &nor, std::vector<BCPolygonNormalsIndices> &ind, Mesh *me);
+  COLLADASW::URI getUrlBySemantics(std::string geom_id,
+                                   COLLADASW::InputSemantic::Semantics type,
+                                   std::string other_suffix = "");
 
-	std::string getIdBySemantics(std::string geom_id, COLLADASW::InputSemantic::Semantics type, std::string other_suffix = "");
-	std::string makeVertexColorSourceId(std::string& geom_id, char *layer_name);
+  COLLADASW::URI makeUrl(std::string id);
 
-	COLLADASW::URI getUrlBySemantics(std::string geom_id, COLLADASW::InputSemantic::Semantics type, std::string other_suffix = "");
+  void export_key_mesh(Object *ob, Mesh *me, KeyBlock *kb);
 
-	COLLADASW::URI makeUrl(std::string id);
+ private:
+  std::set<std::string> exportedGeometry;
+  BlenderContext &blender_context;
+  BCExportSettings &export_settings;
 
-	void export_key_mesh(Object *ob, Mesh *me, KeyBlock *kb);
-
-private:
-	std::set<std::string> exportedGeometry;
-	BlenderContext &blender_context;
-	const ExportSettings *export_settings;
-
-	Mesh *get_mesh(Scene *sce, Object *ob, int apply_modifiers);
+  Mesh *get_mesh(Scene *sce, Object *ob, int apply_modifiers);
 };
 
 struct GeometryFunctor {
-	// f should have
-	// void operator()(Object *ob)
-	template<class Functor>
-	void forEachMeshObjectInExportSet(Scene *sce, Functor &f, LinkNode *export_set)
-	{
-		LinkNode *node;
-		for (node=export_set; node; node = node->next) {
-			Object *ob = (Object *)node->link;
-			if (ob->type == OB_MESH) {
-				f(ob);
-			}
-		}
-	}
+  /* f should have
+   * void operator()(Object *ob) */
+  template<class Functor>
+  void forEachMeshObjectInExportSet(Scene *sce, Functor &f, LinkNode *export_set)
+  {
+    LinkNode *node;
+    for (node = export_set; node; node = node->next) {
+      Object *ob = (Object *)node->link;
+      if (ob->type == OB_MESH) {
+        f(ob);
+      }
+    }
+  }
 };
 
 #endif

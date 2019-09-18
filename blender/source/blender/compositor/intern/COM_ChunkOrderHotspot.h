@@ -1,6 +1,4 @@
 /*
- * Copyright 2011, Blender Foundation.
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,28 +12,29 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * Copyright 2011, Blender Foundation.
  */
 
 #ifndef __COM_CHUNKORDERHOTSPOT_H__
 #define __COM_CHUNKORDERHOTSPOT_H__
 
 #ifdef WITH_CXX_GUARDEDALLOC
-#include "MEM_guardedalloc.h"
+#  include "MEM_guardedalloc.h"
 #endif
 
 class ChunkOrderHotspot {
-private:
-	int m_x;
-	int m_y;
-	float m_addition;
+ private:
+  int m_x;
+  int m_y;
+  float m_addition;
 
-public:
-	ChunkOrderHotspot(int x, int y, float addition);
-	double determineDistance(int x, int y);
-
+ public:
+  ChunkOrderHotspot(int x, int y, float addition);
+  double determineDistance(int x, int y);
 
 #ifdef WITH_CXX_GUARDEDALLOC
-	MEM_CXX_CLASS_ALLOC_FUNCS("COM:ChunkOrderHotspot")
+  MEM_CXX_CLASS_ALLOC_FUNCS("COM:ChunkOrderHotspot")
 #endif
 };
 

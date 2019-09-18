@@ -17,9 +17,9 @@
  * All rights reserved.
  */
 
-/** \file \ingroup edmeta
+/** \file
+ * \ingroup edmeta
  */
-
 
 #ifndef __MBALL_INTERN_H__
 #define __MBALL_INTERN_H__

@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup freestyle
+/** \file
+ * \ingroup freestyle
  */
 
 #ifndef __FREESTYLE_PYTHON_TVERTEX_H__
@@ -36,8 +37,8 @@ extern PyTypeObject TVertex_Type;
 
 /*---------------------------Python BPy_TVertex structure definition----------*/
 typedef struct {
-	BPy_ViewVertex py_vv;
-	TVertex *tv;
+  BPy_ViewVertex py_vv;
+  TVertex *tv;
 } BPy_TVertex;
 
 ///////////////////////////////////////////////////////////////////////////////////////////

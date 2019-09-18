@@ -1,6 +1,4 @@
 /*
- * Copyright 2012, Blender Foundation.
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,8 +12,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * Copyright 2012, Blender Foundation.
  */
-
 
 #ifndef __COM_KEYINGOPERATION_H__
 #define __COM_KEYINGOPERATION_H__
@@ -30,21 +29,24 @@
  * Class with implementation of keying node
  */
 class KeyingOperation : public NodeOperation {
-protected:
-	SocketReader *m_pixelReader;
-	SocketReader *m_screenReader;
+ protected:
+  SocketReader *m_pixelReader;
+  SocketReader *m_screenReader;
 
-	float m_screenBalance;
+  float m_screenBalance;
 
-public:
-	KeyingOperation();
+ public:
+  KeyingOperation();
 
-	void initExecution();
-	void deinitExecution();
+  void initExecution();
+  void deinitExecution();
 
-	void setScreenBalance(float value) {this->m_screenBalance = value;}
+  void setScreenBalance(float value)
+  {
+    this->m_screenBalance = value;
+  }
 
-	void executePixelSampled(float output[4], float x, float y, PixelSampler sampler);
+  void executePixelSampled(float output[4], float x, float y, PixelSampler sampler);
 };
 
 #endif

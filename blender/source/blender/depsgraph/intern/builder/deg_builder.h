@@ -17,17 +17,41 @@
  * All rights reserved.
  */
 
-/** \file \ingroup depsgraph
+/** \file
+ * \ingroup depsgraph
  */
 
 #pragma once
 
+struct Base;
 struct Main;
+struct Object;
+struct bPoseChannel;
 
 namespace DEG {
 
 struct Depsgraph;
+class DepsgraphBuilderCache;
 
-void deg_graph_build_finalize(struct Main *bmain, struct Depsgraph *graph);
+class DepsgraphBuilder {
+ public:
+  bool need_pull_base_into_graph(Base *base);
+
+  bool check_pchan_has_bbone(Object *object, const bPoseChannel *pchan);
+  bool check_pchan_has_bbone_segments(Object *object, const bPoseChannel *pchan);
+  bool check_pchan_has_bbone_segments(Object *object, const char *bone_name);
+
+ protected:
+  /* NOTE: The builder does NOT take ownership over any of those resources. */
+  DepsgraphBuilder(Main *bmain, Depsgraph *graph, DepsgraphBuilderCache *cache);
+
+  /* State which never changes, same for the whole builder time. */
+  Main *bmain_;
+  Depsgraph *graph_;
+  DepsgraphBuilderCache *cache_;
+};
+
+bool deg_check_base_in_depsgraph(const Depsgraph *graph, Base *base);
+void deg_graph_build_finalize(Main *bmain, Depsgraph *graph);
 
 }  // namespace DEG

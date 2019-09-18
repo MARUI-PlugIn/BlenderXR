@@ -17,9 +17,9 @@
  * All rights reserved.
  */
 
-/** \file \ingroup spimage
+/** \file
+ * \ingroup spimage
  */
-
 
 #ifndef __IMAGE_INTERN_H__
 #define __IMAGE_INTERN_H__
@@ -34,8 +34,6 @@ struct bNodeTree;
 struct wmOperatorType;
 
 /* space_image.c */
-struct ARegion *image_has_buttons_region(struct ScrArea *sa);
-struct ARegion *image_has_tools_region(struct ScrArea *sa);
 
 extern const char *image_context_dir[]; /* doc access */
 
@@ -68,6 +66,7 @@ void IMAGE_OT_reload(struct wmOperatorType *ot);
 void IMAGE_OT_save(struct wmOperatorType *ot);
 void IMAGE_OT_save_as(struct wmOperatorType *ot);
 void IMAGE_OT_save_sequence(struct wmOperatorType *ot);
+void IMAGE_OT_save_all_modified(struct wmOperatorType *ot);
 void IMAGE_OT_pack(struct wmOperatorType *ot);
 void IMAGE_OT_unpack(struct wmOperatorType *ot);
 
@@ -91,7 +90,5 @@ void IMAGE_OT_clear_render_border(struct wmOperatorType *ot);
 /* image_panels.c */
 struct ImageUser *ntree_get_active_iuser(struct bNodeTree *ntree);
 void image_buttons_register(struct ARegionType *art);
-void IMAGE_OT_properties(struct wmOperatorType *ot);
-void IMAGE_OT_toolshelf(struct wmOperatorType *ot);
 
 #endif /* __IMAGE_INTERN_H__ */

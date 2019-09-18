@@ -1,6 +1,4 @@
 /*
- * Copyright 2011, Blender Foundation.
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,34 +12,39 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * Copyright 2011, Blender Foundation.
  */
 
 #ifndef __COM_SETSAMPLEROPERATION_H__
 #define __COM_SETSAMPLEROPERATION_H__
 #include "COM_NodeOperation.h"
 
-
 /**
  * this program converts an input color to an output Sampler.
  * it assumes we are in sRGB color space.
  */
 class SetSamplerOperation : public NodeOperation {
-private:
-	PixelSampler m_sampler;
-	SocketReader *m_reader;
-public:
-	/**
-	 * Default constructor
-	 */
-	SetSamplerOperation();
+ private:
+  PixelSampler m_sampler;
+  SocketReader *m_reader;
 
-	void setSampler(PixelSampler sampler) { this->m_sampler = sampler; }
+ public:
+  /**
+   * Default constructor
+   */
+  SetSamplerOperation();
 
-	/**
-	 * the inner loop of this program
-	 */
-	void executePixelSampled(float output[4], float x, float y, PixelSampler sampler);
-	void initExecution();
-	void deinitExecution();
+  void setSampler(PixelSampler sampler)
+  {
+    this->m_sampler = sampler;
+  }
+
+  /**
+   * the inner loop of this program
+   */
+  void executePixelSampled(float output[4], float x, float y, PixelSampler sampler);
+  void initExecution();
+  void deinitExecution();
 };
 #endif

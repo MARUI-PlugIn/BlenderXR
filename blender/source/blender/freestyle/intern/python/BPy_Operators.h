@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup freestyle
+/** \file
+ * \ingroup freestyle
  */
 
 #ifndef __FREESTYLE_PYTHON_OPERATORS_H__
@@ -40,13 +41,12 @@ extern PyTypeObject Operators_Type;
 
 /*---------------------------Python BPy_Operators structure definition----------*/
 typedef struct {
-	PyObject_HEAD
+  PyObject_HEAD
 } BPy_Operators;
 
 /*---------------------------Python BPy_Operators visible prototypes-----------*/
 
 int Operators_Init(PyObject *module);
-
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 

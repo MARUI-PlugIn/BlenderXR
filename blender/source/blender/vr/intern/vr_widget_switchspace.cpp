@@ -15,18 +15,16 @@
 * along with this program; if not, write to the Free Software Foundation,
 * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 *
-* The Original Code is Copyright (C) 2018 by Blender Foundation.
+* The Original Code is Copyright (C) 2019 by Blender Foundation.
 * All rights reserved.
 *
-* Contributor(s): MARUI-PlugIn
+* Contributor(s): MARUI-PlugIn, Multiplexed Reality
 *
 * ***** END GPL LICENSE BLOCK *****
 */
 
 /** \file blender/vr/intern/vr_widget_switchspace.cpp
 *   \ingroup vr
-* 
-* Main module for the VR widget UI.
 */
 
 #include "vr_types.h"
@@ -37,13 +35,12 @@
 
 #include "vr_widget_switchspace.h"
 #include "vr_widget_transform.h"
-#include "vr_widget_layout.h"
 
 #include "vr_draw.h"
 
 #include "BKE_context.h"
 
-/***********************************************************************************************//**
+/***************************************************************************************************
  * \class                               Widget_SwitchSpace
  ***************************************************************************************************
  * Interaction widget for switching the currently active transform space.

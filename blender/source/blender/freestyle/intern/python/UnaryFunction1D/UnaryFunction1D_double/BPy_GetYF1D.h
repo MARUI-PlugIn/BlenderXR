@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup freestyle
+/** \file
+ * \ingroup freestyle
  */
 
 #ifndef __FREESTYLE_PYTHON_GETYF1D_H__
@@ -34,9 +35,8 @@ extern PyTypeObject GetYF1D_Type;
 
 /*---------------------------Python BPy_GetYF1D structure definition----------*/
 typedef struct {
-	BPy_UnaryFunction1DDouble py_uf1D_double;
+  BPy_UnaryFunction1DDouble py_uf1D_double;
 } BPy_GetYF1D;
-
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 

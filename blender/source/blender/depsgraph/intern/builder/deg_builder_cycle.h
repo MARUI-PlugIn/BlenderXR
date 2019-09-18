@@ -17,9 +17,9 @@
  * All rights reserved.
  */
 
-/** \file \ingroup depsgraph
+/** \file
+ * \ingroup depsgraph
  */
-
 
 #pragma once
 

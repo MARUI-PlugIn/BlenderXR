@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup pythonintern
+/** \file
+ * \ingroup pythonintern
  */
 
 #ifndef __BPY_GIZMO_WRAP_H__
@@ -27,4 +28,4 @@ struct wmGizmoType;
 void BPY_RNA_gizmo_wrapper(struct wmGizmoType *gzt, void *userdata);
 void BPY_RNA_gizmogroup_wrapper(struct wmGizmoGroupType *gzgt, void *userdata);
 
-#endif  /* __BPY_GIZMO_WRAP_H__ */
+#endif /* __BPY_GIZMO_WRAP_H__ */

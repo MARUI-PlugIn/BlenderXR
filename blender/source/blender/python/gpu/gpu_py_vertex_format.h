@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup bpygpu
+/** \file
+ * \ingroup bpygpu
  */
 
 #ifndef __GPU_PY_VERTEX_FORMAT_H__
@@ -24,11 +25,10 @@
 
 extern PyTypeObject BPyGPUVertFormat_Type;
 
-#define BPyGPUVertFormat_Check(v)     (Py_TYPE(v) == &BPyGPUVertFormat_Type)
+#define BPyGPUVertFormat_Check(v) (Py_TYPE(v) == &BPyGPUVertFormat_Type)
 
 typedef struct BPyGPUVertFormat {
-	PyObject_VAR_HEAD
-	struct GPUVertFormat fmt;
+  PyObject_VAR_HEAD struct GPUVertFormat fmt;
 } BPyGPUVertFormat;
 
 PyObject *BPyGPUVertFormat_CreatePyObject(struct GPUVertFormat *fmt);

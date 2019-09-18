@@ -133,7 +133,7 @@ class BPyOpsSubModOp:
 
         is_dict = is_exec = is_undo = False
 
-        for i, arg in enumerate(args):
+        for arg in args:
             if is_dict is False and isinstance(arg, dict):
                 if is_exec is True or is_undo is True:
                     raise ValueError("dict arg must come first")
@@ -160,7 +160,8 @@ class BPyOpsSubModOp:
         else:
             import bpy
             for scene in bpy.data.scenes:
-                scene.update()
+                for view_layer in scene.view_layers:
+                    view_layer.update()
 
     __doc__ = property(_get_doc)
 
@@ -169,7 +170,7 @@ class BPyOpsSubModOp:
         self._func = func
 
     def poll(self, *args):
-        C_dict, C_exec, C_undo = BPyOpsSubModOp._parse_args(args)
+        C_dict, C_exec, _C_undo = BPyOpsSubModOp._parse_args(args)
         return op_poll(self.idname_py(), C_dict, C_exec)
 
     def idname(self):

@@ -20,27 +20,23 @@
 #ifndef __BKE_IDCODE_H__
 #define __BKE_IDCODE_H__
 
-/** \file \ingroup bke
+/** \file
+ * \ingroup bke
  */
 
 const char *BKE_idcode_to_name(short idcode);
 const char *BKE_idcode_to_name_plural(short idcode);
 const char *BKE_idcode_to_translation_context(short idcode);
-short       BKE_idcode_from_name(const char *name);
-bool        BKE_idcode_is_linkable(short idcode);
-bool        BKE_idcode_is_valid(short idcode);
+short BKE_idcode_from_name(const char *name);
+bool BKE_idcode_is_linkable(short idcode);
+bool BKE_idcode_is_valid(short idcode);
 
-int         BKE_idcode_to_idfilter(const short idcode);
-short       BKE_idcode_from_idfilter(const int idfilter);
+int BKE_idcode_to_idfilter(const short idcode);
+short BKE_idcode_from_idfilter(const int idfilter);
 
 int BKE_idcode_to_index(const short idcode);
+short BKE_idcode_from_index(const int index);
 
-/**
- * Return an ID code and steps the index forward 1.
- *
- * \param index: start as 0.
- * \return the code, 0 when all codes have been returned.
- */
 short BKE_idcode_iter_step(int *index);
 
 #endif

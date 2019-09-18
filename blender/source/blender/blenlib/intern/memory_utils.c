@@ -14,8 +14,9 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup bli
- *  \brief Generic memory manipulation API.
+/** \file
+ * \ingroup bli
+ * \brief Generic memory manipulation API.
  *
  * This is to extend on existing functions
  * such as ``memcpy`` & ``memcmp``.
@@ -34,12 +35,12 @@
  */
 bool BLI_memory_is_zero(const void *s, const size_t nbytes)
 {
-	const char *s_byte = s;
-	const char *s_end = (const char *)s + nbytes;
+  const char *s_byte = s;
+  const char *s_end = (const char *)s + nbytes;
 
-	while ((s_byte != s_end) && (*s_byte == 0)) {
-		s_byte++;
-	}
+  while ((s_byte != s_end) && (*s_byte == 0)) {
+    s_byte++;
+  }
 
-	return (s_byte == s_end);
+  return (s_byte == s_end);
 }

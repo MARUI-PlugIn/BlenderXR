@@ -17,15 +17,16 @@
 #ifndef __FREESTYLE_STROKE_SHADERS_H__
 #define __FREESTYLE_STROKE_SHADERS_H__
 
-/** \file \ingroup freestyle
- *  \brief Class defining StrokeShader
+/** \file
+ * \ingroup freestyle
+ * \brief Class defining StrokeShader
  */
 
 #include <iostream>
 #include <vector>
 
 #ifdef WITH_CXX_GUARDEDALLOC
-#include "MEM_guardedalloc.h"
+#  include "MEM_guardedalloc.h"
 #endif
 
 using namespace std;
@@ -43,59 +44,57 @@ class Stroke;
  *  Any Stroke Shader must inherit from this class and overload the shade() method.
  *  A StrokeShader is designed to modify any Stroke's attribute such as Thickness, Color,
  *  Geometry, Texture, Blending mode...
- *  The basic way to achieve this operation consists in iterating over the StrokeVertices of the Stroke
- *  and to modify each one's StrokeAttribute.
- *  Here is a python code example of such an iteration:
- *  \code
- *  it = ioStroke.strokeVerticesBegin()
- *  while not it.isEnd():
- *      att = it.getObject().attribute()
+ *  The basic way to achieve this operation consists in iterating over the StrokeVertices of the
+ * Stroke and to modify each one's StrokeAttribute. Here is a python code example of such an
+ * iteration: \code it = ioStroke.strokeVerticesBegin() while not it.isEnd(): att =
+ * it.getObject().attribute()
  *      ## perform here any attribute modification
  *      it.increment()
- *  \endcode
+ * \endcode
  *  Here is a C++ code example of such an iteration:
- *  \code
- *  for (StrokeInternal::StrokeVertexIterator v = ioStroke.strokeVerticesBegin(), vend = ioStroke.strokeVerticesEnd();
- *      v != vend;
+ * \code
+ *  for (StrokeInternal::StrokeVertexIterator v = ioStroke.strokeVerticesBegin(), vend =
+ * ioStroke.strokeVerticesEnd(); v != vend;
  *      ++v)
  *  {
- *  	StrokeAttribute& att = v->attribute();
- *  	// perform any attribute modification here...
+ *      StrokeAttribute& att = v->attribute();
+ *      // perform any attribute modification here...
  *  }
- *  \endcode
+ * \endcode
  */
-class StrokeShader
-{
-public:
-	void *py_ss;
+class StrokeShader {
+ public:
+  void *py_ss;
 
-	/*! Default constructor. */
-	StrokeShader()
-	{
-		py_ss = 0;
-	}
+  /*! Default constructor. */
+  StrokeShader()
+  {
+    py_ss = 0;
+  }
 
-	/*! Destructor. */
-	virtual ~StrokeShader() {}
+  /*! Destructor. */
+  virtual ~StrokeShader()
+  {
+  }
 
-	/*! Returns the string corresponding to the shader's name. */
-	virtual string getName() const
-	{
-		return "StrokeShader";
-	}
+  /*! Returns the string corresponding to the shader's name. */
+  virtual string getName() const
+  {
+    return "StrokeShader";
+  }
 
-	/*! The shading method. This method must be overloaded by inherited classes.
-	 *  \param ioStroke:
-	 *    The stroke we wish to shade. this Stroke is modified by the Shader (which typically
-	 *    modifies the Stroke's attribute's values such as Color, Thickness, Geometry...)
-	 */
-	virtual int shade(Stroke& ioStroke) const;
+  /*! The shading method. This method must be overloaded by inherited classes.
+   *  \param ioStroke:
+   *    The stroke we wish to shade. this Stroke is modified by the Shader (which typically
+   *    modifies the Stroke's attribute's values such as Color, Thickness, Geometry...)
+   */
+  virtual int shade(Stroke &ioStroke) const;
 
 #ifdef WITH_CXX_GUARDEDALLOC
-	MEM_CXX_CLASS_ALLOC_FUNCS("Freestyle:StrokeShader")
+  MEM_CXX_CLASS_ALLOC_FUNCS("Freestyle:StrokeShader")
 #endif
 };
 
 } /* namespace Freestyle */
 
-#endif // __FREESTYLE_STROKE_SHADERS_H__
+#endif  // __FREESTYLE_STROKE_SHADERS_H__

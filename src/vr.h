@@ -5,6 +5,7 @@
  ***************************************************************************************************
  * \brief     Virtual Reality device/API abstraction layer module.
  * \copyright MARUI-PlugIn (inc.)
+ * \contributors Multiplexed Reality
  **************************************************************************************************/
 #ifndef __VR_H
 #define __VR_H
@@ -46,7 +47,11 @@ public:
 		,
 		Type_Fove = 3 //!< Fove API was used for implementation.
 		,
-		Types = 4 //!< Number of API types.
+		Type_OpenXR = 4 //!< OpenXR API was used for implementation.
+		,
+		Type_MagicLeap = 5 //!< Magic Leap API was used for implementation.
+		,
+		Types = 6 //!< Number of API types.
 	} Type; //!< API used to implement this device / module.
 
 	//                                                                  ________________
@@ -57,15 +62,21 @@ public:
 	typedef enum HMDType {
 		HMDType_Null = 0 //!< Empty null-implementation.
 		,
-		HMDType_Oculus = 1 //!< Oculus Rift.
+		HMDType_Oculus = 1 //!< Oculus Rift and Rift S.
 		,
-		HMDType_Vive = 2 //!< HTC Vive.
+		HMDType_Vive = 2 //!< HTC Vive and Vive Pro.
 		,
-		HMDType_Microsoft = 3 //!< Windows MR headset.
+		HMDType_WindowsMR = 3 //!< Windows Mixed Reality.
 		,
-		HMDType_Fove = 4 //!< Fove0 headset.
+		HMDType_Fove = 4 //!< Fove 0.
 		,
-		HMDTypes = 5 //!< Number of API types.
+		HMDType_Pimax = 5 //!< Pimax HMDs.
+		,
+		HMDType_Index = 6 //!< Valve Index.
+		,
+		HMDType_MagicLeap = 7 //!< Magic Leap One.
+		,
+		HMDTypes = 8 //!< Number of HMD types.
 	} HMDType; //!< HMD / device used for VR.
 
 	//                                                              ____________________
@@ -118,13 +129,13 @@ public:
 	/// Simple struct for 3D input device information
 	typedef struct Controller {
 		Side    side;       //!< Side of the controller.
-		bool    available;  //!< Whether the controller are (currently) available.
+		int     available;  //!< Whether the controller are (currently) available.
 		ui64    buttons;    //!< Buttons currently pressed on the controller.
 		ui64    buttons_touched; //!< Buttons currently touched on the controller (if available).
 		float  dpad[2]; //!< Dpad / touchpad position (u,v).
 		float  stick[2];   //!< Joystick / thumbstick position (u,v).
 		float trigger_pressure; //!< Analog trigger pressure (0~1) (if available).
-		float grip_pressure; //!< Analog grip pressure (0~1) (if available).
+		float grip_pressure;	//!< Analog grip pressure (0~1) (if available).
 		Controller();       //!< Constructor (null-init)
 	} Controller; //!< Controller
 
@@ -363,6 +374,7 @@ inline VR::Controller::Controller()
 	, buttons(0)
 	, buttons_touched(0)
 	, trigger_pressure(0.0f)
+	, grip_pressure(0.0f)
 {
 	dpad[0] = dpad[1] = 0;
 	stick[0] = stick[1] = 0;

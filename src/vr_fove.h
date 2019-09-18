@@ -10,8 +10,7 @@
 #ifndef __VR_FOVE_H__
 #define __VR_FOVE_H__
 
-#include <IFVRCompositor.h>
-#include <IFVRHeadset.h>
+#include "FoveAPI.h"
 
 #include "vr.h"
 
@@ -59,7 +58,7 @@ extern "C" __declspec(dllexport) int c_uninitVR();	//!< Un-initialize the intern
 class VR_Fove : public VR
 {
 public:
-	Fove::IFVRHeadset*	hmd;		//!< HMD device.
+	Fove::Headset		hmd;		//!< HMD device.
 	VR::HMDType			hmd_type;	//!< Type of the HMD attached
 
 	uint texture_width;		//!< Width of the textures in pixels.
@@ -71,17 +70,17 @@ public:
 	* Collection of data per eye
 	*/
 	typedef struct Eye {
-		Fove::SFVR_CompositorLayerEyeSubmitInfo tex_info; //!< Texture info for eye.
-		Fove::SFVR_Pose	pose;							  //!< Pose of each eye.
-		Fove::SFVR_Matrix44	offset;                       //!< Offset between eye and HMD. Used to calculate eye positions.
-		float fx;										  //!< Horizontal focal length, in "image-width"-units (1=image width).
-		float fy;										  //!< Vertical focal length, in "image-height"-units (1=image height).
-		float cx;										  //!< Horizontal principal point, in "image-width"-units (0.5=image center).
-		float cy;										  //!< Vertical principal point, in "image-height"-units (0.5=image center).
+		Fove::CompositorLayerEyeSubmitInfo tex_info;	//!< Texture info for eye.
+		Fove::Pose	pose;								//!< Pose of each eye.
+		Fove::Matrix44	offset;							//!< Offset between eye and HMD. Used to calculate eye positions.
+		float fx;										//!< Horizontal focal length, in "image-width"-units (1=image width).
+		float fy;										//!< Vertical focal length, in "image-height"-units (1=image height).
+		float cx;										//!< Horizontal principal point, in "image-width"-units (0.5=image center).
+		float cy;										//!< Vertical principal point, in "image-height"-units (0.5=image center).
 
-		Fove::SFVR_GazeVector gaze;						  //!< Gaze vector for eye.
-		float pupil_dilation;							  //!< Pupil dilation.
-		bool  attention;								  //!< True if the user is looking at something, rather than saccading.
+		Fove::GazeVector gaze;							//!< Gaze vector for eye.
+		float pupil_dilation;							//!< Pupil dilation.
+		bool  attention;								//!< True if the user is looking at something, rather than saccading.
 
 		/// Default constructor (zero-init).
 		Eye() : fx(0)
@@ -129,14 +128,14 @@ public:
 	virtual ~VR_Fove();  //!< Class destructor
 
 protected:
-	Fove::IFVRCompositor* compositor;	//!< Compositor.
-	Fove::SFVR_CompositorLayer compositor_layer;	//!< Compositor layer.
-	Fove::SFVR_CompositorLayerCreateInfo compositor_create_info;	//!< Compositor creation info;
-	Fove::SFVR_CompositorLayerSubmitInfo compositor_submit_info;	//!< Compositor texture submission info.
+	Fove::Compositor compositor;	//!< Compositor.
+	Fove::CompositorLayer compositor_layer;//!< Compositor layer.
+	Fove::CompositorLayerCreateInfo compositor_create_info;	//!< Compositor creation info;
+	Fove::CompositorLayerSubmitInfo compositor_submit_info;	//!< Compositor texture submission info.
 
-	Fove::SFVR_Pose	hmd_pose;	//!< HMD pose.
-	Fove::SFVR_Matrix44 camera_matrix;	//!< Stores the camera translation used each frame.
-	Fove::SFVR_GazeConvergenceData convergence; //!< Gaze convergence data from each frame.
+	Fove::Pose	hmd_pose;	//!< HMD pose.
+	Fove::Matrix44 camera_matrix;	//!< Stores the camera translation used each frame.
+	Fove::GazeConvergenceData convergence;	//!< Gaze convergence data from each frame.
 
 	Eye eye[2]; //!< Eye-related data.
 	GL  gl;  //!< OpenGL related objects/instances.

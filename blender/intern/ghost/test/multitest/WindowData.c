@@ -1,5 +1,4 @@
-/**
- *
+/*
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -27,25 +26,25 @@
 #include "WindowData.h"
 
 struct _WindowData {
-	void             *data;
-	WindowDataHandler handler;
+  void *data;
+  WindowDataHandler handler;
 };
 
 WindowData *windowdata_new(void *data, WindowDataHandler handler)
 {
-	WindowData *wb = MEM_mallocN(sizeof(*wb), "windowdata_new");
-	wb->data = data;
-	wb->handler = handler;
+  WindowData *wb = MEM_mallocN(sizeof(*wb), "windowdata_new");
+  wb->data = data;
+  wb->handler = handler;
 
-	return wb;
+  return wb;
 }
 
 void windowdata_handle(WindowData *wb, GHOST_EventHandle evt)
 {
-	wb->handler(wb->data, evt);
+  wb->handler(wb->data, evt);
 }
 
 void windowdata_free(WindowData *wb)
 {
-	MEM_freeN(wb);
+  MEM_freeN(wb);
 }

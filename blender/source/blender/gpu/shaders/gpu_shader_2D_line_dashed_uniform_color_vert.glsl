@@ -1,7 +1,7 @@
 
 /*
- * Vertex Shader for dashed lines with 2D coordinates, with uniform multi-colors or uniform single-color,
- * and unary thickness.
+ * Vertex Shader for dashed lines with 2D coordinates,
+ * with uniform multi-colors or uniform single-color, and unary thickness.
  *
  * Dashed is performed in screen space.
  */
@@ -16,6 +16,6 @@ out vec4 color_vert;
 
 void main()
 {
-	gl_Position = ModelViewProjectionMatrix * vec4(pos, 0.0, 1.0);
-	color_vert = color;
+  gl_Position = ModelViewProjectionMatrix * vec4(pos, 0.0, 1.0);
+  color_vert = color;
 }

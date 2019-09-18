@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup freestyle
+/** \file
+ * \ingroup freestyle
  */
 
 #ifndef __FREESTYLE_PYTHON_ZDISCONTINUITYF0D_H__
@@ -30,13 +31,13 @@ extern "C" {
 
 extern PyTypeObject ZDiscontinuityF0D_Type;
 
-#define BPy_ZDiscontinuityF0D_Check(v) (PyObject_IsInstance((PyObject *)v, (PyObject *)&ZDiscontinuityF0D_Type))
+#define BPy_ZDiscontinuityF0D_Check(v) \
+  (PyObject_IsInstance((PyObject *)v, (PyObject *)&ZDiscontinuityF0D_Type))
 
 /*---------------------------Python BPy_ZDiscontinuityF0D structure definition----------*/
 typedef struct {
-	BPy_UnaryFunction0DDouble py_uf0D_double;
+  BPy_UnaryFunction0DDouble py_uf0D_double;
 } BPy_ZDiscontinuityF0D;
-
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 

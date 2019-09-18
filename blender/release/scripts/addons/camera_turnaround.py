@@ -21,7 +21,7 @@ bl_info = {
     "author": "Antonio Vazquez (antonioya)",
     "version": (0, 3, 0),
     "blender": (2, 80, 0),
-    "location": "View3D > Toolshelf > Animation Tab > Turnaround Camera",
+    "location": "View3D > Sidebar > View Tab > Turnaround Camera",
     "description": "Add a camera rotation around selected object",
     "wiki_url": "https://wiki.blender.org/index.php/Extensions:2.6/Py/"
                 "Scripts/Animation/TurnaroundCamera",
@@ -59,7 +59,7 @@ class CAMERATURN_OT_RunAction(Operator):
         turn_camera = scene.turn_camera
         selectobject = context.active_object
         camera = context.scene.camera
-        savedcursor = bpy.context.scene.cursor_location.copy()  # cursor position
+        savedcursor = bpy.context.scene.cursor.location.copy()  # cursor position
         savedframe = scene.frame_current
         if turn_camera.use_cursor is False:
             bpy.ops.view3d.snap_cursor_to_selected()
@@ -166,7 +166,7 @@ class CAMERATURN_OT_RunAction(Operator):
 
         # back previous configuration
         context.preferences.edit.keyframe_new_interpolation_type = savedinterpolation
-        bpy.context.scene.cursor_location = savedcursor
+        bpy.context.scene.cursor.location = savedcursor
 
         # -------------------------
         # Back to old selection

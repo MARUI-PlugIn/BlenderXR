@@ -2,13 +2,16 @@ import bpy
 from .ui import create_script
 from .limb_utils import *
 from mathutils import Vector
-from ...utils import copy_bone, flip_bone, put_bone, create_cube_widget
-from ...utils import strip_org, strip_mch, make_deformer_name, create_widget
+from ...utils import copy_bone, flip_bone, put_bone
+from ...utils import strip_org, strip_mch
 from ...utils import create_circle_widget, create_sphere_widget, create_line_widget
-from ...utils import MetarigError, make_mechanism_name, org
+from ...utils import MetarigError, make_mechanism_name
 from ...utils import create_limb_widget, connected_children_names
-from ...utils import align_bone_y_axis, align_bone_x_axis, align_bone_z_axis
+from ...utils import align_bone_x_axis, align_bone_z_axis
+from ...rig_ui_template import UTILITIES_RIG_LEG, REGISTER_RIG_LEG
+from ...utils import ControlLayersOption
 from rna_prop_ui import rna_idprop_ui_prop_get
+from ...utils.mechanism import make_property, make_driver
 from ..widgets import create_ikarrow_widget, create_gear_widget
 from ..widgets import create_foot_widget, create_ballsocket_widget
 from math import trunc, pi
@@ -45,17 +48,6 @@ class Rig:
         self.limb_type = params.limb_type
         self.rot_axis = params.rotation_axis
         self.auto_align_extremity = params.auto_align_extremity
-
-        # Assign values to tweak/FK layers props if opted by user
-        if params.tweak_extra_layers:
-            self.tweak_layers = list(params.tweak_layers)
-        else:
-            self.tweak_layers = None
-
-        if params.fk_extra_layers:
-            self.fk_layers = list(params.fk_layers)
-        else:
-            self.fk_layers = None
 
     def orient_org_bones(self):
 
@@ -143,24 +135,9 @@ class Rig:
 
         # pb[ mch ][ name ] = 0.0
         # prop = rna_idprop_ui_prop_get( pb[ mch ], name, create = True )
-        pb[main_parent][name] = 0.0
-        prop = rna_idprop_ui_prop_get(pb[main_parent], name, create=True)
+        make_property(pb[main_parent], name, 0.0)
 
-        prop["min"] = 0.0
-        prop["max"] = 1.0
-        prop["soft_min"] = 0.0
-        prop["soft_max"] = 1.0
-        prop["description"] = name
-
-        drv = pb[mch].constraints[0].driver_add("influence").driver
-
-        drv.type = 'AVERAGE'
-        var = drv.variables.new()
-        var.name = name
-        var.type = "SINGLE_PROP"
-        var.targets[0].id = self.obj
-        var.targets[0].data_path = pb[main_parent].path_from_id() + \
-                                   '[' + '"' + name + '"' + ']'
+        make_driver(pb[mch].constraints[0], "influence", variables=[(self.obj, main_parent, name)])
 
         size = pb[main_parent].bone.y_axis.length * 10
         create_gear_widget(self.obj, main_parent, size=size, bone_transform_name=None)
@@ -285,8 +262,7 @@ class Rig:
 
             create_sphere_widget(self.obj, t, bone_transform_name=None)
 
-            if self.tweak_layers:
-                pb[t].bone.layers = self.tweak_layers
+        ControlLayersOption.TWEAK.assign(self.params, pb, tweaks['ctrl'])
 
         return tweaks
 
@@ -360,38 +336,18 @@ class Rig:
             name = 'rubber_tweak'
 
             if not (i+1) % self.segments:
-                pb[t][name] = 0.0
+                defvalue = 0.0
             else:
-                pb[t][name] = 1.0
+                defvalue = 1.0
 
-            prop = rna_idprop_ui_prop_get( pb[t], name, create=True )
-
-            prop["min"]         = 0.0
-            prop["max"]         = 2.0
-            prop["soft_min"]    = 0.0
-            prop["soft_max"]    = 1.0
-            prop["description"] = name
+            make_property(pb[t], name, defvalue, max=2.0, soft_max=1.0)
 
         for j,d in enumerate(def_bones[:-1]):
-            drvs = {}
             if j != 0:
-                tidx = j
-                drvs[tidx] = self.obj.data.bones[d].driver_add("bbone_easein").driver
+                make_driver(self.obj.data.bones[d], "bbone_easein", variables=[(self.obj, tweaks[j], 'rubber_tweak')])
 
             if j != len( def_bones[:-1] ) - 1:
-                tidx = j + 1
-                drvs[tidx] = self.obj.data.bones[d].driver_add("bbone_easeout").driver
-
-            for d in drvs:
-                drv = drvs[d]
-                name = 'rubber_tweak'
-                drv.type = 'AVERAGE'
-                var = drv.variables.new()
-                var.name = name
-                var.type = "SINGLE_PROP"
-                var.targets[0].id = self.obj
-                var.targets[0].data_path = pb[tweaks[d]].path_from_id() + \
-                                           '[' + '"' + name + '"' + ']'
+                make_driver(self.obj.data.bones[d], "bbone_easeout", variables=[(self.obj, tweaks[j+1], 'rubber_tweak')])
 
         return def_bones
 
@@ -569,9 +525,7 @@ class Rig:
 
         create_circle_widget(self.obj, ctrls[2], radius=0.4, head_tail=0.0)
 
-        for c in ctrls:
-            if self.fk_layers:
-                pb[c].bone.layers = self.fk_layers
+        ControlLayersOption.FK.assign(self.params, pb, ctrls)
 
         return {'ctrl': ctrls, 'mch': mch}
 
@@ -590,13 +544,7 @@ class Rig:
         pb_parent = pb[parent]
 
         # Create ik/fk switch property
-        pb_parent['IK_FK'] = 0.0
-        prop = rna_idprop_ui_prop_get(pb_parent, 'IK_FK', create=True)
-        prop["min"] = 0.0
-        prop["max"] = 1.0
-        prop["soft_min"] = 0.0
-        prop["soft_max"] = 1.0
-        prop["description"] = 'IK/FK Switch'
+        prop = make_property(pb_parent, 'IK_FK', 0.0, description='IK/FK Switch')
 
         # Constrain org to IK and FK bones
         iks = [ik['ctrl']['limb']]
@@ -613,15 +561,7 @@ class Rig:
             })
 
             # Add driver to relevant constraint
-            drv = pb[o].constraints[-1].driver_add("influence").driver
-            drv.type = 'AVERAGE'
-
-            var = drv.variables.new()
-            var.name = prop.name
-            var.type = "SINGLE_PROP"
-            var.targets[0].id = self.obj
-            var.targets[0].data_path = \
-                pb_parent.path_from_id() + '[' + '"' + prop.name + '"' + ']'
+            make_driver(pb[o].constraints[-1], "influence", variables=[(self.obj, pb_parent, prop.name)])
 
     def create_paw(self, bones):
         org_bones = list(
@@ -796,32 +736,12 @@ class Rig:
         pb_parent.lock_rotation = True, True, True
         pb_parent.lock_scale = True, True, True
 
-        pb_parent['IK_Stretch'] = 1.0
-        prop = rna_idprop_ui_prop_get(pb_parent, 'IK_Stretch', create=True)
-        prop["min"] = 0.0
-        prop["max"] = 1.0
-        prop["soft_min"] = 0.0
-        prop["soft_max"] = 1.0
-        prop["description"] = 'IK Stretch'
+        prop = make_property(pb_parent, 'IK_Stretch', 1.0, description='IK Stretch')
 
         # Add driver to limit scale constraint influence
         b = bones['ik']['mch_str']
-        drv = pb[b].constraints[-1].driver_add("influence").driver
-        drv.type = 'AVERAGE'
 
-        var = drv.variables.new()
-        var.name = prop.name
-        var.type = "SINGLE_PROP"
-        var.targets[0].id = self.obj
-        var.targets[0].data_path = \
-            pb_parent.path_from_id() + '[' + '"' + prop.name + '"' + ']'
-
-        drv_modifier = self.obj.animation_data.drivers[-1].modifiers[0]
-
-        drv_modifier.mode = 'POLYNOMIAL'
-        drv_modifier.poly_order = 1
-        drv_modifier.coefficients[0] = 1.0
-        drv_modifier.coefficients[1] = -1.0
+        make_driver(pb[b].constraints[-1], "influence", variables=[(self.obj, pb_parent, prop.name)], polynomial=[1.0, -1.0])
 
         # Create paw widget
         create_foot_widget(self.obj, ctrl, bone_transform_name=None)
@@ -879,22 +799,8 @@ class Rig:
 
             # Add driver to limit scale constraint influence
             b = toes_mch_parent
-            drv = pb[b].constraints[-1].driver_add("influence").driver
-            drv.type = 'AVERAGE'
 
-            var = drv.variables.new()
-            var.name = prop.name
-            var.type = "SINGLE_PROP"
-            var.targets[0].id = self.obj
-            var.targets[0].data_path = \
-                pb_parent.path_from_id() + '['+ '"' + prop.name + '"' + ']'
-
-            drv_modifier = self.obj.animation_data.drivers[-1].modifiers[0]
-
-            drv_modifier.mode = 'POLYNOMIAL'
-            drv_modifier.poly_order = 1
-            drv_modifier.coefficients[0] = 1.0
-            drv_modifier.coefficients[1] = -1.0
+            make_driver(pb[b].constraints[-1], "influence", variables=[(self.obj, pb_parent, prop.name)], polynomial=[1.0, -1.0])
 
             # Create toe circle widget
             create_circle_widget(self.obj, toes, radius=0.4, head_tail=0.5)
@@ -926,209 +832,55 @@ class Rig:
         for prop in props:
 
             if prop == 'pole_vector':
-                owner[prop] = False
-                pole_prop = rna_idprop_ui_prop_get(owner, prop, create=True)
-                pole_prop["min"] = False
-                pole_prop["max"] = True
-                pole_prop["description"] = prop
+                make_property(owner, prop, False)
                 mch_ik = pb[bones['ik']['mch_ik']]
 
                 # ik target hide driver
                 pole_target = pb[bones['ik']['ctrl']['ik_target']]
-                drv = pole_target.bone.driver_add("hide").driver
-                drv.type = 'AVERAGE'
 
-                var = drv.variables.new()
-                var.name = prop
-                var.type = "SINGLE_PROP"
-                var.targets[0].id = self.obj
-                var.targets[0].data_path = \
-                    owner.path_from_id() + '[' + '"' + prop + '"' + ']'
-
-                drv_modifier = self.obj.animation_data.drivers[-1].modifiers[0]
-
-                drv_modifier.mode = 'POLYNOMIAL'
-                drv_modifier.poly_order = 1
-                drv_modifier.coefficients[0] = 1.0
-                drv_modifier.coefficients[1] = -1.0
+                make_driver(pole_target.bone, "hide", variables=[(self.obj, owner, prop)], polynomial=[1.0, -1.0])
 
                 # vis-pole hide driver
                 vispole = pb[bones['ik']['visuals']['vispole']]
-                drv = vispole.bone.driver_add("hide").driver
-                drv.type = 'AVERAGE'
-                var = drv.variables.new()
-                var.name = prop
-                var.type = "SINGLE_PROP"
-                var.targets[0].id = self.obj
-                var.targets[0].data_path = \
-                    owner.path_from_id() + '[' + '"' + prop + '"' + ']'
 
-                drv_modifier = self.obj.animation_data.drivers[-1].modifiers[0]
-
-                drv_modifier.mode = 'POLYNOMIAL'
-                drv_modifier.poly_order = 1
-                drv_modifier.coefficients[0] = 1.0
-                drv_modifier.coefficients[1] = -1.0
+                make_driver(vispole.bone, "hide", variables=[(self.obj, owner, prop)], polynomial=[1.0, -1.0])
 
                 # arrow hide driver
-                # pole_target = pb[bones['ik']['ctrl']['limb']]
-                # drv = pole_target.bone.driver_add("hide").driver
-                # drv.type = 'AVERAGE'
+                # limb = pb[bones['ik']['ctrl']['limb']]
                 #
-                # var = drv.variables.new()
-                # var.name = prop
-                # var.type = "SINGLE_PROP"
-                # var.targets[0].id = self.obj
-                # var.targets[0].data_path = \
-                #     owner.path_from_id() + '[' + '"' + prop + '"' + ']'
-                #
-                # drv_modifier = self.obj.animation_data.drivers[-1].modifiers[0]
-                #
-                # drv_modifier.mode = 'POLYNOMIAL'
-                # drv_modifier.poly_order = 1
-                # drv_modifier.coefficients[0] = 0.0
-                # drv_modifier.coefficients[1] = 1.0
+                # make_driver(limb.bone, "hide", variables=[(self.obj, owner, prop)], polynomial=[0.0, 1.0])
 
                 for cns in mch_ik.constraints:
                     if 'IK' in cns.type:
-                        drv = cns.driver_add("mute").driver
-                        drv.type = 'AVERAGE'
-
-                        var = drv.variables.new()
-                        var.name = prop
-                        var.type = "SINGLE_PROP"
-                        var.targets[0].id = self.obj
-                        var.targets[0].data_path = \
-                            owner.path_from_id() + '[' + '"' + prop + '"' + ']'
-
-                        drv_modifier = self.obj.animation_data.drivers[-1].modifiers[0]
-
-                        drv_modifier.mode = 'POLYNOMIAL'
-                        drv_modifier.poly_order = 1
                         if not cns.pole_subtarget:
-                            drv_modifier.coefficients[0] = 0.0
-                            drv_modifier.coefficients[1] = 1
+                            make_driver(cns, "mute", variables=[(self.obj, owner, prop)], polynomial=[0.0, 1.0])
                         else:
-                            drv_modifier.coefficients[0] = 1.0
-                            drv_modifier.coefficients[1] = -1.0
+                            make_driver(cns, "mute", variables=[(self.obj, owner, prop)], polynomial=[1.0, -1.0])
 
             elif prop == 'IK_follow':
+                make_property(owner, prop, True)
 
-                owner[prop] = True
-                rna_prop = rna_idprop_ui_prop_get(owner, prop, create=True)
-                rna_prop["min"] = False
-                rna_prop["max"] = True
-                rna_prop["description"] = prop
-
-                drv = ctrl.constraints[0].driver_add("mute").driver
-                drv.type = 'AVERAGE'
-
-                var = drv.variables.new()
-                var.name = prop
-                var.type = "SINGLE_PROP"
-                var.targets[0].id = self.obj
-                var.targets[0].data_path = \
-                    owner.path_from_id() + '[' + '"' + prop + '"' + ']'
-
-                drv_modifier = self.obj.animation_data.drivers[-1].modifiers[0]
-
-                drv_modifier.mode = 'POLYNOMIAL'
-                drv_modifier.poly_order = 1
-                drv_modifier.coefficients[0] = 1.0
-                drv_modifier.coefficients[1] = -1.0
+                make_driver(ctrl.constraints[0], "mute", variables=[(self.obj, owner, prop)], polynomial=[1.0, -1.0])
 
                 if len(ctrl.constraints) > 1:
-                    drv = ctrl.constraints[1].driver_add("mute").driver
-                    drv.type = 'AVERAGE'
+                    make_driver(ctrl.constraints[1], "mute", variables=[(self.obj, owner, prop)], polynomial=[1.0, -1.0])
 
-                    var = drv.variables.new()
-                    var.name = prop
-                    var.type = "SINGLE_PROP"
-                    var.targets[0].id = self.obj
-                    var.targets[0].data_path = \
-                        owner.path_from_id() + '[' + '"' + prop + '"' + ']'
-
-                    drv_modifier = self.obj.animation_data.drivers[-1].modifiers[0]
-
-                    drv_modifier.mode = 'POLYNOMIAL'
-                    drv_modifier.poly_order = 1
-                    drv_modifier.coefficients[0] = 1.0
-                    drv_modifier.coefficients[1] = -1.0
-
-                drv = ctrl_pole.constraints[0].driver_add("mute").driver
-                drv.type = 'AVERAGE'
-
-                var = drv.variables.new()
-                var.name = prop
-                var.type = "SINGLE_PROP"
-                var.targets[0].id = self.obj
-                var.targets[0].data_path = \
-                    owner.path_from_id() + '[' + '"' + prop + '"' + ']'
-
-                drv_modifier = self.obj.animation_data.drivers[-1].modifiers[0]
-
-                drv_modifier.mode = 'POLYNOMIAL'
-                drv_modifier.poly_order = 1
-                drv_modifier.coefficients[0] = 1.0
-                drv_modifier.coefficients[1] = -1.0
+                make_driver(ctrl_pole.constraints[0], "mute", variables=[(self.obj, owner, prop)], polynomial=[1.0, -1.0])
 
                 if len(ctrl_pole.constraints) > 1:
-                    drv = ctrl_pole.constraints[1].driver_add("mute").driver
-                    drv.type = 'AVERAGE'
-
-                    var = drv.variables.new()
-                    var.name = prop
-                    var.type = "SINGLE_PROP"
-                    var.targets[0].id = self.obj
-                    var.targets[0].data_path = \
-                        owner.path_from_id() + '[' + '"' + prop + '"' + ']'
-
-                    drv_modifier = self.obj.animation_data.drivers[-1].modifiers[0]
-
-                    drv_modifier.mode = 'POLYNOMIAL'
-                    drv_modifier.poly_order = 1
-                    drv_modifier.coefficients[0] = 1.0
-                    drv_modifier.coefficients[1] = -1.0
+                    make_driver(ctrl_pole.constraints[1], "mute", variables=[(self.obj, owner, prop)], polynomial=[1.0, -1.0])
 
             elif prop == 'root/parent':
                 if len(ctrl.constraints) > 1:
-                    owner[prop] = 0.0
-                    rna_prop = rna_idprop_ui_prop_get(owner, prop, create=True)
-                    rna_prop["min"] = 0.0
-                    rna_prop["max"] = 1.0
-                    rna_prop["soft_min"] = 0.0
-                    rna_prop["soft_max"] = 1.0
-                    rna_prop["description"] = prop
+                    make_property(owner, prop, 0.0)
 
-                    drv = ctrl.constraints[1].driver_add("influence").driver
-                    drv.type = 'AVERAGE'
-
-                    var = drv.variables.new()
-                    var.name = prop
-                    var.type = "SINGLE_PROP"
-                    var.targets[0].id = self.obj
-                    var.targets[0].data_path = \
-                        owner.path_from_id() + '[' + '"' + prop + '"' + ']'
+                    make_driver(ctrl.constraints[1], "influence", variables=[(self.obj, owner, prop)])
 
             elif prop == 'pole_follow':
                 if len(ctrl_pole.constraints) > 1:
-                    owner[prop] = 0.0
-                    rna_prop = rna_idprop_ui_prop_get(owner, prop, create=True)
-                    rna_prop["min"] = 0.0
-                    rna_prop["max"] = 1.0
-                    rna_prop["soft_min"] = 0.0
-                    rna_prop["soft_max"] = 1.0
-                    rna_prop["description"] = prop
+                    make_property(owner, prop, 0.0)
 
-                    drv = ctrl_pole.constraints[1].driver_add("influence").driver
-                    drv.type = 'AVERAGE'
-
-                    var = drv.variables.new()
-                    var.name = prop
-                    var.type = "SINGLE_PROP"
-                    var.targets[0].id = self.obj
-                    var.targets[0].data_path = \
-                        owner.path_from_id() + '[' + '"' + prop + '"' + ']'
+                    make_driver(ctrl_pole.constraints[1], "influence", variables=[(self.obj, owner, prop)])
 
     @staticmethod
     def get_future_names(bones):
@@ -1218,7 +970,12 @@ class Rig:
         script += extra_script % (controls_string, bones['main_parent'], 'IK_follow',
                                   'pole_follow', 'pole_follow', 'root/parent', 'root/parent')
 
-        return [script]
+        return {
+            'script': [script],
+            'utilities': UTILITIES_RIG_LEG,
+            'register': REGISTER_RIG_LEG,
+            'noparent_bones': [bones['ik']['mch_foot'][i] for i in [0,1]],
+        }
 
 
 def add_parameters(params):
@@ -1259,30 +1016,8 @@ def add_parameters(params):
     )
 
     # Setting up extra layers for the FK and tweak
-    params.tweak_extra_layers = bpy.props.BoolProperty(
-        name        = "tweak_extra_layers",
-        default     = True,
-        description = ""
-        )
-
-    params.tweak_layers = bpy.props.BoolVectorProperty(
-        size        = 32,
-        description = "Layers for the tweak controls to be on",
-        default     = tuple( [ i == 1 for i in range(0, 32) ] )
-        )
-
-    # Setting up extra layers for the FK and tweak
-    params.fk_extra_layers = bpy.props.BoolProperty(
-        name        = "fk_extra_layers",
-        default     = True,
-        description = ""
-        )
-
-    params.fk_layers = bpy.props.BoolVectorProperty(
-        size        = 32,
-        description = "Layers for the FK controls to be on",
-        default     = tuple( [ i == 1 for i in range(0, 32) ] )
-        )
+    ControlLayersOption.FK.add_parameters(params)
+    ControlLayersOption.TWEAK.add_parameters(params)
 
 
 def parameters_ui(layout, params):
@@ -1302,46 +1037,8 @@ def parameters_ui(layout, params):
     r = layout.row()
     r.prop(params, "bbones")
 
-    bone_layers = bpy.context.active_pose_bone.bone.layers[:]
-
-    for layer in ['fk', 'tweak']:
-        r = layout.row()
-        r.prop(params, layer + "_extra_layers")
-        r.active = params.tweak_extra_layers
-
-        col = r.column(align=True)
-        row = col.row(align=True)
-
-        for i in range(8):
-            icon = "NONE"
-            if bone_layers[i]:
-                icon = "LAYER_ACTIVE"
-            row.prop(params, layer + "_layers", index=i, toggle=True, text="", icon=icon)
-
-        row = col.row(align=True)
-
-        for i in range(16, 24):
-            icon = "NONE"
-            if bone_layers[i]:
-                icon = "LAYER_ACTIVE"
-            row.prop(params, layer + "_layers", index=i, toggle=True, text="", icon=icon)
-
-        col = r.column(align=True)
-        row = col.row(align=True)
-
-        for i in range(8, 16):
-            icon = "NONE"
-            if bone_layers[i]:
-                icon = "LAYER_ACTIVE"
-            row.prop(params, layer + "_layers", index=i, toggle=True, text="", icon=icon)
-
-        row = col.row(align=True)
-
-        for i in range(24, 32):
-            icon = "NONE"
-            if bone_layers[i]:
-                icon = "LAYER_ACTIVE"
-            row.prop(params, layer + "_layers", index=i, toggle=True, text="", icon=icon)
+    ControlLayersOption.FK.parameters_ui(layout, params)
+    ControlLayersOption.TWEAK.parameters_ui(layout, params)
 
 
 def create_sample(obj):

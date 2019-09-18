@@ -20,14 +20,13 @@
 import bpy
 from bpy.types import Menu, Panel, UIList
 from rna_prop_ui import PropertyPanel
-from bpy.app.translations import pgettext_iface as iface_
 from bpy_extras.node_utils import find_node_input
 
 
-class MATERIAL_MT_specials(Menu):
+class MATERIAL_MT_context_menu(Menu):
     bl_label = "Material Specials"
 
-    def draw(self, context):
+    def draw(self, _context):
         layout = self.layout
 
         layout.operator("material.copy", icon='COPYDOWN')
@@ -37,7 +36,7 @@ class MATERIAL_MT_specials(Menu):
 
 class MATERIAL_UL_matslots(UIList):
 
-    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+    def draw_item(self, _context, layout, _data, item, icon, _active_data, _active_propname, _index):
         # assert(isinstance(item, bpy.types.MaterialSlot)
         # ob = data
         slot = item
@@ -60,7 +59,8 @@ class MaterialButtonsPanel:
 
     @classmethod
     def poll(cls, context):
-        return context.material and (context.engine in cls.COMPAT_ENGINES)
+        mat = context.material
+        return mat and (context.engine in cls.COMPAT_ENGINES) and not mat.grease_pencil
 
 
 class MATERIAL_PT_preview(MaterialButtonsPanel, Panel):
@@ -86,11 +86,13 @@ class EEVEE_MATERIAL_PT_context_material(MaterialButtonsPanel, Panel):
 
     @classmethod
     def poll(cls, context):
-        if context.active_object and context.active_object.type == 'GPENCIL':
+        ob = context.object
+        mat = context.material
+
+        if (ob and ob.type == 'GPENCIL') or (mat and mat.grease_pencil):
             return False
-        else:
-            engine = context.engine
-            return (context.material or context.object) and (engine in cls.COMPAT_ENGINES)
+
+        return (ob or mat) and (context.engine in cls.COMPAT_ENGINES)
 
     def draw(self, context):
         layout = self.layout
@@ -103,7 +105,7 @@ class EEVEE_MATERIAL_PT_context_material(MaterialButtonsPanel, Panel):
         if ob:
             is_sortable = len(ob.material_slots) > 1
             rows = 3
-            if (is_sortable):
+            if is_sortable:
                 rows = 5
 
             row = layout.row()
@@ -116,7 +118,7 @@ class EEVEE_MATERIAL_PT_context_material(MaterialButtonsPanel, Panel):
 
             col.separator()
 
-            col.menu("MATERIAL_MT_specials", icon='DOWNARROW_HLT', text="")
+            col.menu("MATERIAL_MT_context_menu", icon='DOWNARROW_HLT', text="")
 
             if is_sortable:
                 col.separator()
@@ -143,7 +145,7 @@ class EEVEE_MATERIAL_PT_context_material(MaterialButtonsPanel, Panel):
             row.template_ID(space, "pin_id")
 
 
-def panel_node_draw(layout, ntree, output_type, input_name):
+def panel_node_draw(layout, ntree, _output_type, input_name):
     node = ntree.get_output_node('EEVEE')
 
     if node:
@@ -160,11 +162,6 @@ class EEVEE_MATERIAL_PT_surface(MaterialButtonsPanel, Panel):
     bl_label = "Surface"
     bl_context = "material"
     COMPAT_ENGINES = {'BLENDER_EEVEE'}
-
-    @classmethod
-    def poll(cls, context):
-        engine = context.engine
-        return context.material and (engine in cls.COMPAT_ENGINES)
 
     def draw(self, context):
         layout = self.layout
@@ -194,7 +191,7 @@ class EEVEE_MATERIAL_PT_volume(MaterialButtonsPanel, Panel):
     def poll(cls, context):
         engine = context.engine
         mat = context.material
-        return mat and mat.use_nodes and (engine in cls.COMPAT_ENGINES)
+        return mat and mat.use_nodes and (engine in cls.COMPAT_ENGINES) and not mat.grease_pencil
 
     def draw(self, context):
         layout = self.layout
@@ -209,24 +206,20 @@ class EEVEE_MATERIAL_PT_settings(MaterialButtonsPanel, Panel):
     bl_context = "material"
     COMPAT_ENGINES = {'BLENDER_EEVEE'}
 
-    @classmethod
-    def poll(cls, context):
-        engine = context.engine
-        return context.material and (engine in cls.COMPAT_ENGINES)
-
-    @staticmethod
-    def draw_shared(self, mat):
+    def draw(self, context):
         layout = self.layout
         layout.use_property_split = True
+        layout.use_property_decorate = False
 
+        mat = context.material
+
+        layout.prop(mat, "use_backface_culling")
         layout.prop(mat, "blend_method")
+        layout.prop(mat, "shadow_method")
 
-        if mat.blend_method != 'OPAQUE':
-            layout.prop(mat, "transparent_shadow_method")
-
-            row = layout.row()
-            row.active = ((mat.blend_method == 'CLIP') or (mat.transparent_shadow_method == 'CLIP'))
-            row.prop(mat, "alpha_threshold")
+        row = layout.row()
+        row.active = ((mat.blend_method == 'CLIP') or (mat.shadow_method == 'CLIP'))
+        row.prop(mat, "alpha_threshold")
 
         if mat.blend_method not in {'OPAQUE', 'CLIP', 'HASHED'}:
             layout.prop(mat, "show_transparent_back")
@@ -236,35 +229,32 @@ class EEVEE_MATERIAL_PT_settings(MaterialButtonsPanel, Panel):
         layout.prop(mat, "use_sss_translucency")
         layout.prop(mat, "pass_index")
 
-    def draw(self, context):
-        self.draw_shared(self, context.material)
-
 
 class MATERIAL_PT_viewport(MaterialButtonsPanel, Panel):
     bl_label = "Viewport Display"
     bl_context = "material"
     bl_options = {'DEFAULT_CLOSED'}
+    bl_order = 10
 
     @classmethod
     def poll(cls, context):
-        return context.material
+        mat = context.material
+        return mat and not mat.grease_pencil
 
-    @staticmethod
-    def draw_shared(self, mat):
+    def draw(self, context):
         layout = self.layout
         layout.use_property_split = True
+
+        mat = context.material
 
         col = layout.column()
         col.prop(mat, "diffuse_color", text="Color")
         col.prop(mat, "metallic")
         col.prop(mat, "roughness")
 
-    def draw(self, context):
-        self.draw_shared(self, context.material)
-
 
 classes = (
-    MATERIAL_MT_specials,
+    MATERIAL_MT_context_menu,
     MATERIAL_UL_matslots,
     MATERIAL_PT_preview,
     EEVEE_MATERIAL_PT_context_material,

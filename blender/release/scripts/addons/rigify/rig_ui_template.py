@@ -18,12 +18,15 @@
 
 # <pep8 compliant>
 
-UI_SLIDERS = '''
-import bpy
-from bpy.props import StringProperty
-from mathutils import Matrix, Vector
-from math import acos, pi, radians
+UI_IMPORTS = [
+    'import bpy',
+    'from bpy.props import StringProperty',
+    'import math',
+    'from math import pi',
+    'from mathutils import Euler, Matrix, Quaternion, Vector',
+]
 
+UI_BASE_UTILITIES = '''
 rig_id = "%s"
 
 
@@ -55,7 +58,7 @@ def rotation_difference(mat1, mat2):
     """
     q1 = mat1.to_quaternion()
     q2 = mat2.to_quaternion()
-    angle = acos(min(1,max(-1,q1.dot(q2)))) * 2
+    angle = math.acos(min(1,max(-1,q1.dot(q2)))) * 2
     if angle > pi:
         angle = -angle + (2*pi)
     return angle
@@ -68,7 +71,7 @@ def tail_distance(angle,bone_ik,bone_fk):
     if rot_mod != 'AXIS_ANGLE':
         bone_ik.rotation_mode = 'AXIS_ANGLE'
     bone_ik.rotation_axis_angle[0] = angle
-    bpy.context.scene.update()
+    bpy.context.view_layer.update()
 
     dv = (bone_fk.tail - bone_ik.tail).length
 
@@ -296,6 +299,22 @@ def match_pole_target(ik_first, ik_last, pole, match_bone, length):
     if ang1 < ang2:
         set_pole(pv1)
 
+##########
+## Misc ##
+##########
+
+def parse_bone_names(names_string):
+    if names_string[0] == '[' and names_string[-1] == ']':
+        return eval(names_string)
+    else:
+        return names_string
+
+'''
+
+UTILITIES_FUNC_ARM_FKIK = ['''
+######################
+## IK Arm functions ##
+######################
 
 def fk2ik_arm(obj, fk, ik):
     """ Matches the fk bones in an arm rig to the ik bones.
@@ -391,6 +410,12 @@ def ik2fk_arm(obj, fk, ik):
         match_pose_scale(uarmi, uarm)
         # Rotation Correction
         correct_rotation(uarmi, uarm)
+''']
+
+UTILITIES_FUNC_LEG_FKIK = ['''
+######################
+## IK Leg functions ##
+######################
 
 def fk2ik_leg(obj, fk, ik):
     """ Matches the fk bones in a leg rig to the ik bones.
@@ -519,17 +544,12 @@ def ik2fk_leg(obj, fk, ik):
 
         # Pole target position
         match_pole_target(thighi, shini, pole, thigh, (thighi.length + shini.length))
+''']
 
-
+UTILITIES_FUNC_POLE = ['''
 ################################
 ## IK Rotation-Pole functions ##
 ################################
-
-def parse_bone_names(names_string):
-    if names_string[0] == '[' and names_string[-1] == ']':
-        return eval(names_string)
-    else:
-        return names_string
 
 def rotPoleToggle(rig, limb_type, controls, ik_ctrl, fk_ctrl, parent, pole):
 
@@ -589,17 +609,21 @@ def rotPoleToggle(rig, limb_type, controls, ik_ctrl, fk_ctrl, parent, pole):
             func2(**kwargs2)
 
             bpy.ops.pose.select_all(action='DESELECT')
+''']
 
-##############################
-## IK/FK snapping operators ##
-##############################
+REGISTER_OP_ARM_FKIK = ['Rigify_Arm_FK2IK', 'Rigify_Arm_IK2FK']
+
+UTILITIES_OP_ARM_FKIK = ['''
+##################################
+## IK/FK Arm snapping operators ##
+##################################
 
 class Rigify_Arm_FK2IK(bpy.types.Operator):
     """ Snaps an FK arm to an IK arm.
     """
     bl_idname = "pose.rigify_arm_fk2ik_" + rig_id
     bl_label = "Rigify Snap FK arm to IK"
-    bl_options = {'UNDO'}
+    bl_options = {'UNDO', 'INTERNAL'}
 
     uarm_fk: StringProperty(name="Upper Arm FK Name")
     farm_fk: StringProperty(name="Forerm FK Name")
@@ -614,12 +638,7 @@ class Rigify_Arm_FK2IK(bpy.types.Operator):
         return (context.active_object != None and context.mode == 'POSE')
 
     def execute(self, context):
-        use_global_undo = context.preferences.edit.use_global_undo
-        context.preferences.edit.use_global_undo = False
-        try:
-            fk2ik_arm(context.active_object, fk=[self.uarm_fk, self.farm_fk, self.hand_fk], ik=[self.uarm_ik, self.farm_ik, self.hand_ik])
-        finally:
-            context.preferences.edit.use_global_undo = use_global_undo
+        fk2ik_arm(context.active_object, fk=[self.uarm_fk, self.farm_fk, self.hand_fk], ik=[self.uarm_ik, self.farm_ik, self.hand_ik])
         return {'FINISHED'}
 
 
@@ -628,7 +647,7 @@ class Rigify_Arm_IK2FK(bpy.types.Operator):
     """
     bl_idname = "pose.rigify_arm_ik2fk_" + rig_id
     bl_label = "Rigify Snap IK arm to FK"
-    bl_options = {'UNDO'}
+    bl_options = {'UNDO', 'INTERNAL'}
 
     uarm_fk: StringProperty(name="Upper Arm FK Name")
     farm_fk: StringProperty(name="Forerm FK Name")
@@ -646,21 +665,23 @@ class Rigify_Arm_IK2FK(bpy.types.Operator):
         return (context.active_object != None and context.mode == 'POSE')
 
     def execute(self, context):
-        use_global_undo = context.preferences.edit.use_global_undo
-        context.preferences.edit.use_global_undo = False
-        try:
-            ik2fk_arm(context.active_object, fk=[self.uarm_fk, self.farm_fk, self.hand_fk], ik=[self.uarm_ik, self.farm_ik, self.hand_ik, self.pole, self.main_parent])
-        finally:
-            context.preferences.edit.use_global_undo = use_global_undo
+        ik2fk_arm(context.active_object, fk=[self.uarm_fk, self.farm_fk, self.hand_fk], ik=[self.uarm_ik, self.farm_ik, self.hand_ik, self.pole, self.main_parent])
         return {'FINISHED'}
+''']
 
+REGISTER_OP_LEG_FKIK = ['Rigify_Leg_FK2IK', 'Rigify_Leg_IK2FK']
+
+UTILITIES_OP_LEG_FKIK = ['''
+##################################
+## IK/FK Leg snapping operators ##
+##################################
 
 class Rigify_Leg_FK2IK(bpy.types.Operator):
     """ Snaps an FK leg to an IK leg.
     """
     bl_idname = "pose.rigify_leg_fk2ik_" + rig_id
     bl_label = "Rigify Snap FK leg to IK"
-    bl_options = {'UNDO'}
+    bl_options = {'UNDO', 'INTERNAL'}
 
     thigh_fk: StringProperty(name="Thigh FK Name")
     shin_fk:  StringProperty(name="Shin FK Name")
@@ -677,12 +698,7 @@ class Rigify_Leg_FK2IK(bpy.types.Operator):
         return (context.active_object != None and context.mode == 'POSE')
 
     def execute(self, context):
-        use_global_undo = context.preferences.edit.use_global_undo
-        context.preferences.edit.use_global_undo = False
-        try:
-            fk2ik_leg(context.active_object, fk=[self.thigh_fk, self.shin_fk, self.foot_fk, self.mfoot_fk], ik=[self.thigh_ik, self.shin_ik, self.foot_ik, self.mfoot_ik])
-        finally:
-            context.preferences.edit.use_global_undo = use_global_undo
+        fk2ik_leg(context.active_object, fk=[self.thigh_fk, self.shin_fk, self.foot_fk, self.mfoot_fk], ik=[self.thigh_ik, self.shin_ik, self.foot_ik, self.mfoot_ik])
         return {'FINISHED'}
 
 
@@ -691,7 +707,7 @@ class Rigify_Leg_IK2FK(bpy.types.Operator):
     """
     bl_idname = "pose.rigify_leg_ik2fk_" + rig_id
     bl_label = "Rigify Snap IK leg to FK"
-    bl_options = {'UNDO'}
+    bl_options = {'UNDO', 'INTERNAL'}
 
     thigh_fk: StringProperty(name="Thigh FK Name")
     shin_fk:  StringProperty(name="Shin FK Name")
@@ -711,14 +727,13 @@ class Rigify_Leg_IK2FK(bpy.types.Operator):
         return (context.active_object != None and context.mode == 'POSE')
 
     def execute(self, context):
-        use_global_undo = context.preferences.edit.use_global_undo
-        context.preferences.edit.use_global_undo = False
-        try:
-            ik2fk_leg(context.active_object, fk=[self.thigh_fk, self.shin_fk, self.mfoot_fk, self.foot_fk], ik=[self.thigh_ik, self.shin_ik, self.foot_ik, self.footroll, self.pole, self.mfoot_ik, self.main_parent])
-        finally:
-            context.preferences.edit.use_global_undo = use_global_undo
+        ik2fk_leg(context.active_object, fk=[self.thigh_fk, self.shin_fk, self.mfoot_fk, self.foot_fk], ik=[self.thigh_ik, self.shin_ik, self.foot_ik, self.footroll, self.pole, self.mfoot_ik, self.main_parent])
         return {'FINISHED'}
+''']
 
+REGISTER_OP_POLE = ['Rigify_Rot2PoleSwitch']
+
+UTILITIES_OP_POLE = ['''
 ###########################
 ## IK Rotation Pole Snap ##
 ###########################
@@ -745,7 +760,47 @@ class Rigify_Rot2PoleSwitch(bpy.types.Operator):
 
         rotPoleToggle(rig, self.limb_type, self.controls, self.ik_ctrl, self.fk_ctrl, self.parent, self.pole)
         return {'FINISHED'}
+''']
 
+REGISTER_RIG_ARM = REGISTER_OP_ARM_FKIK + REGISTER_OP_POLE
+
+UTILITIES_RIG_ARM = [
+    *UTILITIES_FUNC_ARM_FKIK,
+    *UTILITIES_FUNC_POLE,
+    *UTILITIES_OP_ARM_FKIK,
+    *UTILITIES_OP_POLE,
+]
+
+REGISTER_RIG_LEG = REGISTER_OP_LEG_FKIK + REGISTER_OP_POLE
+
+UTILITIES_RIG_LEG = [
+    *UTILITIES_FUNC_LEG_FKIK,
+    *UTILITIES_FUNC_POLE,
+    *UTILITIES_OP_LEG_FKIK,
+    *UTILITIES_OP_POLE,
+]
+
+##############################
+## Default set of utilities ##
+##############################
+
+UI_REGISTER = [
+    'RigUI',
+    'RigLayers',
+    *REGISTER_OP_ARM_FKIK,
+    *REGISTER_OP_LEG_FKIK,
+]
+
+# Include arm and leg utilities for now in case somebody wants to use
+# legacy limb rigs, which expect these to be available by default.
+UI_UTILITIES = [
+    *UTILITIES_FUNC_ARM_FKIK,
+    *UTILITIES_FUNC_LEG_FKIK,
+    *UTILITIES_OP_ARM_FKIK,
+    *UTILITIES_OP_LEG_FKIK,
+]
+
+UI_SLIDERS = '''
 ###################
 ## Rig UI Panels ##
 ###################
@@ -754,8 +809,8 @@ class RigUI(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_label = "Rig Main Properties"
-    bl_idname = rig_id + "_PT_rig_ui"
-    bl_category = 'View'
+    bl_idname = "VIEW3D_PT_rig_ui_" + rig_id
+    bl_category = 'Item'
 
     @classmethod
     def poll(self, context):
@@ -798,8 +853,8 @@ class RigLayers(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_label = "Rig Layers"
-    bl_idname = rig_id + "_PT_rig_layers"
-    bl_category = 'View'
+    bl_idname = "VIEW3D_PT_rig_layers_" + rig_id
+    bl_category = 'Item'
 
     @classmethod
     def poll(self, context):
@@ -841,30 +896,3 @@ class RigLayers(bpy.types.Panel):
     code += "        row.prop(context.active_object.data, 'layers', index=28, toggle=True, text='Root')\n"
 
     return code
-
-
-UI_REGISTER = '''
-
-classes = (
-    Rigify_Arm_FK2IK,
-    Rigify_Arm_IK2FK,
-    Rigify_Leg_FK2IK,
-    Rigify_Leg_IK2FK,
-    Rigify_Rot2PoleSwitch,
-    RigUI,
-    RigLayers,
-)
-
-def register():
-    from bpy.utils import register_class
-    for cls in classes:
-        register_class(cls)
-
-
-def unregister():
-    from bpy.utils import unregister_class
-    for cls in classes:
-        unregister_class(cls)
-
-register()
-'''

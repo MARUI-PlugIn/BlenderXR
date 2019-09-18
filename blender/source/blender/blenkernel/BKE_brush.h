@@ -17,10 +17,19 @@
 #ifndef __BKE_BRUSH_H__
 #define __BKE_BRUSH_H__
 
-/** \file \ingroup bke
+/** \file
+ * \ingroup bke
  *
  * General operations for brushes.
  */
+
+#include "../vr/vr_build.h"
+#if WITH_VR
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+#endif
 
 enum eCurveMappingPreset;
 struct Brush;
@@ -48,22 +57,25 @@ struct Brush *BKE_brush_add(struct Main *bmain, const char *name, const eObjectM
 struct Brush *BKE_brush_add_gpencil(struct Main *bmain, struct ToolSettings *ts, const char *name);
 void BKE_brush_init_gpencil_settings(struct Brush *brush);
 struct Brush *BKE_brush_first_search(struct Main *bmain, const eObjectMode ob_mode);
-void BKE_brush_copy_data(struct Main *bmain, struct Brush *brush_dst, const struct Brush *brush_src, const int flag);
+void BKE_brush_copy_data(struct Main *bmain,
+                         struct Brush *brush_dst,
+                         const struct Brush *brush_src,
+                         const int flag);
 struct Brush *BKE_brush_copy(struct Main *bmain, const struct Brush *brush);
 void BKE_brush_make_local(struct Main *bmain, struct Brush *brush, const bool lib_local);
 void BKE_brush_free(struct Brush *brush);
 
 void BKE_brush_sculpt_reset(struct Brush *brush);
 void BKE_brush_gpencil_presets(struct bContext *C);
-void BKE_brush_update_material(struct Main *bmain, struct Material *ma, struct Brush *exclude_brush);
 
 /* image icon function */
 struct ImBuf *get_brush_icon(struct Brush *brush);
 
 /* jitter */
-void BKE_brush_jitter_pos(
-        const struct Scene *scene, struct Brush *brush,
-        const float pos[2], float jitterpos[2]);
+void BKE_brush_jitter_pos(const struct Scene *scene,
+                          struct Brush *brush,
+                          const float pos[2],
+                          float jitterpos[2]);
 void BKE_brush_randomize_texture_coords(struct UnifiedPaintSettings *ups, bool mask);
 
 /* brush curve */
@@ -72,12 +84,17 @@ float BKE_brush_curve_strength_clamped(struct Brush *br, float p, const float le
 float BKE_brush_curve_strength(const struct Brush *br, float p, const float len);
 
 /* sampling */
-float BKE_brush_sample_tex_3d(
-        const struct Scene *scene, const struct Brush *br, const float point[3],
-        float rgba[4], const int thread, struct ImagePool *pool);
-float BKE_brush_sample_masktex(
-        const struct Scene *scene, struct Brush *br, const float point[2],
-        const int thread, struct ImagePool *pool);
+float BKE_brush_sample_tex_3d(const struct Scene *scene,
+                              const struct Brush *br,
+                              const float point[3],
+                              float rgba[4],
+                              const int thread,
+                              struct ImagePool *pool);
+float BKE_brush_sample_masktex(const struct Scene *scene,
+                               struct Brush *br,
+                               const float point[2],
+                               const int thread,
+                               struct ImagePool *pool);
 
 /* texture */
 unsigned int *BKE_brush_gen_texture_cache(struct Brush *br, int half_side, bool use_secondary);
@@ -91,11 +108,11 @@ const float *BKE_brush_color_get(const struct Scene *scene, const struct Brush *
 const float *BKE_brush_secondary_color_get(const struct Scene *scene, const struct Brush *brush);
 void BKE_brush_color_set(struct Scene *scene, struct Brush *brush, const float color[3]);
 
-int  BKE_brush_size_get(const struct Scene *scene, const struct Brush *brush);
+int BKE_brush_size_get(const struct Scene *scene, const struct Brush *brush);
 void BKE_brush_size_set(struct Scene *scene, struct Brush *brush, int value);
 
 float BKE_brush_unprojected_radius_get(const struct Scene *scene, const struct Brush *brush);
-void  BKE_brush_unprojected_radius_set(struct Scene *scene, struct Brush *brush, float value);
+void BKE_brush_unprojected_radius_set(struct Scene *scene, struct Brush *brush, float value);
 
 float BKE_brush_alpha_get(const struct Scene *scene, const struct Brush *brush);
 void BKE_brush_alpha_set(struct Scene *scene, struct Brush *brush, float alpha);
@@ -109,26 +126,33 @@ bool BKE_brush_use_size_pressure(const struct Scene *scene, const struct Brush *
 bool BKE_brush_sculpt_has_secondary_color(const struct Brush *brush);
 
 /* scale unprojected radius to reflect a change in the brush's 2D size */
-void BKE_brush_scale_unprojected_radius(
-        float *unprojected_radius,
-        int new_brush_size,
-        int old_brush_size);
+void BKE_brush_scale_unprojected_radius(float *unprojected_radius,
+                                        int new_brush_size,
+                                        int old_brush_size);
 
 /* scale brush size to reflect a change in the brush's unprojected radius */
-void BKE_brush_scale_size(
-        int *r_brush_size,
-        float new_unprojected_radius,
-        float old_unprojected_radius);
+void BKE_brush_scale_size(int *r_brush_size,
+                          float new_unprojected_radius,
+                          float old_unprojected_radius);
 
 /* Accessors */
 #define BKE_brush_tool_get(brush, p) \
-	(CHECK_TYPE_ANY(brush, struct Brush *, const struct Brush *), \
-	 *(const char *)POINTER_OFFSET(brush, (p)->runtime.tool_offset))
-#define BKE_brush_tool_set(brush, p, tool) { \
-	CHECK_TYPE_ANY(brush, struct Brush *); \
-	*(char *)POINTER_OFFSET(brush, (p)->runtime.tool_offset) = tool; } ((void)0)
+  (CHECK_TYPE_ANY(brush, struct Brush *, const struct Brush *), \
+   *(const char *)POINTER_OFFSET(brush, (p)->runtime.tool_offset))
+#define BKE_brush_tool_set(brush, p, tool) \
+  { \
+    CHECK_TYPE_ANY(brush, struct Brush *); \
+    *(char *)POINTER_OFFSET(brush, (p)->runtime.tool_offset) = tool; \
+  } \
+  ((void)0)
 
 /* debugging only */
 void BKE_brush_debug_print_state(struct Brush *br);
+
+#if WITH_VR
+#ifdef __cplusplus
+}
+#endif
+#endif
 
 #endif

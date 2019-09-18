@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup pythonintern
+/** \file
+ * \ingroup pythonintern
  */
 
 #ifndef __BPY_CAPI_UTILS_H__
@@ -29,11 +30,17 @@ struct ReportList;
 
 char *BPy_enum_as_string(const struct EnumPropertyItem *item);
 
-#define BLANK_PYTHON_TYPE {PyVarObject_HEAD_INIT(NULL, 0) NULL}
+#define BLANK_PYTHON_TYPE \
+  { \
+    PyVarObject_HEAD_INIT(NULL, 0) NULL \
+  }
 
 /* error reporting */
 short BPy_reports_to_error(struct ReportList *reports, PyObject *exception, const bool clear);
-bool BPy_errors_to_report_ex(struct ReportList *reports, const bool use_full, const bool use_location);
+void BPy_reports_write_stdout(const struct ReportList *reports, const char *header);
+bool BPy_errors_to_report_ex(struct ReportList *reports,
+                             const bool use_full,
+                             const bool use_location);
 bool BPy_errors_to_report(struct ReportList *reports);
 
 /* TODO - find a better solution! */
@@ -43,4 +50,4 @@ void BPy_SetContext(struct bContext *C);
 extern void bpy_context_set(struct bContext *C, PyGILState_STATE *gilstate);
 extern void bpy_context_clear(struct bContext *C, PyGILState_STATE *gilstate);
 
-#endif  /* __BPY_CAPI_UTILS_H__ */
+#endif /* __BPY_CAPI_UTILS_H__ */

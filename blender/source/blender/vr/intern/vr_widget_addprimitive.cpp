@@ -15,10 +15,10 @@
 * along with this program; if not, write to the Free Software Foundation,
 * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 *
-* The Original Code is Copyright (C) 2018 by Blender Foundation.
+* The Original Code is Copyright (C) 2019 by Blender Foundation.
 * All rights reserved.
 *
-* Contributor(s): MARUI-PlugIn
+* Contributor(s): MARUI-PlugIn, Multiplexed Reality
 *
 * ***** END GPL LICENSE BLOCK *****
 */
@@ -45,6 +45,7 @@
 
 #include "BKE_context.h"
 #include "BKE_editmesh.h"
+#include "BKE_scene.h"
 
 #include "ED_mesh.h"
 #include "ED_screen.h"
@@ -57,7 +58,7 @@
 #include "WM_api.h"
 #include "WM_types.h"
 
-/***********************************************************************************************//**
+/***************************************************************************************************
  * \class                               Widget_AddPrimitive
  ***************************************************************************************************
  * Interaction widget for adding (mesh) primitives.
@@ -132,6 +133,15 @@ static void make_prim_finish(bContext *C, Object *obedit, const MakePrimitiveDat
 	WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, obedit);
 }
 
+static void cursor3d_calc_mat4(Scene *scene, float m[4][4])
+{
+	const View3DCursor *cursor = &scene->cursor;
+	float mat3[3][3];
+	BKE_scene_cursor_rot_to_mat3(cursor, mat3);
+	copy_m4_m3(m, mat3);
+	copy_v3_v3(m[3], cursor->location);
+}
+
 static int add_primitive_plane_exec(bContext *C, VR_UI::Cursor& c)
 {
 	MakePrimitiveData creation_data;
@@ -149,7 +159,7 @@ static int add_primitive_plane_exec(bContext *C, VR_UI::Cursor& c)
 		/* Create at Blender 3D cursor */
 		Scene *scene = CTX_data_scene(C);
 		float m[4][4];
-		ED_view3d_cursor3d_calc_mat4(scene, m);
+		cursor3d_calc_mat4(scene, m);
 		mat4_to_eul(rot, m);
 		memcpy(loc, m[3], sizeof(float) * 3);
 	}
@@ -208,7 +218,7 @@ static int add_primitive_cube_exec(bContext *C, VR_UI::Cursor& c)
 		/* Create at Blender 3D cursor */
 		Scene *scene = CTX_data_scene(C);
 		float m[4][4];
-		ED_view3d_cursor3d_calc_mat4(scene, m);
+		cursor3d_calc_mat4(scene, m);
 		mat4_to_eul(rot, m);
 		memcpy(loc, m[3], sizeof(float) * 3);
 	}
@@ -273,7 +283,7 @@ static int add_primitive_circle_exec(bContext *C, VR_UI::Cursor& c)
 		/* Create at Blender 3D cursor */
 		Scene *scene = CTX_data_scene(C);
 		float m[4][4];
-		ED_view3d_cursor3d_calc_mat4(scene, m);
+		cursor3d_calc_mat4(scene, m);
 		mat4_to_eul(rot, m);
 		memcpy(loc, m[3], sizeof(float) * 3);
 	}
@@ -339,7 +349,7 @@ static int add_primitive_cylinder_exec(bContext *C, VR_UI::Cursor& c)
 		/* Create at Blender 3D cursor */
 		Scene *scene = CTX_data_scene(C);
 		float m[4][4];
-		ED_view3d_cursor3d_calc_mat4(scene, m);
+		cursor3d_calc_mat4(scene, m);
 		mat4_to_eul(rot, m);
 		memcpy(loc, m[3], sizeof(float) * 3);
 	}
@@ -409,7 +419,7 @@ static int add_primitive_cone_exec(bContext *C, VR_UI::Cursor& c)
 		/* Create at Blender 3D cursor */
 		Scene *scene = CTX_data_scene(C);
 		float m[4][4];
-		ED_view3d_cursor3d_calc_mat4(scene, m);
+		cursor3d_calc_mat4(scene, m);
 		mat4_to_eul(rot, m);
 		memcpy(loc, m[3], sizeof(float) * 3);
 	}
@@ -472,7 +482,7 @@ static int add_primitive_grid_exec(bContext *C, VR_UI::Cursor& c)
 		/* Create at Blender 3D cursor */
 		Scene *scene = CTX_data_scene(C);
 		float m[4][4];
-		ED_view3d_cursor3d_calc_mat4(scene, m);
+		cursor3d_calc_mat4(scene, m);
 		mat4_to_eul(rot, m);
 		memcpy(loc, m[3], sizeof(float) * 3);
 	}
@@ -534,7 +544,7 @@ static int add_primitive_monkey_exec(bContext *C, VR_UI::Cursor& c)
 		/* Create at Blender 3D cursor */
 		Scene *scene = CTX_data_scene(C);
 		float m[4][4];
-		ED_view3d_cursor3d_calc_mat4(scene, m);
+		cursor3d_calc_mat4(scene, m);
 		mat4_to_eul(rot, m);
 		memcpy(loc, m[3], sizeof(float) * 3);
 	}
@@ -597,7 +607,7 @@ static int add_primitive_uvsphere_exec(bContext *C, VR_UI::Cursor& c)
 		/* Create at Blender 3D cursor */
 		Scene *scene = CTX_data_scene(C);
 		float m[4][4];
-		ED_view3d_cursor3d_calc_mat4(scene, m);
+		cursor3d_calc_mat4(scene, m);
 		mat4_to_eul(rot, m);
 		memcpy(loc, m[3], sizeof(float) * 3);
 	}
@@ -658,7 +668,7 @@ static int add_primitive_icosphere_exec(bContext *C, VR_UI::Cursor& c)
 		/* Create at Blender 3D cursor */
 		Scene *scene = CTX_data_scene(C);
 		float m[4][4];
-		ED_view3d_cursor3d_calc_mat4(scene, m);
+		cursor3d_calc_mat4(scene, m);
 		mat4_to_eul(rot, m);
 		memcpy(loc, m[3], sizeof(float) * 3);
 	}

@@ -17,7 +17,8 @@
  * All rights reserved.
  */
 
-/** \file \ingroup bli
+/** \file
+ * \ingroup bli
  *
  * \section aboutbli Blender LIbrary external interface
  *
@@ -48,7 +49,6 @@
 
 #ifndef __BLI_BLENLIB_H__
 #define __BLI_BLENLIB_H__
-
 
 #include <stdlib.h>
 

@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup freestyle
+/** \file
+ * \ingroup freestyle
  */
 
 #ifndef __FREESTYLE_PYTHON_TIMESTAMPF1D_H__
@@ -30,13 +31,13 @@ extern "C" {
 
 extern PyTypeObject TimeStampF1D_Type;
 
-#define BPy_TimeStampF1D_Check(v) (PyObject_IsInstance((PyObject *)v, (PyObject *)&TimeStampF1D_Type))
+#define BPy_TimeStampF1D_Check(v) \
+  (PyObject_IsInstance((PyObject *)v, (PyObject *)&TimeStampF1D_Type))
 
 /*---------------------------Python BPy_TimeStampF1D structure definition----------*/
 typedef struct {
-	BPy_UnaryFunction1DVoid py_uf1D_void;
+  BPy_UnaryFunction1DVoid py_uf1D_void;
 } BPy_TimeStampF1D;
-
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 

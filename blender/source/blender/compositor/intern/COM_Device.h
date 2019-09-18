@@ -1,6 +1,4 @@
 /*
- * Copyright 2011, Blender Foundation.
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,6 +12,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * Copyright 2011, Blender Foundation.
  */
 
 #ifndef __COM_DEVICE_H__
@@ -28,31 +28,38 @@
  */
 class Device {
 
-public:
-	/**
-	 * \brief Declaration of the virtual destructor
-	 * \note resolve warning gcc 4.7
-	 */
-	virtual ~Device() {}
+ public:
+  /**
+   * \brief Declaration of the virtual destructor
+   * \note resolve warning gcc 4.7
+   */
+  virtual ~Device()
+  {
+  }
 
-	/**
-	 * \brief initialize the device
-	 */
-	virtual bool initialize() { return true; }
+  /**
+   * \brief initialize the device
+   */
+  virtual bool initialize()
+  {
+    return true;
+  }
 
-	/**
-	 * \brief deinitialize the device
-	 */
-	virtual void deinitialize() {}
+  /**
+   * \brief deinitialize the device
+   */
+  virtual void deinitialize()
+  {
+  }
 
-	/**
-	 * \brief execute a WorkPackage
-	 * \param work: the WorkPackage to execute
-	 */
-	virtual void execute(WorkPackage *work) = 0;
+  /**
+   * \brief execute a WorkPackage
+   * \param work: the WorkPackage to execute
+   */
+  virtual void execute(WorkPackage *work) = 0;
 
 #ifdef WITH_CXX_GUARDEDALLOC
-	MEM_CXX_CLASS_ALLOC_FUNCS("COM:Device")
+  MEM_CXX_CLASS_ALLOC_FUNCS("COM:Device")
 #endif
 };
 

@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup freestyle
+/** \file
+ * \ingroup freestyle
  */
 
 #ifndef __FREESTYLE_PYTHON_SVERTEXITERATOR_H__
@@ -32,12 +33,13 @@ extern "C" {
 
 extern PyTypeObject SVertexIterator_Type;
 
-#define BPy_SVertexIterator_Check(v) (PyObject_IsInstance((PyObject *)v, (PyObject *)&SVertexIterator_Type))
+#define BPy_SVertexIterator_Check(v) \
+  (PyObject_IsInstance((PyObject *)v, (PyObject *)&SVertexIterator_Type))
 
 /*---------------------------Python BPy_SVertexIterator structure definition----------*/
 typedef struct {
-	BPy_Iterator py_it;
-	ViewEdgeInternal::SVertexIterator *sv_it;
+  BPy_Iterator py_it;
+  ViewEdgeInternal::SVertexIterator *sv_it;
 } BPy_SVertexIterator;
 
 ///////////////////////////////////////////////////////////////////////////////////////////

@@ -30,6 +30,7 @@ bl_info = {
 }
 
 import bpy, blf, bgl
+import gpu
 from bpy.types import Operator, Panel, Menu
 from bpy.props import (
     FloatProperty,
@@ -41,6 +42,7 @@ from bpy.props import (
     CollectionProperty,
 )
 from bpy_extras.io_utils import ImportHelper, ExportHelper
+from gpu_extras.batch import batch_for_shader
 from mathutils import Vector
 from math import cos, sin, pi, hypot
 from os import path
@@ -545,6 +547,8 @@ draw_color_sets = {
 def is_cycles_or_eevee(context):
     return context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE'}
 
+def is_visible_socket(socket):
+    return not socket.hide and socket.enabled
 
 def nice_hotkey_name(punc):
     # convert the ugly string name into the actual character
@@ -747,53 +751,40 @@ def store_mouse_cursor(context, event):
     else:
         space.cursor_location = tree.view_center
 
+def draw_line(x1, y1, x2, y2, size, colour=(1.0, 1.0, 1.0, 0.7)):
+    shader = gpu.shader.from_builtin('2D_SMOOTH_COLOR')
 
-def draw_line(x1, y1, x2, y2, size, colour=[1.0, 1.0, 1.0, 0.7]):
-    shademodel_state = bgl.Buffer(bgl.GL_INT, 1)
-    bgl.glGetIntegerv(bgl.GL_SHADE_MODEL, shademodel_state)
+    vertices = ((x1, y1), (x2, y2))
+    vertex_colors = ((colour[0]+(1.0-colour[0])/4,
+                      colour[1]+(1.0-colour[1])/4,
+                      colour[2]+(1.0-colour[2])/4,
+                      colour[3]+(1.0-colour[3])/4),
+                      colour)
 
-    bgl.glEnable(bgl.GL_BLEND)
+    batch = batch_for_shader(shader, 'LINE_STRIP', {"pos": vertices, "color": vertex_colors})
     bgl.glLineWidth(size * dpifac())
-    bgl.glShadeModel(bgl.GL_SMOOTH)
-    bgl.glEnable(bgl.GL_LINE_SMOOTH)
 
-    bgl.glBegin(bgl.GL_LINE_STRIP)
-    try:
-        bgl.glColor4f(colour[0]+(1.0-colour[0])/4, colour[1]+(1.0-colour[1])/4, colour[2]+(1.0-colour[2])/4, colour[3]+(1.0-colour[3])/4)
-        bgl.glVertex2f(x1, y1)
-        bgl.glColor4f(colour[0], colour[1], colour[2], colour[3])
-        bgl.glVertex2f(x2, y2)
-    except:
-        pass
-    bgl.glEnd()
-
-    bgl.glShadeModel(shademodel_state[0])
-    bgl.glDisable(bgl.GL_LINE_SMOOTH)
+    shader.bind()
+    batch.draw(shader)
 
 
-def draw_circle(mx, my, radius, colour=[1.0, 1.0, 1.0, 0.7]):
-    bgl.glEnable(bgl.GL_LINE_SMOOTH)
-    bgl.glBegin(bgl.GL_TRIANGLE_FAN)
-    bgl.glColor4f(colour[0], colour[1], colour[2], colour[3])
+def draw_circle_2d_filled(shader, mx, my, radius, colour=(1.0, 1.0, 1.0, 0.7)):
     radius = radius * dpifac()
     sides = 12
-    for i in range(sides + 1):
-        cosine = radius * cos(i * 2 * pi / sides) + mx
-        sine = radius * sin(i * 2 * pi / sides) + my
-        bgl.glVertex2f(cosine, sine)
-    bgl.glEnd()
-    bgl.glDisable(bgl.GL_LINE_SMOOTH)
+    vertices = [(radius * cos(i * 2 * pi / sides) + mx,
+                 radius * sin(i * 2 * pi / sides) + my)
+                 for i in range(sides + 1)]
 
+    batch = batch_for_shader(shader, 'TRI_FAN', {"pos": vertices})
+    shader.bind()
+    shader.uniform_float("color", colour)
+    batch.draw(shader)
 
-def draw_rounded_node_border(node, radius=8, colour=[1.0, 1.0, 1.0, 0.7]):
-    bgl.glEnable(bgl.GL_BLEND)
-    bgl.glEnable(bgl.GL_LINE_SMOOTH)
-
+def draw_rounded_node_border(shader, node, radius=8, colour=(1.0, 1.0, 1.0, 0.7)):
     area_width = bpy.context.area.width - (16*dpifac()) - 1
     bottom_bar = (16*dpifac()) + 1
     sides = 16
     radius = radius*dpifac()
-    bgl.glColor4f(colour[0], colour[1], colour[2], colour[3])
 
     nlocx = (node.location.x+1)*dpifac()
     nlocy = (node.location.y+1)*dpifac()
@@ -821,129 +812,142 @@ def draw_rounded_node_border(node, radius=8, colour=[1.0, 1.0, 1.0, 0.7]):
         radius += 6
 
     # Top left corner
-    bgl.glBegin(bgl.GL_TRIANGLE_FAN)
     mx, my = bpy.context.region.view2d.view_to_region(nlocx, nlocy, clip=False)
-    bgl.glVertex2f(mx,my)
+    vertices = [(mx,my)]
     for i in range(sides+1):
         if (4<=i<=8):
             if my > bottom_bar and mx < area_width:
                 cosine = radius * cos(i * 2 * pi / sides) + mx
                 sine = radius * sin(i * 2 * pi / sides) + my
-                bgl.glVertex2f(cosine, sine)
-    bgl.glEnd()
+                vertices.append((cosine,sine))
+    batch = batch_for_shader(shader, 'TRI_FAN', {"pos": vertices})
+    shader.bind()
+    shader.uniform_float("color", colour)
+    batch.draw(shader)
 
     # Top right corner
-    bgl.glBegin(bgl.GL_TRIANGLE_FAN)
     mx, my = bpy.context.region.view2d.view_to_region(nlocx + ndimx, nlocy, clip=False)
-    bgl.glVertex2f(mx,my)
+    vertices = [(mx,my)]
     for i in range(sides+1):
         if (0<=i<=4):
             if my > bottom_bar and mx < area_width:
                 cosine = radius * cos(i * 2 * pi / sides) + mx
                 sine = radius * sin(i * 2 * pi / sides) + my
-                bgl.glVertex2f(cosine, sine)
-    bgl.glEnd()
+                vertices.append((cosine,sine))
+    batch = batch_for_shader(shader, 'TRI_FAN', {"pos": vertices})
+    shader.bind()
+    shader.uniform_float("color", colour)
+    batch.draw(shader)
 
     # Bottom left corner
-    bgl.glBegin(bgl.GL_TRIANGLE_FAN)
     mx, my = bpy.context.region.view2d.view_to_region(nlocx, nlocy - ndimy, clip=False)
-    bgl.glVertex2f(mx,my)
+    vertices = [(mx,my)]
     for i in range(sides+1):
         if (8<=i<=12):
             if my > bottom_bar and mx < area_width:
                 cosine = radius * cos(i * 2 * pi / sides) + mx
                 sine = radius * sin(i * 2 * pi / sides) + my
-                bgl.glVertex2f(cosine, sine)
-    bgl.glEnd()
+                vertices.append((cosine,sine))
+    batch = batch_for_shader(shader, 'TRI_FAN', {"pos": vertices})
+    shader.bind()
+    shader.uniform_float("color", colour)
+    batch.draw(shader)
 
     # Bottom right corner
-    bgl.glBegin(bgl.GL_TRIANGLE_FAN)
     mx, my = bpy.context.region.view2d.view_to_region(nlocx + ndimx, nlocy - ndimy, clip=False)
-    bgl.glVertex2f(mx,my)
+    vertices = [(mx,my)]
     for i in range(sides+1):
         if (12<=i<=16):
             if my > bottom_bar and mx < area_width:
                 cosine = radius * cos(i * 2 * pi / sides) + mx
                 sine = radius * sin(i * 2 * pi / sides) + my
-                bgl.glVertex2f(cosine, sine)
-    bgl.glEnd()
+                vertices.append((cosine,sine))
+    batch = batch_for_shader(shader, 'TRI_FAN', {"pos": vertices})
+    shader.bind()
+    shader.uniform_float("color", colour)
+    batch.draw(shader)
 
+    # prepare drawing all edges in one batch
+    vertices = []
+    indices = []
+    id_last = 0
 
     # Left edge
-    bgl.glBegin(bgl.GL_QUADS)
     m1x, m1y = bpy.context.region.view2d.view_to_region(nlocx, nlocy, clip=False)
     m2x, m2y = bpy.context.region.view2d.view_to_region(nlocx, nlocy - ndimy, clip=False)
-    m1y = max(m1y, bottom_bar)
-    m2y = max(m2y, bottom_bar)
     if m1x < area_width and m2x < area_width:
-        bgl.glVertex2f(m2x-radius,m2y)  # draw order is important, start with bottom left and go anti-clockwise
-        bgl.glVertex2f(m2x,m2y)
-        bgl.glVertex2f(m1x,m1y)
-        bgl.glVertex2f(m1x-radius,m1y)
-    bgl.glEnd()
+        vertices.extend([(m2x-radius,m2y), (m2x,m2y),
+                         (m1x,m1y), (m1x-radius,m1y)])
+        indices.extend([(id_last, id_last+1, id_last+3),
+                        (id_last+3, id_last+1, id_last+2)])
+        id_last += 4
 
     # Top edge
-    bgl.glBegin(bgl.GL_QUADS)
     m1x, m1y = bpy.context.region.view2d.view_to_region(nlocx, nlocy, clip=False)
     m2x, m2y = bpy.context.region.view2d.view_to_region(nlocx + ndimx, nlocy, clip=False)
     m1x = min(m1x, area_width)
     m2x = min(m2x, area_width)
     if m1y > bottom_bar and m2y > bottom_bar:
-        bgl.glVertex2f(m1x,m2y)  # draw order is important, start with bottom left and go anti-clockwise
-        bgl.glVertex2f(m2x,m2y)
-        bgl.glVertex2f(m2x,m1y+radius)
-        bgl.glVertex2f(m1x,m1y+radius)
-    bgl.glEnd()
+        vertices.extend([(m1x,m1y), (m2x,m1y),
+                         (m2x,m1y+radius), (m1x,m1y+radius)])
+        indices.extend([(id_last, id_last+1, id_last+3),
+                        (id_last+3, id_last+1, id_last+2)])
+        id_last += 4
 
     # Right edge
-    bgl.glBegin(bgl.GL_QUADS)
     m1x, m1y = bpy.context.region.view2d.view_to_region(nlocx + ndimx, nlocy, clip=False)
     m2x, m2y = bpy.context.region.view2d.view_to_region(nlocx + ndimx, nlocy - ndimy, clip=False)
     m1y = max(m1y, bottom_bar)
     m2y = max(m2y, bottom_bar)
     if m1x < area_width and m2x < area_width:
-        bgl.glVertex2f(m2x,m2y)  # draw order is important, start with bottom left and go anti-clockwise
-        bgl.glVertex2f(m2x+radius,m2y)
-        bgl.glVertex2f(m1x+radius,m1y)
-        bgl.glVertex2f(m1x,m1y)
-    bgl.glEnd()
+        vertices.extend([(m1x,m2y), (m1x+radius,m2y),
+                         (m1x+radius,m1y), (m1x,m1y)])
+        indices.extend([(id_last, id_last+1, id_last+3),
+                        (id_last+3, id_last+1, id_last+2)])
+        id_last += 4
 
     # Bottom edge
-    bgl.glBegin(bgl.GL_QUADS)
     m1x, m1y = bpy.context.region.view2d.view_to_region(nlocx, nlocy-ndimy, clip=False)
     m2x, m2y = bpy.context.region.view2d.view_to_region(nlocx + ndimx, nlocy-ndimy, clip=False)
     m1x = min(m1x, area_width)
     m2x = min(m2x, area_width)
     if m1y > bottom_bar and m2y > bottom_bar:
-        bgl.glVertex2f(m1x,m2y)  # draw order is important, start with bottom left and go anti-clockwise
-        bgl.glVertex2f(m2x,m2y)
-        bgl.glVertex2f(m2x,m1y-radius)
-        bgl.glVertex2f(m1x,m1y-radius)
-    bgl.glEnd()
+        vertices.extend([(m1x,m2y), (m2x,m2y),
+                         (m2x,m1y-radius), (m1x,m1y-radius)])
+        indices.extend([(id_last, id_last+1, id_last+3),
+                        (id_last+3, id_last+1, id_last+2)])
 
-
-    # Restore defaults
-    bgl.glDisable(bgl.GL_BLEND)
-    bgl.glDisable(bgl.GL_LINE_SMOOTH)
-
+    # now draw all edges in one batch
+    if len(vertices) != 0:
+        batch = batch_for_shader(shader, 'TRIS', {"pos": vertices}, indices=indices)
+        shader.bind()
+        shader.uniform_float("color", colour)
+        batch.draw(shader)
 
 def draw_callback_nodeoutline(self, context, mode):
     if self.mouse_path:
-        nodes, links = get_nodes_links(context)
+
+        bgl.glLineWidth(1)
+        bgl.glEnable(bgl.GL_BLEND)
         bgl.glEnable(bgl.GL_LINE_SMOOTH)
+        bgl.glHint(bgl.GL_LINE_SMOOTH_HINT, bgl.GL_NICEST)
+
+        nodes, links = get_nodes_links(context)
+
+        shader = gpu.shader.from_builtin('2D_UNIFORM_COLOR')
 
         if mode == "LINK":
-            col_outer = [1.0, 0.2, 0.2, 0.4]
-            col_inner = [0.0, 0.0, 0.0, 0.5]
-            col_circle_inner = [0.3, 0.05, 0.05, 1.0]
+            col_outer = (1.0, 0.2, 0.2, 0.4)
+            col_inner = (0.0, 0.0, 0.0, 0.5)
+            col_circle_inner = (0.3, 0.05, 0.05, 1.0)
         elif mode == "LINKMENU":
-            col_outer = [0.4, 0.6, 1.0, 0.4]
-            col_inner = [0.0, 0.0, 0.0, 0.5]
-            col_circle_inner = [0.08, 0.15, .3, 1.0]
+            col_outer = (0.4, 0.6, 1.0, 0.4)
+            col_inner = (0.0, 0.0, 0.0, 0.5)
+            col_circle_inner = (0.08, 0.15, .3, 1.0)
         elif mode == "MIX":
-            col_outer = [0.2, 1.0, 0.2, 0.4]
-            col_inner = [0.0, 0.0, 0.0, 0.5]
-            col_circle_inner = [0.05, 0.3, 0.05, 1.0]
+            col_outer = (0.2, 1.0, 0.2, 0.4)
+            col_inner = (0.0, 0.0, 0.0, 0.5)
+            col_circle_inner = (0.05, 0.3, 0.05, 1.0)
 
         m1x = self.mouse_path[0][0]
         m1y = self.mouse_path[0][1]
@@ -954,33 +958,28 @@ def draw_callback_nodeoutline(self, context, mode):
         n2 = nodes[context.scene.NWLazyTarget]
 
         if n1 == n2:
-            col_outer = [0.4, 0.4, 0.4, 0.4]
-            col_inner = [0.0, 0.0, 0.0, 0.5]
-            col_circle_inner = [0.2, 0.2, 0.2, 1.0]
+            col_outer = (0.4, 0.4, 0.4, 0.4)
+            col_inner = (0.0, 0.0, 0.0, 0.5)
+            col_circle_inner = (0.2, 0.2, 0.2, 1.0)
 
-        draw_rounded_node_border(n1, radius=6, colour=col_outer)  # outline
-        draw_rounded_node_border(n1, radius=5, colour=col_inner)  # inner
-        draw_rounded_node_border(n2, radius=6, colour=col_outer)  # outline
-        draw_rounded_node_border(n2, radius=5, colour=col_inner)  # inner
+        draw_rounded_node_border(shader, n1, radius=6, colour=col_outer)  # outline
+        draw_rounded_node_border(shader, n1, radius=5, colour=col_inner)  # inner
+        draw_rounded_node_border(shader, n2, radius=6, colour=col_outer)  # outline
+        draw_rounded_node_border(shader, n2, radius=5, colour=col_inner)  # inner
 
         draw_line(m1x, m1y, m2x, m2y, 5, col_outer)  # line outline
         draw_line(m1x, m1y, m2x, m2y, 2, col_inner)  # line inner
 
         # circle outline
-        draw_circle(m1x, m1y, 7, col_outer)
-        draw_circle(m2x, m2y, 7, col_outer)
+        draw_circle_2d_filled(shader, m1x, m1y, 7, col_outer)
+        draw_circle_2d_filled(shader, m2x, m2y, 7, col_outer)
 
         # circle inner
-        draw_circle(m1x, m1y, 5, col_circle_inner)
-        draw_circle(m2x, m2y, 5, col_circle_inner)
+        draw_circle_2d_filled(shader, m1x, m1y, 5, col_circle_inner)
+        draw_circle_2d_filled(shader, m2x, m2y, 5, col_circle_inner)
 
-        # restore opengl defaults
-        bgl.glLineWidth(1)
         bgl.glDisable(bgl.GL_BLEND)
-        bgl.glColor4f(0.0, 0.0, 0.0, 1.0)
-
         bgl.glDisable(bgl.GL_LINE_SMOOTH)
-
 
 def get_nodes_links(context):
     tree = context.space_data.node_tree
@@ -1625,7 +1624,7 @@ class NWEmissionViewer(Operator, NWBase):
             if active:
                 if (active.name != "Emission Viewer") and (active.type not in output_types) and not in_group:
                     for out in active.outputs:
-                        if not out.hide:
+                        if is_visible_socket(out):
                             valid = True
                             break
             if valid:
@@ -1661,7 +1660,7 @@ class NWEmissionViewer(Operator, NWBase):
                 out_i = None
                 valid_outputs = []
                 for i, out in enumerate(active.outputs):
-                    if not out.hide:
+                    if is_visible_socket(out):
                         valid_outputs.append(i)
                 if valid_outputs:
                     out_i = valid_outputs[0]  # Start index of node's outputs
@@ -2763,7 +2762,8 @@ class NWAddPrincipledSetup(Operator, NWBase, ImportHelper):
                 img = bpy.data.images.load(self.directory+sname[2])
                 disp_texture.image = img
                 disp_texture.label = 'Displacement'
-                disp_texture.color_space = 'NONE'
+                if disp_texture.image:
+                    disp_texture.image.colorspace_settings.is_data = True
 
                 # Add displacement offset nodes
                 disp_node = nodes.new(type='ShaderNodeDisplacement')
@@ -2828,8 +2828,8 @@ class NWAddPrincipledSetup(Operator, NWBase, ImportHelper):
                     link = links.new(active_node.inputs[sname[0]], texture_node.outputs[0])
 
                 # Use non-color for all but 'Base Color' Textures
-                if not sname[0] in ['Base Color']:
-                    texture_node.color_space = 'NONE'
+                if not sname[0] in ['Base Color'] and texture_node.image:
+                    texture_node.image.colorspace_settings.is_data = True
 
             else:
                 # If already texture connected. add to node list for alignment
@@ -3213,7 +3213,7 @@ class NWLinkToOutputNode(Operator, NWBase):
         if nw_check(context):
             if context.active_node is not None:
                 for out in context.active_node.outputs:
-                    if not out.hide:
+                    if is_visible_socket(out):
                         valid = True
                         break
         return valid
@@ -3248,11 +3248,11 @@ class NWLinkToOutputNode(Operator, NWBase):
             output_node.location.y = active.location.y
         if (output_node and active.outputs):
             for i, output in enumerate(active.outputs):
-                if not output.hide:
+                if is_visible_socket(output):
                     output_index = i
                     break
             for i, output in enumerate(active.outputs):
-                if output.type == output_node.inputs[0].type and not output.hide:
+                if output.type == output_node.inputs[0].type and is_visible_socket(output):
                     output_index = i
                     break
 
@@ -3504,8 +3504,8 @@ class NWViewerFocus(bpy.types.Operator):
                 bd_x = render.resolution_x * percent * space.backdrop_zoom
                 bd_y = render.resolution_y * percent * space.backdrop_zoom
 
-                backdrop_center_x = (bd_x / 2) - space.backdrop_x
-                backdrop_center_y = (bd_y / 2) - space.backdrop_y
+                backdrop_center_x = (bd_x / 2) - space.backdrop_offset[0]
+                backdrop_center_y = (bd_y / 2) - space.backdrop_offset[1]
 
                 margin_x = region_center_x - backdrop_center_x
                 margin_y = region_center_y - backdrop_center_y
@@ -3768,7 +3768,7 @@ class NodeWranglerPanel(Panel, NWBase):
     remove: StringProperty()
 
     def draw(self, context):
-        self.layout.label(text="(Quick access: Ctrl+Space)")
+        self.layout.label(text="(Quick access: Shift+W)")
         drawlayout(context, self.layout, mode='panel')
 
 
@@ -4038,7 +4038,7 @@ class NWVertColMenu(bpy.types.Menu):
             for vcol in vcols:
                 l.operator(NWAddAttrNode.bl_idname, text=vcol).attr_name = vcol
         else:
-            l.label("No Vertex Color layers on objects with this material")
+            l.label(text="No Vertex Color layers on objects with this material")
 
 
 class NWSwitchNodeTypeMenu(Menu, NWBase):
@@ -4654,11 +4654,11 @@ kmi_defs = (
     # Reload Images
     (NWReloadImages.bl_idname, 'R', 'PRESS', False, False, True, None, "Reload images"),
     # Lazy Mix
-    (NWLazyMix.bl_idname, 'RIGHTMOUSE', 'PRESS', False, False, True, None, "Lazy Mix"),
+    (NWLazyMix.bl_idname, 'RIGHTMOUSE', 'PRESS', True, True, False, None, "Lazy Mix"),
     # Lazy Connect
-    (NWLazyConnect.bl_idname, 'RIGHTMOUSE', 'PRESS', True, False, False, None, "Lazy Connect"),
+    (NWLazyConnect.bl_idname, 'RIGHTMOUSE', 'PRESS', False, False, True, (('with_menu', False),), "Lazy Connect"),
     # Lazy Connect with Menu
-    (NWLazyConnect.bl_idname, 'RIGHTMOUSE', 'PRESS', True, True, False, (('with_menu', True),), "Lazy Connect with Socket Menu"),
+    (NWLazyConnect.bl_idname, 'RIGHTMOUSE', 'PRESS', False, True, True, (('with_menu', True),), "Lazy Connect with Socket Menu"),
     # Viewer Tile Center
     (NWViewerFocus.bl_idname, 'LEFTMOUSE', 'DOUBLE_CLICK', False, False, False, None, "Set Viewers Tile Center"),
     # Align Nodes
@@ -4666,7 +4666,7 @@ kmi_defs = (
     # Reset Nodes (Back Space)
     (NWResetNodes.bl_idname, 'BACK_SPACE', 'PRESS', False, False, False, None, "Revert node back to default state, but keep connections"),
     # MENUS
-    ('wm.call_menu', 'SPACE', 'PRESS', True, True, False, (('name', NodeWranglerMenu.bl_idname),), "Node Wrangler menu"),
+    ('wm.call_menu', 'W', 'PRESS', False, True, False, (('name', NodeWranglerMenu.bl_idname),), "Node Wrangler menu"),
     ('wm.call_menu', 'SLASH', 'PRESS', False, False, False, (('name', NWAddReroutesMenu.bl_idname),), "Add Reroutes menu"),
     ('wm.call_menu', 'NUMPAD_SLASH', 'PRESS', False, False, False, (('name', NWAddReroutesMenu.bl_idname),), "Add Reroutes menu"),
     ('wm.call_menu', 'BACK_SLASH', 'PRESS', False, False, False, (('name', NWLinkActiveToSelectedMenu.bl_idname),), "Link active to selected (menu)"),

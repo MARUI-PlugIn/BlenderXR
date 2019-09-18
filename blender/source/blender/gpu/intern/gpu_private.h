@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup gpu
+/** \file
+ * \ingroup gpu
  */
 
 #ifndef __GPU_PRIVATE_H__
@@ -35,4 +36,4 @@ void gpu_debug_exit(void);
 void gpu_framebuffer_module_init(void);
 void gpu_framebuffer_module_exit(void);
 
-#endif  /* __GPU_PRIVATE_H__ */
+#endif /* __GPU_PRIVATE_H__ */

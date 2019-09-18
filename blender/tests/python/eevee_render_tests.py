@@ -8,27 +8,26 @@ import shutil
 import subprocess
 import sys
 
-
 def setup():
     import bpy
+
+    for scene in bpy.data.scenes:
+        scene.render.engine = 'BLENDER_EEVEE'
 
     # Enable Eevee features
     scene = bpy.context.scene
     eevee = scene.eevee
 
-    eevee.use_sss = True
     eevee.use_ssr = True
     eevee.use_ssr_refraction = True
     eevee.use_gtao = True
-    eevee.use_dof = True
 
-    eevee.use_volumetric = True
     eevee.use_volumetric_shadows = True
     eevee.volumetric_tile_size = '2'
 
     for mat in bpy.data.materials:
         mat.use_screen_refraction = True
-        mat.use_screen_subsurface = True
+        mat.use_sss_translucency = True
 
 
 # When run from inside Blender, render and exit.
@@ -46,15 +45,8 @@ if inside_blender:
         sys.exit(1)
 
 
-def render_file(filepath, output_filepath):
-    dirname = os.path.dirname(filepath)
-    basedir = os.path.dirname(dirname)
-    subject = os.path.basename(dirname)
-
-    frame_filepath = output_filepath + '0001.png'
-
-    command = [
-        BLENDER,
+def get_arguments(filepath, output_filepath):
+    return [
         "--background",
         "-noaudio",
         "--factory-startup",
@@ -66,37 +58,6 @@ def render_file(filepath, output_filepath):
         "-o", output_filepath,
         "-F", "PNG",
         "-f", "1"]
-
-    try:
-        # Success
-        output = subprocess.check_output(command)
-        if os.path.exists(frame_filepath):
-            shutil.copy(frame_filepath, output_filepath)
-            os.remove(frame_filepath)
-        if VERBOSE:
-            print(" ".join(command))
-            print(output.decode("utf-8"))
-        return None
-    except subprocess.CalledProcessError as e:
-        # Error
-        if os.path.exists(frame_filepath):
-            os.remove(frame_filepath)
-        if VERBOSE:
-            print(" ".join(command))
-            print(e.output.decode("utf-8"))
-        if b"Error: engine not found" in e.output:
-            return "NO_ENGINE"
-        elif b"blender probably wont start" in e.output:
-            return "NO_START"
-        return "CRASH"
-    except BaseException as e:
-        # Crash
-        if os.path.exists(frame_filepath):
-            os.remove(frame_filepath)
-        if VERBOSE:
-            print(" ".join(command))
-            print(e)
-        return "CRASH"
 
 
 def create_argparse():
@@ -112,21 +73,17 @@ def main():
     parser = create_argparse()
     args = parser.parse_args()
 
-    global BLENDER, VERBOSE
-
-    BLENDER = args.blender[0]
-    VERBOSE = os.environ.get("BLENDER_VERBOSE") is not None
-
+    blender = args.blender[0]
     test_dir = args.testdir[0]
     idiff = args.idiff[0]
     output_dir = args.outdir[0]
 
     from modules import render_report
-    report = render_report.Report("Eevee Test Report", output_dir, idiff)
+    report = render_report.Report("Eevee", output_dir, idiff)
     report.set_pixelated(True)
     report.set_reference_dir("eevee_renders")
     report.set_compare_engines('eevee', 'cycles')
-    ok = report.run(test_dir, render_file)
+    ok = report.run(test_dir, blender, get_arguments, batch=True)
 
     sys.exit(not ok)
 

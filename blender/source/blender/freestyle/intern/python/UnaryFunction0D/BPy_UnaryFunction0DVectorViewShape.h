@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup freestyle
+/** \file
+ * \ingroup freestyle
  */
 
 #ifndef __FREESTYLE_PYTHON_UNARYFUNCTION0DVECTORVIEWSHAPE_H__
@@ -34,17 +35,18 @@ extern "C" {
 extern PyTypeObject UnaryFunction0DVectorViewShape_Type;
 
 #define BPy_UnaryFunction0DVectorViewShape_Check(v) \
-            (PyObject_IsInstance((PyObject *)v, (PyObject *)&UnaryFunction0DVectorViewShape_Type))
+  (PyObject_IsInstance((PyObject *)v, (PyObject *)&UnaryFunction0DVectorViewShape_Type))
 
-/*---------------------------Python BPy_UnaryFunction0DVectorViewShape structure definition----------*/
+/*---------------------------Python BPy_UnaryFunction0DVectorViewShape structure
+ * definition----------*/
 typedef struct {
-	BPy_UnaryFunction0D py_uf0D;
-	UnaryFunction0D< std::vector<ViewShape*> > *uf0D_vectorviewshape;
+  BPy_UnaryFunction0D py_uf0D;
+  UnaryFunction0D<std::vector<ViewShape *>> *uf0D_vectorviewshape;
 } BPy_UnaryFunction0DVectorViewShape;
 
-/*---------------------------Python BPy_UnaryFunction0DVectorViewShape visible prototypes-----------*/
+/*---------------------------Python BPy_UnaryFunction0DVectorViewShape visible
+ * prototypes-----------*/
 int UnaryFunction0DVectorViewShape_Init(PyObject *module);
-
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 

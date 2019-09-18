@@ -195,7 +195,7 @@ def add_type1(self, context):
 def make_path(self, context, verts):
     target = bpy.context.view_layer.objects.active
     bpy.ops.curve.primitive_nurbs_path_add(
-            view_align=False, enter_editmode=False, location=(0, 0, 0)
+            align='WORLD', enter_editmode=False, location=(0, 0, 0)
             )
     target.data.taper_object = bpy.context.view_layer.objects.active
     taper = bpy.context.view_layer.objects.active
@@ -213,6 +213,7 @@ def make_curve(self, context, verts, lh, rh):
                         name=target.name + '_Bevel', type='CURVE'
                         )
     curve_data.dimensions = '3D'
+    curve_data.fill_mode = 'FULL'
 
     for p in range(len(verts)):
         c = 0
@@ -285,7 +286,7 @@ class add_tapercurve(Operator):
 
         col = layout.column(align=True)
         col.label(text="Settings:")
-        split = layout.split(percentage=0.95, align=True)
+        split = layout.split(factor=0.95, align=True)
         split.active = not self.link2
         col = split.column(align=True)
         col.prop(self, "scale_ends1")
@@ -297,7 +298,7 @@ class add_tapercurve(Operator):
         col_sub.prop(self, "scale_ends2")
         row.prop(self, "link1", toggle=True, text="", icon="LINKED")
 
-        split = layout.split(percentage=0.95, align=True)
+        split = layout.split(factor=0.95, align=True)
         col = split.column(align=True)
         col.prop(self, "scale_mid")
 
@@ -359,7 +360,7 @@ class add_bevelcurve(Operator, AddObjectHelper):
 
         col = layout.column(align=True)
         # AddObjectHelper props
-        col.prop(self, "view_align")
+        col.prop(self, "align")
         col.prop(self, "location")
         col.prop(self, "rotation")
 
@@ -367,7 +368,7 @@ class add_bevelcurve(Operator, AddObjectHelper):
         col.label(text = "Settings:")
         col.prop(self, "types")
 
-        split = layout.split(percentage=0.95, align=True)
+        split = layout.split(factor=0.95, align=True)
         col = split.column(align=True)
         col.prop(self, "scale_x")
         row = split.row(align=True)
@@ -392,31 +393,35 @@ class add_bevelcurve(Operator, AddObjectHelper):
         return {'FINISHED'}
 
 
-class Bevel_Taper_Curve_Menu(Menu):
+def menu_funcs(self, context):
     bl_label = "Bevel/Taper"
-    bl_idname = "VIEW3D_MT_bevel_taper_curve_menu"
 
-    def draw(self, context):
-        layout = self.layout
+    layout = self.layout
 
+    if bpy.context.view_layer.objects.active.type == "CURVE":
         layout.operator("curve.bevelcurve")
         layout.operator("curve.tapercurve")
+        layout.separator()
 
-
-def menu_funcs(self, context):
-    if bpy.context.view_layer.objects.active.type == "CURVE":
-        self.layout.menu("VIEW3D_MT_bevel_taper_curve_menu")
-
+# Register
+classes = [
+    add_bevelcurve,
+    add_tapercurve
+]
 
 def register():
-    #bpy.utils.register_module(__name__)
-    bpy.types.VIEW3D_MT_object.append(menu_funcs)
+    from bpy.utils import register_class
+    for cls in classes:
+        register_class(cls)
 
+    bpy.types.VIEW3D_MT_object_context_menu.prepend(menu_funcs)
 
 def unregister():
-    #bpy.utils.unregister_module(__name__)
-    bpy.types.VIEW3D_MT_object.remove(menu_funcs)
+    from bpy.utils import unregister_class
+    for cls in reversed(classes):
+        unregister_class(cls)
 
+    bpy.types.VIEW3D_MT_object_context_menu.remove(menu_funcs)
 
 if __name__ == "__main__":
     register()

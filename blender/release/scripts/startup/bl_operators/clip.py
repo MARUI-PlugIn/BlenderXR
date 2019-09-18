@@ -850,9 +850,6 @@ class CLIP_OT_setup_tracking_scene(Operator):
         # Ensure no nodes were created on the position of existing node.
         self._offsetNodes(tree)
 
-        if hasattr(scene, "cycles"):
-            scene.cycles.film_transparent = True
-
     @staticmethod
     def _createMesh(collection, name, vertices, faces):
         from bpy_extras.io_utils import unpack_list
@@ -906,7 +903,7 @@ class CLIP_OT_setup_tracking_scene(Operator):
         return None
 
     @staticmethod
-    def _createLight(scene):
+    def _createLight():
         light = bpy.data.lights.new(name="Light", type='POINT')
         lightob = bpy.data.objects.new(name="Light", object_data=light)
 
@@ -951,7 +948,7 @@ class CLIP_OT_setup_tracking_scene(Operator):
 
         # Create sample light if there is no lights in the scene.
         if not has_light:
-            light = self._createLight(scene)
+            light = self._createLight()
             fg_coll.objects.link(light)
             bg_coll.objects.link(light)
 

@@ -84,11 +84,6 @@ class AnnotationDrawingToolsPanel:
     bl_category = "Annotation"
     bl_region_type = 'TOOLS'
 
-    @classmethod
-    def poll(cls, context):
-        return True
-
-    @staticmethod
     def draw(self, context):
         layout = self.layout
 
@@ -121,7 +116,7 @@ class AnnotationDrawingToolsPanel:
         col.separator()
         col.separator()
 
-        if context.space_data.type in {'CLIP_EDITOR'}:
+        if context.space_data.type == 'CLIP_EDITOR':
             col.separator()
             col.label(text="Data Source:")
             row = col.row(align=True)
@@ -134,15 +129,6 @@ class AnnotationDrawingToolsPanel:
         # col.separator()
 
         gpencil_stroke_placement_settings(context, col)
-
-        gpd = context.gpencil_data
-
-        if gpd and not is_3d_view:
-            layout.separator()
-            layout.separator()
-
-            col = layout.column(align=True)
-            col.prop(gpd, "use_stroke_edit_mode", text="Enable Editing", toggle=True)  # was: icon='EDIT'
 
 
 class GreasePencilStrokeEditPanel:
@@ -160,7 +146,6 @@ class GreasePencilStrokeEditPanel:
         gpd = context.gpencil_data
         return bool(context.editable_gpencil_strokes) and bool(gpd.use_stroke_edit_mode)
 
-    @staticmethod
     def draw(self, context):
         layout = self.layout
 
@@ -215,6 +200,7 @@ class GreasePencilStrokeEditPanel:
         row = col.row(align=True)
         row.operator("gpencil.stroke_simplify_fixed", text="Simplify")
         row.operator("gpencil.stroke_simplify", text="Adaptive")
+        row.operator("gpencil.stroke_trim", text="Trim")
 
         col.separator()
 
@@ -244,20 +230,18 @@ class GreasePencilStrokeSculptPanel:
     bl_label = "Sculpt Strokes"
     bl_category = "Tools"
 
-    @staticmethod
     def draw(self, context):
         layout = self.layout
         layout.use_property_split = True
         layout.use_property_decorate = False
 
         settings = context.tool_settings.gpencil_sculpt
-        tool = settings.sculpt_tool
         brush = settings.brush
 
         layout.template_icon_view(settings, "sculpt_tool", show_labels=True)
 
         if not self.is_popover:
-            from .properties_paint_common import (
+            from bl_ui.properties_paint_common import (
                 brush_basic_gpencil_sculpt_settings,
             )
             brush_basic_gpencil_sculpt_settings(layout, context, brush)
@@ -273,7 +257,6 @@ class GreasePencilSculptOptionsPanel:
 
         return bool(tool in {'SMOOTH', 'RANDOMIZE', 'SMOOTH'})
 
-    @staticmethod
     def draw(self, context):
         layout = self.layout
         layout.use_property_split = True
@@ -304,7 +287,6 @@ class GreasePencilAppearancePanel:
         ob = context.active_object
         return ob and ob.type == 'GPENCIL'
 
-    @staticmethod
     def draw(self, context):
         layout = self.layout
         layout.use_property_split = True
@@ -379,7 +361,10 @@ class GPENCIL_MT_pie_tool_palette(Menu):
         # E - "Settings" Palette is included here too, since it needs to be in a stable position...
         if gpd and gpd.layers.active:
             col.separator()
-            col.operator("wm.call_menu_pie", text="Settings...", icon='SCRIPTWIN').name = "GPENCIL_MT_pie_settings_palette"
+            col.operator(
+                "wm.call_menu_pie",
+                text="Settings...",
+                icon='SCRIPTWIN').name = "GPENCIL_MT_pie_settings_palette"
 
         # Editing tools
         if gpd:
@@ -395,7 +380,7 @@ class GPENCIL_MT_pie_tool_palette(Menu):
                 row.operator("transform.resize", text="Scale", icon='MAN_SCALE')
                 row = col.row(align=True)
                 row.label(text="Proportional Edit:")
-                row.prop(context.tool_settings, "proportional_edit", text="", icon_only=True)
+                row.prop(context.tool_settings, "use_proportional_edit", text="", icon_only=True)
                 row.prop(context.tool_settings, "proportional_edit_falloff", text="", icon_only=True)
 
                 # NW - Select (Non-Modal)
@@ -515,7 +500,7 @@ class GPENCIL_MT_pie_tools_more(Menu):
         gpd = context.gpencil_data
         return bool(gpd and gpd.use_stroke_edit_mode and context.editable_gpencil_strokes)
 
-    def draw(self, context):
+    def draw(self, _context):
         layout = self.layout
 
         pie = layout.menu_pie()
@@ -591,7 +576,7 @@ class GPENCIL_MT_pie_sculpt(Menu):
 class GPENCIL_MT_snap(Menu):
     bl_label = "Snap"
 
-    def draw(self, context):
+    def draw(self, _context):
         layout = self.layout
 
         layout.operator("gpencil.snap_to_grid", text="Selection to Grid")
@@ -608,36 +593,17 @@ class GPENCIL_MT_snap(Menu):
 class GPENCIL_MT_separate(Menu):
     bl_label = "Separate"
 
-    def draw(self, context):
+    def draw(self, _context):
         layout = self.layout
         layout.operator("gpencil.stroke_separate", text="Selected Points").mode = 'POINT'
         layout.operator("gpencil.stroke_separate", text="Selected Strokes").mode = 'STROKE'
         layout.operator("gpencil.stroke_separate", text="Active Layer").mode = 'LAYER'
 
 
-class GPENCIL_MT_gpencil_draw_specials(Menu):
-    bl_label = "GPencil Draw Specials"
-
-    def draw(self, context):
-        layout = self.layout
-
-        layout.operator_context = 'INVOKE_REGION_WIN'
-
-        layout.operator("gpencil.frame_duplicate", text="Duplicate Active Frame")
-        layout.operator("gpencil.frame_duplicate", text="Duplicate Active Frame All Layers").mode = 'ALL'
-
-        layout.separator()
-        layout.operator("gpencil.primitive", text="Line", icon='IPO_CONSTANT').type = 'LINE'
-        layout.operator("gpencil.primitive", text="Rectangle", icon='UV_FACESEL').type = 'BOX'
-        layout.operator("gpencil.primitive", text="Circle", icon='ANTIALIASED').type = 'CIRCLE'
-        layout.operator("gpencil.primitive", text="Arc", icon='SPHERECURVE').type = 'ARC'
-        layout.operator("gpencil.primitive", text="Curve", icon='CURVE_BEZCURVE').type = 'CURVE'
-
-
 class GPENCIL_MT_gpencil_draw_delete(Menu):
     bl_label = "GPencil Draw Delete"
 
-    def draw(self, context):
+    def draw(self, _context):
         layout = self.layout
 
         layout.operator_context = 'INVOKE_REGION_WIN'
@@ -648,7 +614,7 @@ class GPENCIL_MT_gpencil_draw_delete(Menu):
 class GPENCIL_MT_cleanup(Menu):
     bl_label = "Clean Up"
 
-    def draw(self, context):
+    def draw(self, _context):
         layout = self.layout
         layout.operator("gpencil.frame_clean_loose", text="Loose Points")
         layout.separator()
@@ -661,7 +627,7 @@ class GPENCIL_MT_cleanup(Menu):
 
 
 class GPENCIL_UL_annotation_layer(UIList):
-    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+    def draw_item(self, _context, layout, _data, item, icon, _active_data, _active_propname, _index):
         # assert(isinstance(item, bpy.types.GPencilLayer)
         gpl = item
 
@@ -674,8 +640,7 @@ class GPENCIL_UL_annotation_layer(UIList):
             split.prop(gpl, "info", text="", emboss=False)
 
             row = layout.row(align=True)
-            # row.prop(gpl, "lock", text="", emboss=False)
-            row.prop(gpl, "hide", text="", emboss=False)
+            row.prop(gpl, "annotation_hide", text="", emboss=False)
         elif self.layout_type == 'GRID':
             layout.alignment = 'CENTER'
             layout.label(text="", icon_value=icon)
@@ -697,12 +662,10 @@ class AnnotationDataPanel:
         else:
             return True
 
-    @staticmethod
     def draw_header(self, context):
         if context.space_data.type not in {'VIEW_3D', 'TOPBAR'}:
             self.layout.prop(context.space_data, "show_annotation", text="")
 
-    @staticmethod
     def draw(self, context):
         layout = self.layout
         layout.use_property_decorate = False
@@ -787,12 +750,10 @@ class AnnotationOnionSkin:
 
             return True
 
-    @staticmethod
     def draw_header(self, context):
         gpl = context.active_gpencil_layer
         self.layout.prop(gpl, "use_annotation_onion_skinning", text="")
 
-    @staticmethod
     def draw(self, context):
         layout = self.layout
         layout.use_property_decorate = False
@@ -815,40 +776,6 @@ class AnnotationOnionSkin:
         sub.prop(gpl, "annotation_onion_after_range", text="After")
 
 
-class GreasePencilOnionPanel:
-    @staticmethod
-    def draw_settings(layout, gp):
-        col = layout.column()
-        col.prop(gp, "onion_mode")
-        col.prop(gp, "onion_factor", text="Opacity", slider=True)
-
-        if gp.onion_mode == 'ABSOLUTE':
-            col = layout.column(align=True)
-            col.prop(gp, "ghost_before_range", text="Frames Before")
-            col.prop(gp, "ghost_after_range", text="Frames After")
-        if gp.onion_mode == 'RELATIVE':
-            col = layout.column(align=True)
-            col.prop(gp, "ghost_before_range", text="Keyframes Before")
-            col.prop(gp, "ghost_after_range", text="Keyframes After")
-
-        layout.prop(gp, "use_ghost_custom_colors", text="Use Custom Colors")
-
-        if gp.use_ghost_custom_colors:
-            col = layout.column(align=True)
-            col.active = gp.use_ghost_custom_colors
-            col.prop(gp, "before_color", text="Color Before")
-            col.prop(gp, "after_color", text="After")
-
-        layout.prop(gp, "use_ghosts_always", text="View In Render")
-
-        col = layout.column(align=True)
-        col.prop(gp, "use_onion_fade", text="Fade")
-        if hasattr(gp, "use_onion_loop"):  # XXX
-            sub = layout.column()
-            sub.active = gp.onion_mode in ('RELATIVE', 'SELECTED')
-            sub.prop(gp, "use_onion_loop", text="Loop")
-
-
 class GreasePencilToolsPanel:
     # For use in "2D" Editors without their own toolbar
     # subclass must set
@@ -864,23 +791,8 @@ class GreasePencilToolsPanel:
 
         return (context.gpencil_data is not None)
 
-    @staticmethod
     def draw(self, context):
         layout = self.layout
-
-        gpd = context.gpencil_data
-
-        layout.prop(gpd, "use_stroke_edit_mode", text="Enable Editing", icon='EDIT', toggle=True)
-
-        layout.separator()
-
-        layout.label(text="Proportional Edit:")
-        row = layout.row()
-        row.prop(context.tool_settings, "proportional_edit", text="")
-        row.prop(context.tool_settings, "proportional_edit_falloff", text="")
-
-        layout.separator()
-        layout.separator()
 
         gpencil_active_brush_settings_simple(context, layout)
 
@@ -891,69 +803,92 @@ class GreasePencilToolsPanel:
 
 class GreasePencilMaterialsPanel:
     # Mix-in, use for properties editor and top-bar.
-
-    @classmethod
-    def poll(cls, context):
-        ob = context.object
-        return ob and ob.type == 'GPENCIL'
-
-    @staticmethod
     def draw(self, context):
         layout = self.layout
         show_full_ui = (self.bl_space_type == 'PROPERTIES')
 
-        gpd = context.gpencil_data
+        is_view3d = (self.bl_space_type == 'VIEW_3D')
+        tool_settings = context.scene.tool_settings
+        gpencil_paint = tool_settings.gpencil_paint
+        brush = gpencil_paint.brush
 
         ob = context.object
-
-        is_sortable = len(ob.material_slots) > 1
-        rows = 7
-
         row = layout.row()
 
-        row.template_list("GPENCIL_UL_matslots", "", ob, "material_slots", ob, "active_material_index", rows=rows)
+        if ob:
+            is_sortable = len(ob.material_slots) > 1
+            rows = 7
 
-        col = row.column(align=True)
-        if show_full_ui:
-            col.operator("object.material_slot_add", icon='ADD', text="")
-            col.operator("object.material_slot_remove", icon='REMOVE', text="")
+            row.template_list("GPENCIL_UL_matslots", "", ob, "material_slots", ob, "active_material_index", rows=rows)
 
-        col.menu("GPENCIL_MT_color_specials", icon='DOWNARROW_HLT', text="")
+            # if topbar popover and brush pinned, disable
+            if is_view3d and brush is not None:
+                gp_settings = brush.gpencil_settings
+                if gp_settings.use_material_pin:
+                    row.enabled = False
 
-        if is_sortable:
-            col.separator()
+            col = row.column(align=True)
+            if show_full_ui:
+                col.operator("object.material_slot_add", icon='ADD', text="")
+                col.operator("object.material_slot_remove", icon='REMOVE', text="")
 
-            col.operator("object.material_slot_move", icon='TRIA_UP', text="").direction = 'UP'
-            col.operator("object.material_slot_move", icon='TRIA_DOWN', text="").direction = 'DOWN'
+            col.menu("GPENCIL_MT_color_context_menu", icon='DOWNARROW_HLT', text="")
 
-            col.separator()
+            if is_sortable:
+                col.separator()
 
-            sub = col.column(align=True)
-            sub.operator("gpencil.color_isolate", icon='LOCKED', text="").affect_visibility = False
-            sub.operator("gpencil.color_isolate", icon='RESTRICT_VIEW_ON', text="").affect_visibility = True
+                col.operator("object.material_slot_move", icon='TRIA_UP', text="").direction = 'UP'
+                col.operator("object.material_slot_move", icon='TRIA_DOWN', text="").direction = 'DOWN'
 
-        if show_full_ui:
-            row = layout.row()
+                col.separator()
 
-            row.template_ID(ob, "active_material", new="material.new", live_icon=True)
+                sub = col.column(align=True)
+                sub.operator("gpencil.color_isolate", icon='LOCKED', text="").affect_visibility = False
+                sub.operator("gpencil.color_isolate", icon='RESTRICT_VIEW_ON', text="").affect_visibility = True
 
-            slot = context.material_slot
-            if slot:
-                icon_link = 'MESH_DATA' if slot.link == 'DATA' else 'OBJECT_DATA'
-                row.prop(slot, "link", icon=icon_link, icon_only=True)
+            if show_full_ui:
+                row = layout.row()
 
-            if gpd.use_stroke_edit_mode:
-                row = layout.row(align=True)
-                row.operator("gpencil.stroke_change_color", text="Assign")
-                row.operator("gpencil.color_select", text="Select").deselect = False
-                row.operator("gpencil.color_select", text="Deselect").deselect = True
+                row.template_ID(ob, "active_material", new="material.new", live_icon=True)
+
+                slot = context.material_slot
+                if slot:
+                    icon_link = 'MESH_DATA' if slot.link == 'DATA' else 'OBJECT_DATA'
+                    row.prop(slot, "link", icon=icon_link, icon_only=True)
+
+                if ob.data.use_stroke_edit_mode:
+                    row = layout.row(align=True)
+                    row.operator("gpencil.stroke_change_color", text="Assign")
+                    row.operator("gpencil.color_select", text="Select").deselect = False
+                    row.operator("gpencil.color_select", text="Deselect").deselect = True
+        # stroke color
+            ma = None
+            if is_view3d and brush is not None:
+                gp_settings = brush.gpencil_settings
+                if gp_settings.use_material_pin is False:
+                    ma = ob.material_slots[ob.active_material_index].material
+                else:
+                    ma = gp_settings.material
+
+            if ma is not None and ma.grease_pencil is not None:
+                gpcolor = ma.grease_pencil
+                if (
+                        gpcolor.stroke_style == 'SOLID' or
+                        gpcolor.use_stroke_pattern or
+                        gpcolor.use_stroke_texture_mix
+                ):
+                    row = layout.row()
+                    row.prop(gpcolor, "color", text="Stroke Color")
+
+        else:
+            space = context.space_data
+            row.template_ID(space, "pin_id")
 
 
 class GPENCIL_UL_layer(UIList):
-    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+    def draw_item(self, _context, layout, _data, item, icon, _active_data, _active_propname, _index):
         # assert(isinstance(item, bpy.types.GPencilLayer)
         gpl = item
-        gpd = context.gpencil_data
 
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
             if gpl.lock:
@@ -967,8 +902,8 @@ class GPENCIL_UL_layer(UIList):
             row.prop(gpl, "info", text="", emboss=False)
 
             row = layout.row(align=True)
-            row.prop(gpl, "clamp_layer", text="",
-                     icon='MOD_MASK' if gpl.clamp_layer else 'LAYER_ACTIVE',
+            row.prop(gpl, "mask_layer", text="",
+                     icon='MOD_MASK' if gpl.mask_layer else 'LAYER_ACTIVE',
                      emboss=False)
 
             row.prop(gpl, "lock", text="", emboss=False)
@@ -999,7 +934,6 @@ classes = (
     GPENCIL_MT_separate,
     GPENCIL_MT_cleanup,
 
-    GPENCIL_MT_gpencil_draw_specials,
     GPENCIL_MT_gpencil_draw_delete,
 
     GPENCIL_UL_annotation_layer,

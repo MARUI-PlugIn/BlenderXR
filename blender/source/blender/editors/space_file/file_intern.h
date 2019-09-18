@@ -17,7 +17,8 @@
  * All rights reserved.
  */
 
-/** \file \ingroup spfile
+/** \file
+ * \ingroup spfile
  */
 
 #ifndef __FILE_INTERN_H__
@@ -27,6 +28,7 @@
 
 struct ARegion;
 struct ARegionType;
+struct FileSelectParams;
 struct SpaceFile;
 
 /* file_ops.c */
@@ -40,7 +42,7 @@ struct ARegion *file_tools_region(struct ScrArea *sa);
 #define IMASEL_BUTTONS_HEIGHT (UI_UNIT_Y * 2)
 #define IMASEL_BUTTONS_MARGIN (UI_UNIT_Y / 6)
 
-#define SMALL_SIZE_CHECK(_size) ((_size) < 64)  /* Related to FileSelectParams.thumbnail_size. */
+#define SMALL_SIZE_CHECK(_size) ((_size) < 64) /* Related to FileSelectParams.thumbnail_size. */
 
 void file_draw_buttons(const bContext *C, ARegion *ar);
 void file_calc_previews(const bContext *C, ARegion *ar);
@@ -55,10 +57,10 @@ struct wmOperator;
 struct wmOperatorType;
 
 typedef enum WalkSelectDirection {
-	FILE_SELECT_WALK_UP,
-	FILE_SELECT_WALK_DOWN,
-	FILE_SELECT_WALK_LEFT,
-	FILE_SELECT_WALK_RIGHT,
+  FILE_SELECT_WALK_UP,
+  FILE_SELECT_WALK_DOWN,
+  FILE_SELECT_WALK_LEFT,
+  FILE_SELECT_WALK_RIGHT,
 } WalkSelectDirections;
 
 void FILE_OT_highlight(struct wmOperatorType *ot);
@@ -101,10 +103,12 @@ void file_filename_enter_handle(bContext *C, void *arg_unused, void *arg_but);
 int file_highlight_set(struct SpaceFile *sfile, struct ARegion *ar, int mx, int my);
 
 void file_sfile_filepath_set(struct SpaceFile *sfile, const char *filepath);
-void file_sfile_to_operator_ex(bContext *C, struct wmOperator *op, struct SpaceFile *sfile, char *filepath);
+void file_sfile_to_operator_ex(bContext *C,
+                               struct wmOperator *op,
+                               struct SpaceFile *sfile,
+                               char *filepath);
 void file_sfile_to_operator(bContext *C, struct wmOperator *op, struct SpaceFile *sfile);
 void file_operator_to_sfile(bContext *C, struct SpaceFile *sfile, struct wmOperator *op);
-
 
 /* filesel.c */
 void fileselect_file_set(SpaceFile *sfile, const int index);
@@ -114,6 +118,8 @@ float file_font_pointsize(void);
 int file_select_match(struct SpaceFile *sfile, const char *pattern, char *matched_file);
 int autocomplete_directory(struct bContext *C, char *str, void *arg_v);
 int autocomplete_file(struct bContext *C, char *str, void *arg_v);
+
+void file_params_renamefile_activate(struct SpaceFile *sfile, struct FileSelectParams *params);
 
 /* file_panels.c */
 void file_panels_register(struct ARegionType *art);

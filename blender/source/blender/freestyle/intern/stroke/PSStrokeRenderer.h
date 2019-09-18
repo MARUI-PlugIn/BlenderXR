@@ -17,8 +17,9 @@
 #ifndef __FREESTYLE_PS_STROKE_RENDERER_H__
 #define __FREESTYLE_PS_STROKE_RENDERER_H__
 
-/** \file \ingroup freestyle
- *  \brief Class to define the Postscript rendering of a stroke
+/** \file
+ * \ingroup freestyle
+ * \brief Class to define the Postscript rendering of a stroke
  */
 
 #include <fstream>
@@ -37,23 +38,22 @@ namespace Freestyle {
 /*                                */
 /**********************************/
 
-class PSStrokeRenderer : public StrokeRenderer
-{
-public:
-	PSStrokeRenderer(const char *iFileName = NULL);
-	virtual ~PSStrokeRenderer();
+class PSStrokeRenderer : public StrokeRenderer {
+ public:
+  PSStrokeRenderer(const char *iFileName = NULL);
+  virtual ~PSStrokeRenderer();
 
-	/*! Renders a stroke rep */
-	virtual void RenderStrokeRep(StrokeRep *iStrokeRep) const;
-	virtual void RenderStrokeRepBasic(StrokeRep *iStrokeRep) const;
+  /*! Renders a stroke rep */
+  virtual void RenderStrokeRep(StrokeRep *iStrokeRep) const;
+  virtual void RenderStrokeRepBasic(StrokeRep *iStrokeRep) const;
 
-	/*! Closes the output PS file */
-	void Close();
+  /*! Closes the output PS file */
+  void Close();
 
-protected:
-	mutable ofstream _ofstream;
+ protected:
+  mutable ofstream _ofstream;
 };
 
 } /* namespace Freestyle */
 
-#endif // __FREESTYLE_PS_STROKE_RENDERER_H__
+#endif  // __FREESTYLE_PS_STROKE_RENDERER_H__

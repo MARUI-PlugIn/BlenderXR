@@ -17,7 +17,8 @@
  * All rights reserved.
  */
 
-/** \file \ingroup gpu
+/** \file
+ * \ingroup gpu
  */
 
 #ifndef __GPU_DRAW_H__
@@ -50,13 +51,6 @@ struct ViewLayer;
 
 void GPU_state_init(void);
 
-/* Programmable point size
- * - shaders set their own point size when enabled
- * - use glPointSize when disabled */
-
-void GPU_enable_program_point_size(void);
-void GPU_disable_program_point_size(void);
-
 /* Mipmap settings
  * - these will free textures on changes */
 
@@ -74,14 +68,22 @@ float GPU_get_anisotropic(void);
 /* Image updates and free
  * - these deal with images bound as opengl textures */
 
-void GPU_paint_update_image(struct Image *ima, struct ImageUser *iuser, int x, int y, int w, int h);
-void GPU_create_gl_tex(
-        unsigned int *bind, unsigned int *rect, float *frect, int rectw, int recth,
-        int textarget, bool mipmap, bool use_hight_bit_depth, struct Image *ima);
-void GPU_create_gl_tex_compressed(
-        unsigned int *bind, unsigned int *pix, int x, int y, int mipmap,
-        int textarget, struct Image *ima, struct ImBuf *ibuf);
-bool GPU_upload_dxt_texture(struct ImBuf *ibuf);
+void GPU_paint_update_image(
+    struct Image *ima, struct ImageUser *iuser, int x, int y, int w, int h);
+void GPU_create_gl_tex(unsigned int *bind,
+                       unsigned int *rect,
+                       float *frect,
+                       int rectw,
+                       int recth,
+                       int textarget,
+                       bool mipmap,
+                       bool use_srgb,
+                       struct Image *ima);
+void GPU_create_gl_tex_compressed(unsigned int *bind,
+                                  int textarget,
+                                  struct Image *ima,
+                                  struct ImBuf *ibuf);
+bool GPU_upload_dxt_texture(struct ImBuf *ibuf, bool use_srgb);
 void GPU_free_image(struct Image *ima);
 void GPU_free_images(struct Main *bmain);
 void GPU_free_images_anim(struct Main *bmain);
@@ -98,17 +100,12 @@ void GPU_create_smoke_velocity(struct SmokeModifierData *smd);
 void GPU_free_unused_buffers(struct Main *bmain);
 
 /* utilities */
-void	GPU_select_index_set(int index);
-void	GPU_select_index_get(int index, int *r_col);
-int		GPU_select_to_index(unsigned int col);
-void	GPU_select_to_index_array(unsigned int *col, const unsigned int size);
-
 typedef enum eGPUAttrMask {
-	GPU_DEPTH_BUFFER_BIT = (1 << 0),
-	GPU_ENABLE_BIT = (1 << 1),
-	GPU_SCISSOR_BIT = (1 << 2),
-	GPU_VIEWPORT_BIT = (1 << 3),
-	GPU_BLEND_BIT = (1 << 4),
+  GPU_DEPTH_BUFFER_BIT = (1 << 0),
+  GPU_ENABLE_BIT = (1 << 1),
+  GPU_SCISSOR_BIT = (1 << 2),
+  GPU_VIEWPORT_BIT = (1 << 3),
+  GPU_BLEND_BIT = (1 << 4),
 } eGPUAttrMask;
 
 void gpuPushAttr(eGPUAttrMask mask);

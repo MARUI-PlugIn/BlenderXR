@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup pythonintern
+/** \file
+ * \ingroup pythonintern
  */
 
 #ifndef __BPY_OPERATOR_H__
@@ -22,10 +23,10 @@
 
 extern PyTypeObject pyop_base_Type;
 
-#define BPy_OperatorBase_Check(v)	(PyObject_TypeCheck(v, &pyop_base_Type))
+#define BPy_OperatorBase_Check(v) (PyObject_TypeCheck(v, &pyop_base_Type))
 
 typedef struct {
-	PyObject_HEAD /* required python macro   */
+  PyObject_HEAD /* required python macro   */
 } BPy_OperatorBase;
 
 PyObject *BPY_operator_module(void);

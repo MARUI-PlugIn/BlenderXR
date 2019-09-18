@@ -70,7 +70,12 @@ def validate_blend_names(name):
     if len(name) > 63:
         import hashlib
         h = hashlib.sha1(name).hexdigest()
-        return name[:55].decode('utf-8', 'replace') + "_" + h[:7]
+        n = 55
+        name_utf8 = name[:n].decode('utf-8', 'replace') + "_" + h[:7]
+        while len(name_utf8.encode()) > 63:
+            n -= 1
+            name_utf8 = name[:n].decode('utf-8', 'replace') + "_" + h[:7]
+        return name_utf8
     else:
         # We use 'replace' even though FBX 'specs' say it should always be utf8, see T53841.
         return name.decode('utf-8', 'replace')
@@ -717,12 +722,12 @@ def blen_read_animations(fbx_tmpl_astack, fbx_tmpl_alayer, stacks, scene, anim_o
                     id_data = item.bl_obj
                     # XXX Ignore rigged mesh animations - those are a nightmare to handle, see note about it in
                     #     FbxImportHelperNode class definition.
-                    if id_data.type == 'MESH' and id_data.parent and id_data.parent.type == 'ARMATURE':
+                    if id_data and id_data.type == 'MESH' and id_data.parent and id_data.parent.type == 'ARMATURE':
                         continue
                 if id_data is None:
                     continue
 
-                # Create new action if needed (should always be needed!
+                # Create new action if needed (should always be needed, except for keyblocks from shapekeys cases).
                 key = (as_uuid, al_uuid, id_data)
                 action = actions.get(key)
                 if action is None:
@@ -1006,7 +1011,8 @@ def blen_read_geom_layer_uv(fbx_obj, mesh):
             fbx_layer_data = elem_prop_first(elem_find_first(fbx_layer, b'UV'))
             fbx_layer_index = elem_prop_first(elem_find_first(fbx_layer, b'UVIndex'))
 
-            uv_lay = mesh.uv_layers.new(name=fbx_layer_name)
+            # Always init our new layers with (0, 0) UVs.
+            uv_lay = mesh.uv_layers.new(name=fbx_layer_name, do_init=False)
             if uv_lay is None:
                 print("Failed to add {%r %r} UVLayer to %r (probably too many of them?)"
                       "" % (layer_id, fbx_layer_name, mesh.name))
@@ -1040,7 +1046,8 @@ def blen_read_geom_layer_color(fbx_obj, mesh):
             fbx_layer_data = elem_prop_first(elem_find_first(fbx_layer, b'Colors'))
             fbx_layer_index = elem_prop_first(elem_find_first(fbx_layer, b'ColorIndex'))
 
-            color_lay = mesh.vertex_colors.new(name=fbx_layer_name)
+            # Always init our new layers with full white opaque color.
+            color_lay = mesh.vertex_colors.new(name=fbx_layer_name, do_init=False)
             blen_data = color_lay.data
 
             # some valid files omit this data
@@ -1330,9 +1337,11 @@ def blen_read_material(fbx_tmpl, fbx_obj, settings):
     ma = bpy.data.materials.new(name=elem_name_utf8)
 
     const_color_white = 1.0, 1.0, 1.0
+    const_color_black = 0.0, 0.0, 0.0
 
     fbx_props = (elem_find_first(fbx_obj, b'Properties70'),
                  elem_find_first(fbx_tmpl, b'Properties70', fbx_elem_nil))
+    fbx_props_no_template = (fbx_props[0], fbx_elem_nil)
 
     ma_wrap = node_shader_utils.PrincipledBSDFWrapper(ma, is_readonly=False, use_nodes=True)
     ma_wrap.base_color = elem_props_get_color_rgb(fbx_props, b'DiffuseColor', const_color_white)
@@ -1343,7 +1352,23 @@ def blen_read_material(fbx_tmpl, fbx_obj, settings):
     #     (from 1.0 - 0.0 Principled BSDF range to 0.0 - 100.0 FBX shininess range)...
     fbx_shininess = elem_props_get_number(fbx_props, b'Shininess', 20.0)
     ma_wrap.roughness = 1.0 - (sqrt(fbx_shininess) / 10.0)
-    ma_wrap.transmission = 1.0 - elem_props_get_number(fbx_props, b'Opacity', 1.0)
+    # Sweetness... Looks like we are not the only ones to not know exactly how FBX is supposed to work (see T59850).
+    # According to one of its developers, Unity uses that formula to extract alpha value:
+    #
+    #   alpha = 1 - TransparencyFactor
+    #   if (alpha == 1 or alpha == 0):
+    #       alpha = 1 - TransparentColor.r
+    #
+    # Until further info, let's assume this is correct way to do, hence the following code for TransparentColor.
+    # However, there are some cases (from 3DSMax, see T65065), where we do have TransparencyFactor only defined
+    # in the template to 0.0, and then materials defining TransparentColor to pure white (1.0, 1.0, 1.0),
+    # and setting alpha value in Opacity... try to cope with that too. :((((
+    alpha = 1.0 - elem_props_get_number(fbx_props, b'TransparencyFactor', 0.0)
+    if (alpha == 1.0 or alpha == 0.0):
+        alpha = elem_props_get_number(fbx_props_no_template, b'Opacity', None)
+        if alpha is None:
+            alpha = 1.0 - elem_props_get_color_rgb(fbx_props, b'TransparentColor', const_color_black)[0]
+    ma_wrap.alpha = alpha
     ma_wrap.metallic = elem_props_get_number(fbx_props, b'ReflectionFactor', 0.0)
     # We have no metallic (a.k.a. reflection) color...
     # elem_props_get_color_rgb(fbx_props, b'ReflectionColor', const_color_white)
@@ -1383,6 +1408,8 @@ def blen_read_texture_image(fbx_tmpl, fbx_obj, basedir, settings):
     # Aaaaaaaarrrrrrrrgggggggggggg!!!!!!!!!!!!!!
     filepath = elem_find_first_string(fbx_obj, b'RelativeFilename')
     if filepath:
+        # Make sure we do handle a relative path, and not an absolute one (see D5143).
+        filepath = filepath.lstrip(os.path.sep).lstrip(os.path.altsep)
         filepath = os.path.join(basedir, filepath)
     else:
         filepath = elem_find_first_string(fbx_obj, b'FileName')
@@ -2987,9 +3014,8 @@ def load(operator, context, filepath="",
                         ma_wrap.metallic_texture.image = image
                         texture_mapping_set(fbx_lnk, ma_wrap.metallic_texture)
                     elif lnk_type in {b'TransparentColor', b'TransparentFactor'}:
-                        # Transparency... sort of...
-                        ma_wrap.transmission_texture.image = image
-                        texture_mapping_set(fbx_lnk, ma_wrap.transmission_texture)
+                        ma_wrap.alpha_texture.image = image
+                        texture_mapping_set(fbx_lnk, ma_wrap.alpha_texture)
                         if use_alpha_decals:
                             material_decals.add(material)
                     elif lnk_type == b'ShininessExponent':
@@ -3025,8 +3051,8 @@ def load(operator, context, filepath="",
                     material_decals.add(material)
 
                 ma_wrap = nodal_material_wrap_map[material]
-                ma_wrap.transmission_texture.use_alpha = True
-                ma_wrap.transmission_texture.copy_from(ma_wrap.base_color_texture)
+                ma_wrap.alpha_texture.use_alpha = True
+                ma_wrap.alpha_texture.copy_from(ma_wrap.base_color_texture)
 
             # Propagate mapping from diffuse to all other channels which have none defined.
             # XXX Commenting for now, I do not really understand the logic here, why should diffuse mapping

@@ -17,7 +17,8 @@
  * All rights reserved.
  */
 
-/** \file \ingroup editors
+/** \file
+ * \ingroup editors
  */
 
 #ifndef __ED_SPACE_API_H__
@@ -66,13 +67,15 @@ void ED_spacetype_topbar(void);
 void ED_file_init(void);
 void ED_file_exit(void);
 
-#define REGION_DRAW_POST_VIEW   0
-#define REGION_DRAW_POST_PIXEL  1
-#define REGION_DRAW_PRE_VIEW    2
+#define REGION_DRAW_POST_VIEW 0
+#define REGION_DRAW_POST_PIXEL 1
+#define REGION_DRAW_PRE_VIEW 2
+#define REGION_DRAW_BACKDROP 3
 
 void *ED_region_draw_cb_activate(struct ARegionType *,
                                  void (*draw)(const struct bContext *, struct ARegion *, void *),
-                                 void *custumdata, int type);
+                                 void *custumdata,
+                                 int type);
 void ED_region_draw_cb_draw(const struct bContext *, struct ARegion *, int);
 void ED_region_draw_cb_exit(struct ARegionType *, void *);
 /* generic callbacks */

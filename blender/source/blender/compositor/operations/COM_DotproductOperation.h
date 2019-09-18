@@ -1,6 +1,4 @@
 /*
- * Copyright 2011, Blender Foundation.
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,6 +12,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * Copyright 2011, Blender Foundation.
  */
 
 #ifndef __COM_DOTPRODUCTOPERATION_H__
@@ -22,16 +22,16 @@
 #include "COM_NodeOperation.h"
 
 class DotproductOperation : public NodeOperation {
-private:
-	SocketReader *m_input1Operation;
-	SocketReader *m_input2Operation;
-public:
-	DotproductOperation();
-	void executePixelSampled(float output[4], float x, float y, PixelSampler sampler);
+ private:
+  SocketReader *m_input1Operation;
+  SocketReader *m_input2Operation;
 
-	void initExecution();
-	void deinitExecution();
+ public:
+  DotproductOperation();
+  void executePixelSampled(float output[4], float x, float y, PixelSampler sampler);
 
+  void initExecution();
+  void deinitExecution();
 };
 
 #endif

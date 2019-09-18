@@ -1,6 +1,4 @@
 /*
- * Copyright 2011, Blender Foundation.
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,6 +12,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * Copyright 2011, Blender Foundation.
  */
 
 #ifndef __COM_CURVEBASEOPERATION_H__
@@ -22,21 +22,22 @@
 #include "DNA_color_types.h"
 
 class CurveBaseOperation : public NodeOperation {
-protected:
-	/**
-	 * Cached reference to the inputProgram
-	 */
-	CurveMapping *m_curveMapping;
-public:
-	CurveBaseOperation();
-	~CurveBaseOperation();
+ protected:
+  /**
+   * Cached reference to the inputProgram
+   */
+  CurveMapping *m_curveMapping;
 
-	/**
-	 * Initialize the execution
-	 */
-	void initExecution();
-	void deinitExecution();
+ public:
+  CurveBaseOperation();
+  ~CurveBaseOperation();
 
-	void setCurveMapping(CurveMapping *mapping);
+  /**
+   * Initialize the execution
+   */
+  void initExecution();
+  void deinitExecution();
+
+  void setCurveMapping(CurveMapping *mapping);
 };
 #endif

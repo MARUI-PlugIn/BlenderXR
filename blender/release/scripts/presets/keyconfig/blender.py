@@ -32,7 +32,7 @@ class Prefs(bpy.types.KeyConfigPreferences):
         update=update_fn,
     )
     spacebar_action: EnumProperty(
-        name="Spacebar",
+        name="Spacebar Action",
         items=(
             ('PLAY', "Play",
              "Toggle animation playback "
@@ -64,6 +64,16 @@ class Prefs(bpy.types.KeyConfigPreferences):
         update=update_fn,
     )
 
+    gizmo_action: EnumProperty(
+        name="Activate Gizmo",
+        items=(
+            ('PRESS', "Press", "Press causes immediate activation, preventing click being passed to the tool"),
+            ('DRAG', "Drag", "Drag allows click events to pass through to the tool, adding a small delay"),
+        ),
+        description="Activation event for gizmos that support drag motion",
+        update=update_fn,
+    )
+
     # 3D View
     use_v3d_tab_menu: BoolProperty(
         name="Tab for Pie Menu",
@@ -81,12 +91,53 @@ class Prefs(bpy.types.KeyConfigPreferences):
         default=False,
         update=update_fn,
     )
+    v3d_tilde_action: EnumProperty(
+        name="Tilde Action",
+        items=(
+            ('VIEW', "Navigate",
+             "View operations (useful for keyboards without a numpad)",
+             0),
+            ('GIZMO', "Gizmos",
+             "Control transform gizmos",
+             1),
+        ),
+        description=(
+            "Action when 'Tilde' is pressed"
+        ),
+        default='VIEW',
+        update=update_fn,
+    )
+
+    # Developer note, this is an experemental option.
+    use_pie_click_drag: BoolProperty(
+        name="Pie Menu on Drag",
+        description=(
+            "Activate some pie menus on drag,\n"
+            "allowing the tapping the same key to have a secondary action.\n"
+            "\n"
+            "\u2022 Tapping Tab in the 3D view toggles edit-mode, drag for mode menu.\n"
+            "\u2022 Tapping Z in the 3D view toggles wireframe, drag for draw modes.\n"
+            "\u2022 Tapping Tilde in the 3D view for first person navigation, drag for view axes"
+        ),
+        default=False,
+        update=update_fn,
+    )
 
     def draw(self, layout):
+        is_select_left = (self.select_mouse == 'LEFT')
+
         split = layout.split()
         col = split.column(align=True)
         col.label(text="Select With:")
         col.row().prop(self, "select_mouse", expand=True)
+
+        if is_select_left:
+            col.label(text="Activate Gizmo:")
+            col.row().prop(self, "gizmo_action", expand=True)
+        else:
+            col.label()
+            col.label()
+
         col.prop(self, "use_select_all_toggle")
 
         col = split.column(align=True)
@@ -97,7 +148,10 @@ class Prefs(bpy.types.KeyConfigPreferences):
         split = layout.split()
         col = split.column()
         col.prop(self, "use_v3d_tab_menu")
+        col.prop(self, "use_pie_click_drag")
         col = split.column()
+        col.label(text="Tilde Action:")
+        col.row().prop(self, "v3d_tilde_action", expand=True)
         col.prop(self, "use_v3d_shade_ex_pie")
 
 
@@ -105,6 +159,7 @@ blender_default = bpy.utils.execfile(os.path.join(dirname, "keymap_data", "blend
 
 
 def load():
+    from sys import platform
     from bpy import context
     from bl_keymap_utils.io import keyconfig_init_from_data
 
@@ -117,11 +172,22 @@ def load():
             select_mouse=kc_prefs.select_mouse,
             use_mouse_emulate_3_button=prefs.inputs.use_mouse_emulate_3_button,
             spacebar_action=kc_prefs.spacebar_action,
+            v3d_tilde_action=kc_prefs.v3d_tilde_action,
             use_select_all_toggle=kc_prefs.use_select_all_toggle,
             use_v3d_tab_menu=kc_prefs.use_v3d_tab_menu,
             use_v3d_shade_ex_pie=kc_prefs.use_v3d_shade_ex_pie,
+            use_gizmo_drag=(
+                kc_prefs.select_mouse == 'LEFT' and
+                kc_prefs.gizmo_action == 'DRAG'
+            ),
+            use_pie_click_drag=kc_prefs.use_pie_click_drag,
         ),
     )
+
+    if platform == 'darwin':
+        from bl_keymap_utils.platform_helpers import keyconfig_data_oskey_from_ctrl_for_macos
+        keyconfig_data = keyconfig_data_oskey_from_ctrl_for_macos(keyconfig_data)
+
     keyconfig_init_from_data(kc, keyconfig_data)
 
 

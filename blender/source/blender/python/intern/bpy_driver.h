@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup pythonintern
+/** \file
+ * \ingroup pythonintern
  */
 
 #ifndef __BPY_DRIVER_H__
@@ -23,4 +24,4 @@
 int bpy_pydriver_create_dict(void);
 extern PyObject *bpy_pydriver_Dict;
 
-#endif  /* __BPY_DRIVER_H__ */
+#endif /* __BPY_DRIVER_H__ */

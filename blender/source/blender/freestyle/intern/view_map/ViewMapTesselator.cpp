@@ -14,8 +14,9 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup freestyle
- *  \brief Class to build a Node Tree designed to be displayed from a Silhouette View Map structure.
+/** \file
+ * \ingroup freestyle
+ * \brief Class to build a Node Tree designed to be displayed from a Silhouette View Map structure.
  */
 
 #include "ViewMapTesselator.h"
@@ -24,16 +25,17 @@ namespace Freestyle {
 
 NodeGroup *ViewMapTesselator::Tesselate(ViewMap *iViewMap)
 {
-	if (0 == iViewMap->ViewEdges().size())
-		return NULL;
+  if (0 == iViewMap->ViewEdges().size()) {
+    return NULL;
+  }
 
-	const vector<ViewEdge*>& viewedges = iViewMap->ViewEdges();
-	return Tesselate(viewedges.begin(), viewedges.end());
+  const vector<ViewEdge *> &viewedges = iViewMap->ViewEdges();
+  return Tesselate(viewedges.begin(), viewedges.end());
 }
 
 NodeGroup *ViewMapTesselator::Tesselate(WShape *)
 {
-	return NULL;
+  return NULL;
 }
 
 } /* namespace Freestyle */

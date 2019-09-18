@@ -15,10 +15,10 @@
 * along with this program; if not, write to the Free Software Foundation,
 * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 *
-* The Original Code is Copyright (C) 2018 by Blender Foundation.
+* The Original Code is Copyright (C) 2019 by Blender Foundation.
 * All rights reserved.
 *
-* Contributor(s): MARUI-PlugIn
+* Contributor(s): MARUI-PlugIn, Multiplexed Reality
 *
 * ***** END GPL LICENSE BLOCK *****
 */
@@ -35,9 +35,9 @@
 /* Interaction widget for switching the currently active component mode. */
 class Widget_SwitchComponent : public VR_Widget
 {
+	friend class Widget_Sculpt;
 	friend class Widget_SwitchLayout;
 
-	static short mode;	/* The current component mode. */
 public:
 	static Widget_SwitchComponent obj;	/* Singleton implementation object. */
 	virtual std::string name() override { return "SWITCHCOMPONENT"; };	/* Get the name of this widget. */

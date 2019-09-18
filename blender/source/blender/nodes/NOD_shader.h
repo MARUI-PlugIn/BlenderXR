@@ -17,7 +17,8 @@
  * All rights reserved.
  */
 
-/** \file \ingroup nodes
+/** \file
+ * \ingroup nodes
  */
 
 #ifndef __NOD_SHADER_H__
@@ -26,7 +27,6 @@
 #include "BKE_node.h"
 
 extern struct bNodeTreeType *ntreeType_Shader;
-
 
 /* the type definitions array */
 /* ****************** types array for all shaders ****************** */
@@ -111,7 +111,7 @@ void register_node_type_sh_uvalongstroke(void);
 void register_node_type_sh_eevee_metallic(void);
 void register_node_type_sh_eevee_specular(void);
 
-void register_node_type_sh_output_lamp(void);
+void register_node_type_sh_output_light(void);
 void register_node_type_sh_output_material(void);
 void register_node_type_sh_output_eevee_material(void);
 void register_node_type_sh_output_world(void);
@@ -129,5 +129,7 @@ void register_node_type_sh_tex_noise(void);
 void register_node_type_sh_tex_checker(void);
 void register_node_type_sh_bump(void);
 void register_node_type_sh_tex_ies(void);
+
+void register_node_type_sh_custom_group(bNodeType *ntype);
 
 #endif

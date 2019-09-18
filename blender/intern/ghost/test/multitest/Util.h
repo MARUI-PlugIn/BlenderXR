@@ -1,5 +1,4 @@
-/**
- *
+/*
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -18,7 +17,7 @@
  * All rights reserved.
  */
 
-void*	memdbl		(void *mem, int *size_pr, int item_size);
+void *memdbl(void *mem, int *size_pr, int item_size);
 
-char*	string_dup	(char *str);
-void	fatal		(char *fmt, ...);
+char *string_dup(char *str);
+void fatal(char *fmt, ...);

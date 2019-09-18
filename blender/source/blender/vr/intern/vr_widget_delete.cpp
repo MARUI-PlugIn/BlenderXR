@@ -15,18 +15,16 @@
 * along with this program; if not, write to the Free Software Foundation,
 * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 *
-* The Original Code is Copyright (C) 2018 by Blender Foundation.
+* The Original Code is Copyright (C) 2019 by Blender Foundation.
 * All rights reserved.
 *
-* Contributor(s): MARUI-PlugIn
+* Contributor(s): MARUI-PlugIn, Multiplexed Reality
 *
 * ***** END GPL LICENSE BLOCK *****
 */
 
 /** \file blender/vr/intern/vr_widget_delete.cpp
 *   \ingroup vr
-* 
-* Main module for the VR widget UI.
 */
 
 #include "vr_types.h"
@@ -65,7 +63,7 @@
 #include "WM_api.h"
 #include "WM_types.h"
 
-/***********************************************************************************************//**
+/***************************************************************************************************
  * \class                               Widget_Delete
  ***************************************************************************************************
  * Interaction widget for performing a 'delete' operation.
@@ -124,7 +122,7 @@ static int delete_selected_objects(bool use_global = true)
 		/* remove from Grease Pencil parent */
 		/* XXX This is likely not correct? Will also remove parent from grease pencil from other scenes,
 		 *     even when use_global is false... */
-		for (bGPdata *gpd = (bGPdata*)bmain->gpencil.first; gpd; gpd = (bGPdata*)gpd->id.next) {
+		for (bGPdata *gpd = (bGPdata*)bmain->gpencils.first; gpd; gpd = (bGPdata*)gpd->id.next) {
 			for (bGPDlayer *gpl = (bGPDlayer*)gpd->layers.first; gpl; gpl = gpl->next) {
 				if (gpl->parent != NULL) {
 					if (gpl->parent == ob) {
@@ -140,7 +138,7 @@ static int delete_selected_objects(bool use_global = true)
 
 		if (use_global) {
 			Scene *scene_iter;
-			for (scene_iter = (Scene*)bmain->scene.first; scene_iter; scene_iter = (Scene*)scene_iter->id.next) {
+			for (scene_iter = (Scene*)bmain->scenes.first; scene_iter; scene_iter = (Scene*)scene_iter->id.next) {
 				if (scene_iter != scene && !ID_IS_LINKED(scene_iter)) {
 					if (is_indirectly_used && ID_REAL_USERS(ob) <= 1 && ID_EXTRA_USERS(ob) == 0) {
 						break;
@@ -158,7 +156,7 @@ static int delete_selected_objects(bool use_global = true)
 	}
 
 	/* delete has to handle all open scenes */
-	BKE_main_id_tag_listbase(&bmain->scene, LIB_TAG_DOIT, true);
+	BKE_main_id_tag_listbase(&bmain->scenes, LIB_TAG_DOIT, true);
 	for (win = (wmWindow*)wm->windows.first; win; win = win->next) {
 		scene = WM_window_get_active_scene(win);
 
@@ -286,6 +284,12 @@ void Widget_Delete::click(VR_UI::Cursor& c)
 {
 	bContext *C = vr_get_obj()->ctx;
 	Object *obedit = CTX_data_edit_object(C);
+	ViewLayer *view_layer = CTX_data_view_layer(C);
+	Object *ob = OBACT(view_layer);
+	if (ob && ((ob->mode & OB_MODE_SCULPT) != 0)) {
+		return;
+	}
+
 	if (obedit) {
 		edbm_delete_exec(C);
 	}

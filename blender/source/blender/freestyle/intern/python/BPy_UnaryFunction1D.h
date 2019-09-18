@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup freestyle
+/** \file
+ * \ingroup freestyle
  */
 
 #ifndef __FREESTYLE_PYTHON_UNARYFUNCTION1D_H__
@@ -36,12 +37,12 @@ extern "C" {
 
 extern PyTypeObject UnaryFunction1D_Type;
 
-#define BPy_UnaryFunction1D_Check(v) (PyObject_IsInstance((PyObject *)v, (PyObject *)&UnaryFunction1D_Type))
+#define BPy_UnaryFunction1D_Check(v) \
+  (PyObject_IsInstance((PyObject *)v, (PyObject *)&UnaryFunction1D_Type))
 
 /*---------------------------Python BPy_UnaryFunction1D structure definition----------*/
 typedef struct {
-	PyObject_HEAD
-	PyObject *py_uf1D;
+  PyObject_HEAD PyObject *py_uf1D;
 } BPy_UnaryFunction1D;
 
 /*---------------------------Python BPy_UnaryFunction1D visible prototypes-----------*/

@@ -598,7 +598,7 @@ def setup_compositing(context, plane, img_spec):
             axis_fcurve.is_valid = True
             driver.expression = "%s" % driver.expression
 
-    scene.update()
+    context.view_layer.update()
 
 
 # -----------------------------------------------------------------------------
@@ -853,7 +853,7 @@ class IMPORT_IMAGE_OT_to_plane(Operator, AddObjectHelper):
     def invoke(self, context, event):
         engine = context.scene.render.engine
         if engine not in {'CYCLES', 'BLENDER_EEVEE'}:
-            if engine not in {'BLENDER_WORKBENCH'}:
+            if engine != 'BLENDER_WORKBENCH':
                 self.report({'ERROR'}, "Cannot generate materials for unknown %s render engine" % engine)
                 return {'CANCELLED'}
             else:
@@ -871,7 +871,7 @@ class IMPORT_IMAGE_OT_to_plane(Operator, AddObjectHelper):
         # this won't work in edit mode
         editmode = context.preferences.edit.use_enter_edit_mode
         context.preferences.edit.use_enter_edit_mode = False
-        if context.active_object and context.active_object.mode == 'EDIT':
+        if context.active_object and context.active_object.mode != 'OBJECT':
             bpy.ops.object.mode_set(mode='OBJECT')
 
         self.import_images(context)
@@ -893,7 +893,7 @@ class IMPORT_IMAGE_OT_to_plane(Operator, AddObjectHelper):
         # Create individual planes
         planes = [self.single_image_spec_to_plane(context, img_spec) for img_spec in images]
 
-        context.scene.update()
+        context.view_layer.update()
 
         # Align planes relative to each other
         if self.offset:
@@ -938,8 +938,10 @@ class IMPORT_IMAGE_OT_to_plane(Operator, AddObjectHelper):
         return plane
 
     def apply_image_options(self, image):
-        image.use_alpha = self.use_transparency
-        image.alpha_mode = self.alpha_mode
+        if self.use_transparency == False:
+            image.alpha_mode = 'NONE'
+        else:
+            image.alpha_mode = self.alpha_mode
 
         if self.relative:
             try:  # can't always find the relative path (between drive letters on windows)
@@ -1072,7 +1074,7 @@ class IMPORT_IMAGE_OT_to_plane(Operator, AddObjectHelper):
 
         elif self.size_mode == 'CAMERA':
             x, y = compute_camera_size(
-                context, context.scene.cursor_location,
+                context, context.scene.cursor.location,
                 self.fill_mode, px / py
             )
 

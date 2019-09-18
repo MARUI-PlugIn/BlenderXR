@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup collada
+/** \file
+ * \ingroup collada
  */
 
 #ifndef __COLLADA_H__
@@ -41,11 +42,9 @@ struct bContext;
 /*
  * both return 1 on success, 0 on error
  */
-int collada_import(struct bContext *C,
-				   ImportSettings *import_settings);
+int collada_import(struct bContext *C, ImportSettings *import_settings);
 
-int collada_export(struct bContext *C,
-                   ExportSettings *export_settings);
+int collada_export(struct bContext *C, ExportSettings *export_settings);
 
 #ifdef __cplusplus
 }

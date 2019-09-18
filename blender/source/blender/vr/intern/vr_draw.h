@@ -15,10 +15,10 @@
 * along with this program; if not, write to the Free Software Foundation,
 * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 *
-* The Original Code is Copyright (C) 2018 by Blender Foundation.
+* The Original Code is Copyright (C) 2019 by Blender Foundation.
 * All rights reserved.
 *
-* Contributor(s): MARUI-PlugIn
+* Contributor(s): MARUI-PlugIn, Multiplexed Reality
 *
 * ***** END GPL LICENSE BLOCK *****
 */
@@ -149,7 +149,7 @@ public:
 	static Texture *cursor_tex;	/* Texture for the Blender cursor. */
 	static Texture *mouse_cursor_tex; /* Texture for the mouse cursor. */
 
-	static int create_controller_models(VR_UI_Type type);	/* Create the controller models for a specified UI type. */
+	static int create_controller_models(VR_Device_Type type);	/* Create the controller models for a specified UI type. */
 	
 	/* Image textures. */
 	static Texture *nav_grabair_tex;	/* Texture for the "nav grabair" icon. */
@@ -193,6 +193,27 @@ public:
 	static Texture *bevel_tex;	/* Texture for the "bevel" icon. */
 	static Texture *loopcut_tex;	/* Texture for the "loopcut" icon. */
 	static Texture *knife_tex;	/* Texture for the "knife" icon. */
+	static Texture *sculpt_tex;	/* Texture for the "sculpt" icon. */
+	static Texture *sculpt_draw_tex;	/* Texture for the "sculpt draw" icon. */
+	static Texture *sculpt_clay_tex;	/* Texture for the "sculpt clay" icon. */
+	static Texture *sculpt_claystrips_tex;	/* Texture for the "sculpt clay strips" icon. */
+	static Texture *sculpt_layer_tex;	/* Texture for the "sculpt layer" icon. */
+	static Texture *sculpt_inflate_tex;	/* Texture for the "sculpt inflate" icon. */
+	static Texture *sculpt_blob_tex;	/* Texture for the "sculpt blob" icon. */
+	static Texture *sculpt_crease_tex;	/* Texture for the "sculpt crease" icon. */
+	static Texture *sculpt_smooth_tex;	/* Texture for the "sculpt smooth" icon. */
+	static Texture *sculpt_flatten_tex;	/* Texture for the "sculpt flatten" icon. */
+	static Texture *sculpt_fill_tex;	/* Texture for the "sculpt fill" icon. */
+	static Texture *sculpt_scrape_tex;	/* Texture for the "sculpt scrape" icon. */
+	static Texture *sculpt_pinch_tex;	/* Texture for the "sculpt pinch" icon. */
+	static Texture *sculpt_grab_tex;	/* Texture for the "sculpt grab" icon. */
+	static Texture *sculpt_snakehook_tex;	/* Texture for the "sculpt snakehook" icon. */
+	static Texture *sculpt_thumb_tex;	/* Texture for the "sculpt thumb" icon. */
+	static Texture *sculpt_nudge_tex;	/* Texture for the "sculpt nudge" icon. */
+	static Texture *sculpt_rotate_tex;	/* Texture for the "sculpt rotate" icon. */
+	static Texture *sculpt_mask_tex;	/* Texture for the "sculpt mask" icon. */
+	static Texture *sculpt_simplify_tex;	/* Texture for the "sculpt simplify" icon. */
+  static Texture *animation_tex;  /* Texture for the "animation" icon. */
 	static Texture *delete_tex;	/* Texture for the "delete" icon. */
 	static Texture *delete_alt_tex; /* Texture for the "updated delete" icon. */
 	static Texture *duplicate_tex;	/* Texture for the "duplicate" icon. */

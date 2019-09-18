@@ -1,4 +1,3 @@
-uniform mat4 ModelViewProjectionMatrix;
 
 in vec3 pos;
 in vec4 color;
@@ -9,7 +8,7 @@ out float finalThickness;
 
 void main()
 {
-	gl_Position = ModelViewProjectionMatrix * vec4( pos, 1.0 );
-	finalColor = color;
-	finalThickness = size;
+  gl_Position = point_object_to_ndc(pos);
+  finalColor = color;
+  finalThickness = size;
 }

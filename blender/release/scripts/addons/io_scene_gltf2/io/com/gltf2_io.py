@@ -1,4 +1,4 @@
-# Copyright 2018 The glTF-Blender-IO authors.
+# Copyright 2018-2019 The glTF-Blender-IO authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -1104,7 +1104,7 @@ class Texture:
         result["extras"] = self.extras
         result["name"] = from_union([from_str, from_none], self.name)
         result["sampler"] = from_union([from_int, from_none], self.sampler)
-        result["source"] = from_int(self.source)
+        result["source"] = from_int(self.source)  # most viewers can't handle missing sources
         return result
 
 

@@ -45,7 +45,10 @@ from mathutils import (
         Vector,
         Matrix,
         )
-from bpy_extras.object_utils import AddObjectHelper
+from bpy_extras.object_utils import (
+        AddObjectHelper,
+        object_data_add
+        )
 from random import random
 from bpy.types import Operator
 
@@ -148,7 +151,7 @@ def align_matrix(self, context):
     if self.absolute_location:
         loc = Matrix.Translation(Vector((0, 0, 0)))
     else:
-        loc = Matrix.Translation(context.scene.cursor_location)
+        loc = Matrix.Translation(context.scene.cursor.location)
 
 # user defined location & translation
     userLoc = Matrix.Translation(self.location)
@@ -264,18 +267,13 @@ def create_torus_knot(self, context):
         curve_data.extrude = self.geo_extrude
         curve_data.offset = self.geo_offset
 
-    new_obj = bpy.data.objects.new(aName, curve_data)
-
     # set object in the scene
-    scene = bpy.context.scene
-    scene.collection.objects.link(new_obj)  # place in active scene
+    new_obj = object_data_add(context, curve_data)  # place in active scene
+    bpy.ops.object.select_all(action='DESELECT')
     new_obj.select_set(True)  # set as selected
-    #scene.objects.active = new_obj  # set as active
+    bpy.context.view_layer.objects.active = new_obj
     new_obj.matrix_world = self.align_matrix  # apply matrix
-
-    # set BEZIER handles
-    #if splineType == 'BEZIER':
-    #    setBezierHandles(new_obj, self.handleType)
+    bpy.context.view_layer.update()
 
     return
 
@@ -331,9 +329,9 @@ def addLinkColors(self, curveData):
             mat.diffuse_color = (*colors[cID], 1.0)
 
         if self.options_plus:
-            mat.diffuse_color.s = self.saturation
+            mat.diffuse_color = (mat.diffuse_color[0] * self.saturation, mat.diffuse_color[1] * self.saturation, mat.diffuse_color[2] * self.saturation, 1.0)
         else:
-            mat.diffuse_color.s = 0.75
+            mat.diffuse_color = (mat.diffuse_color[0] * 0.75, mat.diffuse_color[1] * 0.75, mat.diffuse_color[2] * 0.75, 1.0)
 
         me.materials.append(mat)
 
@@ -677,11 +675,13 @@ class torus_knot_plus(Operator, AddObjectHelper):
 
     @classmethod
     def poll(cls, context):
-        if context.mode != "OBJECT":
-            return False
         return context.scene is not None
 
     def execute(self, context):
+        # turn off 'Enter Edit Mode'
+        use_enter_edit_mode = bpy.context.preferences.edit.use_enter_edit_mode
+        bpy.context.preferences.edit.use_enter_edit_mode = False
+        
         if self.mode == 'EXT_INT':
             # adjust the equivalent radii pair : (R,r) <=> (eR,iR)
             self.torus_R = (self.torus_eR + self.torus_iR) * 0.5
@@ -711,15 +711,14 @@ class torus_knot_plus(Operator, AddObjectHelper):
         # update align matrix
         self.align_matrix = align_matrix(self, context)
 
-        # turn off undo
-        #undo = bpy.context.preferences.edit.use_global_undo
-        #bpy.context.preferences.edit.use_global_undo = False
-
         # create the curve
         create_torus_knot(self, context)
-
-        # restore pre operator undo state
-        #bpy.context.preferences.edit.use_global_undo = undo
+        
+        if use_enter_edit_mode:
+            bpy.ops.object.mode_set(mode = 'EDIT')
+        
+        # restore pre operator state
+        bpy.context.preferences.edit.use_enter_edit_mode = use_enter_edit_mode
 
         return {'FINISHED'}
 

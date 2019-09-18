@@ -24,6 +24,15 @@ import typing
 
 log = logging.getLogger(__name__)
 
+# Can be overridden by setting the environment variable BLENDER_ID_ENDPOINT.
+BLENDER_ID_ENDPOINT = 'https://id.blender.org/'
+
+# Will become a requests.Session at the first request to Blender ID.
+requests_session = None
+
+# Request timeout, in seconds.
+REQUESTS_TIMEOUT = 5.0
+
 
 class BlenderIdCommError(RuntimeError):
     """Raised when there was an error communicating with Blender ID"""
@@ -47,6 +56,41 @@ def host_label():
     return 'Blender running on %r' % socket.gethostname()
 
 
+def blender_id_session():
+    """Returns the Requests session, creating it if necessary."""
+    global requests_session
+    import requests.adapters
+
+    if requests_session is not None:
+        return requests_session
+
+    requests_session = requests.session()
+
+    # Retry with backoff factor, so that a restart of Blender ID or hickup
+    # in the connection doesn't immediately fail the request.
+    retries = requests.packages.urllib3.util.retry.Retry(
+        total=5,
+        backoff_factor=0.05,
+    )
+    http_adapter = requests.adapters.HTTPAdapter(max_retries=retries)
+    requests_session.mount('https://', http_adapter)
+    requests_session.mount('http://', http_adapter)
+
+    # Construct the User-Agent header with Blender and add-on versions.
+    try:
+        import bpy
+    except ImportError:
+        blender_version = 'unknown'
+    else:
+        blender_version = '.'.join(str(component) for component in bpy.app.version)
+
+    from blender_id import bl_info
+    addon_version = '.'.join(str(component) for component in bl_info['version'])
+    requests_session.headers['User-Agent'] = f'Blender/{blender_version} Blender-ID-Addon/{addon_version}'
+
+    return requests_session
+
+
 @functools.lru_cache(maxsize=None)
 def blender_id_endpoint(endpoint_path=None):
     """Gets the endpoint for the authentication API. If the BLENDER_ID_ENDPOINT env variable
@@ -59,7 +103,7 @@ def blender_id_endpoint(endpoint_path=None):
     if base_url:
         log.warning('Using overridden Blender ID url %s', base_url)
     else:
-        base_url = 'https://www.blender.org/id/'
+        base_url = BLENDER_ID_ENDPOINT
         log.info('Using standard Blender ID url %s', base_url)
 
     # urljoin() is None-safe for the 2nd parameter.
@@ -77,7 +121,6 @@ def blender_id_server_authenticate(username, password) -> AuthResult:
     message. Problems may be with the connection or wrong user/password.
     """
 
-    import requests
     import requests.exceptions
 
     payload = dict(
@@ -87,8 +130,9 @@ def blender_id_server_authenticate(username, password) -> AuthResult:
     )
 
     url = blender_id_endpoint('u/identify')
+    session = blender_id_session()
     try:
-        r = requests.post(url, data=payload, verify=True)
+        r = session.post(url, data=payload, verify=True, timeout=REQUESTS_TIMEOUT)
     except (requests.exceptions.SSLError,
             requests.exceptions.HTTPError,
             requests.exceptions.ConnectionError) as e:
@@ -123,12 +167,12 @@ def blender_id_server_validate(token) -> typing.Tuple[typing.Optional[str], typi
         The error is None if the token is valid, or an error message when it's invalid.
     """
 
-    import requests
     import requests.exceptions
 
     url = blender_id_endpoint('u/validate_token')
+    session = blender_id_session()
     try:
-        r = requests.post(url, data={'token': token}, verify=True)
+        r = session.post(url, data={'token': token}, verify=True, timeout=REQUESTS_TIMEOUT)
     except requests.exceptions.ConnectionError:
         log.exception('error connecting to Blender ID at %s', url)
         return None, 'Unable to connect to Blender ID'
@@ -154,16 +198,16 @@ def blender_id_server_logout(user_id, token):
     @rtype: dict
     """
 
-    import requests
     import requests.exceptions
 
     payload = dict(
         user_id=user_id,
         token=token
     )
+    session = blender_id_session()
     try:
-        r = requests.post(blender_id_endpoint('u/delete_token'),
-                          data=payload, verify=True)
+        r = session.post(blender_id_endpoint('u/delete_token'),
+                         data=payload, verify=True, timeout=REQUESTS_TIMEOUT)
     except (requests.exceptions.SSLError,
             requests.exceptions.HTTPError,
             requests.exceptions.ConnectionError) as e:
@@ -214,15 +258,16 @@ def subclient_create_token(auth_token: str, subclient_id: str) -> dict:
 def make_authenticated_call(method, url, auth_token, data):
     """Makes a HTTP call authenticated with the OAuth token."""
 
-    import requests
     import requests.exceptions
 
+    session = blender_id_session()
     try:
-        r = requests.request(method,
-                             blender_id_endpoint(url),
-                             data=data,
-                             headers={'Authorization': 'Bearer %s' % auth_token},
-                             verify=True)
+        r = session.request(method,
+                            blender_id_endpoint(url),
+                            data=data,
+                            headers={'Authorization': 'Bearer %s' % auth_token},
+                            verify=True,
+                            timeout=REQUESTS_TIMEOUT)
     except (requests.exceptions.HTTPError,
             requests.exceptions.ConnectionError) as e:
         raise BlenderIdCommError(str(e))
@@ -241,16 +286,18 @@ def send_token_to_subclient(webservice_endpoint: str, user_id: str,
     :returns: the user ID at the subclient.
     """
 
-    import requests
+    import requests.exceptions
     import urllib.parse
 
     url = urllib.parse.urljoin(webservice_endpoint, 'blender_id/store_scst')
+    session = blender_id_session()
     try:
-        r = requests.post(url,
-                          data={'user_id': user_id,
-                                'subclient_id': subclient_id,
-                                'token': subclient_token},
-                          verify=True)
+        r = session.post(url,
+                         data={'user_id': user_id,
+                               'subclient_id': subclient_id,
+                               'token': subclient_token},
+                         verify=True,
+                         timeout=REQUESTS_TIMEOUT)
         r.raise_for_status()
     except (requests.exceptions.HTTPError,
             requests.exceptions.ConnectionError) as e:

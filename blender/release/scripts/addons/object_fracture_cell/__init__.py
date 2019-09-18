@@ -19,14 +19,15 @@
 bl_info = {
     "name": "Cell Fracture",
     "author": "ideasman42, phymec, Sergey Sharybin",
-    "version": (0, 1),
-    "blender": (2, 70, 0),
-    "location": "Edit panel of Tools tab, in Object mode, 3D View tools",
+    "version": (0, 2),
+    "blender": (2, 80, 0),
+    "location": "Viewport Object Menu -> Quick Effects",
     "description": "Fractured Object, Bomb, Projectile, Recorder",
     "warning": "",
     "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/"
                 "Scripts/Object/CellFracture",
-    "category": "Object"}
+    "category": "Object",
+}
 
 
 #if "bpy" in locals():
@@ -57,15 +58,14 @@ def main_object(context, obj, level, **kw):
     recursion_clamp = kw_copy.pop("recursion_clamp")
     recursion_chance = kw_copy.pop("recursion_chance")
     recursion_chance_select = kw_copy.pop("recursion_chance_select")
-    use_layer_next = kw_copy.pop("use_layer_next")
-    use_layer_index = kw_copy.pop("use_layer_index")
-    group_name = kw_copy.pop("group_name")
+    collection_name = kw_copy.pop("collection_name")
     use_island_split = kw_copy.pop("use_island_split")
     use_debug_bool = kw_copy.pop("use_debug_bool")
     use_interior_vgroup = kw_copy.pop("use_interior_vgroup")
     use_sharp_edges = kw_copy.pop("use_sharp_edges")
     use_sharp_edges_apply = kw_copy.pop("use_sharp_edges_apply")
 
+    scene = context.scene
     collection = context.collection
 
     if level != 0:
@@ -94,6 +94,8 @@ def main_object(context, obj, level, **kw):
         bpy.ops.object.origin_set({"selected_editable_objects": objects},
                                   type='ORIGIN_GEOMETRY', center='MEDIAN')
 
+    #----------
+    # Recursion
     if level == 0:
         for level_sub in range(1, recursion + 1):
 
@@ -110,7 +112,7 @@ def main_object(context, obj, level, **kw):
                     if recursion_chance_select == 'SIZE_MAX':
                         objects_recurse_input.reverse()
                 elif recursion_chance_select in {'CURSOR_MIN', 'CURSOR_MAX'}:
-                    c = scene.cursor_location.copy()
+                    c = scene.cursor.location.copy()
                     objects_recurse_input.sort(key=lambda ob_pair:
                         (ob_pair[1].location - c).length_squared)
                     if recursion_chance_select == 'CURSOR_MAX':
@@ -150,27 +152,16 @@ def main_object(context, obj, level, **kw):
     #--------------
     # Scene Options
 
-    # layer
-    layers_new = None
-    if use_layer_index != 0:
-        layers_new = [False] * 20
-        layers_new[use_layer_index - 1] = True
-    elif use_layer_next:
-        layers_new = [False] * 20
-        layers_new[(obj.layers[:].index(True) + 1) % 20] = True
-
-    if layers_new is not None:
-        for obj_cell in objects:
-            obj_cell.layers = layers_new
-
     # group
-    if group_name:
-        group = bpy.data.collections.get(group_name)
+    if collection_name:
+        group = bpy.data.collections.get(collection_name)
         if group is None:
-            group = bpy.data.collections.new(group_name)
+            group = bpy.data.collections.new(collection_name)
+            collection.children.link(group)
         group_objects = group.objects[:]
         for obj_cell in objects:
             if obj_cell not in group_objects:
+                collection.objects.unlink(obj_cell)
                 group.objects.link(obj_cell)
 
     if kw_copy["use_debug_redraw"]:
@@ -201,18 +192,21 @@ def main(context, **kw):
     for obj_cell in objects:
         obj_cell.select_set(True)
 
+    # FIXME(campbell): we should be able to initialize rigid-body data.
     if mass_mode == 'UNIFORM':
         for obj_cell in objects:
-            obj_cell.game.mass = mass
+            rb = obj_cell.rigid_body
+            if rb is not None:
+                rb.mass = mass
     elif mass_mode == 'VOLUME':
         from mathutils import Vector
         def _get_volume(obj_cell):
             def _getObjectBBMinMax():
                 min_co = Vector((1000000.0, 1000000.0, 1000000.0))
                 max_co = -min_co
-                matrix = obj_cell.matrix_world
+                matrix = obj_cell.matrix_world.copy()
                 for i in range(0, 8):
-                    bb_vec = obj_cell.matrix_world * Vector(obj_cell.bound_box[i])
+                    bb_vec = matrix @ Vector(obj_cell.bound_box[i])
                     min_co[0] = min(bb_vec[0], min_co[0])
                     min_co[1] = min(bb_vec[1], min_co[1])
                     min_co[2] = min(bb_vec[2], min_co[2])
@@ -237,7 +231,9 @@ def main(context, **kw):
         if obj_volume_tot > 0.0:
             mass_fac = mass / obj_volume_tot
             for i, obj_cell in enumerate(objects):
-                obj_cell.game.mass = obj_volume_ls[i] * mass_fac
+                rb = obj_cell.rigid_body
+                if rb is not None:
+                    rb.mass = obj_volume_ls[i] * mass_fac
     else:
         assert(0)
 
@@ -259,7 +255,7 @@ class FractureCell(Operator):
                                                       "source object")),
                    ('PARTICLE_CHILD', "Child Particles", ("All particle systems of the "
                                                           "child objects")),
-                   ('PENCIL', "Grease Pencil", "This object's grease pencil"),
+                   ('PENCIL', "Annotation Pencil", "Annotation Grease Pencil."),
                    ),
             options={'ENUM_FLAG'},
             default={'PARTICLE_OWN'},
@@ -333,7 +329,8 @@ class FractureCell(Operator):
     # Mesh Data Options
 
     use_smooth_faces: BoolProperty(
-            name="Smooth Faces",
+            name="Smooth Interior",
+            description="Smooth Faces of inner side",
             default=False,
             )
 
@@ -420,22 +417,9 @@ class FractureCell(Operator):
     # .. different from object options in that this controls how the objects
     #    are setup in the scene.
 
-    use_layer_index: IntProperty(
-            name="Layer Index",
-            description="Layer to add the objects into or 0 for existing",
-            default=0,
-            min=0, max=20,
-            )
-
-    use_layer_next: BoolProperty(
-            name="Next Layer",
-            description="At the object into the next layer (layer index overrides)",
-            default=True,
-            )
-
-    group_name: StringProperty(
-            name="Group",
-            description="Create objects int a group "
+    collection_name: StringProperty(
+            name="Collection",
+            description="Create objects in a collection "
                         "(use existing or create new)",
             )
 
@@ -468,7 +452,7 @@ class FractureCell(Operator):
 
 
     def invoke(self, context, event):
-        print(self.recursion_chance_select)
+        # print(self.recursion_chance_select)
         wm = context.window_manager
         return wm.invoke_props_dialog(self, width=600)
 
@@ -534,9 +518,7 @@ class FractureCell(Operator):
         col = box.column()
         col.label(text="Scene")
         rowsub = col.row(align=True)
-        rowsub.prop(self, "use_layer_index")
-        rowsub.prop(self, "use_layer_next")
-        rowsub.prop(self, "group_name")
+        rowsub.prop(self, "collection_name")
 
         box = layout.box()
         col = box.column()
@@ -549,19 +531,18 @@ class FractureCell(Operator):
 
 def menu_func(self, context):
     layout = self.layout
-    layout.label(text="Cell Fracture:")
-    layout.operator("object.add_fracture_cell_objects",
-                    text="Cell Fracture")
+    layout.separator()
+    layout.operator("object.add_fracture_cell_objects", text="Cell Fracture")
 
 
 def register():
     bpy.utils.register_class(FractureCell)
-    bpy.types.VIEW3D_PT_tools_object.append(menu_func)
+    bpy.types.VIEW3D_MT_object_quick_effects.append(menu_func)
 
 
 def unregister():
     bpy.utils.unregister_class(FractureCell)
-    bpy.types.VIEW3D_PT_tools_object.remove(menu_func)
+    bpy.types.VIEW3D_MT_object_quick_effects.remove(menu_func)
 
 
 if __name__ == "__main__":

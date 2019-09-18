@@ -14,13 +14,14 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup pythonintern
+/** \file
+ * \ingroup pythonintern
  */
 
 #ifndef __BPY_APP_TRANSLATIONS_H__
 #define __BPY_APP_TRANSLATIONS_H__
 
 PyObject *BPY_app_translations_struct(void);
-void      BPY_app_translations_end(void);
+void BPY_app_translations_end(void);
 
 #endif /* __BPY_APP_TRANSLATIONS_H__ */

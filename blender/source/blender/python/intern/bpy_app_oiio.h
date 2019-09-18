@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup pythonintern
+/** \file
+ * \ingroup pythonintern
  */
 
 #ifndef __BPY_APP_OIIO_H__
@@ -22,4 +23,4 @@
 
 PyObject *BPY_app_oiio_struct(void);
 
-#endif  /* __BPY_APP_OIIO_H__ */
+#endif /* __BPY_APP_OIIO_H__ */

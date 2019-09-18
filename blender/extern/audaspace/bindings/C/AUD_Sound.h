@@ -113,9 +113,10 @@ extern AUD_API AUD_Sound* AUD_Sound_sawtooth(float frequency, AUD_SampleRate rat
 
 /**
  * Creates a quiet sound.
+ * \param rate The sample rate of the silence sound.
  * \return A handle of the sound.
  */
-extern AUD_API AUD_Sound* AUD_Sound_silence();
+extern AUD_API AUD_Sound* AUD_Sound_silence(AUD_SampleRate rate);
 
 /**
  * Creates a sine sound.
@@ -245,6 +246,14 @@ extern AUD_API AUD_Sound* AUD_Sound_loop(AUD_Sound* sound, int count);
  * \return A handle of the filtered sound.
  */
 extern AUD_API AUD_Sound* AUD_Sound_lowpass(AUD_Sound* sound, float frequency, float Q);
+
+/**
+ * Modulates two sound, which means multiplying the sound samples.
+ * \param first The first sound.
+ * \param second The second sound.
+ * \return A handle of the modulated sound.
+ */
+extern AUD_API AUD_Sound* AUD_Sound_modulate(AUD_Sound* first, AUD_Sound* second);
 
 /**
  * Changes the pitch of a sound.

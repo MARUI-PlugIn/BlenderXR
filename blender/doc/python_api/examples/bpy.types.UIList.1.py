@@ -40,18 +40,6 @@ class MATERIAL_UL_matslots_example(bpy.types.UIList):
                 layout.prop(ma, "name", text="", emboss=False, icon_value=icon)
             else:
                 layout.label(text="", translate=False, icon_value=icon)
-            # And now we can add other UI stuff...
-            # Here, we add nodes info if this material uses (old!) shading nodes.
-            if ma and not context.scene.render.use_shading_nodes:
-                manode = ma.active_node_material
-                if manode:
-                    # The static method UILayout.icon returns the integer value of the icon ID "computed" for the given
-                    # RNA object.
-                    layout.label(text="Node %s" % manode.name, translate=False, icon_value=layout.icon(manode))
-                elif ma.use_nodes:
-                    layout.label(text="Node <none>", translate=False)
-                else:
-                    layout.label(text="")
         # 'GRID' layout type should be as compact as possible (typically a single icon!).
         elif self.layout_type in {'GRID'}:
             layout.alignment = 'CENTER'
@@ -59,10 +47,10 @@ class MATERIAL_UL_matslots_example(bpy.types.UIList):
 
 
 # And now we can use this list everywhere in Blender. Here is a small example panel.
-class UIListPanelExample(bpy.types.Panel):
+class UIListPanelExample1(bpy.types.Panel):
     """Creates a Panel in the Object properties window"""
-    bl_label = "UIList Panel"
-    bl_idname = "OBJECT_PT_ui_list_example"
+    bl_label = "UIList Example 1 Panel"
+    bl_idname = "OBJECT_PT_ui_list_example_1"
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
     bl_context = "object"
@@ -85,12 +73,12 @@ class UIListPanelExample(bpy.types.Panel):
 
 def register():
     bpy.utils.register_class(MATERIAL_UL_matslots_example)
-    bpy.utils.register_class(UIListPanelExample)
+    bpy.utils.register_class(UIListPanelExample1)
 
 
 def unregister():
+    bpy.utils.unregister_class(UIListPanelExample1)
     bpy.utils.unregister_class(MATERIAL_UL_matslots_example)
-    bpy.utils.unregister_class(UIListPanelExample)
 
 
 if __name__ == "__main__":

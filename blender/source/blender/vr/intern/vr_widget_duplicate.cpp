@@ -15,18 +15,16 @@
 * along with this program; if not, write to the Free Software Foundation,
 * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 *
-* The Original Code is Copyright (C) 2018 by Blender Foundation.
+* The Original Code is Copyright (C) 2019 by Blender Foundation.
 * All rights reserved.
 *
-* Contributor(s): MARUI-PlugIn
+* Contributor(s): MARUI-PlugIn, Multiplexed Reality
 *
 * ***** END GPL LICENSE BLOCK *****
 */
 
 /** \file blender/vr/intern/vr_widget_duplicate.cpp
 *   \ingroup vr
-* 
-* Main module for the VR widget UI.
 */
 
 #include "vr_types.h"
@@ -42,27 +40,13 @@
 
 #include "BLI_listbase.h"
 
-#include "BKE_action.h"
-#include "BKE_animsys.h"
-#include "BKE_armature.h"
-#include "BKE_camera.h"
 #include "BKE_context.h"
-#include "BKE_curve.h"
 #include "BKE_editmesh.h"
-#include "BKE_gpencil.h"
-#include "BKE_key.h"
-#include "BKE_lattice.h"
 #include "BKE_layer.h"
-#include "BKE_lamp.h"
 #include "BKE_library.h"
 #include "BKE_library_remap.h"
 #include "BKE_main.h"
-#include "BKE_material.h"
-#include "BKE_mball.h"
-#include "BKE_mesh.h"
 #include "BKE_object.h"
-#include "BKE_particle.h"
-#include "BKE_speaker.h"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_build.h"
@@ -78,7 +62,7 @@
 #include "WM_api.h"
 #include "WM_types.h"
 
-/***********************************************************************************************//**
+/***************************************************************************************************
  * \class                               Widget_Duplicate
  ***************************************************************************************************
 * Interaction widget for performing a 'duplicate' operation.
@@ -112,20 +96,14 @@ static void copy_object_set_idnew(bContext *C)
 /* Does set ID->newid pointers. */
 static Base *object_add_duplicate_internal(Main *bmain, Scene *scene, ViewLayer *view_layer, Object *ob, int dupflag)
 {
-#define ID_NEW_REMAP_US(a, type) if (      (a)->id.newid) { (a) = (type *)(a)->id.newid;       (a)->id.us++; }
-#define ID_NEW_REMAP_US2(a)	if (((ID *)a)->newid)    { (a) = ((ID  *)a)->newid;     ((ID *)a)->us++;    }
-
 	Base *base, *basen = NULL;
-	Material ***matarar;
 	Object *obn;
-	ID *id;
-	int a, didit;
 
 	if (ob->mode & OB_MODE_POSE) {
 		; /* nothing? */
 	}
 	else {
-		obn = (Object*)ID_NEW_SET(ob, BKE_object_copy(bmain, ob));
+		obn = (Object*)ID_NEW_SET(ob, BKE_object_duplicate(bmain, ob, dupflag));
 		DEG_id_tag_update(&obn->id, ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY);
 
 		base = BKE_view_layer_base_find(view_layer, ob);
@@ -136,7 +114,11 @@ static Base *object_add_duplicate_internal(Main *bmain, Scene *scene, ViewLayer 
 			LayerCollection *layer_collection = BKE_layer_collection_get_active(view_layer);
 			BKE_collection_object_add(bmain, layer_collection->collection, obn);
 		}
+
 		basen = BKE_view_layer_base_find(view_layer, obn);
+		if (base != NULL) {
+			basen->local_view_bits = base->local_view_bits;
+		}
 
 		/* 1) duplis should end up in same collection as the original
 		 * 2) Rigid Body sim participants MUST always be part of a collection...
@@ -144,213 +126,13 @@ static Base *object_add_duplicate_internal(Main *bmain, Scene *scene, ViewLayer 
 		 // XXX: is 2) really a good measure here?
 		if (ob->rigidbody_object || ob->rigidbody_constraint) {
 			Collection *collection;
-			for (collection = (Collection*)bmain->collection.first; collection; collection = (Collection*)collection->id.next) {
+			for (collection = (Collection*)bmain->collections.first; collection; collection = (Collection*)collection->id.next) {
 				if (BKE_collection_has_object(collection, ob))
 					BKE_collection_object_add(bmain, collection, obn);
 			}
 		}
-
-		/* duplicates using userflags */
-		if (dupflag & USER_DUP_ACT) {
-			BKE_animdata_copy_id_action(bmain, &obn->id, true);
-		}
-
-		if (dupflag & USER_DUP_MAT) {
-			for (a = 0; a < obn->totcol; a++) {
-				id = (ID *)obn->mat[a];
-				if (id) {
-					ID_NEW_REMAP_US(obn->mat[a], Material)
-				else {
-					obn->mat[a] = (Material*)ID_NEW_SET(obn->mat[a], BKE_material_copy(bmain, obn->mat[a]));
-					/* duplicate grease pencil settings */
-					if (ob->mat[a]->gp_style) {
-						obn->mat[a]->gp_style = (MaterialGPencilStyle*)MEM_dupallocN(ob->mat[a]->gp_style);
-					}
-				}
-				id_us_min(id);
-
-				if (dupflag & USER_DUP_ACT) {
-					BKE_animdata_copy_id_action(bmain, &obn->mat[a]->id, true);
-				}
-				}
-			}
-		}
-		if (dupflag & USER_DUP_PSYS) {
-			ParticleSystem *psys;
-			for (psys = (ParticleSystem*)obn->particlesystem.first; psys; psys = psys->next) {
-				id = (ID *)psys->part;
-				if (id) {
-					ID_NEW_REMAP_US(psys->part, ParticleSettings)
-				else {
-					psys->part = (ParticleSettings*)ID_NEW_SET(psys->part, BKE_particlesettings_copy(bmain, psys->part));
-				}
-
-				if (dupflag & USER_DUP_ACT) {
-					BKE_animdata_copy_id_action(bmain, &psys->part->id, true);
-				}
-
-				id_us_min(id);
-				}
-			}
-		}
-
-		id = (ID*)obn->data;
-		didit = 0;
-
-		switch (obn->type) {
-		case OB_MESH:
-			if (dupflag & USER_DUP_MESH) {
-				ID_NEW_REMAP_US2(obn->data)
-			else {
-				obn->data = ID_NEW_SET(obn->data, BKE_mesh_copy(bmain, (const Mesh*)obn->data));
-				didit = 1;
-			}
-			id_us_min(id);
-			}
-			break;
-		case OB_CURVE:
-			if (dupflag & USER_DUP_CURVE) {
-				ID_NEW_REMAP_US2(obn->data)
-			else {
-				obn->data = ID_NEW_SET(obn->data, BKE_curve_copy(bmain, (const Curve*)obn->data));
-				didit = 1;
-			}
-			id_us_min(id);
-			}
-			break;
-		case OB_SURF:
-			if (dupflag & USER_DUP_SURF) {
-				ID_NEW_REMAP_US2(obn->data)
-			else {
-				obn->data = ID_NEW_SET(obn->data, BKE_curve_copy(bmain, (const Curve*)obn->data));
-				didit = 1;
-			}
-			id_us_min(id);
-			}
-			break;
-		case OB_FONT:
-			if (dupflag & USER_DUP_FONT) {
-				ID_NEW_REMAP_US2(obn->data)
-			else {
-				obn->data = ID_NEW_SET(obn->data, BKE_curve_copy(bmain, (const Curve*)obn->data));
-				didit = 1;
-			}
-			id_us_min(id);
-			}
-			break;
-		case OB_MBALL:
-			if (dupflag & USER_DUP_MBALL) {
-				ID_NEW_REMAP_US2(obn->data)
-			else {
-				obn->data = ID_NEW_SET(obn->data, BKE_mball_copy(bmain, (const MetaBall*)obn->data));
-				didit = 1;
-			}
-			id_us_min(id);
-			}
-			break;
-		case OB_LAMP:
-			if (dupflag & USER_DUP_LAMP) {
-				ID_NEW_REMAP_US2(obn->data)
-			else {
-				obn->data = ID_NEW_SET(obn->data, BKE_lamp_copy(bmain, (const Lamp*)obn->data));
-				didit = 1;
-			}
-			id_us_min(id);
-			}
-			break;
-		case OB_ARMATURE:
-			DEG_id_tag_update(&obn->id, ID_RECALC_GEOMETRY);
-			if (obn->pose)
-				BKE_pose_tag_recalc(bmain, obn->pose);
-			if (dupflag & USER_DUP_ARM) {
-				ID_NEW_REMAP_US2(obn->data)
-			else {
-				obn->data = ID_NEW_SET(obn->data, BKE_armature_copy(bmain, (const bArmature*)obn->data));
-				BKE_pose_rebuild(bmain, obn, (bArmature*)obn->data, true);
-				didit = 1;
-			}
-			id_us_min(id);
-			}
-			break;
-		case OB_LATTICE:
-			if (dupflag != 0) {
-				ID_NEW_REMAP_US2(obn->data)
-			else {
-				obn->data = ID_NEW_SET(obn->data, BKE_lattice_copy(bmain, (const Lattice*)obn->data));
-				didit = 1;
-			}
-			id_us_min(id);
-			}
-			break;
-		case OB_CAMERA:
-			if (dupflag != 0) {
-				ID_NEW_REMAP_US2(obn->data)
-			else {
-				obn->data = ID_NEW_SET(obn->data, BKE_camera_copy(bmain, (const Camera*)obn->data));
-				didit = 1;
-			}
-			id_us_min(id);
-			}
-			break;
-		case OB_SPEAKER:
-			if (dupflag != 0) {
-				ID_NEW_REMAP_US2(obn->data)
-			else {
-				obn->data = ID_NEW_SET(obn->data, BKE_speaker_copy(bmain, (const Speaker*)obn->data));
-				didit = 1;
-			}
-			id_us_min(id);
-			}
-			break;
-		case OB_GPENCIL:
-			if (dupflag != 0) {
-				ID_NEW_REMAP_US2(obn->data)
-			else {
-				obn->data = ID_NEW_SET(obn->data, BKE_gpencil_copy(bmain, (const bGPdata*)obn->data));
-				didit = 1;
-			}
-			id_us_min(id);
-			}
-			break;
-		}
-
-		/* check if obdata is copied */
-		if (didit) {
-			Key *key = BKE_key_from_object(obn);
-
-			Key *oldkey = BKE_key_from_object(ob);
-			if (oldkey != NULL) {
-				ID_NEW_SET(oldkey, key);
-			}
-
-			if (dupflag & USER_DUP_ACT) {
-				BKE_animdata_copy_id_action(bmain, (ID *)obn->data, true);
-				if (key) {
-					BKE_animdata_copy_id_action(bmain, (ID *)key, true);
-				}
-			}
-
-			if (dupflag & USER_DUP_MAT) {
-				matarar = give_matarar(obn);
-				if (matarar) {
-					for (a = 0; a < obn->totcol; a++) {
-						id = (ID *)(*matarar)[a];
-						if (id) {
-							ID_NEW_REMAP_US((*matarar)[a], Material)
-						else {
-							(*matarar)[a] = (Material*)ID_NEW_SET((*matarar)[a], BKE_material_copy(bmain, (*matarar)[a]));
-						}
-						id_us_min(id);
-						}
-					}
-				}
-			}
-		}
 	}
 	return basen;
-
-#undef ID_NEW_REMAP_US
-#undef ID_NEW_REMAP_US2
 }
 
 /* From duplicate_exec() in object_add.c */

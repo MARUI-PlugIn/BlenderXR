@@ -20,25 +20,43 @@
 #ifndef __BKE_SMOKE_H__
 #define __BKE_SMOKE_H__
 
-/** \file \ingroup bke
+/** \file
+ * \ingroup bke
  */
 
-typedef float (*bresenham_callback)(float *result, float *input, int res[3], int *pixel, float *tRay, float correct);
+struct Scene;
+struct SmokeDomainSettings;
+struct SmokeModifierData;
 
-struct Mesh *smokeModifier_do(
-        struct SmokeModifierData *smd, struct Depsgraph *depsgraph,
-        struct Scene *scene,
-        struct Object *ob, struct Mesh *me);
+typedef float (*bresenham_callback)(
+    float *result, float *input, int res[3], int *pixel, float *tRay, float correct);
 
-void smoke_reallocate_fluid(struct SmokeDomainSettings *sds, float dx, int res[3], int free_old);
-void smoke_reallocate_highres_fluid(struct SmokeDomainSettings *sds, float dx, int res[3], int free_old);
+struct Mesh *smokeModifier_do(struct SmokeModifierData *smd,
+                              struct Depsgraph *depsgraph,
+                              struct Scene *scene,
+                              struct Object *ob,
+                              struct Mesh *me);
+
 void smokeModifier_free(struct SmokeModifierData *smd);
 void smokeModifier_reset(struct SmokeModifierData *smd);
 void smokeModifier_reset_turbulence(struct SmokeModifierData *smd);
 void smokeModifier_createType(struct SmokeModifierData *smd);
-void smokeModifier_copy(const SmokeModifierData *smd, struct SmokeModifierData *tsmd, const int flag);
+void smokeModifier_copy(const struct SmokeModifierData *smd,
+                        struct SmokeModifierData *tsmd,
+                        const int flag);
 
-float smoke_get_velocity_at(struct Object *ob, float position[3], float velocity[3]);
-int smoke_get_data_flags(struct SmokeDomainSettings *sds);
+void BKE_smoke_reallocate_fluid(struct SmokeDomainSettings *sds,
+                                float dx,
+                                int res[3],
+                                int free_old);
+void BKE_smoke_reallocate_highres_fluid(struct SmokeDomainSettings *sds,
+                                        float dx,
+                                        int res[3],
+                                        int free_old);
+
+float BKE_smoke_get_velocity_at(struct Object *ob, float position[3], float velocity[3]);
+int BKE_smoke_get_data_flags(struct SmokeDomainSettings *sds);
+
+bool BKE_smoke_show_highres(struct Scene *scene, struct SmokeDomainSettings *sds);
 
 #endif /* __BKE_SMOKE_H__ */

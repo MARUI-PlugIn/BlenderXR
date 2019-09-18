@@ -26,7 +26,7 @@ bl_info = {
     "location": "Image-Window > UVs > Export UV Layout",
     "description": "Export the UV layout as a 2D graphic",
     "warning": "",
-    "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/Scripts/Import-Export/UV_Layout",
+    "wiki_url": "https://docs.blender.org/manual/en/latest/addons/io_mesh_uv_layout.html",
     "support": 'OFFICIAL',
     "category": "Import-Export",
 }
@@ -141,7 +141,10 @@ class ExportUVLayout(bpy.types.Operator):
         polygon_data = list(self.iter_polygon_data_to_draw(context, meshes))
         different_colors = set(color for _, color in polygon_data)
         if self.modified:
-            self.free_meshes(meshes)
+          depsgraph = context.evaluated_depsgraph_get()
+          for obj in self.iter_objects_to_export(context):
+              obj_eval = obj.evaluated_get(depsgraph)
+              obj_eval.to_mesh_clear()
 
         export = self.get_exporter()
         export(filepath, polygon_data, different_colors, self.size[0], self.size[1], self.opacity)
@@ -152,9 +155,10 @@ class ExportUVLayout(bpy.types.Operator):
         return {'FINISHED'}
 
     def iter_meshes_to_export(self, context):
+        depsgraph = context.evaluated_depsgraph_get()
         for obj in self.iter_objects_to_export(context):
             if self.modified:
-                yield obj.to_mesh(context.depsgraph, apply_modifiers=True)
+                yield obj.evaluated_get(depsgraph).to_mesh()
             else:
                 yield obj.data
 
@@ -167,11 +171,6 @@ class ExportUVLayout(bpy.types.Operator):
             if mesh.uv_layers.active is None:
                 continue
             yield obj
-
-    @staticmethod
-    def free_meshes(meshes):
-        for mesh in meshes:
-            bpy.data.meshes.remove(mesh)
 
     @staticmethod
     def currently_image_image_editor(context):

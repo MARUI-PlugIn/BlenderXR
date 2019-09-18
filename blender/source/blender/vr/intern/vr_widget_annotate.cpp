@@ -15,10 +15,10 @@
 * along with this program; if not, write to the Free Software Foundation,
 * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 *
-* The Original Code is Copyright (C) 2018 by Blender Foundation.
+* The Original Code is Copyright (C) 2019 by Blender Foundation.
 * All rights reserved.
 *
-* Contributor(s): MARUI-PlugIn
+* Contributor(s): MARUI-PlugIn, Multiplexed Reality
 *
 * ***** END GPL LICENSE BLOCK *****
 */
@@ -52,10 +52,10 @@
 #include "GPU_immediate.h"
 #include "GPU_state.h"
 
-/***********************************************************************************************//**
+/***************************************************************************************************
  * \class                               Widget_Annotate
  ***************************************************************************************************
- * Interaction widget for the gpencil annotation tool.
+ * Interaction widget for the Annotate tool.
  *
  **************************************************************************************************/
 Widget_Annotate Widget_Annotate::obj;
@@ -65,14 +65,27 @@ std::vector<bGPDlayer *> Widget_Annotate::gpl;
 std::vector<bGPDframe *> Widget_Annotate::gpf;
 Main *Widget_Annotate::main(0);
 
-uint Widget_Annotate::num_layers(13); 
 uint Widget_Annotate::active_layer(0);
 
 std::vector<bGPDspoint> Widget_Annotate::points;
 
 //float Widget_Annotate::point_thickness(40.0f);
 float Widget_Annotate::line_thickness(10.0f);
-float Widget_Annotate::color[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+const float Widget_Annotate::colors[WIDGET_ANNOTATE_NUM_LAYERS][4] = {
+	{ 0.95f, 0.95f, 0.95f, 1.0f },
+	{ 0.05f, 0.05f, 0.05f, 1.0f },
+	{ 0.6f,  0.2f,  1.0f,  1.0f },
+	{ 0.72f, 0.46f, 1.0f,  1.0f },
+	{ 0.2f,  0.6f,  1.0f,  1.0f },
+	{ 0.2f,  1.0f,  1.0f,  1.0f },
+	{ 0.6f,  1.0f,  0.2f,  1.0f },
+	{ 0.4f,  0.8,   0.2f,  1.0f },
+	{ 1.0f,  1.0f,  0.2f,  1.0f },
+	{ 1.0f,  0.6f,  0.2f,  1.0f },
+	{ 1.0f,  0.2f,  0.2f,  1.0f },
+	{ 0.6f,	 0.6f,  0.6f,  1.0f },
+	{ 0.8f,  0.3f,  0.3f,  1.0f }
+};
 
 bool Widget_Annotate::eraser(false);
 VR_Side Widget_Annotate::cursor_side;
@@ -99,9 +112,8 @@ int Widget_Annotate::init(bool new_scene)
 		//ED_gpencil_add_defaults(C);
 	}
 
-	/* The last layer is the measure tool layer. 
-	 * TODO_XR: Refactor this / use a std::map. */
-	for (uint i = 0; i < num_layers; ++i) {
+	/* TODO_XR: Refactor this / use a std::map. */
+	for (uint i = 0; i < WIDGET_ANNOTATE_NUM_LAYERS; ++i) {
 		bGPDlayer *gp_layer = BKE_gpencil_layer_addnew(gpd, "VR_Annotate", true);
 		if (!gp_layer) {
 			if (gpl.size() > 0) {
@@ -112,7 +124,8 @@ int Widget_Annotate::init(bool new_scene)
 			}
 			return -1;
 		}
-		memcpy(gp_layer->color, color, sizeof(float) * 4);
+
+		memcpy(gp_layer->color, colors[i], sizeof(float) * 4);
 		gp_layer->thickness = line_thickness / 1.15f;
 
 		bGPDframe *gp_frame = BKE_gpencil_frame_addnew(gp_layer, 0);
@@ -206,6 +219,31 @@ void Widget_Annotate::erase_stroke(bGPDstroke *gps, bGPDframe *gp_frame) {
 	} 
 }
 
+void Widget_Annotate::add_stroke(const std::vector<bGPDspoint>& pts, uint layer, bool set_active)
+{
+	int tot_points = pts.size();
+	if (tot_points < 1) {
+		return;
+	}
+
+	bContext *C = vr_get_obj()->ctx;
+	Main *curr_main = CTX_data_main(C);
+	if (gpf.size() < 1 || main != curr_main) {
+		int error = Widget_Annotate::init(main != curr_main ? true : false);
+		main = curr_main;
+		if (error) {
+			return;
+		}
+	}
+
+	bGPDstroke *gps = BKE_gpencil_add_stroke(gpf[layer], 0, tot_points, line_thickness);
+	memcpy(gps->points, &pts[0], sizeof(bGPDspoint) * tot_points);
+
+	if (set_active) {
+		BKE_gpencil_layer_setactive(Widget_Annotate::gpd, Widget_Annotate::gpl[layer]);
+	}
+}
+
 //bool Widget_Annotate::has_click(VR_UI::Cursor& c) const
 //{
 //	return true;
@@ -264,19 +302,19 @@ void Widget_Annotate::erase_stroke(bGPDstroke *gps, bGPDframe *gp_frame) {
 
 void Widget_Annotate::drag_start(VR_UI::Cursor& c)
 {	
+	Main *curr_main = CTX_data_main(vr_get_obj()->ctx);
+	if (gpf.size() < 1 || main != curr_main) {
+		int error = Widget_Annotate::init(main != curr_main ? true : false);
+		main = curr_main;
+		if (error) {
+			return;
+		}
+	}
+
 	/* Eraser */
 	if (VR_UI::ctrl_key_get() == VR_UI::CTRLSTATE_ON) {
 		eraser = true;
 		cursor_side = c.side;
-
-		Main *curr_main = CTX_data_main(vr_get_obj()->ctx);
-		if (gpf.size() < 1 || main != curr_main) {
-			int error = Widget_Annotate::init(main != curr_main ? true : false);
-			main = curr_main;
-			if (error) {
-				return;
-			}
-		}
 
 		uint tot_layers = gpl.size();
 		if (tot_layers > 0) {
@@ -299,7 +337,7 @@ void Widget_Annotate::drag_start(VR_UI::Cursor& c)
 
 		bGPDspoint pt;
 
-		const Mat44f& cursor = c.interaction_position.get(VR_SPACE_BLENDER);
+		const Mat44f& cursor = c.position.get(VR_SPACE_BLENDER);
 		memcpy(&pt, cursor.m[3], sizeof(float) * 3);
 		VR *vr = vr_get_obj();
 		pt.pressure = vr->controller[c.side]->trigger_pressure;
@@ -359,8 +397,6 @@ void Widget_Annotate::drag_stop(VR_UI::Cursor& c)
 		other->bimanual = VR_UI::Cursor::BIMANUAL_OFF;
 		return; /* calculations are only performed by the second hand */
 	}
-	
-	bContext *C = vr_get_obj()->ctx;
 
 	/* Eraser */
 	if (eraser) {
@@ -369,38 +405,106 @@ void Widget_Annotate::drag_stop(VR_UI::Cursor& c)
 
 	/* Finalize curve (save space data) */
 
-	Main *curr_main = CTX_data_main(C);
-	if (gpf.size() < 1 || main != curr_main) {
-		int error = Widget_Annotate::init(main != curr_main ? true : false);
-		main = curr_main;
-		if (error) {
-			return;
-		}
-	}
-
 	/* TODO_XR: Find a way to "coexist" with any existing scene gpd. */
 	//BKE_gpencil_layer_setactive(gpd, gpl);
 
-	/* Add new stroke. */
-	int tot_points = points.size();
-	bGPDstroke *gps = BKE_gpencil_add_stroke(gpf[active_layer], 0, tot_points, line_thickness);
-
-	/* Could probably avoid the memcpy by allocating the stroke in drag_start()
-	 * but it's nice to store the points in a vector. */
-	memcpy(gps->points, &points[0], sizeof(bGPDspoint) * tot_points);
-
-	memcpy(gpl[active_layer]->color, color, sizeof(float) * 4);
-	BKE_gpencil_layer_setactive(gpd, gpl[active_layer]);
+	/* Add new stroke */
+	Widget_Annotate::add_stroke(points, active_layer, true);
 
 	for (int i = 0; i < VR_SIDES; ++i) {
 		Widget_Annotate::obj.do_render[i] = false;
 	}
 }
 
+void Widget_Annotate::render_points(const std::vector<bGPDspoint>& pts, uint layer)
+{
+	/* Adapted from gp_draw_stroke_3d() in annotate_draw.c. */
+
+	int tot_points = pts.size();
+
+	if (tot_points <= 1) {
+		/* If click, point will already be finalized and drawn.
+		 * If drag, need at least two points to draw a line. */
+	}
+	else {
+		/* if cyclic needs one vertex more */
+		bool cyclic = false;
+		if ((*(Coord3Df*)&pts[0] == *(Coord3Df*)&pts[tot_points - 1])) {
+			cyclic = true;
+		}
+		int cyclic_add = 0;
+		if (cyclic) {
+			++cyclic_add;
+		}
+
+		float cyclic_fpt[3];
+		int draw_points = 0;
+
+		float cur_pressure = pts[0].pressure;
+
+		GPUVertFormat *format = immVertexFormat();
+		uint pos = GPU_vertformat_attr_add(format, "pos", GPU_COMP_F32, 3, GPU_FETCH_FLOAT);
+
+		immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
+		immUniformColor4fv(colors[layer]);
+
+		/* TODO: implement this with a geometry shader to draw one continuous tapered stroke */
+
+		/* draw stroke curve */
+		GPU_line_width(max_ff(cur_pressure * line_thickness, 1.0f));
+		immBeginAtMost(GPU_PRIM_LINE_STRIP, tot_points + cyclic_add);
+		for (int i = 0; i < tot_points; ++i) {
+			/* if there was a significant pressure change, stop the curve, change the thickness of the stroke,
+			 * and continue drawing again (since line-width cannot change in middle of GL_LINE_STRIP)
+			 * Note: we want more visible levels of pressures when thickness is bigger.
+			 */
+			if (fabsf(pts[i].pressure - cur_pressure) > 0.2f / (float)line_thickness) {
+				/* if the pressure changes before get at least 2 vertices, need to repeat last point to avoid assert in immEnd() */
+				if (draw_points < 2) {
+					immVertex3fv(pos, &pts[i - 1].x);
+				}
+				immEnd();
+				draw_points = 0;
+
+				cur_pressure = pts[i].pressure;
+				GPU_line_width(max_ff(cur_pressure * line_thickness, 1.0f));
+				immBeginAtMost(GPU_PRIM_LINE_STRIP, tot_points - i + 1 + cyclic_add);
+
+				/* need to roll-back one point to ensure that there are no gaps in the stroke */
+				if (i != 0) {
+					immVertex3fv(pos, &pts[i - 1].x);
+					++draw_points;
+				}
+			}
+
+			/* now the point we want */
+			immVertex3fv(pos, &pts[i].x);
+			++draw_points;
+
+			if (cyclic && i == 0) {
+				/* save first point to use in cyclic */
+				copy_v3_v3(cyclic_fpt, &pts[i].x);
+			}
+		}
+
+		if (cyclic) {
+			/* draw line to first point to complete the cycle */
+			immVertex3fv(pos, cyclic_fpt);
+			++draw_points;
+		}
+
+		/* if less of two points, need to repeat last point to avoid assert in immEnd() */
+		if (draw_points < 2) {
+			immVertex3fv(pos, &pts[tot_points - 1].x);
+		}
+
+		immEnd();
+		immUnbindProgram();
+	}
+}
+
 void Widget_Annotate::render(VR_Side side)
 {
-	int tot_points = points.size();
-
 	/* Eraser */
 	if (eraser) {
 		const Mat44f& prior_model_matrix = VR_Draw::get_model_matrix();
@@ -419,87 +523,8 @@ void Widget_Annotate::render(VR_Side side)
 		Widget_Annotate::obj.do_render[side] = false;
 		return;
 	}
-
-	/* Adapted from gp_draw_stroke_3d() in annotate_draw.c. */
-	if (tot_points <= 1) { 
-		/* If click, point will already be finalized and drawn. 
-		 * If drag, need at least two points to draw a line. */
-	}
-	else { 
-		/* if cyclic needs one vertex more */
-		bool cyclic = false;
-		if ((*(Coord3Df*)&points[0] == *(Coord3Df*)&points[tot_points - 1])) {
-			cyclic = true;
-		}
-		int cyclic_add = 0;
-		if (cyclic) {
-			++cyclic_add;
-		}
-
-		float cyclic_fpt[3];
-		int draw_points = 0;
-
-		float cur_pressure = points[0].pressure;
-
-		GPUVertFormat *format = immVertexFormat();
-		uint pos = GPU_vertformat_attr_add(format, "pos", GPU_COMP_F32, 3, GPU_FETCH_FLOAT);
-
-		immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
-		immUniformColor3fvAlpha(color, color[3]);
-
-		/* TODO: implement this with a geometry shader to draw one continuous tapered stroke */
-
-		/* draw stroke curve */
-		GPU_line_width(max_ff(cur_pressure * line_thickness, 1.0f));
-		immBeginAtMost(GPU_PRIM_LINE_STRIP, tot_points + cyclic_add);
-		for (int i = 0; i < tot_points; ++i) {
-			/* if there was a significant pressure change, stop the curve, change the thickness of the stroke,
-			 * and continue drawing again (since line-width cannot change in middle of GL_LINE_STRIP)
-			 * Note: we want more visible levels of pressures when thickness is bigger.
-			 */
-			if (fabsf(points[i].pressure - cur_pressure) > 0.2f / (float)line_thickness) {
-				/* if the pressure changes before get at least 2 vertices, need to repeat last point to avoid assert in immEnd() */
-				if (draw_points < 2) {
-					immVertex3fv(pos, &points[i - 1].x);
-				}
-				immEnd();
-				draw_points = 0;
-
-				cur_pressure = points[i].pressure;
-				GPU_line_width(max_ff(cur_pressure * line_thickness, 1.0f));
-				immBeginAtMost(GPU_PRIM_LINE_STRIP, tot_points - i + 1 + cyclic_add);
-
-				/* need to roll-back one point to ensure that there are no gaps in the stroke */
-				if (i != 0) {
-					immVertex3fv(pos, &points[i - 1].x);
-					++draw_points;
-				}
-			}
-
-			/* now the point we want */
-			immVertex3fv(pos, &points[i].x);
-			++draw_points;
-
-			if (cyclic && i == 0) {
-				/* save first point to use in cyclic */
-				copy_v3_v3(cyclic_fpt, &points[i].x);
-			}
-		}
-
-		if (cyclic) {
-			/* draw line to first point to complete the cycle */
-			immVertex3fv(pos, cyclic_fpt);
-			++draw_points;
-		}
-
-		/* if less of two points, need to repeat last point to avoid assert in immEnd() */
-		if (draw_points < 2) {
-			immVertex3fv(pos, &points[tot_points - 1].x);
-		}
-
-		immEnd();
-		immUnbindProgram();
-	}
+	
+	render_points(points, active_layer);
 
 	Widget_Annotate::obj.do_render[side] = false;
 }

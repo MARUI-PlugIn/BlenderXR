@@ -54,7 +54,7 @@ _km_hierarchy = [
     ('Window', 'EMPTY', 'WINDOW', []),  # file save, window change, exit
     ('Screen', 'EMPTY', 'WINDOW', [     # full screen, undo, screenshot
         ('Screen Editing', 'EMPTY', 'WINDOW', []),    # re-sizing, action corners
-        ('Header', 'EMPTY', 'WINDOW', []),            # header stuff (per region)
+        ('Region Context Menu', 'EMPTY', 'WINDOW', []),      # header/footer/navigation_bar stuff (per region)
     ]),
 
     ('View2D', 'EMPTY', 'WINDOW', []),    # view 2d navigation (per region)
@@ -111,6 +111,7 @@ _km_hierarchy = [
 
         ('Knife Tool Modal Map', 'EMPTY', 'WINDOW', []),
         ('Custom Normals Modal Map', 'EMPTY', 'WINDOW', []),
+        ('Bevel Modal Map', 'EMPTY', 'WINDOW', []),
         ('Paint Stroke Modal', 'EMPTY', 'WINDOW', []),
         ('Paint Curve', 'EMPTY', 'WINDOW', []),
 
@@ -142,9 +143,18 @@ _km_hierarchy = [
     ('Timeline', 'TIMELINE', 'WINDOW', []),
 
     ('Image', 'IMAGE_EDITOR', 'WINDOW', [
-        ('UV Editor', 'EMPTY', 'WINDOW', []),  # image (reverse order, UVEdit before Image)
-        ('Image Paint', 'EMPTY', 'WINDOW', []),  # image and view3d
+        # Image (reverse order, UVEdit before Image).
+        ('UV Editor', 'EMPTY', 'WINDOW', [
+            _km_expand_from_toolsystem('IMAGE_EDITOR', 'UV'),
+        ]),
         ('UV Sculpt', 'EMPTY', 'WINDOW', []),
+        # Image and view3d.
+        ('Image Paint', 'EMPTY', 'WINDOW', [
+            _km_expand_from_toolsystem('IMAGE_EDITOR', 'PAINT'),
+        ]),
+        ('Image View', 'IMAGE_EDITOR', 'WINDOW', [
+            _km_expand_from_toolsystem('IMAGE_EDITOR', 'VIEW'),
+        ]),
         ('Image Generic', 'IMAGE_EDITOR', 'WINDOW', [
             _km_expand_from_toolsystem('IMAGE_EDITOR', None),
         ]),
@@ -202,5 +212,5 @@ _km_hierarchy = [
     ('Standard Modal Map', 'EMPTY', 'WINDOW', []),
     ('Transform Modal Map', 'EMPTY', 'WINDOW', []),
     ('Eyedropper Modal Map', 'EMPTY', 'WINDOW', []),
-    ('Eyedropper ColorBand PointSampling Map', 'EMPTY', 'WINDOW', []),
+    ('Eyedropper ColorRamp PointSampling Map', 'EMPTY', 'WINDOW', []),
 ]

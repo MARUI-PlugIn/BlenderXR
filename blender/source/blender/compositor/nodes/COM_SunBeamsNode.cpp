@@ -1,7 +1,4 @@
-/*
- * Copyright 2014, Blender Foundation.
- *
- * This program is free software; you can redistribute it and/or
+/* This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
@@ -14,6 +11,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * Copyright 2014, Blender Foundation.
  */
 
 #include "COM_SunBeamsNode.h"
@@ -21,19 +20,20 @@
 
 SunBeamsNode::SunBeamsNode(bNode *editorNode) : Node(editorNode)
 {
-	/* pass */
+  /* pass */
 }
 
-void SunBeamsNode::convertToOperations(NodeConverter &converter, const CompositorContext &/*context*/) const
+void SunBeamsNode::convertToOperations(NodeConverter &converter,
+                                       const CompositorContext & /*context*/) const
 {
-	NodeInput *inputSocket = this->getInputSocket(0);
-	NodeOutput *outputSocket = this->getOutputSocket(0);
-	NodeSunBeams *data = (NodeSunBeams *)getbNode()->storage;
+  NodeInput *inputSocket = this->getInputSocket(0);
+  NodeOutput *outputSocket = this->getOutputSocket(0);
+  NodeSunBeams *data = (NodeSunBeams *)getbNode()->storage;
 
-	SunBeamsOperation *operation = new SunBeamsOperation();
-	operation->setData(*data);
-	converter.addOperation(operation);
+  SunBeamsOperation *operation = new SunBeamsOperation();
+  operation->setData(*data);
+  converter.addOperation(operation);
 
-	converter.mapInputSocket(inputSocket, operation->getInputSocket(0));
-	converter.mapOutputSocket(outputSocket, operation->getOutputSocket(0));
+  converter.mapInputSocket(inputSocket, operation->getInputSocket(0));
+  converter.mapOutputSocket(outputSocket, operation->getOutputSocket(0));
 }

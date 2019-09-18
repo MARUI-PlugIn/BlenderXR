@@ -14,6 +14,10 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
+/** \file
+ * \ingroup balembic
+ */
+
 #include "abc_mball.h"
 #include "abc_mesh.h"
 #include "abc_transform.h"
@@ -34,78 +38,62 @@ extern "C" {
 #include "MEM_guardedalloc.h"
 }
 
-AbcMBallWriter::AbcMBallWriter(
-        Main *bmain,
-        Object *ob,
-        AbcTransformWriter *parent,
-        uint32_t time_sampling,
-        ExportSettings &settings)
-    : AbcObjectWriter(ob, time_sampling, settings, parent)
-    , m_bmain(bmain)
+AbcMBallWriter::AbcMBallWriter(Main *bmain,
+                               Object *ob,
+                               AbcTransformWriter *parent,
+                               uint32_t time_sampling,
+                               ExportSettings &settings)
+    : AbcGenericMeshWriter(ob, parent, time_sampling, settings), m_bmain(bmain)
 {
-	m_is_animated = isAnimated();
-
-	m_mesh_ob = BKE_object_copy(bmain, ob);
-	m_mesh_ob->runtime.curve_cache = (CurveCache *)MEM_callocN(
-	                             sizeof(CurveCache),
-	                             "CurveCache for AbcMBallWriter");
-	/* TODO(Sybren): reimplement metaball writing as subclass of AbcGenericMeshWriter. */
-	m_mesh_writer = new AbcMeshWriter(m_mesh_ob, parent, time_sampling, settings);
-	m_mesh_writer->setIsAnimated(m_is_animated);
+  m_is_animated = isAnimated();
 }
-
 
 AbcMBallWriter::~AbcMBallWriter()
 {
-	delete m_mesh_writer;
-	BKE_object_free(m_mesh_ob);
 }
 
 bool AbcMBallWriter::isAnimated() const
 {
-	MetaBall *mb = static_cast<MetaBall *>(m_object->data);
-	if (mb->adt != NULL) return true;
-
-	/* Any movement of any object in the parent chain
-	 * could cause the mball to deform. */
-	for (Object *ob = m_object; ob != NULL; ob = ob->parent) {
-		if (ob->adt != NULL) return true;
-	}
-	return false;
+  return true;
 }
 
-void AbcMBallWriter::do_write()
+Mesh *AbcMBallWriter::getEvaluatedMesh(Scene * /*scene_eval*/, Object *ob_eval, bool &r_needsfree)
 {
-	/* We have already stored a sample for this object. */
-	if (!m_first_frame && !m_is_animated)
-		return;
+  if (ob_eval->runtime.mesh_eval != NULL) {
+    /* Mesh_eval only exists when generative modifiers are in use. */
+    r_needsfree = false;
+    return ob_eval->runtime.mesh_eval;
+  }
+  r_needsfree = true;
 
-	Mesh *tmpmesh = BKE_mesh_add(m_bmain, ((ID *)m_object->data)->name + 2);
-	BLI_assert(tmpmesh != NULL);
-	m_mesh_ob->data = tmpmesh;
+  /* The approach below is copied from BKE_mesh_new_from_object() */
+  Mesh *tmpmesh = BKE_mesh_add(m_bmain, ((ID *)m_object->data)->name + 2);
+  BLI_assert(tmpmesh != NULL);
 
-	/* BKE_mesh_add gives us a user count we don't need */
-	id_us_min(&tmpmesh->id);
+  /* BKE_mesh_add gives us a user count we don't need */
+  id_us_min(&tmpmesh->id);
 
-	ListBase disp = {NULL, NULL};
-	/* TODO(sergey): This is gonna to work for until Depsgraph
-	 *               only contains for_render flag. As soon as CoW is
-	 *               implemented, this is to be rethinked.
-	 */
-	BKE_displist_make_mball_forRender(m_settings.depsgraph, m_settings.scene, m_object, &disp);
-	BKE_mesh_from_metaball(&disp, tmpmesh);
-	BKE_displist_free(&disp);
+  ListBase disp = {NULL, NULL};
+  /* TODO(sergey): This is gonna to work for until Depsgraph
+   *               only contains for_render flag. As soon as CoW is
+   *               implemented, this is to be rethinked.
+   */
+  BKE_displist_make_mball_forRender(m_settings.depsgraph, m_settings.scene, m_object, &disp);
+  BKE_mesh_from_metaball(&disp, tmpmesh);
+  BKE_displist_free(&disp);
 
-	BKE_mesh_texspace_copy_from_object(tmpmesh, m_mesh_ob);
+  BKE_mesh_texspace_copy_from_object(tmpmesh, m_object);
 
-	m_mesh_writer->write();
+  return tmpmesh;
+}
 
-	BKE_id_free(m_bmain, tmpmesh);
-	m_mesh_ob->data = NULL;
+void AbcMBallWriter::freeEvaluatedMesh(struct Mesh *mesh)
+{
+  BKE_id_free(m_bmain, mesh);
 }
 
 bool AbcMBallWriter::isBasisBall(Scene *scene, Object *ob)
 {
-	Object *basis_ob = BKE_mball_basis_find(scene, ob);
-	return ob == basis_ob;
+  Object *basis_ob = BKE_mball_basis_find(scene, ob);
+  return ob == basis_ob;
 }

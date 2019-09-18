@@ -23,7 +23,7 @@ bl_info = {
     "author": "testscreenings, PKHG, TrumanBlending",
     "version": (0, 1, 5),
     "blender": (2, 80, 0),
-    "location": "View3D > Properties Panel > Ivy Generator",
+    "location": "View3D > Sidebar > Ivy Generator (Create Tab)",
     "description": "Adds generated ivy to a mesh object starting "
                    "at the 3D cursor",
     "warning": "",
@@ -438,12 +438,14 @@ def bvhtree_from_object(ob):
     import bmesh
     bm = bmesh.new()
 
-    mesh = ob.to_mesh(bpy.context.depsgraph, True)
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+    ob_eval = ob.evaluated_get(depsgraph)
+    mesh = ob_eval.to_mesh()
     bm.from_mesh(mesh)
     bm.transform(ob.matrix_world)
 
     bvhtree = BVHTree.FromBMesh(bm)
-    bpy.data.meshes.remove(mesh)
+    ob_eval.to_mesh_clear()
     return bvhtree
 
 def check_mesh_faces(ob):
@@ -528,7 +530,7 @@ class IvyGen(Operator):
         # radius = computeBoundingSphere(ob)  # Not needed anymore
 
         # Get the seeding point
-        seedPoint = context.scene.cursor_location
+        seedPoint = context.scene.cursor.location
 
         # Fix the random seed
         rand_seed(randomSeed)
@@ -601,7 +603,7 @@ class CURVE_PT_IvyGenPanel(Panel):
     bl_idname = "CURVE_PT_IvyGenPanel"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = "View"
+    bl_category = "Create"
     bl_options = {"DEFAULT_CLOSED"}
 
     def draw(self, context):

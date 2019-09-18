@@ -15,18 +15,16 @@
 * along with this program; if not, write to the Free Software Foundation,
 * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 *
-* The Original Code is Copyright (C) 2018 by Blender Foundation.
+* The Original Code is Copyright (C) 2019 by Blender Foundation.
 * All rights reserved.
 *
-* Contributor(s): MARUI-PlugIn
+* Contributor(s): MARUI-PlugIn, Multiplexed Reality
 *
 * ***** END GPL LICENSE BLOCK *****
 */
 
 /** \file blender/vr/intern/vr_widget_separate.cpp
 *   \ingroup vr
-*
-* Main module for the VR widget UI.
 */
 
 #include "vr_types.h"
@@ -64,7 +62,7 @@
 #include "WM_api.h"
 #include "WM_types.h"
 
-/***********************************************************************************************//**
+/***************************************************************************************************
  * \class                               Widget_Separate
  ***************************************************************************************************
  * Interaction widget for performing a 'separate' operation.
@@ -90,18 +88,17 @@ static Base *mesh_separate_tagged(Main *bmain, Scene *scene, ViewLayer *view_lay
 	Object *obedit = base_old->object;
 	BMesh *bm_new;
 
-	BMeshCreateParams params = { 0 };
-	params.use_toolflags = true;
-
+	struct BMeshCreateParams mesh_create_params = { 0 };
+	mesh_create_params.use_toolflags = true;
 	bm_new = BM_mesh_create(
 		&bm_mesh_allocsize_default,
-		&params);
+		&mesh_create_params);
 	BM_mesh_elem_toolflags_ensure(bm_new);  /* needed for 'duplicate' bmo */
 
-	CustomData_copy(&bm_old->vdata, &bm_new->vdata, CD_MASK_BMESH, CD_CALLOC, 0);
-	CustomData_copy(&bm_old->edata, &bm_new->edata, CD_MASK_BMESH, CD_CALLOC, 0);
-	CustomData_copy(&bm_old->ldata, &bm_new->ldata, CD_MASK_BMESH, CD_CALLOC, 0);
-	CustomData_copy(&bm_old->pdata, &bm_new->pdata, CD_MASK_BMESH, CD_CALLOC, 0);
+	CustomData_copy(&bm_old->vdata, &bm_new->vdata, CD_MASK_BMESH.vmask, CD_CALLOC, 0);
+	CustomData_copy(&bm_old->edata, &bm_new->edata, CD_MASK_BMESH.emask, CD_CALLOC, 0);
+	CustomData_copy(&bm_old->ldata, &bm_new->ldata, CD_MASK_BMESH.lmask, CD_CALLOC, 0);
+	CustomData_copy(&bm_old->pdata, &bm_new->pdata, CD_MASK_BMESH.pmask, CD_CALLOC, 0);
 
 	CustomData_bmesh_init_pool(&bm_new->vdata, bm_mesh_allocsize_default.totvert, BM_VERT);
 	CustomData_bmesh_init_pool(&bm_new->edata, bm_mesh_allocsize_default.totedge, BM_EDGE);
@@ -109,8 +106,12 @@ static Base *mesh_separate_tagged(Main *bmain, Scene *scene, ViewLayer *view_lay
 	CustomData_bmesh_init_pool(&bm_new->pdata, bm_mesh_allocsize_default.totface, BM_FACE);
 
 	base_new = ED_object_add_duplicate(bmain, scene, view_layer, base_old, USER_DUP_MESH);
-	/* DAG_relations_tag_update(bmain); */ /* normally would call directly after but in this case delay recalc */
-	assign_matarar(bmain, base_new->object, give_matarar(obedit), *give_totcolp(obedit)); /* new in 2.5 */
+
+	/* normally would call directly after but in this case delay recalc */
+	/* DAG_relations_tag_update(bmain); */
+
+	/* new in 2.5 */
+	assign_matarar(bmain, base_new->object, give_matarar(obedit), *give_totcolp(obedit));
 
 	ED_object_base_select(base_new, BA_SELECT);
 
@@ -126,11 +127,11 @@ static Base *mesh_separate_tagged(Main *bmain, Scene *scene, ViewLayer *view_lay
 
 	BM_mesh_normals_update(bm_new);
 
-	BMeshToMeshParams mm_params = { 0 };
-	BM_mesh_bm_to_me(bmain, bm_new, (Mesh*)base_new->object->data, &mm_params);
+	struct BMeshToMeshParams mesh_to_mesh_params = { 0 };
+	BM_mesh_bm_to_me(bmain, bm_new, (Mesh*)base_new->object->data, &mesh_to_mesh_params);
 
 	BM_mesh_free(bm_new);
-	((Mesh*)base_new->object->data)->edit_btmesh = NULL;
+	((Mesh *)base_new->object->data)->edit_mesh = NULL;
 
 	return base_new;
 }

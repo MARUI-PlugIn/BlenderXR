@@ -19,13 +19,15 @@
 # <pep8-80 compliant>
 
 from bpy.types import Menu
-
+from bpy.app.translations import contexts as i18n_contexts
+ 
 
 class MASK_MT_add(Menu):
     bl_idname = "MASK_MT_add"
     bl_label = "Add"
+    bl_translation_context = i18n_contexts.operator_default
 
-    def draw(self, context):
+    def draw(self, _context):
         layout = self.layout
 
         layout.operator_context = 'INVOKE_REGION_WIN'

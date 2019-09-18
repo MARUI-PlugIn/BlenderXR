@@ -15,10 +15,10 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * The Original Code is Copyright (C) 2018 by Blender Foundation.
+ * The Original Code is Copyright (C) 2019 by Blender Foundation.
  * All rights reserved.
  *
- * Contributor(s): MARUI-PlugIn
+ * Contributor(s): MARUI-PlugIn, Multiplexed Reality
  *
  * ***** END GPL LICENSE BLOCK *****
  */
@@ -40,12 +40,23 @@
 #include "DNA_windowmanager_types.h"
 
 #include "BKE_camera.h"
+#include "BKE_library.h"
+#include "BKE_library_query.h"
+#include "BKE_main.h"
+#include "BKE_object.h"
+
+#include "DEG_depsgraph_build.h"
+
+#include "ED_object.h"
 
 #include "GPU_framebuffer.h"
 #include "GPU_viewport.h"
 
 #include "draw_manager.h"
 #include "wm_draw.h"
+
+#include "WM_api.h"
+#include "WM_types.h"
 
 #ifdef WIN32
 #include "BLI_winstuff.h"
@@ -107,6 +118,9 @@ static c_uninitVR vr_dll_uninit_vr;
 static VR vr;
 VR *vr_get_obj() { return &vr; }
 
+/* Temporary VR camera to use if scene does not contain a camera. */
+static Object *vr_temp_cam = NULL;
+
 /* The active VR dll (if any). */
 #ifdef WIN32
 static HINSTANCE vr_dll;
@@ -117,6 +131,10 @@ static void *vr_dll;
 /* Unload shared library functions. */
 static int vr_unload_dll_functions(void)
 {
+  if (!vr_dll) {
+    return 0;
+  }
+
 #ifdef WIN32
 	int success = FreeLibrary(vr_dll);
 	if (success) {
@@ -135,65 +153,163 @@ static int vr_unload_dll_functions(void)
 }
 
 /* Load shared library functions and set VR type. */
-static int vr_load_dll_functions(void)
+static int vr_load_dll_functions(VR_Type type)
 {
-	if (vr_dll) {
-		vr_unload_dll_functions();
-	}
+  if (vr_dll) {
+    vr_unload_dll_functions();
+  }
 
-	/* The shared library must be in the folder that contains the Blender executable.
-	 * "BlenderXR_SteamVR.dll/.so" also requires "openvr_api.dll/.so" to be present.
-	 * "BlenderXR_Fove.dll" also requires "FoveClient.dll". */
-	for (int i = 1; i < VR_TYPES; ++i) {
-		if (i == VR_TYPE_STEAM) {
-			#ifdef WIN32
-			vr_dll = LoadLibrary("BlenderXR_SteamVR.dll");
-			#elif defined __linux__
-			static char proc_path[PATH_MAX];
-			static char path[PATH_MAX];
-			memset(path, 0, sizeof(path));
-			pid_t pid = getpid();
-			sprintf(proc_path, "/proc/%d/exe", pid);
-			ssize_t len = readlink(proc_path, path, PATH_MAX);
-			if (len != -1) {
-				/* Replace the "blender" tail */
-				sprintf(&path[len-7], "libBlenderXR_SteamVR.so");
-				vr_dll = dlopen(path, RTLD_NOW | RTLD_LOCAL);
-			}
-			#elif defined __APPLE__
-			static char proc_path[PROC_PIDPATHINFO_MAXSIZE];
-			static char path[PATH_MAX];
-			memset(path, 0, sizeof(path));
-			pid_t pid = getpid();
-			int len = proc_pidpath(pid, path, PATH_MAX);
-			if (len > 0) {
-				/* Replace the "blender.app/Contents/MacOS/blender" tail */
-				sprintf(&path[len-34], "libBlenderXR_SteamVR.dylib");
-				vr_dll = dlopen(path, RTLD_NOW | RTLD_LOCAL);
-			}
-			#endif
-			if (vr_dll) {
-				vr.type = VR_TYPE_STEAM;
-				break;
-			}
-		}
+  /* The shared library must be in the folder that contains the Blender executable.
+   * "BlenderXR_OpenXR.dll/.so" also requires "openxr-loader-1_0.dll/.so" to be present.
+   * "BlenderXR_SteamVR.dll/.so" also requires "openvr_api.dll/.so" to be present.
+   * "BlenderXR_Fove.dll" also requires "FoveClient.dll". */
+  switch (type) {
+  case VR_TYPE_MAGICLEAP: {
+    return -1;
+  }
+  case VR_TYPE_OPENXR: {
 #ifdef WIN32
-		else if (i == VR_TYPE_OCULUS) {
-			vr_dll = LoadLibrary("BlenderXR_Oculus.dll");
-			if (vr_dll) {
-				vr.type = VR_TYPE_OCULUS;
-				break;
-			}
-		}
-		else if (i == VR_TYPE_FOVE) {
-			vr_dll = LoadLibrary("BlenderXR_Fove.dll");
-			if (vr_dll) {
-				vr.type = VR_TYPE_FOVE;
-				break;
-			}
-		}
+    vr_dll = LoadLibrary("BlenderXR_OpenXR.dll");
+#elif defined __linux__
+    static char proc_path[PATH_MAX];
+    static char path[PATH_MAX];
+    memset(path, 0, sizeof(path));
+    pid_t pid = getpid();
+    sprintf(proc_path, "/proc/%d/exe", pid);
+    ssize_t len = readlink(proc_path, path, PATH_MAX);
+    if (len != -1) {
+      /* Replace the "blender" tail */
+      sprintf(&path[len - 7], "libBlenderXR_OpenXR.so");
+      vr_dll = dlopen(path, RTLD_NOW | RTLD_LOCAL);
+    }
+#elif defined __APPLE__
+    static char proc_path[PROC_PIDPATHINFO_MAXSIZE];
+    static char path[PATH_MAX];
+    memset(path, 0, sizeof(path));
+    pid_t pid = getpid();
+    int len = proc_pidpath(pid, path, PATH_MAX);
+    if (len > 0) {
+      /* Replace the "blender.app/Contents/MacOS/blender" tail */
+      sprintf(&path[len - 34], "libBlenderXR_OpenXR.dylib");
+      vr_dll = dlopen(path, RTLD_NOW | RTLD_LOCAL);
+    }
 #endif
-	}
+    if (vr_dll) {
+      vr.type = VR_TYPE_OPENXR;
+    }
+    break;
+  }
+  case VR_TYPE_STEAM: {
+#ifdef WIN32
+    vr_dll = LoadLibrary("BlenderXR_SteamVR.dll");
+#elif defined __linux__
+    static char proc_path[PATH_MAX];
+    static char path[PATH_MAX];
+    memset(path, 0, sizeof(path));
+    pid_t pid = getpid();
+    sprintf(proc_path, "/proc/%d/exe", pid);
+    ssize_t len = readlink(proc_path, path, PATH_MAX);
+    if (len != -1) {
+      /* Replace the "blender" tail */
+      sprintf(&path[len - 7], "libBlenderXR_SteamVR.so");
+      vr_dll = dlopen(path, RTLD_NOW | RTLD_LOCAL);
+    }
+#elif defined __APPLE__
+    static char proc_path[PROC_PIDPATHINFO_MAXSIZE];
+    static char path[PATH_MAX];
+    memset(path, 0, sizeof(path));
+    pid_t pid = getpid();
+    int len = proc_pidpath(pid, path, PATH_MAX);
+    if (len > 0) {
+      /* Replace the "blender.app/Contents/MacOS/blender" tail */
+      sprintf(&path[len - 34], "libBlenderXR_SteamVR.dylib");
+      vr_dll = dlopen(path, RTLD_NOW | RTLD_LOCAL);
+    }
+#endif
+    if (vr_dll) {
+      vr.type = VR_TYPE_STEAM;
+    }
+    break;
+  }
+  case VR_TYPE_OCULUS: {
+#ifdef WIN32
+    vr_dll = LoadLibrary("BlenderXR_Oculus.dll");
+    if (vr_dll) {
+      vr.type = VR_TYPE_OCULUS;
+    }
+#endif
+    break;
+  }
+  case VR_TYPE_FOVE: {
+#ifdef WIN32
+    vr_dll = LoadLibrary("BlenderXR_Fove.dll");
+    if (vr_dll) {
+      vr.type = VR_TYPE_FOVE;
+    }
+#endif
+    break;
+  }
+  case VR_TYPE_NULL:
+  default: {
+    for (int i = 1; i < VR_TYPES; ++i) {
+      if (i == VR_TYPE_MAGICLEAP) {
+        continue;
+      }
+      else if (i == VR_TYPE_OPENXR) {
+        continue;
+      }
+      else if (i == VR_TYPE_STEAM) {
+#ifdef WIN32
+        vr_dll = LoadLibrary("BlenderXR_SteamVR.dll");
+#elif defined __linux__
+        static char proc_path[PATH_MAX];
+        static char path[PATH_MAX];
+        memset(path, 0, sizeof(path));
+        pid_t pid = getpid();
+        sprintf(proc_path, "/proc/%d/exe", pid);
+        ssize_t len = readlink(proc_path, path, PATH_MAX);
+        if (len != -1) {
+          /* Replace the "blender" tail */
+          sprintf(&path[len - 7], "libBlenderXR_SteamVR.so");
+          vr_dll = dlopen(path, RTLD_NOW | RTLD_LOCAL);
+        }
+#elif defined __APPLE__
+        static char proc_path[PROC_PIDPATHINFO_MAXSIZE];
+        static char path[PATH_MAX];
+        memset(path, 0, sizeof(path));
+        pid_t pid = getpid();
+        int len = proc_pidpath(pid, path, PATH_MAX);
+        if (len > 0) {
+          /* Replace the "blender.app/Contents/MacOS/blender" tail */
+          sprintf(&path[len - 34], "libBlenderXR_SteamVR.dylib");
+          vr_dll = dlopen(path, RTLD_NOW | RTLD_LOCAL);
+        }
+#endif
+        if (vr_dll) {
+          vr.type = VR_TYPE_STEAM;
+          break;
+        }
+      }
+#ifdef WIN32
+      else if (i == VR_TYPE_OCULUS) {
+        vr_dll = LoadLibrary("BlenderXR_Oculus.dll");
+        if (vr_dll) {
+          vr.type = VR_TYPE_OCULUS;
+          break;
+        }
+      }
+      else if (i == VR_TYPE_FOVE) {
+        vr_dll = LoadLibrary("BlenderXR_Fove.dll");
+        if (vr_dll) {
+          vr.type = VR_TYPE_FOVE;
+          break;
+        }
+      }
+#endif
+    }
+    break;
+  }
+  }
 	if (!vr_dll) {
 		return -1;
 	}
@@ -325,6 +441,111 @@ static int vr_load_dll_functions(void)
 	return 0;
 }
 
+/* Create temporary camera. */
+static int vr_create_temp_camera(View3D *v3d)
+{
+  /* Adapted from bc_add_object() in collada_utils.cpp */
+  bContext *C = vr_get_obj()->ctx;
+  Main *main = CTX_data_main(C);
+  ViewLayer *view_layer = CTX_data_view_layer(C);
+
+  Object *ob = BKE_object_add_only_object(main, OB_CAMERA, NULL);
+  if (!ob) {
+    return -1;
+  }
+
+  ob->data = BKE_object_obdata_add_from_type(main, OB_CAMERA, NULL);
+  DEG_id_tag_update(&ob->id, ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY | ID_RECALC_ANIMATION);
+
+  LayerCollection *layer_collection = BKE_layer_collection_get_active(view_layer);
+  BKE_collection_object_add(main, layer_collection->collection, ob);
+
+  Base *base = BKE_view_layer_base_find(view_layer, ob);
+  BKE_view_layer_base_select_and_set_active(view_layer, base);
+
+  v3d->camera = vr_temp_cam = ob;
+
+  return 0;
+}
+
+/* Delete temporary camera. */
+static int vr_delete_temp_camera(void)
+{
+  bContext *C = vr_get_obj()->ctx;
+  Main *bmain = CTX_data_main(C);
+  Scene *scene = CTX_data_scene(C);
+  wmWindowManager *wm = CTX_wm_manager(C);
+  wmWindow *win;
+  bool changed = false;
+  bool use_global = true;
+
+  if (!vr_temp_cam) {
+    return 0;
+  }
+  Object *ob = vr_temp_cam;
+
+  const bool is_indirectly_used = BKE_library_ID_is_indirectly_used(bmain, ob);
+  if (ob->id.tag & LIB_TAG_INDIRECT) {
+    /* Can this case ever happen? */
+    return -1;
+  }
+  else if (is_indirectly_used && ID_REAL_USERS(ob) <= 1 && ID_EXTRA_USERS(ob) == 0) {
+    return -1;
+  }
+
+  /* This is sort of a quick hack to address T51243 - Proper thing to do here would be to nuke most of all this
+    * custom scene/object/base handling, and use generic lib remap/query for that.
+    * But this is for later (aka 2.8, once layers & co are settled and working).
+    */
+  if (use_global && ob->id.lib == NULL) {
+    /* We want to nuke the object, let's nuke it the easy way (not for linked data though)... */
+    BKE_id_delete(bmain, &ob->id);
+    changed = true;
+  }
+  else {
+    /* remove from current scene only */
+    ED_object_base_free_and_unlink(bmain, scene, ob);
+    changed = true;
+  }
+
+  if (use_global) {
+    Scene *scene_iter;
+    for (scene_iter = (Scene*)bmain->scenes.first; scene_iter; scene_iter = (Scene*)scene_iter->id.next) {
+      if (scene_iter != scene && !ID_IS_LINKED(scene_iter)) {
+        if (is_indirectly_used && ID_REAL_USERS(ob) <= 1 && ID_EXTRA_USERS(ob) == 0) {
+          break;
+        }
+        ED_object_base_free_and_unlink(bmain, scene_iter, ob);
+      }
+    }
+  }
+
+  if (!changed) {
+    return -1;
+  }
+
+  /* delete has to handle all open scenes */
+  BKE_main_id_tag_listbase(&bmain->scenes, LIB_TAG_DOIT, true);
+  for (win = (wmWindow*)wm->windows.first; win; win = win->next) {
+    scene = WM_window_get_active_scene(win);
+
+    if (scene->id.tag & LIB_TAG_DOIT) {
+      scene->id.tag &= ~LIB_TAG_DOIT;
+
+      DEG_relations_tag_update(bmain);
+
+      DEG_id_tag_update(&scene->id, ID_RECALC_SELECT);
+      WM_event_add_notifier(C, NC_SCENE | ND_OB_ACTIVE, scene);
+      WM_event_add_notifier(C, NC_SCENE | ND_LAYER_CONTENT, scene);
+    }
+  }
+  //ED_undo_push(C, "Delete");
+
+  vr_temp_cam = NULL;
+
+  return 0;
+}
+
 /* Copy-pasted from wm_draw_offscreen_texture_parameters(). */
 static void vr_draw_offscreen_texture_parameters(GPUOffScreen *offscreen)
 {
@@ -347,52 +568,133 @@ static void vr_draw_offscreen_texture_parameters(GPUOffScreen *offscreen)
 
 int vr_init(bContext *C)
 {
-	memset(&vr, 0, sizeof(vr));
-	int error = vr_load_dll_functions();
+  memset(&vr, 0, sizeof(vr));
 
-	if (!error) {
-		vr_dll_create_vr();
-#ifdef WIN32
-		HDC device = wglGetCurrentDC();
-		HGLRC context = wglGetCurrentContext();
-		error = vr_dll_init_vr((void*)device, (void*)context);
-#else
-		if (vr.type == VR_TYPE_STEAM) {
-#ifdef __APPLE__
-			Display* display = NULL;
-#else
-			Display* display = glXGetCurrentDisplay();
-#endif
-			GLXDrawable drawable = glXGetCurrentDrawable();
-			GLXContext context = glXGetCurrentContext();
-			error = vr_dll_init_vr((void*)display, (void*)&drawable, (void*)&context);
-		}
-		else {
-			return -1;
-		}
-#endif
-		if (!error) {
-			/* Get VR params. */
-			vr_dll_get_default_eye_params(0, &vr.fx[0], &vr.fy[0], &vr.cx[0], &vr.cy[0]);
-			vr_dll_get_default_eye_params(1, &vr.fx[1], &vr.fy[1], &vr.cx[1], &vr.cy[1]);
-			vr_dll_get_default_eye_tex_size(&vr.tex_width, &vr.tex_height, 0);
-			vr.aperture_u = 1.0f;
-			vr.aperture_v = 1.0f;
-			vr.clip_sta = VR_CLIP_NEAR;
-			vr.clip_end = VR_CLIP_FAR;
-			vr_dll_get_eye_positions(vr.t_eye[VR_SPACE_REAL]);
-			vr_dll_get_hmd_position(vr.t_hmd[VR_SPACE_REAL]);
-			vr_dll_get_controller_positions(vr.t_controller[VR_SPACE_REAL]);
+  int type;
+  int autodetect = (U.vr_device == 0);
 
-			vr.ctx = C;
-			vr.initialized = 1;
-		}
-	}
+  if (U.vr_openxr) {
+    switch ((VR_Device_Type)U.vr_device) {
+    case VR_DEVICE_TYPE_MAGICLEAP: {
+      type = VR_TYPE_MAGICLEAP;
+      break;
+    }
+    default: {
+      type = VR_TYPE_OPENXR;
+      autodetect = 0;
+      break;
+    }
+    }
+  }
+  else {
+    if (autodetect) {
+      /* Autodetect hardware */
+      type = 1;
+    }
+    else {
+      /* Test for specified device */
+      switch ((VR_Device_Type)U.vr_device) {
+      case VR_DEVICE_TYPE_OCULUS: {
+        type = VR_TYPE_OCULUS;
+        break;
+      }
+      case VR_DEVICE_TYPE_VIVE:
+      case VR_DEVICE_TYPE_WINDOWSMR:
+      case VR_DEVICE_TYPE_PIMAX:
+      case VR_DEVICE_TYPE_INDEX: {
+        type = VR_TYPE_STEAM;
+        break;
+      }
+      case VR_DEVICE_TYPE_FOVE: {
+        type = VR_TYPE_FOVE;
+        break;
+      }
+      case VR_DEVICE_TYPE_MAGICLEAP: {
+        type = VR_TYPE_MAGICLEAP;
+        break;
+      }
+      case VR_DEVICE_TYPE_NULL:
+      default: {
+        printf("Invalid VR device.");
+        return -1;
+      }
+      }
+    }
+  }
 
-	if (!vr.initialized) {
-		printf("Failed to initialize VR.");
-		return -1;
-	}
+  if (type == VR_TYPE_MAGICLEAP) {
+    vr.type = VR_TYPE_MAGICLEAP;
+    /* Try to start remote session. */
+    int error = vr_api_init_remote(5);
+    if (!error) {
+      /* Get VR params. */
+      vr_api_get_params_remote();
+      vr.aperture_u = 1.0f;
+      vr.aperture_v = 1.0f;
+      vr.clip_sta = VR_CLIP_NEAR;
+      vr.clip_end = VR_CLIP_FAR;
+      vr_api_get_transforms_remote();
+
+      vr.ctx = C;
+      vr.initialized = 1;
+      return 0;
+    }
+    else {
+      return -1;
+    }
+  }
+
+  for (; type < VR_TYPES; ++type) {
+    int error = vr_load_dll_functions((VR_Type)type);
+
+    if (!error) {
+      vr_dll_create_vr();
+  #ifdef WIN32
+      HDC device = wglGetCurrentDC();
+      HGLRC context = wglGetCurrentContext();
+      error = vr_dll_init_vr((void*)device, (void*)context);
+  #else
+  #ifdef __APPLE__
+        Display *display = NULL;
+  #else
+        Display *display = glXGetCurrentDisplay();
+  #endif
+        GLXDrawable drawable = glXGetCurrentDrawable();
+        GLXContext context = glXGetCurrentContext();
+        error = vr_dll_init_vr((void*)display, (void*)&drawable, (void*)&context);
+  #endif
+      if (!error) {
+        /* Get VR params. */
+        vr_dll_get_default_eye_params(0, &vr.fx[0], &vr.fy[0], &vr.cx[0], &vr.cy[0]);
+        vr_dll_get_default_eye_params(1, &vr.fx[1], &vr.fy[1], &vr.cx[1], &vr.cy[1]);
+        vr_dll_get_default_eye_tex_size(&vr.tex_width, &vr.tex_height, 0);
+        vr.aperture_u = 1.0f;
+        vr.aperture_v = 1.0f;
+        vr.clip_sta = VR_CLIP_NEAR;
+        vr.clip_end = VR_CLIP_FAR;
+        vr_dll_get_eye_positions(vr.t_eye[VR_SPACE_REAL]);
+        vr_dll_get_hmd_position(vr.t_hmd[VR_SPACE_REAL]);
+        vr_dll_get_controller_positions(vr.t_controller[VR_SPACE_REAL]);
+
+        vr.ctx = C;
+        vr.initialized = 1;
+      }
+      else {
+        vr_dll_uninit_vr();
+      }
+    }
+
+    if (!vr.initialized) {
+      if (!autodetect || (type == (VR_TYPES - 1))) {
+        vr.type = VR_TYPE_NULL;
+        printf("Failed to initialize VR.");
+        return -1;
+      }
+    }
+    else {
+      break;
+    }
+  }
 
 	return 0;
 }
@@ -403,10 +705,15 @@ int vr_init_ui(void)
 
 	int error;
 
-	/* Assign the UI type based on the HMD type.
-	 * This is important when the VR type differs from
-	 * the HMD type (i.e. running WindowsMR through SteamVR. */
-	vr_dll_get_hmd_type((int*)&vr.ui_type);
+  if (vr.type == VR_TYPE_MAGICLEAP) {
+    vr.device_type = VR_DEVICE_TYPE_MAGICLEAP;
+  }
+  else {
+    /* Assign the UI type based on the HMD type.
+     * This is important when the VR type differs from
+     * the HMD type (i.e. running WindowsMR through SteamVR. */
+    vr_dll_get_hmd_type((int*)&vr.device_type);
+  }
 
 	vr_api_create_ui();
 #ifdef WIN32
@@ -414,32 +721,32 @@ int vr_init_ui(void)
 	HGLRC context = wglGetCurrentContext();
 	error = vr_api_init_ui((void*)device, (void*)context);
 #else
-	if (vr.type == VR_TYPE_STEAM) {
 #ifdef __APPLE__
-		Display* display = NULL;
+		Display *display = NULL;
 #else
-		Display* display = glXGetCurrentDisplay();
+		Display *display = glXGetCurrentDisplay();
 #endif
 		GLXDrawable drawable = glXGetCurrentDrawable();
 		GLXContext context = glXGetCurrentContext();
 		error = vr_api_init_ui((void*)display, (void*)&drawable, (void*)&context);
-	}
-	else {
-		return -1;
-	}
 #endif
 	if (!error) {
-		/* Allocate controller structs. */
-		for (int i = 0; i < VR_MAX_CONTROLLERS; ++i) {
-			vr.controller[i] = MEM_callocN(sizeof(VR_Controller), "VR_Controller");
-		}
-		vr_dll_get_controller_states(vr.controller);
-
+    /* Allocate controller structs. */
+    for (int i = 0; i < VR_MAX_CONTROLLERS; ++i) {
+      vr.controller[i] = MEM_callocN(sizeof(VR_Controller), "VR_Controller");
+    }
+    if (vr.type == VR_TYPE_MAGICLEAP) {
+      vr_api_get_controller_states_remote();
+    }
+    else {
+      vr_dll_get_controller_states(vr.controller);
+    } 
 		vr.ui_initialized = 1;
 	}
 
 	if (!vr.ui_initialized) {
-		printf("vr_init_ui() : Failed to initialize VR UI.");
+    vr.device_type = VR_DEVICE_TYPE_NULL;
+    printf("vr_init_ui() : Failed to initialize VR UI.");
 		return -1;
 	}
 
@@ -462,12 +769,25 @@ int vr_uninit(void)
 
 		vr.ui_initialized = 0;
 	}
-	vr_dll_uninit_vr();
+  if (vr.type == VR_TYPE_MAGICLEAP) {
+    vr_api_uninit_remote(0);
+  }
+  else {
+    vr_dll_uninit_vr();
+  }
 
-	vr.ctx = 0;
-	vr.initialized = 0;
+  /* Free viewports. */
+  //vr_free_viewports();
 
-	//vr_free_viewports();
+  if (vr_temp_cam) {
+    /* Delete temporary camera. */
+    vr_delete_temp_camera();
+  }
+
+  vr.ctx = NULL;
+  vr.initialized = 0;
+  vr.type = VR_TYPE_NULL;
+  vr.device_type = VR_DEVICE_TYPE_NULL;
 
 	int error = vr_unload_dll_functions();
 	if (error) {
@@ -567,18 +887,30 @@ int vr_update_tracking(void)
 {
 	BLI_assert(vr.initialized);
 
-	int error = vr_dll_update_tracking_vr();
+  int error;
 
-	/* Get hmd and eye positions. */
-	vr_dll_get_hmd_position(vr.t_hmd[VR_SPACE_REAL]);
-	vr_dll_get_eye_positions(vr.t_eye[VR_SPACE_REAL]);
+  if (vr.type == VR_TYPE_MAGICLEAP) {
+    vr_api_get_transforms_remote();
+  }
+  else {
+    error = vr_dll_update_tracking_vr();
 
-	/* Get controller positions. */
-	vr_dll_get_controller_positions(vr.t_controller[VR_SPACE_REAL]);
+    /* Get hmd and eye positions. */
+    vr_dll_get_hmd_position(vr.t_hmd[VR_SPACE_REAL]);
+    vr_dll_get_eye_positions(vr.t_eye[VR_SPACE_REAL]);
+
+    /* Get controller positions. */
+    vr_dll_get_controller_positions(vr.t_controller[VR_SPACE_REAL]);
+  }
 
 	if (vr.ui_initialized) {
 		/* Get controller button states. */
-		vr_dll_get_controller_states(vr.controller);
+    if (vr.type == VR_TYPE_MAGICLEAP) {
+      vr_api_get_controller_states_remote();
+    }
+    else {
+      vr_dll_get_controller_states(vr.controller);
+    }
 
 		/* Update the UI. */
 		error = vr_api_update_tracking_ui();
@@ -597,6 +929,10 @@ int vr_update_tracking(void)
 int vr_blit(void)
 {
 	BLI_assert(vr.initialized);
+
+  if (vr.type == VR_TYPE_MAGICLEAP) {
+    return 0;
+  }
 
 	int error;
 
@@ -672,8 +1008,8 @@ void vr_compute_viewplane(const View3D *v3d, CameraParams *params, int winx, int
 	float xasp, yasp, pixsize, viewfac, sensor_size, dx, dy;
 
 	// float navscale = vr_api_get_navigation_scale();
-	params->clipsta = vr.clip_sta; // * navscale; Don't need to apply, because the scale factor on the view matrix affects all transformations.
-	params->clipend = vr.clip_end; // * navscale;
+	params->clip_start = vr.clip_sta; // * navscale; Don't need to apply, because the scale factor on the view matrix affects all transformations.
+	params->clip_end = vr.clip_end; // * navscale;
 	//params->zoom = 2.0f;
 
 	xasp = vr.aperture_u;
@@ -700,7 +1036,7 @@ void vr_compute_viewplane(const View3D *v3d, CameraParams *params, int winx, int
 				break;
 			}
 		}
-		pixsize = (sensor_size * params->clipsta) / params->lens;
+		pixsize = (sensor_size * params->clip_start) / params->lens;
 	}
 
 	switch (params->sensor_fit) {
@@ -742,10 +1078,10 @@ void vr_compute_viewplane(const View3D *v3d, CameraParams *params, int winx, int
 	float pfy = vr.fy[side] * res_y;
 	float pcx = vr.cx[side] * res_x;
 	float pcy = (1.0f - vr.cy[side]) * res_y;
-	viewplane.xmax = ((res_x - pcx) / pfx) * params->clipsta;
-	viewplane.xmin = (-pcx / pfx) * params->clipsta;
-	viewplane.ymax = ((res_y - pcy) / pfy) * params->clipsta;
-	viewplane.ymin = (-pcy / pfy) * params->clipsta;
+	viewplane.xmax = ((res_x - pcx) / pfx) * params->clip_start;
+	viewplane.xmin = (-pcx / pfx) * params->clip_start;
+	viewplane.ymax = ((res_y - pcy) / pfy) * params->clip_start;
+	viewplane.ymin = (-pcy / pfy) * params->clip_start;
 
 	/* Used for rendering (offset by near-clip with perspective views), passed to RE_SetPixelSize.
 	 * For viewport drawing 'RegionView3D.pixsize'. */
@@ -758,19 +1094,13 @@ void vr_compute_viewplane(const View3D *v3d, CameraParams *params, int winx, int
 	 * Some tools rely on the View3D having the correct clipping distances set, so we have to override this value here.
 	 */
 	{
-		View3D* _v3d = (View3D*) v3d;
-/* Some compilers define near and far as special keywords... */
-#ifdef near
-#undef near
-#endif
-#ifdef far
-#undef far
-#endif
-		_v3d->near = params->clipsta;
-		_v3d->far  = params->clipend;
+		View3D *_v3d = (View3D*)v3d;
+		_v3d->clip_start = params->clip_start;
+		_v3d->clip_end  = params->clip_end;
 		_v3d->lens = params->lens;
+
 		if (_v3d->camera && _v3d->camera->data) {
-			Camera *cam = (Camera *) v3d->camera->data;
+			Camera *cam = (Camera*)v3d->camera->data;
 			/* cam->type = CAM_PERSP; */
 			cam->lens = params->lens;
 			/* cam->ortho_scale = params->ortho_scale; */
@@ -779,9 +1109,12 @@ void vr_compute_viewplane(const View3D *v3d, CameraParams *params, int winx, int
 			/* params->sensor_x = cam->sensor_x; */
 			/* params->sensor_y = cam->sensor_y; */
 			/* params->sensor_fit = cam->sensor_fit; */
-			cam->clipsta = params->clipsta;
-			cam->clipend = params->clipend;
+			cam->clip_start = params->clip_start;
+			cam->clip_end = params->clip_end;
 		}
+    else {
+      vr_create_temp_camera(_v3d);
+    }
 	}
 }
 

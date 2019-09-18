@@ -15,18 +15,16 @@
 * along with this program; if not, write to the Free Software Foundation,
 * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 *
-* The Original Code is Copyright (C) 2018 by Blender Foundation.
+* The Original Code is Copyright (C) 2019 by Blender Foundation.
 * All rights reserved.
 *
-* Contributor(s): MARUI-PlugIn
+* Contributor(s): MARUI-PlugIn, Multiplexed Reality
 *
 * ***** END GPL LICENSE BLOCK *****
 */
 
 /** \file blender/vr/intern/vr_widget_undo.cpp
 *   \ingroup vr
-* 
-* Main module for the VR widget UI.
 */
 
 #include "vr_types.h"
@@ -39,7 +37,7 @@
 
 #include "vr_draw.h"
 
-/***********************************************************************************************//**
+/***************************************************************************************************
  * \class                               Widget_Undo
  ***************************************************************************************************
  * Interaction widget for performing an 'undo' operation.

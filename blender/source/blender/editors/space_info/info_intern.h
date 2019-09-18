@@ -17,7 +17,8 @@
  * All rights reserved.
  */
 
-/** \file \ingroup spinfo
+/** \file
+ * \ingroup spinfo
  */
 
 #ifndef __INFO_INTERN_H__
@@ -41,18 +42,20 @@ void FILE_OT_make_paths_absolute(struct wmOperatorType *ot);
 void FILE_OT_report_missing_files(struct wmOperatorType *ot);
 void FILE_OT_find_missing_files(struct wmOperatorType *ot);
 
-
 void INFO_OT_reports_display_update(struct wmOperatorType *ot);
 
 /* info_draw.c */
-void *info_text_pick(struct SpaceInfo *sinfo, struct ARegion *ar, ReportList *reports, int mouse_y);
+void *info_text_pick(struct SpaceInfo *sinfo,
+                     struct ARegion *ar,
+                     ReportList *reports,
+                     int mouse_y);
 int info_textview_height(struct SpaceInfo *sinfo, struct ARegion *ar, struct ReportList *reports);
 void info_textview_main(struct SpaceInfo *sinfo, struct ARegion *ar, struct ReportList *reports);
 
 /* info_report.c */
 int info_report_mask(struct SpaceInfo *sinfo);
 void INFO_OT_select_pick(struct wmOperatorType *ot); /* report selection */
-void INFO_OT_select_all_toggle(struct wmOperatorType *ot);
+void INFO_OT_select_all(struct wmOperatorType *ot);
 void INFO_OT_select_box(struct wmOperatorType *ot);
 
 void INFO_OT_report_replay(struct wmOperatorType *ot);

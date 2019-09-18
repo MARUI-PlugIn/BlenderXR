@@ -18,9 +18,8 @@
 # ##### END GPL LICENSE BLOCK #####
 
 # <pep8 compliant>
-import bpy
-from bpy.types import Menu, Panel, UIList
-from .space_view3d import (
+from bpy.types import Panel
+from bl_ui.space_view3d import (
     VIEW3D_PT_shading_lighting,
     VIEW3D_PT_shading_color,
     VIEW3D_PT_shading_options,
@@ -64,6 +63,7 @@ class RENDER_PT_context(Panel):
 class RENDER_PT_color_management(RenderButtonsPanel, Panel):
     bl_label = "Color Management"
     bl_options = {'DEFAULT_CLOSED'}
+    bl_order = 100
     COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE', 'BLENDER_WORKBENCH'}
 
     def draw(self, context):
@@ -117,7 +117,7 @@ class RENDER_PT_color_management_curves(RenderButtonsPanel, Panel):
 
         layout.enabled = view.use_curve_mapping
 
-        layout.template_curve_mapping(view, "curve_mapping", levels=True)
+        layout.template_curve_mapping(view, "curve_mapping", type='COLOR', levels=True)
 
 
 class RENDER_PT_eevee_ambient_occlusion(RenderButtonsPanel, Panel):
@@ -184,18 +184,12 @@ class RENDER_PT_eevee_depth_of_field(RenderButtonsPanel, Panel):
     def poll(cls, context):
         return (context.engine in cls.COMPAT_ENGINES)
 
-    def draw_header(self, context):
-        scene = context.scene
-        props = scene.eevee
-        self.layout.prop(props, "use_dof", text="")
-
     def draw(self, context):
         layout = self.layout
         layout.use_property_split = True
         scene = context.scene
         props = scene.eevee
 
-        layout.active = props.use_dof
         col = layout.column()
         col.prop(props, "bokeh_max_size")
         # Not supported yet
@@ -234,7 +228,7 @@ class RENDER_PT_eevee_bloom(RenderButtonsPanel, Panel):
 
 
 class RENDER_PT_eevee_volumetric(RenderButtonsPanel, Panel):
-    bl_label = "Volumetric"
+    bl_label = "Volumetrics"
     bl_options = {'DEFAULT_CLOSED'}
     COMPAT_ENGINES = {'BLENDER_EEVEE'}
 
@@ -242,19 +236,12 @@ class RENDER_PT_eevee_volumetric(RenderButtonsPanel, Panel):
     def poll(cls, context):
         return (context.engine in cls.COMPAT_ENGINES)
 
-    def draw_header(self, context):
-        scene = context.scene
-        props = scene.eevee
-        self.layout.prop(props, "use_volumetric", text="")
-
     def draw(self, context):
         layout = self.layout
         layout.use_property_split = True
 
         scene = context.scene
         props = scene.eevee
-
-        layout.active = props.use_volumetric
 
         col = layout.column(align=True)
         col.prop(props, "volumetric_start")
@@ -317,19 +304,12 @@ class RENDER_PT_eevee_subsurface_scattering(RenderButtonsPanel, Panel):
     def poll(cls, context):
         return (context.engine in cls.COMPAT_ENGINES)
 
-    def draw_header(self, context):
-        scene = context.scene
-        props = scene.eevee
-        self.layout.prop(props, "use_sss", text="")
-
     def draw(self, context):
         layout = self.layout
         layout.use_property_split = True
 
         scene = context.scene
         props = scene.eevee
-
-        layout.active = props.use_sss
 
         col = layout.column()
         col.prop(props, "sss_samples")
@@ -410,9 +390,11 @@ class RENDER_PT_eevee_sampling(RenderButtonsPanel, Panel):
         scene = context.scene
         props = scene.eevee
 
-        col = layout.column()
+        col = layout.column(align=True)
         col.prop(props, "taa_render_samples", text="Render")
         col.prop(props, "taa_samples", text="Viewport")
+
+        col = layout.column()
         col.prop(props, "use_taa_reprojection")
 
 
@@ -492,18 +474,34 @@ class RENDER_PT_eevee_film(RenderButtonsPanel, Panel):
         layout.use_property_split = True
 
         scene = context.scene
-        props = scene.eevee
         rd = scene.render
-
-        split = layout.split()
-        split.prop(props, "use_overscan")
-        row = split.row()
-        row.active = props.use_overscan
-        row.prop(props, "overscan_size", text="")
 
         col = layout.column()
         col.prop(rd, "filter_size")
-        col.prop(rd, "alpha_mode", text="Alpha")
+        col.prop(rd, "film_transparent", text="Transparent")
+
+
+class RENDER_PT_eevee_film_overscan(RenderButtonsPanel, Panel):
+    bl_label = "Overscan"
+    bl_parent_id = "RENDER_PT_eevee_film"
+    bl_options = {'DEFAULT_CLOSED'}
+    COMPAT_ENGINES = {'BLENDER_EEVEE'}
+
+    def draw_header(self, context):
+
+        scene = context.scene
+        props = scene.eevee
+
+        self.layout.prop(props, "use_overscan", text="")
+
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = True
+        scene = context.scene
+        props = scene.eevee
+
+        layout.active = props.use_overscan
+        layout.prop(props, "overscan_size", text="Size")
 
 
 class RENDER_PT_eevee_hair(RenderButtonsPanel, Panel):
@@ -526,6 +524,27 @@ class RENDER_PT_eevee_hair(RenderButtonsPanel, Panel):
         layout.prop(rd, "hair_subdiv")
 
 
+class RENDER_PT_opengl_sampling(RenderButtonsPanel, Panel):
+    bl_label = "Sampling"
+    COMPAT_ENGINES = {'BLENDER_WORKBENCH'}
+
+    @classmethod
+    def poll(cls, context):
+        return (context.engine in cls.COMPAT_ENGINES)
+
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False  # No animation.
+
+        scene = context.scene
+        props = scene.display
+
+        col = layout.column()
+        col.prop(props, "render_aa", text="Render")
+        col.prop(props, "viewport_aa", text="Viewport Render")
+
+
 class RENDER_PT_opengl_film(RenderButtonsPanel, Panel):
     bl_label = "Film"
     bl_options = {'DEFAULT_CLOSED'}
@@ -537,11 +556,7 @@ class RENDER_PT_opengl_film(RenderButtonsPanel, Panel):
         layout.use_property_decorate = False  # No animation.
 
         rd = context.scene.render
-
-        layout.prop(rd, "use_antialiasing")
-
-        layout.prop(rd, "antialiasing_samples")
-        layout.prop(rd, "alpha_mode")
+        layout.prop(rd, "film_transparent", text="Transparent")
 
 
 class RENDER_PT_opengl_lighting(RenderButtonsPanel, Panel):
@@ -614,6 +629,9 @@ class RENDER_PT_simplify_viewport(RenderButtonsPanel, Panel):
         col = flow.column()
         col.prop(rd, "simplify_child_particles", text="Max Child Particles")
 
+        col = flow.column()
+        col.prop(rd, "use_simplify_smoke_highres", text="High-resolution Smoke")
+
 
 class RENDER_PT_simplify_render(RenderButtonsPanel, Panel):
     bl_label = "Render"
@@ -685,6 +703,8 @@ classes = (
     RENDER_PT_eevee_indirect_lighting,
     RENDER_PT_eevee_indirect_lighting_display,
     RENDER_PT_eevee_film,
+    RENDER_PT_eevee_film_overscan,
+    RENDER_PT_opengl_sampling,
     RENDER_PT_opengl_lighting,
     RENDER_PT_opengl_color,
     RENDER_PT_opengl_options,

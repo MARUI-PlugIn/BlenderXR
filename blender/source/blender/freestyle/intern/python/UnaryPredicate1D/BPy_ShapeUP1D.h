@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup freestyle
+/** \file
+ * \ingroup freestyle
  */
 
 #ifndef __FREESTYLE_PYTHON_SHAPEUP1D_H__
@@ -34,7 +35,7 @@ extern PyTypeObject ShapeUP1D_Type;
 
 /*---------------------------Python BPy_ShapeUP1D structure definition----------*/
 typedef struct {
-	BPy_UnaryPredicate1D py_up1D;
+  BPy_UnaryPredicate1D py_up1D;
 } BPy_ShapeUP1D;
 
 ///////////////////////////////////////////////////////////////////////////////////////////

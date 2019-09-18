@@ -1,4 +1,4 @@
-# Copyright 2018 The glTF-Blender-IO authors.
+# Copyright 2018-2019 The glTF-Blender-IO authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ from io_scene_gltf2.io.com.gltf2_io_debug import print_console
 
 
 @cached
-def gather_material_pbr_metallic_roughness(blender_material, export_settings):
+def gather_material_pbr_metallic_roughness(blender_material, orm_texture, export_settings):
     if not __filter_pbr_material(blender_material, export_settings):
         return None
 
@@ -33,7 +33,7 @@ def gather_material_pbr_metallic_roughness(blender_material, export_settings):
         extensions=__gather_extensions(blender_material, export_settings),
         extras=__gather_extras(blender_material, export_settings),
         metallic_factor=__gather_metallic_factor(blender_material, export_settings),
-        metallic_roughness_texture=__gather_metallic_roughness_texture(blender_material, export_settings),
+        metallic_roughness_texture=__gather_metallic_roughness_texture(blender_material, orm_texture, export_settings),
         roughness_factor=__gather_roughness_factor(blender_material, export_settings)
     )
 
@@ -123,17 +123,27 @@ def __gather_metallic_factor(blender_material, export_settings):
     return None
 
 
-def __gather_metallic_roughness_texture(blender_material, export_settings):
-    metallic_socket = gltf2_blender_get.get_socket_or_texture_slot(blender_material, "Metallic")
-    roughness_socket = gltf2_blender_get.get_socket_or_texture_slot(blender_material, "Roughness")
-
-    if metallic_socket is None and roughness_socket is None:
-        metallic_roughness = gltf2_blender_get.get_socket_or_texture_slot(blender_material, "MetallicRoughness")
-        if metallic_roughness is None:
-            metallic_roughness = gltf2_blender_get.get_socket_or_texture_slot_old(blender_material, "MetallicRoughness")
-        texture_input = (metallic_roughness,)
+def __gather_metallic_roughness_texture(blender_material, orm_texture, export_settings):
+    if orm_texture is not None:
+        texture_input = orm_texture
     else:
-        texture_input = (metallic_socket, roughness_socket)
+        metallic_socket = gltf2_blender_get.get_socket_or_texture_slot(blender_material, "Metallic")
+        roughness_socket = gltf2_blender_get.get_socket_or_texture_slot(blender_material, "Roughness")
+
+        hasMetal = metallic_socket is not None and __has_image_node_from_socket(metallic_socket)
+        hasRough = roughness_socket is not None and __has_image_node_from_socket(roughness_socket)
+
+        if not hasMetal and not hasRough:
+            metallic_roughness = gltf2_blender_get.get_socket_or_texture_slot_old(blender_material, "MetallicRoughness")
+            if metallic_roughness is None or not __has_image_node_from_socket(metallic_roughness):
+                return None
+            texture_input = (metallic_roughness,)
+        elif not hasMetal:
+            texture_input = (roughness_socket,)
+        elif not hasRough:
+            texture_input = (metallic_socket,)
+        else:
+            texture_input = (metallic_socket, roughness_socket)
 
     return gltf2_blender_gather_texture_info.gather_texture_info(texture_input, export_settings)
 
@@ -145,4 +155,12 @@ def __gather_roughness_factor(blender_material, export_settings):
     if isinstance(roughness_socket, bpy.types.NodeSocket) and not roughness_socket.is_linked:
         return roughness_socket.default_value
     return None
+
+def __has_image_node_from_socket(socket):
+    result = gltf2_blender_search_node_tree.from_socket(
+        socket,
+        gltf2_blender_search_node_tree.FilterByType(bpy.types.ShaderNodeTexImage))
+    if not result:
+        return False
+    return True
 

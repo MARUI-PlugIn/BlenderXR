@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup freestyle
+/** \file
+ * \ingroup freestyle
  */
 
 #ifndef __FREESTYLE_PYTHON_LOCALAVERAGEDEPTHF1D_H__
@@ -30,13 +31,13 @@ extern "C" {
 
 extern PyTypeObject LocalAverageDepthF1D_Type;
 
-#define BPy_LocalAverageDepthF1D_Check(v) (PyObject_IsInstance((PyObject *)v, (PyObject *)&LocalAverageDepthF1D_Type))
+#define BPy_LocalAverageDepthF1D_Check(v) \
+  (PyObject_IsInstance((PyObject *)v, (PyObject *)&LocalAverageDepthF1D_Type))
 
 /*---------------------------Python BPy_LocalAverageDepthF1D structure definition----------*/
 typedef struct {
-	BPy_UnaryFunction1DDouble py_uf1D_double;
+  BPy_UnaryFunction1DDouble py_uf1D_double;
 } BPy_LocalAverageDepthF1D;
-
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 

@@ -38,7 +38,7 @@ from bpy.types import (
 
 
 # Lock Camera Transforms
-class LockTransforms(Operator):
+class PIE_OT_LockTransforms(Operator):
     bl_idname = "object.locktransforms"
     bl_label = "Lock Object Transforms"
     bl_description = ("Enable or disable the editing of objects transforms in the 3D View\n"
@@ -71,8 +71,8 @@ class LockTransforms(Operator):
 
 
 # Pie View All Sel Glob Etc - Q
-class PieViewallSelGlobEtc(Menu):
-    bl_idname = "pie.vieallselglobetc"
+class PIE_MT_ViewallSelGlobEtc(Menu):
+    bl_idname = "PIE_MT_vieallselglobetc"
     bl_label = "Pie View All Sel Glob..."
 
     def draw(self, context):
@@ -87,17 +87,17 @@ class PieViewallSelGlobEtc(Menu):
         # 8 - TOP
         layout.operator("view3d.localview", text="Local/Global")
         # 7 - TOP - LEFT
-        layout.operator("screen.region_quadview", text="Toggle Quad View", icon='SPLITSCREEN')
+        layout.operator("screen.region_quadview", text="Toggle Quad View", icon='NONE')
         # 1 - BOTTOM - LEFT
-        layout.operator("wm.call_menu_pie", text="Previous Menu", icon='BACK').name = "pie.viewnumpad"
+        layout.operator("wm.call_menu_pie", text="Previous Menu", icon='BACK').name = "PIE_MT_viewnumpad"
         # 9 - TOP - RIGHT
         layout.operator("screen.screen_full_area", text="Full Screen", icon='FULLSCREEN_ENTER')
         # 3 - BOTTOM - RIGHT
 
 
 # Pie views numpad - Q
-class PieViewNumpad(Menu):
-    bl_idname = "pie.viewnumpad"
+class PIE_MT_ViewNumpad(Menu):
+    bl_idname = "PIE_MT_viewnumpad"
     bl_label = "Pie Views Ortho"
 
     def draw(self, context):
@@ -131,7 +131,7 @@ class PieViewNumpad(Menu):
                          icon='LOCKED').data_path = "space_data.lock_camera"
 
         row = box.row(align=True)
-        row.operator("view3d.view_camera", text="View Cam", icon='VISIBLE_IPO_ON')
+        row.operator("view3d.view_camera", text="View Cam", icon='HIDE_OFF')
         row.operator("view3d.camera_to_view", text="Cam to view", icon='NONE')
 
         icon_locked = 'LOCKED' if ob and ob.lock_rotation[0] is False else \
@@ -147,9 +147,9 @@ class PieViewNumpad(Menu):
 
 
 classes = (
-    PieViewNumpad,
-    LockTransforms,
-    PieViewallSelGlobEtc,
+    PIE_MT_ViewNumpad,
+    PIE_OT_LockTransforms,
+    PIE_MT_ViewallSelGlobEtc,
     )
 
 addon_keymaps = []
@@ -164,7 +164,7 @@ def register():
         # Views numpad
         km = wm.keyconfigs.addon.keymaps.new(name='3D View Generic', space_type='VIEW_3D')
         kmi = km.keymap_items.new('wm.call_menu_pie', 'Q', 'PRESS')
-        kmi.properties.name = "pie.viewnumpad"
+        kmi.properties.name = "PIE_MT_viewnumpad"
         addon_keymaps.append((km, kmi))
 
 

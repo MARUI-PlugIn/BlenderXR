@@ -15,10 +15,10 @@
 * along with this program; if not, write to the Free Software Foundation,
 * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 *
-* The Original Code is Copyright (C) 2018 by Blender Foundation.
+* The Original Code is Copyright (C) 2019 by Blender Foundation.
 * All rights reserved.
 *
-* Contributor(s): MARUI-PlugIn
+* Contributor(s): MARUI-PlugIn, Multiplexed Reality
 *
 * ***** END GPL LICENSE BLOCK *****
 */
@@ -46,19 +46,26 @@
 #include "vr_math.h"
 #include "vr_ui.h"
 
-#include <png.h>
+#include "png.h"
 
 /* Controller models and textures */
-#include "ui_oculus_touch_left.obj.h"
-#include "ui_oculus_touch_right.obj.h"
-#include "ui_oculus_touch.png.h"
+#include "ui_oculus_controller_left.obj.h"
+#include "ui_oculus_controller_right.obj.h"
+#include "ui_oculus_controller.png.h"
 
 #include "ui_vive_controller.obj.h"
 #include "ui_vive_controller.png.h"
 
-#include "ui_microsoft_controller_left.obj.h"
-#include "ui_microsoft_controller_right.obj.h"
-#include "ui_microsoft_controller.png.h"
+#include "ui_windowsmr_controller_left.obj.h"
+#include "ui_windowsmr_controller_right.obj.h"
+#include "ui_windowsmr_controller.png.h"
+
+#include "ui_index_controller_left.obj.h"
+#include "ui_index_controller_right.obj.h"
+#include "ui_index_controller.png.h"
+
+#include "ui_magicleap_controller.obj.h"
+#include "ui_magicleap_controller.png.h"
 
 #include "ui_cursor.obj.h"
 #include "ui_cursor.png.h"
@@ -107,6 +114,27 @@
 #include "icon_bevel.png.h"
 #include "icon_loopcut.png.h"
 #include "icon_knife.png.h"
+#include "icon_sculpt.png.h"
+#include "icon_sculpt_draw.png.h"
+#include "icon_sculpt_clay.png.h"
+#include "icon_sculpt_claystrips.png.h"
+#include "icon_sculpt_layer.png.h"
+#include "icon_sculpt_inflate.png.h"
+#include "icon_sculpt_blob.png.h"
+#include "icon_sculpt_crease.png.h"
+#include "icon_sculpt_smooth.png.h"
+#include "icon_sculpt_flatten.png.h"
+#include "icon_sculpt_fill.png.h"
+#include "icon_sculpt_scrape.png.h"
+#include "icon_sculpt_pinch.png.h"
+#include "icon_sculpt_grab.png.h"
+#include "icon_sculpt_snakehook.png.h"
+#include "icon_sculpt_thumb.png.h"
+#include "icon_sculpt_nudge.png.h"
+#include "icon_sculpt_rotate.png.h"
+#include "icon_sculpt_mask.png.h"
+#include "icon_sculpt_simplify.png.h"
+#include "icon_animation.png.h"
 #include "icon_delete.png.h"
 #include "icon_duplicate.png.h"
 #include "icon_join.png.h"
@@ -213,6 +241,27 @@ VR_Draw::Texture *VR_Draw::insetfaces_tex(0);
 VR_Draw::Texture *VR_Draw::bevel_tex(0);
 VR_Draw::Texture *VR_Draw::loopcut_tex(0);
 VR_Draw::Texture *VR_Draw::knife_tex(0);
+VR_Draw::Texture *VR_Draw::sculpt_tex(0);
+VR_Draw::Texture *VR_Draw::sculpt_draw_tex(0);
+VR_Draw::Texture *VR_Draw::sculpt_clay_tex(0);
+VR_Draw::Texture *VR_Draw::sculpt_claystrips_tex(0);
+VR_Draw::Texture *VR_Draw::sculpt_layer_tex(0);
+VR_Draw::Texture *VR_Draw::sculpt_inflate_tex(0);
+VR_Draw::Texture *VR_Draw::sculpt_blob_tex(0);
+VR_Draw::Texture *VR_Draw::sculpt_crease_tex(0);
+VR_Draw::Texture *VR_Draw::sculpt_smooth_tex(0);
+VR_Draw::Texture *VR_Draw::sculpt_flatten_tex(0);
+VR_Draw::Texture *VR_Draw::sculpt_fill_tex(0);
+VR_Draw::Texture *VR_Draw::sculpt_scrape_tex(0);
+VR_Draw::Texture *VR_Draw::sculpt_pinch_tex(0);
+VR_Draw::Texture *VR_Draw::sculpt_grab_tex(0);
+VR_Draw::Texture *VR_Draw::sculpt_snakehook_tex(0);
+VR_Draw::Texture *VR_Draw::sculpt_thumb_tex(0);
+VR_Draw::Texture *VR_Draw::sculpt_nudge_tex(0);
+VR_Draw::Texture *VR_Draw::sculpt_rotate_tex(0);
+VR_Draw::Texture *VR_Draw::sculpt_mask_tex(0);
+VR_Draw::Texture *VR_Draw::sculpt_simplify_tex(0);
+VR_Draw::Texture *VR_Draw::animation_tex(0);
 VR_Draw::Texture *VR_Draw::delete_tex(0);
 VR_Draw::Texture *VR_Draw::delete_alt_tex(0);
 VR_Draw::Texture *VR_Draw::duplicate_tex(0);
@@ -346,6 +395,27 @@ int VR_Draw::init(void* display, void* drawable, void* context)
 	bevel_tex = new Texture(icon_bevel_png);
 	loopcut_tex = new Texture(icon_loopcut_png);
 	knife_tex = new Texture(icon_knife_png);
+	sculpt_tex = new Texture(icon_sculpt_png);
+	sculpt_draw_tex = new Texture(icon_sculpt_draw_png);
+	sculpt_clay_tex = new Texture(icon_sculpt_clay_png);
+	sculpt_claystrips_tex = new Texture(icon_sculpt_claystrips_png);
+	sculpt_layer_tex = new Texture(icon_sculpt_layer_png);
+	sculpt_inflate_tex = new Texture(icon_sculpt_inflate_png);
+	sculpt_blob_tex = new Texture(icon_sculpt_blob_png);
+	sculpt_crease_tex = new Texture(icon_sculpt_crease_png);
+	sculpt_smooth_tex = new Texture(icon_sculpt_smooth_png);
+	sculpt_flatten_tex = new Texture(icon_sculpt_flatten_png);
+	sculpt_fill_tex = new Texture(icon_sculpt_fill_png);
+	sculpt_scrape_tex = new Texture(icon_sculpt_scrape_png);
+	sculpt_pinch_tex = new Texture(icon_sculpt_pinch_png);
+	sculpt_grab_tex = new Texture(icon_sculpt_grab_png);
+	sculpt_snakehook_tex = new Texture(icon_sculpt_snakehook_png);
+	sculpt_thumb_tex = new Texture(icon_sculpt_thumb_png);
+	sculpt_nudge_tex = new Texture(icon_sculpt_nudge_png);
+	sculpt_rotate_tex = new Texture(icon_sculpt_rotate_png);
+	sculpt_mask_tex = new Texture(icon_sculpt_mask_png);
+	sculpt_simplify_tex = new Texture(icon_sculpt_simplify_png);
+	animation_tex = new Texture(icon_animation_png);
 	delete_tex = new Texture(icon_delete_png);
 	duplicate_tex = new Texture(icon_duplicate_png);
 	join_tex = new Texture(icon_join_png);
@@ -589,6 +659,90 @@ void VR_Draw::uninit()
 		delete knife_tex;
 		knife_tex = NULL;
 	}
+	if (sculpt_tex) {
+		delete sculpt_tex;
+		sculpt_tex = NULL;
+	}
+	if (sculpt_draw_tex) {
+		delete sculpt_draw_tex;
+		sculpt_draw_tex = NULL;
+	}
+	if (sculpt_clay_tex) {
+		delete sculpt_clay_tex;
+		sculpt_clay_tex = NULL;
+	}
+	if (sculpt_claystrips_tex) {
+		delete sculpt_claystrips_tex;
+		sculpt_claystrips_tex = NULL;
+	}
+	if (sculpt_layer_tex) {
+		delete sculpt_layer_tex;
+		sculpt_layer_tex = NULL;
+	}
+	if (sculpt_inflate_tex) {
+		delete sculpt_inflate_tex;
+		sculpt_inflate_tex = NULL;
+	}
+	if (sculpt_blob_tex) {
+		delete sculpt_blob_tex;
+		sculpt_blob_tex = NULL;
+	}
+	if (sculpt_crease_tex) {
+		delete sculpt_crease_tex;
+		sculpt_crease_tex = NULL;
+	}
+	if (sculpt_smooth_tex) {
+		delete sculpt_smooth_tex;
+		sculpt_smooth_tex = NULL;
+	}
+	if (sculpt_flatten_tex) {
+		delete sculpt_flatten_tex;
+		sculpt_flatten_tex = NULL;
+	}
+	if (sculpt_fill_tex) {
+		delete sculpt_fill_tex;
+		sculpt_fill_tex = NULL;
+	}
+	if (sculpt_scrape_tex) {
+		delete sculpt_scrape_tex;
+		sculpt_scrape_tex = NULL;
+	}
+	if (sculpt_pinch_tex) {
+		delete sculpt_pinch_tex;
+		sculpt_pinch_tex = NULL;
+	}
+	if (sculpt_grab_tex) {
+		delete sculpt_grab_tex;
+		sculpt_grab_tex = NULL;
+	}
+	if (sculpt_snakehook_tex) {
+		delete sculpt_snakehook_tex;
+		sculpt_snakehook_tex = NULL;
+	}
+	if (sculpt_thumb_tex) {
+		delete sculpt_thumb_tex;
+		sculpt_thumb_tex = NULL;
+	}
+	if (sculpt_nudge_tex) {
+		delete sculpt_nudge_tex;
+		sculpt_nudge_tex = NULL;
+	}
+	if (sculpt_rotate_tex) {
+		delete sculpt_rotate_tex;
+		sculpt_rotate_tex = NULL;
+	}
+	if (sculpt_mask_tex) {
+		delete sculpt_mask_tex;
+		sculpt_mask_tex = NULL;
+	}
+	if (sculpt_simplify_tex) {
+		delete sculpt_simplify_tex;
+		sculpt_simplify_tex = NULL;
+	}
+	if (animation_tex) {
+		delete animation_tex;
+		animation_tex = NULL;
+	}
 	if (delete_tex) {
 		delete delete_tex;
 		delete_tex = NULL;
@@ -729,7 +883,7 @@ void VR_Draw::uninit()
 	}
 }
 
-int VR_Draw::create_controller_models(VR_UI_Type type)
+int VR_Draw::create_controller_models(VR_Device_Type type)
 {
 	/* Delete previous controller models (if any). */
 	if (controller_tex) {
@@ -746,20 +900,31 @@ int VR_Draw::create_controller_models(VR_UI_Type type)
 	}
 
 	/* Create new controller models based on UI type. */
-	if (type == VR_UI_TYPE_OCULUS) {
-		controller_model[VR_SIDE_LEFT] = Model::create(ui_oculus_touch_left_obj_verts, ui_oculus_touch_left_obj_nrmls, ui_oculus_touch_left_obj_uvs, ui_oculus_touch_left_obj_numverts);
-		controller_model[VR_SIDE_RIGHT] = Model::create(ui_oculus_touch_right_obj_verts, ui_oculus_touch_right_obj_nrmls, ui_oculus_touch_right_obj_uvs, ui_oculus_touch_right_obj_numverts);
-		controller_tex = new Texture(ui_oculus_touch_png);
+	if (type == VR_DEVICE_TYPE_OCULUS) {
+		controller_model[VR_SIDE_LEFT] = Model::create(ui_oculus_controller_left_obj_verts, ui_oculus_controller_left_obj_nrmls, ui_oculus_controller_left_obj_uvs, ui_oculus_controller_left_obj_numverts);
+		controller_model[VR_SIDE_RIGHT] = Model::create(ui_oculus_controller_right_obj_verts, ui_oculus_controller_right_obj_nrmls, ui_oculus_controller_right_obj_uvs, ui_oculus_controller_right_obj_numverts);
+		controller_tex = new Texture(ui_oculus_controller_png);
 	}
-	else if (type == VR_UI_TYPE_VIVE) {
+	else if ((type == VR_DEVICE_TYPE_VIVE) || (type == VR_DEVICE_TYPE_PIMAX)) {
 		controller_model[VR_SIDE_LEFT] = Model::create(ui_vive_controller_obj_verts, ui_vive_controller_obj_nrmls, ui_vive_controller_obj_uvs, ui_vive_controller_obj_numverts);
 		controller_model[VR_SIDE_RIGHT] = Model::create(ui_vive_controller_obj_verts, ui_vive_controller_obj_nrmls, ui_vive_controller_obj_uvs, ui_vive_controller_obj_numverts);
 		controller_tex = new Texture(ui_vive_controller_png);
 	}
-	else if (type == VR_UI_TYPE_MICROSOFT) {
-		controller_model[VR_SIDE_LEFT] = Model::create(ui_microsoft_controller_left_obj_verts, ui_microsoft_controller_left_obj_nrmls, ui_microsoft_controller_left_obj_uvs, ui_microsoft_controller_left_obj_numverts);
-		controller_model[VR_SIDE_RIGHT] = Model::create(ui_microsoft_controller_right_obj_verts, ui_microsoft_controller_right_obj_nrmls, ui_microsoft_controller_right_obj_uvs, ui_microsoft_controller_right_obj_numverts);
-		controller_tex = new Texture(ui_microsoft_controller_png);
+	else if (type == VR_DEVICE_TYPE_WINDOWSMR) {
+		controller_model[VR_SIDE_LEFT] = Model::create(ui_windowsmr_controller_left_obj_verts, ui_windowsmr_controller_left_obj_nrmls, ui_windowsmr_controller_left_obj_uvs, ui_windowsmr_controller_left_obj_numverts);
+		controller_model[VR_SIDE_RIGHT] = Model::create(ui_windowsmr_controller_right_obj_verts, ui_windowsmr_controller_right_obj_nrmls, ui_windowsmr_controller_right_obj_uvs, ui_windowsmr_controller_right_obj_numverts);
+		controller_tex = new Texture(ui_windowsmr_controller_png);
+	}
+	else if (type == VR_DEVICE_TYPE_INDEX) {
+		controller_model[VR_SIDE_LEFT] = Model::create(ui_index_controller_left_obj_verts, ui_index_controller_left_obj_nrmls, ui_index_controller_left_obj_uvs, ui_index_controller_left_obj_numverts);
+		controller_model[VR_SIDE_RIGHT] = Model::create(ui_index_controller_right_obj_verts, ui_index_controller_right_obj_nrmls, ui_index_controller_right_obj_uvs, ui_index_controller_right_obj_numverts);
+		controller_tex = new Texture(ui_index_controller_png);
+	}
+	else if (type == VR_DEVICE_TYPE_MAGICLEAP) {
+		controller_model[VR_SIDE_LEFT] = Model::create(ui_magicleap_controller_obj_verts, ui_magicleap_controller_obj_nrmls, ui_magicleap_controller_obj_uvs, ui_magicleap_controller_obj_numverts);
+		controller_model[VR_SIDE_RIGHT] = Model::create(ui_magicleap_controller_obj_verts, ui_magicleap_controller_obj_nrmls, ui_magicleap_controller_obj_uvs, ui_magicleap_controller_obj_numverts);
+		/* TODO_XR: Fix the texture... */
+		controller_tex = new Texture(ui_magicleap_controller_png);
 	}
 	else {
 		/* Fove or unsupported type */
@@ -896,7 +1061,7 @@ static bool decodePNGRGBA(const uchar* png_data, uchar*& img, uint& w, uint& h)
 {
 	png_structp png_ptr;
 	png_infop info_ptr;
-	unsigned int sig_read = 0;
+	uint sig_read = 0;
 	png_uint_32 width, height;
 	int bit_depth, color_type, interlace_type;
 
@@ -963,7 +1128,7 @@ static bool createTextureFromPNG(const uchar* data, uint& texture_id, uint& w, u
 	return true;
 }
 
-/***********************************************************************************************//**
+/***************************************************************************************************
  * \class                                  VR_Draw::Shader
  ***************************************************************************************************
  * OpenGL shader implementation.
@@ -1364,7 +1529,6 @@ int VR_Draw::Model::render()
 	glUseProgram(prior_program);
 	prior_backface_culling ? glEnable(GL_CULL_FACE) : glDisable(GL_CULL_FACE);
 	prior_blend_enabled ? glEnable(GL_BLEND) : glDisable(GL_BLEND);
-	glDisable(GL_BLEND);
 	prior_depth_test ? glEnable(GL_DEPTH_TEST) : glDisable(GL_DEPTH_TEST);
 	prior_texture_enabled ? glEnable(GL_TEXTURE_2D) : glDisable(GL_TEXTURE_2D);
 

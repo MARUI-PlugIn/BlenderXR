@@ -38,7 +38,7 @@ from bpy.types import (
 
 
 # Pivot to selection
-class PivotToSelection(Operator):
+class PIE_OT_PivotToSelection(Operator):
     bl_idname = "object.pivot2selection"
     bl_label = "Pivot To Selection"
     bl_description = "Pivot Point To Selection"
@@ -49,17 +49,17 @@ class PivotToSelection(Operator):
         return context.active_object is not None
 
     def execute(self, context):
-        saved_location = context.scene.cursor_location.copy()
+        saved_location = context.scene.cursor.location.copy()
         bpy.ops.view3d.snap_cursor_to_selected()
         bpy.ops.object.mode_set(mode='OBJECT')
         bpy.ops.object.origin_set(type='ORIGIN_CURSOR')
-        context.scene.cursor_location = saved_location
+        context.scene.cursor.location = saved_location
 
         return {'FINISHED'}
 
 
 # Pivot to Bottom
-class PivotBottom(Operator):
+class PIE_OT_PivotBottom(Operator):
     bl_idname = "object.pivotobottom"
     bl_label = "Pivot To Bottom"
     bl_description = ("Set the Pivot Point To Lowest Point\n"
@@ -94,8 +94,8 @@ class PivotBottom(Operator):
 
 
 # Pie Origin/Pivot - Shift + S
-class PieOriginPivot(Menu):
-    bl_idname = "origin.pivotmenu"
+class PIE_MT_OriginPivot(Menu):
+    bl_idname = "ORIGIN_MT_pivotmenu"
     bl_label = "Origin Menu"
 
     def draw(self, context):
@@ -141,9 +141,9 @@ class PieOriginPivot(Menu):
 
 
 classes = (
-    PieOriginPivot,
-    PivotToSelection,
-    PivotBottom,
+    PIE_MT_OriginPivot,
+    PIE_OT_PivotToSelection,
+    PIE_OT_PivotBottom,
     )
 
 addon_keymaps = []
@@ -158,7 +158,7 @@ def register():
         # Origin/Pivot
         km = wm.keyconfigs.addon.keymaps.new(name='3D View Generic', space_type='VIEW_3D')
         kmi = km.keymap_items.new('wm.call_menu_pie', 'O', 'PRESS', shift=True, alt=True)
-        kmi.properties.name = "origin.pivotmenu"
+        kmi.properties.name = "ORIGIN_MT_pivotmenu"
         addon_keymaps.append((km, kmi))
 
 

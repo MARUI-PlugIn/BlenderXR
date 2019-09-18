@@ -20,7 +20,8 @@
 #ifndef __BLI_DLRBTREE_H__
 #define __BLI_DLRBTREE_H__
 
-/** \file \ingroup bli
+/** \file
+ * \ingroup bli
  */
 
 /* Double-Linked Red-Black Tree Implementation:
@@ -37,50 +38,53 @@
 
 /* Basic Layout for a Node */
 typedef struct DLRBT_Node {
-	/* ListBase capabilities */
-	struct DLRBT_Node *next, *prev;
+  /* ListBase capabilities */
+  struct DLRBT_Node *next, *prev;
 
-	/* Tree Associativity settings */
-	struct DLRBT_Node *left, *right;
-	struct DLRBT_Node *parent;
+  /* Tree Associativity settings */
+  struct DLRBT_Node *left, *right;
+  struct DLRBT_Node *parent;
 
-	char tree_col;
-	/* ... for nice alignment, next item should usually be a char too... */
+  char tree_col;
+  /* ... for nice alignment, next item should usually be a char too... */
 } DLRBT_Node;
 
 /* Red/Black defines for tree_col */
 typedef enum eDLRBT_Colors {
-	DLRBT_BLACK = 0,
-	DLRBT_RED,
+  DLRBT_BLACK = 0,
+  DLRBT_RED,
 } eDLRBT_Colors;
 
 /* -------- */
 
 /* The Tree Data */
 typedef struct DLRBT_Tree {
-	/* ListBase capabilities */
-	void *first, *last;         /* these should be based on DLRBT_Node-s */
+  /* ListBase capabilities */
+  void *first, *last; /* these should be based on DLRBT_Node-s */
 
-	/* Root Node */
-	void *root;                 /* this should be based on DLRBT_Node-s */
+  /* Root Node */
+  void *root; /* this should be based on DLRBT_Node-s */
 } DLRBT_Tree;
 
 /* Callback Types --------------------------------- */
 
-/* return -1, 0, 1 for whether the given data is less than, equal to, or greater than the given node
+/* Return -1, 0, 1 for whether the given data is less than,
+ * equal to, or greater than the given node.
  * - node: <DLRBT_Node> the node to compare to
- * - data: pointer to the relevant data or values stored in the bitpattern dependent on the function
+ * - data: pointer to the relevant data or values stored in the bitpattern
+ *   dependent on the function.
  */
 typedef short (*DLRBT_Comparator_FP)(void *node, void *data);
 
-/* return a new node instance wrapping the given data
- * - data: pointer to the relevant data to create a subclass of node from
+/* Return a new node instance wrapping the given data
+ * - data: Pointer to the relevant data to create a subclass of node from
  */
 typedef DLRBT_Node *(*DLRBT_NAlloc_FP)(void *data);
 
-/* update an existing node instance accordingly to be in sync with the given data *
- * - node: <DLRBT_Node> the node to update
- * - data: pointer to the relevant data or values stored in the bitpattern dependent on the function
+/* Update an existing node instance accordingly to be in sync with the given data *
+ * - node: <DLRBT_Node> the node to update.
+ * - data: Pointer to the relevant data or values stored in the bitpattern
+ *   dependent on the function.
  */
 typedef void (*DLRBT_NUpdate_FP)(void *node, void *data);
 
@@ -101,25 +105,28 @@ void BLI_dlrbTree_free(DLRBT_Tree *tree);
 /* Make sure the tree's Double-Linked list representation is valid */
 void BLI_dlrbTree_linkedlist_sync(DLRBT_Tree *tree);
 
-
 /* Searching ------------------------------------ */
 
 /* Find the node which matches or is the closest to the requested node */
 DLRBT_Node *BLI_dlrbTree_search(DLRBT_Tree *tree, DLRBT_Comparator_FP cmp_cb, void *search_data);
 
 /* Find the node which exactly matches the required data */
-DLRBT_Node *BLI_dlrbTree_search_exact(DLRBT_Tree *tree, DLRBT_Comparator_FP cmp_cb, void *search_data);
+DLRBT_Node *BLI_dlrbTree_search_exact(DLRBT_Tree *tree,
+                                      DLRBT_Comparator_FP cmp_cb,
+                                      void *search_data);
 
 /* Find the node which occurs immediately before the best matching node */
-DLRBT_Node *BLI_dlrbTree_search_prev(DLRBT_Tree *tree, DLRBT_Comparator_FP cmp_cb, void *search_data);
+DLRBT_Node *BLI_dlrbTree_search_prev(DLRBT_Tree *tree,
+                                     DLRBT_Comparator_FP cmp_cb,
+                                     void *search_data);
 
 /* Find the node which occurs immediately after the best matching node */
-DLRBT_Node *BLI_dlrbTree_search_next(DLRBT_Tree *tree, DLRBT_Comparator_FP cmp_cb, void *search_data);
-
+DLRBT_Node *BLI_dlrbTree_search_next(DLRBT_Tree *tree,
+                                     DLRBT_Comparator_FP cmp_cb,
+                                     void *search_data);
 
 /* Check whether there is a node matching the requested node */
 short BLI_dlrbTree_contains(DLRBT_Tree *tree, DLRBT_Comparator_FP cmp_cb, void *search_data);
-
 
 /* Node Operations (Managed) --------------------- */
 /* These methods automate the process of adding/removing nodes from the BST,
@@ -128,9 +135,11 @@ short BLI_dlrbTree_contains(DLRBT_Tree *tree, DLRBT_Comparator_FP cmp_cb, void *
 
 /* Add the given data to the tree, and return the node added */
 // NOTE: for duplicates, the update_cb is called (if available), and the existing node is returned
-DLRBT_Node *BLI_dlrbTree_add(DLRBT_Tree *tree, DLRBT_Comparator_FP cmp_cb,
-                             DLRBT_NAlloc_FP new_cb, DLRBT_NUpdate_FP update_cb, void *data);
-
+DLRBT_Node *BLI_dlrbTree_add(DLRBT_Tree *tree,
+                             DLRBT_Comparator_FP cmp_cb,
+                             DLRBT_NAlloc_FP new_cb,
+                             DLRBT_NUpdate_FP update_cb,
+                             void *data);
 
 /* Remove the given element from the tree and balance again */
 // FIXME: this is not implemented yet...
@@ -150,4 +159,4 @@ void BLI_dlrbTree_insert(DLRBT_Tree *tree, DLRBT_Node *node);
 
 /* ********************************************** */
 
-#endif  /* __BLI_DLRBTREE_H__ */
+#endif /* __BLI_DLRBTREE_H__ */

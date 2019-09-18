@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup editors
+/** \file
+ * \ingroup editors
  */
 
 #ifndef __ED_SCENE_H__
@@ -24,12 +25,17 @@
 
 enum eSceneCopyMethod;
 
-struct Scene *ED_scene_add(struct Main *bmain, struct bContext *C, struct wmWindow *win, enum eSceneCopyMethod method) ATTR_NONNULL();
-bool ED_scene_delete(struct bContext *C, struct Main *bmain, struct wmWindow *win, struct Scene *scene) ATTR_NONNULL();
-void ED_scene_change_update(struct Main *bmain, struct Scene *scene, struct ViewLayer *layer) ATTR_NONNULL();
-bool ED_scene_view_layer_delete(
-        struct Main *bmain, struct Scene *scene, struct ViewLayer *layer,
-        struct ReportList *reports) ATTR_NONNULL(1, 2, 3);
+struct Scene *ED_scene_add(struct Main *bmain,
+                           struct bContext *C,
+                           struct wmWindow *win,
+                           enum eSceneCopyMethod method) ATTR_NONNULL();
+bool ED_scene_delete(struct bContext *C, struct Main *bmain, struct Scene *scene) ATTR_NONNULL();
+void ED_scene_change_update(struct Main *bmain, struct Scene *scene, struct ViewLayer *layer)
+    ATTR_NONNULL();
+bool ED_scene_view_layer_delete(struct Main *bmain,
+                                struct Scene *scene,
+                                struct ViewLayer *layer,
+                                struct ReportList *reports) ATTR_NONNULL(1, 2, 3);
 
 void ED_operatortypes_scene(void);
 

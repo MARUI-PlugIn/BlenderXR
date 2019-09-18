@@ -24,6 +24,11 @@ from bpy.props import (
         BoolProperty,
         FloatProperty,
         IntProperty,
+        FloatVectorProperty
+        )
+from mathutils import (
+        Vector,
+        Matrix,
         )
 from math import (
         sin, cos, pi
@@ -58,7 +63,7 @@ def make_spiral(props, context):
     step_z = props.z_scale / (steps - 1)  # z increase in one step
 
     verts = []
-    verts.extend([props.radius, 0, 0, 1])
+    verts.append([props.radius, 0, 0])
 
     cur_phi = 0
     cur_z = 0
@@ -82,7 +87,7 @@ def make_spiral(props, context):
 
         px = cur_rad * cos(cur_phi)
         py = cur_rad * sin(cur_phi)
-        verts.extend([px, py, cur_z, 1])
+        verts.append([px, py, cur_z])
 
     return verts
 
@@ -104,7 +109,7 @@ def make_spiral_spheric(props, context):
     step_theta = pi / (steps - 1)  # theta increase in one step (pi == 180 deg)
 
     verts = []
-    verts.extend([0, 0, -props.radius, 1])  # First vertex at south pole
+    verts.append([0, 0, -props.radius])  # First vertex at south pole
 
     cur_phi = 0
     cur_theta = -pi / 2  # Beginning at south pole
@@ -115,7 +120,7 @@ def make_spiral_spheric(props, context):
         py = props.radius * cos(cur_theta) * sin(cur_phi)
         pz = props.radius * sin(cur_theta)
 
-        verts.extend([px, py, pz, 1])
+        verts.append([px, py, pz])
         cur_theta += step_theta
         cur_phi += step_phi
 
@@ -157,7 +162,7 @@ def make_spiral_torus(props, context):
               sin(props.curves_number * cur_theta)
         pz = cur_inner_rad * sin(cur_phi) + cur_z
 
-        verts.extend([px, py, pz, 1])
+        verts.append([px, py, pz])
 
         if props.touch and cur_phi >= n_cycle * 2 * pi:
             step_z = ((n_cycle + 1) * props.dif_inner_radius +
@@ -172,8 +177,50 @@ def make_spiral_torus(props, context):
 
     return verts
 
+# ------------------------------------------------------------
+# calculates the matrix for the new object
+# depending on user pref
 
-def draw_curve(props, context):
+def align_matrix(context, location):
+    loc = Matrix.Translation(location)
+    obj_align = context.preferences.edit.object_align
+    if (context.space_data.type == 'VIEW_3D' and
+            obj_align == 'VIEW'):
+        rot = context.space_data.region_3d.view_matrix.to_3x3().inverted().to_4x4()
+    else:
+        rot = Matrix()
+    align_matrix = loc @ rot
+
+    return align_matrix
+
+# ------------------------------------------------------------
+# get array of vertcoordinates according to splinetype
+def vertsToPoints(Verts, splineType):
+
+    # main vars
+    vertArray = []
+
+    # array for BEZIER spline output (V3)
+    if splineType == 'BEZIER':
+        for v in Verts:
+            vertArray += v
+
+    # array for nonBEZIER output (V4)
+    else:
+        for v in Verts:
+            vertArray += v
+            if splineType == 'NURBS':
+                # for nurbs w=1
+                vertArray.append(1)
+            else:
+                # for poly w=0
+                vertArray.append(0)
+    return vertArray
+
+def draw_curve(props, context, align_matrix):
+    # output splineType 'POLY' 'NURBS' 'BEZIER'
+    splineType = props.curve_type
+    
     if props.spiral_type == 'ARCH':
         verts = make_spiral(props, context)
     if props.spiral_type == 'LOG':
@@ -183,22 +230,70 @@ def draw_curve(props, context):
     if props.spiral_type == 'TORUS':
         verts = make_spiral_torus(props, context)
 
-    curve_data = bpy.data.curves.new(name='Spiral', type='CURVE')
-    curve_data.dimensions = '3D'
+    # create object
+    if bpy.context.mode == 'EDIT_CURVE':
+        Curve = context.active_object
+        newSpline = Curve.data.splines.new(type=splineType)          # spline
+    else:
+        # create curve
+        dataCurve = bpy.data.curves.new(name='Spiral', type='CURVE')  # curvedatablock
+        newSpline = dataCurve.splines.new(type=splineType)          # spline
+        
+        # create object with newCurve
+        Curve = object_data_add(context, dataCurve)  # place in active scene
+        Curve.matrix_world = align_matrix  # apply matrix
+        Curve.rotation_euler = props.rotation_euler
+        Curve.select_set(True)
+        
+    # set curveOptions
+    Curve.data.dimensions = props.shape
+    Curve.data.use_path = True
+    if props.shape == '3D':
+        Curve.data.fill_mode = 'FULL'
+    else:
+        Curve.data.fill_mode = 'BOTH'
+        
+    # set curveOptions
+    newSpline.use_cyclic_u = props.use_cyclic_u
+    newSpline.use_endpoint_u = props.endp_u
+    newSpline.order_u = props.order_u
+    
+    # turn verts into array
+    vertArray = vertsToPoints(verts, splineType)
+        
+    for spline in Curve.data.splines:
+        if spline.type == 'BEZIER':
+            for point in spline.bezier_points:
+                point.select_control_point = False
+                point.select_left_handle = False
+                point.select_right_handle = False
+        else:
+            for point in spline.points:
+                point.select = False
+    
+    # create newSpline from vertarray
+    if splineType == 'BEZIER':
+        newSpline.bezier_points.add(int(len(vertArray) * 0.33))
+        newSpline.bezier_points.foreach_set('co', vertArray)
+        for point in newSpline.bezier_points:
+            point.handle_right_type = props.handleType
+            point.handle_left_type = props.handleType
+            point.select_control_point = True
+            point.select_left_handle = True
+            point.select_right_handle = True
+    else:
+        newSpline.points.add(int(len(vertArray) * 0.25 - 1))
+        newSpline.points.foreach_set('co', vertArray)
+        newSpline.use_endpoint_u = False
+        for point in newSpline.points:
+            point.select = True
 
-    spline = curve_data.splines.new(type=props.curve_type)
-    """
-    if props.curve_type == 0:
-        spline = curve_data.splines.new(type='POLY')
-    elif props.curve_type == 1:
-        spline = curve_data.splines.new(type='NURBS')
-    """
-    spline.points.add(len(verts) * 0.25 - 1)
-    # Add only one quarter of points as elements in verts,
-    # because verts looks like: "x,y,z,?,x,y,z,?,x,..."
-    spline.points.foreach_set('co', verts)
-    new_obj = object_data_add(context, curve_data)
-
+    # move and rotate spline in edit mode
+    if bpy.context.mode == 'EDIT_CURVE':
+        bpy.ops.transform.translate(value = props.startlocation)
+        bpy.ops.transform.rotate(value = props.rotation_euler[0], orient_axis = 'X')
+        bpy.ops.transform.rotate(value = props.rotation_euler[1], orient_axis = 'Y')
+        bpy.ops.transform.rotate(value = props.rotation_euler[2], orient_axis = 'Z')
 
 class CURVE_OT_spirals(Operator):
     bl_idname = "curve.spirals"
@@ -206,6 +301,9 @@ class CURVE_OT_spirals(Operator):
     bl_description = "Create different types of spirals"
     bl_options = {'REGISTER', 'UNDO', 'PRESET'}
 
+    # align_matrix for the invoke
+    align_matrix : Matrix()
+    
     spiral_type : EnumProperty(
             items=[('ARCH', "Archemedian", "Archemedian"),
                    ("LOG", "Logarithmic", "Logarithmic"),
@@ -214,13 +312,6 @@ class CURVE_OT_spirals(Operator):
             default='ARCH',
             name="Spiral Type",
             description="Type of spiral to add"
-            )
-    curve_type : EnumProperty(
-            items=[('POLY', "Poly", "PolyLine"),
-                   ("NURBS", "NURBS", "NURBS")],
-            default='POLY',
-            name="Curve Type",
-            description="Type of spline to use"
             )
     spiral_direction : EnumProperty(
             items=[('COUNTER_CLOCKWISE', "Counter Clockwise",
@@ -295,6 +386,62 @@ class CURVE_OT_spirals(Operator):
             default=False,
             description="No empty spaces between cycles"
             )
+    # Curve Options
+    shapeItems = [
+        ('2D', "2D", "2D shape Curve"),
+        ('3D', "3D", "3D shape Curve")]
+    shape : EnumProperty(
+            name="2D / 3D",
+            items=shapeItems,
+            description="2D or 3D Curve",
+            default='3D'
+            )
+    curve_type : EnumProperty(
+            name="Output splines",
+            description="Type of splines to output",
+            items=[
+            ('POLY', "Poly", "Poly Spline type"),
+            ('NURBS', "Nurbs", "Nurbs Spline type"),
+            ('BEZIER', "Bezier", "Bezier Spline type")],
+            default='POLY'
+            )
+    use_cyclic_u : BoolProperty(
+            name="Cyclic",
+            default=False,
+            description="make curve closed"
+            )
+    endp_u : BoolProperty(
+            name="Use endpoint u",
+            default=True,
+            description="stretch to endpoints"
+            )
+    order_u : IntProperty(
+            name="Order u",
+            default=4,
+            min=2, soft_min=2,
+            max=6, soft_max=6,
+            description="Order of nurbs spline"
+            )
+    handleType : EnumProperty(
+            name="Handle type",
+            default='VECTOR',
+            description="Bezier handles type",
+            items=[
+            ('VECTOR', "Vector", "Vector type Bezier handles"),
+            ('AUTO', "Auto", "Automatic type Bezier handles")]
+            )
+    startlocation : FloatVectorProperty(
+            name="",
+            description="Start location",
+            default=(0.0, 0.0, 0.0),
+            subtype='TRANSLATION'
+            )
+    rotation_euler : FloatVectorProperty(
+            name="",
+            description="Rotation",
+            default=(0.0, 0.0, 0.0),
+            subtype='EULER'
+            )
 
     def draw(self, context):
         layout = self.layout
@@ -305,12 +452,11 @@ class CURVE_OT_spirals(Operator):
         row = col.row(align=True)
         row.menu("OBJECT_MT_spiral_curve_presets",
                  text=bpy.types.OBJECT_MT_spiral_curve_presets.bl_label)
-        row.operator("curve_extras.spiral_presets", text="")
-        op = row.operator("curve_extras.spiral_presets", text="")
+        row.operator("curve_extras.spiral_presets", text=" + ")
+        op = row.operator("curve_extras.spiral_presets", text=" - ")
         op.remove_active = True
 
         layout.prop(self, "spiral_type")
-        layout.prop(self, "curve_type")
         layout.prop(self, "spiral_direction")
 
         col = layout.column(align=True)
@@ -360,16 +506,50 @@ class CURVE_OT_spirals(Operator):
             col.prop(self, "dif_radius", text="Increase of Torus Radius")
             col.prop(self, "dif_inner_radius", text="Increase of Inner Radius")
 
+        row = layout.row()
+        row.prop(self, "shape", expand=True)
+        
+        # output options
+        col = layout.column()
+        col.label(text="Output Curve Type:")
+        col.row().prop(self, "curve_type", expand=True)
+        
+        if self.curve_type == 'NURBS':
+            col.prop(self, "order_u")
+        elif self.curve_type == 'BEZIER':
+            col.row().prop(self, 'handleType', expand=True)
+
+        col = layout.column()
+        col.row().prop(self, "use_cyclic_u", expand=True)
+        
+        box = layout.box()
+        box.label(text="Location:")
+        box.prop(self, "startlocation")
+        box = layout.box()
+        box.label(text="Rotation:")
+        box.prop(self, "rotation_euler")
+
     @classmethod
     def poll(cls, context):
         return context.scene is not None
 
     def execute(self, context):
+        # turn off 'Enter Edit Mode'
+        use_enter_edit_mode = bpy.context.preferences.edit.use_enter_edit_mode
+        bpy.context.preferences.edit.use_enter_edit_mode = False
+        
         time_start = time.time()
-        draw_curve(self, context)
+        self.align_matrix = align_matrix(context, self.startlocation)
+        draw_curve(self, context, self.align_matrix)
+        
+        if use_enter_edit_mode:
+            bpy.ops.object.mode_set(mode = 'EDIT')
+        
+        # restore pre operator state
+        bpy.context.preferences.edit.use_enter_edit_mode = use_enter_edit_mode
 
-        self.report({'INFO'},
-                    "Drawing Spiral Finished: %.4f sec" % (time.time() - time_start))
+        #self.report({'INFO'},
+                    #"Drawing Spiral Finished: %.4f sec" % (time.time() - time_start))
 
         return {'FINISHED'}
 

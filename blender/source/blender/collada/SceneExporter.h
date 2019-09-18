@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup collada
+/** \file
+ * \ingroup collada
  */
 
 #ifndef __SCENEEXPORTER_H__
@@ -81,32 +82,36 @@ extern "C" {
 #include "COLLADASWBaseInputElement.h"
 
 #include "ArmatureExporter.h"
-
 #include "ExportSettings.h"
 
-class SceneExporter: COLLADASW::LibraryVisualScenes, protected TransformWriter, protected InstanceWriter
-{
-public:
+extern void bc_get_children(std::vector<Object *> &child_set, Object *ob, ViewLayer *view_layer);
 
-	SceneExporter(BlenderContext &blender_context, COLLADASW::StreamWriter *sw, ArmatureExporter *arm, const ExportSettings *export_settings) :
-		COLLADASW::LibraryVisualScenes(sw),
-		blender_context(blender_context),
-		arm_exporter(arm),
-		export_settings(export_settings)
-	{}
+class SceneExporter : COLLADASW::LibraryVisualScenes,
+                      protected TransformWriter,
+                      protected InstanceWriter {
+ public:
+  SceneExporter(BlenderContext &blender_context,
+                COLLADASW::StreamWriter *sw,
+                ArmatureExporter *arm,
+                BCExportSettings &export_settings)
+      : COLLADASW::LibraryVisualScenes(sw),
+        blender_context(blender_context),
+        arm_exporter(arm),
+        export_settings(export_settings)
+  {
+  }
 
-	void exportScene();
+  void exportScene();
 
-private:
-	BlenderContext &blender_context;
-	friend class ArmatureExporter;
-	ArmatureExporter *arm_exporter;
-	const ExportSettings *export_settings;
+ private:
+  BlenderContext &blender_context;
+  friend class ArmatureExporter;
+  ArmatureExporter *arm_exporter;
+  BCExportSettings &export_settings;
 
-	void exportHierarchy();
-	void writeNodeList(std::vector<Object *> &child_objects, Object *parent);
-	void writeNodes(Object *ob);
-
+  void exportHierarchy();
+  void writeNodeList(std::vector<Object *> &child_objects, Object *parent);
+  void writeNode(Object *ob);
 };
 
 #endif

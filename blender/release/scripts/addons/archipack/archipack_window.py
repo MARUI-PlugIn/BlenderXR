@@ -1815,7 +1815,7 @@ class ARCHIPACK_OT_window(ArchipackCreateTool, Operator):
             if self.mode == 'CREATE':
                 bpy.ops.object.select_all(action="DESELECT")
                 o = self.create(context)
-                o.location = bpy.context.scene.cursor_location
+                o.location = bpy.context.scene.cursor.location
                 o.select_set(state=True)
                 context.view_layer.objects.active = o
                 self.manipulate()
@@ -1939,10 +1939,12 @@ class ARCHIPACK_OT_window_draw(ArchipackDrawTool, Operator):
 
             if event.type in {'LEFTMOUSE', 'RET', 'NUMPAD_ENTER', 'SPACE'}:
                 if wall is not None:
+                    o.select_set(state=True)
                     context.view_layer.objects.active = wall
                     wall.select_set(state=True)
                     if bpy.ops.archipack.single_boolean.poll():
                         bpy.ops.archipack.single_boolean()
+
                     wall.select_set(state=False)
                     # o must be a window here
                     if d is not None:

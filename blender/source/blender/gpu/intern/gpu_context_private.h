@@ -17,7 +17,8 @@
  * All rights reserved.
  */
 
-/** \file \ingroup gpu
+/** \file
+ * \ingroup gpu
  *
  * This interface allow GPU to manage GL objects for multiple context and threads.
  */
@@ -34,6 +35,7 @@ extern "C" {
 struct GPUFrameBuffer;
 
 GLuint GPU_vao_default(void);
+GLuint GPU_framebuffer_default(void);
 
 /* These require a gl ctx bound. */
 GLuint GPU_buf_alloc(void);

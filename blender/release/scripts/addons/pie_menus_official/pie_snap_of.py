@@ -9,29 +9,28 @@ bl_info = {
     "warning": "",
     "wiki_url": "",
     "category": "3d View"
-    }
+}
 
 import bpy
 from bpy.types import Menu
 
 
 # Pie Snap Mode - . key
-class VIEW3D_PIE_snap_of(Menu):
+class VIEW3D_MT_snap_of(Menu):
     bl_label = "Snapping"
-    bl_idname = "view3d.snap_of"
 
     def draw(self, context):
         layout = self.layout
 
         toolsettings = context.tool_settings
         pie = layout.menu_pie()
-        pie.prop(toolsettings, "snap_element", expand=True)
+        pie.prop(toolsettings, "snap_elements", expand=True)
         pie.prop(toolsettings, "use_snap")
 
 
 classes = (
-    VIEW3D_PIE_snap_of,
-    )
+    VIEW3D_MT_snap_of,
+)
 
 addon_keymaps = []
 

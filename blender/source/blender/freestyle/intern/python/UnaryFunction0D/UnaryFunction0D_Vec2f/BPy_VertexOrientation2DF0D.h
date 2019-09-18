@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup freestyle
+/** \file
+ * \ingroup freestyle
  */
 
 #ifndef __FREESTYLE_PYTHON_VERTEXORIENTATION2DF0D_H__
@@ -31,13 +32,12 @@ extern "C" {
 extern PyTypeObject VertexOrientation2DF0D_Type;
 
 #define BPy_VertexOrientation2DF0D_Check(v) \
-            (PyObject_IsInstance((PyObject *)v, (PyObject *)&VertexOrientation2DF0D_Type))
+  (PyObject_IsInstance((PyObject *)v, (PyObject *)&VertexOrientation2DF0D_Type))
 
 /*---------------------------Python BPy_VertexOrientation2DF0D structure definition----------*/
 typedef struct {
-	BPy_UnaryFunction0DVec2f py_uf0D_vec2f;
+  BPy_UnaryFunction0DVec2f py_uf0D_vec2f;
 } BPy_VertexOrientation2DF0D;
-
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 

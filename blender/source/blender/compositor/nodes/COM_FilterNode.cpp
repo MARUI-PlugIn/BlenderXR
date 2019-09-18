@@ -1,6 +1,4 @@
 /*
- * Copyright 2011, Blender Foundation.
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,6 +12,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * Copyright 2011, Blender Foundation.
  */
 
 #include "COM_FilterNode.h"
@@ -25,55 +25,72 @@
 
 FilterNode::FilterNode(bNode *editorNode) : Node(editorNode)
 {
-	/* pass */
+  /* pass */
 }
 
-void FilterNode::convertToOperations(NodeConverter &converter, const CompositorContext &/*context*/) const
+void FilterNode::convertToOperations(NodeConverter &converter,
+                                     const CompositorContext & /*context*/) const
 {
-	NodeInput *inputSocket = this->getInputSocket(0);
-	NodeInput *inputImageSocket = this->getInputSocket(1);
-	NodeOutput *outputSocket = this->getOutputSocket(0);
-	ConvolutionFilterOperation *operation = NULL;
+  NodeInput *inputSocket = this->getInputSocket(0);
+  NodeInput *inputImageSocket = this->getInputSocket(1);
+  NodeOutput *outputSocket = this->getOutputSocket(0);
+  ConvolutionFilterOperation *operation = NULL;
 
-	switch (this->getbNode()->custom1) {
-		case CMP_FILT_SOFT:
-			operation = new ConvolutionFilterOperation();
-			operation->set3x3Filter(1 / 16.0f, 2 / 16.0f, 1 / 16.0f, 2 / 16.0f, 4 / 16.0f, 2 / 16.0f, 1 / 16.0f, 2 / 16.0f, 1 / 16.0f);
-			break;
-		case CMP_FILT_SHARP:
-			operation = new ConvolutionFilterOperation();
-			operation->set3x3Filter(-1, -1, -1, -1, 9, -1, -1, -1, -1);
-			break;
-		case CMP_FILT_LAPLACE:
-			operation = new ConvolutionEdgeFilterOperation();
-			operation->set3x3Filter(-1 / 8.0f, -1 / 8.0f, -1 / 8.0f, -1 / 8.0f, 1.0f, -1 / 8.0f, -1 / 8.0f, -1 / 8.0f, -1 / 8.0f);
-			break;
-		case CMP_FILT_SOBEL:
-			operation = new ConvolutionEdgeFilterOperation();
-			operation->set3x3Filter(1, 2, 1, 0, 0, 0, -1, -2, -1);
-			break;
-		case CMP_FILT_PREWITT:
-			operation = new ConvolutionEdgeFilterOperation();
-			operation->set3x3Filter(1, 1, 1, 0, 0, 0, -1, -1, -1);
-			break;
-		case CMP_FILT_KIRSCH:
-			operation = new ConvolutionEdgeFilterOperation();
-			operation->set3x3Filter(5, 5, 5, -3, -3, -3, -2, -2, -2);
-			break;
-		case CMP_FILT_SHADOW:
-			operation = new ConvolutionFilterOperation();
-			operation->set3x3Filter(1, 2, 1, 0, 1, 0, -1, -2, -1);
-			break;
-		default:
-			operation = new ConvolutionFilterOperation();
-			operation->set3x3Filter(0, 0, 0, 0, 1, 0, 0, 0, 0);
-			break;
-	}
-	converter.addOperation(operation);
+  switch (this->getbNode()->custom1) {
+    case CMP_FILT_SOFT:
+      operation = new ConvolutionFilterOperation();
+      operation->set3x3Filter(1 / 16.0f,
+                              2 / 16.0f,
+                              1 / 16.0f,
+                              2 / 16.0f,
+                              4 / 16.0f,
+                              2 / 16.0f,
+                              1 / 16.0f,
+                              2 / 16.0f,
+                              1 / 16.0f);
+      break;
+    case CMP_FILT_SHARP:
+      operation = new ConvolutionFilterOperation();
+      operation->set3x3Filter(-1, -1, -1, -1, 9, -1, -1, -1, -1);
+      break;
+    case CMP_FILT_LAPLACE:
+      operation = new ConvolutionEdgeFilterOperation();
+      operation->set3x3Filter(-1 / 8.0f,
+                              -1 / 8.0f,
+                              -1 / 8.0f,
+                              -1 / 8.0f,
+                              1.0f,
+                              -1 / 8.0f,
+                              -1 / 8.0f,
+                              -1 / 8.0f,
+                              -1 / 8.0f);
+      break;
+    case CMP_FILT_SOBEL:
+      operation = new ConvolutionEdgeFilterOperation();
+      operation->set3x3Filter(1, 2, 1, 0, 0, 0, -1, -2, -1);
+      break;
+    case CMP_FILT_PREWITT:
+      operation = new ConvolutionEdgeFilterOperation();
+      operation->set3x3Filter(1, 1, 1, 0, 0, 0, -1, -1, -1);
+      break;
+    case CMP_FILT_KIRSCH:
+      operation = new ConvolutionEdgeFilterOperation();
+      operation->set3x3Filter(5, 5, 5, -3, -3, -3, -2, -2, -2);
+      break;
+    case CMP_FILT_SHADOW:
+      operation = new ConvolutionFilterOperation();
+      operation->set3x3Filter(1, 2, 1, 0, 1, 0, -1, -2, -1);
+      break;
+    default:
+      operation = new ConvolutionFilterOperation();
+      operation->set3x3Filter(0, 0, 0, 0, 1, 0, 0, 0, 0);
+      break;
+  }
+  converter.addOperation(operation);
 
-	converter.mapInputSocket(inputImageSocket, operation->getInputSocket(0));
-	converter.mapInputSocket(inputSocket, operation->getInputSocket(1));
-	converter.mapOutputSocket(outputSocket, operation->getOutputSocket());
+  converter.mapInputSocket(inputImageSocket, operation->getInputSocket(0));
+  converter.mapInputSocket(inputSocket, operation->getInputSocket(1));
+  converter.mapOutputSocket(outputSocket, operation->getOutputSocket());
 
-	converter.addPreview(operation->getOutputSocket(0));
+  converter.addPreview(operation->getOutputSocket(0));
 }

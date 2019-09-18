@@ -1,6 +1,4 @@
 /*
- * Copyright 2015, Blender Foundation.
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,6 +12,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * Copyright 2015, Blender Foundation.
  */
 
 #include "COM_SwitchViewNode.h"
@@ -21,19 +21,20 @@
 
 SwitchViewNode::SwitchViewNode(bNode *editorNode) : Node(editorNode)
 {
-	/* pass */
+  /* pass */
 }
 
-void SwitchViewNode::convertToOperations(NodeConverter &converter, const CompositorContext &context) const
+void SwitchViewNode::convertToOperations(NodeConverter &converter,
+                                         const CompositorContext &context) const
 {
-	NodeOperationOutput *result;
-	const char *viewName = context.getViewName();
-	bNode *bnode = this->getbNode();
+  NodeOperationOutput *result;
+  const char *viewName = context.getViewName();
+  bNode *bnode = this->getbNode();
 
-	/* get the internal index of the socket with a matching name */
-	int nr = BLI_findstringindex(&bnode->inputs, viewName, offsetof(bNodeSocket, name));
-	nr = max(nr, 0);
+  /* get the internal index of the socket with a matching name */
+  int nr = BLI_findstringindex(&bnode->inputs, viewName, offsetof(bNodeSocket, name));
+  nr = max(nr, 0);
 
-	result = converter.addInputProxy(getInputSocket(nr), false);
-	converter.mapOutputSocket(getOutputSocket(0), result);
+  result = converter.addInputProxy(getInputSocket(nr), false);
+  converter.mapOutputSocket(getOutputSocket(0), result);
 }

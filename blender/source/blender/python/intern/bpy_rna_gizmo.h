@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup pythonintern
+/** \file
+ * \ingroup pythonintern
  */
 
 #ifndef __BPY_RNA_GIZMO_H__
@@ -22,4 +23,4 @@
 
 int BPY_rna_gizmo_module(PyObject *);
 
-#endif  /* __BPY_RNA_GIZMO_H__ */
+#endif /* __BPY_RNA_GIZMO_H__ */

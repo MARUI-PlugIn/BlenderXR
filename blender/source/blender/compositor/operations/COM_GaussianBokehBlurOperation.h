@@ -1,6 +1,4 @@
 /*
- * Copyright 2011, Blender Foundation.
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,6 +12,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * Copyright 2011, Blender Foundation.
  */
 
 #ifndef __COM_GAUSSIANBOKEHBLUROPERATION_H__
@@ -23,53 +23,57 @@
 #include "COM_QualityStepHelper.h"
 
 class GaussianBokehBlurOperation : public BlurBaseOperation {
-private:
-	float *m_gausstab;
-	int m_radx, m_rady;
-	void updateGauss();
+ private:
+  float *m_gausstab;
+  int m_radx, m_rady;
+  void updateGauss();
 
-public:
-	GaussianBokehBlurOperation();
-	void initExecution();
-	void *initializeTileData(rcti *rect);
-	/**
-	 * the inner loop of this program
-	 */
-	void executePixel(float output[4], int x, int y, void *data);
+ public:
+  GaussianBokehBlurOperation();
+  void initExecution();
+  void *initializeTileData(rcti *rect);
+  /**
+   * the inner loop of this program
+   */
+  void executePixel(float output[4], int x, int y, void *data);
 
-	/**
-	 * Deinitialize the execution
-	 */
-	void deinitExecution();
+  /**
+   * Deinitialize the execution
+   */
+  void deinitExecution();
 
-	bool determineDependingAreaOfInterest(rcti *input, ReadBufferOperation *readOperation, rcti *output);
+  bool determineDependingAreaOfInterest(rcti *input,
+                                        ReadBufferOperation *readOperation,
+                                        rcti *output);
 };
 
 class GaussianBlurReferenceOperation : public BlurBaseOperation {
-private:
-	float **m_maintabs;
+ private:
+  float **m_maintabs;
 
-	void updateGauss();
-	int m_filtersizex;
-	int m_filtersizey;
-	float m_radx;
-	float m_rady;
+  void updateGauss();
+  int m_filtersizex;
+  int m_filtersizey;
+  float m_radx;
+  float m_rady;
 
-public:
-	GaussianBlurReferenceOperation();
-	void initExecution();
-	void *initializeTileData(rcti *rect);
-	/**
-	 * the inner loop of this program
-	 */
-	void executePixel(float output[4], int x, int y, void *data);
+ public:
+  GaussianBlurReferenceOperation();
+  void initExecution();
+  void *initializeTileData(rcti *rect);
+  /**
+   * the inner loop of this program
+   */
+  void executePixel(float output[4], int x, int y, void *data);
 
-	/**
-	 * Deinitialize the execution
-	 */
-	void deinitExecution();
+  /**
+   * Deinitialize the execution
+   */
+  void deinitExecution();
 
-	bool determineDependingAreaOfInterest(rcti *input, ReadBufferOperation *readOperation, rcti *output);
+  bool determineDependingAreaOfInterest(rcti *input,
+                                        ReadBufferOperation *readOperation,
+                                        rcti *output);
 };
 
 #endif

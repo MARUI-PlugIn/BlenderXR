@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup pythonintern
+/** \file
+ * \ingroup pythonintern
  *
  * This file defines '_bpy_path' module, Some 'C' functionality used by 'bpy.path'
  */
@@ -34,26 +35,26 @@ extern const char *imb_ext_audio[];
 
 /*----------------------------MODULE INIT-------------------------*/
 static struct PyModuleDef _bpy_path_module_def = {
-	PyModuleDef_HEAD_INIT,
-	"_bpy_path",  /* m_name */
-	NULL,  /* m_doc */
-	0,  /* m_size */
-	NULL,  /* m_methods */
-	NULL,  /* m_reload */
-	NULL,  /* m_traverse */
-	NULL,  /* m_clear */
-	NULL,  /* m_free */
+    PyModuleDef_HEAD_INIT,
+    "_bpy_path", /* m_name */
+    NULL,        /* m_doc */
+    0,           /* m_size */
+    NULL,        /* m_methods */
+    NULL,        /* m_reload */
+    NULL,        /* m_traverse */
+    NULL,        /* m_clear */
+    NULL,        /* m_free */
 };
 
 PyObject *BPyInit__bpy_path(void)
 {
-	PyObject *submodule;
+  PyObject *submodule;
 
-	submodule = PyModule_Create(&_bpy_path_module_def);
+  submodule = PyModule_Create(&_bpy_path_module_def);
 
-	PyModule_AddObject(submodule, "extensions_image", PyC_FrozenSetFromStrings(imb_ext_image));
-	PyModule_AddObject(submodule, "extensions_movie", PyC_FrozenSetFromStrings(imb_ext_movie));
-	PyModule_AddObject(submodule, "extensions_audio", PyC_FrozenSetFromStrings(imb_ext_audio));
+  PyModule_AddObject(submodule, "extensions_image", PyC_FrozenSetFromStrings(imb_ext_image));
+  PyModule_AddObject(submodule, "extensions_movie", PyC_FrozenSetFromStrings(imb_ext_movie));
+  PyModule_AddObject(submodule, "extensions_audio", PyC_FrozenSetFromStrings(imb_ext_audio));
 
-	return submodule;
+  return submodule;
 }

@@ -16,9 +16,10 @@
 #ifndef __BKE_AUTOEXEC_H__
 #define __BKE_AUTOEXEC_H__
 
-/** \file \ingroup bke
+/** \file
+ * \ingroup bke
  */
 
 bool BKE_autoexec_match(const char *path);
 
-#endif  /* __BKE_AUTOEXEC_H__ */
+#endif /* __BKE_AUTOEXEC_H__ */

@@ -18,13 +18,12 @@
 
 # <pep8-80 compliant>
 
-import bpy
 from bpy.types import Operator
 from mathutils import Vector
 
 
 def randomize_selected(context, seed, delta,
-                       loc, rot, scale, scale_even, scale_min):
+                       loc, rot, scale, scale_even, _scale_min):
 
     import random
     from random import uniform
@@ -167,8 +166,11 @@ class RandomizeLocRotSize(Operator):
         min=-100.0,
         max=100.0,
         default=(1.0, 1.0, 1.0),
-        subtype='TRANSLATION',
     )
+
+    @classmethod
+    def poll(cls, context):
+        return context.mode == 'OBJECT'
 
     def execute(self, context):
         seed = self.random_seed

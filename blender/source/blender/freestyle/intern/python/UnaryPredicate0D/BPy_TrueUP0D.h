@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup freestyle
+/** \file
+ * \ingroup freestyle
  */
 
 #ifndef __FREESTYLE_PYTHON_TRUEUP0D_H__
@@ -34,7 +35,7 @@ extern PyTypeObject TrueUP0D_Type;
 
 /*---------------------------Python BPy_TrueUP0D structure definition----------*/
 typedef struct {
-	BPy_UnaryPredicate0D py_up0D;
+  BPy_UnaryPredicate0D py_up0D;
 } BPy_TrueUP0D;
 
 ///////////////////////////////////////////////////////////////////////////////////////////

@@ -14,8 +14,9 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup freestyle
- *  \brief Classes to render a stroke with OpenGL
+/** \file
+ * \ingroup freestyle
+ * \brief Classes to render a stroke with OpenGL
  */
 
 #include "StrokeRenderer.h"
@@ -36,16 +37,19 @@ namespace Freestyle {
 
 TextureManager *StrokeRenderer::_textureManager = 0;
 
-StrokeRenderer::StrokeRenderer() {}
+StrokeRenderer::StrokeRenderer()
+{
+}
 
-StrokeRenderer::~StrokeRenderer() {}
+StrokeRenderer::~StrokeRenderer()
+{
+}
 
 bool StrokeRenderer::loadTextures()
 {
-	_textureManager->load();
-	return true;
+  _textureManager->load();
+  return true;
 }
-
 
 /**********************************/
 /*                                */
@@ -55,7 +59,6 @@ bool StrokeRenderer::loadTextures()
 /*                                */
 /**********************************/
 
-
 TextureManager *TextureManager::_pInstance = 0;
 
 string TextureManager::_patterns_path;
@@ -64,61 +67,63 @@ string TextureManager::_brushes_path;
 
 TextureManager::TextureManager()
 {
-	_hasLoadedTextures = false;
-	_pInstance = this;
-	_defaultTextureId = 0;
+  _hasLoadedTextures = false;
+  _pInstance = this;
+  _defaultTextureId = 0;
 }
 
 TextureManager::~TextureManager()
 {
-	if (!_brushesMap.empty())
-		_brushesMap.clear();
-	_pInstance = 0;
+  if (!_brushesMap.empty()) {
+    _brushesMap.clear();
+  }
+  _pInstance = 0;
 }
 
 void TextureManager::load()
 {
-	if (_hasLoadedTextures)
-		return;
-	loadStandardBrushes();
-	_hasLoadedTextures = true;
+  if (_hasLoadedTextures) {
+    return;
+  }
+  loadStandardBrushes();
+  _hasLoadedTextures = true;
 }
 
 unsigned TextureManager::getBrushTextureIndex(string name, Stroke::MediumType loadingMode)
 {
-	BrushTexture bt(name, loadingMode);
-	brushesMap::iterator b = _brushesMap.find(bt);
-	if (b == _brushesMap.end()) {
-		unsigned texId = loadBrush(name, loadingMode);
-		_brushesMap[bt] = texId;
-		return texId;
-		// XXX!
-		cerr << "brush file " << name << " not found" << endl;
-		return 0;
-	}
-	else {
-		return _brushesMap[bt];
-	}
+  BrushTexture bt(name, loadingMode);
+  brushesMap::iterator b = _brushesMap.find(bt);
+  if (b == _brushesMap.end()) {
+    unsigned texId = loadBrush(name, loadingMode);
+    _brushesMap[bt] = texId;
+    return texId;
+    // XXX!
+    cerr << "brush file " << name << " not found" << endl;
+    return 0;
+  }
+  else {
+    return _brushesMap[bt];
+  }
 }
 
-void TextureManager::Options::setPatternsPath(const string& path)
+void TextureManager::Options::setPatternsPath(const string &path)
 {
-	_patterns_path = path;
+  _patterns_path = path;
 }
 
 string TextureManager::Options::getPatternsPath()
 {
-	return _patterns_path;
+  return _patterns_path;
 }
 
-void TextureManager::Options::setBrushesPath(const string& path)
+void TextureManager::Options::setBrushesPath(const string &path)
 {
-	_brushes_path = path;
+  _brushes_path = path;
 }
 
 string TextureManager::Options::getBrushesPath()
 {
-	return _brushes_path;
+  return _brushes_path;
 }
 
 } /* namespace Freestyle */

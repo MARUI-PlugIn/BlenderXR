@@ -3,7 +3,7 @@ op = bpy.context.active_operator
 
 op.rotation = (0.0, 0.0, 0.0)
 op.location = (0.0, 0.0, 0.0)
-op.view_align = False
+op.align = 'WORLD'
 op.options_plus = True
 op.absolute_location = False
 op.use_colors = True
@@ -34,5 +34,5 @@ op.torus_h = 1.0
 op.torus_res = 208
 op.segment_res = 12
 op.outputType = 'BEZIER'
-op.handleType = 'AUTOMATIC'
+op.handleType = 'AUTO'
 op.adaptive_resolution = True

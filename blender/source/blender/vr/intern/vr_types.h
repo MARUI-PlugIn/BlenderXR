@@ -15,10 +15,10 @@
 * along with this program; if not, write to the Free Software Foundation,
 * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 *
-* The Original Code is Copyright (C) 2018 by Blender Foundation.
+* The Original Code is Copyright (C) 2019 by Blender Foundation.
 * All rights reserved.
 *
-* Contributor(s): MARUI-PlugIn
+* Contributor(s): MARUI-PlugIn, Multiplexed Reality
 *
 * ***** END GPL LICENSE BLOCK *****
 */
@@ -36,9 +36,9 @@
 #ifdef WIN32
 #include <string>	/* required for memcpy */
 #else
-#include <cmath>	/* required for sqrt, acos */
 #include <cstring>	/* required for memcpy */
 #endif
+#include <cmath>	/* required for sqrt, acos */
 
 /**************************************************************************************************\
 |*                                        GLOBAL DEFINITIONS                                      *|
@@ -47,6 +47,9 @@ typedef unsigned char		uchar;	/* unsigned 8bit integer (byte). */
 typedef unsigned short		ushort;	/* unsigned 16bit (short) integer. */
 typedef unsigned int		uint;	/* unsigned 32bit integer. */
 typedef unsigned long long	ui64;	/* unsigned 64bit integer. */
+
+typedef void(*void_func_ptr)();			/* Pointer to void function "void my_function();" type. */
+typedef void(*voidptr_func_ptr)(void*);	/* Pointer to void function "void f(void* param);" type. */
 
 /* Global enum for 3 dimension-axis, OR-able, including a "null"-direction. */
 typedef enum VR_Axis {

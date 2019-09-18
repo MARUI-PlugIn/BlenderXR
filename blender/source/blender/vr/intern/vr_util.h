@@ -15,10 +15,10 @@
 * along with this program; if not, write to the Free Software Foundation,
 * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 *
-* The Original Code is Copyright (C) 2018 by Blender Foundation.
+* The Original Code is Copyright (C) 2019 by Blender Foundation.
 * All rights reserved.
 *
-* Contributor(s): MARUI-PlugIn
+* Contributor(s): MARUI-PlugIn, Multiplexed Reality
 *
 * ***** END GPL LICENSE BLOCK *****
 */
@@ -30,7 +30,9 @@
 #ifndef __VR_UTIL_H__
 #define __VR_UTIL_H__
 
+#include "DNA_gpu_types.h"
 #include "ED_view3d.h"
+
 struct BMesh;
 
 /* Modified from view3d_project.c */
@@ -66,7 +68,7 @@ public:
 	    bool toggle = false,
 	    bool enumerate = false);
 
-    static void raycast_select_single(
+    static Base *raycast_select_single(
 	    const Coord3Df& p,
 	    bool extend,
 	    bool deselect,

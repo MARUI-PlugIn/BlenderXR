@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup freestyle
+/** \file
+ * \ingroup freestyle
  */
 
 #ifndef __FREESTYLE_PYTHON_SSHAPE_H__
@@ -40,9 +41,8 @@ extern PyTypeObject SShape_Type;
 
 /*---------------------------Python BPy_SShape structure definition----------*/
 typedef struct {
-	PyObject_HEAD
-	SShape *ss;
-	bool borrowed; /* true if *ss is a borrowed object */
+  PyObject_HEAD SShape *ss;
+  bool borrowed; /* true if *ss is a borrowed object */
 } BPy_SShape;
 
 /*---------------------------Python BPy_SShape visible prototypes-----------*/

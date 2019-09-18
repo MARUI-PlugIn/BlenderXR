@@ -18,7 +18,6 @@
 
 # <pep8 compliant>
 
-import bpy
 from mathutils import Color, Vector
 
 __all__ = (
@@ -131,7 +130,7 @@ class ShaderWrapper():
         if self._node_texcoords is None and not self.is_readonly:
             tree = self.material.node_tree
             nodes = tree.nodes
-            links = tree.links
+            # links = tree.links
 
             node_texcoords = nodes.new(type='ShaderNodeTexCoord')
             node_texcoords.label = "Texture Coords"
@@ -447,8 +446,32 @@ class PrincipledBSDFWrapper(ShaderWrapper):
     transmission_texture = property(transmission_texture_get)
 
 
-    # TODO: Do we need more complex handling for alpha (allowing masking and such)?
-    #       Would need extra mixing nodes onto Base Color maybe, or even its own shading chain...
+    def alpha_get(self):
+        if not self.use_nodes or self.node_principled_bsdf is None:
+            return 1.0
+        return self.node_principled_bsdf.inputs["Alpha"].default_value
+
+    @_set_check
+    def alpha_set(self, value):
+        if self.use_nodes and self.node_principled_bsdf is not None:
+            self.node_principled_bsdf.inputs["Alpha"].default_value = value
+
+    alpha = property(alpha_get, alpha_set)
+
+
+    # Will only be used as gray-scale one...
+    def alpha_texture_get(self):
+        if not self.use_nodes or self.node_principled_bsdf is None:
+            return None
+        return ShaderImageTextureWrapper(
+            self, self.node_principled_bsdf,
+            self.node_principled_bsdf.inputs["Alpha"],
+            grid_row_diff=-1,
+        )
+
+    alpha_texture = property(alpha_texture_get)
+
+
 
     # --------------------------------------------------------------------
     # Normal map.
@@ -473,6 +496,7 @@ class PrincipledBSDFWrapper(ShaderWrapper):
             self, self.node_normalmap,
             self.node_normalmap.inputs["Color"],
             grid_row_diff=-2,
+            colorspace_is_data=True,
         )
 
     normalmap_texture = property(normalmap_texture_get)
@@ -498,10 +522,11 @@ class ShaderImageTextureWrapper():
         "is_readonly",
         "grid_row_diff",
         "use_alpha",
+        "colorspace_is_data",
         *NODES_LIST,
     )
 
-    def __new__(cls, owner_shader: ShaderWrapper, node_dst, socket_dst, *args, **kwargs):
+    def __new__(cls, owner_shader: ShaderWrapper, node_dst, socket_dst, *_args, **_kwargs):
         instance = owner_shader._textures.get((node_dst, socket_dst), None)
         if instance is not None:
             return instance
@@ -509,20 +534,22 @@ class ShaderImageTextureWrapper():
         owner_shader._textures[(node_dst, socket_dst)] = instance
         return instance
 
-    def __init__(self, owner_shader: ShaderWrapper, node_dst, socket_dst, grid_row_diff=0, use_alpha=False):
+    def __init__(self, owner_shader: ShaderWrapper, node_dst, socket_dst, grid_row_diff=0,
+                 use_alpha=False, colorspace_is_data=...):
         self.owner_shader = owner_shader
         self.is_readonly = owner_shader.is_readonly
         self.node_dst = node_dst
         self.socket_dst = socket_dst
         self.grid_row_diff = grid_row_diff
         self.use_alpha = use_alpha
+        self.colorspace_is_data = colorspace_is_data
 
         self._node_image = ...
         self._node_mapping = ...
 
-        tree = node_dst.id_data
-        nodes = tree.nodes
-        links = tree.links
+        # tree = node_dst.id_data
+        # nodes = tree.nodes
+        # links = tree.links
 
         if socket_dst.is_linked:
             from_node = socket_dst.links[0].from_node
@@ -616,6 +643,8 @@ class ShaderImageTextureWrapper():
 
     @_set_check
     def image_set(self, image):
+        if self.colorspace_is_data is not ...:
+            image.colorspace_settings.is_data = self.colorspace_is_data
         self.node_image.image = image
 
     image = property(image_get, image_set)
@@ -735,7 +764,7 @@ class ShaderImageTextureWrapper():
 
 
     def use_min_get(self):
-        return self.node_mapping.use_min if self_mapping.node is not None else False
+        return self.node_mapping.use_min if self.node_mapping is not None else False
 
     @_set_check
     def use_min_set(self, use_min):
@@ -745,7 +774,7 @@ class ShaderImageTextureWrapper():
 
 
     def use_max_get(self):
-        return self.node_mapping.use_max if self_mapping.node is not None else False
+        return self.node_mapping.use_max if self.node_mapping is not None else False
 
     @_set_check
     def use_max_set(self, use_max):

@@ -17,8 +17,9 @@
 # ***** END GPL LICENSE BLOCK *****
 
 set(INC
-	.
-	../guardedalloc
+  .
+  ../atomic
+  ../guardedalloc
 )
 
 set(INC_SYS
@@ -26,9 +27,15 @@ set(INC_SYS
 )
 
 set(SRC
-	clog.c
+  clog.c
 
-	CLG_log.h
+  CLG_log.h
 )
 
-blender_add_lib(bf_intern_clog "${SRC}" "${INC}" "${INC_SYS}")
+set(LIB
+)
+
+# Disabled for makesdna/makesrna.
+add_definitions(-DWITH_CLOG_PTHREADS)
+
+blender_add_lib(bf_intern_clog "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")

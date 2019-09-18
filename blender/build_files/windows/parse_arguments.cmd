@@ -16,7 +16,9 @@ if NOT "%1" == "" (
 		set BUILD_DIR_OVERRRIDE="%BLENDER_DIR%..\%2"
 		shift /1
 	) else if "%1" == "with_tests" (
-		set TESTS_CMAKE_ARGS=-DWITH_GTESTS=On
+		set TESTS_CMAKE_ARGS=%TESTS_CMAKE_ARGS% -DWITH_GTESTS=On
+	) else if "%1" == "with_opengl_tests" (
+		set TESTS_CMAKE_ARGS=%TESTS_CMAKE_ARGS% -DWITH_OPENGL_DRAW_TESTS=On -DWITH_OPENGL_RENDER_TESTS=On
 	) else if "%1" == "full" (
 		set TARGET=Full
 		set BUILD_CMAKE_ARGS=%BUILD_CMAKE_ARGS% ^
@@ -50,9 +52,16 @@ if NOT "%1" == "" (
 	) else if "%1" == "2017pre" (
 		set BUILD_VS_YEAR=2017
 		set VSWHERE_ARGS=-prerelease
-		set BUILD_VS_YEAR=2017
 	) else if "%1" == "2017b" (
 		set BUILD_VS_YEAR=2017
+		set VSWHERE_ARGS=-products Microsoft.VisualStudio.Product.BuildTools
+	) else if "%1" == "2019" (
+		set BUILD_VS_YEAR=2019
+	) else if "%1" == "2019pre" (
+		set BUILD_VS_YEAR=2019
+		set VSWHERE_ARGS=-prerelease
+	) else if "%1" == "2019b" (
+		set BUILD_VS_YEAR=2019
 		set VSWHERE_ARGS=-products Microsoft.VisualStudio.Product.BuildTools
 	) else if "%1" == "2015" (
 		set BUILD_VS_YEAR=2015
@@ -61,6 +70,8 @@ if NOT "%1" == "" (
 		shift /1
 	) else if "%1" == "nobuild" (
 		set NOBUILD=1
+	) else if "%1" == "nobuildinfo" (
+		set BUILD_CMAKE_ARGS=%BUILD_CMAKE_ARGS% -DWITH_BUILDINFO=Off
 	) else if "%1" == "pydebug" (
 		set WITH_PYDEBUG=1
 	) else if "%1" == "showhash" (
@@ -68,12 +79,22 @@ if NOT "%1" == "" (
 	REM Non-Build Commands
 	) else if "%1" == "update" (
 		SET BUILD_UPDATE=1
+		set BUILD_UPDATE_SVN=1
+		set BUILD_UPDATE_GIT=1
+	) else if "%1" == "code_update" (
+		SET BUILD_UPDATE=1
+		set BUILD_UPDATE_SVN=0
+		set BUILD_UPDATE_GIT=1
 	) else if "%1" == "ninja" (
 		SET BUILD_WITH_NINJA=1
 	) else if "%1" == "clean" (
 		set MUST_CLEAN=1
 	) else if "%1" == "verbose" (
 		set VERBOSE=1
+	) else if "%1" == "format" (
+		set FORMAT=1
+		set FORMAT_ARGS=%2 %3 %4 %5 %6 %7 %8 %9
+		goto EOF
 	) else (
 		echo Command "%1" unknown, aborting!
 		exit /b 1

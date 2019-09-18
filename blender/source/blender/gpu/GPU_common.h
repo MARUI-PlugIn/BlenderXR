@@ -17,7 +17,8 @@
  * All rights reserved.
  */
 
-/** \file \ingroup gpu
+/** \file
+ * \ingroup gpu
  */
 
 #ifndef __GPU_COMMON_H__
@@ -28,7 +29,7 @@
 #if defined(NDEBUG)
 #  define TRUST_NO_ONE 0
 #else
-  /* strict error checking, enabled for debug builds during early development */
+/* strict error checking, enabled for debug builds during early development */
 #  define TRUST_NO_ONE 1
 #endif
 

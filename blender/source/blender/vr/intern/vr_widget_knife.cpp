@@ -15,10 +15,10 @@
 * along with this program; if not, write to the Free Software Foundation,
 * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 *
-* The Original Code is Copyright (C) 2018 by Blender Foundation.
+* The Original Code is Copyright (C) 2019 by Blender Foundation.
 * All rights reserved.
 *
-* Contributor(s): MARUI-PlugIn
+* Contributor(s): MARUI-PlugIn, Multiplexed Reality
 *
 * ***** END GPL LICENSE BLOCK *****
 */
@@ -75,7 +75,7 @@ enum {
 	KNF_MODAL_ADD_CUT_CLOSED,
 };
 
-/***********************************************************************************************//**
+/***************************************************************************************************
  * \class									Widget_Knife
  ***************************************************************************************************
  * Interaction widget for the Knife tool.
@@ -176,13 +176,14 @@ void Widget_Knife::drag_start(VR_UI::Cursor& c)
     event.val = KNF_MODAL_ADD_CUT;
     knife_dummy_op.type->modal(C, &knife_dummy_op, &event);
 
-    /* The knifetool installs an eventhandler for modal that we don't need or want.
-     *  Find it and remove it... */
-    wmWindow *win = CTX_wm_window(C);
-    wmEventHandler* handler = (wmEventHandler*)win->modalhandlers.first;
-    if (handler->op == &knife_dummy_op) {
-        BLI_remlink(&win->modalhandlers, handler);
-    }
+	/* The knifetool installs an eventhandler for modal that we don't need or want.
+	 *  Find it and remove it... */
+	wmWindow *win = CTX_wm_window(C);
+	wmEventHandler* handler = (wmEventHandler*)win->modalhandlers.first;
+	/* TODO_XR */
+	//if (handler->op == &knife_dummy_op) {
+		BLI_remlink(&win->modalhandlers, handler);
+	//}
 
 	for (int i = 0; i < VR_SIDES; ++i) {
 		Widget_Knife::obj.do_render[i] = true;
@@ -205,7 +206,7 @@ void Widget_Knife::drag_contd(VR_UI::Cursor& c)
 			return;
 		}
 		if (obedit->type == OB_MESH) {
-			bm = ((Mesh*)obedit->data)->edit_btmesh->bm;
+			bm = ((Mesh*)obedit->data)->edit_mesh->bm;
 			if (!bm) {
 				return;
 			}

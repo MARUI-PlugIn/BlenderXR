@@ -20,16 +20,16 @@
   <PropertyGroup Label="Globals">
     <ProjectGuid>{E334E0F7-7117-4C47-88B8-5C8BAB1C3317}</ProjectGuid>
     <RootNamespace>InputDev_LeapMotion</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0.17134.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
     <ProjectName>BlenderXR_Oculus</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <ConfigurationType>DynamicLibrary</ConfigurationType>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <ConfigurationType>DynamicLibrary</ConfigurationType>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
@@ -49,12 +49,12 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
       <DebugInformationFormat>None</DebugInformationFormat>
-      <AdditionalIncludeDirectories>$(SolutionDir)..\inc;$(SolutionDir)..\inc\OculusSDK_1.26.0</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)..\inc;$(SolutionDir)..\inc\OculusSDK_1.35.0</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <PreprocessorDefinitions>%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalLibraryDirectories>$(SolutionDir)..\lib\OculusSDK_1.26.0;$(SolutionDir)..\lib</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)..\lib\OculusSDK_1.35.0;$(SolutionDir)..\lib</AdditionalLibraryDirectories>
       <AdditionalDependencies>OpenGL32.Lib;LibOVR.lib;LibOVRKernel.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ImportLibrary>build/$(TargetName).lib</ImportLibrary>
       <GenerateDebugInformation>false</GenerateDebugInformation>
@@ -70,11 +70,11 @@
     <ClCompile>
       <Optimization>Disabled</Optimization>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
-      <AdditionalIncludeDirectories>$(SolutionDir)..\inc;$(SolutionDir)..\inc\OculusSDK_1.26.0</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)..\inc;$(SolutionDir)..\inc\OculusSDK_1.35.0</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalLibraryDirectories>$(SolutionDir)..\lib\OculusSDK_1.26.0;$(SolutionDir)..\lib</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)..\lib\OculusSDK_1.35.0;$(SolutionDir)..\lib</AdditionalLibraryDirectories>
       <AdditionalDependencies>OpenGL32.Lib;LibOVRd.lib;LibOVRKerneld.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ImportLibrary>build/$(TargetName).lib</ImportLibrary>
       <GenerateDebugInformation>true</GenerateDebugInformation>

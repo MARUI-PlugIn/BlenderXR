@@ -19,7 +19,7 @@
 # <pep8 compliant>
 
 # for full docs see...
-# https://docs.blender.org/manual/en/dev/editors/uv_image/uv/editing/unwrapping/mapping_types.html#follow-active-quads
+# https://docs.blender.org/manual/en/latest/editors/uv_image/uv/editing/unwrapping/mapping_types.html#follow-active-quads
 
 import bpy
 from bpy.types import Operator
@@ -31,7 +31,7 @@ STATUS_ERR_NOT_SELECTED = (1 << 2)
 STATUS_ERR_NOT_QUAD = (1 << 3)
 
 
-def extend(obj, operator, EXTEND_MODE):
+def extend(obj, EXTEND_MODE):
     import bmesh
     me = obj.data
 
@@ -111,13 +111,15 @@ def extend(obj, operator, EXTEND_MODE):
             else:
                 break
 
-    def extrapolate_uv(fac,
-                       l_a_outer, l_a_inner,
-                       l_b_outer, l_b_inner):
+    def extrapolate_uv(
+            fac,
+            l_a_outer, l_a_inner,
+            l_b_outer, l_b_inner,
+    ):
         l_b_inner[:] = l_a_inner
         l_b_outer[:] = l_a_inner + ((l_a_inner - l_a_outer) * fac)
 
-    def apply_uv(f_prev, l_prev, f_next):
+    def apply_uv(_f_prev, l_prev, _f_next):
         l_a = [None, None, None, None]
         l_b = [None, None, None, None]
 
@@ -230,7 +232,7 @@ def main(context, operator):
     for ob in ob_list:
         num_meshes += 1
 
-        ret = extend(ob, operator, operator.properties.mode)
+        ret = extend(ob, operator.properties.mode)
         if ret != STATUS_OK:
             num_errors += 1
             status |= ret
@@ -254,23 +256,23 @@ class FollowActiveQuads(Operator):
     mode: bpy.props.EnumProperty(
         name="Edge Length Mode",
         description="Method to space UV edge loops",
-        items=(('EVEN', "Even", "Space all UVs evenly"),
-               ('LENGTH', "Length", "Average space UVs edge length of each loop"),
-               ('LENGTH_AVERAGE', "Length Average", "Average space UVs edge length of each loop"),
-               ),
+        items=(
+            ('EVEN', "Even", "Space all UVs evenly"),
+            ('LENGTH', "Length", "Average space UVs edge length of each loop"),
+            ('LENGTH_AVERAGE', "Length Average", "Average space UVs edge length of each loop"),
+        ),
         default='LENGTH_AVERAGE',
     )
 
     @classmethod
     def poll(cls, context):
-        obj = context.active_object
-        return (obj is not None and obj.type == 'MESH')
+        return context.mode == 'EDIT_MESH'
 
     def execute(self, context):
         main(context, self)
         return {'FINISHED'}
 
-    def invoke(self, context, event):
+    def invoke(self, context, _event):
         wm = context.window_manager
         return wm.invoke_props_dialog(self)
 

@@ -14,8 +14,9 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup freestyle
- *  \brief Class to define a cell grid surrounding the bounding box of the scene
+/** \file
+ * \ingroup freestyle
+ * \brief Class to define a cell grid surrounding the bounding box of the scene
  */
 
 #include "HashGrid.h"
@@ -24,20 +25,20 @@ namespace Freestyle {
 
 void HashGrid::clear()
 {
-	if (!_cells.empty()) {
-		for (GridHashTable::iterator it = _cells.begin(); it != _cells.end(); it++) {
-			Cell *cell = (*it).second;
-			delete cell;
-		}
-		_cells.clear();
-	}
+  if (!_cells.empty()) {
+    for (GridHashTable::iterator it = _cells.begin(); it != _cells.end(); it++) {
+      Cell *cell = (*it).second;
+      delete cell;
+    }
+    _cells.clear();
+  }
 
-	Grid::clear();
+  Grid::clear();
 }
 
-void HashGrid::configure(const Vec3r& orig, const Vec3r& size, unsigned nb)
+void HashGrid::configure(const Vec3r &orig, const Vec3r &size, unsigned nb)
 {
-	Grid::configure(orig, size, nb);
+  Grid::configure(orig, size, nb);
 }
 
 } /* namespace Freestyle */

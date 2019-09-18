@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup freestyle
+/** \file
+ * \ingroup freestyle
  */
 
 #ifndef __FREESTYLE_PYTHON_UNARYFUNCTION1DUNSIGNED_H__
@@ -31,17 +32,16 @@ extern "C" {
 extern PyTypeObject UnaryFunction1DUnsigned_Type;
 
 #define BPy_UnaryFunction1DUnsigned_Check(v) \
-            (PyObject_IsInstance((PyObject *)v, (PyObject *)&UnaryFunction1DUnsigned_Type))
+  (PyObject_IsInstance((PyObject *)v, (PyObject *)&UnaryFunction1DUnsigned_Type))
 
 /*---------------------------Python BPy_UnaryFunction1DUnsigned structure definition----------*/
 typedef struct {
-	BPy_UnaryFunction1D py_uf1D;
-	UnaryFunction1D<unsigned int> *uf1D_unsigned;
+  BPy_UnaryFunction1D py_uf1D;
+  UnaryFunction1D<unsigned int> *uf1D_unsigned;
 } BPy_UnaryFunction1DUnsigned;
 
 /*---------------------------Python BPy_UnaryFunction1DUnsigned visible prototypes-----------*/
 int UnaryFunction1DUnsigned_Init(PyObject *module);
-
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 

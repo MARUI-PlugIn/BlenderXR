@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup freestyle
+/** \file
+ * \ingroup freestyle
  */
 
 #ifndef __FREESTYLE_PYTHON_GETOCCLUDEEF1D_H__
@@ -30,13 +31,13 @@ extern "C" {
 
 extern PyTypeObject GetOccludeeF1D_Type;
 
-#define BPy_GetOccludeeF1D_Check(v) (PyObject_IsInstance((PyObject *)v, (PyObject *)&GetOccludeeF1D_Type))
+#define BPy_GetOccludeeF1D_Check(v) \
+  (PyObject_IsInstance((PyObject *)v, (PyObject *)&GetOccludeeF1D_Type))
 
 /*---------------------------Python BPy_GetOccludeeF1D structure definition----------*/
 typedef struct {
-	BPy_UnaryFunction1DVectorViewShape py_uf1D_vectorviewshape;
+  BPy_UnaryFunction1DVectorViewShape py_uf1D_vectorviewshape;
 } BPy_GetOccludeeF1D;
-
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 

@@ -21,7 +21,7 @@ bl_info = {
     "author": "Bart Crouch",
     "version": (4, 6, 7),
     "blender": (2, 80, 0),
-    "location": "View3D > Toolbar and View3D > Specials (W-key)",
+    "location": "View3D > Sidebar > Edit Tab / Edit Mode Context Menu",
     "warning": "",
     "description": "Mesh modelling toolkit. Several tools to aid modelling",
     "wiki_url": "https://wiki.blender.org/index.php/Extensions:2.6/Py/"
@@ -60,12 +60,12 @@ from bpy.props import (
 looptools_cache = {}
 
 
-def get_grease_pencil(object, context):
-    gp = object.grease_pencil
-    if not gp:
-        gp = context.scene.grease_pencil
-    return gp
-
+def get_annotation(self, context):
+    if 'Annotations' in bpy.data.grease_pencils.keys():
+        return True
+    else:
+        self.report({'WARNING'}, "Annotation not found")
+        return False
 
 # force a full recalculation next time
 def cache_delete(tool):
@@ -299,9 +299,9 @@ def calculate_plane(bm_mod, loop, method="best_fit", object=False):
         # calculate view normal
         rotation = bpy.context.space_data.region_3d.view_matrix.to_3x3().\
             inverted()
-        normal = rotation * mathutils.Vector((0.0, 0.0, 1.0))
+        normal = rotation @ mathutils.Vector((0.0, 0.0, 1.0))
         if object:
-            normal = object.matrix_world.inverted().to_euler().to_matrix() * \
+            normal = object.matrix_world.inverted().to_euler().to_matrix() @ \
                      normal
 
     return(com, normal)
@@ -526,9 +526,11 @@ def get_derived_bmesh(object, bm):
                 mod.show_viewport = False
         # get derived mesh
         bm_mod = bmesh.new()
-        mesh_mod = object.to_mesh(bpy.context.depsgraph, True)
+        depsgraph = bpy.context.evaluated_depsgraph_get()
+        object_eval = object.evaluated_get(depsgraph)
+        mesh_mod = object_eval.to_mesh()
         bm_mod.from_mesh(mesh_mod)
-        bpy.context.blend_data.meshes.remove(mesh_mod)
+        object_eval.to_mesh_clear()
         # re-enable other modifiers
         for mod_name in show_viewport:
             object.modifiers[mod_name].show_viewport = True
@@ -745,8 +747,6 @@ def get_parallel_loops(bm_mod, loops):
 
 # gather initial data
 def initialise():
-    global_undo = bpy.context.preferences.edit.use_global_undo
-    bpy.context.preferences.edit.use_global_undo = False
     object = bpy.context.active_object
     if 'MIRROR' in [mod.type for mod in object.modifiers if mod.show_viewport]:
         # ensure that selection is synced for the derived mesh
@@ -758,7 +758,7 @@ def initialise():
     bm.edges.ensure_lookup_table()
     bm.faces.ensure_lookup_table()
 
-    return(global_undo, object, bm)
+    return(object, bm)
 
 
 # move the vertices to their new locations
@@ -828,13 +828,11 @@ def settings_write(self):
 
 
 # clean up and set settings back to original state
-def terminate(global_undo):
+def terminate():
     # update editmesh cached data
     obj = bpy.context.active_object
     if obj.mode == 'EDIT':
         bmesh.update_edit_mesh(obj.data, loop_triangles=True, destructive=True)
-
-    bpy.context.preferences.edit.use_global_undo = global_undo
 
 
 # ########################################
@@ -2661,8 +2659,8 @@ def gstretch_calculate_verts(loop, stroke, object, bm_mod, method):
                 v1 = bm_mod.verts[v1]
                 v2 = bm_mod.verts[v2]
                 if v1.select + v2.select == 1 and not v1.hide and not v2.hide:
-                    vec1 = object.matrix_world * v1.co
-                    vec2 = object.matrix_world * v2.co
+                    vec1 = object.matrix_world @ v1.co
+                    vec2 = object.matrix_world @ v2.co
                     intersection = intersect_line_stroke(vec1, vec2, stroke)
                     if intersection:
                         break
@@ -2671,7 +2669,7 @@ def gstretch_calculate_verts(loop, stroke, object, bm_mod, method):
                 intersection = intersect_line_stroke(v.co, v.co + v.normal,
                     stroke)
             if intersection:
-                move.append([v_index, matrix_inverse * intersection])
+                move.append([v_index, matrix_inverse @ intersection])
 
     else:
         if method == 'irregular':
@@ -2713,7 +2711,7 @@ conversion_distance, conversion_max, conversion_min, conversion_vertices):
         if conversion == 'distance':
             method = 'project'
             prev_point = stroke.points[0]
-            stroke_verts[-1][1].append(bm_mod.verts.new(mat_world * prev_point.co))
+            stroke_verts[-1][1].append(bm_mod.verts.new(mat_world @ prev_point.co))
             distance = 0
             limit = conversion_distance
             for point in stroke.points:
@@ -2732,12 +2730,12 @@ conversion_distance, conversion_max, conversion_min, conversion_vertices):
         else:
             # add vertices at stroke points
             for point in stroke.points[:end_point]:
-                stroke_verts[-1][1].append(bm_mod.verts.new(mat_world * point.co))
+                stroke_verts[-1][1].append(bm_mod.verts.new(mat_world @ point.co))
             # add more vertices, beyond the points that are available
             if min_end_point > min(len(stroke.points), end_point):
                 for i in range(min_end_point -
                 (min(len(stroke.points), end_point))):
-                    stroke_verts[-1][1].append(bm_mod.verts.new(mat_world * point.co))
+                    stroke_verts[-1][1].append(bm_mod.verts.new(mat_world @ point.co))
                 # force even spreading of points, so they are placed on stroke
                 method = 'regular'
     bm_mod.verts.ensure_lookup_table()
@@ -2791,7 +2789,9 @@ def gstretch_erase_stroke(stroke, context):
     erase_stroke = [sp(p.co, context) for p in stroke.points]
     if erase_stroke:
         erase_stroke[0]['is_start'] = True
-    bpy.ops.gpencil.draw(mode='ERASER', stroke=erase_stroke)
+    #bpy.ops.gpencil.draw(mode='ERASER', stroke=erase_stroke)
+    bpy.ops.gpencil.data_unlink()
+
 
 
 # get point on stroke, given by relative distance (0.0 - 1.0)
@@ -2835,13 +2835,12 @@ def gstretch_get_fake_strokes(object, bm_mod, loops):
 
     return(strokes)
 
-
-# get grease pencil strokes for the active object
-def gstretch_get_strokes(object, context):
-    gp = get_grease_pencil(object, context)
+# get annotation strokes
+def gstretch_get_strokes(self, context):
+    gp = get_annotation(self, context)
     if not gp:
         return(None)
-    layer = gp.layers.active
+    layer = bpy.data.grease_pencils["Annotations"].layers["Note"]
     if not layer:
         return(None)
     frame = layer.active_frame
@@ -2852,7 +2851,6 @@ def gstretch_get_strokes(object, context):
         return(None)
 
     return(strokes)
-
 
 # returns a list with loop-stroke pairs
 def gstretch_match_loops_strokes(loops, strokes, object, bm_mod):
@@ -2899,8 +2897,8 @@ def gstretch_match_single_verts(bm_mod, strokes, mat_world):
     # calculate stroke endpoints in object space
     endpoints = []
     for stroke in strokes:
-        endpoints.append((mat_world * stroke.points[0].co, stroke, 0))
-        endpoints.append((mat_world * stroke.points[-1].co, stroke, -1))
+        endpoints.append((mat_world @ stroke.points[0].co, stroke, 0))
+        endpoints.append((mat_world @ stroke.points[-1].co, stroke, -1))
 
     distances = []
     # find single vertices (not connected to other selected verts)
@@ -3299,7 +3297,7 @@ class Bridge(Operator):
 
     def execute(self, context):
         # initialise
-        global_undo, object, bm = initialise()
+        object, bm = initialise()
         edge_faces, edgekey_to_edge, old_selected_faces, smooth = \
             bridge_initialise(bm, self.interpolation)
         settings_write(self)
@@ -3373,7 +3371,7 @@ class Bridge(Operator):
             bpy.ops.mesh.normals_make_consistent()
 
         # cleaning up
-        terminate(global_undo)
+        terminate()
 
         return{'FINISHED'}
 
@@ -3482,7 +3480,7 @@ class Circle(Operator):
 
     def execute(self, context):
         # initialise
-        global_undo, object, bm = initialise()
+        object, bm = initialise()
         settings_write(self)
         # check cache to see if we can save time
         cached, single_loops, loops, derived, mapping = cache_read("Circle",
@@ -3546,7 +3544,7 @@ class Circle(Operator):
         # cleaning up
         if derived:
             bm_mod.free()
-        terminate(global_undo)
+        terminate()
 
         return{'FINISHED'}
 
@@ -3646,7 +3644,7 @@ class Curve(Operator):
 
     def execute(self, context):
         # initialise
-        global_undo, object, bm = initialise()
+        object, bm = initialise()
         settings_write(self)
         # check cache to see if we can save time
         cached, single_loops, loops, derived, mapping = cache_read("Curve",
@@ -3690,7 +3688,7 @@ class Curve(Operator):
         # cleaning up
         if derived:
             bm_mod.free()
-        terminate(global_undo)
+        terminate()
 
         return{'FINISHED'}
 
@@ -3778,7 +3776,7 @@ class Flatten(Operator):
 
     def execute(self, context):
         # initialise
-        global_undo, object, bm = initialise()
+        object, bm = initialise()
         settings_write(self)
         # check cache to see if we can save time
         cached, single_loops, loops, derived, mapping = cache_read("Flatten",
@@ -3812,7 +3810,7 @@ class Flatten(Operator):
         move_verts(object, bm, False, move, lock, self.influence)
 
         # cleaning up
-        terminate(global_undo)
+        terminate()
 
         return{'FINISHED'}
 
@@ -3821,15 +3819,15 @@ class Flatten(Operator):
 class RemoveGP(Operator):
     bl_idname = "remove.gp"
     bl_label = "Remove GP"
-    bl_description = "Remove all Grease Pencil Strokes"
+    bl_description = "Remove all Annotation Strokes"
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
 
-        if context.gpencil_data is not None:
-            bpy.ops.gpencil.data_unlink()
+        if get_annotation(self, context):
+            bpy.data.grease_pencils["Annotations"].layers["Note"].clear()
         else:
-            self.report({'INFO'}, "No Grease Pencil data to Unlink")
+            self.report({'INFO'}, "No Annotation data to Unlink")
             return {'CANCELLED'}
 
         return{'FINISHED'}
@@ -3838,28 +3836,28 @@ class RemoveGP(Operator):
 class GStretch(Operator):
     bl_idname = "mesh.looptools_gstretch"
     bl_label = "Gstretch"
-    bl_description = "Stretch selected vertices to Grease Pencil stroke"
+    bl_description = "Stretch selected vertices to Annotation stroke"
     bl_options = {'REGISTER', 'UNDO'}
 
     conversion: EnumProperty(
         name="Conversion",
         items=(("distance", "Distance", "Set the distance between vertices "
-                "of the converted grease pencil stroke"),
+                "of the converted annotation stroke"),
                ("limit_vertices", "Limit vertices", "Set the minimum and maximum "
-                "number of vertices that converted GP strokes will have"),
+                "number of vertices that converted annotation strokes will have"),
                ("vertices", "Exact vertices", "Set the exact number of vertices "
-                "that converted grease pencil strokes will have. Short strokes "
+                "that converted annotation strokes will have. Short strokes "
                 "with few points may contain less vertices than this number."),
-               ("none", "No simplification", "Convert each grease pencil point "
+               ("none", "No simplification", "Convert each annotation point "
                 "to a vertex")),
-        description="If grease pencil strokes are converted to geometry, "
+        description="If annotation strokes are converted to geometry, "
                     "use this simplification method",
         default='limit_vertices'
         )
     conversion_distance: FloatProperty(
         name="Distance",
         description="Absolute distance between vertices along the converted "
-                    "grease pencil stroke",
+                    "annotation stroke",
         default=0.1,
         min=0.000001,
         soft_min=0.01,
@@ -3867,7 +3865,7 @@ class GStretch(Operator):
         )
     conversion_max: IntProperty(
         name="Max Vertices",
-        description="Maximum number of vertices grease pencil strokes will "
+        description="Maximum number of vertices annotation strokes will "
                     "have, when they are converted to geomtery",
         default=32,
         min=3,
@@ -3876,7 +3874,7 @@ class GStretch(Operator):
         )
     conversion_min: IntProperty(
         name="Min Vertices",
-        description="Minimum number of vertices grease pencil strokes will "
+        description="Minimum number of vertices annotation strokes will "
                     "have, when they are converted to geomtery",
         default=8,
         min=3,
@@ -3885,7 +3883,7 @@ class GStretch(Operator):
         )
     conversion_vertices: IntProperty(
         name="Vertices",
-        description="Number of vertices grease pencil strokes will "
+        description="Number of vertices annotation strokes will "
                     "have, when they are converted to geometry. If strokes have less "
                     "points than required, the 'Spread evenly' method is used",
         default=32,
@@ -3894,8 +3892,8 @@ class GStretch(Operator):
         )
     delete_strokes: BoolProperty(
         name="Delete strokes",
-        description="Remove Grease Pencil strokes if they have been used "
-                    "for Gstretch. WARNING: DOES NOT SUPPORT UNDO",
+        description="Remove annotation strokes if they have been used "
+                    "for Annotation. WARNING: DOES NOT SUPPORT UNDO",
         default=False
         )
     influence: FloatProperty(
@@ -3930,8 +3928,8 @@ class GStretch(Operator):
                 "stroke, retaining relative distances between the vertices"),
                 ("regular", "Spread evenly", "Distribute vertices at regular "
                 "distances along the full stroke")),
-        description="Method of distributing the vertices over the Grease "
-                    "Pencil stroke",
+        description="Method of distributing the vertices over the annotation "
+                    "stroke",
         default='regular'
         )
 
@@ -3987,7 +3985,7 @@ class GStretch(Operator):
 
     def execute(self, context):
         # initialise
-        global_undo, object, bm = initialise()
+        object, bm = initialise()
         settings_write(self)
 
         # check cache to see if we can save time
@@ -3998,8 +3996,8 @@ class GStretch(Operator):
             if safe_strokes:
                 strokes = gstretch_safe_to_true_strokes(safe_strokes)
             # cached strokes were flushed (see operator's invoke function)
-            elif get_grease_pencil(object, context):
-                strokes = gstretch_get_strokes(object, context)
+            elif get_annotation(self, context):
+                strokes = gstretch_get_strokes(self, context)
             else:
                 # straightening function (no GP) -> loops ignore modifiers
                 straightening = True
@@ -4013,13 +4011,13 @@ class GStretch(Operator):
                 derived, bm_mod = get_derived_bmesh(object, bm)
         else:
             # get loops and strokes
-            if get_grease_pencil(object, context):
+            if get_annotation(self, context):
                 # find loops
                 derived, bm_mod, loops = get_connected_input(object, bm, input='selected')
                 mapping = get_mapping(derived, bm, bm_mod, False, False, loops)
                 loops = check_loops(loops, mapping, bm_mod)
                 # get strokes
-                strokes = gstretch_get_strokes(object, context)
+                strokes = gstretch_get_strokes(self, context)
             else:
                 # straightening function (no GP) -> loops ignore modifiers
                 derived = False
@@ -4067,8 +4065,8 @@ class GStretch(Operator):
                 if self.delete_strokes:
                     if type(stroke) != bpy.types.GPencilStroke:
                         # in case of cached fake stroke, get the real one
-                        if get_grease_pencil(object, context):
-                            strokes = gstretch_get_strokes(object, context)
+                        if get_annotation(self, context):
+                            strokes = gstretch_get_strokes(self, context)
                             if loops and strokes:
                                 ls_pairs = gstretch_match_loops_strokes(loops,
                                     strokes, object, bm_mod)
@@ -4091,7 +4089,7 @@ class GStretch(Operator):
         # cleaning up
         if derived:
             bm_mod.free()
-        terminate(global_undo)
+        terminate()
 
         return{'FINISHED'}
 
@@ -4155,7 +4153,7 @@ class Relax(Operator):
 
     def execute(self, context):
         # initialise
-        global_undo, object, bm = initialise()
+        object, bm = initialise()
         settings_write(self)
         # check cache to see if we can save time
         cached, single_loops, loops, derived, mapping = cache_read("Relax",
@@ -4189,7 +4187,7 @@ class Relax(Operator):
         # cleaning up
         if derived:
             bm_mod.free()
-        terminate(global_undo)
+        terminate()
 
         return{'FINISHED'}
 
@@ -4277,7 +4275,7 @@ class Space(Operator):
 
     def execute(self, context):
         # initialise
-        global_undo, object, bm = initialise()
+        object, bm = initialise()
         settings_write(self)
         # check cache to see if we can save time
         cached, single_loops, loops, derived, mapping = cache_read("Space",
@@ -4315,7 +4313,7 @@ class Space(Operator):
         # cleaning up
         if derived:
             bm_mod.free()
-        terminate(global_undo)
+        terminate()
 
         return{'FINISHED'}
 
@@ -4345,7 +4343,7 @@ class VIEW3D_MT_edit_mesh_looptools(Menu):
 class VIEW3D_PT_tools_looptools(Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
-    bl_category = 'View'
+    bl_category = 'Edit'
     bl_context = "mesh_edit"
     bl_label = "LoopTools"
     bl_options = {'DEFAULT_CLOSED'}
@@ -4530,7 +4528,7 @@ class VIEW3D_PT_tools_looptools(Panel):
             else:
                 row.prop(lt, "gstretch_lock_z", text="Z", icon='UNLOCKED')
             col_move.prop(lt, "gstretch_influence")
-            box.operator("remove.gp", text="Delete GP Strokes")
+            box.operator("remove.gp", text="Delete Annotation Strokes")
 
         # loft - first line
         split = col.split(factor=0.15, align=True)
@@ -4882,22 +4880,22 @@ class LoopToolsProps(PropertyGroup):
     gstretch_conversion: EnumProperty(
         name="Conversion",
         items=(("distance", "Distance", "Set the distance between vertices "
-            "of the converted grease pencil stroke"),
+            "of the converted annotation stroke"),
             ("limit_vertices", "Limit vertices", "Set the minimum and maximum "
             "number of vertices that converted GP strokes will have"),
             ("vertices", "Exact vertices", "Set the exact number of vertices "
-            "that converted grease pencil strokes will have. Short strokes "
+            "that converted annotation strokes will have. Short strokes "
             "with few points may contain less vertices than this number."),
-            ("none", "No simplification", "Convert each grease pencil point "
+            ("none", "No simplification", "Convert each annotation point "
             "to a vertex")),
-        description="If grease pencil strokes are converted to geometry, "
+        description="If annotation strokes are converted to geometry, "
                     "use this simplification method",
         default='limit_vertices'
         )
     gstretch_conversion_distance: FloatProperty(
         name="Distance",
         description="Absolute distance between vertices along the converted "
-                    "grease pencil stroke",
+                    "annotation stroke",
         default=0.1,
         min=0.000001,
         soft_min=0.01,
@@ -4905,7 +4903,7 @@ class LoopToolsProps(PropertyGroup):
         )
     gstretch_conversion_max: IntProperty(
         name="Max Vertices",
-        description="Maximum number of vertices grease pencil strokes will "
+        description="Maximum number of vertices annotation strokes will "
                     "have, when they are converted to geomtery",
         default=32,
         min=3,
@@ -4914,7 +4912,7 @@ class LoopToolsProps(PropertyGroup):
         )
     gstretch_conversion_min: IntProperty(
         name="Min Vertices",
-        description="Minimum number of vertices grease pencil strokes will "
+        description="Minimum number of vertices annotation strokes will "
                     "have, when they are converted to geomtery",
         default=8,
         min=3,
@@ -4923,7 +4921,7 @@ class LoopToolsProps(PropertyGroup):
         )
     gstretch_conversion_vertices: IntProperty(
         name="Vertices",
-        description="Number of vertices grease pencil strokes will "
+        description="Number of vertices annotation strokes will "
                     "have, when they are converted to geometry. If strokes have less "
                     "points than required, the 'Spread evenly' method is used",
         default=32,
@@ -5083,7 +5081,7 @@ class LoopPreferences(AddonPreferences):
     category: StringProperty(
             name="Tab Category",
             description="Choose a name for the category of the panel",
-            default="Tools",
+            default="Edit",
             update=update_panel
             )
 
@@ -5117,7 +5115,7 @@ classes = (
 def register():
     for cls in classes:
         bpy.utils.register_class(cls)
-    bpy.types.VIEW3D_MT_edit_mesh_specials.prepend(menu_func)
+    bpy.types.VIEW3D_MT_edit_mesh_context_menu.prepend(menu_func)
     bpy.types.WindowManager.looptools = PointerProperty(type=LoopToolsProps)
     update_panel(None, bpy.context)
 
@@ -5126,7 +5124,7 @@ def register():
 def unregister():
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
-    bpy.types.VIEW3D_MT_edit_mesh_specials.remove(menu_func)
+    bpy.types.VIEW3D_MT_edit_mesh_context_menu.remove(menu_func)
     try:
         del bpy.types.WindowManager.looptools
     except Exception as e:

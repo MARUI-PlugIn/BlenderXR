@@ -17,8 +17,9 @@
  * All rights reserved.
  */
 
-/** \file \ingroup DNA
- *  \page makesdna makesdna
+/** \file
+ * \ingroup DNA
+ * \page makesdna makesdna
  *
  * \section aboutdna About the DNA module
  *
@@ -77,6 +78,5 @@
  * intern/dna_genfile.c
  * (ton)
  */
-
 
 /* This file has intentionally no definitions or implementation. */

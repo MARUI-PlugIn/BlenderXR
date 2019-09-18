@@ -25,7 +25,7 @@ bl_info = {
     "version": (1, 3, 2),
     "blender": (2, 80, 0),
     "category": "Mesh",
-    "location": "View3D > EditMode > (w) Specials",
+    "location": "View3D > EditMode Context Menu",
     "wiki_url": "http://zeffii.github.io/mesh_tiny_cad/",
     "tracker_url": "https://github.com/zeffii/mesh_tiny_cad/issues"
 }
@@ -75,11 +75,11 @@ def register():
         bpy.utils.register_class(cls)
     bpy.types.Scene.tinycad_props = bpy.props.PointerProperty(
         name="TinyCAD props", type=TinyCADProperties)
-    bpy.types.VIEW3D_MT_edit_mesh_specials.prepend(menu_func)
+    bpy.types.VIEW3D_MT_edit_mesh_context_menu.prepend(menu_func)
 
 
 def unregister():
-    bpy.types.VIEW3D_MT_edit_mesh_specials.remove(menu_func)
+    bpy.types.VIEW3D_MT_edit_mesh_context_menu.remove(menu_func)
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
     del bpy.types.Scene.tinycad_props

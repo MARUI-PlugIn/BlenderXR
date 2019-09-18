@@ -15,10 +15,10 @@
 * along with this program; if not, write to the Free Software Foundation,
 * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 *
-* The Original Code is Copyright (C) 2018 by Blender Foundation.
+* The Original Code is Copyright (C) 2019 by Blender Foundation.
 * All rights reserved.
 *
-* Contributor(s): MARUI-PlugIn
+* Contributor(s): MARUI-PlugIn, Multiplexed Reality
 *
 * ***** END GPL LICENSE BLOCK *****
 */
@@ -51,7 +51,7 @@
 #include "GPU_matrix.h"
 #include "GPU_state.h"
 
-/***********************************************************************************************//**
+/***************************************************************************************************
 * \class                               Widget_Measure
 ***************************************************************************************************
 * Interaction widget for the Measure tool.
@@ -69,10 +69,11 @@ VR_UI::CtrlState Widget_Measure::measure_ctrl_state(VR_UI::CTRLSTATE_OFF);
 int Widget_Measure::measure_ctrl_count(0);
 
 float Widget_Measure::line_thickness(10.0f);
-float Widget_Measure::color[4] = { 1.0f, 0.3f, 0.3f, 1.0f };
 
 float Widget_Measure::angle(0.0f);
 VR_Side Widget_Measure::cursor_side;
+
+#define WIDGET_MEASURE_ARC_STEPS 100
 
 void Widget_Measure::draw_line(VR_UI::Cursor& c, Coord3Df& localP0, Coord3Df& localP1) {
 	switch (measure_state) {
@@ -92,9 +93,6 @@ void Widget_Measure::draw_line(VR_UI::Cursor& c, Coord3Df& localP0, Coord3Df& lo
 		break;
 	}
 	}
-
-	/* Get active drawing layer */
-	uint active_layer = Widget_Annotate::num_layers - 1;
 
 	if (measure_state == Widget_Measure::Measure_State::DRAW) {
 		bContext *C = vr_get_obj()->ctx;
@@ -123,19 +121,18 @@ void Widget_Measure::draw_line(VR_UI::Cursor& c, Coord3Df& localP0, Coord3Df& lo
 		memcpy(&current_stroke_points[2], &localP1, sizeof(float) * 3);
 	}
 
-	current_stroke = BKE_gpencil_add_stroke(Widget_Annotate::gpf[active_layer], 0, 3, line_thickness * 1.6f);
+	current_stroke = BKE_gpencil_add_stroke(Widget_Annotate::gpf[WIDGET_ANNOTATE_MEASURE_LAYER], 0, 3, line_thickness * 1.6f);
 	memcpy(current_stroke->points, current_stroke_points, sizeof(bGPDspoint) * 3);
 
-	memcpy(Widget_Annotate::gpl[active_layer]->color, color, sizeof(float) * 4);
-	BKE_gpencil_layer_setactive(Widget_Annotate::gpd, Widget_Annotate::gpl[active_layer]);
+	BKE_gpencil_layer_setactive(Widget_Annotate::gpd, Widget_Annotate::gpl[WIDGET_ANNOTATE_MEASURE_LAYER]);
 }
 
 void Widget_Measure::drag_start(VR_UI::Cursor& c)
 {
 	cursor_side = c.side;
-	c.reference = c.interaction_position.get();
+	c.reference = c.position.get();
 
-	memcpy(&measure_points[0], c.interaction_position.get(VR_SPACE_BLENDER).m[3], sizeof(float) * 3);
+	memcpy(&measure_points[0], c.position.get(VR_SPACE_BLENDER).m[3], sizeof(float) * 3);
 }
 
 void Widget_Measure::drag_contd(VR_UI::Cursor& c)
@@ -169,6 +166,40 @@ void Widget_Measure::drag_stop(VR_UI::Cursor& c)
 	}
 	else {
 		draw_line(c, measure_points[1], measure_points[2]);
+
+		/* Arc */
+		float dir_tmp[3];
+		float dir_a[3];
+		float dir_b[3];
+		float quat[4];
+		float axis[3];
+		float angle;
+
+		sub_v3_v3v3(dir_a, &measure_points[0].x, &measure_points[1].x);
+		sub_v3_v3v3(dir_b, &measure_points[2].x, &measure_points[1].x);
+		normalize_v3(dir_a);
+		normalize_v3(dir_b);
+
+		cross_v3_v3v3(axis, dir_a, dir_b);
+		angle = angle_normalized_v3v3(dir_a, dir_b);
+		axis_angle_to_quat(quat, axis, angle / (float)WIDGET_MEASURE_ARC_STEPS);
+		copy_v3_v3(dir_tmp, dir_a);
+		float rad = ((measure_points[0] - measure_points[1]) / 2.0f).length();
+
+		bGPDstroke *stroke = BKE_gpencil_add_stroke(Widget_Annotate::gpf[WIDGET_ANNOTATE_MEASURE_LAYER], 0, WIDGET_MEASURE_ARC_STEPS + 1, line_thickness * 1.6f);
+		if (stroke && stroke->points)
+		{
+			bGPDspoint *points = stroke->points;
+			for (int i = 0; i <= WIDGET_MEASURE_ARC_STEPS; ++i) {
+				bGPDspoint& point = points[i];
+				madd_v3_v3v3fl(&point.x, &measure_points[1].x, dir_tmp, rad);
+				point.strength = 1.0f;
+				point.pressure = 1.0f;
+				mul_qt_v3(quat, dir_tmp);
+			}
+
+			BKE_gpencil_layer_setactive(Widget_Annotate::gpd, Widget_Annotate::gpl[WIDGET_ANNOTATE_MEASURE_LAYER]);
+		}
 	}
 
 	for (int i = 0; i < VR_SIDES; ++i) {
@@ -218,7 +249,7 @@ void Widget_Measure::render(VR_Side side)
 	immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 	if (measure_ctrl_state == VR_UI::CTRLSTATE_OFF && measure_state == Widget_Measure::Measure_State::INIT) {
 		immBeginAtMost(GPU_PRIM_LINES, 2);
-		immUniformColor3fvAlpha(color, color[3]);
+		immUniformColor4fv(Widget_Annotate::colors[WIDGET_ANNOTATE_MEASURE_LAYER]);
 
 		immVertex3fv(pos, (float*)&measure_points[0]);
 		immVertex3fv(pos, (float*)&measure_points[1]);
@@ -232,7 +263,7 @@ void Widget_Measure::render(VR_Side side)
 	}
 	else {
 		immBeginAtMost(GPU_PRIM_LINES, 2);
-		immUniformColor3fvAlpha(color, color[3]);
+		immUniformColor4fv(Widget_Annotate::colors[WIDGET_ANNOTATE_MEASURE_LAYER]);
 		immVertex3fv(pos, (float*)&measure_points[1]);
 		immVertex3fv(pos, (float*)&measure_points[2]);
 
@@ -243,43 +274,38 @@ void Widget_Measure::render(VR_Side side)
 		immEnd();
 		immUnbindProgram();
 
-		/* TODO_XR */
-		//static Mat44f m_circle = VR_Math::identity_f;
-		//static float temp[3][3];
-		///* Set arc rotation and position. */
-		//Coord3Df dir_a = (measure_points[0] - measure_points[1]).normalize();
-		//Coord3Df dir_b = (measure_points[2] - measure_points[1]).normalize();
-		//rotation_between_vecs_to_mat3(temp, (float*)&dir_a, (float*)&dir_b);
-		//for (int i = 0; i < 3; ++i) {
-		//	memcpy(m_circle.m[i], temp[i], sizeof(float) * 3);
-		//}
-		//*(Coord3Df*)m_circle.m[3] = measure_points[1];
+		/* Arc */
+		float dir_tmp[3];
+		float co_tmp[3];
+		float dir_a[3];
+		float dir_b[3];
+		float quat[4];
+		float axis[3];
+		float angle;
 
-		//GPU_matrix_push();
-		//GPU_matrix_mul(m_circle.m);
-		//GPU_blend(true);
+		sub_v3_v3v3(dir_a, &measure_points[0].x, &measure_points[1].x);
+		sub_v3_v3v3(dir_b, &measure_points[2].x, &measure_points[1].x);
+		normalize_v3(dir_a);
+		normalize_v3(dir_b);
 
-		//immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
-		//immUniformColor3fvAlpha(color, color[3]);
-		//int nsegments = 100;
-		//float angle_start = PI; //0.0f;
-		//float angle_end = PI - (DEG2RADF(angle));
-		//float rad = ((measure_points[0] - measure_points[1]) / 2.0f).length();
-		//immBegin(GPU_PRIM_LINE_STRIP, nsegments);
-		//static Coord3Df p(0.0f, 0.0f, 0.0f);
-		//for (int i = 0; i < nsegments; ++i) {
-		//	const float angle_in = interpf(angle_start, angle_end, ((float)i / (float)(nsegments - 1)));
-		//	const float angle_sin = sinf(angle_in);
-		//	const float angle_cos = cosf(angle_in);
-		//	p.x = rad * angle_cos;
-		//	p.y = rad * angle_sin;
-		//	immVertex3fv(pos, (float*)&p);
-		//}
-		//immEnd();
-		//immUnbindProgram();
+		cross_v3_v3v3(axis, dir_a, dir_b);
+		angle = angle_normalized_v3v3(dir_a, dir_b);
+		axis_angle_to_quat(quat, axis, angle / (float)WIDGET_MEASURE_ARC_STEPS);
+		copy_v3_v3(dir_tmp, dir_a);
+		float rad = ((measure_points[0] - measure_points[1]) / 2.0f).length();
 
-		//GPU_blend(false);
-		//GPU_matrix_pop();
+		immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
+		immUniformColor4fv(Widget_Annotate::colors[WIDGET_ANNOTATE_MEASURE_LAYER]);
+		immBegin(GPU_PRIM_LINE_STRIP, WIDGET_MEASURE_ARC_STEPS + 1);
+
+		for (int i = 0; i <= WIDGET_MEASURE_ARC_STEPS; ++i) {
+			madd_v3_v3v3fl(co_tmp, &measure_points[1].x, dir_tmp, rad);
+			mul_qt_v3(quat, dir_tmp);
+			immVertex3fv(pos, co_tmp);
+		}
+
+		immEnd();
+		immUnbindProgram();
 	}
 
 	Widget_Measure::obj.do_render[side] = false;

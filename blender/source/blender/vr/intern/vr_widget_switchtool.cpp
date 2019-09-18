@@ -15,18 +15,16 @@
 * along with this program; if not, write to the Free Software Foundation,
 * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 *
-* The Original Code is Copyright (C) 2018 by Blender Foundation.
+* The Original Code is Copyright (C) 2019 by Blender Foundation.
 * All rights reserved.
 *
-* Contributor(s): MARUI-PlugIn
+* Contributor(s): MARUI-PlugIn, Multiplexed Reality
 *
 * ***** END GPL LICENSE BLOCK *****
 */
 
 /** \file blender/vr/intern/vr_widget_switchtool.cpp
 *   \ingroup vr
-* 
-* Main module for the VR widget UI.
 */
 
 #include "vr_types.h"
@@ -37,15 +35,17 @@
 
 #include "vr_widget_addprimitive.h"
 #include "vr_widget_extrude.h"
-#include "vr_widget_layout.h"
 #include "vr_widget_menu.h"
+#include "vr_widget_sculpt.h"
 #include "vr_widget_select.h"
 #include "vr_widget_switchtool.h"
 #include "vr_widget_transform.h"
 
 #include "vr_draw.h"
 
-/***********************************************************************************************//**
+#include "DNA_brush_types.h"
+
+/***************************************************************************************************
  * \class                               Widget_SwitchTool
  ***************************************************************************************************
  * Interaction widget for switching the currently active tool.
@@ -212,6 +212,94 @@ void Widget_SwitchTool::render_icon(const Mat44f& t, VR_Side controller_side, bo
 		}
 		case TYPE_KNIFE: {
 			VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::knife_tex);
+			break;
+		}
+		case TYPE_SCULPT: {
+			switch ((eBrushSculptTool)Widget_Sculpt::brush) {
+			case SCULPT_TOOL_DRAW: {
+				VR_Draw::render_rect(-0.007f, 0.007f, 0.007f, -0.007f, 0.001f, 1.0f, 1.0f, VR_Draw::sculpt_draw_tex);
+				break;
+			}
+		    case SCULPT_TOOL_CLAY: {
+				VR_Draw::render_rect(-0.007f, 0.007f, 0.007f, -0.007f, 0.001f, 1.0f, 1.0f, VR_Draw::sculpt_clay_tex);
+				break;
+			}
+			case SCULPT_TOOL_CLAY_STRIPS: {
+				VR_Draw::render_rect(-0.007f, 0.007f, 0.007f, -0.007f, 0.001f, 1.0f, 1.0f, VR_Draw::sculpt_claystrips_tex);
+				break;
+			}
+			case SCULPT_TOOL_LAYER: {
+				VR_Draw::render_rect(-0.007f, 0.007f, 0.007f, -0.007f, 0.001f, 1.0f, 1.0f, VR_Draw::sculpt_layer_tex);
+				break;
+			}
+			case SCULPT_TOOL_INFLATE: {
+				VR_Draw::render_rect(-0.007f, 0.007f, 0.007f, -0.007f, 0.001f, 1.0f, 1.0f, VR_Draw::sculpt_inflate_tex);
+				break;
+			}
+			case SCULPT_TOOL_BLOB: {
+				VR_Draw::render_rect(-0.007f, 0.007f, 0.007f, -0.007f, 0.001f, 1.0f, 1.0f, VR_Draw::sculpt_blob_tex);
+				break;
+			}
+			case SCULPT_TOOL_CREASE: {
+				VR_Draw::render_rect(-0.007f, 0.007f, 0.007f, -0.007f, 0.001f, 1.0f, 1.0f, VR_Draw::sculpt_crease_tex);
+				break;
+			}
+			case SCULPT_TOOL_SMOOTH: {
+				VR_Draw::render_rect(-0.007f, 0.007f, 0.007f, -0.007f, 0.001f, 1.0f, 1.0f, VR_Draw::sculpt_smooth_tex);
+				break;
+			}
+			case SCULPT_TOOL_FLATTEN: {
+				VR_Draw::render_rect(-0.007f, 0.007f, 0.007f, -0.007f, 0.001f, 1.0f, 1.0f, VR_Draw::sculpt_flatten_tex);
+				break;
+			}
+			case SCULPT_TOOL_FILL: {
+				VR_Draw::render_rect(-0.007f, 0.007f, 0.007f, -0.007f, 0.001f, 1.0f, 1.0f, VR_Draw::sculpt_fill_tex);
+				break;
+			}
+			case SCULPT_TOOL_SCRAPE: {
+				VR_Draw::render_rect(-0.007f, 0.007f, 0.007f, -0.007f, 0.001f, 1.0f, 1.0f, VR_Draw::sculpt_scrape_tex);
+				break;
+			}
+			case SCULPT_TOOL_PINCH: {
+				VR_Draw::render_rect(-0.007f, 0.007f, 0.007f, -0.007f, 0.001f, 1.0f, 1.0f, VR_Draw::sculpt_pinch_tex);
+				break;
+			}
+			case SCULPT_TOOL_GRAB: {
+				VR_Draw::render_rect(-0.007f, 0.007f, 0.007f, -0.007f, 0.001f, 1.0f, 1.0f, VR_Draw::sculpt_grab_tex);
+				break;
+			}
+			case SCULPT_TOOL_SNAKE_HOOK: {
+				VR_Draw::render_rect(-0.007f, 0.007f, 0.007f, -0.007f, 0.001f, 1.0f, 1.0f, VR_Draw::sculpt_snakehook_tex);
+				break;
+			}
+			case SCULPT_TOOL_THUMB: {
+				VR_Draw::render_rect(-0.007f, 0.007f, 0.007f, -0.007f, 0.001f, 1.0f, 1.0f, VR_Draw::sculpt_thumb_tex);
+				break;
+			}
+			case SCULPT_TOOL_NUDGE: {
+				VR_Draw::render_rect(-0.007f, 0.007f, 0.007f, -0.007f, 0.001f, 1.0f, 1.0f, VR_Draw::sculpt_nudge_tex);
+				break;
+			}
+			case SCULPT_TOOL_ROTATE: {
+				VR_Draw::render_rect(-0.007f, 0.007f, 0.007f, -0.007f, 0.001f, 1.0f, 1.0f, VR_Draw::sculpt_rotate_tex);
+				break;
+			}
+			case SCULPT_TOOL_MASK: {
+				VR_Draw::render_rect(-0.007f, 0.007f, 0.007f, -0.007f, 0.001f, 1.0f, 1.0f, VR_Draw::sculpt_mask_tex);
+				break;
+			}
+			case SCULPT_TOOL_SIMPLIFY: {
+				VR_Draw::render_rect(-0.007f, 0.007f, 0.007f, -0.007f, 0.001f, 1.0f, 1.0f, VR_Draw::sculpt_simplify_tex);
+				break;
+			}
+			default: {
+				break;
+			}
+			}
+			break;
+		}
+		case TYPE_ANIMATION: {
+			VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::animation_tex);
 			break;
 		}
 		default: {

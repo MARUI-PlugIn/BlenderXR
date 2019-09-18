@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup freestyle
+/** \file
+ * \ingroup freestyle
  */
 
 #ifndef __FREESTYLE_PYTHON_ID_H__
@@ -44,8 +45,7 @@ extern PyTypeObject Id_Type;
 
 /*---------------------------Python BPy_Id structure definition----------*/
 typedef struct {
-	PyObject_HEAD
-	Id *id;
+  PyObject_HEAD Id *id;
 } BPy_Id;
 
 /*---------------------------Python BPy_Id visible prototypes-----------*/

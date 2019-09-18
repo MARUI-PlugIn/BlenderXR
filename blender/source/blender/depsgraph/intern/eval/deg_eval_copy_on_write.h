@@ -17,7 +17,8 @@
  * All rights reserved.
  */
 
-/** \file \ingroup depsgraph
+/** \file
+ * \ingroup depsgraph
  */
 
 #pragma once
@@ -43,11 +44,11 @@ struct Depsgraph;
 namespace DEG {
 
 struct Depsgraph;
-struct DepsgraphNodeBuilder;
+class DepsgraphNodeBuilder;
 struct IDNode;
 
-/* Get fully expanded (ready for use) copy-on-write datablock for the given
- * original datablock.
+/* Get fully expanded (ready for use) copy-on-write data-block for the given
+ * original data-block.
  */
 ID *deg_expand_copy_on_write_datablock(const struct Depsgraph *depsgraph,
                                        const IDNode *id_node,
@@ -58,13 +59,11 @@ ID *deg_expand_copy_on_write_datablock(const struct Depsgraph *depsgraph,
                                        DepsgraphNodeBuilder *node_builder = NULL,
                                        bool create_placeholders = false);
 
-/* Makes sure given CoW datablock is brought back to state of the original
- * datablock.
+/* Makes sure given CoW data-block is brought back to state of the original
+ * data-block.
  */
-ID *deg_update_copy_on_write_datablock(const struct Depsgraph *depsgraph,
-                                       const IDNode *id_node);
-ID *deg_update_copy_on_write_datablock(const struct Depsgraph *depsgraph,
-                                       struct ID *id_orig);
+ID *deg_update_copy_on_write_datablock(const struct Depsgraph *depsgraph, const IDNode *id_node);
+ID *deg_update_copy_on_write_datablock(const struct Depsgraph *depsgraph, struct ID *id_orig);
 
 /* Helper function which frees memory used by copy-on-written databnlock. */
 void deg_free_copy_on_write_datablock(struct ID *id_cow);
@@ -72,12 +71,10 @@ void deg_free_copy_on_write_datablock(struct ID *id_cow);
 /* Callback function for depsgraph operation node which ensures copy-on-write
  * datablock is ready for use by further evaluation routines.
  */
-void deg_evaluate_copy_on_write(struct ::Depsgraph *depsgraph,
-                                const struct IDNode *id_node);
+void deg_evaluate_copy_on_write(struct ::Depsgraph *depsgraph, const struct IDNode *id_node);
 
 /* Check that given ID is properly expanded and does not have any shallow
- * copies inside.
-  */
+ * copies inside. */
 bool deg_validate_copy_on_write_datablock(ID *id_cow);
 
 /* Tag given ID block as being copy-on-wtritten. */
@@ -91,7 +88,7 @@ bool deg_copy_on_write_is_expanded(const struct ID *id_cow);
 
 /* Check whether copy-on-write datablock is needed for given ID.
  *
- * There are some exceptions on datablocks which are covered by dependency graph
+ * There are some exceptions on data-blocks which are covered by dependency graph
  * but which we don't want to start duplicating.
  *
  * This includes images.

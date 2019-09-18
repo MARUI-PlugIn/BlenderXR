@@ -1,5 +1,14 @@
 cmake_minimum_required (VERSION 2.6)
+
+set(OPENXR
+  1
+)
+
+if (OPENXR)
+project(BlenderXR_OpenXR)
+else()
 project(BlenderXR_SteamVR)
+endif()
 
 macro(use_cxx11)
   if (CMAKE_VERSION VERSION_LESS "3.1")
@@ -13,11 +22,26 @@ endmacro(use_cxx11)
 
 add_subdirectory(${PROJECT_SOURCE_DIR}/src)
 
-set_target_properties (${PROJECT_NAME}
-    PROPERTIES
-if(APPLE)
-	LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin/MacOS/SteamVR"
+if(OPENXR)
+  # OpenXR
+  if(APPLE)
+  set_target_properties (${PROJECT_NAME}
+      PROPERTIES
+      LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin/MacOS/OpenXR")
+  else()
+  set_target_properties (${PROJECT_NAME}
+      PROPERTIES
+      LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin/Linux/OpenXR")
+  endif()
 else()
-	LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin/Linux/SteamVR"
+  # SteamVR
+  if(APPLE)
+  set_target_properties (${PROJECT_NAME}
+      PROPERTIES
+  	  LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin/MacOS/SteamVR")
+  else()
+  set_target_properties (${PROJECT_NAME}
+      PROPERTIES
+      LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin/Linux/SteamVR")
+  endif()
 endif()
-)

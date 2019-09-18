@@ -17,7 +17,8 @@
  * All rights reserved.
  */
 
-/** \file \ingroup wm
+/** \file
+ * \ingroup wm
  */
 
 #ifndef __WM_H__
@@ -30,17 +31,16 @@ struct wmWindow;
 #include "gizmo/wm_gizmo_wmapi.h"
 
 typedef struct wmPaintCursor {
-	struct wmPaintCursor *next, *prev;
+  struct wmPaintCursor *next, *prev;
 
-	void *customdata;
+  void *customdata;
 
-	bool (*poll)(struct bContext *C);
-	void (*draw)(bContext *C, int, int, void *customdata);
+  bool (*poll)(struct bContext *C);
+  void (*draw)(bContext *C, int, int, void *customdata);
 
-	short space_type;
-	short region_type;
+  short space_type;
+  short region_type;
 } wmPaintCursor;
-
 
 void wm_exit_schedule_delayed(const bContext *C);
 
@@ -50,8 +50,8 @@ extern void wm_close_and_free_all(bContext *C, ListBase *);
 extern void wm_add_default(struct Main *bmain, bContext *C);
 extern void wm_clear_default_size(bContext *C);
 
-			/* register to windowmanager for redo or macro */
-void		wm_operator_register(bContext *C, wmOperator *op);
+/* register to windowmanager for redo or macro */
+void wm_operator_register(bContext *C, wmOperator *op);
 
 /* wm_operator.c, for init/exit */
 void wm_operatortype_free(void);
@@ -61,7 +61,7 @@ void wm_operatortypes_register(void);
 
 /* wm_gesture.c */
 void wm_gesture_draw(struct wmWindow *win);
-int wm_gesture_evaluate(wmGesture *gesture);
+int wm_gesture_evaluate(wmGesture *gesture, const struct wmEvent *event);
 void wm_gesture_tag_redraw(bContext *C);
 
 /* wm_gesture_ops.c */

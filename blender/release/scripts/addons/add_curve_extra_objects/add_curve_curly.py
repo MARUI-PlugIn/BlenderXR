@@ -18,6 +18,7 @@ import bpy
 from bpy.types import Operator
 from bpy.props import (
         FloatProperty,
+        EnumProperty,
         IntProperty,
         )
 from bpy_extras.object_utils import (
@@ -179,11 +180,13 @@ def add_type2(self, context):
     scale_x = self.scale_x
     scale_y = self.scale_y
     verts = [
-            [-0.719632 * scale_x, -0.08781 * scale_y,
-            0.0, -0.605138 * scale_x, -0.31612 * scale_y,
-            0.0, -0.935392 * scale_x, 0.0, 0.0, 0.0, 0.0,
-            0.0, 0.935392 * scale_x, 0.0, 0.0, 0.605138 * scale_x,
-            -0.316119 * scale_y, 0.0, 0.719632 * scale_x, -0.08781 * scale_y, 0.0]
+            [-0.719632 * scale_x, -0.08781 * scale_y, 0.0,
+            -0.605138 * scale_x, -0.31612 * scale_y, 0.0,
+            -0.935392 * scale_x, 0.0, 0.0,
+            0.0, 0.0, 0.0,
+            0.935392 * scale_x, 0.0, 0.0,
+            0.605138 * scale_x, -0.316119 * scale_y, 0.0,
+            0.719632 * scale_x, -0.08781 * scale_y, 0.0]
             ]
     lhandles = [
             [(-0.82125 * scale_x, -0.142999 * scale_y, 0.0),
@@ -380,26 +383,77 @@ def add_type1(self, context):
 def make_curve(self, context, verts, lh, rh):
 
     types = self.types
-    curve_data = bpy.data.curves.new(name='CurlyCurve', type='CURVE')
-    curve_data.dimensions = '3D'
 
-    for p in range(len(verts)):
-        c = 0
-        spline = curve_data.splines.new(type='BEZIER')
-        spline.bezier_points.add(len(verts[p]) / 3 - 1)
-        spline.bezier_points.foreach_set('co', verts[p])
+    # create object
+    if bpy.context.mode == 'EDIT_CURVE':
+        Curve = context.active_object
+        
+        for spline in Curve.data.splines:
+            if spline.type == 'BEZIER':
+                for point in spline.bezier_points:
+                    point.select_control_point = False
+                    point.select_left_handle = False
+                    point.select_right_handle = False
+            else:
+                for point in spline.points:
+                    point.select = False
 
-        for bp in spline.bezier_points:
-            bp.handle_left_type = 'ALIGNED'
-            bp.handle_right_type = 'ALIGNED'
-            bp.handle_left.xyz = lh[p][c]
-            bp.handle_right.xyz = rh[p][c]
-            c += 1
-        # something weird with this one
-        if types == 1 or types == 2 or types == 3:
-            spline.bezier_points[3].handle_left.xyz = lh[p][3]
-    object_data_add(context, curve_data, operator=self)
+        for p in range(len(verts)):
+            c = 0
+            newSpline = Curve.data.splines.new(type='BEZIER')          # newSpline
+            newSpline.bezier_points.add(len(verts[p]) / 3 - 1)
+            newSpline.bezier_points.foreach_set('co', verts[p])
 
+            for bp in newSpline.bezier_points:
+                bp.handle_left_type = 'ALIGNED'
+                bp.handle_right_type = 'ALIGNED'
+                bp.handle_left.xyz = lh[p][c]
+                bp.handle_right.xyz = rh[p][c]
+                bp.select_control_point = True
+                bp.select_left_handle = True
+                bp.select_right_handle = True
+                c += 1
+            # something weird with this one
+            if types == 1 or types == 2 or types == 3:
+                newSpline.bezier_points[3].handle_left.xyz = lh[p][3]
+                
+        bpy.ops.transform.translate(value = self.location)
+        bpy.ops.transform.rotate(value = self.rotation[0], orient_axis = 'X')
+        bpy.ops.transform.rotate(value = self.rotation[1], orient_axis = 'Y')
+        bpy.ops.transform.rotate(value = self.rotation[2], orient_axis = 'Z')
+    else:
+        # create curve
+        dataCurve = bpy.data.curves.new(name='CurlyCurve', type='CURVE')  # curvedatablock
+        for p in range(len(verts)):
+            c = 0
+            newSpline = dataCurve.splines.new(type='BEZIER')          # newSpline
+            newSpline.bezier_points.add(len(verts[p]) / 3 - 1)
+            newSpline.bezier_points.foreach_set('co', verts[p])
+
+            for bp in newSpline.bezier_points:
+                bp.handle_left_type = 'ALIGNED'
+                bp.handle_right_type = 'ALIGNED'
+                bp.handle_left.xyz = lh[p][c]
+                bp.handle_right.xyz = rh[p][c]
+                bp.select_control_point = True
+                bp.select_left_handle = True
+                bp.select_right_handle = True
+                c += 1
+            # something weird with this one
+            if types == 1 or types == 2 or types == 3:
+                newSpline.bezier_points[3].handle_left.xyz = lh[p][3]        
+        
+        # create object with newCurve
+        Curve = object_data_add(context, dataCurve, operator=self)  # place in active scene
+        Curve.select_set(True)
+
+    # set curveOptions
+    Curve.data.dimensions = self.shape
+    Curve.data.use_path = True
+    if self.shape == '3D':
+        Curve.data.fill_mode = 'FULL'
+    else:
+        Curve.data.fill_mode = 'BOTH'
 
 class add_curlycurve(Operator, AddObjectHelper):
     bl_idname = "curve.curlycurve"
@@ -423,13 +477,22 @@ class add_curlycurve(Operator, AddObjectHelper):
             description="Scale on Y axis",
             default=1.0
             )
+    # Curve Options
+    shape : EnumProperty(
+            name="2D / 3D",
+            description="2D or 3D Curve",
+            items=[
+            ('2D', "2D", "2D"),
+            ('3D', "3D", "3D")
+            ]
+            )
 
     def draw(self, context):
         layout = self.layout
 
         col = layout.column(align=True)
         # AddObjectHelper props
-        col.prop(self, "view_align")
+        col.prop(self, "align")
         col.prop(self, "location")
         col.prop(self, "rotation")
 
@@ -441,8 +504,15 @@ class add_curlycurve(Operator, AddObjectHelper):
         col.label(text = "Resize:")
         col.prop(self, "scale_x")
         col.prop(self, "scale_y")
+        
+        row = layout.row()
+        row.prop(self, "shape", expand=True)
 
     def execute(self, context):
+        # turn off 'Enter Edit Mode'
+        use_enter_edit_mode = bpy.context.preferences.edit.use_enter_edit_mode
+        bpy.context.preferences.edit.use_enter_edit_mode = False
+        
         if self.types == 1:
             add_type1(self, context)
         if self.types == 2:
@@ -463,6 +533,12 @@ class add_curlycurve(Operator, AddObjectHelper):
             add_type9(self, context)
         if self.types == 10:
             add_type10(self, context)
+            
+        if use_enter_edit_mode:
+            bpy.ops.object.mode_set(mode = 'EDIT')
+        
+        # restore pre operator state
+        bpy.context.preferences.edit.use_enter_edit_mode = use_enter_edit_mode
 
         return {'FINISHED'}
 

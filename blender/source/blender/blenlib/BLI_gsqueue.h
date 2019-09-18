@@ -20,18 +20,19 @@
 #ifndef __BLI_GSQUEUE_H__
 #define __BLI_GSQUEUE_H__
 
-/** \file \ingroup bli
+/** \file
+ * \ingroup bli
  */
 
 typedef struct _GSQueue GSQueue;
 
-GSQueue    *BLI_gsqueue_new(size_t elem_size);
-bool        BLI_gsqueue_is_empty(GSQueue *gq);
-int         BLI_gsqueue_len(GSQueue *gq);
-void        BLI_gsqueue_peek(GSQueue *gq, void *r_item);
-void        BLI_gsqueue_pop(GSQueue *gq, void *r_item);
-void        BLI_gsqueue_push(GSQueue *gq, const void *item);
-void        BLI_gsqueue_push_back(GSQueue *gq, const void *item);
-void        BLI_gsqueue_free(GSQueue *gq);
+GSQueue *BLI_gsqueue_new(size_t elem_size);
+bool BLI_gsqueue_is_empty(GSQueue *gq);
+int BLI_gsqueue_len(GSQueue *gq);
+void BLI_gsqueue_peek(GSQueue *gq, void *r_item);
+void BLI_gsqueue_pop(GSQueue *gq, void *r_item);
+void BLI_gsqueue_push(GSQueue *gq, const void *item);
+void BLI_gsqueue_push_back(GSQueue *gq, const void *item);
+void BLI_gsqueue_free(GSQueue *gq);
 
 #endif /* __BLI_GSQUEUE_H__ */

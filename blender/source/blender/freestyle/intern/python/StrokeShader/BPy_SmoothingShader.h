@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup freestyle
+/** \file
+ * \ingroup freestyle
  */
 
 #ifndef __FREESTYLE_PYTHONSMOOTHINGSHADER_H__
@@ -30,19 +31,18 @@ extern "C" {
 
 extern PyTypeObject SmoothingShader_Type;
 
-#define BPy_SmoothingShader_Check(v) (PyObject_IsInstance((PyObject *)v, (PyObject *)&SmoothingShader_Type))
+#define BPy_SmoothingShader_Check(v) \
+  (PyObject_IsInstance((PyObject *)v, (PyObject *)&SmoothingShader_Type))
 
 /*---------------------------Python BPy_SmoothingShader structure definition----------*/
 typedef struct {
-	BPy_StrokeShader py_ss;
+  BPy_StrokeShader py_ss;
 } BPy_SmoothingShader;
-
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 
 #ifdef __cplusplus
 }
 #endif
-
 
 #endif /* __FREESTYLE_PYTHONSMOOTHINGSHADER_H__ */

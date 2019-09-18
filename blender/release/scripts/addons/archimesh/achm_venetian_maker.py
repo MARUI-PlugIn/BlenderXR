@@ -76,7 +76,7 @@ def create_object(self, context):
     # we create main object and mesh
     mainmesh = bpy.data.meshes.new("VenetianFrane")
     mainobject = bpy.data.objects.new("VenetianFrame", mainmesh)
-    mainobject.location = bpy.context.scene.cursor_location
+    mainobject.location = bpy.context.scene.cursor.location
     bpy.context.collection.objects.link(mainobject)
     mainobject.VenetianObjectGenerator.add()
 
@@ -381,7 +381,7 @@ class ARCHIMESH_PT_VenetianObjectgenerator(Panel):
     bl_label = "Venetian"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
-    bl_category = 'View'
+    bl_category = 'Create'
 
     # -----------------------------------------------------
     # Verify if visible
@@ -517,7 +517,7 @@ def create_slat_mesh(objname, width, depth, height, angle, ratio):
     mesh = bpy.data.meshes.new(objname)
     myobject = bpy.data.objects.new(objname, mesh)
 
-    myobject.location = bpy.context.scene.cursor_location
+    myobject.location = bpy.context.scene.cursor.location
     bpy.context.collection.objects.link(myobject)
 
     mesh.from_pydata(myvertex, [], myfaces)
@@ -643,7 +643,7 @@ def create_venetian_base(objname, x, y, z):
     mesh = bpy.data.meshes.new(objname)
     myobject = bpy.data.objects.new(objname, mesh)
 
-    myobject.location = bpy.context.scene.cursor_location
+    myobject.location = bpy.context.scene.cursor.location
     bpy.context.collection.objects.link(myobject)
 
     mesh.from_pydata(myvertex, [], myfaces)
@@ -808,7 +808,7 @@ def get_venetian_stick(objname, height):
     mesh = bpy.data.meshes.new(objname)
     myobject = bpy.data.objects.new(objname, mesh)
 
-    myobject.location = bpy.context.scene.cursor_location
+    myobject.location = bpy.context.scene.cursor.location
     bpy.context.collection.objects.link(myobject)
 
     mesh.from_pydata(myvertex, [], myfaces)
@@ -1374,7 +1374,7 @@ def get_venetian_strings(objname, height):
     mesh = bpy.data.meshes.new(objname)
     myobject = bpy.data.objects.new(objname, mesh)
 
-    myobject.location = bpy.context.scene.cursor_location
+    myobject.location = bpy.context.scene.cursor.location
     bpy.context.collection.objects.link(myobject)
 
     mesh.from_pydata(myvertex, [], myfaces)

@@ -27,6 +27,12 @@ EDGE = 2
 FACE = 4
 
 
+def check_gl_error():
+    error = bgl.glGetError()
+    if error != bgl.GL_NO_ERROR:
+        raise Exception(error)
+
+
 class _Internal:
     global_snap_context = None
 
@@ -79,15 +85,14 @@ class _SnapOffscreen():
 
         bgl.glGenRenderbuffers(1, self.buf_depth)
         bgl.glGenTextures(1, self.buf_color)
-        self._config_textures()
 
-        bgl.glTexParameteri(bgl.GL_TEXTURE_2D, bgl.GL_TEXTURE_MIN_FILTER, bgl.GL_NEAREST)
-        bgl.glTexParameteri(bgl.GL_TEXTURE_2D, bgl.GL_TEXTURE_MAG_FILTER, bgl.GL_NEAREST)
+        self._config_textures()
 
         bgl.glGetIntegerv(bgl.GL_FRAMEBUFFER_BINDING, self.cur_fbo)
 
         bgl.glGenFramebuffers(1, self.fbo)
         bgl.glBindFramebuffer(bgl.GL_FRAMEBUFFER, self.fbo[0])
+
         bgl.glFramebufferRenderbuffer(
                 bgl.GL_FRAMEBUFFER, bgl.GL_DEPTH_ATTACHMENT,
                 bgl.GL_RENDERBUFFER, self.buf_depth[0])
@@ -113,9 +118,11 @@ class _SnapOffscreen():
         bgl.glBindTexture(bgl.GL_TEXTURE_2D, self.buf_color[0])
         bgl.glTexImage2D(
                 bgl.GL_TEXTURE_2D, 0, bgl.GL_R32UI, self.width, self.height,
-                0, bgl.GL_RED_INTEGER, bgl.GL_UNSIGNED_INT, NULL)
+                0, bgl.GL_RED_INTEGER, bgl.GL_UNSIGNED_INT, None)
         del NULL
 
+        bgl.glTexParameteri(bgl.GL_TEXTURE_2D, bgl.GL_TEXTURE_MIN_FILTER, bgl.GL_NEAREST)
+        bgl.glTexParameteri(bgl.GL_TEXTURE_2D, bgl.GL_TEXTURE_MAG_FILTER, bgl.GL_NEAREST)
 
     def bind(self):
         if self is not _SnapOffscreen.bound:
@@ -134,7 +141,7 @@ class _SnapOffscreen():
             _SnapOffscreen.bound = None
 
     def clear(self):
-        is_bound =  self is _SnapOffscreen.bound
+        is_bound = self is _SnapOffscreen.bound
         if not is_bound:
             self.bind()
 
@@ -160,7 +167,6 @@ class _SnapOffscreen():
 
         if not is_bound:
             self.unbind()
-
 
     def __del__(self):
         if not self.freed:
@@ -192,7 +198,28 @@ class SnapContext():
     :type space: :class:`bpy.types.SpaceView3D`
     """
 
-    def __init__(self, region, space):
+    __slots__ = (
+        '_dist_px',
+        '_dist_px_sq',
+        '_offscreen',
+        '_offset_cur',
+        '_snap_buffer',
+        '_snap_mode',
+        'depsgraph',
+        'depth_range',
+        'drawn_count',
+        'freed',
+        'last_ray',
+        'mval',
+        'proj_mat',
+        'region',
+        'rv3d',
+        'snap_objects',
+        'threshold',
+        'winsize',
+        )
+
+    def __init__(self, depsgraph, region, space):
         #print('Render:', bgl.glGetString(bgl.GL_RENDERER))
         #print('OpenGL Version:', bgl.glGetString(bgl.GL_VERSION))
 
@@ -200,25 +227,33 @@ class SnapContext():
         self.snap_objects = []
         self.drawn_count = 0
         self._offset_cur = 1 # Starts with index 1
-        self.region = region
-        self.rv3d = space.region_3d
-
-        if self.rv3d.is_perspective:
-            self.depth_range = Vector((space.clip_start, space.clip_end))
-        else:
-            self.depth_range = Vector((-space.clip_end, space.clip_end))
 
         self.proj_mat = None
-        self.mval = Vector((0, 0))
+        self.mval = Vector((0.0, 0.0))
+        self.last_ray = Vector((1.0, 0.0, 0.0))
         self._snap_mode = VERT | EDGE | FACE
 
         self.set_pixel_dist(12)
 
-        self._offscreen = _SnapOffscreen(self.region.width, self.region.height)
+        self.region = region
+        self.depsgraph = depsgraph
+
+        if not (depsgraph or region or space):
+            self.rv3d = None
+            self.depth_range = Vector((-1.0, 1.0))
+            self._offscreen = _SnapOffscreen(1, 1)
+        else:
+            self.rv3d = space.region_3d
+
+            if self.rv3d.is_perspective:
+                self.depth_range = Vector((space.clip_start, space.clip_end))
+            else:
+                self.depth_range = Vector((-space.clip_end, space.clip_end))
+
+            self._offscreen = _SnapOffscreen(self.region.width, self.region.height)
+            self._offscreen.clear()
 
         self.winsize = Vector((self._offscreen.width, self._offscreen.height))
-
-        self._offscreen.clear()
 
 
     ## PRIVATE ##
@@ -230,6 +265,24 @@ class SnapContext():
                 if index < data.first_index + data.get_tot_elems():
                     return snap_obj
         return None
+
+    def _read_buffer(self, mval):
+        xmin = int(mval[0]) - self._dist_px
+        ymin = int(mval[1]) - self._dist_px
+        size_x = size_y = self.threshold
+
+        if xmin < 0:
+            #size_x += xmin
+            xmin = 0
+
+        if ymin < 0:
+            #size_y += ymin
+            ymin = 0
+
+        bgl.glReadBuffer(bgl.GL_COLOR_ATTACHMENT0)
+        bgl.glReadPixels(
+                xmin, ymin, size_x, size_y,
+                bgl.GL_RED_INTEGER, bgl.GL_UNSIGNED_INT, self._snap_buffer)
 
     def _get_nearest_index(self):
         r_snap_obj = None
@@ -328,7 +381,7 @@ class SnapContext():
             for snap_obj in self.snap_objects:
                 if len(snap_obj.data) == 2:
                     snap_obj.data[1].free()
-                    snap_obj.data.pop(1)
+                    del snap_obj.data[1:]
 
                 del snap_obj.data
                 del snap_obj.mat
@@ -337,12 +390,13 @@ class SnapContext():
 
     ## PUBLIC ##
 
-    def update_viewport_context(self, region, space):
+    def update_viewport_context(self, depsgraph, region, space, resize = False):
         rv3d = space.region_3d
 
-        if region == self.region and rv3d == self.rv3d:
+        if not resize and self.rv3d == rv3d and self.region == region:
             return
 
+        self.depsgraph = depsgraph
         self.region = region
         self.rv3d = rv3d
 
@@ -351,11 +405,20 @@ class SnapContext():
         else:
             self.depth_range = Vector((-space.clip_end, space.clip_end))
 
-        self.winsize = Vector((self.region.width, self.region.height))
-        self._offscreen.resize(*self.winsize)
+        winsize = Vector((self.region.width, self.region.height))
 
-    def clear_snap_objects(self):
-        self.update_all()
+        if winsize != self.winsize:
+            self.winsize = winsize
+            self._offscreen.resize(*self.winsize)
+
+    def clear_snap_objects(self, clear_offscreen = False):
+        for snap_obj in self.snap_objects:
+            if len(snap_obj.data) == 2:
+                snap_obj.data[1].free()
+                del snap_obj.data[1:]
+
+        self.update_drawing(clear_offscreen)
+
         self.snap_objects.clear()
         _Internal.gpu_Indices_mesh_cache_clear()
 
@@ -363,19 +426,20 @@ class SnapContext():
         for snap_obj in self.snap_objects:
             if len(snap_obj.data) == 2:
                 snap_obj.data[1].free()
-                snap_obj.data.pop(1)
+                del snap_obj.data[1:]
 
         self.update_drawing()
 
-    def update_drawing(self):
+    def update_drawing(self, clear_offscreen = True):
         self.drawn_count = 0
         self._offset_cur = 1
-        self._offscreen.clear()
+        if clear_offscreen:
+            self._offscreen.clear()
 
     def tag_update_drawn_snap_object(self, snap_obj):
         if len(snap_obj.data) > 1:
             snap_obj.data[1].free()
-            snap_obj.data.pop(1)
+            del snap_obj.data[1:]
             #self.update_drawing()
             # Update on next snap_get call #
             self.proj_mat = None
@@ -390,9 +454,9 @@ class SnapContext():
 
         if len(snap_obj.data) > 1:
             snap_obj.data[1].free()
-            snap_obj.data.pop(1)
+            del snap_obj.data[1:]
 
-        data = GPU_Indices_Mesh(snap_obj.data[0], snap_face, snap_edge, snap_vert)
+        data = GPU_Indices_Mesh(self.depsgraph, snap_obj.data[0], snap_face, snap_edge, snap_vert)
         snap_obj.data.append(data)
 
         _Internal.gpu_Indices_restore_state()
@@ -443,6 +507,12 @@ class SnapContext():
         #bgl.glDisable(bgl.GL_MULTISAMPLE)
         bgl.glEnable(bgl.GL_DEPTH_TEST)
 
+        is_point_size_enabled = bgl.glIsEnabled(bgl.GL_PROGRAM_POINT_SIZE)
+        if is_point_size_enabled:
+            bgl.glDisable(bgl.GL_PROGRAM_POINT_SIZE)
+
+        bgl.glPointSize(4.0)
+
         proj_mat = self.rv3d.perspective_matrix.copy()
         if self.proj_mat != proj_mat:
             self.proj_mat = proj_mat
@@ -461,7 +531,7 @@ class SnapContext():
 
             if bbmin != bbmax:
                 MVP = proj_mat @ snap_obj.mat
-                mat_inv = snap_obj.mat.inverted()
+                mat_inv = snap_obj.mat.inverted_safe()
                 ray_orig_local = mat_inv @ ray_orig
                 ray_dir_local = mat_inv.to_3x3() @ ray_dir
                 in_threshold = _Internal.intersect_boundbox_threshold(
@@ -479,7 +549,7 @@ class SnapContext():
                     draw_face = snap_face and not is_bound and obj.display_type != 'WIRE'
                     draw_edge = snap_edge and not is_bound
                     draw_vert = snap_vert and not is_bound
-                    snap_obj.data.append(GPU_Indices_Mesh(obj, draw_face, draw_edge, draw_vert))
+                    snap_obj.data.append(GPU_Indices_Mesh(self.depsgraph, obj, draw_face, draw_edge, draw_vert))
 
                 snap_obj.data[1].set_draw_mode(snap_face, snap_edge, snap_vert)
                 snap_obj.data[1].set_ModelViewMatrix(snap_obj.mat)
@@ -496,11 +566,7 @@ class SnapContext():
 
                 self.drawn_count += 1
 
-        bgl.glReadBuffer(bgl.GL_COLOR_ATTACHMENT0)
-        bgl.glReadPixels(
-                int(self.mval[0]) - self._dist_px, int(self.mval[1]) - self._dist_px,
-                self.threshold, self.threshold, bgl.GL_RED_INTEGER, bgl.GL_UNSIGNED_INT, self._snap_buffer)
-        #bgl.glReadBuffer(bgl.GL_BACK)
+        self._read_buffer(mval)
         #import numpy as np
         #a = np.array(self._snap_buffer)
         #print(a)
@@ -510,9 +576,12 @@ class SnapContext():
         if snap_obj:
             ret = self._get_loc(snap_obj, index)
 
+        if is_point_size_enabled:
+            bgl.glEnable(bgl.GL_PROGRAM_POINT_SIZE)
+
         bgl.glDisable(bgl.GL_DEPTH_TEST)
-        self._offscreen.unbind()
         _Internal.gpu_Indices_restore_state()
+        self._offscreen.unbind()
 
         return (snap_obj, *ret)
 
@@ -520,25 +589,18 @@ class SnapContext():
         self.__del__()
         self.freed = True
 
-def global_snap_context_get(region, space):
-    if _Internal.global_snap_context == None:
-        if region is None or space is None:
-            return
 
+def global_snap_context_get(depsgraph, region, space):
+    if _Internal.global_snap_context == None:
         import atexit
 
-        _Internal.global_snap_context = SnapContext(region, space)
+        _Internal.global_snap_context = SnapContext(depsgraph, region, space)
 
         # Make sure we only registered the callback once.
         atexit.unregister(_Internal.snap_context_free)
         atexit.register(_Internal.snap_context_free)
 
-    elif region is not None:
-        _Internal.global_snap_context.update_viewport_context(region, space)
-
-        if ((region.width != _Internal.global_snap_context._offscreen.width) or
-            (region.height != _Internal.global_snap_context._offscreen.height)):
-                _Internal.global_snap_context.winsize[:] = region.width, region.height
-                _Internal.global_snap_context._offscreen.resize(region.width, region.height)
+    elif (depsgraph and region and space):
+        _Internal.global_snap_context.update_viewport_context(depsgraph, region, space, True)
 
     return _Internal.global_snap_context

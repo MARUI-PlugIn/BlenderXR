@@ -17,11 +17,10 @@
 #ifndef __BMESH_EDGENET_H__
 #define __BMESH_EDGENET_H__
 
-/** \file \ingroup bmesh
+/** \file
+ * \ingroup bmesh
  */
 
-void BM_mesh_edgenet(
-        BMesh *bm,
-        const bool use_edge_tag, const bool use_new_face_tag);
+void BM_mesh_edgenet(BMesh *bm, const bool use_edge_tag, const bool use_new_face_tag);
 
 #endif /* __BMESH_EDGENET_H__ */

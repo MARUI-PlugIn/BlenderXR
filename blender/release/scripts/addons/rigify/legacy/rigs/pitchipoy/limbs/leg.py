@@ -25,6 +25,8 @@ from rna_prop_ui     import rna_idprop_ui_prop_get
 from ..super_widgets import create_foot_widget, create_ballsocket_widget
 from .limb_utils     import *
 
+from .....utils.mechanism import make_property
+
 def create_leg( cls, bones ):
     org_bones = list(
         [cls.org_bones[0]] + connected_children_names(cls.obj, cls.org_bones[0])
@@ -236,17 +238,12 @@ def create_leg( cls, bones ):
     # Create ik/fk switch property
     pb_parent = pb[ bones['parent'] ]
 
-    pb_parent['IK_Strertch'] = 1.0
-    prop = rna_idprop_ui_prop_get( pb_parent, 'IK_Strertch', create=True )
-    prop["min"]         = 0.0
-    prop["max"]         = 1.0
-    prop["soft_min"]    = 0.0
-    prop["soft_max"]    = 1.0
-    prop["description"] = 'IK Stretch'
+    prop = make_property(pb_parent, 'IK_Strertch', 1.0, description='IK Stretch')
 
     # Add driver to limit scale constraint influence
     b        = bones['ik']['mch_str']
-    drv      = pb[b].constraints[-1].driver_add("influence").driver
+    drv_fcu  = pb[b].constraints[-1].driver_add("influence")
+    drv      = drv_fcu.driver
     drv.type = 'AVERAGE'
 
     var = drv.variables.new()
@@ -256,7 +253,7 @@ def create_leg( cls, bones ):
     var.targets[0].data_path = \
         pb_parent.path_from_id() + '['+ '"' + prop.name + '"' + ']'
 
-    drv_modifier = cls.obj.animation_data.drivers[-1].modifiers[0]
+    drv_modifier = drv_fcu.modifiers[0]
 
     drv_modifier.mode            = 'POLYNOMIAL'
     drv_modifier.poly_order      = 1
@@ -306,7 +303,8 @@ def create_leg( cls, bones ):
 
         # Add driver to limit scale constraint influence
         b        = org_bones[3]
-        drv      = pb[b].constraints[-1].driver_add("influence").driver
+        drv_fcu  = pb[b].constraints[-1].driver_add("influence")
+        drv      = drv_fcu.driver
         drv.type = 'AVERAGE'
 
         var = drv.variables.new()
@@ -316,7 +314,7 @@ def create_leg( cls, bones ):
         var.targets[0].data_path = \
             pb_parent.path_from_id() + '['+ '"' + prop.name + '"' + ']'
 
-        drv_modifier = cls.obj.animation_data.drivers[-1].modifiers[0]
+        drv_modifier = drv_fcu.modifiers[0]
 
         drv_modifier.mode            = 'POLYNOMIAL'
         drv_modifier.poly_order      = 1

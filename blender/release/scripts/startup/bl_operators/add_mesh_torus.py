@@ -99,10 +99,10 @@ def add_uvs(mesh, minor_seg, major_seg):
 
     u_prev = u_init
     u_next = u_prev + u_step
-    for major_index in range(major_seg):
+    for _major_index in range(major_seg):
         v_prev = v_init
         v_next = v_prev + v_step
-        for minor_index in range(minor_seg):
+        for _minor_index in range(minor_seg):
             loops = polygons[vertex_index].loop_indices
             uv_data[loops[0]].uv = u_prev, v_prev
             uv_data[loops[1]].uv = u_next, v_prev
@@ -130,7 +130,7 @@ class AddTorus(Operator, object_utils.AddObjectHelper):
     bl_label = "Add Torus"
     bl_options = {'REGISTER', 'UNDO', 'PRESET'}
 
-    def mode_update_callback(self, context):
+    def mode_update_callback(self, _context):
         if self.mode == 'EXT_INT':
             self.abso_major_rad = self.major_radius + self.minor_radius
             self.abso_minor_rad = self.major_radius - self.minor_radius
@@ -196,13 +196,13 @@ class AddTorus(Operator, object_utils.AddObjectHelper):
         default=True,
     )
 
-    def draw(self, context):
+    def draw(self, _context):
         layout = self.layout
 
         col = layout.column(align=True)
         col.prop(self, "generate_uvs")
         col.separator()
-        col.prop(self, "view_align")
+        col.prop(self, "align")
 
         col = layout.column(align=True)
         col.label(text="Location")
@@ -241,7 +241,7 @@ class AddTorus(Operator, object_utils.AddObjectHelper):
             col.label(text="Interior Radius")
             col.prop(self, "abso_minor_rad", text="")
 
-    def invoke(self, context, event):
+    def invoke(self, context, _event):
         object_utils.object_add_grid_scale_apply_operator(self, context)
         return self.execute(context)
 

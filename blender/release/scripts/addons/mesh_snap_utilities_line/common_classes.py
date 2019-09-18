@@ -14,225 +14,33 @@
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 # ##### END GPL LICENSE BLOCK #####
-
 import bpy
-import bgl
 
-from mathutils import Vector
-
+from mathutils import (
+    Vector,
+    Matrix,
+    )
+from mathutils.geometry import intersect_point_line
+from .drawing_utilities import SnapDrawn
 from .common_utilities import (
     convert_distance,
     get_units_info,
-    snap_utilities,
+    location_3d_to_region_2d,
     )
 
 
-class SnapDrawn():
-    def __init__(self, out_color, face_color,
-                 edge_color, vert_color, center_color,
-                 perpendicular_color, constrain_shift_color,
-                 axis_x_color, axis_y_color, axis_z_color):
-
-        import gpu
-
-        self.out_color = out_color
-        self.face_color = face_color
-        self.edge_color = edge_color
-        self.vert_color = vert_color
-        self.center_color = center_color
-        self.perpendicular_color = perpendicular_color
-        self.constrain_shift_color = constrain_shift_color
-
-        self.axis_x_color = axis_x_color
-        self.axis_y_color = axis_y_color
-        self.axis_z_color = axis_z_color
-
-        self._format_pos = gpu.types.GPUVertFormat()
-        self._format_pos.attr_add(id="pos", comp_type='F32', len=3, fetch_mode='FLOAT')
-
-        self._format_pos_and_color = gpu.types.GPUVertFormat()
-        self._format_pos_and_color.attr_add(id="pos", comp_type='F32', len=3, fetch_mode='FLOAT')
-        self._format_pos_and_color.attr_add(id="color", comp_type='F32', len=4, fetch_mode='FLOAT')
-
-        self._program_unif_col = gpu.shader.from_builtin("3D_UNIFORM_COLOR")
-        self._program_smooth_col = gpu.shader.from_builtin("3D_SMOOTH_COLOR")
-
-        self._batch_point = None
-
-
-    def batch_line_strip_create(self, coords):
-        from gpu.types import (
-            GPUVertBuf,
-            GPUBatch,
-        )
-
-        vbo = GPUVertBuf(self._format_pos, len = len(coords))
-        vbo.attr_fill(0, data = coords)
-        batch_lines = GPUBatch(type = "LINE_STRIP", buf = vbo)
-        return batch_lines
-
-    def batch_lines_smooth_color_create(self, coords, colors):
-        from gpu.types import (
-            GPUVertBuf,
-            GPUBatch,
-        )
-
-        vbo = GPUVertBuf(self._format_pos_and_color, len = len(coords))
-        vbo.attr_fill(0, data = coords)
-        vbo.attr_fill(1, data = colors)
-        batch_lines = GPUBatch(type = "LINES", buf = vbo)
-        return batch_lines
-
-    def batch_triangles_create(self, coords):
-        from gpu.types import (
-            GPUVertBuf,
-            GPUBatch,
-        )
-
-        vbo = GPUVertBuf(self._format_pos, len = len(coords))
-        vbo.attr_fill(0, data = coords)
-        batch_tris = GPUBatch(type = "TRIS", buf = vbo)
-        return batch_tris
-
-    def batch_point_get(self):
-        if self._batch_point is None:
-            from gpu.types import (
-                GPUVertBuf,
-                GPUBatch,
-            )
-            vbo = GPUVertBuf(self._format_pos, len = 1)
-            vbo.attr_fill(0, ((0.0, 0.0, 0.0),))
-            self._batch_point = GPUBatch(type = "POINTS", buf = vbo)
-        return self._batch_point
-
-    def draw(self, type, location, list_verts_co, vector_constrain, prevloc):
-        import gpu
-
-        # draw 3d point OpenGL in the 3D View
-        bgl.glEnable(bgl.GL_BLEND)
-        gpu.matrix.push()
-        self._program_unif_col.bind()
-
-        if list_verts_co:
-            # draw 3d line OpenGL in the 3D View
-            bgl.glDepthRange(0, 0.9999)
-            bgl.glLineWidth(3.0)
-
-            batch = self.batch_line_strip_create([v.to_tuple() for v in list_verts_co] + [location.to_tuple()])
-
-            self._program_unif_col.uniform_float("color", (1.0, 0.8, 0.0, 0.5))
-            batch.draw(self._program_unif_col)
-            del batch
-
-        bgl.glDisable(bgl.GL_DEPTH_TEST)
-
-        point_batch = self.batch_point_get()
-        if vector_constrain:
-            if prevloc:
-                bgl.glPointSize(5)
-                gpu.matrix.translate(prevloc)
-                self._program_unif_col.uniform_float("color", (1.0, 1.0, 1.0, 0.5))
-                point_batch.draw(self._program_unif_col)
-                gpu.matrix.translate(-prevloc)
-
-            if vector_constrain[2] == 'X':
-                Color4f = self.axis_x_color
-            elif vector_constrain[2] == 'Y':
-                Color4f = self.axis_y_color
-            elif vector_constrain[2] == 'Z':
-                Color4f = self.axis_z_color
-            else:
-                Color4f = self.constrain_shift_color
-        else:
-            if type == 'OUT':
-                Color4f = self.out_color
-            elif type == 'FACE':
-                Color4f = self.face_color
-            elif type == 'EDGE':
-                Color4f = self.edge_color
-            elif type == 'VERT':
-                Color4f = self.vert_color
-            elif type == 'CENTER':
-                Color4f = self.center_color
-            elif type == 'PERPENDICULAR':
-                Color4f = self.perpendicular_color
-            else: # type == None
-                Color4f = self.out_color
-
-        bgl.glPointSize(10)
-
-        gpu.matrix.translate(location)
-        self._program_unif_col.uniform_float("color", Color4f)
-        point_batch.draw(self._program_unif_col)
-
-        # restore opengl defaults
-        bgl.glDepthRange(0.0, 1.0)
-        bgl.glPointSize(1.0)
-        bgl.glLineWidth(1.0)
-        bgl.glEnable(bgl.GL_DEPTH_TEST)
-        bgl.glDisable(bgl.GL_BLEND)
-
-        gpu.matrix.pop()
-
-    def draw_elem(self, snap_obj, bm, elem):
-        #TODO: Cache coords (because antialiasing)
-        import gpu
-        from bmesh.types import(
-            BMVert,
-            BMEdge,
-            BMFace,
-        )
-        # draw 3d point OpenGL in the 3D View
-        bgl.glEnable(bgl.GL_BLEND)
-        bgl.glDisable(bgl.GL_DEPTH_TEST)
-
-        with gpu.matrix.push_pop():
-            gpu.matrix.multiply_matrix(snap_obj.mat)
-
-            if isinstance(elem, BMVert):
-                if elem.link_edges:
-                    import numpy as np
-
-                    color = self.vert_color
-                    edges = np.empty((len(elem.link_edges), 2), [("pos", "f4", 3), ("color", "f4", 4)])
-                    edges["pos"][:, 0] = elem.co
-                    edges["pos"][:, 1] = [e.other_vert(elem).co for e in elem.link_edges]
-                    edges["color"][:, 0] = color
-                    edges["color"][:, 1] = (color[0], color[1], color[2], 0.0)
-                    edges.shape = -1
-
-                    self._program_smooth_col.bind()
-                    bgl.glLineWidth(3.0)
-                    batch = self.batch_lines_smooth_color_create(edges["pos"], edges["color"])
-                    batch.draw(self._program_smooth_col)
-                    bgl.glLineWidth(1.0)
-            else:
-                self._program_unif_col.bind()
-
-                if isinstance(elem, BMEdge):
-                    self._program_unif_col.uniform_float("color", self.edge_color)
-
-                    bgl.glLineWidth(3.0)
-                    batch = self.batch_line_strip_create([v.co for v in elem.verts])
-                    batch.draw(self._program_unif_col)
-                    bgl.glLineWidth(1.0)
-
-                elif isinstance(elem, BMFace):
-                    if len(snap_obj.data) == 2:
-                        face_color = self.face_color[0], self.face_color[1], self.face_color[2], self.face_color[3] * 0.2
-                        self._program_unif_col.uniform_float("color", face_color)
-
-                        tris = snap_obj.data[1].get_loop_tri_co_by_bmface(bm, elem)
-                        tris.shape = (-1, 3)
-                        batch = self.batch_triangles_create(tris)
-                        batch.draw(self._program_unif_col)
-
-            # restore opengl defaults
-            bgl.glEnable(bgl.GL_DEPTH_TEST)
-            bgl.glDisable(bgl.GL_BLEND)
-
-
 class SnapNavigation():
+    __slots__ = (
+        'use_ndof',
+        '_rotate',
+        '_move',
+        '_zoom',
+        '_ndof_all',
+        '_ndof_orbit',
+        '_ndof_orbit_zoom',
+        '_ndof_pan')
+
+
     @staticmethod
     def debug_key(key):
         for member in dir(key):
@@ -288,22 +96,22 @@ class SnapNavigation():
             if snap_location:
                 bpy.ops.view3d.rotate_custom_pivot('INVOKE_DEFAULT', pivot=snap_location)
             else:
-                bpy.ops.view3d.rotate('INVOKE_DEFAULT', use_mouse_init=True)
+                bpy.ops.view3d.rotate('INVOKE_DEFAULT', use_cursor_init=True)
             return True
 
         if evkey in self._move:
-            #if event.shift and self.vector_constrain and \
-            #    self.vector_constrain[2] in {'RIGHT_SHIFT', 'LEFT_SHIFT', 'shift'}:
-            #    self.vector_constrain = None
             bpy.ops.view3d.move('INVOKE_DEFAULT')
             return True
 
         for key in self._zoom:
             if evkey == key[0:3]:
-                if snap_location and key[3]:
-                    bpy.ops.view3d.zoom_custom_target('INVOKE_DEFAULT', delta=key[3], target=snap_location)
+                if key[3]:
+                    if snap_location:
+                        bpy.ops.view3d.zoom_custom_target('INVOKE_DEFAULT', delta=key[3], target=snap_location)
+                    else:
+                        bpy.ops.view3d.zoom('INVOKE_DEFAULT', delta=key[3])
                 else:
-                    bpy.ops.view3d.zoom('INVOKE_DEFAULT', delta=key[3])
+                    bpy.ops.view3d.zoom('INVOKE_DEFAULT')
                 return True
 
         if self.use_ndof:
@@ -325,6 +133,13 @@ class SnapNavigation():
 
 
 class CharMap:
+    __slots__ = (
+        'unit_system',
+        'uinfo',
+        'length_entered',
+        'length_entered_value',
+        'line_pos')
+
     ascii = {
         ".", ",", "-", "+", "1", "2", "3",
         "4", "5", "6", "7", "8", "9", "0",
@@ -373,8 +188,7 @@ class CharMap:
                         self.line_pos = (pos + 1) % (len(self.length_entered) + 1)
 
                     try:
-                        self.length_entered_value = bpy.utils.units.to_value(
-                                self.unit_system, 'LENGTH', self.length_entered)
+                        self.length_entered_value = bpy.utils.units.to_value(self.unit_system, 'LENGTH', self.length_entered)
                     except:  # ValueError:
                         self.length_entered_value = 0.0 #invalid
                         #self.report({'INFO'}, "Operation not supported yet")
@@ -400,101 +214,135 @@ class CharMap:
         self.line_pos = 0
 
 
-class VIEW3D_OT_rotate_custom_pivot(bpy.types.Operator):
-    bl_idname = "view3d.rotate_custom_pivot"
-    bl_label = "Rotate the view"
-    bl_options = {'BLOCKING', 'GRAB_CURSOR'}
-
-    pivot: bpy.props.FloatVectorProperty("Pivot", subtype='XYZ')
-    g_up_axis: bpy.props.FloatVectorProperty("up_axis", default=(0.0, 0.0, 1.0), subtype='XYZ')
-    sensitivity: bpy.props.FloatProperty("sensitivity", default=0.007)
-
-    def modal(self, context, event):
-        from mathutils import Matrix
-        if event.value == 'PRESS' and event.type in {'MOUSEMOVE', 'INBETWEEN_MOUSEMOVE'}:
-            dx = self.init_coord[0] - event.mouse_region_x
-            dy = self.init_coord[1] - event.mouse_region_y
-            rot_ver = Matrix.Rotation(-dx * self.sensitivity, 3, self.g_up_axis)
-            rot_hor = Matrix.Rotation(dy * self.sensitivity, 3, self.view_rot[0])
-            rot_mat =  rot_hor @ rot_ver
-            view_matrix = self.view_rot @ rot_mat
-
-            pos = self.pos1 @ rot_mat + self.pivot
-            qua = view_matrix.to_quaternion()
-            qua.invert()
-
-            self.rv3d.view_location = pos
-            self.rv3d.view_rotation = qua
-
-            context.area.tag_redraw()
-            return {'RUNNING_MODAL'}
-
-        return {'FINISHED'}
-
-    def invoke(self, context, event):
-        self.rv3d = context.region_data
-        self.init_coord = event.mouse_region_x, event.mouse_region_y
-        self.pos1 = self.rv3d.view_location - self.pivot
-        self.view_rot = self.rv3d.view_matrix.to_3x3()
-
-        context.window_manager.modal_handler_add(self)
-        return {'RUNNING_MODAL'}
-
-
-class VIEW3D_OT_zoom_custom_target(bpy.types.Operator):
-    bl_idname = "view3d.zoom_custom_target"
-    bl_label = "Zoom the view"
-    bl_options = {'BLOCKING', 'GRAB_CURSOR'}
-
-    target: bpy.props.FloatVectorProperty("target", subtype='XYZ')
-    delta: bpy.props.IntProperty("delta", default=0)
-    step_factor = 0.333
-
-    def modal(self, context, event):
-        if event.value == 'PRESS' and event.type in {'MOUSEMOVE', 'INBETWEEN_MOUSEMOVE'}:
-            if not hasattr(self, "init_mouse_region_y"):
-                self.init_mouse_region_y = event.mouse_region_y
-                self.heigt_up = context.area.height - self.init_mouse_region_y
-                self.rv3d.view_location = self.target
-
-            fac = (event.mouse_region_y - self.init_mouse_region_y) / self.heigt_up
-            ret = 'RUNNING_MODAL'
+class Constrain:
+    def __init__(self, peferences, scene, obj):
+        self.last_type = None
+        self.last_vec = None
+        self.rotMat = None
+        self.preferences = peferences
+        trans_orient = scene.transform_orientation_slots[0]
+        self.orientation = [None, None]
+        if trans_orient.type == 'LOCAL':
+            self.orientation[0] = obj.matrix_world.to_3x3().transposed()
+            self.orientation[1] = Matrix.Identity(3)
         else:
-            fac = self.step_factor * self.delta
-            ret = 'FINISHED'
+            self.orientation[0] = Matrix.Identity(3)
+            self.orientation[1] = obj.matrix_world.to_3x3().transposed()
 
-        self.rv3d.view_location = self.init_loc + (self.target - self.init_loc) * fac
-        self.rv3d.view_distance = self.init_dist - self.init_dist * fac
+        self.orientation_id = 0
+        self.center = Vector((0.0, 0.0, 0.0))
+        self.center_2d = Vector((0.0, 0.0))
+        self.projected_vecs = Matrix(([0.0, 0.0], [0.0, 0.0], [0.0, 0.0]))
 
-        context.area.tag_redraw()
-        return {ret}
+    def _constrain_set(self, mcursor):
+        vec = (mcursor - self.center_2d)
+        vec.normalize()
 
-    def invoke(self, context, event):
-        v3d = context.space_data
-        dist_range = (v3d.clip_start, v3d.clip_end)
-        self.rv3d = context.region_data
-        self.init_dist = self.rv3d.view_distance
-        if ((self.delta <= 0 and self.init_dist < dist_range[1]) or
-            (self.delta >  0 and self.init_dist > dist_range[0])):
-                self.init_loc = self.rv3d.view_location.copy()
+        dot_x = abs(vec.dot(self.projected_vecs[0]))
+        dot_y = abs(vec.dot(self.projected_vecs[1]))
+        dot_z = abs(vec.dot(self.projected_vecs[2]))
 
-                context.window_manager.modal_handler_add(self)
-                return {'RUNNING_MODAL'}
+        if dot_x > dot_y and dot_x > dot_z:
+            vec = self.orientation[self.orientation_id][0]
+            type = 'X'
 
-        return {'FINISHED'}
+        elif dot_y > dot_x and dot_y > dot_z:
+            vec = self.orientation[self.orientation_id][1]
+            type = 'Y'
+
+        else: # dot_z > dot_y and dot_z > dot_x:
+            vec = self.orientation[self.orientation_id][2]
+            type = 'Z'
+
+        return vec, type
+
+    def modal(self, event, shift_callback):
+        type = event.type
+        if self.last_type == type:
+            self.orientation_id += 1
+
+        if type == 'X':
+            if self.orientation_id < 2:
+                self.last_vec = self.orientation[self.orientation_id][0]
+            else:
+                self.orientation_id = 0
+                self.last_vec = type = None
+        elif type == 'Y':
+            if self.orientation_id < 2:
+                self.last_vec = self.orientation[self.orientation_id][1]
+            else:
+                self.orientation_id = 0
+                self.last_vec = type = None
+        elif type == 'Z':
+            if self.orientation_id < 2:
+                self.last_vec = self.orientation[self.orientation_id][2]
+            else:
+                self.orientation_id = 0
+                self.last_vec = type = None
+        elif shift_callback and type in {'RIGHT_SHIFT', 'LEFT_SHIFT'}:
+            if self.orientation_id < 1:
+                type = 'shift'
+                self.last_vec = shift_callback()
+            else:
+                self.orientation_id = 0
+                self.last_vec = type = None
+        else:
+            return False
+
+        self.preferences.auto_constrain = False
+        self.last_type = type
+        return True
+
+    def toogle(self):
+        self.rotMat = None # update
+        if self.preferences.auto_constrain:
+            self.orientation_id = (self.orientation_id + 1) % 2
+            self.preferences.auto_constrain = self.orientation_id != 0
+        else:
+            self.preferences.auto_constrain = True
+
+    def update(self, region, rv3d, mcursor, center):
+        if rv3d.view_matrix != self.rotMat or self.center != center:
+            self.rotMat = rv3d.view_matrix.copy()
+
+            self.center = center.copy()
+            self.center_2d = location_3d_to_region_2d(region, rv3d, self.center)
+
+            vec = self.center + self.orientation[self.orientation_id][0]
+            self.projected_vecs[0] = location_3d_to_region_2d(region, rv3d, vec) - self.center_2d
+            vec = self.center + self.orientation[self.orientation_id][1]
+            self.projected_vecs[1] = location_3d_to_region_2d(region, rv3d, vec) - self.center_2d
+            vec = self.center + self.orientation[self.orientation_id][2]
+            self.projected_vecs[2] = location_3d_to_region_2d(region, rv3d, vec) - self.center_2d
+
+            self.projected_vecs[0].normalize()
+            self.projected_vecs[1].normalize()
+            self.projected_vecs[2].normalize()
+
+        return self._constrain_set(mcursor)
 
 
 class SnapUtilities:
-#    __slots__ = (
-#        "sctx",
-#        "draw_cache",
-#        "outer_verts",
-#        "snap_face",
-#        "snap_to_grid",
-#        "unit_system",
-#        "rd",
-#        "incremental",
-#    )
+    """
+    __slots__ = (
+        "sctx",
+        "draw_cache",
+        "outer_verts",
+        "unit_system",
+        "rd",
+        "obj",
+        "bm",
+        "geom",
+        "type",
+        "location",
+        "preferences",
+        "normal",
+        "snap_vert",
+        "snap_edge",
+        "snap_face",
+        "incremental",
+    )
+    """
 
     constrain_keys = {
         'X': Vector((1,0,0)),
@@ -504,48 +352,123 @@ class SnapUtilities:
         'LEFT_SHIFT': 'shift',
         }
 
-    snap_widget = None
-    snap_widget_refcnt = 0
+    snapwidgets = []
     constrain = None
 
     @staticmethod
     def set_contrain(context, key):
-        widget = SnapUtilities.snap_widget
+        widget = SnapUtilities.snapwidgets[-1] if SnapUtilities.snapwidgets else None
         if SnapUtilities.constrain == key:
             SnapUtilities.constrain = None
+            if hasattr(widget, "get_normal"):
+                widget.get_normal(context)
             return
+
+        if hasattr(widget, "normal"):
+            if key == 'shift':
+                import bmesh
+                if isinstance(widget.geom, bmesh.types.BMEdge):
+                    verts = widget.geom.verts
+                    widget.normal = verts[1].co - verts[0].co
+                    widget.normal.normalise()
+                else:
+                    return
+            else:
+                widget.normal = SnapUtilities.constrain_keys[key]
 
         SnapUtilities.constrain = key
 
 
-    def visible_objects_and_duplis(self, context):
-        if self.preferences.outer_verts:
-            for obj in context.visible_objects:
-                yield (obj, obj.matrix_world)
+    def snap_context_update_and_return_moving_objects(self, context):
+        moving_objects = set()
+        moving_snp_objects = set()
+        children = set()
+        for obj in context.view_layer.objects.selected:
+            moving_objects.add(obj)
 
-                if obj.instance_type == 'COLLECTION':
-                    mat = obj.matrix_world.copy()
-                    for ob in obj.instance_collection.objects:
-                        yield (ob, mat @ ob.matrix_world)
-        else:
-            for obj in context.objects_in_mode_unique_data:
-                yield (obj, obj.matrix_world)
+        temp_children = set()
+        for obj in context.visible_objects:
+            temp_children.clear()
+            while obj.parent is not None:
+                temp_children.add(obj)
+                parent = obj.parent
+                if parent in moving_objects:
+                    children.update(temp_children)
+                    temp_children.clear()
+                obj = parent
+
+        del temp_children
+
+        moving_objects.difference_update(children)
+
+        self.sctx.clear_snap_objects(True)
+
+        for obj in context.visible_objects:
+            is_moving = obj in moving_objects or obj in children
+            snap_obj = self.sctx.add_obj(obj, obj.matrix_world)
+            if is_moving:
+                moving_snp_objects.add(snap_obj)
+
+            if obj.instance_type == 'COLLECTION':
+                mat = obj.matrix_world.copy()
+                for ob in obj.instance_collection.objects:
+                    snap_obj = self.sctx.add_obj(ob, mat @ ob.matrix_world)
+                    if is_moving:
+                        moving_snp_objects.add(snap_obj)
+
+        del children
+        return moving_objects, moving_snp_objects
 
 
-    def snap_context_init(self, context, snap_edge_and_vert = True):
+    def snap_context_update(self, context):
+        def visible_objects_and_duplis():
+            if self.preferences.outer_verts:
+                for obj in context.visible_objects:
+                    yield (obj, obj.matrix_world)
+
+                    if obj.instance_type == 'COLLECTION':
+                        mat = obj.matrix_world.copy()
+                        for ob in obj.instance_collection.objects:
+                            yield (ob, mat @ ob.matrix_world)
+            else:
+                for obj in context.objects_in_mode_unique_data:
+                    yield (obj, obj.matrix_world)
+
+        self.sctx.clear_snap_objects(True)
+
+        for obj, matrix in visible_objects_and_duplis():
+            self.sctx.add_obj(obj, matrix)
+
+
+    def snap_context_init(self, context, snap_edge_and_vert=True):
         from .snap_context_l import global_snap_context_get
 
         #Create Snap Context
-        self.sctx = global_snap_context_get(context.region, context.space_data)
+        self.sctx = global_snap_context_get(context.evaluated_depsgraph_get(), context.region, context.space_data)
         self.sctx.set_pixel_dist(12)
         self.sctx.use_clip_planes(True)
 
-        widget = self.snap_widget
+        if SnapUtilities.snapwidgets:
+            widget = SnapUtilities.snapwidgets[-1]
 
-        if widget is not None:
+            self.obj = widget.snap_obj.data[0] if widget.snap_obj else context.active_object
+            self.bm = widget.bm
+            self.geom = widget.geom
+            self.type = widget.type
+            self.location = widget.location
             self.preferences = widget.preferences
             self.draw_cache = widget.draw_cache
+            if hasattr(widget, "normal"):
+                self.normal = widget.normal
+
         else:
+            #init these variables to avoid errors
+            self.obj = context.active_object
+            self.bm = None
+            self.geom = None
+            self.type = 'OUT'
+            self.location = Vector()
+
             preferences = context.preferences.addons[__package__].preferences
             self.preferences = preferences
             #Init DrawCache
@@ -559,16 +482,14 @@ class SnapUtilities:
                 preferences.constrain_shift_color,
                 tuple(context.preferences.themes[0].user_interface.axis_x) + (1.0,),
                 tuple(context.preferences.themes[0].user_interface.axis_y) + (1.0,),
-                tuple(context.preferences.themes[0].user_interface.axis_z) + (1.0,)
-            )
+                tuple(context.preferences.themes[0].user_interface.axis_z) + (1.0,))
 
         self.snap_vert = self.snap_edge = snap_edge_and_vert
 
         shading = context.space_data.shading
-        self.snap_face = not (snap_edge_and_vert and
-                             (shading.show_xray or shading.type == 'WIREFRAME'))
+        self.snap_face = not (snap_edge_and_vert and (shading.show_xray or shading.type == 'WIREFRAME'))
 
-        self.snap_context_update(context)
+        self.sctx.set_snap_mode(self.snap_vert, self.snap_edge, self.snap_face)
 
         #Configure the unit of measure
         unit_system = context.scene.unit_settings.system
@@ -576,33 +497,7 @@ class SnapUtilities:
         scale /= context.space_data.overlay.grid_scale
         self.rd = bpy.utils.units.to_value(unit_system, 'LENGTH', str(1 / scale))
 
-        self.incremental = bpy.utils.units.to_value(
-                unit_system, 'LENGTH', str(self.preferences.incremental))
-
-    def snap_context_update(self, context):
-        self.sctx.set_snap_mode(
-                 self.snap_vert, self.snap_edge, self.snap_face)
-
-        self.sctx.clear_snap_objects()
-
-        for obj, matrix in self.visible_objects_and_duplis(context):
-            self.sctx.add_obj(obj, matrix)
-
-        widget = self.snap_widget
-
-        if widget:
-            self.snap_obj = widget.snap_obj
-            self.bm = widget.bm
-            self.geom = widget.geom
-            self.type = widget.type
-            self.location = widget.location
-        else:
-            #init these variables to avoid errors
-            self.snap_obj = None
-            self.bm = None
-            self.geom = None
-            self.type = 'OUT'
-            self.location = Vector()
+        self.incremental = bpy.utils.units.to_value(unit_system, 'LENGTH', str(self.preferences.incremental))
 
     def snap_to_grid(self):
         if self.type == 'OUT' and self.preferences.increments_grid:
@@ -612,6 +507,7 @@ class SnapUtilities:
                                     round(loc.z))) * self.rd
 
     def snap_context_free(self):
+        self.sctx = None
         del self.sctx
 
         del self.bm
@@ -626,148 +522,3 @@ class SnapUtilities:
         del self.preferences
 
         SnapUtilities.constrain = None
-
-
-#def mesh_runtime_batchcache_isdirty(me):
-#    import ctypes
-#    batch_cache = ctypes.c_void_p.from_address(me.as_pointer() + 1440)
-#    if batch_cache:
-#        return ctypes.c_bool.from_address(batch_cache.value + 549).value
-#    return False
-
-
-class SnapWidgetCommon:
-    def draw_point_and_elem(self):
-        if self.bm:
-            if self.bm.is_valid and self.geom.is_valid:
-                self.draw_cache.draw_elem(self.snap_obj, self.bm, self.geom)
-            else:
-                self.bm = None
-                self.geom = None
-                self.sctx.update_all()
-
-        self.draw_cache.draw(self.type, self.location, None, None, None)
-
-    def init_snap_widget(self, context, snap_edge_and_vert = True):
-        self.snap_context_init(context, snap_edge_and_vert)
-        self.mode = context.mode
-        self.wm_operators = context.window_manager.operators
-        self.last_operator = self.wm_operators[-1] if self.wm_operators else None
-        self.last_mval = None
-
-    def update_snap(self, context, mval):
-        if self.last_mval == mval:
-            return -1
-        else:
-            self.last_mval = mval
-
-        last_operator = self.wm_operators[-1] if self.wm_operators else None
-        if last_operator != self.last_operator:
-            if (not last_operator or
-                last_operator.name not in {'Select', 'Loop Select', '(De)select All'}):
-                    ## Something has changed since the last time.
-                    # Has the mesh been changed?
-                    # In the doubt lets clear the snap context.
-                    self.sctx.update_all()
-
-            self.last_operator = last_operator
-
-        #print('test_select', mval)
-        space = context.space_data
-        self.sctx.update_viewport_context(context.region, space)
-
-        shading = space.shading
-        snap_face = not ((self.snap_vert or self.snap_edge) and
-                        (shading.show_xray or shading.type == 'WIREFRAME'))
-
-        if snap_face != self.snap_face:
-            self.snap_face = snap_face
-            self.sctx.set_snap_mode(
-                     self.snap_vert, self.snap_edge, self.snap_face)
-
-        self.snap_obj, prev_loc, self.location, self.type, self.bm, self.geom, len = snap_utilities(
-                self.sctx,
-                None,
-                mval,
-                increment=self.incremental
-        )
-
-    def __del__(self):
-        from .snap_context_l import global_snap_context_get
-        sctx = global_snap_context_get(None, None)
-        if sctx:
-            sctx.clear_snap_objects()
-
-
-class SnapPointWidget(SnapUtilities, SnapWidgetCommon, bpy.types.Gizmo):
-    bl_idname = "VIEW3D_GT_snap_point"
-
-    __slots__ = (
-        "bm",
-        "draw_cache",
-        "geom",
-        "incremental",
-        "preferences",
-        "last_operator",
-        "location",
-        "mode",
-        "snap_edge",
-        "snap_face",
-        "snap_vert",
-        "snap_obj",
-        "type",
-        "wm_operators",
-    )
-
-    def test_select(self, context, mval):
-        self.update_snap(context, mval)
-        self.snap_to_grid()
-
-        context.area.tag_redraw()
-        return -1
-
-    def draw(self, context):
-        self.draw_point_and_elem()
-
-    def setup(self):
-        self.init_snap_widget(bpy.context)
-        SnapUtilities.snap_widget = self
-
-
-def context_mode_check(context, widget_group):
-    workspace = context.workspace
-    mode = workspace.tools_mode
-    for tool in workspace.tools:
-        if (tool.widget == widget_group) and (tool.mode == mode):
-            break
-    else:
-        return False
-    return True
-
-class SnapWidgetCommon:
-    bl_space_type = 'VIEW_3D'
-    bl_region_type = 'WINDOW'
-    bl_options = {'3D'}
-
-    @classmethod
-    def poll(cls, context):
-        return context_mode_check(context, cls.bl_idname)
-#        return context_mode_change(
-#                context, SnapUtilities.snap_widget, cls.bl_idname)
-
-    def init_tool(self, context, gizmo_name):
-        self.gizmos.new(gizmo_name)
-        SnapUtilities.snap_widget_refcnt += 1
-
-    def __del__(self):
-        SnapUtilities.snap_widget_refcnt -= 1
-        if SnapUtilities.snap_widget_refcnt == 0:
-            SnapUtilities.snap_widget = None
-
-
-class SnapPointWidgetGroup(SnapWidgetCommon, bpy.types.GizmoGroup):
-    bl_idname = "MESH_GGT_snap_point"
-    bl_label = "Draw Snap Point"
-
-    def setup(self, context):
-        self.init_tool(context, SnapPointWidget.bl_idname)

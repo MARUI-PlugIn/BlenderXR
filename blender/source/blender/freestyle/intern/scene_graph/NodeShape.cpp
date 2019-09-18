@@ -14,8 +14,9 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup freestyle
- *  \brief Class to build a shape node. It contains a Rep, which is the shape geometry
+/** \file
+ * \ingroup freestyle
+ * \brief Class to build a shape node. It contains a Rep, which is the shape geometry
  */
 
 #include "NodeShape.h"
@@ -24,30 +25,32 @@ namespace Freestyle {
 
 NodeShape::~NodeShape()
 {
-	vector<Rep *>::iterator rep;
+  vector<Rep *>::iterator rep;
 
-	if (0 != _Shapes.size()) {
-		for (rep = _Shapes.begin(); rep != _Shapes.end(); ++rep) {
-			int refCount = (*rep)->destroy();
-			if (0 == refCount)
-				delete (*rep);
-		}
+  if (0 != _Shapes.size()) {
+    for (rep = _Shapes.begin(); rep != _Shapes.end(); ++rep) {
+      int refCount = (*rep)->destroy();
+      if (0 == refCount) {
+        delete (*rep);
+      }
+    }
 
-		_Shapes.clear();
-	}
+    _Shapes.clear();
+  }
 }
 
-void NodeShape::accept(SceneVisitor& v)
+void NodeShape::accept(SceneVisitor &v)
 {
-	v.visitNodeShape(*this);
+  v.visitNodeShape(*this);
 
-	v.visitFrsMaterial(_FrsMaterial);
+  v.visitFrsMaterial(_FrsMaterial);
 
-	v.visitNodeShapeBefore(*this);
-	vector<Rep *>::iterator rep;
-	for (rep = _Shapes.begin(); rep != _Shapes.end(); ++rep)
-		(*rep)->accept(v);
-	v.visitNodeShapeAfter(*this);
+  v.visitNodeShapeBefore(*this);
+  vector<Rep *>::iterator rep;
+  for (rep = _Shapes.begin(); rep != _Shapes.end(); ++rep) {
+    (*rep)->accept(v);
+  }
+  v.visitNodeShapeAfter(*this);
 }
 
 } /* namespace Freestyle */

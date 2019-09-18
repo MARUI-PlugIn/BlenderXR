@@ -15,12 +15,24 @@ class MESH_UL_vgroups_slow(bpy.types.UIList):
     VGROUP_EMPTY = 1 << 0
 
     # Custom properties, saved with .blend file.
-    use_filter_empty = bpy.props.BoolProperty(name="Filter Empty", default=False, options=set(),
-                                              description="Whether to filter empty vertex groups")
-    use_filter_empty_reverse = bpy.props.BoolProperty(name="Reverse Empty", default=False, options=set(),
-                                                      description="Reverse empty filtering")
-    use_filter_name_reverse = bpy.props.BoolProperty(name="Reverse Name", default=False, options=set(),
-                                                     description="Reverse name filtering")
+    use_filter_empty: bpy.props.BoolProperty(
+        name="Filter Empty",
+        default=False,
+        options=set(),
+        description="Whether to filter empty vertex groups",
+    )
+    use_filter_empty_reverse: bpy.props.BoolProperty(
+        name="Reverse Empty",
+        default=False,
+        options=set(),
+        description="Reverse empty filtering",
+    )
+    use_filter_name_reverse: bpy.props.BoolProperty(
+        name="Reverse Name",
+        default=False,
+        options=set(),
+        description="Reverse name filtering",
+    )
 
     # This allows us to have mutually exclusive options, which are also all disable-able!
     def _gen_order_update(name1, name2):
@@ -28,12 +40,18 @@ class MESH_UL_vgroups_slow(bpy.types.UIList):
             if (getattr(self, name1)):
                 setattr(self, name2, False)
         return _u
-    use_order_name = bpy.props.BoolProperty(name="Name", default=False, options=set(),
-                                            description="Sort groups by their name (case-insensitive)",
-                                            update=_gen_order_update("use_order_name", "use_order_importance"))
-    use_order_importance = bpy.props.BoolProperty(name="Importance", default=False, options=set(),
-                                                  description="Sort groups by their average weight in the mesh",
-                                                  update=_gen_order_update("use_order_importance", "use_order_name"))
+    use_order_name: bpy.props.BoolProperty(
+        name="Name", default=False, options=set(),
+        description="Sort groups by their name (case-insensitive)",
+        update=_gen_order_update("use_order_name", "use_order_importance"),
+    )
+    use_order_importance: bpy.props.BoolProperty(
+        name="Importance",
+        default=False,
+        options=set(),
+        description="Sort groups by their average weight in the mesh",
+        update=_gen_order_update("use_order_importance", "use_order_name"),
+    )
 
     # Usual draw item function.
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index, flt_flag):
@@ -159,3 +177,37 @@ class MESH_UL_vgroups_slow(bpy.types.UIList):
             flt_neworder = helper_funcs.sort_items_helper(_sort, lambda e: e[1], True)
 
         return flt_flags, flt_neworder
+
+
+# Minimal code to use above UIList...
+class UIListPanelExample2(bpy.types.Panel):
+    """Creates a Panel in the Object properties window"""
+    bl_label = "UIList Example 2 Panel"
+    bl_idname = "OBJECT_PT_ui_list_example_2"
+    bl_space_type = 'PROPERTIES'
+    bl_region_type = 'WINDOW'
+    bl_context = "object"
+
+    def draw(self, context):
+        layout = self.layout
+        obj = context.object
+
+        # template_list now takes two new args.
+        # The first one is the identifier of the registered UIList to use (if you want only the default list,
+        # with no custom draw code, use "UI_UL_list").
+        layout.template_list("MESH_UL_vgroups_slow", "", obj, "vertex_groups", obj.vertex_groups, "active_index")
+
+
+def register():
+    bpy.utils.register_class(MESH_UL_vgroups_slow)
+    bpy.utils.register_class(UIListPanelExample2)
+
+
+def unregister():
+    bpy.utils.unregister_class(UIListPanelExample2)
+    bpy.utils.unregister_class(MESH_UL_vgroups_slow)
+
+
+if __name__ == "__main__":
+    register()
+

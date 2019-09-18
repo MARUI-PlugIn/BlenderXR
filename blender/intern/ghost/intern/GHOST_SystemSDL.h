@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup GHOST
+/** \file
+ * \ingroup GHOST
  * Declaration of GHOST_SystemSDL class.
  */
 
@@ -29,104 +30,76 @@
 #include "GHOST_Event.h"
 
 extern "C" {
-	#include "SDL.h"
+#include "SDL.h"
 }
 
 #if !SDL_VERSION_ATLEAST(2, 0, 0)
 #  error "SDL 2.0 or newer is needed to build with Ghost"
 #endif
 
-
 class GHOST_WindowSDL;
 
-
 class GHOST_SystemSDL : public GHOST_System {
-public:
+ public:
+  void addDirtyWindow(GHOST_WindowSDL *bad_wind);
 
-	void addDirtyWindow(GHOST_WindowSDL *bad_wind);
+  GHOST_SystemSDL();
+  ~GHOST_SystemSDL();
 
-	GHOST_SystemSDL();
-	~GHOST_SystemSDL();
+  bool processEvents(bool waitForEvent);
 
-	bool
-	processEvents(bool waitForEvent);
+  int toggleConsole(int action)
+  {
+    return 0;
+  }
 
-	int
-	toggleConsole(int action) { return 0; }
+  GHOST_TSuccess getModifierKeys(GHOST_ModifierKeys &keys) const;
 
-	GHOST_TSuccess
-	getModifierKeys(GHOST_ModifierKeys& keys) const;
+  GHOST_TSuccess getButtons(GHOST_Buttons &buttons) const;
 
-	GHOST_TSuccess
-	getButtons(GHOST_Buttons& buttons) const;
+  GHOST_TUns8 *getClipboard(bool selection) const;
 
-	GHOST_TUns8 *
-	getClipboard(bool selection) const;
+  void putClipboard(GHOST_TInt8 *buffer, bool selection) const;
 
-	void
-	putClipboard(GHOST_TInt8 *buffer, bool selection) const;
+  GHOST_TUns64 getMilliSeconds();
 
-	GHOST_TUns64
-	getMilliSeconds();
+  GHOST_TUns8 getNumDisplays() const;
 
-	GHOST_TUns8
-	getNumDisplays() const;
+  GHOST_TSuccess getCursorPosition(GHOST_TInt32 &x, GHOST_TInt32 &y) const;
 
-	GHOST_TSuccess
-	getCursorPosition(GHOST_TInt32& x,
-	                  GHOST_TInt32& y) const;
+  GHOST_TSuccess setCursorPosition(GHOST_TInt32 x, GHOST_TInt32 y);
 
-	GHOST_TSuccess
-	setCursorPosition(GHOST_TInt32 x,
-	                  GHOST_TInt32 y);
+  void getAllDisplayDimensions(GHOST_TUns32 &width, GHOST_TUns32 &height) const;
 
-	void
-	getAllDisplayDimensions(GHOST_TUns32& width,
-	                        GHOST_TUns32& height) const;
+  void getMainDisplayDimensions(GHOST_TUns32 &width, GHOST_TUns32 &height) const;
 
-	void
-	getMainDisplayDimensions(GHOST_TUns32& width,
-	                         GHOST_TUns32& height) const;
+  GHOST_IContext *createOffscreenContext();
 
-	GHOST_IContext *
-	createOffscreenContext();
+  GHOST_TSuccess disposeContext(GHOST_IContext *context);
 
-	GHOST_TSuccess
-	disposeContext(GHOST_IContext *context);
+ private:
+  GHOST_TSuccess init();
 
-	/**
-	 * Informs if the system provides native dialogs (eg. confirm quit)
-	 */
-	virtual bool supportsNativeDialogs(void);
-private:
+  GHOST_IWindow *createWindow(const STR_String &title,
+                              GHOST_TInt32 left,
+                              GHOST_TInt32 top,
+                              GHOST_TUns32 width,
+                              GHOST_TUns32 height,
+                              GHOST_TWindowState state,
+                              GHOST_TDrawingContextType type,
+                              GHOST_GLSettings glSettings,
+                              const bool exclusive = false,
+                              const GHOST_TEmbedderWindowID parentWindow = 0);
 
-	GHOST_TSuccess
-	init();
+  /* SDL specific */
+  GHOST_WindowSDL *findGhostWindow(SDL_Window *sdl_win);
 
-	GHOST_IWindow *
-	createWindow(const STR_String& title,
-	             GHOST_TInt32 left,
-	             GHOST_TInt32 top,
-	             GHOST_TUns32 width,
-	             GHOST_TUns32 height,
-	             GHOST_TWindowState state,
-	             GHOST_TDrawingContextType type,
-	             GHOST_GLSettings glSettings,
-	             const bool exclusive = false,
-	             const GHOST_TEmbedderWindowID parentWindow = 0
-	             );
+  bool generateWindowExposeEvents();
 
-	/* SDL specific */
-	GHOST_WindowSDL *findGhostWindow(SDL_Window *sdl_win);
+  void processEvent(SDL_Event *sdl_event);
 
-	bool
-	generateWindowExposeEvents();
-
-	void
-	processEvent(SDL_Event *sdl_event);
-
-	/// The vector of windows that need to be updated.
-	std::vector<GHOST_WindowSDL *> m_dirty_windows;
+  /// The vector of windows that need to be updated.
+  std::vector<GHOST_WindowSDL *> m_dirty_windows;
 };
 
 #endif

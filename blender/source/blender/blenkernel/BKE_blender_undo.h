@@ -16,7 +16,8 @@
 #ifndef __BKE_BLENDER_UNDO_H__
 #define __BKE_BLENDER_UNDO_H__
 
-/** \file \ingroup bke
+/** \file
+ * \ingroup bke
  */
 
 #ifdef __cplusplus
@@ -30,12 +31,13 @@ struct bContext;
 
 #define BKE_UNDO_STR_MAX 64
 
-struct MemFileUndoData *BKE_memfile_undo_encode(struct Main *bmain, struct MemFileUndoData *mfu_prev);
-bool                    BKE_memfile_undo_decode(struct MemFileUndoData *mfu, struct bContext *C);
-void                    BKE_memfile_undo_free(struct MemFileUndoData *mfu);
+struct MemFileUndoData *BKE_memfile_undo_encode(struct Main *bmain,
+                                                struct MemFileUndoData *mfu_prev);
+bool BKE_memfile_undo_decode(struct MemFileUndoData *mfu, struct bContext *C);
+void BKE_memfile_undo_free(struct MemFileUndoData *mfu);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif  /* __BKE_BLENDER_UNDO_H__ */
+#endif /* __BKE_BLENDER_UNDO_H__ */

@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup bpygpu
+/** \file
+ * \ingroup bpygpu
  */
 
 #ifndef __GPU_PY_ELEMENT_H__
@@ -22,11 +23,10 @@
 
 extern PyTypeObject BPyGPUIndexBuf_Type;
 
-#define BPyGPUIndexBuf_Check(v)        (Py_TYPE(v) == &BPyGPUIndexBuf_Type)
+#define BPyGPUIndexBuf_Check(v) (Py_TYPE(v) == &BPyGPUIndexBuf_Type)
 
 typedef struct BPyGPUIndexBuf {
-	PyObject_VAR_HEAD
-	struct GPUIndexBuf *elem;
+  PyObject_VAR_HEAD struct GPUIndexBuf *elem;
 } BPyGPUIndexBuf;
 
 PyObject *BPyGPUIndexBuf_CreatePyObject(struct GPUIndexBuf *elem);

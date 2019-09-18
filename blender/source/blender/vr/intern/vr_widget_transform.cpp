@@ -15,10 +15,10 @@
 * along with this program; if not, write to the Free Software Foundation,
 * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 *
-* The Original Code is Copyright (C) 2018 by Blender Foundation.
+* The Original Code is Copyright (C) 2019 by Blender Foundation.
 * All rights reserved.
 *
-* Contributor(s): MARUI-PlugIn
+* Contributor(s): MARUI-PlugIn, Multiplexed Reality
 *
 * ***** END GPL LICENSE BLOCK *****
 */
@@ -36,6 +36,7 @@
 
 #include "vr_widget_transform.h"
 #include "vr_widget_extrude.h"
+#include "vr_widget_sculpt.h"
 
 #include "vr_math.h"
 #include "vr_draw.h"
@@ -66,7 +67,7 @@
 
 #include "vr_util.h"
 
-/***********************************************************************************************//**
+/***************************************************************************************************
  * \class									Widget_Transform
  ***************************************************************************************************
  * Interaction widget for the Transform tool.
@@ -100,7 +101,11 @@ Mat44f Widget_Transform::manip_t = VR_Math::identity_f;
 Mat44f Widget_Transform::manip_t_orig;
 Mat44f Widget_Transform::manip_t_snap;
 Coord3Df Widget_Transform::manip_angle[VR_UI::TRANSFORMSPACES];
+#if WIDGET_TRANSFORM_SCALE_MANIP_TO_SELECTION
 float Widget_Transform::manip_scale_factor(2.0f);
+#else
+float Widget_Transform::manip_scale_factor(0.2f);
+#endif
 
 Mat44f Widget_Transform::obmat_inv;
 
@@ -146,7 +151,11 @@ void Widget_Transform::raycast_select_manipulator(const Coord3Df& p, bool *extru
 
 	for (int i = 0; i < 3; ++i) {
 		axis[i] = (*(Coord3Df*)manip_t.m[i]).normalize();
+#if WIDGET_TRANSFORM_SCALE_MANIP_TO_SELECTION
 		axis_length[i] = (*(Coord3Df*)manip_t.m[i]).length();
+#else
+		axis_length[i] = VR_UI::navigation_scale_get();
+#endif
 	}
 	const Coord3Df& manip_pos = *(Coord3Df*)manip_t.m[3];
 
@@ -158,7 +167,7 @@ void Widget_Transform::raycast_select_manipulator(const Coord3Df& p, bool *extru
 				i += 2;
 				continue;
 			}
-			length = axis_length[2] * manip_scale_factor * 1.5f; //1.6f
+			length = axis_length[2] * manip_scale_factor * 1.5f;
 			pos = manip_pos + axis[2] * length;
 			break;
 		}
@@ -167,12 +176,12 @@ void Widget_Transform::raycast_select_manipulator(const Coord3Df& p, bool *extru
 				++i;
 				continue;
 			}
-			length = axis_length[0] * manip_scale_factor * 1.5f; //1.6f
+			length = axis_length[0] * manip_scale_factor * 1.5f;
 			pos = manip_pos + axis[0] * length;
 			break;
 		}
 		case 2: { /* y extrude ball */
-			length = axis_length[1] * manip_scale_factor * 1.5f; //1.6f
+			length = axis_length[1] * manip_scale_factor * 1.5f;
 			pos = manip_pos + axis[1] * length;
 			break;
 		}
@@ -252,7 +261,7 @@ void Widget_Transform::raycast_select_manipulator(const Coord3Df& p, bool *extru
 			pos = manip_pos + (axis[0] * axis_length[0] + axis[2] * axis_length[2]) * manip_scale_factor / 2.0f;
 			break;
 		}
-		case 15: { /* center box */
+		case 15: { /* center dial */
 			if (!omni) {
 				continue;
 			}
@@ -268,7 +277,7 @@ void Widget_Transform::raycast_select_manipulator(const Coord3Df& p, bool *extru
 			float dist_temp = len_manhattan_v2v2(mval_fl, screen_co);
 			/* IMPORTANT: Distance is based on display scaling (75.0f * U.pixelsize),
 			 * where U.pixelsize is the display scale (i.e. 1.0f, 2.0f, etc). */
-			dist_temp += (dist * 0.75f); //150.0f; //50.0f;
+			dist_temp += (dist * 0.25f); //(dist * 0.75f);
 			if (dist_temp < dist) {
 				hit = true;
 				switch (i) {
@@ -351,8 +360,8 @@ void Widget_Transform::raycast_select_manipulator(const Coord3Df& p, bool *extru
 					return;
 				}
 				case 15: {
-					transform_mode = TRANSFORMMODE_SCALE;
-					snap_mode = VR_UI::SNAPMODE_SCALE;
+					transform_mode = TRANSFORMMODE_MOVE;
+					snap_mode = VR_UI::SNAPMODE_TRANSLATION;
 					constraint_mode = VR_UI::CONSTRAINTMODE_NONE;
 					return;
 				}
@@ -388,7 +397,7 @@ void Widget_Transform::update_manipulator()
 		/* Edit mode */
 		Scene *scene = CTX_data_scene(C);
 		ToolSettings *ts = scene->toolsettings;
-		BMesh *bm = ((Mesh*)obedit->data)->edit_btmesh->bm;
+		BMesh *bm = ((Mesh*)obedit->data)->edit_mesh->bm;
 		if (bm) {
 			BMIter iter;
 			int count;
@@ -579,7 +588,9 @@ void Widget_Transform::update_manipulator()
 	if (transform_space == VR_UI::TRANSFORMSPACE_LOCAL) {
 		manip_t.m[0][0] = manip_t.m[1][1] = manip_t.m[2][2] = 0.0f;
 	}
+#if WIDGET_TRANSFORM_SCALE_MANIP_TO_SELECTION
 	float manip_length = 0.0f;
+#endif
 	int num_objects = 0;
 	for (; ctx_link; ctx_link = ctx_link->next) {
 		obact = (Object*)ctx_link->ptr.data;
@@ -593,6 +604,7 @@ void Widget_Transform::update_manipulator()
 		}
 		/* Average object positions for manipulator location */
 		*(Coord3Df*)manip_t.m[3] += *(Coord3Df*)obact->obmat[3];
+#if WIDGET_TRANSFORM_SCALE_MANIP_TO_SELECTION
 		/* Use largest axis size (across all objects) for manipulator size */
 		for (int i = 0; i < 3; ++i) {
 			const float& len = (*(Coord3Df*)obact->obmat[i]).length();
@@ -600,6 +612,7 @@ void Widget_Transform::update_manipulator()
 				manip_length = len;
 			}
 		}
+#endif
 		++num_objects;
 	}
 
@@ -611,16 +624,20 @@ void Widget_Transform::update_manipulator()
 		for (int i = 0; i < 3; ++i) {
 			memcpy(manip_t.m[i], rot[i], sizeof(float) * 3);
 		}
+#if WIDGET_TRANSFORM_SCALE_MANIP_TO_SELECTION
 		/* Apply uniform scaling to manipulator */
 		for (int i = 0; i < 3; ++i) {
 			*(Coord3Df*)manip_t.m[i] *= manip_length;
 		}
+#endif
 	}
 	else {
+#if WIDGET_TRANSFORM_SCALE_MANIP_TO_SELECTION
 		/* Apply uniform scaling to manipulator */
 		for (int i = 0; i < 3; ++i) {
 			(*(Coord3Df*)manip_t.m[i]).normalize_in_place() *= manip_length;
 		}
+#endif
 	}
 }
 
@@ -631,6 +648,10 @@ bool Widget_Transform::has_click(VR_UI::Cursor& c) const
 
 void Widget_Transform::click(VR_UI::Cursor& c)
 {
+	if (Widget_Sculpt::is_dragging) {
+		return;
+	}
+
 	const Mat44f& m = c.position.get();
 	if (CTX_data_edit_object(vr_get_obj()->ctx)) {
 		VR_Util::raycast_select_single_edit(*(Coord3Df*)m.m[3], VR_UI::shift_key_get(), VR_UI::ctrl_key_get());
@@ -655,9 +676,13 @@ void Widget_Transform::drag_start(VR_UI::Cursor& c)
 		return;
 	}
 
+	if (Widget_Sculpt::is_dragging) {
+		return;
+	}
+
 	if (manipulator) {
 		/* Test for manipulator selection and set constraints. */
-		const Mat44f& m = c.interaction_position.get();
+		const Mat44f& m = c.position.get();
 		raycast_select_manipulator(*(Coord3Df*)m.m[3]);
 	}
 
@@ -808,6 +833,10 @@ void Widget_Transform::drag_start(VR_UI::Cursor& c)
 
 void Widget_Transform::drag_contd(VR_UI::Cursor& c)
 {
+	if (Widget_Sculpt::is_dragging) {
+		return;
+	}
+
 	bContext *C = vr_get_obj()->ctx;
 	ListBase ctx_data_list;
 	CTX_data_selected_objects(C, &ctx_data_list);
@@ -825,7 +854,7 @@ void Widget_Transform::drag_contd(VR_UI::Cursor& c)
 			return;
 		}
 		if (obedit->type == OB_MESH) {
-			bm = ((Mesh*)obedit->data)->edit_btmesh->bm;
+			bm = ((Mesh*)obedit->data)->edit_mesh->bm;
 			if (!bm) {
 				return;
 			}
@@ -943,7 +972,8 @@ void Widget_Transform::drag_contd(VR_UI::Cursor& c)
 			}
 			else {
 				*(Coord3Df*)delta.m[3] = *(Coord3Df*)curr.m[3] - *(Coord3Df*)prev.m[3];
-				(*(Coord3Df*)delta.m[3]) *= WIDGET_TRANSFORM_SCALING_SENSITIVITY;
+				float s = (*(Coord3Df*)delta.m[3]).length();
+				(*(Coord3Df*)delta.m[3]).normalize_in_place() *= s * WIDGET_TRANSFORM_SCALING_SENSITIVITY;
 			}
 			break;
 		}
@@ -1853,9 +1883,16 @@ void Widget_Transform::drag_stop(VR_UI::Cursor& c)
 
 	is_dragging = false;
 
+	if (Widget_Sculpt::is_dragging) {
+		return;
+	}
+
 	bContext *C = vr_get_obj()->ctx;
 	Object *obedit = CTX_data_edit_object(C);
 	if (obedit) { /* Edit mode */
+		if (obedit->type != OB_MESH) {
+			return;
+		}
 		BMEditMesh *em = BKE_editmesh_from_object(obedit);
 		EDBM_mesh_normals_update(em);
 		update_manipulator();
@@ -1884,9 +1921,9 @@ void Widget_Transform::drag_stop(VR_UI::Cursor& c)
 			/* Rotation */
 			mat4_to_eul(obact->rot, t.m);
 			/* Scale */
-			obact->size[0] = (*(Coord3Df*)(t.m[0])).length();
-			obact->size[1] = (*(Coord3Df*)(t.m[1])).length();
-			obact->size[2] = (*(Coord3Df*)(t.m[2])).length();
+			obact->scale[0] = (*(Coord3Df*)(t.m[0])).length();
+			obact->scale[1] = (*(Coord3Df*)(t.m[1])).length();
+			obact->scale[2] = (*(Coord3Df*)(t.m[2])).length();
 		}
 		update_manipulator();
 
@@ -1896,7 +1933,7 @@ void Widget_Transform::drag_stop(VR_UI::Cursor& c)
 	}
 }
 
-void Widget_Transform::render_axes(const float length[3], int draw_style)
+void Widget_Transform::render_axes(VR_Side side, const float length[3], int draw_style)
 {
 	if (draw_style == 2 && !manipulator) {
 		return;
@@ -2062,7 +2099,7 @@ void Widget_Transform::render_axes(const float length[3], int draw_style)
 		}
 		break;
 	}
-	case 1: { /* Box */
+	case 1: { /* Box / center dial */
 		static float size[3];
 		for (int i = 0; i < 3; ++i) {
 			size[i] = length[i] * WIDGET_TRANSFORM_BOX_SCALE_FACTOR;
@@ -2125,16 +2162,28 @@ void Widget_Transform::render_axes(const float length[3], int draw_style)
 				}
 			}
 		}
-		/* Center scale box */
+		/* Center move dial */
 		if (omni && manipulator) {
-			size[0] = length[0] * WIDGET_TRANSFORM_BOX_SCALE_FACTOR;
+			size[0] = length[0] * WIDGET_TRANSFORM_BOX_SCALE_FACTOR * 2.0f;
 			GPU_matrix_scale_3f(size[0], size[0], size[0]);
-			if (transform_mode == TRANSFORMMODE_SCALE && constraint_mode == VR_UI::CONSTRAINTMODE_NONE) {
-				wm_gizmo_geometryinfo_draw(&wm_gizmo_geom_data_cube, true, c_manip_select[3]);
+			GPU_matrix_push();
+			Mat44f manip_inv = manip_t.inverse();
+			memset(manip_inv.m[3], 0, sizeof(float) * 3);
+			GPU_matrix_mul(manip_inv.m);
+			static Mat44f m = VR_Math::identity_f;
+			m = vr_get_obj()->t_eye[VR_SPACE_BLENDER][side];
+			normalize_m4(m.m);
+			memset(m.m[3], 0, sizeof(float) * 3);
+			GPU_matrix_mul(m.m);
+
+			if (transform_mode == TRANSFORMMODE_MOVE && constraint_mode == VR_UI::CONSTRAINTMODE_NONE) {
+				wm_gizmo_geometryinfo_draw(&wm_gizmo_geom_data_dial, true, c_manip_select[3]);
 			}
 			else {
-				wm_gizmo_geometryinfo_draw(&wm_gizmo_geom_data_cube, false, c_manip[3]);
+				wm_gizmo_geometryinfo_draw(&wm_gizmo_geom_data_dial, false, c_manip[3]);
 			}
+			
+			GPU_matrix_pop();
 			GPU_matrix_scale_3f(1.0f / size[0], 1.0f / size[0], 1.0f / size[0]);
 		}
 		break;
@@ -2494,15 +2543,13 @@ void Widget_Transform::render(VR_Side side)
 
 	static float manip_length[3];
 	for (int i = 0; i < 3; ++i) {
+#if WIDGET_TRANSFORM_SCALE_MANIP_TO_SELECTION
 		manip_length[i] = manip_scale_factor * 2.0f;
+#else
+		manip_length[i] = manip_scale_factor * 2.0f * VR_UI::navigation_scale_get();
+#endif
 	}
 	static float clip_plane[4] = { 0.0f };
-
-    /* If, during the Widget_Transform::update_manipulator() call no object was selected, we zeroed-out the manip_t matrix. 
-       For  better performance and to avoid potential issues (eg. when trying to calculate inverse), don't render anything at all. */
-    if (manip_t.m[3][3] == 0) {
-        return;
-    }
 
 	if (omni && manipulator) {
 		/* Dial and Gimbal */
@@ -2562,12 +2609,12 @@ void Widget_Transform::render(VR_Side side)
 		render_gimbal(manip_length, false, manip_t.m, clip_plane, 3 * PI / 2.0f, 0.0f);
 		/* Arrow */
 		*((Coord3Df*)manip_length) /= 2.0f;
-		render_axes(manip_length, 0);
+		render_axes(side, manip_length, 0);
 		/* Box */
 		*((Coord3Df*)manip_length) /= 2.0f;
-		render_axes(manip_length, 1);
+		render_axes(side, manip_length, 1);
 		/* Ball */
-		render_axes(manip_length, 2);
+		render_axes(side, manip_length, 2);
 		GPU_blend(false);
 		GPU_matrix_pop();
 		return;
@@ -2580,7 +2627,7 @@ void Widget_Transform::render(VR_Side side)
 		GPU_matrix_push();
 		GPU_matrix_mul(manip_t.m);
 		GPU_blend(true);
-		render_axes(manip_length, 0);
+		render_axes(side, manip_length, 0);
 		GPU_blend(false);
 		GPU_matrix_pop();
 		break;
@@ -2593,7 +2640,7 @@ void Widget_Transform::render(VR_Side side)
 		render_planes(manip_length);
 		/* Arrow */
 		*((Coord3Df*)manip_length) /= 2.0f;
-		render_axes(manip_length, 0);
+		render_axes(side, manip_length, 0);
 		GPU_blend(false);
 		GPU_matrix_pop();
 		break;
@@ -2659,7 +2706,7 @@ void Widget_Transform::render(VR_Side side)
 		}
 		/* Ball */
 		*((Coord3Df*)manip_length) /= 4.0f;
-		render_axes(manip_length, 2);
+		render_axes(side, manip_length, 2);
 		GPU_blend(false);
 		GPU_matrix_pop();
 		break;
@@ -2672,7 +2719,7 @@ void Widget_Transform::render(VR_Side side)
 		render_planes(manip_length);
 		/* Box */
 		*((Coord3Df*)manip_length) /= 4.0f;
-		render_axes(manip_length, 1);
+		render_axes(side, manip_length, 1);
 		/* TODO_XR */
 		static float zero[4][4] = { 0 };
 		GPU_matrix_mul(zero);

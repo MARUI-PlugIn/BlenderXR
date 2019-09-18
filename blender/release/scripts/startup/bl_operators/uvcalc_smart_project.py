@@ -583,10 +583,10 @@ def packIslands(islandList):
         w, h = maxx - minx, maxy - miny
 
         if USER_ISLAND_MARGIN:
-            minx -= USER_ISLAND_MARGIN  # *w
-            miny -= USER_ISLAND_MARGIN  # *h
-            maxx += USER_ISLAND_MARGIN  # *w
-            maxy += USER_ISLAND_MARGIN  # *h
+            minx -= USER_ISLAND_MARGIN * w / 2
+            miny -= USER_ISLAND_MARGIN * h / 2
+            maxx += USER_ISLAND_MARGIN * w / 2
+            maxy += USER_ISLAND_MARGIN * h / 2
 
             # recalc width and height
             w, h = maxx - minx, maxy - miny
@@ -728,20 +728,20 @@ def main(context,
     USER_FILL_HOLES_QUALITY = 50  # Only for hole filling.
     USER_VIEW_INIT = 0  # Only for hole filling.
 
-    obList = [ob for ob in context.selected_editable_objects if ob and ob.type == 'MESH']
-    is_editmode = (context.active_object.mode == 'EDIT')
+    is_editmode = (context.mode == 'EDIT_MESH')
+    if is_editmode:
+        obList = context.objects_in_mode_unique_data
+    else:
+        obList = [
+            ob for ob in context.selected_editable_objects
+            if ob.type == 'MESH' and ob.data.library is None
+        ]
 
     if not is_editmode:
         USER_ONLY_SELECTED_FACES = False
 
     if not obList:
         raise Exception("error, no selected mesh objects")
-
-    # Reuse variable
-    if len(obList) == 1:
-        ob = "Unwrap %i Selected Mesh"
-    else:
-        ob = "Unwrap %i Selected Meshes"
 
     # Convert from being button types
     USER_PROJECTION_LIMIT_CONVERTED = cos(USER_PROJECTION_LIMIT * DEG_TO_RAD)
@@ -1011,7 +1011,7 @@ class SmartProject(Operator):
     use_aspect: BoolProperty(
         name="Correct Aspect",
         description="Map UVs taking image aspect ratio into account",
-        default=True
+        default=True,
     )
     stretch_to_bounds: BoolProperty(
         name="Stretch to UV Bounds",
@@ -1029,11 +1029,11 @@ class SmartProject(Operator):
              self.angle_limit,
              self.user_area_weight,
              self.use_aspect,
-             self.stretch_to_bounds
-             )
+             self.stretch_to_bounds,
+        )
         return {'FINISHED'}
 
-    def invoke(self, context, event):
+    def invoke(self, context, _event):
         wm = context.window_manager
         return wm.invoke_props_dialog(self)
 

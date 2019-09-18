@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup freestyle
+/** \file
+ * \ingroup freestyle
  */
 
 #ifndef __FREESTYLE_PYTHON_FRSCURVE_H__
@@ -36,8 +37,8 @@ extern PyTypeObject FrsCurve_Type;
 
 /*---------------------------Python BPy_FrsCurve structure definition----------*/
 typedef struct {
-	BPy_Interface1D py_if1D;
-	Curve *c;
+  BPy_Interface1D py_if1D;
+  Curve *c;
 } BPy_FrsCurve;
 
 ///////////////////////////////////////////////////////////////////////////////////////////

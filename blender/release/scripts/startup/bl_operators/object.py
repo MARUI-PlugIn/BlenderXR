@@ -103,7 +103,7 @@ class SelectPattern(Operator):
         wm = context.window_manager
         return wm.invoke_props_popup(self, event)
 
-    def draw(self, context):
+    def draw(self, _context):
         layout = self.layout
 
         layout.prop(self, "pattern")
@@ -126,7 +126,7 @@ class SelectCamera(Operator):
     extend: BoolProperty(
         name="Extend",
         description="Extend the selection",
-        default=False
+        default=False,
     )
 
     def execute(self, context):
@@ -161,9 +161,10 @@ class SelectHierarchy(Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     direction: EnumProperty(
-        items=(('PARENT', "Parent", ""),
-               ('CHILD', "Child", ""),
-               ),
+        items=(
+            ('PARENT', "Parent", ""),
+            ('CHILD', "Child", ""),
+        ),
         name="Direction",
         description="Direction to select in the hierarchy",
         default='PARENT',
@@ -311,27 +312,27 @@ class SubdivisionSet(Operator):
 
 
 class ShapeTransfer(Operator):
-    """Copy another selected objects active shape to this one by """ \
-        """applying the relative offsets"""
+    """Copy the active shape key of another selected object to this one"""
 
     bl_idname = "object.shape_key_transfer"
     bl_label = "Transfer Shape Key"
     bl_options = {'REGISTER', 'UNDO'}
 
     mode: EnumProperty(
-        items=(('OFFSET',
-                "Offset",
-                "Apply the relative positional offset",
-                ),
-               ('RELATIVE_FACE',
-                "Relative Face",
-                "Calculate relative position (using faces)",
-                ),
-               ('RELATIVE_EDGE',
-                "Relative Edge",
-                "Calculate relative position (using edges)",
-                ),
-               ),
+        items=(
+            ('OFFSET',
+             "Offset",
+             "Apply the relative positional offset",
+             ),
+            ('RELATIVE_FACE',
+             "Relative Face",
+             "Calculate relative position (using faces)",
+             ),
+            ('RELATIVE_EDGE',
+             "Relative Edge",
+             "Calculate relative position (using edges)",
+             ),
+        ),
         name="Transformation Mode",
         description="Relative shape positions to the new shape method",
         default='OFFSET',
@@ -584,14 +585,15 @@ class JoinUVs(Operator):
 
 
 class MakeDupliFace(Operator):
-    """Convert objects into dupli-face instanced"""
+    """Convert objects into instanced faces"""
     bl_idname = "object.make_dupli_face"
-    bl_label = "Make Dupli-Face"
+    bl_label = "Make Instance Face"
     bl_options = {'REGISTER', 'UNDO'}
 
     @staticmethod
     def _main(context):
         from mathutils import Vector
+        from collections import defaultdict
 
         SCALE_FAC = 0.01
         offset = 0.5 * SCALE_FAC
@@ -607,12 +609,10 @@ class MakeDupliFace(Operator):
             rot = matrix.to_3x3()  # also contains scale
 
             return [(rot @ b) + trans for b in base_tri]
-        scene = context.scene
-        linked = {}
+        linked = defaultdict(list)
         for obj in context.selected_objects:
-            data = obj.data
-            if data:
-                linked.setdefault(data, []).append(obj)
+            if obj.type == 'MESH':
+                linked[obj.data].append(obj)
 
         for data, objects in linked.items():
             face_verts = [axis for obj in objects
@@ -635,19 +635,11 @@ class MakeDupliFace(Operator):
             mesh.polygons.foreach_set("loop_total", (4,) * nbr_faces)
             mesh.update()  # generates edge data
 
-            # pick an object to use
-            obj = objects[0]
-
             ob_new = bpy.data.objects.new(mesh.name, mesh)
-            base = scene.objects.link(ob_new)
-            base.layers[:] = obj.layers
+            context.collection.objects.link(ob_new)
 
             ob_inst = bpy.data.objects.new(data.name, data)
-            base = scene.objects.link(ob_inst)
-            base.layers[:] = obj.layers
-
-            for obj in objects:
-                scene.objects.unlink(obj)
+            context.collection.objects.link(ob_inst)
 
             ob_new.instance_type = 'FACES'
             ob_inst.parent = ob_new
@@ -656,6 +648,10 @@ class MakeDupliFace(Operator):
 
             ob_inst.select_set(True)
             ob_new.select_set(True)
+
+            for obj in objects:
+                for collection in obj.users_collection:
+                    collection.objects.unlink(obj)
 
     def execute(self, context):
         self._main(context)
@@ -873,7 +869,7 @@ class DupliOffsetFromCursor(Operator):
         scene = context.scene
         collection = context.collection
 
-        collection.instance_offset = scene.cursor_location
+        collection.instance_offset = scene.cursor.location
 
         return {'FINISHED'}
 
@@ -890,33 +886,32 @@ class LoadImageAsEmpty:
 
     view_align: BoolProperty(
         name="Align to view",
-        default=True
+        default=True,
     )
 
     @classmethod
     def poll(cls, context):
-        return context.mode == "OBJECT"
+        return context.mode == 'OBJECT'
 
-    def invoke(self, context, event):
+    def invoke(self, context, _event):
         context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}
 
     def execute(self, context):
         scene = context.scene
-        space = context.space_data
-        cursor = scene.cursor_location
+        cursor = scene.cursor.location
 
         try:
             image = bpy.data.images.load(self.filepath, check_existing=True)
         except RuntimeError as ex:
-            self.report({"ERROR"}, str(ex))
-            return {"CANCELLED"}
+            self.report({'ERROR'}, str(ex))
+            return {'CANCELLED'}
 
         bpy.ops.object.empty_add(
             'INVOKE_REGION_WIN',
             type='IMAGE',
             location=cursor,
-            view_align=self.view_align,
+            align=('VIEW' if self.view_align else 'WORLD'),
         )
 
         obj = context.active_object

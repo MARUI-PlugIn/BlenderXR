@@ -16,7 +16,8 @@
  * The Original Code is Copyright (C) 2009, Blender Foundation
  */
 
-/** \file \ingroup editors
+/** \file
+ * \ingroup editors
  */
 
 #ifndef __ED_INFO_H__
@@ -26,6 +27,8 @@ struct Main;
 
 /* info_stats.c */
 void ED_info_stats_clear(struct ViewLayer *view_layer);
-const char *ED_info_stats_string(struct Main *bmain, struct Scene *scene, struct ViewLayer *view_layer);
+const char *ED_info_stats_string(struct Main *bmain,
+                                 struct Scene *scene,
+                                 struct ViewLayer *view_layer);
 
 #endif /*  __ED_INFO_H__ */

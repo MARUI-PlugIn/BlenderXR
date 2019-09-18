@@ -15,10 +15,10 @@
 * along with this program; if not, write to the Free Software Foundation,
 * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 *
-* The Original Code is Copyright (C) 2018 by Blender Foundation.
+* The Original Code is Copyright (C) 2019 by Blender Foundation.
 * All rights reserved.
 *
-* Contributor(s): MARUI-PlugIn
+* Contributor(s): MARUI-PlugIn, Multiplexed Reality
 *
 * ***** END GPL LICENSE BLOCK *****
 */
@@ -80,6 +80,10 @@ public:
 		,
 		TYPE_KNIFE
 		,
+		TYPE_SCULPT
+		,
+    TYPE_ANIMATION
+    ,
 		TYPE_CURSOROFFSET
 		,
 		TYPE_DELETE
@@ -173,11 +177,29 @@ public:
 		,
 		MENUTYPE_TS_KNIFE	/* Tool settings for the knife widget. */
 		,
+		MENUTYPE_TS_SCULPT	/* Tool settings for the sculpt widget. */
+		,
+		MENUTYPE_TS_SCULPT_DRAW /* Tool settings for the sculpt widget (draw brushes submenu). */
+		,
+		MENUTYPE_TS_SCULPT_SMOOTH	/* Tool settings for the sculpt widget (smooth brushes submenu). */
+		,
+		MENUTYPE_TS_SCULPT_GRAB	/* Tool settings for the sculpt widget (grab brushes submenu). */
+		,
+		MENUTYPE_TS_SCULPT_OTHER	/* Tool settings for the sculpt widget (other brushes submenu). */
+		,
+		MENUTYPE_TS_SCULPT_STRENGTH	/* Tool settings for the sculpt widget (strength adjust submenu). */
+		,
+    MENUTYPE_TS_ANIMATION /* Tool settings for the animation widget. */
+    ,
 		MENUTYPE_AS_NAVI	/* Action settings for the navi widget. */
 		,
 		MENUTYPE_AS_TRANSFORM	/* Action settings for the transform widget. */
 		,
 		MENUTYPE_AS_EXTRUDE	/* Action settings for the extrude widget. */
+		,
+		MENUTYPE_AS_SCULPT	/* Action settings for the sculpt widget. */
+    ,
+    MENUTYPE_AS_ANIMATION /* Action settings for the animation widget. */
 	} MenuType;
 };
 

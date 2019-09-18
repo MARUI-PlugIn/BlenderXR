@@ -1,6 +1,4 @@
 
-uniform mat4 ModelViewProjectionMatrix;
-uniform mat4 ModelMatrix;
 uniform ivec4 dataMask = ivec4(0xFF);
 
 in vec3 pos;
@@ -10,13 +8,16 @@ flat out vec4 faceColor;
 
 void main()
 {
-	gl_Position = ModelViewProjectionMatrix * vec4(pos, 1.0);
+  GPU_INTEL_VERTEX_SHADER_WORKAROUND
 
-	ivec4 data_m = data & dataMask;
+  vec3 world_pos = point_object_to_world(pos);
+  gl_Position = point_world_to_ndc(world_pos);
 
-	faceColor = EDIT_MESH_face_color(data_m.x);
+  ivec4 data_m = data & dataMask;
+
+  faceColor = EDIT_MESH_face_color(data_m.x);
 
 #ifdef USE_WORLD_CLIP_PLANES
-	world_clip_planes_calc_clip_distance((ModelMatrix * vec4(pos, 1.0)).xyz);
+  world_clip_planes_calc_clip_distance(world_pos);
 #endif
 }

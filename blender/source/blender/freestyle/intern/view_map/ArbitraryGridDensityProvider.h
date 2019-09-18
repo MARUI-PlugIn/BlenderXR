@@ -17,49 +17,54 @@
 #ifndef __FREESTYLE_ARBITRARY_GRID_DENSITY_PROVIDER_H__
 #define __FREESTYLE_ARBITRARY_GRID_DENSITY_PROVIDER_H__
 
-/** \file \ingroup freestyle
- *  \brief Class to define a cell grid surrounding the projected image of a scene
+/** \file
+ * \ingroup freestyle
+ * \brief Class to define a cell grid surrounding the projected image of a scene
  */
 
 #include "GridDensityProvider.h"
 
 namespace Freestyle {
 
-class ArbitraryGridDensityProvider : public GridDensityProvider
-{
-	// Disallow copying and assignment
-	ArbitraryGridDensityProvider(const ArbitraryGridDensityProvider& other);
-	ArbitraryGridDensityProvider& operator=(const ArbitraryGridDensityProvider& other);
+class ArbitraryGridDensityProvider : public GridDensityProvider {
+  // Disallow copying and assignment
+  ArbitraryGridDensityProvider(const ArbitraryGridDensityProvider &other);
+  ArbitraryGridDensityProvider &operator=(const ArbitraryGridDensityProvider &other);
 
-public:
-	ArbitraryGridDensityProvider(OccluderSource& source, const real proscenium[4], unsigned numCells);
-	ArbitraryGridDensityProvider(OccluderSource& source, const BBox<Vec3r>& bbox,
-	                             const GridHelpers::Transform& transform, unsigned numCells);
-	ArbitraryGridDensityProvider(OccluderSource& source, unsigned numCells);
-	virtual ~ArbitraryGridDensityProvider();
+ public:
+  ArbitraryGridDensityProvider(OccluderSource &source,
+                               const real proscenium[4],
+                               unsigned numCells);
+  ArbitraryGridDensityProvider(OccluderSource &source,
+                               const BBox<Vec3r> &bbox,
+                               const GridHelpers::Transform &transform,
+                               unsigned numCells);
+  ArbitraryGridDensityProvider(OccluderSource &source, unsigned numCells);
+  virtual ~ArbitraryGridDensityProvider();
 
-protected:
-	unsigned numCells;
+ protected:
+  unsigned numCells;
 
-private:
-	void initialize (const real proscenium[4]);
+ private:
+  void initialize(const real proscenium[4]);
 };
 
-class ArbitraryGridDensityProviderFactory : public GridDensityProviderFactory
-{
-public:
-	ArbitraryGridDensityProviderFactory(unsigned numCells);
-	~ArbitraryGridDensityProviderFactory();
+class ArbitraryGridDensityProviderFactory : public GridDensityProviderFactory {
+ public:
+  ArbitraryGridDensityProviderFactory(unsigned numCells);
+  ~ArbitraryGridDensityProviderFactory();
 
-	AutoPtr<GridDensityProvider> newGridDensityProvider(OccluderSource& source, const real proscenium[4]);
-	AutoPtr<GridDensityProvider> newGridDensityProvider(OccluderSource& source, const BBox<Vec3r>& bbox,
-	                                                    const GridHelpers::Transform& transform);
-	AutoPtr<GridDensityProvider> newGridDensityProvider(OccluderSource& source);
+  AutoPtr<GridDensityProvider> newGridDensityProvider(OccluderSource &source,
+                                                      const real proscenium[4]);
+  AutoPtr<GridDensityProvider> newGridDensityProvider(OccluderSource &source,
+                                                      const BBox<Vec3r> &bbox,
+                                                      const GridHelpers::Transform &transform);
+  AutoPtr<GridDensityProvider> newGridDensityProvider(OccluderSource &source);
 
-protected:
-	unsigned numCells;
+ protected:
+  unsigned numCells;
 };
 
 } /* namespace Freestyle */
 
-#endif // __FREESTYLE_ARBITRARY_GRID_DENSITY_PROVIDER_H__
+#endif  // __FREESTYLE_ARBITRARY_GRID_DENSITY_PROVIDER_H__

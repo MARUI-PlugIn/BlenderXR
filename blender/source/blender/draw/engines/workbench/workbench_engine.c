@@ -16,7 +16,8 @@
  * Copyright 2016, Blender Foundation.
  */
 
-/** \file \ingroup draw_engine
+/** \file
+ * \ingroup draw_engine
  *
  * Simple engine for drawing color and/or depth.
  * When we only need simple flat shaders.
@@ -31,13 +32,20 @@
 
 /* Note: currently unused, we may want to register so we can see this when debugging the view. */
 RenderEngineType DRW_engine_viewport_workbench_type = {
-	NULL, NULL,
-	WORKBENCH_ENGINE, N_("Workbench"), RE_INTERNAL,
-	NULL, &DRW_render_to_image, NULL, NULL, NULL, NULL,
-	&workbench_render_update_passes,
-	&draw_engine_workbench_solid,
-	{NULL, NULL, NULL},
+    NULL,
+    NULL,
+    WORKBENCH_ENGINE,
+    N_("Workbench"),
+    RE_INTERNAL,
+    NULL,
+    &DRW_render_to_image,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    &workbench_render_update_passes,
+    &draw_engine_workbench_solid,
+    {NULL, NULL, NULL},
 };
-
 
 #undef WORKBENCH_ENGINE

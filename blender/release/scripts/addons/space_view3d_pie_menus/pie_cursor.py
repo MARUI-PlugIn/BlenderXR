@@ -38,7 +38,7 @@ from bpy.types import (
 
 
 # SnapCursSelToCenter1 thanks to Isaac Weaver (wisaac) D1963
-class Snap_CursSelToCenter1(Operator):
+class PIE_OT_Snap_CursSelToCenter1(Operator):
     bl_idname = "view3d.snap_cursor_selected_to_center1"
     bl_label = "Snap Cursor & Selection to Center"
     bl_description = ("Snap 3D cursor and selected objects to the center \n"
@@ -49,7 +49,7 @@ class Snap_CursSelToCenter1(Operator):
         return (context.area.type == "VIEW_3D" and context.mode == "OBJECT")
 
     def execute(self, context):
-        context.space_data.cursor_location = (0, 0, 0)
+        context.scene.cursor.location = (0, 0, 0)
         for obj in context.selected_objects:
             obj.location = (0, 0, 0)
 
@@ -57,8 +57,8 @@ class Snap_CursSelToCenter1(Operator):
 
 
 # Origin/Pivot menu1  - Shift + S
-class Snap_CursorMenu(Menu):
-    bl_idname = "snap.cursormenu"
+class PIE_MT_Snap_CursorMenu(Menu):
+    bl_idname = "SNAP_MT_cursormenu"
     bl_label = "Cursor Menu"
 
     def draw(self, context):
@@ -86,8 +86,8 @@ class Snap_CursorMenu(Menu):
 
 
 classes = (
-    Snap_CursorMenu,
-    Snap_CursSelToCenter1,
+    PIE_MT_Snap_CursorMenu,
+    PIE_OT_Snap_CursSelToCenter1,
     )
 
 addon_keymaps = []
@@ -102,7 +102,7 @@ def register():
         # Origin/Pivot
         km = wm.keyconfigs.addon.keymaps.new(name='3D View Generic', space_type='VIEW_3D')
         kmi = km.keymap_items.new('wm.call_menu_pie', 'S', 'PRESS', shift=True)
-        kmi.properties.name = "snap.cursormenu"
+        kmi.properties.name = "SNAP_MT_cursormenu"
         addon_keymaps.append((km, kmi))
 
 

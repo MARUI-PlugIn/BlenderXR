@@ -73,6 +73,8 @@ set(SRC
 	src/fx/LoopReader.cpp
 	src/fx/LowpassCalculator.cpp
 	src/fx/Lowpass.cpp
+	src/fx/Modulator.cpp
+	src/fx/ModulatorReader.cpp
 	src/fx/MutableReader.cpp
 	src/fx/MutableSound.cpp
 	src/fx/Pitch.cpp
@@ -181,6 +183,8 @@ set(PUBLIC_HDR
 	include/fx/LoopReader.h
 	include/fx/LowpassCalculator.h
 	include/fx/Lowpass.h
+	include/fx/Modulator.h
+	include/fx/ModulatorReader.h
 	include/fx/MutableReader.h
 	include/fx/MutableSound.h
 	include/fx/Pitch.h
@@ -286,12 +290,14 @@ if(AUDASPACE_STANDALONE)
 	endif()
 endif()
 
-if(WIN32)
-	set(DEFAULT_PLUGIN_PATH "." CACHE STRING "Default plugin installation and loading path.")
-	set(DOCUMENTATION_INSTALL_PATH "doc" CACHE PATH "Path where the documentation is installed.")
-else()
-	set(DEFAULT_PLUGIN_PATH "${CMAKE_INSTALL_PREFIX}/share/audaspace/plugins" CACHE STRING "Default plugin installation and loading path.")
-	set(DOCUMENTATION_INSTALL_PATH "share/doc/audaspace" CACHE PATH "Path where the documentation is installed.")
+if(AUDASPACE_STANDALONE)
+	if(WIN32)
+		set(DEFAULT_PLUGIN_PATH "." CACHE STRING "Default plugin installation and loading path.")
+		set(DOCUMENTATION_INSTALL_PATH "doc" CACHE PATH "Path where the documentation is installed.")
+	else()
+		set(DEFAULT_PLUGIN_PATH "${CMAKE_INSTALL_PREFIX}/share/audaspace/plugins" CACHE STRING "Default plugin installation and loading path.")
+		set(DOCUMENTATION_INSTALL_PATH "share/doc/audaspace" CACHE PATH "Path where the documentation is installed.")
+	endif()
 endif()
 
 if(AUDASPACE_STANDALONE)

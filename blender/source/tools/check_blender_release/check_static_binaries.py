@@ -63,6 +63,10 @@ ALLOWED_LIBS = (
     "libGL.so",
     "libGLU.so",
 
+    # Library the software-GL is linking against and distributes with it.
+    'libglapi.so',
+    'libxcb.so',
+
     # Own dependencies we don't link statically.
     "libfreetype.so",
 )
@@ -78,10 +82,10 @@ def getNeededLibrariesLDD(binary_filepath):
     This function uses ldd to collect libraries which binary depends on.
 
     Not totally safe since ldd might actually execute the binary to get it's
-    symbols and will also collect indirect dependnecies which might not be
+    symbols and will also collect indirect dependencies which might not be
     desired.
 
-    Has advantage of telling that some dependnecy library is not found.
+    Has advantage of telling that some dependency library is not found.
     """
     ldd_command = ("ldd", str(binary_filepath))
     ldd_output = subprocess.check_output(ldd_command, stderr=subprocess.STDOUT)

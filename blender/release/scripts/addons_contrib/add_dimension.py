@@ -19,8 +19,8 @@
 bl_info = {
     'name': 'Dimension',
     'author': 'Spivak Vladimir (http://cwolf3d.korostyshev.net)',
-    'version': (3, 9, 5),
-    'blender': (2, 78, 0),
+    'version': (4, 0, 0),
+    'blender': (2, 80, 0),
     'location': 'View3D > Add > Curve',
     'description': 'Adds Dimension',
     'warning': '', # used for warning icon and text in addons panel
@@ -43,6 +43,7 @@ def addText(string = '', loc = ((0, 0, 0)), textsize = 1, align = 'CENTER', offs
     tcu = bpy.data.curves.new(string + 'Data', 'FONT')
     text = bpy.data.objects.new(string + 'Text', tcu)
     tcu.body = string
+    tcu.fill_mode = 'NONE'
     tcu.align_x = align
     tcu.size = textsize
     tcu.offset_y = offset_y
@@ -1421,15 +1422,16 @@ def makeMaterial(name, diffuse, specular, alpha):
 
     mat = bpy.data.materials.new(name)
     mat.diffuse_color = diffuse
-    mat.diffuse_shader = 'LAMBERT'
-    mat.diffuse_intensity = 1.0
+    #mat.diffuse_shader = 'LAMBERT'
+    #mat.diffuse_intensity = 1.0
     mat.specular_color = specular
-    mat.specular_shader = 'COOKTORR'
-    mat.specular_intensity = 1.0
-    mat.alpha = alpha
-    mat.ambient = 1
-    mat.specular_hardness = 1
-    mat.use_shadeless = True
+    #mat.specular_shader = 'COOKTORR'
+    mat.specular_intensity = 0.0
+    mat.roughness = 0.0
+    #mat.alpha = alpha
+    #mat.ambient = 1
+    #mat.specular_hardness = 1
+    #mat.use_shadeless = True
 
     return mat
 
@@ -1453,7 +1455,7 @@ def align_matrix(context, location):
         rot = context.space_data.region_3d.view_matrix.to_3x3().inverted().to_4x4()
     else:
         rot = Matrix()
-    align_matrix = loc * rot
+    align_matrix = loc @ rot
 
     return align_matrix
 
@@ -1470,7 +1472,7 @@ def setBezierHandles(obj, mode = 'VECTOR'):
     bpy.ops.curve.select_all(action = 'SELECT')
     bpy.ops.curve.handle_type_set(type = mode)
     bpy.ops.object.mode_set(mode = 'OBJECT', toggle = True)
-    bpy.context.scene.update()
+    view_layer.update()
 
 ##------------------------------------------------------------
 #### Add units
@@ -1522,13 +1524,14 @@ def createCurve(vertArray, self, align_matrix):
 
     # set curveOptions
     newCurve.dimensions = '2D'
+    newCurve.fill_mode = 'NONE'    
     newSpline.use_cyclic_u = True
     newSpline.use_endpoint_u = True
 
     # create object with newCurve
     DimensionCurve = bpy.data.objects.new(name, newCurve) # object
     bpy.context.collection.objects.link(DimensionCurve) # place in active scene
-    DimensionCurve.Dimension = True
+    DimensionCurve["Dimension"] = True
     DimensionCurve.matrix_world = align_matrix # apply matrix
     self.Dimension_Name = DimensionCurve.name
 
@@ -1736,7 +1739,7 @@ def createCurve(vertArray, self, align_matrix):
         setMaterial(DimensionCurve, bpy.data.materials[self.Dimension_matname])
         setMaterial(DimensionText, bpy.data.materials[self.Dimension_matname])
     else:
-        red = makeMaterial(self.Dimension_matname, (1, 0, 0), (1, 0, 0), 1)
+        red = makeMaterial(self.Dimension_matname, (1, 0, 0, 0), (1, 0, 0), 1)
         setMaterial(DimensionCurve, red)
         setMaterial(DimensionText, red)
 
@@ -1764,63 +1767,63 @@ def createCurve(vertArray, self, align_matrix):
         const =  DimensionCurve.constraints.new(type='CHILD_OF')
         const.target =  bpy.data.objects[self.Dimension_parent]
         const.inverse_matrix = bpy.data.objects[self.Dimension_parent].matrix_world.inverted()
-        bpy.context.scene.update()
+        bpy.context.view_layer.update()
 
     bpy.ops.object.select_all(action='DESELECT')
     DimensionCurve.select_set(True)
     DimensionText.select_set(True)
     bpy.context.view_layer.objects.active = DimensionCurve
-    bpy.context.scene.update()
+    bpy.context.view_layer.update()
 
-    DimensionCurve.Dimension_Name = self.Dimension_Name
-    DimensionCurve.Dimension_Type = self.Dimension_Type
-    DimensionCurve.Dimension_XYZType = self.Dimension_XYZType
-    DimensionCurve.Dimension_XYType = self.Dimension_XYType
-    DimensionCurve.Dimension_XZType = self.Dimension_XZType
-    DimensionCurve.Dimension_YZType = self.Dimension_YZType
-    DimensionCurve.Dimension_startlocation = c
-    DimensionCurve.Dimension_endlocation = self.Dimension_endlocation
-    DimensionCurve.Dimension_endanglelocation = self.Dimension_endanglelocation
-    DimensionCurve.Dimension_width_or_location = self.Dimension_width_or_location
-    DimensionCurve.Dimension_liberty = self.Dimension_liberty
-    DimensionCurve.Dimension_Change = False
+    DimensionCurve["Dimension_Name"] = self.Dimension_Name
+    DimensionCurve["Dimension_Type"] = self.Dimension_Type
+    DimensionCurve["Dimension_XYZType"] = self.Dimension_XYZType
+    DimensionCurve["Dimension_XYType"] = self.Dimension_XYType
+    DimensionCurve["Dimension_XZType"] = self.Dimension_XZType
+    DimensionCurve["Dimension_YZType"] = self.Dimension_YZType
+    DimensionCurve["Dimension_startlocation"] = c
+    DimensionCurve["Dimension_endlocation"] = self.Dimension_endlocation
+    DimensionCurve["Dimension_endanglelocation"] = self.Dimension_endanglelocation
+    DimensionCurve["Dimension_width_or_location"] = self.Dimension_width_or_location
+    DimensionCurve["Dimension_liberty"] = self.Dimension_liberty
+    DimensionCurve["Dimension_Change"] = False
 
     #### Dimension properties
-    DimensionCurve.Dimension_resolution = self.Dimension_resolution
-    DimensionCurve.Dimension_width = self.Dimension_width
-    DimensionCurve.Dimension_length = self.Dimension_length
-    DimensionCurve.Dimension_dsize = self.Dimension_dsize
-    DimensionCurve.Dimension_depth = self.Dimension_depth
-    DimensionCurve.Dimension_depth_from_center = self.Dimension_depth_from_center
-    DimensionCurve.Dimension_angle = self.Dimension_angle
-    DimensionCurve.Dimension_rotation = self.Dimension_rotation
-    DimensionCurve.Dimension_offset = self.Dimension_offset
+    DimensionCurve["Dimension_resolution"] = self.Dimension_resolution
+    DimensionCurve["Dimension_width"] = self.Dimension_width
+    DimensionCurve["Dimension_length"] = self.Dimension_length
+    DimensionCurve["Dimension_dsize"] = self.Dimension_dsize
+    DimensionCurve["Dimension_depth"] = self.Dimension_depth
+    DimensionCurve["Dimension_depth_from_center"] = self.Dimension_depth_from_center
+    DimensionCurve["Dimension_angle"] = self.Dimension_angle
+    DimensionCurve["Dimension_rotation"] = self.Dimension_rotation
+    DimensionCurve["Dimension_offset"] = self.Dimension_offset
 
     #### Dimension text properties
-    DimensionCurve.Dimension_textsize = self.Dimension_textsize
-    DimensionCurve.Dimension_textdepth = self.Dimension_textdepth
-    DimensionCurve.Dimension_textround = self.Dimension_textround
-    DimensionCurve.Dimension_font = self.Dimension_font
+    DimensionCurve["Dimension_textsize"] = self.Dimension_textsize
+    DimensionCurve["Dimension_textdepth"] = self.Dimension_textdepth
+    DimensionCurve["Dimension_textround"] = self.Dimension_textround
+    DimensionCurve["Dimension_font"] = self.Dimension_font
 
     #### Dimension Arrow properties
-    DimensionCurve.Dimension_arrow = self.Dimension_arrow
-    DimensionCurve.Dimension_arrowdepth = self.Dimension_arrowdepth
-    DimensionCurve.Dimension_arrowlength = self.Dimension_arrowlength
+    DimensionCurve["Dimension_arrow"] = self.Dimension_arrow
+    DimensionCurve["Dimension_arrowdepth"] = self.Dimension_arrowdepth
+    DimensionCurve["Dimension_arrowlength"] = self.Dimension_arrowlength
 
     #### Materials properties
-    DimensionCurve.Dimension_matname = self.Dimension_matname
+    DimensionCurve["Dimension_matname"] = self.Dimension_matname
 
     #### Note properties
-    DimensionCurve.Dimension_note = self.Dimension_note
-    DimensionCurve.Dimension_align_to_camera = self.Dimension_align_to_camera
+    DimensionCurve["Dimension_note"] = self.Dimension_note
+    DimensionCurve["Dimension_align_to_camera"] = self.Dimension_align_to_camera
 
     #### Parent
-    DimensionCurve.Dimension_parent = self.Dimension_parent
-    DimensionCurve.Dimension_appoint_parent = self.Dimension_appoint_parent
+    DimensionCurve["Dimension_parent"] = self.Dimension_parent
+    DimensionCurve["Dimension_appoint_parent"] = self.Dimension_appoint_parent
 
     #### Units
-    DimensionCurve.Dimension_units = self.Dimension_units
-    DimensionCurve.Dimension_add_units_name = self.Dimension_add_units_name
+    DimensionCurve["Dimension_units"] = self.Dimension_units
+    DimensionCurve["Dimension_add_units_name"] = self.Dimension_add_units_name
 
     return
 
@@ -1870,81 +1873,66 @@ def main(self, align_matrix):
             self.Dimension_width = v.length
 
         if Type == 'Angular1' or Type == 'Angular2' or Type == 'Angular3':
-            c = ablength(self.Dimension_startlocation.x, self.Dimension_startlocation.y, self.Dimension_startlocation.z, self.Dimension_endlocation.x, self.Dimension_endlocation.y, self.Dimension_endlocation.z)
+            a = ablength(self.Dimension_startlocation.x, self.Dimension_startlocation.y, self.Dimension_startlocation.z, self.Dimension_endlocation.x, self.Dimension_endlocation.y, self.Dimension_endlocation.z)
             b = ablength(self.Dimension_startlocation.x, self.Dimension_startlocation.y, self.Dimension_startlocation.z, self.Dimension_endanglelocation.x, self.Dimension_endanglelocation.y, self.Dimension_endanglelocation.z)
-            a = ablength(self.Dimension_endanglelocation.x, self.Dimension_endanglelocation.y, self.Dimension_endanglelocation.z, self.Dimension_endlocation.x, self.Dimension_endlocation.y, self.Dimension_endlocation.z)
+            c = ablength(self.Dimension_endanglelocation.x, self.Dimension_endanglelocation.y, self.Dimension_endanglelocation.z, self.Dimension_endlocation.x, self.Dimension_endlocation.y, self.Dimension_endlocation.z)
             self.Dimension_width = max(a, b, c)
-            vanglex = self.Dimension_endanglelocation.x - self.Dimension_startlocation.x
-            vangley = self.Dimension_endanglelocation.y - self.Dimension_startlocation.y
-            vanglez = self.Dimension_endanglelocation.z - self.Dimension_startlocation.z
-            vendx = self.Dimension_endlocation.x - self.Dimension_startlocation.x
-            vendy = self.Dimension_endlocation.y - self.Dimension_startlocation.y
-            vendz = self.Dimension_endlocation.z - self.Dimension_startlocation.z
             if self.Dimension_XYZType == 'TOP' or self.Dimension_XYZType == 'BOTTOM':
-                self.Dimension_XYType = 'X'
-                g = hypot(vanglex, vangley)
-                if g !=  0 :
-                   u2 = acos(vanglex / g)
-                   u1 = asin(vangley / g)
-                   if u1 < 0 :
-                       u2 = -u2
-                else:
-                   u2 = 0
-                g = hypot(vendx, vendy)
-                if g !=  0 :
-                   uu2 = acos(vendx / g)
-                   uu1 = asin(vendy / g)
-                   if uu1 < 0 :
-                       uu2 = -uu2
-                else:
-                   uu2 = 0
-                self.Dimension_angle = degrees(u2 - uu2)
+                if self.Angle_Type == 'A':
+                   c = ablength(self.Dimension_startlocation.x, self.Dimension_startlocation.y, 0, self.Dimension_endlocation.x, self.Dimension_endlocation.y, 0)
+                   b = ablength(self.Dimension_startlocation.x, self.Dimension_startlocation.y, 0, self.Dimension_endanglelocation.x, self.Dimension_endanglelocation.y, 0)
+                   a = ablength(self.Dimension_endanglelocation.x, self.Dimension_endanglelocation.y, self.Dimension_endanglelocation.z, self.Dimension_endlocation.x, self.Dimension_endlocation.y, 0)
+                if self.Angle_Type == 'B':
+                   a = ablength(self.Dimension_startlocation.x, self.Dimension_startlocation.y, 0, self.Dimension_endlocation.x, self.Dimension_endlocation.y, 0)
+                   c = ablength(self.Dimension_startlocation.x, self.Dimension_startlocation.y, 0, self.Dimension_endanglelocation.x, self.Dimension_endanglelocation.y, 0)
+                   b = ablength(self.Dimension_endanglelocation.x, self.Dimension_endanglelocation.y, self.Dimension_endanglelocation.z, self.Dimension_endlocation.x, self.Dimension_endlocation.y, 0)
+                if self.Angle_Type == 'C':
+                   b = ablength(self.Dimension_startlocation.x, self.Dimension_startlocation.y, 0, self.Dimension_endlocation.x, self.Dimension_endlocation.y, 0)
+                   a = ablength(self.Dimension_startlocation.x, self.Dimension_startlocation.y, 0, self.Dimension_endanglelocation.x, self.Dimension_endanglelocation.y, 0)
+                   c = ablength(self.Dimension_endanglelocation.x, self.Dimension_endanglelocation.y, self.Dimension_endanglelocation.z, self.Dimension_endlocation.x, self.Dimension_endlocation.y, 0)
             if self.Dimension_XYZType == 'FRONT' or self.Dimension_XYZType == 'BACK':
-                self.Dimension_XZType = 'Z'
-                g = hypot(vanglex, vanglez)
-                if g !=  0 :
-                   u2 = acos(vanglex / g)
-                   u1 = asin(vanglez / g)
-                   if u1 < 0 :
-                       u2 = -u2
-                else:
-                   u2 = 0
-                g = hypot(vendx, vendz)
-                if g !=  0 :
-                   uu2 = acos(vendx / g)
-                   uu1 = asin(vendz / g)
-                   if uu1 < 0 :
-                       uu2 = -uu2
-                else:
-                   uu2 = 0
-                self.Dimension_angle = degrees(u2 - uu2)
+                if self.Angle_Type == 'A':
+                   c = ablength(self.Dimension_startlocation.x, 0, self.Dimension_startlocation.z, self.Dimension_endlocation.x, 0, self.Dimension_endlocation.z)
+                   b = ablength(self.Dimension_startlocation.x, 0, self.Dimension_startlocation.z, self.Dimension_endanglelocation.x, 0, self.Dimension_endanglelocation.z)
+                   a = ablength(self.Dimension_endanglelocation.x, 0, self.Dimension_endanglelocation.z, self.Dimension_endlocation.x, 0, self.Dimension_endlocation.z)
+                if self.Angle_Type == 'B':
+                   a = ablength(self.Dimension_startlocation.x, 0, self.Dimension_startlocation.z, self.Dimension_endlocation.x, 0, self.Dimension_endlocation.z)
+                   c = ablength(self.Dimension_startlocation.x, 0, self.Dimension_startlocation.z, self.Dimension_endanglelocation.x, 0, self.Dimension_endanglelocation.z)
+                   b = ablength(self.Dimension_endanglelocation.x, 0, self.Dimension_endanglelocation.z, self.Dimension_endlocation.x, 0, self.Dimension_endlocation.z)
+                if self.Angle_Type == 'C':
+                   b = ablength(self.Dimension_startlocation.x, 0, self.Dimension_startlocation.z, self.Dimension_endlocation.x, 0, self.Dimension_endlocation.z)
+                   a = ablength(self.Dimension_startlocation.x, 0, self.Dimension_startlocation.z, self.Dimension_endanglelocation.x, 0, self.Dimension_endanglelocation.z)
+                   c = ablength(self.Dimension_endanglelocation.x, 0, self.Dimension_endanglelocation.z, self.Dimension_endlocation.x, 0, self.Dimension_endlocation.z)
             if self.Dimension_XYZType == 'RIGHT' or self.Dimension_XYZType == 'LEFT':
-                self.Dimension_YZType = 'Z'
-                g = hypot(vangley, vanglez)
-                if g !=  0 :
-                   u2 = acos(vangley / g)
-                   u1 = asin(vanglez / g)
-                   if u1 < 0 :
-                       u2 = -u2
-                else:
-                   u2 = 0
-                g = hypot(vendy, vendz)
-                if g !=  0 :
-                   uu2 = acos(vendy / g)
-                   uu1 = asin(vendz / g)
-                   if uu1 < 0 :
-                       uu2 = -uu2
-                else:
-                   uu2 = 0
-                self.Dimension_angle = degrees(u2 - uu2)
+                if self.Angle_Type == 'A':
+                   c = ablength(0, self.Dimension_startlocation.y, self.Dimension_startlocation.z, 0, self.Dimension_endlocation.y, self.Dimension_endlocation.z)
+                   b = ablength(0, self.Dimension_startlocation.y, self.Dimension_startlocation.z, 0, self.Dimension_endanglelocation.y, self.Dimension_endanglelocation.z)
+                   a = ablength(0, self.Dimension_endanglelocation.y, self.Dimension_endanglelocation.z, 0, self.Dimension_endlocation.y, self.Dimension_endlocation.z)
+                if self.Angle_Type == 'B':
+                   a = ablength(0, self.Dimension_startlocation.y, self.Dimension_startlocation.z, 0, self.Dimension_endlocation.y, self.Dimension_endlocation.z)
+                   c = ablength(0, self.Dimension_startlocation.y, self.Dimension_startlocation.z, 0, self.Dimension_endanglelocation.y, self.Dimension_endanglelocation.z)
+                   b = ablength(0, self.Dimension_endanglelocation.y, self.Dimension_endanglelocation.z, 0, self.Dimension_endlocation.y, self.Dimension_endlocation.z)
+                if self.Angle_Type == 'C':
+                   b = ablength(0, self.Dimension_startlocation.y, self.Dimension_startlocation.z, 0, self.Dimension_endlocation.y, self.Dimension_endlocation.z)
+                   a = ablength(0, self.Dimension_startlocation.y, self.Dimension_startlocation.z, 0, self.Dimension_endanglelocation.y, self.Dimension_endanglelocation.z)
+                   c = ablength(0, self.Dimension_endanglelocation.y, self.Dimension_endanglelocation.z, 0, self.Dimension_endlocation.y, self.Dimension_endlocation.z) 
             if self.Dimension_liberty == '3D':
-                c = ablength(self.Dimension_startlocation.x, self.Dimension_startlocation.y, self.Dimension_startlocation.z, self.Dimension_endlocation.x, self.Dimension_endlocation.y, self.Dimension_endlocation.z)
-                b = ablength(self.Dimension_startlocation.x, self.Dimension_startlocation.y, self.Dimension_startlocation.z, self.Dimension_endanglelocation.x, self.Dimension_endanglelocation.y, self.Dimension_endanglelocation.z)
-                a = ablength(self.Dimension_endanglelocation.x, self.Dimension_endanglelocation.y, self.Dimension_endanglelocation.z, self.Dimension_endlocation.x, self.Dimension_endlocation.y, self.Dimension_endlocation.z)
-                if b != 0 and c != 0 :
-                    self.Dimension_angle = degrees(acos((b**2 + c**2 - a**2)/(2*b*c)))
-                else:
-                    self.Dimension_angle = 0
+                if self.Angle_Type == 'A':
+                   c = ablength(self.Dimension_startlocation.x, self.Dimension_startlocation.y, self.Dimension_startlocation.z, self.Dimension_endlocation.x, self.Dimension_endlocation.y, self.Dimension_endlocation.z)
+                   b = ablength(self.Dimension_startlocation.x, self.Dimension_startlocation.y, self.Dimension_startlocation.z, self.Dimension_endanglelocation.x, self.Dimension_endanglelocation.y, self.Dimension_endanglelocation.z)
+                   a = ablength(self.Dimension_endanglelocation.x, self.Dimension_endanglelocation.y, self.Dimension_endanglelocation.z, self.Dimension_endlocation.x, self.Dimension_endlocation.y, self.Dimension_endlocation.z)
+                if self.Angle_Type == 'B':
+                   a = ablength(self.Dimension_startlocation.x, self.Dimension_startlocation.y, self.Dimension_startlocation.z, self.Dimension_endlocation.x, self.Dimension_endlocation.y, self.Dimension_endlocation.z)
+                   c = ablength(self.Dimension_startlocation.x, self.Dimension_startlocation.y, self.Dimension_startlocation.z, self.Dimension_endanglelocation.x, self.Dimension_endanglelocation.y, self.Dimension_endanglelocation.z)
+                   b = ablength(self.Dimension_endanglelocation.x, self.Dimension_endanglelocation.y, self.Dimension_endanglelocation.z, self.Dimension_endlocation.x, self.Dimension_endlocation.y, self.Dimension_endlocation.z)
+                if self.Angle_Type == 'C':
+                   b = ablength(self.Dimension_startlocation.x, self.Dimension_startlocation.y, self.Dimension_startlocation.z, self.Dimension_endlocation.x, self.Dimension_endlocation.y, self.Dimension_endlocation.z)
+                   a = ablength(self.Dimension_startlocation.x, self.Dimension_startlocation.y, self.Dimension_startlocation.z, self.Dimension_endanglelocation.x, self.Dimension_endanglelocation.y, self.Dimension_endanglelocation.z)
+                   c = ablength(self.Dimension_endanglelocation.x, self.Dimension_endanglelocation.y, self.Dimension_endanglelocation.z, self.Dimension_endlocation.x, self.Dimension_endlocation.y, self.Dimension_endlocation.z)
+            if b != 0 and c != 0 :
+                self.Dimension_angle = degrees(acos((b**2 + c**2 - a**2)/(2*b*c)))
+            else:
+                self.Dimension_angle = 0
 
     #
     if self.Dimension_width == 0:
@@ -2060,12 +2048,12 @@ def main(self, align_matrix):
 #### Delete dimension group
 def DimensionDelete(self, context):
 
-    bpy.context.scene.update()
+    bpy.context.view_layer.update()
     bpy.ops.object.mode_set(mode = 'OBJECT')
 
     bpy.ops.object.select_grouped(extend=True, type='CHILDREN_RECURSIVE')
     bpy.ops.object.delete()
-    bpy.context.scene.update()
+    bpy.context.view_layer.update()
 
     return
 
@@ -2073,25 +2061,27 @@ class Dimension(bpy.types.Operator):
     ''''''
     bl_idname = "curve.dimension"
     bl_label = "Dimension"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'REGISTER', 'UNDO', 'PRESET'}
     bl_description = "add dimension"
+    
+    #settings : bpy.props.PointerProperty(type=DimensionVariables)
 
     # align_matrix for the invoke
-    align_matrix = Matrix()
+    align_matrix : Matrix()
 
-    Dimension = BoolProperty(name = "Dimension",
+    Dimension : BoolProperty(name = "Dimension",
                 default = True,
                 description = "dimension")
 
     #### change properties
-    Dimension_Name = StringProperty(name = "Name",
+    Dimension_Name : StringProperty(name = "Name",
                     description = "Name")
 
-    Dimension_Change = BoolProperty(name = "Change",
+    Dimension_Change : BoolProperty(name = "Change",
                 default = False,
                 description = "change dimension")
 
-    Dimension_Delete = StringProperty(name = "Delete",
+    Dimension_Delete : StringProperty(name = "Delete",
                     description = "Delete dimension")
 
     #### general properties
@@ -2104,9 +2094,15 @@ class Dimension(bpy.types.Operator):
              ('Angular2', 'Angular2', 'Angular2'),
              ('Angular3', 'Angular3', 'Angular3'),
              ('Note', 'Note', 'Note')]
-    Dimension_Type = EnumProperty(name = "Type",
+    Dimension_Type : EnumProperty(name = "Type",
                 description = "Form of Curve to create",
                 items = Types)
+    ATypes = [('A', 'A', 'A'),
+              ('B', 'B', 'B'),
+              ('C', 'C', 'C')]
+    Angle_Type : EnumProperty(name = "Angle",
+                description = "Select corne ABC",
+                items = ATypes)
     XYZTypes = [
                 ('TOP', 'Top', 'TOP'),
                 ('FRONT', 'Front', 'FRONT'),
@@ -2114,49 +2110,49 @@ class Dimension(bpy.types.Operator):
                 ('BOTTOM', 'Bottom', 'BOTTOM'),
                 ('BACK', 'Back', 'BACK'),
                 ('LEFT', 'Left', 'LEFT')]
-    Dimension_XYZType = EnumProperty(name = "Coordinate system",
+    Dimension_XYZType : EnumProperty(name = "Coordinate system",
                 description = "Place in a coordinate system",
                 items = XYZTypes)
     XYTypes = [
                 ('X', 'X', 'X'),
                 ('Y', 'Y', 'Y')]
-    Dimension_XYType = EnumProperty(name = "XY",
+    Dimension_XYType : EnumProperty(name = "XY",
                 description = "XY",
                 items = XYTypes)
     XZTypes = [
                 ('X', 'X', 'X'),
                 ('Z', 'Z', 'Z')]
-    Dimension_XZType = EnumProperty(name = "XZ",
+    Dimension_XZType : EnumProperty(name = "XZ",
                 description = "XZ",
                 items = XZTypes)
     YZTypes = [
                 ('Y', 'Y', 'Y'),
                 ('Z', 'Z', 'Z')]
-    Dimension_YZType = EnumProperty(name = "YZ",
+    Dimension_YZType : EnumProperty(name = "YZ",
                 description = "YZ",
                 items = YZTypes)
-    Dimension_startlocation = FloatVectorProperty(name = "",
+    Dimension_startlocation : FloatVectorProperty(name = "",
                 description = "Start location",
                 default = (0.0, 0.0, 0.0),
                 subtype = 'XYZ')
-    Dimension_endlocation = FloatVectorProperty(name = "",
+    Dimension_endlocation : FloatVectorProperty(name = "",
                 description = "End location",
                 default = (2.0, 2.0, 2.0),
                 subtype = 'XYZ')
-    Dimension_endanglelocation = FloatVectorProperty(name = "",
+    Dimension_endanglelocation : FloatVectorProperty(name = "",
                 description = "End angle location",
                 default = (4.0, 4.0, 4.0),
                 subtype = 'XYZ')
     width_or_location_items = [
                 ('width', 'width', 'width'),
                 ('location', 'location', 'location')]
-    Dimension_width_or_location = EnumProperty(name = "width or location",
+    Dimension_width_or_location : EnumProperty(name = "width or location",
                 items = width_or_location_items,
                 description = "width or location")
     libertyItems = [
                 ('2D', '2D', '2D'),
                 ('3D', '3D', '3D')]
-    Dimension_liberty = EnumProperty(name = "2D / 3D",
+    Dimension_liberty : EnumProperty(name = "2D / 3D",
                 items = libertyItems,
                 description = "2D or 3D Dimension")
 
@@ -2167,48 +2163,48 @@ class Dimension(bpy.types.Operator):
                 ('Serifs1', 'Serifs1', 'Serifs1'),
                 ('Serifs2', 'Serifs2', 'Serifs2'),
                 ('Without', 'Without', 'Without')]
-    Dimension_arrow = EnumProperty(name = "Arrow",
+    Dimension_arrow : EnumProperty(name = "Arrow",
                 items = Arrows,
                 description = "Arrow")
-    Dimension_arrowdepth = FloatProperty(name = "Depth",
+    Dimension_arrowdepth : FloatProperty(name = "Depth",
                 default = 0.1,
                 min = 0, soft_min = 0,
                 description = "Arrow depth")
-    Dimension_arrowlength = FloatProperty(name = "Length",
+    Dimension_arrowlength : FloatProperty(name = "Length",
                 default = 0.25,
                 min = 0, soft_min = 0,
                 description = "Arrow length")
 
     #### Dimension properties
-    Dimension_resolution = IntProperty(name = "Resolution",
+    Dimension_resolution : IntProperty(name = "Resolution",
                 default = 10,
                 min = 1, soft_min = 1,
                 description = "Resolution")
-    Dimension_width = FloatProperty(name = "Width",
+    Dimension_width : FloatProperty(name = "Width",
                 default = 2,
                 unit = 'LENGTH',
                 description = "Width")
-    Dimension_length = FloatProperty(name = "Length",
+    Dimension_length : FloatProperty(name = "Length",
                 default = 2,
                 description = "Length")
-    Dimension_dsize = FloatProperty(name = "Size",
+    Dimension_dsize : FloatProperty(name = "Size",
                 default = 1,
                 min = 0, soft_min = 0,
                 description = "Size")
-    Dimension_depth = FloatProperty(name = "Depth",
+    Dimension_depth : FloatProperty(name = "Depth",
                 default = 0.1,
                 min = 0, soft_min = 0,
                 description = "Depth")
-    Dimension_depth_from_center = BoolProperty(name = "Depth from center",
+    Dimension_depth_from_center : BoolProperty(name = "Depth from center",
                 default = False,
                 description = "Depth from center")
-    Dimension_angle = FloatProperty(name = "Angle",
+    Dimension_angle : FloatProperty(name = "Angle",
                 default = 45,
                 description = "Angle")
-    Dimension_rotation = FloatProperty(name = "Rotation",
+    Dimension_rotation : FloatProperty(name = "Rotation",
                 default = 0,
                 description = "Rotation")
-    Dimension_offset = FloatProperty(name = "Offset",
+    Dimension_offset : FloatProperty(name = "Offset",
                 default = 0,
                 description = "Offset")
 
@@ -2225,59 +2221,59 @@ class Dimension(bpy.types.Operator):
                 ('\'', '\'', '\''),
                 ('yd', 'yd', 'yd'),
                 ('mi', 'mi', 'mi')]
-    Dimension_units = EnumProperty(name = "Units",
+    Dimension_units : EnumProperty(name = "Units",
                 items = Units,
                 description = "Units")
-    Dimension_add_units_name = BoolProperty(name = "Add units name",
+    Dimension_add_units_name : BoolProperty(name = "Add units name",
                 default = False,
                 description = "Add units name")
 
     #### Dimension text properties
-    Dimension_textsize = FloatProperty(name = "Size",
+    Dimension_textsize : FloatProperty(name = "Size",
                 default = 1,
                 description = "Size")
-    Dimension_textdepth = FloatProperty(name = "Depth",
+    Dimension_textdepth : FloatProperty(name = "Depth",
                 default = 0.2,
                 description = "Depth")
-    Dimension_textround = IntProperty(name = "Rounding",
+    Dimension_textround : IntProperty(name = "Rounding",
                 default = 2,
                 min = 0, soft_min = 0,
                 description = "Rounding")
-    Dimension_font = StringProperty(name = "Font",
+    Dimension_font : StringProperty(name = "Font",
                 default = '',
                 subtype = 'FILE_PATH',
                 description = "Font")
 
     #### Materials properties
-    Dimension_matname = StringProperty(name = "Name",
+    Dimension_matname : StringProperty(name = "Name",
                 default = 'Dimension_Red',
                 description = "Material name")
 
     #### Note properties
-    Dimension_note = StringProperty(name = "Note",
+    Dimension_note : StringProperty(name = "Note",
                 default = 'Note',
                 description = "Note text")
-    Dimension_align_to_camera = BoolProperty(name = "Align to camera",
+    Dimension_align_to_camera : BoolProperty(name = "Align to camera",
                 default = False,
                 description = "Align to camera")
 
-    TMP_startlocation = FloatVectorProperty(name = "",
+    TMP_startlocation : FloatVectorProperty(name = "",
                 description = "Start location",
                 default = (0.0, 0.0, 0.0),
                 subtype = 'XYZ')
-    TMP_endlocation = FloatVectorProperty(name = "",
+    TMP_endlocation : FloatVectorProperty(name = "",
                 description = "Start location",
                 default = (2.0, 2.0, 2.0),
                 subtype = 'XYZ')
-    TMP_endanglelocation = FloatVectorProperty(name = "",
+    TMP_endanglelocation : FloatVectorProperty(name = "",
                 description = "Start location",
                 default = (4.0, 4.0, 4.0),
                 subtype = 'XYZ')
     #### Parent
-    Dimension_parent = StringProperty(name = "Parent",
+    Dimension_parent : StringProperty(name = "Parent",
                 default = '',
                 description = "Parent")
-    Dimension_appoint_parent = BoolProperty(name = "Appoint parent",
+    Dimension_appoint_parent : BoolProperty(name = "Appoint parent",
                 default = False,
                 description = "Appoint parent")
 
@@ -2301,7 +2297,7 @@ class Dimension(bpy.types.Operator):
             else:
                 row.prop(self, 'Dimension_endlocation')
             box = layout.box()
-            box.label("Options")
+            box.label(text="Options")
             box.prop(self, 'Dimension_length')
             box.prop(self, 'Dimension_dsize')
             box.prop(self, 'Dimension_depth')
@@ -2321,7 +2317,7 @@ class Dimension(bpy.types.Operator):
             else:
                 row.prop(self, 'Dimension_endlocation')
             box = layout.box()
-            box.label("Options")
+            box.label(text="Options")
             box.prop(self, 'Dimension_dsize')
             box.prop(self, 'Dimension_depth')
             box.prop(self, 'Dimension_rotation')
@@ -2339,7 +2335,7 @@ class Dimension(bpy.types.Operator):
             else:
                 row.prop(self, 'Dimension_endlocation')
             box = layout.box()
-            box.label("Options")
+            box.label(text="Options")
             box.prop(self, 'Dimension_length')
             box.prop(self, 'Dimension_dsize')
             box.prop(self, 'Dimension_depth')
@@ -2359,7 +2355,7 @@ class Dimension(bpy.types.Operator):
             else:
                 row.prop(self, 'Dimension_endlocation')
             box = layout.box()
-            box.label("Options")
+            box.label(text="Options")
             box.prop(self, 'Dimension_length')
             box.prop(self, 'Dimension_dsize')
             box.prop(self, 'Dimension_depth')
@@ -2377,7 +2373,7 @@ class Dimension(bpy.types.Operator):
             else:
                 row.prop(self, 'Dimension_endlocation')
             box = layout.box()
-            box.label("Options")
+            box.label(text="Options")
             box.prop(self, 'Dimension_length')
             box.prop(self, 'Dimension_dsize')
             box.prop(self, 'Dimension_depth')
@@ -2399,43 +2395,9 @@ class Dimension(bpy.types.Operator):
                 row = layout.row()
                 row.prop(self, 'Dimension_endanglelocation')
                 row = layout.row()
-                props = row.operator("curve.dimension", text = 'Change angle')
-                props.Dimension_Change = True
-                props.Dimension_Delete = self.Dimension_Name
-                props.Dimension_width_or_location = self.Dimension_width_or_location
-                props.Dimension_startlocation = self.Dimension_endanglelocation
-                props.Dimension_endlocation = self.Dimension_startlocation
-                props.Dimension_endanglelocation = self.Dimension_endlocation
-                props.Dimension_liberty = self.Dimension_liberty
-                props.Dimension_Type = self.Dimension_Type
-                props.Dimension_XYZType = self.Dimension_XYZType
-                props.Dimension_XYType = self.Dimension_XYType
-                props.Dimension_XZType = self.Dimension_XZType
-                props.Dimension_YZType = self.Dimension_YZType
-                props.Dimension_resolution = self.Dimension_resolution
-                props.Dimension_width = self.Dimension_width
-                props.Dimension_length = self.Dimension_length
-                props.Dimension_dsize = self.Dimension_dsize
-                props.Dimension_depth = self.Dimension_depth
-                props.Dimension_depth_from_center = self.Dimension_depth_from_center
-                props.Dimension_angle = self.Dimension_angle
-                props.Dimension_rotation = self.Dimension_rotation
-                props.Dimension_offset = self.Dimension_offset
-                props.Dimension_textsize = self.Dimension_textsize
-                props.Dimension_textdepth = self.Dimension_textdepth
-                props.Dimension_textround = self.Dimension_textround
-                props.Dimension_matname = self.Dimension_matname
-                props.Dimension_note = self.Dimension_note
-                props.Dimension_align_to_camera = self.Dimension_align_to_camera
-                props.Dimension_arrow = self.Dimension_arrow
-                props.Dimension_arrowdepth = self.Dimension_arrowdepth
-                props.Dimension_arrowlength = self.Dimension_arrowlength
-                props.Dimension_parent = self.Dimension_parent
-                props.Dimension_appoint_parent = self.Dimension_appoint_parent
-                props.Dimension_units = self.Dimension_units
-                props.Dimension_add_units_name = self.Dimension_add_units_name
+                row.prop(self, 'Angle_Type')
             box = layout.box()
-            box.label("Options")
+            box.label(text="Options")
             box.prop(self, 'Dimension_width')
             box.prop(self, 'Dimension_length')
             box.prop(self, 'Dimension_depth')
@@ -2459,43 +2421,9 @@ class Dimension(bpy.types.Operator):
                 row = layout.row()
                 row.prop(self, 'Dimension_endanglelocation')
                 row = layout.row()
-                props = row.operator("curve.dimension", text = 'Change angle')
-                props.Dimension_Change = True
-                props.Dimension_Delete = self.Dimension_Name
-                props.Dimension_width_or_location = self.Dimension_width_or_location
-                props.Dimension_startlocation = self.Dimension_endanglelocation
-                props.Dimension_endlocation = self.Dimension_startlocation
-                props.Dimension_endanglelocation = self.Dimension_endlocation
-                props.Dimension_liberty = self.Dimension_liberty
-                props.Dimension_Type = self.Dimension_Type
-                props.Dimension_XYZType = self.Dimension_XYZType
-                props.Dimension_XYType = self.Dimension_XYType
-                props.Dimension_XZType = self.Dimension_XZType
-                props.Dimension_YZType = self.Dimension_YZType
-                props.Dimension_resolution = self.Dimension_resolution
-                props.Dimension_width = self.Dimension_width
-                props.Dimension_length = self.Dimension_length
-                props.Dimension_dsize = self.Dimension_dsize
-                props.Dimension_depth = self.Dimension_depth
-                props.Dimension_depth_from_center = self.Dimension_depth_from_center
-                props.Dimension_angle = self.Dimension_angle
-                props.Dimension_rotation = self.Dimension_rotation
-                props.Dimension_offset = self.Dimension_offset
-                props.Dimension_textsize = self.Dimension_textsize
-                props.Dimension_textdepth = self.Dimension_textdepth
-                props.Dimension_textround = self.Dimension_textround
-                props.Dimension_matname = self.Dimension_matname
-                props.Dimension_note = self.Dimension_note
-                props.Dimension_align_to_camera = self.Dimension_align_to_camera
-                props.Dimension_arrow = self.Dimension_arrow
-                props.Dimension_arrowdepth = self.Dimension_arrowdepth
-                props.Dimension_arrowlength = self.Dimension_arrowlength
-                props.Dimension_parent = self.Dimension_parent
-                props.Dimension_appoint_parent = self.Dimension_appoint_parent
-                props.Dimension_units = self.Dimension_units
-                props.Dimension_add_units_name = self.Dimension_add_units_name
+                row.prop(self, 'Angle_Type')
             box = layout.box()
-            box.label("Options")
+            box.label(text="Options")
             box.prop(self, 'Dimension_width')
             box.prop(self, 'Dimension_depth')
             box.prop(self, 'Dimension_rotation')
@@ -2517,43 +2445,9 @@ class Dimension(bpy.types.Operator):
                 row = layout.row()
                 row.prop(self, 'Dimension_endanglelocation')
                 row = layout.row()
-                props = row.operator("curve.dimension", text = 'Change angle')
-                props.Dimension_Change = True
-                props.Dimension_Delete = self.Dimension_Name
-                props.Dimension_width_or_location = self.Dimension_width_or_location
-                props.Dimension_startlocation = self.Dimension_endanglelocation
-                props.Dimension_endlocation = self.Dimension_startlocation
-                props.Dimension_endanglelocation = self.Dimension_endlocation
-                props.Dimension_liberty = self.Dimension_liberty
-                props.Dimension_Type = self.Dimension_Type
-                props.Dimension_XYZType = self.Dimension_XYZType
-                props.Dimension_XYType = self.Dimension_XYType
-                props.Dimension_XZType = self.Dimension_XZType
-                props.Dimension_YZType = self.Dimension_YZType
-                props.Dimension_resolution = self.Dimension_resolution
-                props.Dimension_width = self.Dimension_width
-                props.Dimension_length = self.Dimension_length
-                props.Dimension_dsize = self.Dimension_dsize
-                props.Dimension_depth = self.Dimension_depth
-                props.Dimension_depth_from_center = self.Dimension_depth_from_center
-                props.Dimension_angle = self.Dimension_angle
-                props.Dimension_rotation = self.Dimension_rotation
-                props.Dimension_offset = self.Dimension_offset
-                props.Dimension_textsize = self.Dimension_textsize
-                props.Dimension_textdepth = self.Dimension_textdepth
-                props.Dimension_textround = self.Dimension_textround
-                props.Dimension_matname = self.Dimension_matname
-                props.Dimension_note = self.Dimension_note
-                props.Dimension_align_to_camera = self.Dimension_align_to_camera
-                props.Dimension_arrow = self.Dimension_arrow
-                props.Dimension_arrowdepth = self.Dimension_arrowdepth
-                props.Dimension_arrowlength = self.Dimension_arrowlength
-                props.Dimension_parent = self.Dimension_parent
-                props.Dimension_appoint_parent = self.Dimension_appoint_parent
-                props.Dimension_units = self.Dimension_units
-                props.Dimension_add_units_name = self.Dimension_add_units_name
+                row.prop(self, 'Angle_Type')
             box = layout.box()
-            box.label("Options")
+            box.label(text="Options")
             box.prop(self, 'Dimension_width')
             box.prop(self, 'Dimension_length')
             box.prop(self, 'Dimension_dsize')
@@ -2574,7 +2468,7 @@ class Dimension(bpy.types.Operator):
             else:
                 row.prop(self, 'Dimension_endlocation')
             box = layout.box()
-            box.label("Options")
+            box.label(text="Options")
             box.prop(self, 'Dimension_length')
             box.prop(self, 'Dimension_depth')
             box.prop(self, 'Dimension_angle')
@@ -2591,7 +2485,7 @@ class Dimension(bpy.types.Operator):
 
         if self.Dimension_liberty == '2D':
             col = layout.column()
-            col.label("Coordinate system")
+            col.label(text="Coordinate system")
             row = layout.row()
             row.prop(self, 'Dimension_XYZType', expand = True)
             if self.Dimension_XYZType == 'TOP' or self.Dimension_XYZType == 'BOTTOM':
@@ -2605,7 +2499,7 @@ class Dimension(bpy.types.Operator):
                 row.prop(self, 'Dimension_YZType', expand = True)
 
         col = layout.column()
-        col.label("Start location:")
+        col.label(text="Start location:")
         row = layout.row()
         row.prop(self, 'Dimension_startlocation')
 
@@ -2618,20 +2512,20 @@ class Dimension(bpy.types.Operator):
             box.prop(self, 'Dimension_appoint_parent')
 
         box = layout.box()
-        box.label("Text Options")
+        box.label(text="Text Options")
         box.prop(self, 'Dimension_textsize')
         box.prop(self, 'Dimension_textdepth')
         box.prop(self, 'Dimension_textround')
         box.prop(self, 'Dimension_font')
 
         box = layout.box()
-        box.label("Arrow Options")
+        box.label(text="Arrow Options")
         box.prop(self, 'Dimension_arrow')
         box.prop(self, 'Dimension_arrowdepth')
         box.prop(self, 'Dimension_arrowlength')
 
         box = layout.box()
-        box.label("Material Option")
+        box.label(text="Material Option")
         box.prop(self, 'Dimension_matname')
 
     ##### POLL #####
@@ -2648,29 +2542,22 @@ class Dimension(bpy.types.Operator):
         #go to object mode
         if bpy.ops.object.mode_set.poll():
             bpy.ops.object.mode_set(mode = 'OBJECT')
-            bpy.context.scene.update()
-
-        # turn off undo
-        undo = bpy.context.preferences.edit.use_global_undo
-        bpy.context.preferences.edit.use_global_undo = False
+            bpy.context.view_layer.update()
 
         # main function
         self.align_matrix = align_matrix(context, self.Dimension_startlocation)
         main(self, self.align_matrix)
 
-        # restore pre operator undo state
-        bpy.context.preferences.edit.use_global_undo = undo
-
         return {'FINISHED'}
 
     ##### INVOKE #####
     def invoke(self, context, event):
-        bpy.context.scene.update()
+        bpy.context.view_layer.update()
         if self.Dimension_Change:
-            bpy.context.scene.cursor_location = self.Dimension_startlocation
+            bpy.context.scene.cursor.location = self.Dimension_startlocation
         else:
             if self.Dimension_width_or_location == 'width':
-                self.Dimension_startlocation = bpy.context.scene.cursor_location
+                self.Dimension_startlocation = bpy.context.scene.cursor.location
 
             if self.Dimension_width_or_location == 'location':
                 if (self.Dimension_endlocation[2] - self.Dimension_startlocation[2]) !=  0 :
@@ -2689,488 +2576,438 @@ class Dimension(bpy.types.Operator):
 
         return {'FINISHED'}
 
-# Properties class
-class DimensionAdd(bpy.types.Panel):
-    ''''''
-    bl_idname = "VIEW3D_PT_properties_dimension_add"
-    bl_label = "Dimension Add"
-    bl_description = "Dimension Add"
-    bl_space_type = "PROPERTIES"
-    bl_region_type = "WINDOW"
-    bl_context = "object"
-
-    @classmethod
-    def poll(cls, context):
-        selected = 0
-        for obj in context.selected_objects :
-            if obj.type == 'MESH':
-                for i in obj.data.vertices :
-                    if i.select :
-                        selected  += 1
-
-            if obj.type == 'CURVE':
-                for i in obj.data.splines :
-                    for j in i.bezier_points :
-                        if j.select_control_point :
-                            selected  += 1
-
-        if selected == 1 or selected == 2 or selected == 3:
-            return context.selected_objects
-
-    ##### DRAW #####
-    def draw(self, context):
-        vertex = []
-        for obj in context.selected_objects :
-            if obj.type == 'MESH':
-                for i in obj.data.vertices :
-                    if i.select :
-                        vertex.append(obj.matrix_world * i.co)
-
-            if obj.type == 'CURVE':
-                for i in obj.data.splines :
-                    for j in i.bezier_points :
-                        if j.select_control_point :
-                            vertex.append(obj.matrix_world * j.co)
-
-        if len(vertex) == 1:
-            startvertex = vertex[0]
-            endvertex = bpy.context.scene.cursor_location
-            layout = self.layout
-            col = layout.column()
-            col.label(text="Note:")
-            row = layout.row()
-            props1 = row.operator("curve.dimension", text = 'Add linear note')
-            props1.Dimension_Change = False
-            props1.Dimension_Type = 'Note'
-            props1.Dimension_width_or_location = 'location'
-            props1.Dimension_startlocation = startvertex
-            props1.Dimension_liberty = '2D'
-            props1.Dimension_rotation = 0
-            props1.Dimension_parent = obj.name
-
-            props2 = row.operator("curve.dimension", text = 'Add 3D note')
-            props2.Dimension_Change = False
-            props2.Dimension_Type = 'Note'
-            props2.Dimension_width_or_location = 'location'
-            props2.Dimension_startlocation = startvertex
-            props2.Dimension_liberty = '3D'
-            props2.Dimension_rotation = 0
-            props2.Dimension_parent = obj.name
-
-            col = layout.column()
-            col.label(text="Distance to 3D cursor:")
-            row = layout.row()
-            props3 = row.operator("curve.dimension", text = 'Add linear dimension')
-            props3.Dimension_Change = False
-            props3.Dimension_Type = 'Linear-1'
-            props3.Dimension_width_or_location = 'location'
-            props3.Dimension_startlocation = endvertex
-            props3.Dimension_endlocation = startvertex
-            props3.Dimension_liberty = '2D'
-            props3.Dimension_rotation = 0
-            props3.Dimension_parent = obj.name
-
-            props4 = row.operator("curve.dimension", text = 'Add 3D dimension')
-            props4.Dimension_Change = False
-            props4.Dimension_Type = 'Linear-1'
-            props4.Dimension_width_or_location = 'location'
-            props4.Dimension_startlocation = endvertex
-            props4.Dimension_endlocation = startvertex
-            props4.Dimension_liberty = '3D'
-            props4.Dimension_rotation = 0
-            props4.Dimension_parent = obj.name
-
-            col = layout.column()
-            col.label(text="Radius to 3D cursor:")
-            row = layout.row()
-            props7 = row.operator("curve.dimension", text = 'Add linear radius')
-            props7.Dimension_Change = False
-            props7.Dimension_Type = 'Radius'
-            props7.Dimension_width_or_location = 'location'
-            props7.Dimension_startlocation = endvertex
-            props7.Dimension_endlocation = startvertex
-            props7.Dimension_liberty = '2D'
-            props7.Dimension_rotation = 0
-            props7.Dimension_parent = obj.name
-
-            props8 = row.operator("curve.dimension", text = 'Add 3D radius')
-            props8.Dimension_Change = False
-            props8.Dimension_Type = 'Radius'
-            props8.Dimension_width_or_location = 'location'
-            props8.Dimension_startlocation = endvertex
-            props8.Dimension_endlocation = startvertex
-            props8.Dimension_liberty = '3D'
-            props8.Dimension_rotation = 0
-            props8.Dimension_parent = obj.name
-
-            col = layout.column()
-            col.label(text="Diameter to 3D cursor:")
-            row = layout.row()
-            props9 = row.operator("curve.dimension", text = 'Add linear diameter')
-            props9.Dimension_Change = False
-            props9.Dimension_Type = 'Diameter'
-            props9.Dimension_width_or_location = 'location'
-            props9.Dimension_startlocation = endvertex
-            props9.Dimension_endlocation = startvertex
-            props9.Dimension_liberty = '2D'
-            props9.Dimension_rotation = 0
-            props9.Dimension_parent = obj.name
-
-            props10 = row.operator("curve.dimension", text = 'Add 3D diameter')
-            props10.Dimension_Change = False
-            props10.Dimension_Type = 'Diameter'
-            props10.Dimension_width_or_location = 'location'
-            props10.Dimension_startlocation = endvertex
-            props10.Dimension_endlocation = startvertex
-            props10.Dimension_liberty = '3D'
-            props10.Dimension_rotation = 0
-            props10.Dimension_parent = obj.name
-
-        if len(vertex) == 2:
-            startvertex = vertex[0]
-            endvertex = vertex[1]
-            if endvertex[0] < startvertex[0]:
-                startvertex = vertex[1]
-                endvertex = vertex[0]
-
-            layout = self.layout
-            col = layout.column()
-            col.label(text="Distance:")
-            row = layout.row()
-            props1 = row.operator("curve.dimension", text = 'Add linear dimension')
-            props1.Dimension_Change = False
-            props1.Dimension_Type = 'Linear-1'
-            props1.Dimension_width_or_location = 'location'
-            props1.Dimension_startlocation = startvertex
-            props1.Dimension_endlocation = endvertex
-            props1.Dimension_liberty = '2D'
-            props1.Dimension_rotation = 0
-            props1.Dimension_parent = obj.name
-
-            props2 = row.operator("curve.dimension", text = 'Add 3D dimension')
-            props2.Dimension_Change = False
-            props2.Dimension_Type = 'Linear-1'
-            props2.Dimension_width_or_location = 'location'
-            props2.Dimension_startlocation = startvertex
-            props2.Dimension_endlocation = endvertex
-            props2.Dimension_liberty = '3D'
-            props2.Dimension_rotation = 0
-            props2.Dimension_parent = obj.name
-
-            col = layout.column()
-            col.label(text="Radius:")
-            row = layout.row()
-            props3 = row.operator("curve.dimension", text = 'Add linear radius')
-            props3.Dimension_Change = False
-            props3.Dimension_Type = 'Radius'
-            props3.Dimension_width_or_location = 'location'
-            props3.Dimension_startlocation = startvertex
-            props3.Dimension_endlocation = endvertex
-            props3.Dimension_liberty = '2D'
-            props3.Dimension_rotation = 0
-            props3.Dimension_parent = obj.name
-
-            props4 = row.operator("curve.dimension", text = 'Add 3D radius')
-            props4.Dimension_Change = False
-            props4.Dimension_Type = 'Radius'
-            props4.Dimension_width_or_location = 'location'
-            props4.Dimension_startlocation = startvertex
-            props4.Dimension_endlocation = endvertex
-            props4.Dimension_liberty = '3D'
-            props4.Dimension_rotation = 0
-            props4.Dimension_parent = obj.name
-
-            col = layout.column()
-            col.label(text="Diameter:")
-            row = layout.row()
-            props5 = row.operator("curve.dimension", text = 'Add linear diameter')
-            props5.Dimension_Change = False
-            props5.Dimension_Type = 'Diameter'
-            props5.Dimension_width_or_location = 'location'
-            props5.Dimension_startlocation = startvertex
-            props5.Dimension_endlocation = endvertex
-            props5.Dimension_liberty = '2D'
-            props5.Dimension_rotation = 0
-            props5.Dimension_parent = obj.name
-
-            props6 = row.operator("curve.dimension", text = 'Add 3D diameter')
-            props6.Dimension_Change = False
-            props6.Dimension_Type = 'Diameter'
-            props6.Dimension_width_or_location = 'location'
-            props6.Dimension_startlocation = startvertex
-            props6.Dimension_endlocation = endvertex
-            props6.Dimension_liberty = '3D'
-            props6.Dimension_rotation = 0
-            props6.Dimension_parent = obj.name
-
-        if len(vertex) == 3:
-            startvertex = vertex[0]
-            endvertex = vertex[1]
-            endanglevertex = vertex[2]
-            if endvertex[0] < startvertex[0]:
-                startvertex = vertex[1]
-                endvertex = vertex[0]
-
-            layout = self.layout
-            col = layout.column()
-            col.label(text="Angle:")
-            row = layout.row()
-            props1 = row.operator("curve.dimension", text = 'Add Linear angle dimension')
-            props1.Dimension_Change = False
-            props1.Dimension_Type = 'Angular1'
-            props1.Dimension_width_or_location = 'location'
-            props1.Dimension_startlocation = startvertex
-            props1.Dimension_endlocation = endvertex
-            props1.Dimension_endanglelocation = endanglevertex
-            props1.Dimension_liberty = '2D'
-            props1.Dimension_rotation = 0
-            props1.Dimension_parent = obj.name
-
-            props2 = row.operator("curve.dimension", text = 'Add 3D angle dimension')
-            props2.Dimension_Change = False
-            props2.Dimension_Type = 'Angular1'
-            props2.Dimension_width_or_location = 'location'
-            props2.Dimension_startlocation = startvertex
-            props2.Dimension_endlocation = endvertex
-            props2.Dimension_endanglelocation = endanglevertex
-            props2.Dimension_liberty = '3D'
-            props2.Dimension_rotation = 0
-            props2.Dimension_parent = obj.name
-
-# Properties class
-class DimensionPanel(bpy.types.Panel):
-    ''''''
-    bl_idname = "OBJECT_PT_properties_dimension"
-    bl_label = "Dimension change"
-    bl_description = "Dimension change"
-    bl_space_type = "PROPERTIES"
-    bl_region_type = "WINDOW"
-    bl_context = "object"
-
-    @classmethod
-    def poll(cls, context):
-        if context.object.Dimension == True:
-            return (context.object)
-
-    ##### DRAW #####
-    def draw(self, context):
-        if context.object.Dimension == True:
-            layout = self.layout
-
-            obj = context.object
-            row = layout.row()
-
-            props = row.operator("curve.dimension", text = 'Change')
-            props.Dimension_Change = True
-            props.Dimension_Delete = obj.name
-            props.Dimension_width_or_location = obj.Dimension_width_or_location
-            props.Dimension_startlocation = obj.location
-            props.Dimension_endlocation = obj.Dimension_endlocation
-            props.Dimension_endanglelocation = obj.Dimension_endanglelocation
-            props.Dimension_liberty = obj.Dimension_liberty
-            props.Dimension_Type = obj.Dimension_Type
-            props.Dimension_XYZType = obj.Dimension_XYZType
-            props.Dimension_XYType = obj.Dimension_XYType
-            props.Dimension_XZType = obj.Dimension_XZType
-            props.Dimension_YZType = obj.Dimension_YZType
-            props.Dimension_resolution = obj.Dimension_resolution
-            props.Dimension_width = obj.Dimension_width
-            props.Dimension_length = obj.Dimension_length
-            props.Dimension_dsize = obj.Dimension_dsize
-            props.Dimension_depth = obj.Dimension_depth
-            props.Dimension_depth_from_center = obj.Dimension_depth_from_center
-            props.Dimension_angle = obj.Dimension_angle
-            props.Dimension_rotation = obj.Dimension_rotation
-            props.Dimension_offset = 0
-            props.Dimension_textsize = obj.Dimension_textsize
-            props.Dimension_textdepth = obj.Dimension_textdepth
-            props.Dimension_textround = obj.Dimension_textround
-            props.Dimension_font = obj.Dimension_font
-            props.Dimension_matname = obj.Dimension_matname
-            props.Dimension_note = obj.Dimension_note
-            props.Dimension_align_to_camera = obj.Dimension_align_to_camera
-            props.Dimension_arrow = obj.Dimension_arrow
-            props.Dimension_arrowdepth = obj.Dimension_arrowdepth
-            props.Dimension_arrowlength = obj.Dimension_arrowlength
-            props.Dimension_parent = obj.Dimension_parent
-            props.Dimension_appoint_parent = obj.Dimension_appoint_parent
-            props.Dimension_units = obj.Dimension_units
-            props.Dimension_add_units_name = obj.Dimension_add_units_name
-
 #location update
 def StartLocationUpdate(self, context):
 
-    bpy.context.scene.cursor_location = self.Dimension_startlocation
+    bpy.context.scene.cursor.location = self.Dimension_startlocation
 
     return
 
-# Add properties to objects
-def DimensionVariables():
+# ### MENU append ###
+def Dimension_object_menu(self, context):
+    bl_label = 'Dimension'
+    
+    obj = context.object
+    layout = self.layout
+    
+    if 'Dimension' in obj.keys():
+        props = layout.operator("curve.dimension", text="Change Dimension")
+        props.Dimension_Change = True
+        props.Dimension_Delete = obj.name
+        props.Dimension_width_or_location = obj["Dimension_width_or_location"]
+        props.Dimension_startlocation = obj.location
+        props.Dimension_endlocation = obj["Dimension_endlocation"]
+        props.Dimension_endanglelocation = obj["Dimension_endanglelocation"]
+        props.Dimension_liberty = obj["Dimension_liberty"]
+        props.Dimension_Type = obj["Dimension_Type"]
+        props.Dimension_XYZType = obj["Dimension_XYZType"]
+        props.Dimension_XYType = obj["Dimension_XYType"]
+        props.Dimension_XZType = obj["Dimension_XZType"]
+        props.Dimension_YZType = obj["Dimension_YZType"]
+        props.Dimension_resolution = obj["Dimension_resolution"]
+        props.Dimension_width = obj["Dimension_width"]
+        props.Dimension_length = obj["Dimension_length"]
+        props.Dimension_dsize = obj["Dimension_dsize"]
+        props.Dimension_depth = obj["Dimension_depth"]
+        props.Dimension_depth_from_center = obj["Dimension_depth_from_center"]
+        props.Dimension_angle = obj["Dimension_angle"]
+        props.Dimension_rotation = obj["Dimension_rotation"]
+        props.Dimension_offset = 0
+        props.Dimension_textsize = obj["Dimension_textsize"]
+        props.Dimension_textdepth = obj["Dimension_textdepth"]
+        props.Dimension_textround = obj["Dimension_textround"]
+        props.Dimension_font = obj["Dimension_font"]
+        props.Dimension_matname = obj["Dimension_matname"]
+        props.Dimension_note = obj["Dimension_note"]
+        props.Dimension_align_to_camera = obj["Dimension_align_to_camera"]
+        props.Dimension_arrow = obj["Dimension_arrow"]
+        props.Dimension_arrowdepth = obj["Dimension_arrowdepth"]
+        props.Dimension_arrowlength = obj["Dimension_arrowlength"]
+        props.Dimension_parent = obj["Dimension_parent"]
+        props.Dimension_appoint_parent = obj["Dimension_appoint_parent"]
+        props.Dimension_units = obj["Dimension_units"]
+        props.Dimension_add_units_name = obj["Dimension_add_units_name"]
+        layout.separator()
 
-    bpy.types.Object.Dimension = bpy.props.BoolProperty()
-    bpy.types.Object.Dimension_Change = bpy.props.BoolProperty()
-    bpy.types.Object.Dimension_Name = bpy.props.StringProperty(name = "Name",
-                description = "Name")
-    #### general properties
-    Types = [('Linear-1', 'Linear-1', 'Linear-1'),
-             ('Linear-2', 'Linear-2', 'Linear-2'),
-             ('Linear-3', 'Linear-3', 'Linear-3'),
-             ('Radius', 'Radius', 'Radius'),
-             ('Diameter', 'Diameter', 'Diameter'),
-             ('Angular1', 'Angular1', 'Angular1'),
-             ('Angular2', 'Angular2', 'Angular2'),
-             ('Angular3', 'Angular3', 'Angular3'),
-             ('Note', 'Note', 'Note')]
-    bpy.types.Object.Dimension_Type = bpy.props.EnumProperty(name = "Type",
-                description = "Form of Curve to create",
-                items = Types)
-    XYZTypes = [
-                ('TOP', 'Top', 'TOP'),
-                ('FRONT', 'Front', 'FRONT'),
-                ('RIGHT', 'Right', 'RIGHT'),
-                ('BOTTOM', 'Bottom', 'BOTTOM'),
-                ('BACK', 'Back', 'BACK'),
-                ('LEFT', 'Left', 'LEFT')]
-    bpy.types.Object.Dimension_XYZType = bpy.props.EnumProperty(name = "Coordinate system",
-                description = "Place in a coordinate system",
-                items = XYZTypes)
-    XYTypes = [
-                ('X', 'X', 'X'),
-                ('Y', 'Y', 'Y')]
-    bpy.types.Object.Dimension_XYType = bpy.props.EnumProperty(name = "XY",
-                description = "XY",
-                items = XYTypes)
-    XZTypes = [
-                ('X', 'X', 'X'),
-                ('Z', 'Z', 'Z')]
-    bpy.types.Object.Dimension_XZType = bpy.props.EnumProperty(name = "XZ",
-                description = "XZ",
-                items = XZTypes)
-    YZTypes = [
-                ('Y', 'Y', 'Y'),
-                ('Z', 'Z', 'Z')]
-    bpy.types.Object.Dimension_YZType = bpy.props.EnumProperty(name = "YZ",
-                description = "YZ",
-                items = YZTypes)
-    bpy.types.Object.Dimension_YZType = bpy.props.EnumProperty(name = "Coordinate system",
-                description = "Place in a coordinate system",
-                items = YZTypes)
-    bpy.types.Object.Dimension_startlocation = bpy.props.FloatVectorProperty(name = "Start location",
-                description = "",
-                subtype = 'XYZ',
-                update = StartLocationUpdate)
-    bpy.types.Object.Dimension_endlocation = bpy.props.FloatVectorProperty(name = "End location",
-                description = "",
-                subtype = 'XYZ')
-    bpy.types.Object.Dimension_endanglelocation = bpy.props.FloatVectorProperty(name = "End angle location",
-                description = "End angle location",
-                subtype = 'XYZ')
-    width_or_location_items = [
-                ('width', 'width', 'width'),
-                ('location', 'location', 'location')]
-    bpy.types.Object.Dimension_width_or_location = bpy.props.EnumProperty(name = "width or location",
-                items = width_or_location_items,
-                description = "width or location")
-    libertyItems = [
-                ('2D', '2D', '2D'),
-                ('3D', '3D', '3D')]
-    bpy.types.Object.Dimension_liberty = bpy.props.EnumProperty(name = "2D / 3D",
-                items = libertyItems,
-                description = "2D or 3D Dimension")
+    vertex = []
+    for obj in context.selected_objects :
+        if obj.type == 'MESH':
+            for i in obj.data.vertices :
+                if i.select :
+                    vertex.append(obj.matrix_world @ i.co)
 
-    ### Arrow
-    Arrows = [
-                ('Arrow1', 'Arrow1', 'Arrow1'),
-                ('Arrow2', 'Arrow2', 'Arrow2'),
-                ('Serifs1', 'Serifs1', 'Serifs1'),
-                ('Serifs2', 'Serifs2', 'Serifs2'),
-                ('Without', 'Without', 'Without')]
-    bpy.types.Object.Dimension_arrow = bpy.props.EnumProperty(name = "Arrow",
-                items = Arrows,
-                description = "Arrow")
-    bpy.types.Object.Dimension_arrowdepth = bpy.props.FloatProperty(name = "Depth",
-                    min = 0, soft_min = 0,
-                    description = "Arrow depth")
-    bpy.types.Object.Dimension_arrowlength = bpy.props.FloatProperty(name = "Length",
-                    min = 0, soft_min = 0,
-                    description = "Arrow length")
+        if obj.type == 'CURVE':
+            for i in obj.data.splines :
+                for j in i.bezier_points :
+                    if j.select_control_point :
+                        vertex.append(obj.matrix_world @ j.co)
 
-    #### Dimension properties
-    bpy.types.Object.Dimension_resolution = bpy.props.IntProperty(name = "Resolution",
-                    min = 1, soft_min = 1,
-                    description = "Resolution")
-    bpy.types.Object.Dimension_width = bpy.props.FloatProperty(name = "Width",
-                    unit = 'LENGTH',
-                    description = "Width")
-    bpy.types.Object.Dimension_length = bpy.props.FloatProperty(name = "Length",
-                    description = "Length")
-    bpy.types.Object.Dimension_dsize = bpy.props.FloatProperty(name = "Size",
-                    min = 0, soft_min = 0,
-                    description = "Size")
-    bpy.types.Object.Dimension_depth = bpy.props.FloatProperty(name = "Depth",
-                    min = 0, soft_min = 0,
-                    description = "Depth")
-    bpy.types.Object.Dimension_depth_from_center = bpy.props.BoolProperty(name = "Depth from center",
-                    description = "Depth from center")
-    bpy.types.Object.Dimension_angle = bpy.props.FloatProperty(name = "Angle",
-                    description = "Angle")
-    bpy.types.Object.Dimension_rotation = bpy.props.FloatProperty(name = "Rotation",
-                    description = "Rotation")
+    if len(vertex) == 1:
+        startvertex = vertex[0]
+        endvertex = bpy.context.scene.cursor.location
+        props1 = layout.operator("curve.dimension", text = 'Add linear note')
+        props1.Dimension_Change = False
+        props1.Dimension_Type = 'Note'
+        props1.Dimension_width_or_location = 'location'
+        props1.Dimension_startlocation = startvertex
+        props1.Dimension_liberty = '2D'
+        props1.Dimension_rotation = 0
+        props1.Dimension_parent = obj.name
 
-    #### Dimension units properties
-    Units = [
-                ('None', 'None', 'None'),
-                ('\u00b5m', '\u00b5m', '\u00b5m'),
-                ('mm', 'mm', 'mm'),
-                ('cm', 'cm', 'cm'),
-                ('m', 'm', 'm'),
-                ('km', 'km', 'km'),
-                ('thou', 'thou', 'thou'),
-                ('"', '"', '"'),
-                ('\'', '\'', '\''),
-                ('yd', 'yd', 'yd'),
-                ('mi', 'mi', 'mi')]
-    bpy.types.Object.Dimension_units = bpy.props.EnumProperty(name = "Units",
-                items = Units,
-                description = "Units")
-    bpy.types.Object.Dimension_add_units_name = bpy.props.BoolProperty(name = "Add units name",
-                description = "Add units name")
-    bpy.types.Object.Dimension_offset = bpy.props.FloatProperty(name = "Offset",
-                description = "Offset")
+        props2 = layout.operator("curve.dimension", text = 'Add 3D note')
+        props2.Dimension_Change = False
+        props2.Dimension_Type = 'Note'
+        props2.Dimension_width_or_location = 'location'
+        props2.Dimension_startlocation = startvertex
+        props2.Dimension_liberty = '3D'
+        props2.Dimension_rotation = 0
+        props2.Dimension_parent = obj.name
 
-    #### Dimension text properties
-    bpy.types.Object.Dimension_textsize = bpy.props.FloatProperty(name = "Size",
-                    description = "Size")
-    bpy.types.Object.Dimension_textdepth = bpy.props.FloatProperty(name = "Depth",
-                    description = "Depth")
-    bpy.types.Object.Dimension_textround = bpy.props.IntProperty(name = "Rounding",
-                    min = 0, soft_min = 0,
-                    description = "Rounding")
-    bpy.types.Object.Dimension_font = bpy.props.StringProperty(name = "Font",
-                    subtype = 'FILE_PATH',
-                    description = "Font")
+        props3 = layout.operator("curve.dimension", text = 'Add linear dimension')
+        props3.Dimension_Change = False
+        props3.Dimension_Type = 'Linear-1'
+        props3.Dimension_width_or_location = 'location'
+        props3.Dimension_startlocation = endvertex
+        props3.Dimension_endlocation = startvertex
+        props3.Dimension_liberty = '2D'
+        props3.Dimension_rotation = 0
+        props3.Dimension_parent = obj.name
 
-    #### Materials properties
-    bpy.types.Object.Dimension_matname = bpy.props.StringProperty(name = "Name",
-                    default = 'Dimension_Red',
-                    description = "Material name")
+        props4 = layout.operator("curve.dimension", text = 'Add 3D dimension')
+        props4.Dimension_Change = False
+        props4.Dimension_Type = 'Linear-1'
+        props4.Dimension_width_or_location = 'location'
+        props4.Dimension_startlocation = endvertex
+        props4.Dimension_endlocation = startvertex
+        props4.Dimension_liberty = '3D'
+        props4.Dimension_rotation = 0
+        props4.Dimension_parent = obj.name
 
-    #### Note text
-    bpy.types.Object.Dimension_note = bpy.props.StringProperty(name = "Note",
-                    default = 'Note',
-                    description = "Note text")
-    bpy.types.Object.Dimension_align_to_camera = bpy.props.BoolProperty(name = "Align to camera",
-                description = "Align to camera")
+        props7 = layout.operator("curve.dimension", text = 'Add linear radius')
+        props7.Dimension_Change = False
+        props7.Dimension_Type = 'Radius'
+        props7.Dimension_width_or_location = 'location'
+        props7.Dimension_startlocation = endvertex
+        props7.Dimension_endlocation = startvertex
+        props7.Dimension_liberty = '2D'
+        props7.Dimension_rotation = 0
+        props7.Dimension_parent = obj.name
 
-    #### Parent
-    bpy.types.Object.Dimension_parent = bpy.props.StringProperty(name = "Parent",
-                    default = '',
-                    description = "Parent")
-    bpy.types.Object.Dimension_appoint_parent = bpy.props.BoolProperty(name = "Appoint parent",
-                description = "Appoint parent")
+        props8 = layout.operator("curve.dimension", text = 'Add 3D radius')
+        props8.Dimension_Change = False
+        props8.Dimension_Type = 'Radius'
+        props8.Dimension_width_or_location = 'location'
+        props8.Dimension_startlocation = endvertex
+        props8.Dimension_endlocation = startvertex
+        props8.Dimension_liberty = '3D'
+        props8.Dimension_rotation = 0
+        props8.Dimension_parent = obj.name
 
-################################################################################
-##### REGISTER #####
+        props9 = layout.operator("curve.dimension", text = 'Add linear diameter')
+        props9.Dimension_Change = False
+        props9.Dimension_Type = 'Diameter'
+        props9.Dimension_width_or_location = 'location'
+        props9.Dimension_startlocation = endvertex
+        props9.Dimension_endlocation = startvertex
+        props9.Dimension_liberty = '2D'
+        props9.Dimension_rotation = 0
+        props9.Dimension_parent = obj.name
+
+        props10 = layout.operator("curve.dimension", text = 'Add 3D diameter')
+        props10.Dimension_Change = False
+        props10.Dimension_Type = 'Diameter'
+        props10.Dimension_width_or_location = 'location'
+        props10.Dimension_startlocation = endvertex
+        props10.Dimension_endlocation = startvertex
+        props10.Dimension_liberty = '3D'
+        props10.Dimension_rotation = 0
+        props10.Dimension_parent = obj.name
+
+    if len(vertex) == 2:
+        startvertex = vertex[0]
+        endvertex = vertex[1]
+        if endvertex[0] < startvertex[0]:
+            startvertex = vertex[1]
+            endvertex = vertex[0]
+
+        props1 = layout.operator("curve.dimension", text = 'Add linear dimension')
+        props1.Dimension_Change = False
+        props1.Dimension_Type = 'Linear-1'
+        props1.Dimension_width_or_location = 'location'
+        props1.Dimension_startlocation = startvertex
+        props1.Dimension_endlocation = endvertex
+        props1.Dimension_liberty = '2D'
+        props1.Dimension_rotation = 0
+        props1.Dimension_parent = obj.name
+
+        props2 = layout.operator("curve.dimension", text = 'Add 3D dimension')
+        props2.Dimension_Change = False
+        props2.Dimension_Type = 'Linear-1'
+        props2.Dimension_width_or_location = 'location'
+        props2.Dimension_startlocation = startvertex
+        props2.Dimension_endlocation = endvertex
+        props2.Dimension_liberty = '3D'
+        props2.Dimension_rotation = 0
+        props2.Dimension_parent = obj.name
+
+        props3 = layout.operator("curve.dimension", text = 'Add linear radius')
+        props3.Dimension_Change = False
+        props3.Dimension_Type = 'Radius'
+        props3.Dimension_width_or_location = 'location'
+        props3.Dimension_startlocation = startvertex
+        props3.Dimension_endlocation = endvertex
+        props3.Dimension_liberty = '2D'
+        props3.Dimension_rotation = 0
+        props3.Dimension_parent = obj.name
+
+        props4 = layout.operator("curve.dimension", text = 'Add 3D radius')
+        props4.Dimension_Change = False
+        props4.Dimension_Type = 'Radius'
+        props4.Dimension_width_or_location = 'location'
+        props4.Dimension_startlocation = startvertex
+        props4.Dimension_endlocation = endvertex
+        props4.Dimension_liberty = '3D'
+        props4.Dimension_rotation = 0
+        props4.Dimension_parent = obj.name
+
+        props5 = layout.operator("curve.dimension", text = 'Add linear diameter')
+        props5.Dimension_Change = False
+        props5.Dimension_Type = 'Diameter'
+        props5.Dimension_width_or_location = 'location'
+        props5.Dimension_startlocation = startvertex
+        props5.Dimension_endlocation = endvertex
+        props5.Dimension_liberty = '2D'
+        props5.Dimension_rotation = 0
+        props5.Dimension_parent = obj.name
+
+        props6 = layout.operator("curve.dimension", text = 'Add 3D diameter')
+        props6.Dimension_Change = False
+        props6.Dimension_Type = 'Diameter'
+        props6.Dimension_width_or_location = 'location'
+        props6.Dimension_startlocation = startvertex
+        props6.Dimension_endlocation = endvertex
+        props6.Dimension_liberty = '3D'
+        props6.Dimension_rotation = 0
+        props6.Dimension_parent = obj.name
+
+    if len(vertex) == 3:
+        startvertex = vertex[0]
+        endvertex = vertex[1]
+        endanglevertex = vertex[2]
+        if endvertex[0] < startvertex[0]:
+            startvertex = vertex[1]
+            endvertex = vertex[0]
+
+        props1 = layout.operator("curve.dimension", text = 'Add Linear angle dimension')
+        props1.Dimension_Change = False
+        props1.Dimension_Type = 'Angular1'
+        props1.Dimension_width_or_location = 'location'
+        props1.Dimension_startlocation = startvertex
+        props1.Dimension_endlocation = endvertex
+        props1.Dimension_endanglelocation = endanglevertex
+        props1.Dimension_liberty = '2D'
+        props1.Dimension_rotation = 0
+        props1.Dimension_parent = obj.name
+
+        props2 = layout.operator("curve.dimension", text = 'Add 3D angle dimension')
+        props2.Dimension_Change = False
+        props2.Dimension_Type = 'Angular1'
+        props2.Dimension_width_or_location = 'location'
+        props2.Dimension_startlocation = startvertex
+        props2.Dimension_endlocation = endvertex
+        props2.Dimension_endanglelocation = endanglevertex
+        props2.Dimension_liberty = '3D'
+        props2.Dimension_rotation = 0
+        props2.Dimension_parent = obj.name
+
+def Dimension_edit_menu(self, context):
+    bl_label = 'Dimension'
+    
+    obj = context.object
+    layout = self.layout
+    
+    vertex = []
+    for i in obj.data.vertices :
+        if i.select :
+            vertex.append(obj.matrix_world @ i.co)
+
+    if len(vertex) == 1:
+        startvertex = vertex[0]
+        endvertex = bpy.context.scene.cursor.location
+        props1 = layout.operator("curve.dimension", text = 'Add linear note')
+        props1.Dimension_Change = False
+        props1.Dimension_Type = 'Note'
+        props1.Dimension_width_or_location = 'location'
+        props1.Dimension_startlocation = startvertex
+        props1.Dimension_liberty = '2D'
+        props1.Dimension_rotation = 0
+        props1.Dimension_parent = obj.name
+
+        props2 = layout.operator("curve.dimension", text = 'Add 3D note')
+        props2.Dimension_Change = False
+        props2.Dimension_Type = 'Note'
+        props2.Dimension_width_or_location = 'location'
+        props2.Dimension_startlocation = startvertex
+        props2.Dimension_liberty = '3D'
+        props2.Dimension_rotation = 0
+        props2.Dimension_parent = obj.name
+
+        props3 = layout.operator("curve.dimension", text = 'Add linear dimension')
+        props3.Dimension_Change = False
+        props3.Dimension_Type = 'Linear-1'
+        props3.Dimension_width_or_location = 'location'
+        props3.Dimension_startlocation = endvertex
+        props3.Dimension_endlocation = startvertex
+        props3.Dimension_liberty = '2D'
+        props3.Dimension_rotation = 0
+        props3.Dimension_parent = obj.name
+
+        props4 = layout.operator("curve.dimension", text = 'Add 3D dimension')
+        props4.Dimension_Change = False
+        props4.Dimension_Type = 'Linear-1'
+        props4.Dimension_width_or_location = 'location'
+        props4.Dimension_startlocation = endvertex
+        props4.Dimension_endlocation = startvertex
+        props4.Dimension_liberty = '3D'
+        props4.Dimension_rotation = 0
+        props4.Dimension_parent = obj.name
+
+        props7 = layout.operator("curve.dimension", text = 'Add linear radius')
+        props7.Dimension_Change = False
+        props7.Dimension_Type = 'Radius'
+        props7.Dimension_width_or_location = 'location'
+        props7.Dimension_startlocation = endvertex
+        props7.Dimension_endlocation = startvertex
+        props7.Dimension_liberty = '2D'
+        props7.Dimension_rotation = 0
+        props7.Dimension_parent = obj.name
+
+        props8 = layout.operator("curve.dimension", text = 'Add 3D radius')
+        props8.Dimension_Change = False
+        props8.Dimension_Type = 'Radius'
+        props8.Dimension_width_or_location = 'location'
+        props8.Dimension_startlocation = endvertex
+        props8.Dimension_endlocation = startvertex
+        props8.Dimension_liberty = '3D'
+        props8.Dimension_rotation = 0
+        props8.Dimension_parent = obj.name
+
+        props9 = layout.operator("curve.dimension", text = 'Add linear diameter')
+        props9.Dimension_Change = False
+        props9.Dimension_Type = 'Diameter'
+        props9.Dimension_width_or_location = 'location'
+        props9.Dimension_startlocation = endvertex
+        props9.Dimension_endlocation = startvertex
+        props9.Dimension_liberty = '2D'
+        props9.Dimension_rotation = 0
+        props9.Dimension_parent = obj.name
+
+        props10 = layout.operator("curve.dimension", text = 'Add 3D diameter')
+        props10.Dimension_Change = False
+        props10.Dimension_Type = 'Diameter'
+        props10.Dimension_width_or_location = 'location'
+        props10.Dimension_startlocation = endvertex
+        props10.Dimension_endlocation = startvertex
+        props10.Dimension_liberty = '3D'
+        props10.Dimension_rotation = 0
+        props10.Dimension_parent = obj.name
+
+    if len(vertex) == 2:
+        startvertex = vertex[0]
+        endvertex = vertex[1]
+        if endvertex[0] < startvertex[0]:
+            startvertex = vertex[1]
+            endvertex = vertex[0]
+
+        props1 = layout.operator("curve.dimension", text = 'Add linear dimension')
+        props1.Dimension_Change = False
+        props1.Dimension_Type = 'Linear-1'
+        props1.Dimension_width_or_location = 'location'
+        props1.Dimension_startlocation = startvertex
+        props1.Dimension_endlocation = endvertex
+        props1.Dimension_liberty = '2D'
+        props1.Dimension_rotation = 0
+        props1.Dimension_parent = obj.name
+
+        props2 = layout.operator("curve.dimension", text = 'Add 3D dimension')
+        props2.Dimension_Change = False
+        props2.Dimension_Type = 'Linear-1'
+        props2.Dimension_width_or_location = 'location'
+        props2.Dimension_startlocation = startvertex
+        props2.Dimension_endlocation = endvertex
+        props2.Dimension_liberty = '3D'
+        props2.Dimension_rotation = 0
+        props2.Dimension_parent = obj.name
+
+        props3 = layout.operator("curve.dimension", text = 'Add linear radius')
+        props3.Dimension_Change = False
+        props3.Dimension_Type = 'Radius'
+        props3.Dimension_width_or_location = 'location'
+        props3.Dimension_startlocation = startvertex
+        props3.Dimension_endlocation = endvertex
+        props3.Dimension_liberty = '2D'
+        props3.Dimension_rotation = 0
+        props3.Dimension_parent = obj.name
+
+        props4 = layout.operator("curve.dimension", text = 'Add 3D radius')
+        props4.Dimension_Change = False
+        props4.Dimension_Type = 'Radius'
+        props4.Dimension_width_or_location = 'location'
+        props4.Dimension_startlocation = startvertex
+        props4.Dimension_endlocation = endvertex
+        props4.Dimension_liberty = '3D'
+        props4.Dimension_rotation = 0
+        props4.Dimension_parent = obj.name
+
+        props5 = layout.operator("curve.dimension", text = 'Add linear diameter')
+        props5.Dimension_Change = False
+        props5.Dimension_Type = 'Diameter'
+        props5.Dimension_width_or_location = 'location'
+        props5.Dimension_startlocation = startvertex
+        props5.Dimension_endlocation = endvertex
+        props5.Dimension_liberty = '2D'
+        props5.Dimension_rotation = 0
+        props5.Dimension_parent = obj.name
+
+        props6 = layout.operator("curve.dimension", text = 'Add 3D diameter')
+        props6.Dimension_Change = False
+        props6.Dimension_Type = 'Diameter'
+        props6.Dimension_width_or_location = 'location'
+        props6.Dimension_startlocation = startvertex
+        props6.Dimension_endlocation = endvertex
+        props6.Dimension_liberty = '3D'
+        props6.Dimension_rotation = 0
+        props6.Dimension_parent = obj.name
+
+    if len(vertex) == 3:
+        startvertex = vertex[0]
+        endvertex = vertex[1]
+        endanglevertex = vertex[2]
+        if endvertex[0] < startvertex[0]:
+            startvertex = vertex[1]
+            endvertex = vertex[0]
+
+        props1 = layout.operator("curve.dimension", text = 'Add Linear angle dimension')
+        props1.Dimension_Change = False
+        props1.Dimension_Type = 'Angular1'
+        props1.Dimension_width_or_location = 'location'
+        props1.Dimension_startlocation = startvertex
+        props1.Dimension_endlocation = endvertex
+        props1.Dimension_endanglelocation = endanglevertex
+        props1.Dimension_liberty = '2D'
+        props1.Dimension_rotation = 0
+        props1.Dimension_parent = obj.name
+
+        props2 = layout.operator("curve.dimension", text = 'Add 3D angle dimension')
+        props2.Dimension_Change = False
+        props2.Dimension_Type = 'Angular1'
+        props2.Dimension_width_or_location = 'location'
+        props2.Dimension_startlocation = startvertex
+        props2.Dimension_endlocation = endvertex
+        props2.Dimension_endanglelocation = endanglevertex
+        props2.Dimension_liberty = '3D'
+        props2.Dimension_rotation = 0
+        props2.Dimension_parent = obj.name
 
 def Dimension_button(self, context):
     oper = self.layout.operator(Dimension.bl_idname, text = "Dimension", icon = "PLUGIN")
@@ -3178,17 +3015,29 @@ def Dimension_button(self, context):
     oper.Dimension_width_or_location = 'width'
     oper.Dimension_liberty = '2D'
 
+################################################################################
+##### REGISTER #####
+classes = [
+    Dimension,
+]
+
 def register():
-    bpy.utils.register_module(__name__)
+    from bpy.utils import register_class
+    for cls in classes:
+        register_class(cls)
 
     bpy.types.VIEW3D_MT_curve_add.append(Dimension_button)
-
-    DimensionVariables()
+    bpy.types.VIEW3D_MT_object_context_menu.prepend(Dimension_object_menu)
+    bpy.types.VIEW3D_MT_edit_mesh_context_menu.append(Dimension_edit_menu)
 
 def unregister():
-    bpy.utils.unregister_module(__name__)
-
+    bpy.types.VIEW3D_MT_edit_mesh_context_menu.remove(Dimension_edit_menu)
+    bpy.types.VIEW3D_MT_object_context_menu.remove(Dimension_object_menu)
     bpy.types.VIEW3D_MT_curve_add.remove(Dimension_button)
+    
+    from bpy.utils import unregister_class
+    for cls in reversed(classes):
+        unregister_class(cls)
 
 if __name__ == "__main__":
     register()

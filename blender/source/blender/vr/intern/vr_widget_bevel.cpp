@@ -15,10 +15,10 @@
 * along with this program; if not, write to the Free Software Foundation,
 * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 *
-* The Original Code is Copyright (C) 2018 by Blender Foundation.
+* The Original Code is Copyright (C) 2019 by Blender Foundation.
 * All rights reserved.
 *
-* Contributor(s): MARUI-PlugIn
+* Contributor(s): MARUI-PlugIn, Multiplexed Reality
 *
 * ***** END GPL LICENSE BLOCK *****
 */
@@ -83,7 +83,7 @@
 
 #include "vr_util.h"
 
-/***********************************************************************************************//**
+/***************************************************************************************************
  * \class									Widget_Bevel
  ***************************************************************************************************
  * Interaction widget for the Bevel tool.
@@ -479,8 +479,8 @@ void Widget_Bevel::drag_start(VR_UI::Cursor& c)
 	}
 
 	cursor_side = c.side;
-	p1 = p0 = *(Coord3Df*)c.interaction_position.get(VR_SPACE_REAL).m[3];
-	p1_b = p0_b = *(Coord3Df*)c.interaction_position.get(VR_SPACE_BLENDER).m[3];
+	p1 = p0 = *(Coord3Df*)c.position.get(VR_SPACE_REAL).m[3];
+	p1_b = p0_b = *(Coord3Df*)c.position.get(VR_SPACE_BLENDER).m[3];
 
 	/* Execute bevel operation */
 	edbm_bevel_init(C, &bevel_dummy_op, false);
@@ -506,7 +506,7 @@ void Widget_Bevel::drag_contd(VR_UI::Cursor& c)
 			return;
 		}
 		if (obedit->type == OB_MESH) {
-			bm = ((Mesh*)obedit->data)->edit_btmesh->bm;
+			bm = ((Mesh*)obedit->data)->edit_mesh->bm;
 			if (!bm) {
 				return;
 			}
@@ -591,5 +591,5 @@ void Widget_Bevel::render(VR_Side side)
 	immEnd();
 	immUnbindProgram();
 
-	//Widget_Bevel::obj.do_render[side] = false;
+	Widget_Bevel::obj.do_render[side] = false;
 }

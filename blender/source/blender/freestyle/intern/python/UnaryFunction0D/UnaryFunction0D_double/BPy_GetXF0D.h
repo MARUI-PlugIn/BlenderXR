@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup freestyle
+/** \file
+ * \ingroup freestyle
  */
 
 #ifndef __FREESTYLE_PYTHON_GETXF0D_H__
@@ -34,9 +35,8 @@ extern PyTypeObject GetXF0D_Type;
 
 /*---------------------------Python BPy_GetXF0D structure definition----------*/
 typedef struct {
-	BPy_UnaryFunction0DDouble py_uf0D_double;
+  BPy_UnaryFunction0DDouble py_uf0D_double;
 } BPy_GetXF0D;
-
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 

@@ -26,7 +26,7 @@ bl_info = {
     "location": "File > Import-Export",
     "description": "Import-Export OBJ, Import OBJ mesh, UV's, materials and textures",
     "warning": "",
-    "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/Scripts/Import-Export/Wavefront_OBJ",
+    "wiki_url": "https://docs.blender.org/manual/en/latest/addons/io_scene_obj.html",
     "support": 'OFFICIAL',
     "category": "Import-Export"}
 
@@ -203,11 +203,12 @@ class ExportOBJ(bpy.types.Operator, ExportHelper):
             description="Apply modifiers",
             default=True,
             )
-    use_mesh_modifiers_render: BoolProperty(
-            name="Use Modifiers Render Settings",
-            description="Use render settings when applying modifiers to mesh objects",
-            default=False,
-            )
+    # Non working in Blender 2.8 currently.
+    # ~ use_mesh_modifiers_render: BoolProperty(
+            # ~ name="Use Modifiers Render Settings",
+            # ~ description="Use render settings when applying modifiers to mesh objects",
+            # ~ default=False,
+            # ~ )
 
     # extra data group
     use_edges: BoolProperty(

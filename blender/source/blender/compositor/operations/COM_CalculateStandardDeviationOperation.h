@@ -1,6 +1,4 @@
 /*
- * Copyright 2011, Blender Foundation.
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,6 +12,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * Copyright 2011, Blender Foundation.
  */
 
 #ifndef __COM_CALCULATESTANDARDDEVIATIONOPERATION_H__
@@ -22,22 +22,22 @@
 #include "DNA_node_types.h"
 #include "COM_CalculateMeanOperation.h"
 /**
- * \brief base class of CalculateStandardDeviation, implementing the simple CalculateStandardDeviation
+ * \brief base class of CalculateStandardDeviation,
+ * implementing the simple CalculateStandardDeviation.
  * \ingroup operation
  */
 class CalculateStandardDeviationOperation : public CalculateMeanOperation {
-protected:
-	float m_standardDeviation;
+ protected:
+  float m_standardDeviation;
 
-public:
-	CalculateStandardDeviationOperation();
+ public:
+  CalculateStandardDeviationOperation();
 
-	/**
-	 * the inner loop of this program
-	 */
-	void executePixel(float output[4], int x, int y, void *data);
+  /**
+   * the inner loop of this program
+   */
+  void executePixel(float output[4], int x, int y, void *data);
 
-	void *initializeTileData(rcti *rect);
-
+  void *initializeTileData(rcti *rect);
 };
 #endif

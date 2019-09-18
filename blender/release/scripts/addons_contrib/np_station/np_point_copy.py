@@ -150,7 +150,7 @@ class NPPCGetContext(bpy.types.Operator):
         NP020PC.snap_target = copy.deepcopy(bpy.context.tool_settings.snap_target)
         NP020PC.pivot_point = copy.deepcopy(bpy.context.space_data.pivot_point)
         NP020PC.trans_orient = copy.deepcopy(bpy.context.space_data.transform_orientation)
-        NP020PC.curloc = copy.deepcopy(bpy.context.scene.cursor_location)
+        NP020PC.curloc = copy.deepcopy(bpy.context.scene.cursor.location)
         NP020PC.acob = bpy.context.active_object
         if bpy.context.mode == 'OBJECT':
             NP020PC.edit_mode = 'OBJECT'
@@ -819,7 +819,7 @@ class NPPCArrayTranslate(bpy.types.Operator):
                 ardict[ob][2] = count
             NP020PC.fit_type = ar.fit_type
             NP020PC.count = count
-            bpy.context.scene.update()
+            bpy.context.view_layer.update()
 
         elif event.ctrl and event.type == 'WHEELDOWNMOUSE' or event.type == 'DOWN_ARROW' and event.value == 'PRESS':
             for ob in arob:
@@ -840,7 +840,7 @@ class NPPCArrayTranslate(bpy.types.Operator):
                 ardict[ob][2] = count
             NP020PC.fit_type = ar.fit_type
             NP020PC.count = count
-            bpy.context.scene.update()
+            bpy.context.view_layer.update()
 
         elif event.type in ('RET', 'NUMPAD_ENTER') and event.value == 'PRESS':
             bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')

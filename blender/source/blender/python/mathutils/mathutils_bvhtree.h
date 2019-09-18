@@ -14,8 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-
-/** \file \ingroup mathutils
+/** \file
+ * \ingroup mathutils
  */
 
 #ifndef __MATHUTILS_BVHTREE_H__
@@ -25,7 +25,7 @@ PyMODINIT_FUNC PyInit_mathutils_bvhtree(void);
 
 extern PyTypeObject PyBVHTree_Type;
 
-#define PyBVHTree_Check(v)  PyObject_TypeCheck((v), &PyBVHTree_Type)
-#define PyBVHTree_CheckExact(v)  (Py_TYPE(v) == &PyBVHTree_Type)
+#define PyBVHTree_Check(v) PyObject_TypeCheck((v), &PyBVHTree_Type)
+#define PyBVHTree_CheckExact(v) (Py_TYPE(v) == &PyBVHTree_Type)
 
 #endif /* __MATHUTILS_BVHTREE_H__ */

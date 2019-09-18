@@ -15,10 +15,10 @@
 * along with this program; if not, write to the Free Software Foundation,
 * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 *
-* The Original Code is Copyright (C) 2018 by Blender Foundation.
+* The Original Code is Copyright (C) 2019 by Blender Foundation.
 * All rights reserved.
 *
-* Contributor(s): MARUI-PlugIn
+* Contributor(s): MARUI-PlugIn, Multiplexed Reality
 *
 * ***** END GPL LICENSE BLOCK *****
 */
@@ -39,7 +39,7 @@
 #include "vr_math.h"
 #include "vr_draw.h"
 
-/***********************************************************************************************//**
+/***************************************************************************************************
  * \class                                  Widget_Navi
  ***************************************************************************************************
  * Interaction widget for VR navigation.
@@ -104,13 +104,15 @@ void Widget_Navi::render_icon(const Mat44f& t, VR_Side controller_side, bool act
 	}
 }
 
-/***********************************************************************************************//**
+/***************************************************************************************************
  * \class                               Widget_Navi::GrabAir
  ***************************************************************************************************
  * Interaction widget for grabbing-the-air navigation.
  *
  **************************************************************************************************/
 Widget_Navi::GrabAir Widget_Navi::GrabAir::obj;
+
+bool Widget_Navi::GrabAir::elevation_change(false);
 
 void Widget_Navi::GrabAir::drag_start(VR_UI::Cursor& c)
 {
@@ -190,7 +192,7 @@ void Widget_Navi::GrabAir::drag_contd(VR_UI::Cursor& c)
 		prev = c.interaction_position.get(VR_SPACE_BLENDER);
 	}
 
-	if (VR_UI::ctrl_key_get() || Widget_Navi::nav_lock[1]) {
+	if (Widget_Navi::nav_lock[1]) {
 		/* Lock rotation */
 		switch (Widget_Navi::nav_lock[1]) {
 		case VR_UI::NAVLOCK_ROT_UP: {
@@ -198,7 +200,7 @@ void Widget_Navi::GrabAir::drag_contd(VR_UI::Cursor& c)
 			if (!VR_UI::is_zaxis_up()) {
 				up = Coord3Df(0.0f, 1.0f, 0.0f);
 			}
-			else { /* z is up : */
+			else { /* z is up */
 				up = Coord3Df(0.0f, 0.0f, 1.0f);
 			}
 			VR_Math::orient_matrix_z(curr, up);
@@ -241,7 +243,7 @@ void Widget_Navi::GrabAir::drag_contd(VR_UI::Cursor& c)
 		}
 		}
 	}
-	if (VR_UI::shift_key_get() || Widget_Navi::nav_lock[2]) {
+	if (Widget_Navi::nav_lock[2]) {
 		/* Lock scale */
 		switch (Widget_Navi::nav_lock[2]) {
 		case VR_UI::NAVLOCK_SCALE_REAL: {
@@ -295,6 +297,7 @@ void Widget_Navi::GrabAir::drag_stop(VR_UI::Cursor& c)
 		/* ALSO: the other hand should start one-hand manipulating from here: */
 		c.other_hand->interaction_position.set(((Mat44f)VR_UI::cursor_position_get(VR_SPACE_REAL, other->side)).m, VR_SPACE_REAL);
 	}
+	elevation_change = false;
 }
 
 void Widget_Navi::GrabAir::render_icon(const Mat44f& t, VR_Side controller_side, bool active, bool touched)
@@ -315,10 +318,10 @@ void Widget_Navi::GrabAir::render_icon(const Mat44f& t, VR_Side controller_side,
 	VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::nav_grabair_tex);
 }
 
-/***********************************************************************************************//**
+/***************************************************************************************************
  * \class                               Widget_Navi::Joystick
  ***************************************************************************************************
- * Interaction widget for joystick-style-navigation.
+ * Interaction widget for joystick-style navigation.
  *
  **************************************************************************************************/
 Widget_Navi::Joystick Widget_Navi::Joystick::obj;
@@ -326,6 +329,9 @@ Widget_Navi::Joystick Widget_Navi::Joystick::obj;
 float Widget_Navi::Joystick::move_speed(1.0f);
 float Widget_Navi::Joystick::turn_speed(0.4f);
 float Widget_Navi::Joystick::zoom_speed(1.0f);
+
+float Widget_Navi::Joystick::move_speed_directional(0.06f);
+float Widget_Navi::Joystick::turn_speed_directional(0.03f);
 
 void Widget_Navi::Joystick::drag_start(VR_UI::Cursor& c)
 {
@@ -341,102 +347,99 @@ void Widget_Navi::Joystick::drag_contd(VR_UI::Cursor& c)
 	const Mat44f& curr = c.position.get(VR_SPACE_REAL);
 
 	static Mat44f delta;
+	delta = VR_Math::identity_f;
 
-	if (vr_get_obj()->ui_type == VR_UI_TYPE_FOVE) {
-		/* Move in forward direction of eye cursor. */
+	if (vr_get_obj()->device_type == VR_DEVICE_TYPE_FOVE) {
 		Coord3Df v;
-		if (VR_UI::cursor_offset_enabled) {
-			/* Maybe we actually want to use the cursor position instead of the controller (gaze convergence) position, 
-			 * but for now disable it because it makes joystick navigation difficult. */
-			v = *(Coord3Df*)(vr_get_obj()->t_controller[VR_SPACE_REAL][VR_SIDE_MONO][3]) - *(Coord3Df*)hmd.m[3];
-		}
-		else {
-			v = *(Coord3Df*)curr.m[3] - *(Coord3Df*)hmd.m[3];
-		}
-		v.normalize_in_place();
-		delta = VR_Math::identity_f;
-		delta.m[3][0] = -v.x * 0.1f * move_speed;
-		delta.m[3][1] = -v.y * 0.1f * move_speed;
-		if (VR_UI::ctrl_key_get()) {
-			delta.m[3][2] = -v.z * 0.1f * move_speed;
-		}
-		else {
-			delta.m[3][2] = 0;
+		if (Widget_Navi::nav_lock[0] != VR_UI::NAVLOCK_TRANS) {
+			/* Move in forward direction of eye cursor. */
+			if (VR_UI::cursor_offset_enabled) {
+				/* Maybe we actually want to use the cursor position instead of the controller (gaze convergence) position,
+				 * but for now disable it because it makes joystick navigation difficult. */
+				v = *(Coord3Df*)(vr_get_obj()->t_controller[VR_SPACE_REAL][VR_SIDE_MONO][3]) - *(Coord3Df*)hmd.m[3];
+			}
+			else {
+				v = *(Coord3Df*)curr.m[3] - *(Coord3Df*)hmd.m[3];
+			}
+			v.normalize_in_place();
+			delta.m[3][0] = -v.x * 0.1f * move_speed;
+			delta.m[3][1] = -v.y * 0.1f * move_speed;
+			if (VR_UI::ctrl_key_get() && (Widget_Navi::nav_lock[0] != VR_UI::NAVLOCK_TRANS_UP)) {
+				delta.m[3][2] = -v.z * 0.1f * move_speed;
+			}
 		}
 
-		/* Apply rotation around z-axis (if any). */
-		Coord3Df hmd_right = *(Coord3Df*)hmd.m[0];
-		/* flatten on z-(up)-plane */
-		v.z = 0;
-		hmd_right.z = 0;
-		float a = v.angle(hmd_right);
-		if (a < 0.36f * PI) {
-			a *= -a * 0.1f * turn_speed;
-			float cos_a = cos(a);
-			float sin_a = sin(a);
-			/* get angle between and apply to navigation z-rotation */
-			delta.m[0][0] = delta.m[1][1] = cos_a;
-			delta.m[1][0] = sin_a;
-			delta.m[0][1] = -sin_a;
-			delta.m[3][0] += cos_a * hmd.m[3][0] - sin_a * hmd.m[3][1] - hmd.m[3][0]; /* rotate around HMD/POV: */
-			delta.m[3][1] += cos_a * hmd.m[3][1] + sin_a * hmd.m[3][0] - hmd.m[3][1]; /* use HMD position as rotation pivot */
-			delta.m[2][2] = 1;
-			delta.m[3][3] = 1;
-		}
-		else if (a > 0.64f * PI) {
-			a *= a * 0.02f * turn_speed;
-			float cos_a = cos(a);
-			float sin_a = sin(a);
-			/* get angle between and apply to navigation z-rotation */
-			delta.m[0][0] = delta.m[1][1] = cos_a;
-			delta.m[1][0] = sin_a;
-			delta.m[0][1] = -sin_a;
-			delta.m[3][0] += cos_a * hmd.m[3][0] - sin_a * hmd.m[3][1] - hmd.m[3][0]; /* rotate around HMD/POV: */
-			delta.m[3][1] += cos_a * hmd.m[3][1] + sin_a * hmd.m[3][0] - hmd.m[3][1]; /* use HMD position as rotation pivot */
-			delta.m[2][2] = 1;
-			delta.m[3][3] = 1;
+		if (Widget_Navi::nav_lock[1] != VR_UI::NAVLOCK_ROT) {
+			/* Apply rotation around z-axis (if any). */
+			Coord3Df hmd_right = *(Coord3Df*)hmd.m[0];
+			/* flatten on z-(up)-plane */
+			v.z = 0.0f;
+			hmd_right.z = 0.0f;
+			float a = v.angle(hmd_right);
+			if (a < 0.36f * PI) {
+				a *= -a * 0.1f * turn_speed;
+				float cos_a = cos(a);
+				float sin_a = sin(a);
+				/* get angle between and apply to navigation z-rotation */
+				delta.m[0][0] = delta.m[1][1] = cos_a;
+				delta.m[1][0] = sin_a;
+				delta.m[0][1] = -sin_a;
+				delta.m[3][0] += cos_a * hmd.m[3][0] - sin_a * hmd.m[3][1] - hmd.m[3][0]; /* rotate around HMD/POV: */
+				delta.m[3][1] += cos_a * hmd.m[3][1] + sin_a * hmd.m[3][0] - hmd.m[3][1]; /* use HMD position as rotation pivot */
+			}
+			else if (a > 0.64f * PI) {
+				a *= a * 0.02f * turn_speed;
+				float cos_a = cos(a);
+				float sin_a = sin(a);
+				/* get angle between and apply to navigation z-rotation */
+				delta.m[0][0] = delta.m[1][1] = cos_a;
+				delta.m[1][0] = sin_a;
+				delta.m[0][1] = -sin_a;
+				delta.m[3][0] += cos_a * hmd.m[3][0] - sin_a * hmd.m[3][1] - hmd.m[3][0]; /* rotate around HMD/POV: */
+				delta.m[3][1] += cos_a * hmd.m[3][1] + sin_a * hmd.m[3][0] - hmd.m[3][1]; /* use HMD position as rotation pivot */
+			}
 		}
 
 		VR_UI::navigation_apply_transformation(delta, VR_SPACE_REAL);
 		return;
 	}
 	
-	delta.m[3][0] = curr.m[3][0] - c.reference.m[3][0];
-	delta.m[3][0] = delta.m[3][0] * fabsf(delta.m[3][0]) * -1.0f * move_speed;
-	delta.m[3][1] = curr.m[3][1] - c.reference.m[3][1];
-	delta.m[3][1] = delta.m[3][1] * fabsf(delta.m[3][1]) * -1.0f * move_speed;
-	if (VR_UI::ctrl_key_get()) {
-		delta.m[3][2] = curr.m[3][2] - c.reference.m[3][2];
-		delta.m[3][2] = delta.m[3][2] * fabsf(delta.m[3][2]) * -1.0f * move_speed;
+	if (Widget_Navi::nav_lock[0] != VR_UI::NAVLOCK_TRANS) {
+		delta.m[3][0] = curr.m[3][0] - c.reference.m[3][0];
+		delta.m[3][0] = delta.m[3][0] * fabsf(delta.m[3][0]) * -1.0f * move_speed;
+		delta.m[3][1] = curr.m[3][1] - c.reference.m[3][1];
+		delta.m[3][1] = delta.m[3][1] * fabsf(delta.m[3][1]) * -1.0f * move_speed;
+		if ((VR_UI::ctrl_key_get() || VR_UI::ui_type == VR_DEVICE_TYPE_MAGICLEAP) && 
+			(Widget_Navi::nav_lock[0] != VR_UI::NAVLOCK_TRANS_UP)) {
+			delta.m[3][2] = curr.m[3][2] - c.reference.m[3][2];
+			delta.m[3][2] = delta.m[3][2] * fabsf(delta.m[3][2]) * -1.0f * move_speed;
+		}
 	}
-	else {
-		delta.m[3][2] = 0;
+
+	if (Widget_Navi::nav_lock[1] != VR_UI::NAVLOCK_ROT) {
+		/* rotation from front-facing y-axis */
+		Coord3Df y0(c.reference.m[1][0], c.reference.m[1][1], c.reference.m[1][2]);
+		Coord3Df y1(curr.m[1][0], curr.m[1][1], curr.m[1][2]);
+
+		/* flatten on z-(up)-plane */
+		y0.z = 0.0f;
+		y1.z = 0.0f;
+		float a = y0.angle(y1);
+		a *= a * 0.1f * turn_speed;
+
+		/* get rotation direction */
+		Coord3Df z = y0 ^ y1; /* cross product will be up if anti-clockwise, down if clockwise */
+		if (z.z < 0.0f) a = -a;
+		float cos_a = cos(a);
+		float sin_a = sin(a);
+
+		/* get angle between and apply to navigation z-rotation */
+		delta.m[0][0] = delta.m[1][1] = cos_a;
+		delta.m[1][0] = sin_a;
+		delta.m[0][1] = -sin_a;
+		delta.m[3][0] += cos_a * hmd.m[3][0] - sin_a * hmd.m[3][1] - hmd.m[3][0]; /* rotate around HMD/POV: */
+		delta.m[3][1] += cos_a * hmd.m[3][1] + sin_a * hmd.m[3][0] - hmd.m[3][1]; /* use HMD position as rotation pivot */
 	}
-
-	/* rotation from front-facing y-axis */
-	Coord3Df y0(c.reference.m[1][0], c.reference.m[1][1], c.reference.m[1][2]);
-	Coord3Df y1(curr.m[1][0], curr.m[1][1], curr.m[1][2]);
-
-	/* flatten on z-(up)-plane */
-	y0.z = 0;
-	y1.z = 0;
-	float a = y0.angle(y1);
-	a *= a * 0.1f * turn_speed;
-
-	/* get rotation direction */
-	Coord3Df z = y0 ^ y1; /* cross product will be up if anti-clockwise, down if clockwise */
-	if (z.z < 0) a = -a;
-	float cos_a = cos(a);
-	float sin_a = sin(a);
-
-	/* get angle between and apply to navigation z-rotation */
-	delta.m[0][0] = delta.m[1][1] = cos_a;
-	delta.m[1][0] = sin_a;
-	delta.m[0][1] = -sin_a;
-	delta.m[3][0] += cos_a * hmd.m[3][0] - sin_a * hmd.m[3][1] - hmd.m[3][0]; /* rotate around HMD/POV: */
-	delta.m[3][1] += cos_a * hmd.m[3][1] + sin_a * hmd.m[3][0] - hmd.m[3][1]; /* use HMD position as rotation pivot */
-	delta.m[2][2] = 1;
-	delta.m[3][3] = 1;
 
 	/* Apply with HMD as pivot */
 	VR_UI::navigation_apply_transformation(delta, VR_SPACE_REAL);
@@ -465,7 +468,7 @@ void Widget_Navi::Joystick::render_icon(const Mat44f& t, VR_Side controller_side
 	VR_Draw::render_rect(-0.009f, 0.009f, 0.009f, -0.009f, 0.001f, 1.0f, 1.0f, VR_Draw::nav_joystick_tex);
 }
 
-/***********************************************************************************************//**
+/***************************************************************************************************
  * \class                               Widget_Navi::Teleport
  ***************************************************************************************************
  * Interaction widget for teleport navigation.
@@ -473,17 +476,19 @@ void Widget_Navi::Joystick::render_icon(const Mat44f& t, VR_Side controller_side
  **************************************************************************************************/
 Widget_Navi::Teleport Widget_Navi::Teleport::obj;
 
-Mat44f Widget_Navi::Teleport::arrow;
-
+Mat44f Widget_Navi::Teleport::marker;
 bool Widget_Navi::Teleport::cancel(false);
+
+float Widget_Navi::Teleport::move_speed_directional(0.12f);
+float Widget_Navi::Teleport::turn_speed_directional(0.06f);
 
 void Widget_Navi::Teleport::drag_start(VR_UI::Cursor& c)
 {
 	/* Remember where we started from in navigation space */
 	c.interaction_position = c.position;
 	c.reference = c.position.get(VR_SPACE_REAL);
-	arrow = VR_Math::identity_f;
-	memcpy(arrow.m[3], c.reference.m[3], sizeof(float) * 4);
+	marker = VR_Math::identity_f;
+	memcpy(marker.m[3], c.reference.m[3], sizeof(float) * 4);
 
 	cancel = false;
 }
@@ -494,23 +499,24 @@ void Widget_Navi::Teleport::drag_contd(VR_UI::Cursor& c)
 		cancel = true;
 	}
 
-	if (!cancel) {
+	if (!cancel && Widget_Navi::nav_lock[0] != VR_UI::NAVLOCK_TRANS) {
 		const Mat44f& curr = c.position.get(VR_SPACE_REAL);
-
 		static Mat44f delta = VR_Math::identity_f;
+
 		delta.m[3][0] = curr.m[3][0] - c.reference.m[3][0];
 		delta.m[3][0] = delta.m[3][0] * fabsf(delta.m[3][0]);
 		delta.m[3][1] = curr.m[3][1] - c.reference.m[3][1];
 		delta.m[3][1] = delta.m[3][1] * fabsf(delta.m[3][1]);
-		if (!VR_UI::shift_key_get()) {
+		
+		if (VR_UI::shift_key_get() || (Widget_Navi::nav_lock[0] == VR_UI::NAVLOCK_TRANS_UP)) {
+			delta.m[3][2] = 0;
+		}
+		else {
 			delta.m[3][2] = curr.m[3][2] - c.reference.m[3][2];
 			delta.m[3][2] = delta.m[3][2] * fabsf(delta.m[3][2]);
 		}
-		else {
-			delta.m[3][2] = 0;
-		}
 
-		arrow = delta * arrow;
+		marker = delta * marker;
 
 		for (int i = 0; i < VR_SIDES; ++i) {
 			Widget_Navi::Teleport::obj.do_render[i] = true;
@@ -528,7 +534,7 @@ void Widget_Navi::Teleport::drag_stop(VR_UI::Cursor& c)
 		static Mat44f reference = VR_Math::identity_f;
 		memcpy(reference.m[3], c.reference.m[3], sizeof(float) * 4);
 
-		VR_UI::navigation_apply_transformation(arrow.inverse() * reference, VR_SPACE_REAL);
+		VR_UI::navigation_apply_transformation(marker.inverse() * reference, VR_SPACE_REAL);
 	}
 }
 
@@ -553,7 +559,7 @@ void Widget_Navi::Teleport::render_icon(const Mat44f& t, VR_Side controller_side
 void Widget_Navi::Teleport::render(VR_Side side)
 {
 	const Mat44f& prior_model_matrix = VR_Draw::get_model_matrix();
-	VR_Draw::update_modelview_matrix(&arrow, 0);
+	VR_Draw::update_modelview_matrix(&marker, 0);
 
 	VR_Draw::set_depth_test(false, false);
 	VR_Draw::set_color(0.0f, 0.7f, 1.0f, 0.1f);

@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup freestyle
+/** \file
+ * \ingroup freestyle
  */
 
 #ifndef __FREESTYLE_PYTHON_CURVENATUREF0D_H__
@@ -30,13 +31,13 @@ extern "C" {
 
 extern PyTypeObject CurveNatureF0D_Type;
 
-#define BPy_CurveNatureF0D_Check(v) (PyObject_IsInstance((PyObject *)v, (PyObject *)&CurveNatureF0D_Type))
+#define BPy_CurveNatureF0D_Check(v) \
+  (PyObject_IsInstance((PyObject *)v, (PyObject *)&CurveNatureF0D_Type))
 
 /*---------------------------Python BPy_CurveNatureF0D structure definition----------*/
 typedef struct {
-	BPy_UnaryFunction0DEdgeNature py_uf0D_edgenature;
+  BPy_UnaryFunction0DEdgeNature py_uf0D_edgenature;
 } BPy_CurveNatureF0D;
-
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 

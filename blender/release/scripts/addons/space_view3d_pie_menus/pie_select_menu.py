@@ -31,12 +31,16 @@ bl_info = {
     }
 
 import bpy
-from bpy.types import Menu
+from bpy.types import (
+    Menu,
+    Operator
+)
+
 
 
 # Pie Selection Object Mode - A
-class PieSelectionsMore(Menu):
-    bl_idname = "pie.selectionsmore"
+class PIE_MT_SelectionsMore(Menu):
+    bl_idname = "PIE_MT_selectionsmore"
     bl_label = "Pie Selections Object Mode"
 
     def draw(self, context):
@@ -50,8 +54,8 @@ class PieSelectionsMore(Menu):
 
 
 # Pie Selection Object Mode - A
-class PieSelectionsOM(Menu):
-    bl_idname = "pie.selectionsom"
+class PIE_MT_SelectionsOM(Menu):
+    bl_idname = "PIE_MT_selectionsom"
     bl_label = "Pie Selections Object Mode"
 
     def draw(self, context):
@@ -74,12 +78,12 @@ class PieSelectionsOM(Menu):
         # 1 - BOTTOM - LEFT
         pie.operator("object.select_camera", text="Select Camera", icon='CAMERA_DATA')
         # 3 - BOTTOM - RIGHT
-        pie.menu("pie.selectionsmore", text="Select Menu", icon='RESTRICT_SELECT_OFF')
+        pie.menu("PIE_MT_selectionsmore", text="Select Menu", icon='RESTRICT_SELECT_OFF')
 
 
 # Pie Selection Edit Mode
-class PieSelectionsEM(Menu):
-    bl_idname = "pie.selectionsem"
+class PIE_MT_SelectionsEM(Menu):
+    bl_idname = "PIE_MT_selectionsem"
     bl_label = "Pie Selections Edit Mode"
 
     def draw(self, context):
@@ -89,7 +93,7 @@ class PieSelectionsEM(Menu):
         pie.operator("view3d.select_box", text="Box Select",
                     icon='NONE')
         # 6 - RIGHT
-        pie.menu("object.selectloopselection", text="Select Loop Menu", icon='LOOPSEL')
+        pie.menu("OBJECT_MT_selectloopselection", text="Select Loop Menu", icon='NONE')
         # 2 - BOTTOM
         pie.operator("mesh.select_all", text="Select None",
                     icon='RESTRICT_SELECT_ON').action = 'DESELECT'
@@ -106,12 +110,93 @@ class PieSelectionsEM(Menu):
         pie.operator("view3d.select_circle", text="Circle Select",
                     icon='NONE')
         # 3 - BOTTOM - RIGHT
-        pie.menu("object.selectallbyselection", text="Multi Select Menu", icon='SNAP_EDGE')
+        pie.menu("PIE_MT_selectallbyselection", text="Edit Modes", icon='VERTEXSEL')
 
 
 # Select All By Selection
-class SelectAllBySelection(Menu):
-    bl_idname = "object.selectallbyselection"
+class PIE_MT_SelectAllBySelection(Menu):
+    bl_idname = "PIE_MT_selectallbyselection"
+    bl_label = "Verts Edges Faces"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def draw(self, context):
+        layout = self.layout
+        pie = layout.menu_pie()
+        box = pie.split().column()
+
+        box.operator("class.vertexop", text="Vertex", icon='VERTEXSEL')
+        box.operator("class.edgeop", text="Edge", icon='EDGESEL')
+        box.operator("class.faceop", text="Face", icon='FACESEL')
+        box.operator("verts.edgesfacesop", text="Vertex/Edges/Faces", icon='OBJECT_DATAMODE')
+
+
+# Edit Selection Modes
+class PIE_OT_classvertexop(Operator):
+    bl_idname = "class.vertexop"
+    bl_label = "Class Vertex"
+    bl_description = "Vert Select Mode"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        if context.object.mode != "EDIT":
+            bpy.ops.object.mode_set(mode="EDIT")
+            bpy.ops.mesh.select_mode(use_extend=False, use_expand=False, type='VERT')
+        if bpy.ops.mesh.select_mode != "EDGE, FACE":
+            bpy.ops.mesh.select_mode(use_extend=False, use_expand=False, type='VERT')
+            return {'FINISHED'}
+
+
+class PIE_OT_classedgeop(Operator):
+    bl_idname = "class.edgeop"
+    bl_label = "Class Edge"
+    bl_description = "Edge Select Mode"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        if context.object.mode != "EDIT":
+            bpy.ops.object.mode_set(mode="EDIT")
+            bpy.ops.mesh.select_mode(use_extend=False, use_expand=False, type='EDGE')
+        if bpy.ops.mesh.select_mode != "VERT, FACE":
+            bpy.ops.mesh.select_mode(use_extend=False, use_expand=False, type='EDGE')
+            return {'FINISHED'}
+
+
+class PIE_OT_classfaceop(Operator):
+    bl_idname = "class.faceop"
+    bl_label = "Class Face"
+    bl_description = "Face Select Mode"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        if context.object.mode != "EDIT":
+            bpy.ops.object.mode_set(mode="EDIT")
+            bpy.ops.mesh.select_mode(use_extend=False, use_expand=False, type='FACE')
+        if bpy.ops.mesh.select_mode != "VERT, EDGE":
+            bpy.ops.mesh.select_mode(use_extend=False, use_expand=False, type='FACE')
+            return {'FINISHED'}
+
+
+# Combined Selection Mode
+class PIE_OT_vertsedgesfacesop(Operator):
+    bl_idname = "verts.edgesfacesop"
+    bl_label = "Verts Edges Faces"
+    bl_description = "Vert/Edge/Face Select Mode"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        if context.object.mode != "EDIT":
+            bpy.ops.object.mode_set(mode="EDIT")
+            bpy.ops.mesh.select_mode(use_extend=False, use_expand=False, type='VERT')
+        if bpy.ops.mesh.select_mode != "VERT, EDGE, FACE":
+            bpy.ops.object.mode_set(mode="EDIT")
+            bpy.ops.mesh.select_mode(use_extend=False, use_expand=False, type='VERT')
+            bpy.ops.mesh.select_mode(use_extend=True, use_expand=False, type='EDGE')
+            bpy.ops.mesh.select_mode(use_extend=True, use_expand=False, type='FACE')
+            return {'FINISHED'}
+
+
+class PIE_MT_SelectLoopSelection(Menu):
+    bl_idname = "OBJECT_MT_selectloopselection"
     bl_label = "Verts Edges Faces"
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -119,48 +204,21 @@ class SelectAllBySelection(Menu):
         layout = self.layout
         layout.operator_context = 'INVOKE_REGION_WIN'
 
-        prop = layout.operator("wm.context_set_value", text="Vertex Select",
-                               icon='VERTEXSEL')
-        prop.value = "(True, False, False)"
-        prop.data_path = "tool_settings.mesh_select_mode"
-
-        prop = layout.operator("wm.context_set_value", text="Edge Select",
-                               icon='EDGESEL')
-        prop.value = "(False, True, False)"
-        prop.data_path = "tool_settings.mesh_select_mode"
-
-        prop = layout.operator("wm.context_set_value", text="Face Select",
-                               icon='FACESEL')
-        prop.value = "(False, False, True)"
-        prop.data_path = "tool_settings.mesh_select_mode"
-
-        prop = layout.operator("wm.context_set_value",
-                               text="Vertex & Edge & Face Select",
-                               icon='SNAP_VOLUME')
-        prop.value = "(True, True, True)"
-        prop.data_path = "tool_settings.mesh_select_mode"
-
-
-class SelectLoopSelection(Menu):
-    bl_idname = "object.selectloopselection"
-    bl_label = "Verts Edges Faces"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    def draw(self, context):
-        layout = self.layout
-        layout.operator_context = 'INVOKE_REGION_WIN'
-
-        layout.operator("mesh.loop_multi_select", text="Select Loop", icon='LOOPSEL').ring = False
-        layout.operator("mesh.loop_multi_select", text="Select Ring", icon='EDGESEL').ring = True
-        layout.operator("mesh.loop_to_region", text="Select Loop Inner Region", icon='FACESEL')
+        layout.operator("mesh.loop_multi_select", text="Select Loop", icon='NONE').ring = False
+        layout.operator("mesh.loop_multi_select", text="Select Ring", icon='NONE').ring = True
+        layout.operator("mesh.loop_to_region", text="Select Loop Inner Region", icon='NONE')
 
 
 classes = (
-    PieSelectionsOM,
-    PieSelectionsEM,
-    SelectAllBySelection,
-    PieSelectionsMore,
-    SelectLoopSelection,
+    PIE_MT_SelectionsOM,
+    PIE_MT_SelectionsEM,
+    PIE_MT_SelectAllBySelection,
+    PIE_MT_SelectionsMore,
+    PIE_MT_SelectLoopSelection,
+    PIE_OT_classvertexop,
+    PIE_OT_classedgeop,
+    PIE_OT_classfaceop,
+    PIE_OT_vertsedgesfacesop
     )
 
 addon_keymaps = []
@@ -175,13 +233,13 @@ def register():
         # Selection Object Mode
         km = wm.keyconfigs.addon.keymaps.new(name='Object Mode')
         kmi = km.keymap_items.new('wm.call_menu_pie', 'A', 'PRESS')
-        kmi.properties.name = "pie.selectionsom"
+        kmi.properties.name = "PIE_MT_selectionsom"
         addon_keymaps.append((km, kmi))
 
         # Selection Edit Mode
         km = wm.keyconfigs.addon.keymaps.new(name='Mesh')
         kmi = km.keymap_items.new('wm.call_menu_pie', 'A', 'PRESS')
-        kmi.properties.name = "pie.selectionsem"
+        kmi.properties.name = "PIE_MT_selectionsem"
         addon_keymaps.append((km, kmi))
 
 

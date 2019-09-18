@@ -18,7 +18,6 @@
 
 # <pep8 compliant>
 
-import bpy
 from bpy.types import (
     Panel,
 )
@@ -140,7 +139,7 @@ class PHYSICS_PT_rigid_body_constraint_limits(PHYSICS_PT_rigidbody_constraint_pa
         return (ob and rbc and (rbc.type in {'GENERIC', 'GENERIC_SPRING', 'HINGE', 'SLIDER', 'PISTON'})
                 and context.engine in cls.COMPAT_ENGINES)
 
-    def draw(self, context):
+    def draw(self, _context):
         return  # do nothing.
 
 
@@ -280,7 +279,7 @@ class PHYSICS_PT_rigid_body_constraint_motor(PHYSICS_PT_rigidbody_constraint_pan
         return (ob and rbc and rbc.type == 'MOTOR'
                 and context.engine in cls.COMPAT_ENGINES)
 
-    def draw(self, context):
+    def draw(self, _context):
         return  # do nothing.
 
 
@@ -367,7 +366,7 @@ class PHYSICS_PT_rigid_body_constraint_springs(PHYSICS_PT_rigidbody_constraint_p
         rbc = ob.rigid_body_constraint
 
         return (ob and ob.rigid_body_constraint
-                and rbc.type in {'GENERIC_SPRING'}
+                and rbc.type == 'GENERIC_SPRING'
                 and context.engine in cls.COMPAT_ENGINES)
 
     def draw(self, context):
@@ -391,7 +390,7 @@ class PHYSICS_PT_rigid_body_constraint_springs_angular(PHYSICS_PT_rigidbody_cons
         rbc = ob.rigid_body_constraint
 
         return (ob and ob.rigid_body_constraint
-                and rbc.type in {'GENERIC_SPRING'}
+                and rbc.type == 'GENERIC_SPRING'
                 and context.engine in cls.COMPAT_ENGINES)
 
     def draw(self, context):
@@ -439,7 +438,7 @@ class PHYSICS_PT_rigid_body_constraint_springs_linear(PHYSICS_PT_rigidbody_const
         rbc = ob.rigid_body_constraint
 
         return (ob and ob.rigid_body_constraint
-                and rbc.type in {'GENERIC_SPRING'}
+                and rbc.type == 'GENERIC_SPRING'
                 and context.engine in cls.COMPAT_ENGINES)
 
     def draw(self, context):

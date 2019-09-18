@@ -17,13 +17,11 @@
  * All rights reserved.
  */
 
-/** \file \ingroup depsgraph
+/** \file
+ * \ingroup depsgraph
  */
 
 #include "intern/builder/deg_builder_map.h"
-
-#include "BLI_utildefines.h"
-#include "BLI_ghash.h"
 
 #include "DNA_ID.h"
 
@@ -31,32 +29,46 @@ namespace DEG {
 
 BuilderMap::BuilderMap()
 {
-	set = BLI_gset_ptr_new("deg builder gset");
 }
 
 BuilderMap::~BuilderMap()
 {
-	BLI_gset_free(set, NULL);
 }
 
-bool BuilderMap::checkIsBuilt(ID *id)
+bool BuilderMap::checkIsBuilt(ID *id, int tag) const
 {
-	return BLI_gset_haskey(set, id);
+  return (getIDTag(id) & tag) == tag;
 }
 
-void BuilderMap::tagBuild(ID *id)
+void BuilderMap::tagBuild(ID *id, int tag)
 {
-	BLI_gset_insert(set, id);
+  IDTagMap::iterator it = id_tags_.find(id);
+  if (it == id_tags_.end()) {
+    id_tags_.insert(make_pair(id, tag));
+    return;
+  }
+  it->second |= tag;
 }
 
-bool BuilderMap::checkIsBuiltAndTag(ID *id)
+bool BuilderMap::checkIsBuiltAndTag(ID *id, int tag)
 {
-	void **key_p;
-	if (!BLI_gset_ensure_p_ex(set, id, &key_p)) {
-		*key_p = id;
-		return false;
-	}
-	return true;
+  IDTagMap::iterator it = id_tags_.find(id);
+  if (it == id_tags_.end()) {
+    id_tags_.insert(make_pair(id, tag));
+    return false;
+  }
+  const bool result = (it->second & tag) == tag;
+  it->second |= tag;
+  return result;
+}
+
+int BuilderMap::getIDTag(ID *id) const
+{
+  IDTagMap::const_iterator it = id_tags_.find(id);
+  if (it == id_tags_.end()) {
+    return 0;
+  }
+  return it->second;
 }
 
 }  // namespace DEG

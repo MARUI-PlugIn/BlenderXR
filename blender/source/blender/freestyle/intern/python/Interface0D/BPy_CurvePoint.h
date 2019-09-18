@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup freestyle
+/** \file
+ * \ingroup freestyle
  */
 
 #ifndef __FREESTYLE_PYTHON_CURVEPOINT_H__
@@ -36,8 +37,8 @@ extern PyTypeObject CurvePoint_Type;
 
 /*---------------------------Python BPy_CurvePoint structure definition----------*/
 typedef struct {
-	BPy_Interface0D py_if0D;
-	CurvePoint *cp;
+  BPy_Interface0D py_if0D;
+  CurvePoint *cp;
 } BPy_CurvePoint;
 
 ///////////////////////////////////////////////////////////////////////////////////////////

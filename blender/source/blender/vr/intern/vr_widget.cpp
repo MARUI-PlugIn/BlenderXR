@@ -15,10 +15,10 @@
 * along with this program; if not, write to the Free Software Foundation,
 * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 *
-* The Original Code is Copyright (C) 2018 by Blender Foundation.
+* The Original Code is Copyright (C) 2019 by Blender Foundation.
 * All rights reserved.
 *
-* Contributor(s): MARUI-PlugIn
+* Contributor(s): MARUI-PlugIn, Multiplexed Reality
 *
 * ***** END GPL LICENSE BLOCK *****
 */
@@ -34,10 +34,12 @@
 
 #include "vr_main.h"
 #include "vr_ui.h"
+#include "vr_layout.h"
 
 #include "vr_widget.h"
 #include "vr_widget_alt.h"
 #include "vr_widget_addprimitive.h"
+#include "vr_widget_animation.h"
 #include "vr_widget_annotate.h"
 #include "vr_widget_bevel.h"
 #include "vr_widget_ctrl.h"
@@ -49,12 +51,12 @@
 #include "vr_widget_insetfaces.h"
 #include "vr_widget_join.h"
 #include "vr_widget_knife.h"
-#include "vr_widget_layout.h"
 #include "vr_widget_loopcut.h"
 #include "vr_widget_measure.h"
 #include "vr_widget_menu.h"
 #include "vr_widget_navi.h"
 #include "vr_widget_redo.h"
+#include "vr_widget_sculpt.h"
 #include "vr_widget_shift.h"
 #include "vr_widget_select.h"
 #include "vr_widget_separate.h"
@@ -144,6 +146,10 @@ VR_Widget* VR_Widget::get_widget(Type type, const char* ident)
 		return &Widget_LoopCut::obj;
 	case TYPE_KNIFE:
 		return &Widget_Knife::obj;
+	case TYPE_SCULPT:
+		return &Widget_Sculpt::obj;
+	case TYPE_ANIMATION:
+		return &Widget_Animation::obj;
 	case TYPE_CURSOROFFSET:
 		return &Widget_CursorOffset::obj;
 	case TYPE_DELETE:
@@ -238,6 +244,12 @@ VR_Widget::Type VR_Widget::get_widget_type(const std::string& str)
 	}
 	if (str == "KNIFE") {
 		return TYPE_KNIFE;
+	}
+	if (str == "SCULPT") {
+		return TYPE_SCULPT;
+	}
+	if (str == "ANIMATION") {
+		return TYPE_ANIMATION;
 	}
 	if (str == "CURSOROFFSET") {
 		return TYPE_CURSOROFFSET;
@@ -346,6 +358,12 @@ VR_Widget* VR_Widget::get_widget(const std::string& str)
 	if (str == "KNIFE") {
 		return &Widget_Knife::obj;
 	}
+	if (str == "SCULPT") {
+		return &Widget_Sculpt::obj;
+	}
+	if (str == "ANIMATION") {
+		return &Widget_Animation::obj;
+	}
 	if (str == "CURSOROFFSET") {
 		return &Widget_CursorOffset::obj;
 	}
@@ -415,6 +433,8 @@ std::vector<std::string> VR_Widget::list_widgets()
 	ret.push_back("BEVEL");
 	ret.push_back("LOOPCUT");
 	ret.push_back("KNIFE");
+	ret.push_back("SCULPT");
+	ret.push_back("ANIMATION");
 	ret.push_back("CURSOROFFSET");
 	ret.push_back("DELETE");
 	ret.push_back("DUPLICATE");
@@ -476,6 +496,10 @@ std::string VR_Widget::type_to_string(Type type)
 		return "LOOPCUT";
 	case TYPE_KNIFE:
 		return "KNIFE";
+	case TYPE_SCULPT:
+		return "SCULPT";
+	case TYPE_ANIMATION:
+		return "ANIMATION";
 	case TYPE_CURSOROFFSET:
 		return "CURSOROFFSET";
 	case TYPE_DELETE:
@@ -514,7 +538,7 @@ bool VR_Widget::delete_widget(const std::string& str)
 	return false;
 }
 
-/***********************************************************************************************//**
+/***************************************************************************************************
 * \class									VR_Widget
 ***************************************************************************************************
 * Interaction widget (abstract superclass).

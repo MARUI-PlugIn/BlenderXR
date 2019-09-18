@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup freestyle
+/** \file
+ * \ingroup freestyle
  */
 
 #ifndef __FREESTYLE_PYTHON_COLORNOISESHADER_H__
@@ -30,19 +31,18 @@ extern "C" {
 
 extern PyTypeObject ColorNoiseShader_Type;
 
-#define BPy_ColorNoiseShader_Check(v) (PyObject_IsInstance((PyObject *)v, (PyObject *)&ColorNoiseShader_Type))
+#define BPy_ColorNoiseShader_Check(v) \
+  (PyObject_IsInstance((PyObject *)v, (PyObject *)&ColorNoiseShader_Type))
 
 /*---------------------------Python BPy_ColorNoiseShader structure definition----------*/
 typedef struct {
-	BPy_StrokeShader py_ss;
+  BPy_StrokeShader py_ss;
 } BPy_ColorNoiseShader;
-
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 
 #ifdef __cplusplus
 }
 #endif
-
 
 #endif /* __FREESTYLE_PYTHON_COLORNOISESHADER_H__ */

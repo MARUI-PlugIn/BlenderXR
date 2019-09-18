@@ -1,4 +1,4 @@
-# Copyright 2018 The glTF-Blender-IO authors.
+# Copyright 2018-2019 The glTF-Blender-IO authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@ class BlenderNormalMap():
         material = bpy.data.materials[pymaterial.blender_material[vertex_color]]
         node_tree = material.node_tree
 
-        BlenderTextureInfo.create(gltf, pymaterial.normal_texture.index)
+        BlenderTextureInfo.create(gltf, pymaterial.normal_texture)
 
         # retrieve principled node and output node
         principled = None
@@ -66,7 +66,8 @@ class BlenderNormalMap():
                 gltf.data.textures[pymaterial.normal_texture.index].source
             ].blender_image_name]
         text.label = 'NORMALMAP'
-        text.color_space = 'NONE'
+        if text.image:
+            text.image.colorspace_settings.is_data = True
         text.location = -500, -500
 
         normalmap_node = node_tree.nodes.new('ShaderNodeNormalMap')
@@ -88,9 +89,9 @@ class BlenderNormalMap():
         node_tree.links.new(text.inputs[0], mapping.outputs[0])
         node_tree.links.new(normalmap_node.inputs[1], text.outputs[0])
 
-        # following  links will modify PBR node tree
+        # following links will modify PBR node tree
         if principled:
-            node_tree.links.new(principled.inputs[17], normalmap_node.outputs[0])
+            node_tree.links.new(principled.inputs[19], normalmap_node.outputs[0])
         if diffuse:
             node_tree.links.new(diffuse.inputs[2], normalmap_node.outputs[0])
         if glossy:

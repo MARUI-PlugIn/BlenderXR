@@ -1,4 +1,4 @@
-# Copyright 2018 The glTF-Blender-IO authors.
+# Copyright 2018-2019 The glTF-Blender-IO authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -56,4 +56,7 @@ def get_base_color_node(node_tree):
             return node
 
     return None
+
+def get_gltf_node_name():
+    return "glTF Settings"
 

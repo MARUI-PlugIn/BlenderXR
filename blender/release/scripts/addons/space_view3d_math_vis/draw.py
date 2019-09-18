@@ -21,6 +21,7 @@
 import bpy
 import blf
 import gpu
+import bgl
 from gpu_extras.batch import batch_for_shader
 
 from . import utils
@@ -29,8 +30,16 @@ from mathutils import Vector
 SpaceView3D = bpy.types.SpaceView3D
 callback_handle = []
 
-single_color_shader = gpu.shader.from_builtin('3D_UNIFORM_COLOR')
-smooth_color_shader = gpu.shader.from_builtin('3D_SMOOTH_COLOR')
+if not bpy.app.background:
+    single_color_shader = gpu.shader.from_builtin('3D_UNIFORM_COLOR')
+    smooth_color_shader = gpu.shader.from_builtin('3D_SMOOTH_COLOR')
+else:
+  single_color_shader = None
+  smooth_color_shader = None
+
+COLOR_POINT = (1.0, 0.0, 1.0, 1)
+COLOR_LINE = (0.5, 0.5, 1, 1)
+COLOR_BOUNDING_BOX = (1.0, 1.0, 1.0, 1.0)
 
 def tag_redraw_areas():
     context = bpy.context
@@ -112,13 +121,13 @@ def draw_callback_px():
 
     offset_y = 20
     if data_quat:
-        loc = context.scene.cursor_location.copy()
+        loc = context.scene.cursor.location.copy()
         for key, mat in data_quat.items():
             draw_text(key, loc, dy=-offset_y)
             offset_y += 20
 
     if data_euler:
-        loc = context.scene.cursor_location.copy()
+        loc = context.scene.cursor.location.copy()
         for key, mat in data_euler.items():
             draw_text(key, loc, dy=-offset_y)
             offset_y += 20
@@ -127,6 +136,11 @@ def draw_callback_view():
     settings = bpy.context.window_manager.MathVisProp
     scale = settings.bbox_scale
     with_bounding_box = not settings.bbox_hide
+
+    if settings.in_front:
+        bgl.glDepthFunc(bgl.GL_ALWAYS)
+    else:
+        bgl.glDepthFunc(bgl.GL_LESS)
 
     data_matrix, data_quat, data_euler, data_vector, data_vector_array = utils.console_math_data()
 
@@ -143,7 +157,7 @@ def draw_callback_view():
         draw_matrices(list(data_matrix.values()), scale, with_bounding_box)
 
     if data_euler or data_quat:
-        cursor = bpy.context.scene.cursor_location.copy()
+        cursor = bpy.context.scene.cursor.location.copy()
         derived_matrices = []
         for quat in data_quat.values():
             matrix = quat.to_matrix().to_4x4()
@@ -155,17 +169,16 @@ def draw_callback_view():
             derived_matrices.append(matrix)
         draw_matrices(derived_matrices, scale, with_bounding_box)
 
-
 def draw_points(points):
     batch = batch_from_points(points, "POINTS")
     single_color_shader.bind()
-    single_color_shader.uniform_float("color", (0.5, 0.5, 1, 1))
+    single_color_shader.uniform_float("color", COLOR_POINT)
     batch.draw(single_color_shader)
 
 def draw_line(points):
     batch = batch_from_points(points, "LINE_STRIP")
     single_color_shader.bind()
-    single_color_shader.uniform_float("color", (0.5, 0.5, 1, 1))
+    single_color_shader.uniform_float("color", COLOR_LINE)
     batch.draw(single_color_shader)
 
 def batch_from_points(points, type):
@@ -206,7 +219,7 @@ def draw_matrices(matrices, scale, with_bounding_box):
     batch.draw(smooth_color_shader)
 
     if with_bounding_box:
-        draw_bounding_boxes(matrices, scale, (1.0, 1.0, 1.0, 1.0))
+        draw_bounding_boxes(matrices, scale, COLOR_BOUNDING_BOX)
 
 def draw_bounding_boxes(matrices, scale, color):
     boundbox_points = []

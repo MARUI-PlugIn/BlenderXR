@@ -17,8 +17,9 @@
 #ifndef __FREESTYLE_CONFIG_H__
 #define __FREESTYLE_CONFIG_H__
 
-/** \file \ingroup freestyle
- *  \brief Configuration definitions
+/** \file
+ * \ingroup freestyle
+ * \brief Configuration definitions
  */
 
 #include <string>
@@ -32,15 +33,15 @@ namespace Config {
 // Directory separators
 // TODO Use Blender's stuff for such things!
 #ifdef WIN32
-	static const string DIR_SEP("\\");
-	static const string PATH_SEP(";");
+static const string DIR_SEP("\\");
+static const string PATH_SEP(";");
 #else
-	static const string DIR_SEP("/");
-	static const string PATH_SEP(":");
-#endif // WIN32
+static const string DIR_SEP("/");
+static const string PATH_SEP(":");
+#endif  // WIN32
 
-} // end of namespace Config
+}  // end of namespace Config
 
 } /* namespace Freestyle */
 
-#endif // __FREESTYLE_CONFIG_H__
+#endif  // __FREESTYLE_CONFIG_H__

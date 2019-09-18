@@ -17,7 +17,8 @@
  * All rights reserved.
  */
 
-/** \file \ingroup pythonintern
+/** \file
+ * \ingroup pythonintern
  */
 
 #ifndef __BPY_APP_OPENVDB_H__
@@ -25,4 +26,4 @@
 
 PyObject *BPY_app_openvdb_struct(void);
 
-#endif  /* __BPY_APP_OPENVDB_H__ */
+#endif /* __BPY_APP_OPENVDB_H__ */

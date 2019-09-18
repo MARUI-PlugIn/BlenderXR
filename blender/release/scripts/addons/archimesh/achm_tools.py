@@ -101,7 +101,7 @@ def set_modifier_subsurf(myobject):
 # Add modifier (mirror)
 # --------------------------------------------------------------------
 def set_modifier_mirror(myobject, axis="Y"):
-    bpy.ops.object.select_all(False)
+    bpy.ops.object.select_all(action='DESELECT')
     myobject.select_set(True)
     bpy.context.view_layer.objects.active = myobject
     if bpy.context.view_layer.objects.active.name == myobject.name:
@@ -130,7 +130,7 @@ def set_modifier_mirror(myobject, axis="Y"):
 # Add modifier (array)
 # --------------------------------------------------------------------
 def set_modifier_array(myobject, axis, move, repeat, fix=False, fixmove=0, zmove=0):
-    bpy.ops.object.select_all(False)
+    bpy.ops.object.select_all(action='DESELECT')
     myobject.select_set(True)
     bpy.context.view_layer.objects.active = myobject
     if bpy.context.view_layer.objects.active.name == myobject.name:
@@ -922,7 +922,7 @@ def create_control_box(objname, x, y, z, tube=True):
     mesh = bpy.data.meshes.new(objname)
     myobject = bpy.data.objects.new(objname, mesh)
 
-    myobject.location = bpy.context.scene.cursor_location
+    myobject.location = bpy.context.scene.cursor.location
     bpy.context.collection.objects.link(myobject)
 
     mesh.from_pydata(myvertex, [], myfaces)

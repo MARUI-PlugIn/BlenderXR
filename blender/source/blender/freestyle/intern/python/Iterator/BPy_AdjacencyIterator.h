@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup freestyle
+/** \file
+ * \ingroup freestyle
  */
 
 #ifndef __FREESTYLE_PYTHON_ADJACENCYITERATOR_H__
@@ -32,13 +33,14 @@ extern "C" {
 
 extern PyTypeObject AdjacencyIterator_Type;
 
-#define BPy_AdjacencyIterator_Check(v) (PyObject_IsInstance((PyObject *)v, (PyObject *)&AdjacencyIterator_Type))
+#define BPy_AdjacencyIterator_Check(v) \
+  (PyObject_IsInstance((PyObject *)v, (PyObject *)&AdjacencyIterator_Type))
 
 /*---------------------------Python BPy_AdjacencyIterator structure definition----------*/
 typedef struct {
-	BPy_Iterator py_it;
-	AdjacencyIterator *a_it;
-	bool at_start;
+  BPy_Iterator py_it;
+  AdjacencyIterator *a_it;
+  bool at_start;
 } BPy_AdjacencyIterator;
 
 ///////////////////////////////////////////////////////////////////////////////////////////

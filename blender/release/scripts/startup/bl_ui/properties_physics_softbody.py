@@ -18,11 +18,10 @@
 
 # <pep8 compliant>
 
-import bpy
 from bpy.types import (
     Panel,
 )
-from .properties_physics_common import (
+from bl_ui.properties_physics_common import (
     point_cache_ui,
     effector_weights_ui,
 )
@@ -113,7 +112,7 @@ class PHYSICS_PT_softbody_cache(PhysicButtonsPanel, Panel):
 
     def draw(self, context):
         md = context.soft_body
-        point_cache_ui(self, context, md.point_cache, softbody_panel_enabled(md), 'SOFTBODY')
+        point_cache_ui(self, md.point_cache, softbody_panel_enabled(md), 'SOFTBODY')
 
 
 class PHYSICS_PT_softbody_goal(PhysicButtonsPanel, Panel):
@@ -396,7 +395,7 @@ class PHYSICS_PT_softbody_field_weights(PhysicButtonsPanel, Panel):
         md = context.soft_body
         softbody = md.settings
 
-        effector_weights_ui(self, context, softbody.effector_weights, 'SOFTBODY')
+        effector_weights_ui(self, softbody.effector_weights, 'SOFTBODY')
 
 
 classes = (

@@ -1,8 +1,8 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: Blender 2.80 (sub 39) (b'6d89337257b6')\n"
+"Project-Id-Version: Blender 2.80 (sub 75) (b'8e1516b7bcca')\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2018-12-24 15:04:25\n"
+"POT-Creation-Date: 2019-07-29 00:00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: Ainhize & Miriam <agoenaga006@ikasle.ehu.eus>\n"
 "Language-Team: Euskara <agoenaga006@ikasle.ehu.eus>\n"
@@ -152,10 +152,6 @@ msgid "Expanded"
 msgstr "Hedatua"
 
 
-msgid "Action group is expanded"
-msgstr "Akzio taldea hedatu da"
-
-
 msgid "Message"
 msgstr "Mezua"
 
@@ -176,20 +172,12 @@ msgid "Multiply"
 msgstr "Biderkatu"
 
 
-msgid "Onion Skinning"
-msgstr "Tipula-azapa"
-
-
 msgid "Heads"
 msgstr "Buruak"
 
 
 msgid "Tails"
 msgstr "Isatsak"
-
-
-msgid "Type"
-msgstr "Mota"
 
 
 msgid "Height"
@@ -232,10 +220,6 @@ msgid "File Browser"
 msgstr "Fitxategi Bilatzailea"
 
 
-msgid "Default"
-msgstr "Lehenetsia"
-
-
 msgid "+X"
 msgstr "+X"
 
@@ -276,6 +260,10 @@ msgid "Weight"
 msgstr "Pisua"
 
 
+msgid "Type"
+msgstr "Mota"
+
+
 msgid "Distance"
 msgstr "Distantzia"
 
@@ -294,6 +282,10 @@ msgstr "Gurasoa"
 
 msgid "Stroke"
 msgstr "Trazua"
+
+
+msgid "Default"
+msgstr "Lehenetsia"
 
 
 msgid "Material"
@@ -380,10 +372,6 @@ msgid "Save"
 msgstr "Gorde"
 
 
-msgid "Normal"
-msgstr "Normala"
-
-
 msgid "Display Mode"
 msgstr "Bistaraketa Modua"
 
@@ -400,8 +388,16 @@ msgid "Sort alphabetically"
 msgstr "Alfabetikoki ordenatu"
 
 
+msgid "Onion Skinning"
+msgstr "Tipula-azapa"
+
+
 msgid "Direction"
 msgstr "Norabidea"
+
+
+msgid "Grid"
+msgstr "Sarea"
 
 
 msgid "Groups"
@@ -454,21 +450,6 @@ msgid "Selected"
 msgstr "Hautatutako"
 
 
-msgctxt "Lamp"
-msgid "Type"
-msgstr "Mota"
-
-
-msgctxt "Lamp"
-msgid "Point"
-msgstr "Puntua"
-
-
-msgctxt "Lamp"
-msgid "Sun"
-msgstr "Eguzkia"
-
-
 msgid "Cube"
 msgstr "Kuboa"
 
@@ -481,16 +462,12 @@ msgid "Circle"
 msgstr "Zirkulua"
 
 
-msgid "Speaker"
-msgstr "Bozgorailua"
-
-
 msgid "Angular Velocity"
 msgstr "Abiadura-angeluarra"
 
 
-msgid "Grid"
-msgstr "Sarea"
+msgid "Normal"
+msgstr "Normala"
 
 
 msgid "World"
@@ -620,6 +597,10 @@ msgstr "Laguntza"
 
 msgid "Relations"
 msgstr "Loturak"
+
+
+msgid "New"
+msgstr "Berria"
 
 
 msgid "Local"
@@ -943,6 +924,10 @@ msgstr "Esportatu OBJ"
 
 msgid "Include UVs"
 msgstr "Gehitu UVs"
+
+
+msgid "Hierarchy"
+msgstr "Hierarkia"
 
 
 msgctxt "Operator"
@@ -1472,17 +1457,8 @@ msgid "(De)select All Strokes"
 msgstr "(Ez)hautatu trazu guztiak"
 
 
-msgid "New"
-msgstr "Berria"
-
-
 msgid "Shared layers"
 msgstr "Geruza partekatuak"
-
-
-msgctxt "Operator"
-msgid "Hide Selection"
-msgstr "Hautaketa Ezkutatu"
 
 
 msgctxt "Operator"
@@ -1642,10 +1618,6 @@ msgid "Child"
 msgstr "Umea"
 
 
-msgid "Hierarchy"
-msgstr "Hierarkia"
-
-
 msgctxt "Operator"
 msgid "Show Active"
 msgstr "Aktiboa Bistaratu"
@@ -1677,10 +1649,6 @@ msgstr "Renderizatu"
 
 msgid "Copy Settings"
 msgstr "Ezarpenak Kopiatu"
-
-
-msgid "Link Objects"
-msgstr "Objektuak Estekatu"
 
 
 msgctxt "Operator"
@@ -1756,11 +1724,6 @@ msgstr "Pantaila-irudia Gorde"
 
 
 msgctxt "Operator"
-msgid "Properties"
-msgstr "Propietateak"
-
-
-msgctxt "Operator"
 msgid "Rotate"
 msgstr "Biratu"
 
@@ -1819,11 +1782,6 @@ msgid "Object Name"
 msgstr "Objectuaren Izena"
 
 
-msgctxt "Operator"
-msgid "Select or Deselect All"
-msgstr "Guztia Hautatu edo Ez-hautatu"
-
-
 msgid "Play"
 msgstr "Erreproduzitu"
 
@@ -1847,12 +1805,38 @@ msgid "Save System Info"
 msgstr "Sistemaren Informazioa Gorde"
 
 
+msgctxt "Operator"
+msgid "Scale"
+msgstr "Eskalatu"
+
+
 msgid "Physics"
 msgstr "Fisikak"
 
 
 msgid "Dynamics"
 msgstr "Dinamikak"
+
+
+msgid "Timeline"
+msgstr "Denbora-lerroa"
+
+
+msgid "Development"
+msgstr "Garapena"
+
+
+msgid "Video Sequence Editor"
+msgstr "Bideo Sekuentzia Editorea"
+
+
+msgid "3D View"
+msgstr "3D Bista"
+
+
+msgctxt "Operator"
+msgid "Circle"
+msgstr "Zirkulua"
 
 
 msgid "Image Editor"
@@ -1931,36 +1915,20 @@ msgid "Sepia"
 msgstr "Sepia"
 
 
-msgid "Timeline"
-msgstr "Denbora-lerroa"
-
-
 msgid "Blender File"
 msgstr "Blender Fitxategia"
-
-
-msgid "Show Restriction Columns"
-msgstr "Murriztutako Zutabeak Bistaratu"
-
-
-msgid "Show column"
-msgstr "Zutabea Bistaratu"
 
 
 msgid "Sort Alphabetically"
 msgstr "Alfabetikoki Ordenatu"
 
 
+msgid "Speaker"
+msgstr "Bozgorailua"
+
+
 msgid "3D"
 msgstr "3D"
-
-
-msgid "3D View"
-msgstr "3D Bista"
-
-
-msgid "Video Sequence Editor"
-msgstr "Bideo Sekuentzia Editorea"
 
 
 msgid "Speed Factor"
@@ -2046,23 +2014,8 @@ msgstr "Lehentasuna"
 
 
 msgctxt "Operator"
-msgid "Scale"
-msgstr "Eskalatu"
-
-
-msgctxt "Operator"
-msgid "Circle"
-msgstr "Zirkulua"
-
-
-msgctxt "Operator"
 msgid "Delete..."
 msgstr "Ezabatu..."
-
-
-msgctxt "Operator"
-msgid "New"
-msgstr "Berria"
 
 
 msgid "Refraction"
@@ -2077,6 +2030,11 @@ msgstr "Ondoren Garbitu"
 msgctxt "Operator"
 msgid "Clear Before"
 msgstr "Aurretik Garbitu"
+
+
+msgctxt "Operator"
+msgid "New"
+msgstr "Berria"
 
 
 msgctxt "Operator"
@@ -2148,11 +2106,6 @@ msgstr "Testua: Barnekoa"
 
 
 msgctxt "Operator"
-msgid "Recover Auto Save..."
-msgstr "Berreskuratu autogordeketa..."
-
-
-msgctxt "Operator"
 msgid "Quit"
 msgstr "Irten"
 
@@ -2178,13 +2131,13 @@ msgstr "Eskuliburua"
 
 
 msgctxt "Operator"
-msgid "Report a Bug"
-msgstr "Akats baten berri eman"
+msgid "Developer Community"
+msgstr "Garatzaileen Komunitatea"
 
 
 msgctxt "Operator"
-msgid "Developer Community"
-msgstr "Garatzaileen Komunitatea"
+msgid "Report a Bug"
+msgstr "Akats baten berri eman"
 
 
 msgctxt "Operator"
@@ -2287,11 +2240,6 @@ msgstr "Berria"
 
 
 msgctxt "Lattice"
-msgid "New"
-msgstr "Berria"
-
-
-msgctxt "Lamp"
 msgid "New"
 msgstr "Berria"
 
@@ -2404,10 +2352,6 @@ msgstr "Orria Gora"
 msgctxt "Operator"
 msgid "Page Down"
 msgstr "Orria Behera"
-
-
-msgid "Open Recent..."
-msgstr "Azkena ireki..."
 
 
 msgid "normal"
@@ -2679,10 +2623,6 @@ msgid "Paste name"
 msgstr "Izena itsatsi"
 
 
-msgid "Save Over?"
-msgstr "Gaingorde?"
-
-
 msgid "unable to open the file"
 msgstr "Ezin izan da fitxategia ireki"
 
@@ -2741,10 +2681,6 @@ msgstr "Blender Fitxategi Bista"
 
 msgid "Add Curve"
 msgstr "Kurba Gehitu"
-
-
-msgid "Development"
-msgstr "Garapena"
 
 
 msgid "Import-Export"
@@ -2925,4 +2861,3 @@ msgstr "Abian"
 
 msgid "Starting"
 msgstr "Hasten"
-

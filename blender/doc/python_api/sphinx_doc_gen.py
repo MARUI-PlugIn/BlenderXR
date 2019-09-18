@@ -320,8 +320,6 @@ EXTRA_SOURCE_FILES = (
     "../../../release/scripts/templates_py/ui_previews_custom_icon.py",
     "../examples/bmesh.ops.1.py",
     "../examples/bpy.app.translations.py",
-    "../static/favicon.ico",
-    "../static/blender_logo.svg",
 )
 
 
@@ -401,7 +399,6 @@ is_release = bpy.app.version_cycle in {"rc", "release"}
 
 # converting bytes to strings, due to T30154
 BLENDER_REVISION = str(bpy.app.build_hash, 'utf_8')
-BLENDER_DATE = str(bpy.app.build_date, 'utf_8')
 
 if is_release:
     # '2.62a'
@@ -409,9 +406,13 @@ if is_release:
 else:
     # '2.62.1'
     BLENDER_VERSION_DOTS = ".".join(blender_version_strings)
+
 if BLENDER_REVISION != "Unknown":
     # '2.62a SHA1' (release) or '2.62.1 SHA1' (non-release)
-    BLENDER_VERSION_DOTS += " " + BLENDER_REVISION
+    BLENDER_VERSION_HASH = BLENDER_REVISION
+else:
+    # Fallback: Should not be used
+    BLENDER_VERSION_HASH = "Hash Unknown"
 
 if is_release:
     # '2_62a_release'
@@ -988,6 +989,7 @@ context_type_map = {
     "active_object": ("Object", False),
     "active_operator": ("Operator", False),
     "active_pose_bone": ("PoseBone", False),
+    "active_editable_fcurve": ("FCurve", False),
     "armature": ("Armature", False),
     "bone": ("Bone", False),
     "brush": ("Brush", False),
@@ -1003,13 +1005,14 @@ context_type_map = {
     "edit_movieclip": ("MovieClip", False),
     "edit_object": ("Object", False),
     "edit_text": ("Text", False),
-    "editable_bases": ("ObjectBase", True),
     "editable_bones": ("EditBone", True),
     "editable_gpencil_layers": ("GPencilLayer", True),
     "editable_gpencil_strokes": ("GPencilStroke", True),
     "editable_objects": ("Object", True),
+    "editable_fcurves": ("FCurve", True),
     "fluid": ("FluidSimulationModifier", False),
-    "gpencil_data": ("GreasePencel", False),
+    "gpencil": ("GreasePencil", False),
+    "gpencil_data": ("GreasePencil", False),
     "gpencil_data_owner": ("ID", False),
     "image_paint_object": ("Object", False),
     "lattice": ("Lattice", False),
@@ -1028,13 +1031,11 @@ context_type_map = {
     "particle_system": ("ParticleSystem", False),
     "particle_system_editable": ("ParticleSystem", False),
     "pose_bone": ("PoseBone", False),
+    "pose_object": ("Object", False),
     "scene": ("Scene", False),
     "sculpt_object": ("Object", False),
-    "selectable_bases": ("ObjectBase", True),
     "selectable_objects": ("Object", True),
-    "selected_bases": ("ObjectBase", True),
     "selected_bones": ("EditBone", True),
-    "selected_editable_bases": ("ObjectBase", True),
     "selected_editable_bones": ("EditBone", True),
     "selected_editable_fcurves": ("FCurve", True),
     "selected_editable_objects": ("Object", True),
@@ -1044,6 +1045,7 @@ context_type_map = {
     "selected_pose_bones": ("PoseBone", True),
     "selected_pose_bones_from_active_object": ("PoseBone", True),
     "selected_sequences": ("Sequence", True),
+    "selected_visible_fcurves": ("FCurve", True),
     "sequences": ("Sequence", True),
     "smoke": ("SmokeModifier", False),
     "soft_body": ("SoftBodyModifier", False),
@@ -1052,14 +1054,13 @@ context_type_map = {
     "texture_slot": ("MaterialTextureSlot", False),
     "texture_user": ("ID", False),
     "texture_user_property": ("Property", False),
-    "uv_sculpt_object": ("Object", False),
     "vertex_paint_object": ("Object", False),
     "view_layer": ("ViewLayer", False),
-    "visible_bases": ("ObjectBase", True),
     "visible_bones": ("EditBone", True),
     "visible_gpencil_layers": ("GPencilLayer", True),
     "visible_objects": ("Object", True),
     "visible_pose_bones": ("PoseBone", True),
+    "visible_fcurves": ("FCurve", True),
     "weight_paint_object": ("Object", False),
     "world": ("World", False),
 }
@@ -1610,26 +1611,39 @@ def write_sphinx_conf_py(basepath):
     fw("import sys, os\n\n")
     fw("extensions = ['sphinx.ext.intersphinx']\n\n")
     fw("intersphinx_mapping = {'blender_manual': ('https://docs.blender.org/manual/en/dev/', None)}\n\n")
-    fw("project = 'Blender'\n")
+    fw("project = 'Blender %s Python API'\n" % BLENDER_VERSION_DOTS)
     fw("master_doc = 'index'\n")
     fw("copyright = u'Blender Foundation'\n")
-    fw("version = '%s'\n" % BLENDER_VERSION_DOTS)
-    fw("release = '%s'\n" % BLENDER_VERSION_DOTS)
+    fw("version = '%s'\n" % BLENDER_VERSION_HASH)
+    fw("release = '%s'\n" % BLENDER_VERSION_HASH)
 
     # Quiet file not in table-of-contents warnings.
     fw("exclude_patterns = [\n")
     fw("    'include__bmesh.rst',\n")
     fw("]\n\n")
 
-    fw("html_title = 'Blender %s Python API'\n" % BLENDER_VERSION_DOTS)
+    fw("html_title = 'Blender Python API'\n")
     fw("html_theme = 'sphinx_rtd_theme'\n")
+    fw("html_theme_options = {\n")
+    fw("    'canonical_url': 'https://docs.blender.org/api/current/',\n")
+    # fw("    'analytics_id': '',\n")
+    # fw("    'collapse_navigation': True,\n")
+    fw("    'sticky_navigation': False,\n")
+    fw("    'navigation_depth': 1,\n")
+    # fw("    'includehidden': True,\n")
+    # fw("    'titles_only': False\n")
+    fw("    }\n\n")
+
     # not helpful since the source is generated, adds to upload size.
     fw("html_copy_source = False\n")
     fw("html_show_sphinx = False\n")
+    fw("html_use_opensearch = 'https://docs.blender.org/api/current'\n")
     fw("html_split_index = True\n")
-    fw("html_extra_path = ['__/static/favicon.ico', '__/static/blender_logo.svg']\n")
-    fw("html_favicon = '__/static/favicon.ico'\n")
-    fw("html_logo = '__/static/blender_logo.svg'\n\n")
+    fw("html_static_path = ['static']\n")
+    fw("html_extra_path = ['static/favicon.ico', 'static/blender_logo.svg']\n")
+    fw("html_favicon = 'static/favicon.ico'\n")
+    fw("html_logo = 'static/blender_logo.svg'\n")
+    fw("html_last_updated_fmt = '%m/%d/%Y'\n\n")
 
     # needed for latex, pdf gen
     fw("latex_elements = {\n")
@@ -1649,11 +1663,12 @@ class PatchedPythonDomain(PythonDomain):
             del node['refspecific']
         return super(PatchedPythonDomain, self).resolve_xref(
             env, fromdocname, builder, typ, target, node, contnode)
-
-def setup(sphinx):
-    sphinx.override_domain(PatchedPythonDomain)
 """)
     # end workaround
+
+    fw("def setup(app):\n")
+    fw("    app.add_stylesheet('css/theme_overrides.css')\n")
+    fw("    app.override_domain(PatchedPythonDomain)\n\n")
 
     file.close()
 
@@ -1673,14 +1688,14 @@ def write_rst_contents(basepath):
     file = open(filepath, "w", encoding="utf-8")
     fw = file.write
 
-    fw(title_string("Blender Python API Documentation", "%", double=True))
+    fw(title_string("Blender %s Python API Documentation" % BLENDER_VERSION_DOTS, "%", double=True))
     fw("\n")
-    fw("Welcome to the API reference for Blender %s, built %s.\n" %
-       (BLENDER_VERSION_DOTS, BLENDER_DATE))
+    fw("Welcome to the Python API documentation for `Blender <https://www.blender.org>`__, ")
+    fw("the free and open source 3D creation suite.\n")
     fw("\n")
 
     # fw("`A PDF version of this document is also available <%s>`_\n" % BLENDER_PDF_FILENAME)
-    fw("This site can be downloaded for offline use: `Download the full Documentation (zipped HTML files) <%s>`_\n" %
+    fw("This site can be used offline: `Download the full documentation (zipped HTML files) <%s>`__\n" %
        BLENDER_ZIP_FILENAME)
     fw("\n")
 
@@ -1912,6 +1927,12 @@ def copy_handwritten_extra(basepath):
         shutil.copy2(f_src, f_dst)
 
 
+def copy_theme_assets(basepath):
+    shutil.copytree(os.path.join(SCRIPT_DIR, "static"),
+                    os.path.join(basepath, "static"),
+                    copy_function=shutil.copy)
+
+
 def rna2sphinx(basepath):
 
     try:
@@ -1945,6 +1966,9 @@ def rna2sphinx(basepath):
 
     # copy source files referenced
     copy_handwritten_extra(basepath)
+
+    # copy extra files needed for theme
+    copy_theme_assets(basepath)
 
 
 def align_sphinx_in_to_sphinx_in_tmp(dir_src, dir_dst):

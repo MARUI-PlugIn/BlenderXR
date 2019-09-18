@@ -328,7 +328,7 @@ class MEASUREIT_PT_Edit(Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_category= 'View'
-    bl_parent_id = 'measureit_main_panel'
+    bl_parent_id = 'MEASUREIT_PT_Main'
 
     # -----------------------------------------------------
     # Verify if visible
@@ -503,9 +503,9 @@ def add_item(box, idx, segment):
     scene = bpy.context.scene
     row = box.row(align=True)
     if segment.glview is True:
-        icon = "VISIBLE_IPO_ON"
+        icon = "HIDE_OFF"
     else:
-        icon = "VISIBLE_IPO_OFF"
+        icon = "HIDE_ON"
 
     row.prop(segment, 'glview', text="", toggle=True, icon=icon)
     row.prop(segment, 'gladvance', text="", toggle=True, icon="PREFERENCES")
@@ -608,7 +608,7 @@ def add_item(box, idx, segment):
 # Define panel class for main functions.
 # ------------------------------------------------------------------
 class MEASUREIT_PT_Main(Panel):
-    bl_idname = "measureit_main_panel"
+    bl_idname = "MEASUREIT_PT_Main"
     bl_label = "MeasureIt Tools"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
@@ -734,12 +734,12 @@ class MEASUREIT_PT_Main(Panel):
 # Define panel class for conf functions.
 # ------------------------------------------------------------------
 class MEASUREIT_PT_Conf(Panel):
-    bl_idname = "measureit_conf_panel"
+    bl_idname = "MEASUREIT_PT_Conf"
     bl_label = "Configuration"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_category= 'View'
-    bl_parent_id = 'measureit_main_panel'
+    bl_parent_id = 'MEASUREIT_PT_Main'
     bl_options = {'DEFAULT_CLOSED'}
 
     # ------------------------------
@@ -776,12 +776,12 @@ class MEASUREIT_PT_Conf(Panel):
 # Define panel class for render functions.
 # ------------------------------------------------------------------
 class MEASUREIT_PT_Render(Panel):
-    bl_idname = "measureit_render_panel"
+    bl_idname = "MEASUREIT_PT_Render"
     bl_label = "Render"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
-    bl_category= 'View'
-    bl_parent_id = 'measureit_main_panel'
+    bl_category= 'Display'
+    bl_parent_id = 'MEASUREIT_PT_Main'
     bl_options = {'DEFAULT_CLOSED'}
 
     # ------------------------------
@@ -1824,7 +1824,7 @@ class MEASUREIT_OT_AddNote(Operator):
         if context.area.type == 'VIEW_3D':
             bpy.ops.object.empty_add(type='PLAIN_AXES')
             myempty = bpy.data.objects[bpy.context.active_object.name]
-            myempty.location = bpy.context.scene.cursor_location
+            myempty.location = bpy.context.scene.cursor.location
             myempty.empty_display_size = 0.01
             myempty.name = "Annotation"
             # Add properties
@@ -1948,7 +1948,7 @@ def draw_main(context):
     if scene.measureit_gl_ghost is False:
         objlist = context.selected_objects
     else:
-        objlist = context.scene.objects
+        objlist = context.view_layer.objects
 
     # Enable GL drawing
     bgl.glEnable(bgl.GL_BLEND)

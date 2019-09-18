@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup pygen
+/** \file
+ * \ingroup pygen
  *
  * This file contains wrapper functions related to global interpreter lock.
  * these functions are slightly different from the original Python API,
@@ -28,20 +29,20 @@
 /* analogue of PyEval_SaveThread() */
 BPy_ThreadStatePtr BPY_thread_save(void)
 {
-	PyThreadState *tstate = PyThreadState_Swap(NULL);
-	/* note: tstate can be NULL when quitting Blender */
+  PyThreadState *tstate = PyThreadState_Swap(NULL);
+  /* note: tstate can be NULL when quitting Blender */
 
-	if (tstate && PyEval_ThreadsInitialized()) {
-		PyEval_ReleaseLock();
-	}
+  if (tstate && PyEval_ThreadsInitialized()) {
+    PyEval_ReleaseLock();
+  }
 
-	return (BPy_ThreadStatePtr)tstate;
+  return (BPy_ThreadStatePtr)tstate;
 }
 
 /* analogue of PyEval_RestoreThread() */
 void BPY_thread_restore(BPy_ThreadStatePtr tstate)
 {
-	if (tstate) {
-		PyEval_RestoreThread((PyThreadState *)tstate);
-	}
+  if (tstate) {
+    PyEval_RestoreThread((PyThreadState *)tstate);
+  }
 }

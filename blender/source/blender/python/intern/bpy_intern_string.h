@@ -17,7 +17,8 @@
 #ifndef __BPY_INTERN_STRING_H__
 #define __BPY_INTERN_STRING_H__
 
-/** \file \ingroup pythonintern
+/** \file
+ * \ingroup pythonintern
  */
 
 void bpy_intern_string_init(void);
@@ -40,4 +41,4 @@ extern PyObject *bpy_intern_str_register;
 extern PyObject *bpy_intern_str_self;
 extern PyObject *bpy_intern_str_unregister;
 
-#endif  /* __BPY_INTERN_STRING_H__ */
+#endif /* __BPY_INTERN_STRING_H__ */

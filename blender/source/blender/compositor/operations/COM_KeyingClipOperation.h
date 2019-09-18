@@ -1,6 +1,4 @@
 /*
- * Copyright 2012, Blender Foundation.
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,6 +12,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * Copyright 2012, Blender Foundation.
  */
 
 #ifndef __COM_KEYINGCLIPOPERATION_H__
@@ -25,30 +25,48 @@
  * Class with implementation of black/white clipping for keying node
  */
 class KeyingClipOperation : public NodeOperation {
-protected:
-	float m_clipBlack;
-	float m_clipWhite;
+ protected:
+  float m_clipBlack;
+  float m_clipWhite;
 
-	int m_kernelRadius;
-	float m_kernelTolerance;
+  int m_kernelRadius;
+  float m_kernelTolerance;
 
-	bool m_isEdgeMatte;
-public:
-	KeyingClipOperation();
+  bool m_isEdgeMatte;
 
-	void setClipBlack(float value) {this->m_clipBlack = value;}
-	void setClipWhite(float value) {this->m_clipWhite = value;}
+ public:
+  KeyingClipOperation();
 
-	void setKernelRadius(int value) {this->m_kernelRadius = value;}
-	void setKernelTolerance(float value) {this->m_kernelTolerance = value;}
+  void setClipBlack(float value)
+  {
+    this->m_clipBlack = value;
+  }
+  void setClipWhite(float value)
+  {
+    this->m_clipWhite = value;
+  }
 
-	void setIsEdgeMatte(bool value) {this->m_isEdgeMatte = value;}
+  void setKernelRadius(int value)
+  {
+    this->m_kernelRadius = value;
+  }
+  void setKernelTolerance(float value)
+  {
+    this->m_kernelTolerance = value;
+  }
 
-	void *initializeTileData(rcti *rect);
+  void setIsEdgeMatte(bool value)
+  {
+    this->m_isEdgeMatte = value;
+  }
 
-	void executePixel(float output[4], int x, int y, void *data);
+  void *initializeTileData(rcti *rect);
 
-	bool determineDependingAreaOfInterest(rcti *input, ReadBufferOperation *readOperation, rcti *output);
+  void executePixel(float output[4], int x, int y, void *data);
+
+  bool determineDependingAreaOfInterest(rcti *input,
+                                        ReadBufferOperation *readOperation,
+                                        rcti *output);
 };
 
 #endif

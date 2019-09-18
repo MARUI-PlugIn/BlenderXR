@@ -15,10 +15,10 @@
 * along with this program; if not, write to the Free Software Foundation,
 * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 *
-* The Original Code is Copyright (C) 2018 by Blender Foundation.
+* The Original Code is Copyright (C) 2019 by Blender Foundation.
 * All rights reserved.
 *
-* Contributor(s): MARUI-PlugIn
+* Contributor(s): MARUI-PlugIn, Multiplexed Reality
 *
 * ***** END GPL LICENSE BLOCK *****
 */
@@ -34,6 +34,8 @@
 extern "C" {
 #endif
 
+struct rcti;
+
 int vr_api_create_ui();	/* Create a object internally. Must be called before the functions below. */
 #ifdef WIN32
 int vr_api_init_ui(void* device, void* context);	/* Initialize the internal object (OpenGL). */
@@ -47,14 +49,16 @@ const float *vr_api_get_navigation_matrix(int inverse);	/* Get the navigation ma
 float vr_api_get_navigation_scale(); /* Get the scale factor between real-world units and Blender units from the UI module. */
 int vr_api_update_view_matrix(const float _view[4][4]);	/* Update the OpenGL view matrix for the UI module. */
 int vr_api_update_projection_matrix(int side, const float _projection[4][4]);	/* Update the OpenGL projection matrix for the UI module. */
-
-struct rcti;
-
 int vr_api_update_viewport_bounds(const struct rcti *bounds);	/* Update viewport (window) bounds for the UI module. */
-
 int vr_api_pre_render(int side);	/* Pre-render UI elements. */
 int vr_api_post_render(int side);/* Post-render UI elements. */
 int vr_api_uninit_ui();	/* Un-initialize the internal object. */
+
+int vr_api_init_remote(int timeout_sec); /* Start remote device stream. */
+int vr_api_get_params_remote(); /* Transfer remote VR params to VR module. */
+int vr_api_get_transforms_remote(); /* Transfer remote tracking transforms to VR module. */
+int vr_api_get_controller_states_remote(); /* Transfer remote controller states to VR module. */
+int vr_api_uninit_remote(int timeout_sec); /* Stop remote device stream. */
 
 #ifdef __cplusplus
 }

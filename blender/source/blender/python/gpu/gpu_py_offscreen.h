@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup bpygpu
+/** \file
+ * \ingroup bpygpu
  */
 
 #ifndef __GPU_PY_OFFSCREEN_H__
@@ -24,12 +25,11 @@
 
 extern PyTypeObject BPyGPUOffScreen_Type;
 
-#define BPyGPUOffScreen_Check(v)      (Py_TYPE(v) == &BPyGPUOffScreen_Type)
+#define BPyGPUOffScreen_Check(v) (Py_TYPE(v) == &BPyGPUOffScreen_Type)
 
 typedef struct BPyGPUOffScreen {
-	PyObject_HEAD
-	struct GPUOffScreen *ofs;
-	bool is_saved;
+  PyObject_HEAD struct GPUOffScreen *ofs;
+  bool is_saved;
 } BPyGPUOffScreen;
 
 PyObject *BPyGPUOffScreen_CreatePyObject(struct GPUOffScreen *ofs) ATTR_NONNULL(1);

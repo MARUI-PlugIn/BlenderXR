@@ -14,13 +14,13 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup pythonintern
+/** \file
+ * \ingroup pythonintern
  */
-
 
 #ifndef __BPY_TRACEBACK_H__
 #define __BPY_TRACEBACK_H__
 
 void python_script_error_jump(const char *filepath, int *lineno, int *offset);
 
-#endif  /* __BPY_TRACEBACK_H__ */
+#endif /* __BPY_TRACEBACK_H__ */

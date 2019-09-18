@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup freestyle
+/** \file
+ * \ingroup freestyle
  */
 
 #ifndef __FREESTYLE_PYTHON_VIEWMAPGRADIENTNORMBP1D_H__
@@ -31,11 +32,11 @@ extern "C" {
 extern PyTypeObject ViewMapGradientNormBP1D_Type;
 
 #define BPy_ViewMapGradientNormBP1D_Check(v) \
-            (PyObject_IsInstance((PyObject *)v, (PyObject *)&ViewMapGradientNormBP1D_Type))
+  (PyObject_IsInstance((PyObject *)v, (PyObject *)&ViewMapGradientNormBP1D_Type))
 
 /*---------------------------Python BPy_ViewMapGradientNormBP1D structure definition----------*/
 typedef struct {
-	BPy_BinaryPredicate1D py_bp1D;
+  BPy_BinaryPredicate1D py_bp1D;
 } BPy_ViewMapGradientNormBP1D;
 
 ///////////////////////////////////////////////////////////////////////////////////////////

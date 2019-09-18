@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup freestyle
+/** \file
+ * \ingroup freestyle
  */
 
 #include "StrokeShader.h"
@@ -23,9 +24,9 @@
 
 namespace Freestyle {
 
-int StrokeShader::shade(Stroke& ioStroke) const
+int StrokeShader::shade(Stroke &ioStroke) const
 {
-	return Director_BPy_StrokeShader_shade( const_cast<StrokeShader *>(this), ioStroke);
+  return Director_BPy_StrokeShader_shade(const_cast<StrokeShader *>(this), ioStroke);
 }
 
 } /* namespace Freestyle */

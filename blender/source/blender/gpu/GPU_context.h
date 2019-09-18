@@ -17,7 +17,8 @@
  * All rights reserved.
  */
 
-/** \file \ingroup gpu
+/** \file
+ * \ingroup gpu
  *
  * This interface allow GPU to manage VAOs for multiple context and threads.
  */
@@ -35,7 +36,7 @@ extern "C" {
 
 typedef struct GPUContext GPUContext;
 
-GPUContext *GPU_context_create(void);
+GPUContext *GPU_context_create(GLuint default_framebuffer);
 void GPU_context_discard(GPUContext *);
 
 void GPU_context_active_set(GPUContext *);

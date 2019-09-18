@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup freestyle
+/** \file
+ * \ingroup freestyle
  */
 
 #ifndef __FREESTYLE_PYTHON_VIEWVERTEX_H__
@@ -36,8 +37,8 @@ extern PyTypeObject ViewVertex_Type;
 
 /*---------------------------Python BPy_ViewVertex structure definition----------*/
 typedef struct {
-	BPy_Interface0D py_if0D;
-	ViewVertex *vv;
+  BPy_Interface0D py_if0D;
+  ViewVertex *vv;
 } BPy_ViewVertex;
 
 ///////////////////////////////////////////////////////////////////////////////////////////

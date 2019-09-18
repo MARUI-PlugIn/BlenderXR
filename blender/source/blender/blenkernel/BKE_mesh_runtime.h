@@ -19,15 +19,17 @@
 #ifndef __BKE_MESH_RUNTIME_H__
 #define __BKE_MESH_RUNTIME_H__
 
-/** \file \ingroup bke
+/** \file
+ * \ingroup bke
  *
  * This file contains access functions for the Mesh.runtime struct.
  */
 
-#include "BKE_customdata.h"  /* for CustomDataMask */
+//#include "BKE_customdata.h"  /* for CustomDataMask */
 
 struct ColorBand;
 struct CustomData;
+struct CustomData_MeshMasks;
 struct Depsgraph;
 struct KeyBlock;
 struct MLoop;
@@ -37,15 +39,8 @@ struct Mesh;
 struct Object;
 struct Scene;
 
-/* Undefine to hide DerivedMesh-based function declarations */
-#undef USE_DERIVEDMESH
-
-#ifdef USE_DERIVEDMESH
-struct DerivedMesh;
-#endif
-
 void BKE_mesh_runtime_reset(struct Mesh *mesh);
-void BKE_mesh_runtime_reset_on_copy(struct Mesh *mesh);
+void BKE_mesh_runtime_reset_on_copy(struct Mesh *mesh, const int flag);
 int BKE_mesh_runtime_looptri_len(const struct Mesh *mesh);
 void BKE_mesh_runtime_looptri_recalc(struct Mesh *mesh);
 const struct MLoopTri *BKE_mesh_runtime_looptri_ensure(struct Mesh *mesh);
@@ -54,71 +49,59 @@ bool BKE_mesh_runtime_clear_edit_data(struct Mesh *mesh);
 void BKE_mesh_runtime_clear_geometry(struct Mesh *mesh);
 void BKE_mesh_runtime_clear_cache(struct Mesh *mesh);
 
-void BKE_mesh_runtime_verttri_from_looptri(
-        struct MVertTri *r_verttri,
-        const struct MLoop *mloop, const struct MLoopTri *looptri, int looptri_num);
+void BKE_mesh_runtime_verttri_from_looptri(struct MVertTri *r_verttri,
+                                           const struct MLoop *mloop,
+                                           const struct MLoopTri *looptri,
+                                           int looptri_num);
 
 /* NOTE: the functions below are defined in DerivedMesh.c, and are intended to be moved
  * to a more suitable location when that file is removed.
  * They should also be renamed to use conventions from BKE, not old DerivedMesh.c.
  * For now keep the names similar to avoid confusion. */
-#ifdef USE_DERIVEDMESH
-struct DerivedMesh *mesh_get_derived_final(
-        struct Depsgraph *depsgraph, struct Scene *scene,
-        struct Object *ob, CustomDataMask dataMask);
-#endif
-struct Mesh *mesh_get_eval_final(
-        struct Depsgraph *depsgraph, struct Scene *scene, struct Object *ob, CustomDataMask dataMask);
+struct Mesh *mesh_get_eval_final(struct Depsgraph *depsgraph,
+                                 struct Scene *scene,
+                                 struct Object *ob,
+                                 const struct CustomData_MeshMasks *dataMask);
 
-#ifdef USE_DERIVEDMESH
-struct DerivedMesh *mesh_get_derived_deform(
-        struct Depsgraph *depsgraph, struct Scene *scene,
-        struct Object *ob, CustomDataMask dataMask);
-#endif
-struct Mesh *mesh_get_eval_deform(
-        struct Depsgraph *depsgraph, struct Scene *scene,
-        struct Object *ob, CustomDataMask dataMask);
+struct Mesh *mesh_get_eval_deform(struct Depsgraph *depsgraph,
+                                  struct Scene *scene,
+                                  struct Object *ob,
+                                  const struct CustomData_MeshMasks *dataMask);
 
-struct Mesh *mesh_create_eval_final_render(
-        struct Depsgraph *depsgraph, struct Scene *scene,
-        struct Object *ob, CustomDataMask dataMask);
+struct Mesh *mesh_create_eval_final_render(struct Depsgraph *depsgraph,
+                                           struct Scene *scene,
+                                           struct Object *ob,
+                                           const struct CustomData_MeshMasks *dataMask);
 
-#ifdef USE_DERIVEDMESH
-struct DerivedMesh *mesh_create_derived_index_render(
-        struct Depsgraph *depsgraph, struct Scene *scene,
-        struct Object *ob, CustomDataMask dataMask, int index);
-#endif
-struct Mesh *mesh_create_eval_final_index_render(
-        struct Depsgraph *depsgraph, struct Scene *scene,
-        struct Object *ob, CustomDataMask dataMask, int index);
+struct Mesh *mesh_create_eval_final_index_render(struct Depsgraph *depsgraph,
+                                                 struct Scene *scene,
+                                                 struct Object *ob,
+                                                 const struct CustomData_MeshMasks *dataMask,
+                                                 int index);
 
-#ifdef USE_DERIVEDMESH
-struct DerivedMesh *mesh_create_derived_view(
-        struct Depsgraph *depsgraph, struct Scene *scene,
-        struct Object *ob, CustomDataMask dataMask);
-#endif
-struct Mesh *mesh_create_eval_final_view(
-        struct Depsgraph *depsgraph, struct Scene *scene,
-        struct Object *ob, CustomDataMask dataMask);
+struct Mesh *mesh_create_eval_final_view(struct Depsgraph *depsgraph,
+                                         struct Scene *scene,
+                                         struct Object *ob,
+                                         const struct CustomData_MeshMasks *dataMask);
 
-struct Mesh *mesh_create_eval_no_deform(
-        struct Depsgraph *depsgraph, struct Scene *scene,
-        struct Object *ob, float (*vertCos)[3],
-        CustomDataMask dataMask);
-struct Mesh *mesh_create_eval_no_deform_render(
-        struct Depsgraph *depsgraph, struct Scene *scene,
-        struct Object *ob, float (*vertCos)[3],
-        CustomDataMask dataMask);
+struct Mesh *mesh_create_eval_no_deform(struct Depsgraph *depsgraph,
+                                        struct Scene *scene,
+                                        struct Object *ob,
+                                        const struct CustomData_MeshMasks *dataMask);
+struct Mesh *mesh_create_eval_no_deform_render(struct Depsgraph *depsgraph,
+                                               struct Scene *scene,
+                                               struct Object *ob,
+                                               const struct CustomData_MeshMasks *dataMask);
 
-
-void BKE_mesh_runtime_eval_to_meshkey(struct Mesh *me_deformed, struct Mesh *me, struct KeyBlock *kb);
-
+void BKE_mesh_runtime_eval_to_meshkey(struct Mesh *me_deformed,
+                                      struct Mesh *me,
+                                      struct KeyBlock *kb);
 
 #ifndef NDEBUG
 char *BKE_mesh_runtime_debug_info(struct Mesh *me_eval);
 void BKE_mesh_runtime_debug_print(struct Mesh *me_eval);
 void BKE_mesh_runtime_debug_print_cdlayers(struct CustomData *data);
 bool BKE_mesh_runtime_is_valid(struct Mesh *me_eval);
-#endif  /* NDEBUG */
+#endif /* NDEBUG */
 
 #endif /* __BKE_MESH_RUNTIME_H__ */

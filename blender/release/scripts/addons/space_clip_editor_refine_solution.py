@@ -24,7 +24,7 @@ bl_info = {
     "name": "Refine tracking solution",
     "author": "Stephen Leger",
     "license": "GPL",
-    "version": (1, 1, 4),
+    "version": (1, 1, 5),
     "blender": (2, 80, 0),
     "location": "Clip Editor > Tools > Solve > Refine Solution",
     "description": "Refine motion solution by setting track weight according"
@@ -44,7 +44,7 @@ from bpy.props import FloatProperty
 from mathutils import Vector
 
 
-class OP_Tracking_refine_solution(Operator):
+class TRACKING_OP_refine_solution(Operator):
     bl_idname = "tracking.refine_solution"
     bl_label = "Refine"
     bl_description = "Set track weight by error and solve camera motion"
@@ -52,7 +52,10 @@ class OP_Tracking_refine_solution(Operator):
 
     @classmethod
     def poll(cls, context):
-        return (context.area.spaces.active.clip is not None)
+        return (context.area and context.area.spaces and
+                hasattr(context.area.spaces.active, 'clip') and
+                context.area.spaces.active.clip is not None
+        )
 
     def execute(self, context):
         error = context.window_manager.TrackingTargetError
@@ -130,7 +133,7 @@ class OP_Tracking_refine_solution(Operator):
         return{'FINISHED'}
 
 
-class OP_Tracking_reset_solution(Operator):
+class TRACKING_OP_reset_solution(Operator):
     bl_idname = "tracking.reset_solution"
     bl_label = "Reset"
     bl_description = "Reset track weight and solve camera motion"
@@ -168,7 +171,7 @@ class OP_Tracking_reset_solution(Operator):
         return{'FINISHED'}
 
 
-class RefineMotionTrackingPanel(Panel):
+class TRACKING_PT_RefineMotionTracking(Panel):
     bl_label = "Refine solution"
     bl_space_type = "CLIP_EDITOR"
     bl_region_type = "TOOLS"
@@ -193,9 +196,9 @@ class RefineMotionTrackingPanel(Panel):
 
 
 classes =(
-    OP_Tracking_refine_solution,
-    OP_Tracking_reset_solution,
-    RefineMotionTrackingPanel
+    TRACKING_OP_refine_solution,
+    TRACKING_OP_reset_solution,
+    TRACKING_PT_RefineMotionTracking
     )
 
 

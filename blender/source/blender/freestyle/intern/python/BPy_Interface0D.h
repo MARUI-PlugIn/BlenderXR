@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup freestyle
+/** \file
+ * \ingroup freestyle
  */
 
 #ifndef __FREESTYLE_PYTHON_INTERFACE0D_H__
@@ -36,13 +37,13 @@ extern "C" {
 
 extern PyTypeObject Interface0D_Type;
 
-#define BPy_Interface0D_Check(v) (PyObject_IsInstance((PyObject *)v, (PyObject *)&Interface0D_Type))
+#define BPy_Interface0D_Check(v) \
+  (PyObject_IsInstance((PyObject *)v, (PyObject *)&Interface0D_Type))
 
 /*---------------------------Python BPy_Interface0D structure definition----------*/
 typedef struct {
-	PyObject_HEAD
-	Interface0D *if0D;
-	bool borrowed; /* true if *if0D is a borrowed object */
+  PyObject_HEAD Interface0D *if0D;
+  bool borrowed; /* true if *if0D is a borrowed object */
 } BPy_Interface0D;
 
 /*---------------------------Python BPy_Interface0D visible prototypes-----------*/

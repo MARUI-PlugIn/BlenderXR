@@ -33,7 +33,7 @@ from bpy.types import (
 bl_info = {
     "name": "3D Viewport Pie Menus",
     "author": "meta-androcto, pitiwazou, chromoly, italic",
-    "version": (1, 1, 8),
+    "version": (1, 1, 9),
     "blender": (2, 80, 0),
     "description": "Individual Pie Menu Activation List",
     "location": "Addons Preferences",
@@ -53,7 +53,6 @@ sub_modules_names = (
     "pie_snap_menu",
     "pie_orientation_menu",
     "pie_shading_menu",
-    "pie_pivot_point_menu",
     "pie_proportional_menu",
     "pie_align_menu",
     "pie_delete_menu",
@@ -191,7 +190,7 @@ class PieToolsPreferences(AddonPreferences):
         row.alignment = "LEFT"
         sub_box = row.box()
         sub_box.prop(self, "enable_all", emboss=False,
-                    icon="VISIBLE_IPO_ON", icon_only=True)
+                    icon="HIDE_OFF", icon_only=True)
         row.label(text="Enable All")
 
         row = split.row()
@@ -199,7 +198,7 @@ class PieToolsPreferences(AddonPreferences):
         row.label(text="Disable All")
         sub_box = row.box()
         sub_box.prop(self, "disable_all", emboss=False,
-                    icon="VISIBLE_IPO_OFF", icon_only=True)
+                    icon="HIDE_ON", icon_only=True)
 
         for mod in sub_modules:
             mod_name = mod.__name__.split('.')[-1]

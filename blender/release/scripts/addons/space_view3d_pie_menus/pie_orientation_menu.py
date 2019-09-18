@@ -39,9 +39,9 @@ from bpy.props import (
         )
 
 
-class OrientPie(Menu):
+class PIE_MT_OrientPie(Menu):
     bl_label = "Transform Orientation"
-    bl_idname = "pie.orient"
+    bl_idname = "PIE_MT_orient"
 
     def draw(self, context):
         layout = self.layout
@@ -54,7 +54,7 @@ class OrientPie(Menu):
 addon_keymaps = []
 
 classes = (
-    OrientPie,
+    PIE_MT_OrientPie,
     )
 
 
@@ -67,7 +67,7 @@ def register():
         # Manipulators
         km = wm.keyconfigs.addon.keymaps.new(name='3D View Generic', space_type='VIEW_3D')
         kmi = km.keymap_items.new('wm.call_menu_pie', 'SPACE', 'PRESS', alt=True)
-        kmi.properties.name = "pie.orient"
+        kmi.properties.name = "PIE_MT_orient"
         addon_keymaps.append((km, kmi))
 
 

@@ -14,7 +14,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup pygen
+/** \file
+ * \ingroup pygen
  */
 
 #ifndef __BGL_H__
@@ -32,22 +33,21 @@ int BGL_typeSize(int type);
  * For Python access to OpenGL functions requiring a pointer.
  */
 typedef struct _Buffer {
-	PyObject_VAR_HEAD
-	PyObject *parent;
+  PyObject_VAR_HEAD PyObject *parent;
 
-	int type;		/* GL_BYTE, GL_SHORT, GL_INT, GL_FLOAT */
-	int ndimensions;
-	int *dimensions;
+  int type; /* GL_BYTE, GL_SHORT, GL_INT, GL_FLOAT */
+  int ndimensions;
+  int *dimensions;
 
-	union {
-		char *asbyte;
-		short *asshort;
-		int *asint;
-		float *asfloat;
-		double *asdouble;
+  union {
+    char *asbyte;
+    short *asshort;
+    int *asint;
+    float *asfloat;
+    double *asdouble;
 
-		void *asvoid;
-	} buf;
+    void *asvoid;
+  } buf;
 } Buffer;
 
 /** The type object */

@@ -44,7 +44,8 @@
  * The Original Code is: adapted from jemalloc.
  */
 
-/** \file \ingroup Atomic
+/** \file
+ * \ingroup Atomic
  *
  * \brief Provides wrapper around system-specific atomic primitives,
  * and some extensions (faked-atomic operations over float numbers).
@@ -112,7 +113,8 @@ ATOMIC_INLINE size_t atomic_sub_and_fetch_z(size_t *p, size_t x);
 ATOMIC_INLINE size_t atomic_fetch_and_add_z(size_t *p, size_t x);
 ATOMIC_INLINE size_t atomic_fetch_and_sub_z(size_t *p, size_t x);
 ATOMIC_INLINE size_t atomic_cas_z(size_t *v, size_t old, size_t _new);
-ATOMIC_INLINE size_t atomic_fetch_and_update_max_z(size_t *p, size_t x); /* Uses CAS loop, see warning below. */
+/* Uses CAS loop, see warning below. */
+ATOMIC_INLINE size_t atomic_fetch_and_update_max_z(size_t *p, size_t x);
 
 ATOMIC_INLINE unsigned int atomic_add_and_fetch_u(unsigned int *p, unsigned int x);
 ATOMIC_INLINE unsigned int atomic_sub_and_fetch_u(unsigned int *p, unsigned int x);
@@ -122,18 +124,19 @@ ATOMIC_INLINE unsigned int atomic_cas_u(unsigned int *v, unsigned int old, unsig
 
 ATOMIC_INLINE void *atomic_cas_ptr(void **v, void *old, void *_new);
 
-
 ATOMIC_INLINE float atomic_cas_float(float *v, float old, float _new);
 
-/* WARNING! Float 'atomics' are really faked ones, those are actually closer to some kind of spinlock-sync'ed operation,
- *          which means they are only efficient if collisions are highly unlikely (i.e. if probability of two threads
- *          working on the same pointer at the same time is very low). */
+/* WARNING! Float 'atomics' are really faked ones, those are actually closer to some kind of
+ * spinlock-sync'ed operation, which means they are only efficient if collisions are highly
+ * unlikely (i.e. if probability of two threads working on the same pointer at the same time is
+ * very low). */
 ATOMIC_INLINE float atomic_add_and_fetch_fl(float *p, const float x);
 
 /******************************************************************************/
 /* Include system-dependent implementations. */
 
-/* Note that we are using _unix flavor as fallback here (it will raise precompiler errors as needed). */
+/* Note that we are using _unix flavor as fallback here
+ * (it will raise precompiler errors as needed). */
 #if defined(_MSC_VER)
 #  include "intern/atomic_ops_msvc.h"
 #else

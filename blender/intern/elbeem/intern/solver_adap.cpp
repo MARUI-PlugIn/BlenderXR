@@ -1,4 +1,5 @@
-/** \file \ingroup elbeem
+/** \file
+ * \ingroup elbeem
  */
 /******************************************************************************
  *
@@ -13,7 +14,9 @@
 #include "solver_relax.h"
 #include "particletracer.h"
 
+#include <cmath>
 
+using std::isfinite;
 
 /*****************************************************************************/
 //! coarse step functions
@@ -1243,7 +1246,7 @@ void LbmFsgrSolver::adaptTimestep() {
 				uz  += (dfDvecZ[l]*m); 
 			} 
 #ifndef WIN32
-			if (!finite(rho)) {
+			if (!isfinite(rho)) {
 				errMsg("adaptTimestep","Brute force non-finite rho at"<<PRINT_IJK);  // DEBUG!
 				rho = 1.0;
 				ux = uy = uz = 0.0;

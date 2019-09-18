@@ -79,7 +79,7 @@ class ANIM_OT_keying_set_export(Operator):
         f.write("# Keying Set Level declarations\n")
         f.write("ks = scene.keying_sets.new(idname=\"%s\", name=\"%s\")\n"
                 "" % (ks.bl_idname, ks.bl_label))
-        f.write("ks.bl_description = \"\"\"%s\"\"\"\n" % ks.bl_description)
+        f.write("ks.bl_description = %r\n" % ks.bl_description)
 
         if not ks.is_path_absolute:
             f.write("ks.is_path_absolute = False\n")
@@ -191,7 +191,7 @@ class ANIM_OT_keying_set_export(Operator):
 
         return {'FINISHED'}
 
-    def invoke(self, context, event):
+    def invoke(self, context, _event):
         wm = context.window_manager
         wm.fileselect_add(self)
         return {'RUNNING_MODAL'}
@@ -285,7 +285,7 @@ class NLA_OT_bake(Operator):
 
         return {'FINISHED'}
 
-    def invoke(self, context, event):
+    def invoke(self, context, _event):
         scene = context.scene
         self.frame_start = scene.frame_start
         self.frame_end = scene.frame_end
@@ -309,10 +309,10 @@ class ClearUselessActions(Operator):
     )
 
     @classmethod
-    def poll(cls, context):
+    def poll(cls, _context):
         return bool(bpy.data.actions)
 
-    def execute(self, context):
+    def execute(self, _context):
         removed = 0
 
         for action in bpy.data.actions:

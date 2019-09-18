@@ -1,4 +1,4 @@
-# Copyright 2018 The glTF-Blender-IO authors.
+# Copyright 2018-2019 The glTF-Blender-IO authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 
 from mathutils import Vector, Quaternion
 from mathutils.geometry import tessellate_polygon
+from operator import attrgetter
 
 from . import gltf2_blender_export_keys
 from ...io.com.gltf2_io_debug import print_console
@@ -101,16 +102,8 @@ def convert_swizzle_scale(scale, export_settings):
         return Vector((scale[0], scale[1], scale[2]))
 
 
-def decompose_transition(matrix, context, export_settings):
+def decompose_transition(matrix, export_settings):
     translation, rotation, scale = matrix.decompose()
-    """Decompose a matrix depending if it is associated to a joint or node."""
-    if context == 'NODE':
-        translation = convert_swizzle_location(translation, export_settings)
-        rotation = convert_swizzle_rotation(rotation, export_settings)
-        scale = convert_swizzle_scale(scale, export_settings)
-
-    # Put w at the end.
-    rotation = Quaternion((rotation[1], rotation[2], rotation[3], rotation[0]))
 
     return translation, rotation, scale
 
@@ -399,6 +392,10 @@ def extract_primitives(glTF, blender_mesh, blender_vertex_groups, modifiers, exp
     """
     print_console('INFO', 'Extracting primitive: ' + blender_mesh.name)
 
+    if blender_mesh.has_custom_normals:
+        # Custom normals are all (0, 0, 0) until calling calc_normals_split() or calc_tangents().
+        blender_mesh.calc_normals_split()
+
     use_tangents = False
     if blender_mesh.uv_layers.active and len(blender_mesh.uv_layers) > 0:
         try:
@@ -426,26 +423,23 @@ def extract_primitives(glTF, blender_mesh, blender_vertex_groups, modifiers, exp
     # Directory of materials with its primitive.
     #
     no_material_primitives = {
-        MATERIAL_ID: '',
+        MATERIAL_ID: 0,
         INDICES_ID: [],
         ATTRIBUTES_ID: no_material_attributes
     }
 
-    material_name_to_primitives = {'': no_material_primitives}
+    material_idx_to_primitives = {0: no_material_primitives}
 
     #
 
     vertex_index_to_new_indices = {}
 
-    material_map[''] = vertex_index_to_new_indices
+    material_map[0] = vertex_index_to_new_indices
 
     #
     # Create primitive for each material.
     #
-    for blender_material in blender_mesh.materials:
-        if blender_material is None:
-            continue
-
+    for (mat_idx, _) in enumerate(blender_mesh.materials):
         attributes = {
             POSITION_ATTRIBUTE: [],
             NORMAL_ATTRIBUTE: []
@@ -455,18 +449,18 @@ def extract_primitives(glTF, blender_mesh, blender_vertex_groups, modifiers, exp
             attributes[TANGENT_ATTRIBUTE] = []
 
         primitive = {
-            MATERIAL_ID: blender_material.name,
+            MATERIAL_ID: mat_idx,
             INDICES_ID: [],
             ATTRIBUTES_ID: attributes
         }
 
-        material_name_to_primitives[blender_material.name] = primitive
+        material_idx_to_primitives[mat_idx] = primitive
 
         #
 
         vertex_index_to_new_indices = {}
 
-        material_map[blender_material.name] = vertex_index_to_new_indices
+        material_map[mat_idx] = vertex_index_to_new_indices
 
     tex_coord_max = 0
     if blender_mesh.uv_layers.active:
@@ -522,13 +516,12 @@ def extract_primitives(glTF, blender_mesh, blender_vertex_groups, modifiers, exp
 
         #
 
-        if blender_polygon.material_index < 0 or blender_polygon.material_index >= len(blender_mesh.materials) or \
-                blender_mesh.materials[blender_polygon.material_index] is None:
-            primitive = material_name_to_primitives['']
-            vertex_index_to_new_indices = material_map['']
+        if not blender_polygon.material_index in material_idx_to_primitives:
+            primitive = material_idx_to_primitives[0]
+            vertex_index_to_new_indices = material_map[0]
         else:
-            primitive = material_name_to_primitives[blender_mesh.materials[blender_polygon.material_index].name]
-            vertex_index_to_new_indices = material_map[blender_mesh.materials[blender_polygon.material_index].name]
+            primitive = material_idx_to_primitives[blender_polygon.material_index]
+            vertex_index_to_new_indices = material_map[blender_polygon.material_index]
         #
 
         attributes = primitive[ATTRIBUTES_ID]
@@ -596,7 +589,10 @@ def extract_primitives(glTF, blender_mesh, blender_vertex_groups, modifiers, exp
 
             v = convert_swizzle_location(vertex.co, export_settings)
             if blender_polygon.use_smooth:
-                n = convert_swizzle_location(vertex.normal, export_settings)
+                if blender_mesh.has_custom_normals:
+                    n = convert_swizzle_location(blender_mesh.loops[loop_index].normal, export_settings)
+                else:
+                    n = convert_swizzle_location(vertex.normal, export_settings)
                 if use_tangents:
                     t = convert_swizzle_tangent(blender_mesh.loops[loop_index].tangent, export_settings)
                     b = convert_swizzle_location(blender_mesh.loops[loop_index].bitangent, export_settings)
@@ -639,7 +635,11 @@ def extract_primitives(glTF, blender_mesh, blender_vertex_groups, modifiers, exp
             if blender_vertex_groups is not None and vertex.groups is not None and len(vertex.groups) > 0 and export_settings[gltf2_blender_export_keys.SKINS]:
                 joint = []
                 weight = []
-                for group_element in vertex.groups:
+                vertex_groups = vertex.groups
+                if not export_settings['gltf_all_vertex_influences']:
+                    # sort groups by weight descending
+                    vertex_groups = sorted(vertex.groups, key=attrgetter('weight'), reverse=True)
+                for group_element in vertex_groups:
 
                     if len(joint) == 4:
                         bone_count += 1
@@ -664,12 +664,14 @@ def extract_primitives(glTF, blender_mesh, blender_vertex_groups, modifiers, exp
                     if modifiers is not None:
                         modifiers_dict = {m.type: m for m in modifiers}
                         if "ARMATURE" in modifiers_dict:
-                            armature = modifiers_dict["ARMATURE"].object
-                            skin = gltf2_blender_gather_skins.gather_skin(armature, export_settings)
-                            for index, j in enumerate(skin.joints):
-                                if j.name == vertex_group_name:
-                                    joint_index = index
-                                    break
+                            modifier = modifiers_dict["ARMATURE"]
+                            armature = modifier.object
+                            if armature:
+                                skin = gltf2_blender_gather_skins.gather_skin(armature, modifier.id_data, export_settings)
+                                for index, j in enumerate(skin.joints):
+                                    if j.name == vertex_group_name:
+                                        joint_index = index
+                                        break
 
                     #
                     if joint_index is not None:
@@ -914,7 +916,7 @@ def extract_primitives(glTF, blender_mesh, blender_vertex_groups, modifiers, exp
 
     result_primitives = []
 
-    for material_name, primitive in material_name_to_primitives.items():
+    for material_idx, primitive in material_idx_to_primitives.items():
         export_color = True
 
         #
@@ -934,7 +936,7 @@ def extract_primitives(glTF, blender_mesh, blender_vertex_groups, modifiers, exp
         colors = []
         if export_color:
             for color_index in range(0, color_max):
-                tex_coords.append(primitive[ATTRIBUTES_ID][COLOR_PREFIX + str(color_index)])
+                colors.append(primitive[ATTRIBUTES_ID][COLOR_PREFIX + str(color_index)])
         joints = []
         weights = []
         if export_settings[gltf2_blender_export_keys.SKINS]:
@@ -987,7 +989,7 @@ def extract_primitives(glTF, blender_mesh, blender_vertex_groups, modifiers, exp
                 pending_attributes[TANGENT_ATTRIBUTE] = []
 
             pending_primitive = {
-                MATERIAL_ID: material_name,
+                MATERIAL_ID: material_idx,
                 INDICES_ID: [],
                 ATTRIBUTES_ID: pending_attributes
             }

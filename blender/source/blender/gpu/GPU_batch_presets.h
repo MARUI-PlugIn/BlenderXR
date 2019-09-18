@@ -17,7 +17,8 @@
  * All rights reserved.
  */
 
-/** \file \ingroup gpu
+/** \file
+ * \ingroup gpu
  *
  * Batched geometry rendering is powered by the GPU library.
  * This file contains any additions or modifications specific to Blender.
@@ -58,4 +59,4 @@ void gpu_batch_presets_exit(void);
 #endif
 #endif
 
-#endif  /* __GPU_BATCH_PRESETS_H__ */
+#endif /* __GPU_BATCH_PRESETS_H__ */

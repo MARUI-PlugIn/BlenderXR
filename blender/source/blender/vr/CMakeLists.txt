@@ -17,6 +17,8 @@
 # The Original Code is Copyright (C) 2006, Blender Foundation
 # All rights reserved.
 #
+# Contributor(s): MARUI-PlugIn, Multiplexed Reality
+#
 # The Original Code is: all of this file.
 #
 # ***** END GPL LICENSE BLOCK *****
@@ -26,8 +28,8 @@ set(INC
 	./intern
 	./img
 	./obj
-	./extern/inc/libpng_1.6.35
-	./extern/inc/zlib_1.2.11
+	./extern/include/libpng_1.6.35
+  ./extern/include/stb
 	../../../extern/Eigen3
 	../../../extern/glew/include/GL
 	../blenkernel
@@ -41,6 +43,7 @@ set(INC
 	../editors/gizmo_library
 	../editors/gpencil
 	../editors/mesh
+	../editors/sculpt_paint
 	../editors/transform
 	../gpu
 	../makesdna
@@ -48,6 +51,7 @@ set(INC
 	../render/extern/include
 	../windowmanager
 	../windowmanager/gizmo
+	../windowmanager/message_bus
 	../../../intern/glew-mx
 	../../../intern/guardedalloc
 )
@@ -62,10 +66,13 @@ set(SRC
 	intern/vr_draw.cpp
 	intern/vr_math.cpp
 	intern/vr_ui.cpp
+	intern/vr_layout.cpp
 	intern/vr_util.cpp
+	intern/vr_network.cpp
 	intern/vr_widget.cpp
 	intern/vr_widget_addprimitive.cpp
 	intern/vr_widget_alt.cpp
+  intern/vr_widget_animation.cpp
 	intern/vr_widget_annotate.cpp
 	intern/vr_widget_bevel.cpp
 	intern/vr_widget_ctrl.cpp
@@ -77,12 +84,12 @@ set(SRC
 	intern/vr_widget_insetfaces.cpp
 	intern/vr_widget_join.cpp
 	intern/vr_widget_knife.cpp
-	intern/vr_widget_layout.cpp
 	intern/vr_widget_loopcut.cpp
 	intern/vr_widget_measure.cpp
 	intern/vr_widget_menu.cpp
 	intern/vr_widget_navi.cpp
 	intern/vr_widget_redo.cpp
+	intern/vr_widget_sculpt.cpp
 	intern/vr_widget_select.cpp
 	intern/vr_widget_shift.cpp
 	intern/vr_widget_separate.cpp
@@ -100,10 +107,13 @@ set(SRC
 	intern/vr_draw.h
 	intern/vr_math.h
 	intern/vr_ui.h
+	intern/vr_layout.h
 	intern/vr_util.h
+	intern/vr_network.h
 	intern/vr_widget.h
 	intern/vr_widget_addprimitive.h
 	intern/vr_widget_alt.h
+  intern/vr_widget_animation.h
 	intern/vr_widget_annotate.h
 	intern/vr_widget_bevel.h
 	intern/vr_widget_ctrl.h
@@ -115,12 +125,12 @@ set(SRC
 	intern/vr_widget_insetfaces.h
 	intern/vr_widget_join.h
 	intern/vr_widget_knife.h
-	intern/vr_widget_layout.h
 	intern/vr_widget_loopcut.h
 	intern/vr_widget_measure.h
 	intern/vr_widget_menu.h
 	intern/vr_widget_navi.h
 	intern/vr_widget_redo.h
+	intern/vr_widget_sculpt.h
 	intern/vr_widget_select.h
 	intern/vr_widget_shift.h
 	intern/vr_widget_separate.h
@@ -138,4 +148,4 @@ if(WITH_X11)
 	add_definitions(-DWITH_X11)
 endif()
 
-blender_add_lib(bf_vr "${SRC}" "${INC}" "${INC_SYS}")
+blender_add_lib(bf_vr "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")

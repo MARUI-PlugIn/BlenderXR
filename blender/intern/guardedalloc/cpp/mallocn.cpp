@@ -14,9 +14,9 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-/** \file \ingroup MEM
+/** \file
+ * \ingroup MEM
  */
-
 
 #include <new>
 #include "../MEM_guardedalloc.h"
@@ -27,33 +27,31 @@ void *operator new[](size_t size, const char *str) throw(std::bad_alloc);
 /* not default but can be used when needing to set a string */
 void *operator new(size_t size, const char *str) throw(std::bad_alloc)
 {
-	return MEM_mallocN(size, str);
+  return MEM_mallocN(size, str);
 }
 void *operator new[](size_t size, const char *str) throw(std::bad_alloc)
 {
-	return MEM_mallocN(size, str);
+  return MEM_mallocN(size, str);
 }
-
 
 void *operator new(size_t size) throw(std::bad_alloc)
 {
-	return MEM_mallocN(size, "C++/anonymous");
+  return MEM_mallocN(size, "C++/anonymous");
 }
 void *operator new[](size_t size) throw(std::bad_alloc)
 {
-	return MEM_mallocN(size, "C++/anonymous[]");
+  return MEM_mallocN(size, "C++/anonymous[]");
 }
-
 
 void operator delete(void *p) throw()
 {
-	/* delete NULL is valid in c++ */
-	if (p)
-		MEM_freeN(p);
+  /* delete NULL is valid in c++ */
+  if (p)
+    MEM_freeN(p);
 }
 void operator delete[](void *p) throw()
 {
-	/* delete NULL is valid in c++ */
-	if (p)
-		MEM_freeN(p);
+  /* delete NULL is valid in c++ */
+  if (p)
+    MEM_freeN(p);
 }

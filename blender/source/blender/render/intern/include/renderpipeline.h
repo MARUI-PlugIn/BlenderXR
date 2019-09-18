@@ -17,9 +17,9 @@
  * All rights reserved.
  */
 
-/** \file \ingroup render
+/** \file
+ * \ingroup render
  */
-
 
 #ifndef __RENDERPIPELINE_H__
 #define __RENDERPIPELINE_H__
@@ -31,7 +31,9 @@ struct RenderLayer;
 struct RenderResult;
 
 struct RenderLayer *render_get_active_layer(struct Render *re, struct RenderResult *rr);
-void render_update_anim_renderdata(struct Render *re, struct RenderData *rd, struct ListBase *render_layers);
+void render_update_anim_renderdata(struct Render *re,
+                                   struct RenderData *rd,
+                                   struct ListBase *render_layers);
 void render_copy_renderdata(struct RenderData *to, struct RenderData *from);
 
 #endif /* __RENDERPIPELINE_H__ */

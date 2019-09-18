@@ -17,7 +17,8 @@
  * All rights reserved.
  */
 
-/** \file \ingroup nodes
+/** \file
+ * \ingroup nodes
  */
 
 #ifndef __NOD_TEXTURE_H__
@@ -26,7 +27,6 @@
 #include "BKE_node.h"
 
 extern struct bNodeTreeType *ntreeType_Texture;
-
 
 /* ****************** types array for all texture nodes ****************** */
 

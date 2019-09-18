@@ -143,7 +143,7 @@ class lattice_to_selection(bpy.types.Operator):
                     tmp_obj = bpy.context.object.name
 
                     # create the lattice object with the lattice_loc and rot
-                    bpy.ops.object.add(radius=1, type='LATTICE', view_align=False, enter_editmode=False, location=lattice_loc, rotation=lattice_rot)
+                    bpy.ops.object.add(radius=1, type='LATTICE', align='WORLD', enter_editmode=False, location=lattice_loc, rotation=lattice_rot)
 
                     lattice_obj = bpy.context.object
 
@@ -239,7 +239,7 @@ class lattice_to_selection(bpy.types.Operator):
                     tmp_obj = bpy.context.object.name
 
 
-                    bpy.ops.object.add(radius=1, type='LATTICE', view_align=False, enter_editmode=False, location=lattice_loc, rotation=lattice_rot)
+                    bpy.ops.object.add(radius=1, type='LATTICE', align='WORLD', enter_editmode=False, location=lattice_loc, rotation=lattice_rot)
 
                     lattice_obj = bpy.context.object
 
@@ -955,7 +955,7 @@ class shrinkwrapSmooth(bpy.types.Operator):
 
                 # Create intermediate object
                 bpy.ops.object.mode_set(mode = 'OBJECT', toggle = False)
-                bpy.ops.mesh.primitive_plane_add(radius=1, view_align=False, enter_editmode=False)
+                bpy.ops.mesh.primitive_plane_add(radius=1, align='WORLD', enter_editmode=False)
                 bpy.context.object.data = bpy.data.meshes[data]
                 tmp_ob = bpy.context.object.name
 
@@ -1212,7 +1212,7 @@ class drawPoly(bpy.types.Operator):
                 bpy.ops.view3d.cursor3d('INVOKE_DEFAULT')
 
                 obj = bpy.context.active_object
-                vert_co = bpy.context.scene.cursor_location
+                vert_co = bpy.context.scene.cursor.location
                 world = obj.matrix_world.inverted_safe()
 
                 bpy.ops.mesh.select_all(action='DESELECT')
@@ -1245,7 +1245,7 @@ class drawPoly(bpy.types.Operator):
 
                 mesh.vertices[new_vert_id].select = True
                 bpy.ops.object.mode_set(mode='EDIT', toggle=False)
-                bpy.context.scene.cursor_location = self.cursor_co
+                bpy.context.scene.cursor.location = self.cursor_co
 
 
                 if self.vert_count >= 4:
@@ -1425,7 +1425,7 @@ class drawPoly(bpy.types.Operator):
         self.vgrp = bpy.context.object.vertex_groups.active_index
         bpy.context.object.vertex_groups.active.name = "drawPoly_temp"
 
-        self.cursor_co = bpy.context.scene.cursor_location
+        self.cursor_co = bpy.context.scene.cursor.location
 
 
         context.window_manager.modal_handler_add(self)
@@ -2475,8 +2475,8 @@ def register():
         bpy.utils.register_class(ktools)
         bpy.utils.register_class(ktools_mesh)
 
-        bpy.types.VIEW3D_MT_edit_mesh_specials.prepend(menu_func)
-        bpy.types.VIEW3D_MT_object_specials.prepend(menu_func_ob)
+        bpy.types.VIEW3D_MT_edit_mesh_context_menu.prepend(menu_func)
+        bpy.types.VIEW3D_MT_object_context_menu.prepend(menu_func_ob)
 
         kc = bpy.context.window_manager.keyconfigs.addon
         if kc:
@@ -2509,8 +2509,8 @@ def unregister():
         bpy.utils.unregister_class(ktools)
         bpy.utils.unregister_class(ktools_mesh)
 
-        bpy.types.VIEW3D_MT_edit_mesh_specials.remove(menu_func)
-        bpy.types.VIEW3D_MT_object_specials.remove(menu_func_ob)
+        bpy.types.VIEW3D_MT_edit_mesh_context_menu.remove(menu_func)
+        bpy.types.VIEW3D_MT_object_context_menu.remove(menu_func_ob)
 
         kc = bpy.context.window_manager.keyconfigs.addon
         if kc:

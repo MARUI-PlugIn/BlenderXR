@@ -20,10 +20,10 @@ bl_info = {
     "name": "Skinify Rig",
     "author": "Albert Makac (karab44)",
     "version": (0, 11, 0),
-    "blender": (2, 79, 0),
+    "blender": (2, 80, 0),
     "location": "Properties > Bone > Skinify Rig (visible on pose mode only)",
     "description": "Creates a mesh object from selected bones",
-    "warning": "",
+    "warning": "Work in progress",
     "wiki_url": "https://wiki.blender.org/index.php/Extensions:2.6/"
                 "Py/Scripts/Object/Skinify",
     "category": "Object"}
@@ -420,7 +420,7 @@ def generate_mesh(shape_object, size, thickness=0.8, finger_thickness=0.25, sub_
     """
     This function adds modifiers for generated edges
     """
-    total_bones_num = len(bpy.context.object.pose.bones.keys())
+    total_bones_num = bpy.context.selected_pose_bones_from_active_object
     selected_bones_num = len(bones)
 
     bpy.ops.object.mode_set(mode='EDIT')
@@ -446,12 +446,14 @@ def generate_mesh(shape_object, size, thickness=0.8, finger_thickness=0.25, sub_
 
     # calculate optimal thickness for defaults
     bpy.ops.object.skin_root_mark(override)
-    bpy.ops.transform.skin_resize(override,
-            value=(1 * thickness * (size / 10), 1 * thickness * (size / 10), 1 * thickness * (size / 10)),
-            constraint_axis=(False, False, False), constraint_orientation='GLOBAL',
-            mirror=False, proportional='DISABLED', proportional_edit_falloff='SMOOTH',
-            proportional_size=1
-            )
+    bpy.ops.transform.skin_resize(
+        override,
+        value=(1 * thickness * (size / 10), 1 * thickness * (size / 10), 1 * thickness * (size / 10)),
+        constraint_axis=(False, False, False),
+        orient_type='GLOBAL',
+        mirror=False,
+        use_proportional_edit=False,
+    )
     shape_object.modifiers["Skin"].use_smooth_shade = True
     shape_object.modifiers["Skin"].use_x_symmetry = True
 
@@ -461,12 +463,13 @@ def generate_mesh(shape_object, size, thickness=0.8, finger_thickness=0.25, sub_
 
         bpy.ops.object.skin_loose_mark_clear(override, action='MARK')
         # by default set fingers thickness to 25 percent of body thickness
-        bpy.ops.transform.skin_resize(override,
-                    value=(finger_thickness, finger_thickness, finger_thickness),
-                    constraint_axis=(False, False, False), constraint_orientation='GLOBAL',
-                    mirror=False, proportional='DISABLED', proportional_edit_falloff='SMOOTH',
-                    proportional_size=1
-                    )
+        bpy.ops.transform.skin_resize(
+            override,
+            value=(finger_thickness, finger_thickness, finger_thickness),
+            constraint_axis=(False, False, False), orient_type='GLOBAL',
+            mirror=False,
+            use_proportional_edit=False,
+        )
         # make loose hands only for better topology
 
     # bpy.ops.mesh.select_all(action='DESELECT')
@@ -490,12 +493,13 @@ def generate_mesh(shape_object, size, thickness=0.8, finger_thickness=0.25, sub_
 
         select_vertices(shape_object, merge_idx)
         bpy.ops.mesh.merge(type='CENTER')
-        bpy.ops.transform.skin_resize(override,
-                value=(corrective_thickness, corrective_thickness, corrective_thickness),
-                constraint_axis=(False, False, False), constraint_orientation='GLOBAL',
-                mirror=False, proportional='DISABLED', proportional_edit_falloff='SMOOTH',
-                proportional_size=1
-                )
+        bpy.ops.transform.skin_resize(
+            override,
+            value=(corrective_thickness, corrective_thickness, corrective_thickness),
+            constraint_axis=(False, False, False), orient_type='GLOBAL',
+            mirror=False,
+            use_proportional_edit=False,
+        )
         bpy.ops.mesh.select_all(action='DESELECT')
 
         # right hand verts
@@ -503,12 +507,13 @@ def generate_mesh(shape_object, size, thickness=0.8, finger_thickness=0.25, sub_
 
         select_vertices(shape_object, merge_idx)
         bpy.ops.mesh.merge(type='CENTER')
-        bpy.ops.transform.skin_resize(override,
-                value=(corrective_thickness, corrective_thickness, corrective_thickness),
-                constraint_axis=(False, False, False), constraint_orientation='GLOBAL',
-                mirror=False, proportional='DISABLED', proportional_edit_falloff='SMOOTH',
-                proportional_size=1
-                )
+        bpy.ops.transform.skin_resize(
+            override,
+            value=(corrective_thickness, corrective_thickness, corrective_thickness),
+            constraint_axis=(False, False, False), orient_type='GLOBAL',
+            mirror=False,
+            use_proportional_edit=False,
+        )
 
         # making hands even more pretty
         bpy.ops.mesh.select_all(action='DESELECT')
@@ -517,12 +522,13 @@ def generate_mesh(shape_object, size, thickness=0.8, finger_thickness=0.25, sub_
         select_vertices(shape_object, hands_idx)
         # change the thickness to make hands look less blocky and more sexy
         corrective_thickness = 0.7
-        bpy.ops.transform.skin_resize(override,
-                value=(corrective_thickness, corrective_thickness, corrective_thickness),
-                constraint_axis=(False, False, False), constraint_orientation='GLOBAL',
-                mirror=False, proportional='DISABLED', proportional_edit_falloff='SMOOTH',
-                proportional_size=1
-                )
+        bpy.ops.transform.skin_resize(
+            override,
+            value=(corrective_thickness, corrective_thickness, corrective_thickness),
+            constraint_axis=(False, False, False), orient_type='GLOBAL',
+            mirror=False,
+            use_proportional_edit=False,
+        )
         bpy.ops.mesh.select_all(action='DESELECT')
 
     # todo optionally take root from rig's hip tail or head depending on scenario
@@ -575,7 +581,7 @@ def main(context):
     oldLocation = None
     oldRotation = None
     oldScale = None
-    armature_object = scn.objects.active
+    armature_object = context.view_layer.objects.active
     armature_object.select_set(True)
 
     old_pose_pos = armature_object.data.pose_position
@@ -599,7 +605,7 @@ def main(context):
     bpy.ops.object.add(type='MESH', enter_editmode=False, location=origin)
 
     # get the mesh object
-    ob = scn.objects.active
+    ob = context.view_layer.objects.active
     ob.name = obj_name
     me = ob.data
     me.name = mesh_name
@@ -622,7 +628,7 @@ def main(context):
         bpy.ops.object.select_all(action='DESELECT')
         ob.select_set(True)
         armature_object.select_set(True)
-        scn.objects.active = armature_object
+        bpy.context.view_layer.objects.active = armature_object
 
         bpy.ops.object.parent_set(type='ARMATURE_AUTO')
         armature_object.data.pose_position = old_pose_pos
@@ -666,15 +672,16 @@ class BONE_OT_custom_shape(Operator):
 
 
 class BONE_PT_custom_shape(Panel):
-    bl_space_type = 'PROPERTIES'
-    bl_region_type = 'WINDOW'
-    bl_context = "bone"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = "Object"
+#    bl_context = "bone"
     bl_label = "Skinify Rig"
 
     @classmethod
     def poll(cls, context):
         ob = context.object
-        return ob and ob.mode == 'POSE' and context.bone
+        return ob and ob.mode == 'POSE' #and context.bone
 
     def draw(self, context):
         layout = self.layout
@@ -683,12 +690,12 @@ class BONE_PT_custom_shape(Panel):
         row = layout.row()
         row.operator("object.skinify_rig", text="Add Shape", icon='BONE_DATA')
 
-        split = layout.split(percentage=0.3)
+        split = layout.split(factor=0.3)
         split.label(text="Thickness:")
         split.prop(scn, "thickness", text="Body", icon='MOD_SKIN')
         split.prop(scn, "finger_thickness", text="Fingers", icon='HAND')
 
-        split = layout.split(percentage=0.3)
+        split = layout.split(factor=0.3)
         split.label(text="Mesh Density:")
         split.prop(scn, "sub_level", icon='MESH_ICOSPHERE')
 

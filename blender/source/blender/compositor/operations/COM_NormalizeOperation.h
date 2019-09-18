@@ -1,6 +1,4 @@
 /*
- * Copyright 2012, Blender Foundation.
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,6 +12,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * Copyright 2012, Blender Foundation.
  */
 
 #ifndef __COM_NORMALIZEOPERATION_H__
@@ -26,41 +26,42 @@
  * \ingroup operation
  */
 class NormalizeOperation : public NodeOperation {
-protected:
-	/**
-	 * \brief Cached reference to the reader
-	 */
-	SocketReader *m_imageReader;
+ protected:
+  /**
+   * \brief Cached reference to the reader
+   */
+  SocketReader *m_imageReader;
 
-	/**
-	 * \brief temporarily cache of the execution storage
-	 * it stores x->min and y->mult
-	 */
-	NodeTwoFloats *m_cachedInstance;
+  /**
+   * \brief temporarily cache of the execution storage
+   * it stores x->min and y->mult
+   */
+  NodeTwoFloats *m_cachedInstance;
 
-public:
-	NormalizeOperation();
+ public:
+  NormalizeOperation();
 
-	/**
-	 * the inner loop of this program
-	 */
-	void executePixel(float output[4], int x, int y, void *data);
+  /**
+   * the inner loop of this program
+   */
+  void executePixel(float output[4], int x, int y, void *data);
 
-	/**
-	 * Initialize the execution
-	 */
-	void initExecution();
+  /**
+   * Initialize the execution
+   */
+  void initExecution();
 
-	void *initializeTileData(rcti *rect);
-	void deinitializeTileData(rcti *rect, void *data);
+  void *initializeTileData(rcti *rect);
+  void deinitializeTileData(rcti *rect, void *data);
 
-	/**
-	 * Deinitialize the execution
-	 */
-	void deinitExecution();
+  /**
+   * Deinitialize the execution
+   */
+  void deinitExecution();
 
-	bool determineDependingAreaOfInterest(rcti *input, ReadBufferOperation *readOperation, rcti *output);
-
+  bool determineDependingAreaOfInterest(rcti *input,
+                                        ReadBufferOperation *readOperation,
+                                        rcti *output);
 };
 
 #endif

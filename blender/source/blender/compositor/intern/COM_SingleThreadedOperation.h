@@ -1,6 +1,4 @@
 /*
- * Copyright 2011, Blender Foundation.
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,6 +12,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *
+ * Copyright 2011, Blender Foundation.
  */
 
 #ifndef __COM_SINGLETHREADEDOPERATION_H__
@@ -21,36 +21,40 @@
 #include "COM_NodeOperation.h"
 
 class SingleThreadedOperation : public NodeOperation {
-private:
-	MemoryBuffer *m_cachedInstance;
+ private:
+  MemoryBuffer *m_cachedInstance;
 
-protected:
-	inline bool isCached() {
-		return this->m_cachedInstance != NULL;
-	}
+ protected:
+  inline bool isCached()
+  {
+    return this->m_cachedInstance != NULL;
+  }
 
-public:
-	SingleThreadedOperation();
+ public:
+  SingleThreadedOperation();
 
-	/**
-	 * the inner loop of this program
-	 */
-	void executePixel(float output[4], int x, int y, void *data);
+  /**
+   * the inner loop of this program
+   */
+  void executePixel(float output[4], int x, int y, void *data);
 
-	/**
-	 * Initialize the execution
-	 */
-	void initExecution();
+  /**
+   * Initialize the execution
+   */
+  void initExecution();
 
-	/**
-	 * Deinitialize the execution
-	 */
-	void deinitExecution();
+  /**
+   * Deinitialize the execution
+   */
+  void deinitExecution();
 
-	void *initializeTileData(rcti *rect);
+  void *initializeTileData(rcti *rect);
 
-	virtual MemoryBuffer *createMemoryBuffer(rcti *rect) = 0;
+  virtual MemoryBuffer *createMemoryBuffer(rcti *rect) = 0;
 
-	int isSingleThreaded() { return true; }
+  int isSingleThreaded()
+  {
+    return true;
+  }
 };
 #endif

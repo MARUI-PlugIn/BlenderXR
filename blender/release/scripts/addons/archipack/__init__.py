@@ -31,9 +31,9 @@ bl_info = {
     'author': 's-leger',
     'license': 'GPL',
     'deps': '',
-    'version': (1, 2, 81),
+    'version': (1, 2, 83),
     'blender': (2, 80, 0),
-    'location': 'View3D > Tools > Create > Archipack',
+    'location': 'View3D > Sidebar > Create > Archipack',
     'warning': '',
     'wiki_url': 'https://github.com/s-leger/archipack/wiki',
     'tracker_url': 'https://github.com/s-leger/archipack/issues',
@@ -308,8 +308,8 @@ class TOOLS_PT_Archipack_Create(Panel):
     bl_label = "Archipack"
     bl_idname = "TOOLS_PT_Archipack_Create"
     bl_space_type = "VIEW_3D"
-    bl_region_type = "TOOLS"
-    # bl_category = "Create"
+    bl_region_type = "UI"
+    bl_category = "Create"
     bl_context = "objectmode"
 
     @classmethod
