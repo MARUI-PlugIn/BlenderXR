@@ -1044,6 +1044,11 @@ void VR_Steam::interpretControllerState(const vr::VRControllerState_t& s, const 
 				} // else: center
 			}
 		}
+        input_error = vr_input->GetDigitalActionData(input_handles->thumbstick_press, &digital_action_data, sizeof(vr::InputDigitalActionData_t), vr::k_ulInvalidInputValueHandle);
+		const bool thumbstick_pressed = digital_action_data.bActive && digital_action_data.bState;
+		if (thumbstick_pressed) {
+            c.buttons |= (c.side == Side_Left) ? VR_STEAM_BTNBIT_LEFTSTICK : VR_STEAM_BTNBIT_RIGHTSTICK;
+		}
 	}
 #else
 	clock_t now = clock();
