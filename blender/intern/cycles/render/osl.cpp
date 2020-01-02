@@ -152,7 +152,7 @@ void OSLShaderManager::device_update(Device *device,
   {
     /* Perform greedyjit optimization.
      *
-     * This might waste time on optimizing gorups which are never actually
+     * This might waste time on optimizing groups which are never actually
      * used, but this prevents OSL from allocating data on TLS at render
      * time.
      *
@@ -672,9 +672,6 @@ void OSLCompiler::add(ShaderNode *node, const char *name, bool isfilepath)
     if (!input->link) {
       /* checks to untangle graphs */
       if (node_skip_input(node, input))
-        continue;
-      /* already has default value assigned */
-      else if (input->flags() & SocketType::DEFAULT_LINK_MASK)
         continue;
 
       string param_name = compatible_name(node, input);

@@ -25,6 +25,8 @@ from bl_ui.space_view3d import (
     VIEW3D_PT_shading_options,
 )
 
+from bl_ui.properties_grease_pencil_common import GreasePencilSimplifyPanel
+
 
 class RenderButtonsPanel:
     bl_space_type = 'PROPERTIES'
@@ -314,7 +316,6 @@ class RENDER_PT_eevee_subsurface_scattering(RenderButtonsPanel, Panel):
         col = layout.column()
         col.prop(props, "sss_samples")
         col.prop(props, "sss_jitter_threshold")
-        col.prop(props, "use_sss_separate_albedo")
 
 
 class RENDER_PT_eevee_screen_space_reflections(RenderButtonsPanel, Panel):
@@ -366,7 +367,6 @@ class RENDER_PT_eevee_shadows(RenderButtonsPanel, Panel):
         props = scene.eevee
 
         col = layout.column()
-        col.prop(props, "shadow_method")
         col.prop(props, "shadow_cube_size", text="Cube Size")
         col.prop(props, "shadow_cascade_size", text="Cascade Size")
         col.prop(props, "use_shadow_high_bitdepth")
@@ -655,35 +655,11 @@ class RENDER_PT_simplify_render(RenderButtonsPanel, Panel):
         col.prop(rd, "simplify_child_particles_render", text="Max Child Particles")
 
 
-class RENDER_PT_simplify_greasepencil(RenderButtonsPanel, Panel):
+class RENDER_PT_simplify_greasepencil(RenderButtonsPanel, Panel, GreasePencilSimplifyPanel):
     bl_label = "Grease Pencil"
     bl_parent_id = "RENDER_PT_simplify"
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME', 'BLENDER_CLAY', 'BLENDER_EEVEE'}
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME', 'BLENDER_CLAY', 'BLENDER_EEVEE', 'BLENDER_WORKBENCH'}
     bl_options = {'DEFAULT_CLOSED'}
-
-    def draw_header(self, context):
-        rd = context.scene.render
-        self.layout.prop(rd, "simplify_gpencil", text="")
-
-    def draw(self, context):
-        layout = self.layout
-        layout.use_property_split = True
-        layout.use_property_decorate = False
-
-        rd = context.scene.render
-
-        layout.active = rd.simplify_gpencil
-
-        col = layout.column()
-        col.prop(rd, "simplify_gpencil_onplay", text="Playback Only")
-        col.prop(rd, "simplify_gpencil_view_modifier", text="Modifiers")
-        col.prop(rd, "simplify_gpencil_shader_fx", text="ShaderFX")
-        col.prop(rd, "simplify_gpencil_blend", text="Layers Blending")
-
-        col.prop(rd, "simplify_gpencil_view_fill")
-        sub = col.column()
-        sub.active = rd.simplify_gpencil_view_fill
-        sub.prop(rd, "simplify_gpencil_remove_lines", text="Lines")
 
 
 classes = (

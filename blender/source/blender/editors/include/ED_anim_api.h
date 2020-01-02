@@ -25,6 +25,7 @@
 #define __ED_ANIM_API_H__
 
 struct AnimData;
+struct Depsgraph;
 struct ID;
 struct ListBase;
 
@@ -84,8 +85,6 @@ typedef struct bAnimContext {
   /** dopesheet data for editor (or which is being used) */
   struct bDopeSheet *ads;
 
-  /** active dependency graph */
-  struct Depsgraph *depsgraph;
   /** Current Main */
   struct Main *bmain;
   /** active scene */
@@ -835,12 +834,28 @@ void ED_drivers_editor_init(struct bContext *C, struct ScrArea *sa);
 
 /* ************************************************ */
 
+typedef enum eAnimvizCalcRange {
+  /* Update motion paths at the current frame only. */
+  ANIMVIZ_CALC_RANGE_CURRENT_FRAME,
+
+  /* Try to limit updates to a close neighborhood of the current frame. */
+  ANIMVIZ_CALC_RANGE_CHANGED,
+
+  /* Update an entire range of the motion paths. */
+  ANIMVIZ_CALC_RANGE_FULL,
+} eAnimvizCalcRange;
+
+struct Depsgraph *animviz_depsgraph_build(struct Main *bmain,
+                                          struct Scene *scene,
+                                          struct ViewLayer *view_layer,
+                                          struct ListBase *targets);
+
 void animviz_calc_motionpaths(struct Depsgraph *depsgraph,
                               struct Main *bmain,
                               struct Scene *scene,
                               ListBase *targets,
-                              bool restore,
-                              bool current_frame_only);
+                              eAnimvizCalcRange range,
+                              bool restore);
 
 void animviz_get_object_motionpaths(struct Object *ob, ListBase *targets);
 

@@ -113,7 +113,7 @@ set(SRC
 	intern/vr_widget.h
 	intern/vr_widget_addprimitive.h
 	intern/vr_widget_alt.h
-  intern/vr_widget_animation.h
+    intern/vr_widget_animation.h
 	intern/vr_widget_annotate.h
 	intern/vr_widget_bevel.h
 	intern/vr_widget_ctrl.h
@@ -147,5 +147,11 @@ add_definitions(${GL_DEFINITIONS})
 if(WITH_X11)
 	add_definitions(-DWITH_X11)
 endif()
+
+# sculpting widget requires some libraries
+set(LIB
+  bf_blenkernel
+  bf_blenlib
+)
 
 blender_add_lib(bf_vr "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")

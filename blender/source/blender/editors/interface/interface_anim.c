@@ -228,7 +228,7 @@ bool ui_but_anim_expression_create(uiBut *but, const char *str)
   /* make sure we have animdata for this */
   /* FIXME: until materials can be handled by depsgraph,
    * don't allow drivers to be created for them */
-  id = (ID *)but->rnapoin.id.data;
+  id = but->rnapoin.owner_id;
   if ((id == NULL) || (GS(id->name) == ID_MA) || (GS(id->name) == ID_TE)) {
     if (G.debug & G_DEBUG) {
       printf("ERROR: create expression failed - invalid data-block for adding drivers (%p)\n", id);
@@ -243,7 +243,7 @@ bool ui_but_anim_expression_create(uiBut *but, const char *str)
   }
 
   /* create driver */
-  fcu = verify_driver_fcurve(id, path, but->rnaindex, 1);
+  fcu = verify_driver_fcurve(id, path, but->rnaindex, DRIVER_FCURVE_KEYFRAMES);
   if (fcu) {
     ChannelDriver *driver = fcu->driver;
 
@@ -286,12 +286,11 @@ void ui_but_anim_autokey(bContext *C, uiBut *but, Scene *scene, float cfra)
   if (special) {
     /* NLA Strip property */
     if (IS_AUTOKEY_ON(scene)) {
-      Depsgraph *depsgraph = CTX_data_depsgraph(C);
       ReportList *reports = CTX_wm_reports(C);
       ToolSettings *ts = scene->toolsettings;
 
       insert_keyframe_direct(
-          depsgraph, reports, but->rnapoin, but->rnaprop, fcu, cfra, ts->keyframe_type, NULL, 0);
+          reports, but->rnapoin, but->rnaprop, fcu, cfra, ts->keyframe_type, NULL, 0);
       WM_event_add_notifier(C, NC_ANIMATION | ND_KEYFRAME | NA_EDITED, NULL);
     }
   }
@@ -300,12 +299,10 @@ void ui_but_anim_autokey(bContext *C, uiBut *but, Scene *scene, float cfra)
      * making it easier to set up corrective drivers
      */
     if (IS_AUTOKEY_ON(scene)) {
-      Depsgraph *depsgraph = CTX_data_depsgraph(C);
       ReportList *reports = CTX_wm_reports(C);
       ToolSettings *ts = scene->toolsettings;
 
-      insert_keyframe_direct(depsgraph,
-                             reports,
+      insert_keyframe_direct(reports,
                              but->rnapoin,
                              but->rnaprop,
                              fcu,
@@ -317,11 +314,10 @@ void ui_but_anim_autokey(bContext *C, uiBut *but, Scene *scene, float cfra)
     }
   }
   else {
-    id = but->rnapoin.id.data;
+    id = but->rnapoin.owner_id;
 
     /* TODO: this should probably respect the keyingset only option for anim */
     if (autokeyframe_cfra_can_key(scene, id)) {
-      Depsgraph *depsgraph = CTX_data_depsgraph(C);
       ReportList *reports = CTX_wm_reports(C);
       ToolSettings *ts = scene->toolsettings;
       short flag = ANIM_get_keyframing_flags(scene, 1);
@@ -333,7 +329,6 @@ void ui_but_anim_autokey(bContext *C, uiBut *but, Scene *scene, float cfra)
        *       E.g., color wheels (see T42567). */
       BLI_assert((fcu->array_index == but->rnaindex) || (but->rnaindex == -1));
       insert_keyframe(bmain,
-                      depsgraph,
                       reports,
                       id,
                       action,

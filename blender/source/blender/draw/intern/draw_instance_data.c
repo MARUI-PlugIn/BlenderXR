@@ -23,7 +23,7 @@
 /**
  * DRW Instance Data Manager
  * This is a special memory manager that keeps memory blocks ready to send as vbo data in one
- * continuous allocation. This way we avoid feeding gawain each instance data one by one and
+ * continuous allocation. This way we avoid feeding #GPUBatch each instance data one by one and
  * unnecessary memcpy. Since we loose which memory block was used each #DRWShadingGroup we need to
  * redistribute them in the same order/size to avoid to realloc each frame. This is why
  * #DRWInstanceDatas are sorted in a list for each different data size.
@@ -64,7 +64,7 @@ typedef struct DRWTempBufferHandle {
   /** Format pointer for reuse. */
   GPUVertFormat *format;
   /** Touched vertex length for resize. */
-  uint *vert_len;
+  int *vert_len;
 } DRWTempBufferHandle;
 
 static ListBase g_idatalists = {NULL, NULL};
@@ -112,7 +112,7 @@ static void instance_batch_free(GPUBatch *geom, void *UNUSED(user_data))
  */
 GPUVertBuf *DRW_temp_buffer_request(DRWInstanceDataList *idatalist,
                                     GPUVertFormat *format,
-                                    uint *vert_len)
+                                    int *vert_len)
 {
   BLI_assert(format != NULL);
   BLI_assert(vert_len != NULL);
@@ -298,7 +298,7 @@ void DRW_instance_data_list_free(DRWInstanceDataList *idatalist)
 {
   DRWInstanceData *idata, *next_idata;
 
-  for (int i = 0; i < MAX_INSTANCE_DATA_SIZE; ++i) {
+  for (int i = 0; i < MAX_INSTANCE_DATA_SIZE; i++) {
     for (idata = idatalist->idata_head[i]; idata; idata = next_idata) {
       next_idata = idata->next;
       DRW_instance_data_free(idata);
@@ -319,7 +319,7 @@ void DRW_instance_data_list_reset(DRWInstanceDataList *idatalist)
 {
   DRWInstanceData *idata;
 
-  for (int i = 0; i < MAX_INSTANCE_DATA_SIZE; ++i) {
+  for (int i = 0; i < MAX_INSTANCE_DATA_SIZE; i++) {
     for (idata = idatalist->idata_head[i]; idata; idata = idata->next) {
       idata->used = false;
     }
@@ -331,7 +331,7 @@ void DRW_instance_data_list_free_unused(DRWInstanceDataList *idatalist)
   DRWInstanceData *idata, *next_idata;
 
   /* Remove unused data blocks and sanitize each list. */
-  for (int i = 0; i < MAX_INSTANCE_DATA_SIZE; ++i) {
+  for (int i = 0; i < MAX_INSTANCE_DATA_SIZE; i++) {
     idatalist->idata_tail[i] = NULL;
     for (idata = idatalist->idata_head[i]; idata; idata = next_idata) {
       next_idata = idata->next;
@@ -360,7 +360,7 @@ void DRW_instance_data_list_resize(DRWInstanceDataList *idatalist)
 {
   DRWInstanceData *idata;
 
-  for (int i = 0; i < MAX_INSTANCE_DATA_SIZE; ++i) {
+  for (int i = 0; i < MAX_INSTANCE_DATA_SIZE; i++) {
     for (idata = idatalist->idata_head[i]; idata; idata = idata->next) {
       BLI_mempool_clear_ex(idata->mempool, BLI_mempool_len(idata->mempool));
     }

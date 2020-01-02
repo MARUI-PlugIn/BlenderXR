@@ -66,9 +66,7 @@
 #include "GPU_draw.h"
 #include "GPU_extensions.h"
 #include "GPU_glew.h"
-#include "GPU_material.h"
-#include "GPU_matrix.h"
-#include "GPU_shader.h"
+#include "GPU_platform.h"
 #include "GPU_texture.h"
 
 #include "PIL_time.h"
@@ -348,7 +346,7 @@ static void gpu_texture_update_scaled(
   }
 
   /* Scale pixels. */
-  ImBuf *ibuf = IMB_allocFromBuffer((uint *)rect, rect_float, w, h);
+  ImBuf *ibuf = IMB_allocFromBuffer((uint *)rect, rect_float, w, h, 4);
   IMB_scaleImBuf(ibuf, sub_w, sub_h);
 
   if (ibuf->rect_float) {
@@ -648,13 +646,13 @@ void GPU_create_gl_tex(uint *bind,
     recth = smaller_power_of_2_limit(recth);
 
     if (frect) {
-      ibuf = IMB_allocFromBuffer(NULL, frect, tpx, tpy);
+      ibuf = IMB_allocFromBuffer(NULL, frect, tpx, tpy, 4);
       IMB_scaleImBuf(ibuf, rectw, recth);
 
       frect = ibuf->rect_float;
     }
     else {
-      ibuf = IMB_allocFromBuffer(rect, NULL, tpx, tpy);
+      ibuf = IMB_allocFromBuffer(rect, NULL, tpx, tpy, 4);
       IMB_scaleImBuf(ibuf, rectw, recth);
 
       rect = ibuf->rect;
@@ -794,7 +792,7 @@ bool GPU_upload_dxt_texture(ImBuf *ibuf, bool use_srgb)
   }
 
   blocksize = (ibuf->dds_data.fourcc == FOURCC_DXT1) ? 8 : 16;
-  for (i = 0; i < ibuf->dds_data.nummipmaps && (width || height); ++i) {
+  for (i = 0; i < ibuf->dds_data.nummipmaps && (width || height); i++) {
     if (width == 0) {
       width = 1;
     }

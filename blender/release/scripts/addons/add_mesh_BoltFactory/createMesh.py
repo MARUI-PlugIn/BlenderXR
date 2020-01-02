@@ -31,9 +31,7 @@ from bpy_extras.object_utils import AddObjectHelper, object_data_add
 NARROW_UI = 180
 MAX_INPUT_NUMBER = 50
 
-# Global_Scale = 0.001   # 1 blender unit = X mm
-GLOBAL_SCALE = 0.1       # 1 blender unit = X mm
-# Global_Scale = 1.0     # 1 blender unit = X mm
+GLOBAL_SCALE = 1       # 1 blender unit = X mm
 
 
 # next two utility functions are stolen from import_obj.py
@@ -233,20 +231,20 @@ def Mirror_Verts_Faces(VERTS, FACES, AXIS, FLIP_POINT=0):
 
 # Returns a list of faces that
 # make up an array of 4 point polygon.
-def Build_Face_List_Quads(OFFSET, COLUM, ROW, FLIP=0):
+def Build_Face_List_Quads(OFFSET, COLUMN, ROW, FLIP=0):
     Ret = []
     RowStart = 0
     for j in range(ROW):
-        for i in range(COLUM):
+        for i in range(COLUMN):
             Res1 = RowStart + i
-            Res2 = RowStart + i + (COLUM + 1)
-            Res3 = RowStart + i + (COLUM + 1) + 1
+            Res2 = RowStart + i + (COLUMN + 1)
+            Res3 = RowStart + i + (COLUMN + 1) + 1
             Res4 = RowStart + i + 1
             if FLIP:
                 Ret.append([OFFSET + Res1, OFFSET + Res2, OFFSET + Res3, OFFSET + Res4])
             else:
                 Ret.append([OFFSET + Res4, OFFSET + Res3, OFFSET + Res2, OFFSET + Res1])
-        RowStart += COLUM + 1
+        RowStart += COLUMN + 1
     return Ret
 
 
@@ -2001,7 +1999,6 @@ def Create_New_Mesh(props, context):
     is_not_mesh_valid = mesh.validate()
 
     if is_not_mesh_valid:
-        print("\n[BoltFactory]\nFunction: create_mesh_object\n"
-              "Mesh is not Valid, correcting\n")
+        props.report({'INFO'}, "Mesh is not Valid, correcting")
 
-    object_data_add(context, mesh, operator=props)
+    return mesh

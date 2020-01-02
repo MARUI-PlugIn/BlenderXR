@@ -45,7 +45,6 @@
 
 #include "BKE_fcurve.h"
 
-#include "GPU_draw.h"
 #include "GPU_immediate.h"
 #include "GPU_state.h"
 
@@ -546,8 +545,7 @@ int actkeyblock_get_valid_hold(ActKeyColumn *ac)
     return 0;
   }
 
-  const int hold_mask = (ACTKEYBLOCK_FLAG_ANY_HOLD | ACTKEYBLOCK_FLAG_STATIC_HOLD |
-                         ACTKEYBLOCK_FLAG_ANY_HOLD);
+  const int hold_mask = (ACTKEYBLOCK_FLAG_ANY_HOLD | ACTKEYBLOCK_FLAG_STATIC_HOLD);
   return (ac->block.flag & ~ac->block.conflict) & hold_mask;
 }
 
@@ -814,8 +812,10 @@ static void draw_keylist(View2D *v2d,
       uint outline_color_id = GPU_vertformat_attr_add(
           format, "outlineColor", GPU_COMP_U8, 4, GPU_FETCH_INT_TO_FLOAT_UNIT);
       uint flags_id = GPU_vertformat_attr_add(format, "flags", GPU_COMP_U32, 1, GPU_FETCH_INT);
-      immBindBuiltinProgram(GPU_SHADER_KEYFRAME_DIAMOND);
+
       GPU_program_point_size(true);
+      immBindBuiltinProgram(GPU_SHADER_KEYFRAME_DIAMOND);
+      immUniform1f("outline_scale", 1.0f);
       immUniform2f(
           "ViewportSize", BLI_rcti_size_x(&v2d->mask) + 1, BLI_rcti_size_y(&v2d->mask) + 1);
       immBegin(GPU_PRIM_POINTS, key_len);

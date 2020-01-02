@@ -1831,6 +1831,10 @@ void BKE_ptcache_id_from_rigidbody(PTCacheID *pid, Object *ob, RigidBodyWorld *r
   pid->file_type = PTCACHE_FILE_PTCACHE;
 }
 
+/**
+ * \param ob: Optional, may be NULL.
+ * \param scene: Optional may be NULL.
+ */
 PTCacheID BKE_ptcache_id_find(Object *ob, Scene *scene, PointCache *cache)
 {
   PTCacheID result = {0};
@@ -1934,39 +1938,44 @@ static bool foreach_object_ptcache(
     Scene *scene, Object *object, int duplis, ForeachPtcacheCb callback, void *callback_user_data)
 {
   PTCacheID pid;
-  /* Soft body. */
-  if (object->soft != NULL) {
-    BKE_ptcache_id_from_softbody(&pid, object, object->soft);
-    if (!callback(&pid, callback_user_data)) {
+
+  if (object != NULL) {
+    /* Soft body. */
+    if (object->soft != NULL) {
+      BKE_ptcache_id_from_softbody(&pid, object, object->soft);
+      if (!callback(&pid, callback_user_data)) {
+        return false;
+      }
+    }
+    /* Particle systems. */
+    if (!foreach_object_particle_ptcache(object, callback, callback_user_data)) {
       return false;
     }
+    /* Modifiers. */
+    if (!foreach_object_modifier_ptcache(object, callback, callback_user_data)) {
+      return false;
+    }
+    /* Consider all object in dupli groups to be part of the same object,
+     * for baking with linking dupligroups. Once we have better overrides
+     * this can be revisited so users select the local objects directly. */
+    if (scene != NULL && (duplis-- > 0) && (object->instance_collection != NULL)) {
+      FOREACH_COLLECTION_OBJECT_RECURSIVE_BEGIN (object->instance_collection, current_object) {
+        if (current_object == object) {
+          continue;
+        }
+        foreach_object_ptcache(scene, current_object, duplis, callback, callback_user_data);
+      }
+      FOREACH_COLLECTION_OBJECT_RECURSIVE_END;
+    }
   }
-  /* Particle systems. */
-  if (!foreach_object_particle_ptcache(object, callback, callback_user_data)) {
-    return false;
-  }
-  /* Modifiers. */
-  if (!foreach_object_modifier_ptcache(object, callback, callback_user_data)) {
-    return false;
-  }
+
   /* Rigid body. */
-  if (scene != NULL && object->rigidbody_object != NULL && scene->rigidbody_world != NULL) {
+  if (scene != NULL && (object == NULL || object->rigidbody_object != NULL) &&
+      scene->rigidbody_world != NULL) {
     BKE_ptcache_id_from_rigidbody(&pid, object, scene->rigidbody_world);
     if (!callback(&pid, callback_user_data)) {
       return false;
     }
-  }
-  /* Consider all object in dupli groups to be part of the same object,
-   * for baking with linking dupligroups. Once we have better overrides
-   * this can be revisited so users select the local objects directly. */
-  if (scene != NULL && (duplis-- > 0) && (object->instance_collection != NULL)) {
-    FOREACH_COLLECTION_OBJECT_RECURSIVE_BEGIN (object->instance_collection, current_object) {
-      if (current_object == object) {
-        continue;
-      }
-      foreach_object_ptcache(scene, current_object, duplis, callback, callback_user_data);
-    }
-    FOREACH_COLLECTION_OBJECT_RECURSIVE_END;
   }
   return true;
 }
@@ -2073,10 +2082,9 @@ static int ptcache_path(PTCacheID *pid, char *filename)
       file[i - 6] = '\0';
     }
 
-    BLI_snprintf(filename,
-                 MAX_PTCACHE_PATH,
-                 "//" PTCACHE_PATH "%s",
-                 file); /* add blend file name to pointcache dir */
+    /* Add blend file name to pointcache dir. */
+    BLI_snprintf(filename, MAX_PTCACHE_PATH, "//" PTCACHE_PATH "%s", file);
+
     BLI_path_abs(filename, blendfilename);
     return BLI_add_slash(filename); /* new strlen() */
   }
@@ -2130,24 +2138,17 @@ static int ptcache_filename(PTCacheID *pid, char *filename, int cfra, short do_p
 
     if (pid->cache->flag & PTCACHE_EXTERNAL) {
       if (pid->cache->index >= 0) {
-        BLI_snprintf(newname,
-                     MAX_PTCACHE_FILE,
-                     "_%06d_%02u%s",
-                     cfra,
-                     pid->stack_index,
-                     ext); /* always 6 chars */
+        /* Always 6 chars. */
+        BLI_snprintf(newname, MAX_PTCACHE_FILE, "_%06d_%02u%s", cfra, pid->stack_index, ext);
       }
       else {
-        BLI_snprintf(newname, MAX_PTCACHE_FILE, "_%06d%s", cfra, ext); /* always 6 chars */
+        /* Always 6 chars. */
+        BLI_snprintf(newname, MAX_PTCACHE_FILE, "_%06d%s", cfra, ext);
       }
     }
     else {
-      BLI_snprintf(newname,
-                   MAX_PTCACHE_FILE,
-                   "_%06d_%02u%s",
-                   cfra,
-                   pid->stack_index,
-                   ext); /* always 6 chars */
+      /* Always 6 chars. */
+      BLI_snprintf(newname, MAX_PTCACHE_FILE, "_%06d_%02u%s", cfra, pid->stack_index, ext);
     }
     len += 16;
   }
@@ -2178,8 +2179,9 @@ static PTCacheFile *ptcache_file_open(PTCacheID *pid, int mode, int cfra)
     fp = BLI_fopen(filename, "rb");
   }
   else if (mode == PTCACHE_FILE_WRITE) {
-    BLI_make_existing_file(
-        filename); /* will create the dir if needs be, same as //textures is created */
+    /* Will create the dir if needs be, same as "//textures" is created. */
+    BLI_make_existing_file(filename);
+
     fp = BLI_fopen(filename, "wb");
   }
   else if (mode == PTCACHE_FILE_UPDATE) {
@@ -3337,7 +3339,7 @@ int BKE_ptcache_write(PTCacheID *pid, unsigned int cfra)
     cache->cached_frames[cfra - cache->startframe] = 1;
   }
 
-  BKE_ptcache_update_info(pid);
+  cache->flag |= PTCACHE_FLAG_INFO_DIRTY;
 
   return !error;
 }
@@ -3500,8 +3502,9 @@ void BKE_ptcache_id_clear(PTCacheID *pid, int mode, unsigned int cfra)
       break;
   }
 
-  BKE_ptcache_update_info(pid);
+  pid->cache->flag |= PTCACHE_FLAG_INFO_DIRTY;
 }
+
 int BKE_ptcache_id_exist(PTCacheID *pid, int cfra)
 {
   if (!pid->cache) {
@@ -3559,7 +3562,7 @@ void BKE_ptcache_id_time(
 
   if (timescale) {
     time = BKE_scene_frame_get(scene);
-    nexttime = BKE_scene_frame_get_from_ctime(scene, CFRA + 1.0f);
+    nexttime = BKE_scene_frame_to_ctime(scene, CFRA + 1.0f);
 
     *timescale = MAX2(nexttime - time, 0.0f);
   }
@@ -3810,7 +3813,7 @@ void BKE_ptcache_remove(void)
     closedir(dir);
   }
   else {
-    rmdir = 0; /* path dosnt exist  */
+    rmdir = 0; /* path doesn't exist  */
   }
 
   if (rmdir) {
@@ -4288,7 +4291,7 @@ void BKE_ptcache_toggle_disk_cache(PTCacheID *pid)
 
   BKE_ptcache_id_time(pid, NULL, 0.0f, NULL, NULL, NULL);
 
-  BKE_ptcache_update_info(pid);
+  cache->flag |= PTCACHE_FLAG_INFO_DIRTY;
 
   if ((cache->flag & PTCACHE_DISK_CACHE) == 0) {
     if (cache->index) {
@@ -4461,7 +4464,8 @@ void BKE_ptcache_load_external(PTCacheID *pid)
     cache->cached_frames = NULL;
     cache->cached_frames_len = 0;
   }
-  BKE_ptcache_update_info(pid);
+
+  cache->flag |= PTCACHE_FLAG_INFO_DIRTY;
 }
 
 void BKE_ptcache_update_info(PTCacheID *pid)
@@ -4469,7 +4473,9 @@ void BKE_ptcache_update_info(PTCacheID *pid)
   PointCache *cache = pid->cache;
   PTCacheExtra *extra = NULL;
   int totframes = 0;
-  char mem_info[64];
+  char mem_info[sizeof(((PointCache *)0)->info) / sizeof(*(((PointCache *)0)->info))];
+
+  cache->flag &= ~PTCACHE_FLAG_INFO_DIRTY;
 
   if (cache->flag & PTCACHE_EXTERNAL) {
     int cfra = cache->startframe;
@@ -4540,7 +4546,7 @@ void BKE_ptcache_update_info(PTCacheID *pid)
     }
 
     BLI_str_format_int_grouped(formatted_tot, totframes);
-    BLI_str_format_byte_unit(formatted_mem, bytes, true);
+    BLI_str_format_byte_unit(formatted_mem, bytes, false);
 
     BLI_snprintf(mem_info,
                  sizeof(mem_info),

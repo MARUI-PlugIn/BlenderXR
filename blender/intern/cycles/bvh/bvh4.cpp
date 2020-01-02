@@ -31,7 +31,10 @@ CCL_NAMESPACE_BEGIN
  * life easier all over the place.
  */
 
-BVH4::BVH4(const BVHParams &params_, const vector<Object *> &objects_) : BVH(params_, objects_)
+BVH4::BVH4(const BVHParams &params_,
+           const vector<Mesh *> &meshes_,
+           const vector<Object *> &objects_)
+    : BVH(params_, meshes_, objects_)
 {
   params.bvh_layout = BVH_LAYOUT_BVH4;
 }
@@ -43,8 +46,7 @@ BVHNode *bvh_node_merge_children_recursively(const BVHNode *node)
   if (node->is_leaf()) {
     return new LeafNode(*reinterpret_cast<const LeafNode *>(node));
   }
-  /* Collect nodes of one layer deeper, allowing us to have more childrem in
-   * an inner layer. */
+  /* Collect nodes of one layer deeper, allowing us to have more children in an inner layer. */
   assert(node->num_children() <= 2);
   const BVHNode *children[4];
   const BVHNode *child0 = node->get_child(0);

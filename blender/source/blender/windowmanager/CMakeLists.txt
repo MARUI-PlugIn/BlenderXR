@@ -68,7 +68,9 @@ set(SRC
   intern/wm_operator_type.c
   intern/wm_operators.c
   intern/wm_panel_type.c
+  intern/wm_platform_support.c
   intern/wm_playanim.c
+  intern/wm_splash_screen.c
   intern/wm_stereo.c
   intern/wm_subwindow.c
   intern/wm_toolsystem.c
@@ -98,6 +100,8 @@ set(SRC
   wm_event_types.h
   wm_files.h
   wm_window.h
+  intern/wm_platform_support.h
+  intern/wm_window_private.h
   gizmo/WM_gizmo_api.h
   gizmo/WM_gizmo_types.h
   gizmo/wm_gizmo_fn.h
@@ -108,8 +112,8 @@ set(SRC
 )
 
 set(LIB
-  bf_vr
   bf_editor_screen
+  bf_vr
 )
 
 if(WITH_AUDASPACE)

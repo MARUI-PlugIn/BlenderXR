@@ -397,6 +397,9 @@ static void build_underline(Curve *cu,
   copy_v4_fl4(bp[2].vec, rect->xmax, (rect->ymin + yofs), 0.0f, 1.0f);
   copy_v4_fl4(bp[3].vec, rect->xmin, (rect->ymin + yofs), 0.0f, 1.0f);
 
+  /* Used by curve extrusion. */
+  bp[0].radius = bp[1].radius = bp[2].radius = bp[3].radius = 1.0f;
+
   nu2->bp = bp;
   BLI_addtail(nubase, nu2);
 
@@ -955,7 +958,7 @@ static bool vfont_to_curve(Object *ob,
         }
       }
 
-      current_line_length += xof;
+      current_line_length += xof - MARGIN_X_MIN;
       if (ct->dobreak) {
         current_line_length += twidth;
       }
@@ -1026,7 +1029,7 @@ static bool vfont_to_curve(Object *ob,
     }
     ct++;
   }
-  current_line_length += xof + twidth;
+  current_line_length += xof + twidth - MARGIN_X_MIN;
   longest_line_length = MAX2(current_line_length, longest_line_length);
 
   cu->lines = 1;
@@ -1408,7 +1411,9 @@ static bool vfont_to_curve(Object *ob,
         cha = towupper(cha);
       }
 
-      if (ob == NULL || info->mat_nr > (ob->totcol)) {
+      /* Only do that check in case we do have an object, otherwise all materials get erased every
+       * time that code is called without an object... */
+      if (ob != NULL && (info->mat_nr > (ob->totcol))) {
         // CLOG_ERROR(
         //     &LOG, "Illegal material index (%d) in text object, setting to 0", info->mat_nr);
         info->mat_nr = 0;

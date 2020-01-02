@@ -164,10 +164,19 @@ set(SRC
   ../../../../intern/guardedalloc/intern/mallocn_guarded_impl.c
   ../../../../intern/guardedalloc/intern/mallocn_lockfree_impl.c
   ../../../../intern/guardedalloc/intern/mmap_win.c
+
+  # Needed for defaults.
+  ../../../../release/datafiles/userdef/userdef_default.c
+  ../../../../release/datafiles/userdef/userdef_default_theme.c
 )
 
 set(INC
-    ../../../../intern/clog
+  ../../../../intern/clog
+
+  # Needed for defaults forward declarations.
+  ../../blenloader
+
+  ${CMAKE_BINARY_DIR}/source/blender/makesdna/intern
 )
 
 set(INC_SYS
@@ -364,9 +373,11 @@ add_custom_command(
 # Build bf_rna
 set(SRC
   rna_access.c
+  rna_access_compare_override.c
   ${GENSRC}
 
   ${SRC_RNA_INC}
+  rna_access_internal.h
   rna_internal.h
   rna_internal_types.h
   rna_mesh_utils.h

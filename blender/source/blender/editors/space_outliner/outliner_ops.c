@@ -27,9 +27,6 @@
 
 #include "BLT_translation.h"
 
-#include "GPU_immediate.h"
-#include "GPU_state.h"
-
 #include "RNA_access.h"
 
 #include "UI_interface.h"
@@ -50,6 +47,7 @@ void outliner_operatortypes(void)
   WM_operatortype_append(OUTLINER_OT_highlight_update);
   WM_operatortype_append(OUTLINER_OT_item_activate);
   WM_operatortype_append(OUTLINER_OT_select_box);
+  WM_operatortype_append(OUTLINER_OT_select_walk);
   WM_operatortype_append(OUTLINER_OT_item_openclose);
   WM_operatortype_append(OUTLINER_OT_item_rename);
   WM_operatortype_append(OUTLINER_OT_item_drag_drop);

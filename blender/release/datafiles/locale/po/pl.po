@@ -1,8 +1,9 @@
+
 msgid ""
 msgstr ""
-"Project-Id-Version: Blender 2.80 (sub 75) (b'8e1516b7bcca')\n"
+"Project-Id-Version: Blender 2.81 (sub 16) (b'99640d062234')\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2019-07-29 00:00:00\n"
+"POT-Creation-Date: 2019-11-20 13:23:12\n"
 "PO-Revision-Date: 2017-08-26 11:13+0200\n"
 "Last-Translator: Mikołaj Juda <mikolaj.juda@gmail.com>\n"
 "Language: pl\n"
@@ -1245,10 +1246,6 @@ msgid "How fast velocity's direction is randomized"
 msgstr "Jak szybko losowany jest kierunek prędkości"
 
 
-msgid "Fear factor"
-msgstr "Czynnik strachu"
-
-
 msgid "Avoid object if danger from it is above this threshold"
 msgstr "Unikaj obiektu jeżeli niebezpieczeństwo od niego jest wyższe niż ta granica"
 
@@ -1263,10 +1260,6 @@ msgstr "Przewiduj"
 
 msgid "Predict target movement"
 msgstr "Przewiduj ruchy swojego celu"
-
-
-msgid "Look ahead"
-msgstr "Przewiduj"
 
 
 msgid "Time to look ahead in seconds"
@@ -1693,6 +1686,10 @@ msgid "Bone is able to be selected"
 msgstr "Kość może zostać zaznaczona"
 
 
+msgid "Inherit Scale"
+msgstr "Dziedzicz skalę"
+
+
 msgid "Layers"
 msgstr "Warstwy"
 
@@ -1739,10 +1736,6 @@ msgstr "Kość jest zawsze rysowana jako siatka niezależnie od ustawień rysowa
 
 msgid "Tail"
 msgstr "Koniec"
-
-
-msgid "Location of tail end of the bone"
-msgstr "Położenie końca kości"
 
 
 msgid "Armature-Relative Tail"
@@ -1799,14 +1792,6 @@ msgstr "Dziedzicz rotację"
 
 msgid "Bone inherits rotation or scale from parent bone"
 msgstr "Kość dziedziczy rotację lub skalę z kości nadrzędnej"
-
-
-msgid "Inherit Scale"
-msgstr "Dziedzicz skalę"
-
-
-msgid "Bone inherits scaling from parent bone"
-msgstr "Kość dziedziczy skalę z kości nadrzędnej"
 
 
 msgid "Local Location"
@@ -3544,10 +3529,6 @@ msgstr "Odwróć rotację na osi Y"
 
 msgid "Invert the Z rotation"
 msgstr "Odwróć rotację na osi Z"
-
-
-msgid "Add original rotation into copied rotation"
-msgstr "Dodaj oryginalną rotację do skopiowanej rotacji"
 
 
 msgid "Copy the target's X rotation"
@@ -5426,6 +5407,10 @@ msgid "Tail Select"
 msgstr "Zaznacz koniec"
 
 
+msgid "Location of tail end of the bone"
+msgstr "Położenie końca kości"
+
+
 msgid "Effector weights for physics simulation"
 msgstr "Wagi efektorów wpływających na symulacje fizyczne"
 
@@ -6706,6 +6691,10 @@ msgid "Open"
 msgstr "Otwórz"
 
 
+msgid "Remove Pack"
+msgstr "Usuń paczkę (rozpakuj)"
+
+
 msgid "Limit"
 msgstr "Ograniczenie"
 
@@ -6732,10 +6721,6 @@ msgstr "Duplikuj zaznaczone obiekty i przesuń je"
 
 msgid "Child"
 msgstr "Potomek"
-
-
-msgid "Child Object"
-msgstr "Obiekt potomny"
 
 
 msgid "Hinge"
@@ -6891,6 +6876,10 @@ msgstr "Priorytet"
 
 msgid "Unpack"
 msgstr "Rozpakuj"
+
+
+msgid "File: %s"
+msgstr "Plik: %s"
 
 
 msgctxt "Operator"
@@ -7109,10 +7098,6 @@ msgid "Image '%s' skipped, movies and image sequences not supported"
 msgstr "Obraz '%s' pominięty, filmy i sekwencje obrazów nie są obsługiwane"
 
 
-msgid "Packed %d files"
-msgstr "Spakowano %d plików"
-
-
 msgid "Error creating file '%s'"
 msgstr "Błąd utworzenia pliku '%s'"
 
@@ -7260,10 +7245,6 @@ msgstr "Nie można otworzyć lub uruchomić pliku filmowego AVI"
 
 msgid "Error writing frame"
 msgstr "Błąd zapisu klatki"
-
-
-msgid "Could not allocate temporary frame"
-msgstr "Nie można było alokować klatki tymczasowej"
 
 
 msgid "No valid formats found"
@@ -7719,10 +7700,6 @@ msgid "Not deleting keyframe for locked F-Curve '%s', object '%s'"
 msgstr "Nie usuwam klatek kluczowych w zablokowanej krzywej-F '%s', obiekt '%s'"
 
 
-msgid "Object '%s' successfully had %d keyframes removed"
-msgstr "W obiekcie '%s' z powodzeniem usunięto %d klatek kluczowych"
-
-
 msgid "\"%s\" property cannot be animated"
 msgstr "Właściwość \"%s\" nie moży być animowana"
 
@@ -8087,8 +8064,9 @@ msgid "Grease Pencil operator is already active"
 msgstr "Operator Szkicownik jest już aktywny"
 
 
-msgid "Shift+Left Mouse"
-msgstr "Shift-LPM"
+msgctxt "Operator"
+msgid "Change Shortcut"
+msgstr "Zmień Skrót"
 
 
 msgctxt "Operator"
@@ -8164,11 +8142,6 @@ msgstr "Resetuj pojedynczy do domyślnego"
 msgctxt "Operator"
 msgid "Unset"
 msgstr "Odłącz"
-
-
-msgctxt "Operator"
-msgid "Change Shortcut"
-msgstr "Zmień Skrót"
 
 
 msgctxt "Operator"
@@ -8328,22 +8301,6 @@ msgstr "Pos"
 
 msgid "Use Clipping"
 msgstr "Użyj obcinania"
-
-
-msgid "Min X "
-msgstr "Min X "
-
-
-msgid "Min Y "
-msgstr "Min Y "
-
-
-msgid "Max X "
-msgstr "Maks X "
-
-
-msgid "Max Y "
-msgstr "Maks Y "
 
 
 msgid "Reset View"
@@ -8890,10 +8847,6 @@ msgid "Removed: %d vertices, %d edges, %d faces"
 msgstr "Usunięto: %d wierzchołków, %d krawędzi, %d ścian"
 
 
-msgid "Removed %d vertices"
-msgstr "Usunięto %d wierzchołków"
-
-
 msgid "%d already symmetrical, %d pairs mirrored, %d failed"
 msgstr "%d już symetrycznych, %d par odbito, %d nie powiodło się"
 
@@ -8906,40 +8859,20 @@ msgid "Parse error in %s"
 msgstr "Błąd parse w %s"
 
 
-msgid "Cannot add geometry in edit mode"
-msgstr "Nie można dodać geometrii w trybie edycji"
-
-
-msgid "Cannot add tessfaces in edit mode"
-msgstr "Nie można dodać tessfaces w trybie edycji"
-
-
-msgid "Cannot add tessfaces to a mesh that already has polygons"
-msgstr "Nie można dodać tessfaces do siatki, która już posiada poligony"
+msgid "Cannot add vertices in edit mode"
+msgstr "Nie można dodać wierzchołków w trybie edycji"
 
 
 msgid "Cannot add edges in edit mode"
 msgstr "Nie można dodać krawędzi w trybie edycji"
 
 
-msgid "Cannot add vertices in edit mode"
-msgstr "Nie można dodać wierzchołków w trybie edycji"
+msgid "Cannot add loops in edit mode"
+msgstr "Nie można dodać pętli w trybie edycji"
 
 
-msgid "Cannot remove faces in edit mode"
-msgstr "Nie można usunąć ścian w trybie edycji"
-
-
-msgid "Cannot remove more faces than the mesh contains"
-msgstr "Nie można usunąć większej ilości ścian niż występuje w siatce"
-
-
-msgid "Cannot remove edges in edit mode"
-msgstr "Nie można usunąć krawędzi w trybie edycji"
-
-
-msgid "Cannot remove more edges than the mesh contains"
-msgstr "Nie można usunąć większej ilości krawędzi niż występuje w siatce"
+msgid "Cannot add polygons in edit mode"
+msgstr "Nie można dodać poligonów w trybie edycji"
 
 
 msgid "Cannot remove vertices in edit mode"
@@ -8950,12 +8883,12 @@ msgid "Cannot remove more vertices than the mesh contains"
 msgstr "Nie można usunąć większej ilości wierzchołków niż występuje w siatce"
 
 
-msgid "Cannot add loops in edit mode"
-msgstr "Nie można dodać pętli w trybie edycji"
+msgid "Cannot remove edges in edit mode"
+msgstr "Nie można usunąć krawędzi w trybie edycji"
 
 
-msgid "Cannot add polygons in edit mode"
-msgstr "Nie można dodać poligonów w trybie edycji"
+msgid "Cannot remove more edges than the mesh contains"
+msgstr "Nie można usunąć większej ilości krawędzi niż występuje w siatce"
 
 
 msgid "%d %s mirrored, %d failed"
@@ -9476,10 +9409,6 @@ msgid "Bake failed: invalid canvas"
 msgstr "Wypalanie nie powiodło się: nieprawidłowa kanwa"
 
 
-msgid "Removed %d double particles"
-msgstr "Usunięto %d podwójnych cząstek"
-
-
 msgid "Copy particle systems to selected: %d done, %d failed"
 msgstr "Kopiowanie systemu cząstek na zaznaczone: wykonano %d, nie powiodło się %d"
 
@@ -9864,14 +9793,6 @@ msgid "No more markers to jump to in this direction"
 msgstr "Brak markerów do których można skoczyć w tym kierunku"
 
 
-msgid "Only window region can be 4-splitted"
-msgstr "Tylko region okna może być podzielony na 4"
-
-
-msgid "Only last region can be 4-splitted"
-msgstr "Tylko ostatni region może być podzielony na 4"
-
-
 msgid "No fullscreen areas were found"
 msgstr "Nie odnaleziono obszarów pełnoekranowych"
 
@@ -10128,10 +10049,6 @@ msgid "Frame: - / %d"
 msgstr "Klatka: - / %d"
 
 
-msgid "File: %s"
-msgstr "Plik: %s"
-
-
 msgid "unsupported movie clip format"
 msgstr "Format klipu filmowego nie obsługiwany"
 
@@ -10192,28 +10109,8 @@ msgid "Average re-projection error: %.3f"
 msgstr "Średni błąd reprojekcji: %.3f"
 
 
-msgid "Cancel"
-msgstr "Rezygnuj"
-
-
 msgid "File path"
 msgstr "Ścieżka pliku"
-
-
-msgid "Decrement the filename number"
-msgstr "Zmniejsz numer w nazwie pliku"
-
-
-msgid "Increment the filename number"
-msgstr "Zwiększ numer w nazwie pliku"
-
-
-msgid "File name, overwrite existing"
-msgstr "Nazwa pliku, nadpisz istniejący"
-
-
-msgid "File name"
-msgstr "Nazwa pliku"
 
 
 msgid "No parent directory given"
@@ -10222,6 +10119,18 @@ msgstr "Nie podano nadrzędnego katalogu"
 
 msgid "Could not create new folder name"
 msgstr "Nie można było utworzyć nowej nazwy folderu"
+
+
+msgid "Cancel"
+msgstr "Rezygnuj"
+
+
+msgid "File name, overwrite existing"
+msgstr "Nazwa pliku, nadpisz istniejący"
+
+
+msgid "File name"
+msgstr "Nazwa pliku"
 
 
 msgid "Cursor from Selection"
@@ -10790,10 +10699,6 @@ msgstr "Usuń nody przyłączone do tego wejścia"
 
 msgid "Disconnect nodes connected to the input"
 msgstr "Odłącz nody przyłączone do tego wejścia"
-
-
-msgid "Can't edit library linked object"
-msgstr "Nie można edytować obiektu z linkowanej biblioteki"
 
 
 msgid "Library path '%s' does not exist, correct this before saving"
@@ -11506,20 +11411,20 @@ msgid " along %s Z axis"
 msgstr " wzdłuż osi Z - %s"
 
 
-msgid "Unsupported object type for text-space transform"
-msgstr "Nieobsługiwany format dla transformacji text-space"
-
-
-msgid "Linked data can't text-space transform"
-msgstr "Zlinkowane dane nie pozwalają na transformację text-space"
-
-
 msgid "Cannot change Pose when 'Rest Position' is enabled"
 msgstr "Nie można zmienić pozy gdy 'Pozycja Spoczynku' jest aktywna"
 
 
 msgid "Bone selection count error"
 msgstr "Błąd ilości kości w selekcji"
+
+
+msgid "Linked data can't text-space transform"
+msgstr "Zlinkowane dane nie pozwalają na transformację text-space"
+
+
+msgid "Unsupported object type for text-space transform"
+msgstr "Nieobsługiwany format dla transformacji text-space"
 
 
 msgid "(Sharp)"
@@ -11585,10 +11490,6 @@ msgstr "Nie można użyć ściany o powierzchni zero"
 
 msgid "Unpack File"
 msgstr "Rozpakuj plik"
-
-
-msgid "Remove Pack"
-msgstr "Usuń paczkę (rozpakuj)"
 
 
 msgid "Create %s"
@@ -12269,10 +12170,6 @@ msgid "Edges changed from %d to %d"
 msgstr "Krawędzie zmienione z %d na %d"
 
 
-msgid "Vertex group '%s' is not valid"
-msgstr "Grupa wierzchołków '%s' nieprawidłowa"
-
-
 msgid "The system did not find a solution"
 msgstr "System nie znalazł rozwiązania"
 
@@ -12681,6 +12578,10 @@ msgid "Paste name"
 msgstr "Wklej nazwę"
 
 
+msgid "Blender File View"
+msgstr "Widok plików"
+
+
 msgid "Missing 'window' in context"
 msgstr "Brakuje \"Okna\" w kontekście"
 
@@ -12834,24 +12735,12 @@ msgid "Property from path '%s' has length %d instead of %d"
 msgstr "Właściwość ze ścieżki '%s' ma długość %d zamiast %d"
 
 
-msgid "Blender File View"
-msgstr "Widok plików"
-
-
 msgid "All Add-ons"
 msgstr "Wszystkie dodatki"
 
 
 msgid "All Add-ons Installed by User"
 msgstr "Wszystkie dodatki zainstalowane przez użytkownika"
-
-
-msgid "All Enabled Add-ons"
-msgstr "Wszystkie aktywne dodatki"
-
-
-msgid "All Disabled Add-ons"
-msgstr "Wszystkie nieaktywne dodatki"
 
 
 msgid "Add Curve"
@@ -13040,3 +12929,4 @@ msgstr "W trakcie"
 
 msgid "Starting"
 msgstr "Zaczęto"
+

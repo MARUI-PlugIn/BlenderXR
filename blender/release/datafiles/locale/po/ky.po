@@ -1,9 +1,10 @@
+
 msgid ""
 msgstr ""
-"Project-Id-Version: Blender 2.80 (sub 75) (b'8e1516b7bcca')\n"
+"Project-Id-Version: Blender 2.81 (sub 16) (b'99640d062234')\n"
 "(b'0000000000000000000000000000000000000000')\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2019-07-29 00:00:00\n"
+"POT-Creation-Date: 2019-11-20 13:23:12\n"
 "PO-Revision-Date: 2013-11-05 13:47+0600\n"
 "Last-Translator: Chyngyz Dzhumaliev <kyrgyzl10n@gmail.com>\n"
 "Language-Team: Kirghiz <kyrgyzl10n@gmail.com>\n"
@@ -262,6 +263,10 @@ msgstr "Кокустугу"
 
 msgid "Volume"
 msgstr "Көлөм"
+
+
+msgid "Full"
+msgstr "Толук"
 
 
 msgid "Angle"
@@ -609,7 +614,7 @@ msgid "Vertex"
 msgstr "Чоку"
 
 
-msgid "Anti-aliasing"
+msgid "Anti-Aliasing"
 msgstr "Тегиздөө"
 
 
@@ -941,10 +946,6 @@ msgstr "Өлчөмдөр"
 
 msgid "Fill Mode"
 msgstr "Толтуруу режими"
-
-
-msgid "Full"
-msgstr "Толук"
 
 
 msgid "Half"
@@ -1634,10 +1635,6 @@ msgid "Shadow"
 msgstr "Көлөкө"
 
 
-msgid "Anti-Aliasing"
-msgstr "Тегиздөө"
-
-
 msgid "RGB"
 msgstr "RGB"
 
@@ -1808,11 +1805,6 @@ msgid "Copy Color"
 msgstr "Түсүн көчүрүү"
 
 
-msgctxt "Operator"
-msgid "Clear"
-msgstr "Тазалоо"
-
-
 msgid "History"
 msgstr "Тарых"
 
@@ -1973,10 +1965,6 @@ msgstr "Жол режими"
 
 msgid "Hierarchy"
 msgstr "Иерархия"
-
-
-msgid "Delete selected files"
-msgstr "Тандалган файлдарды өчүрүү"
 
 
 msgctxt "Operator"
@@ -2213,10 +2201,6 @@ msgstr "Тегиздикти кошуу"
 msgctxt "Operator"
 msgid "Add Torus"
 msgstr "Торду кошуу"
-
-
-msgid "Add a torus mesh"
-msgstr "Тор политорун жаратуу"
 
 
 msgid "Construct a UV sphere mesh"
@@ -2461,22 +2445,6 @@ msgid "Animation Step"
 msgstr "Анимация кадамы"
 
 
-msgid "X 2"
-msgstr "X 2"
-
-
-msgid "Y 2"
-msgstr "Y 2"
-
-
-msgid "X 1"
-msgstr "X 1"
-
-
-msgid "Y 1"
-msgstr "Y 1"
-
-
 msgctxt "Operator"
 msgid "Delete Screen"
 msgstr "Экранды өчүрүү"
@@ -2498,10 +2466,6 @@ msgstr "Жаңы экран кошуу"
 msgctxt "Operator"
 msgid "Redo Last"
 msgstr "Акыркысын кайталоо"
-
-
-msgid "Display menu for last action performed"
-msgstr "Акыркы аткарылган аракеттин менюсун көрсөтүү"
 
 
 msgid "Display menu for previous actions performed"
@@ -2766,11 +2730,6 @@ msgid "Memory Statistics"
 msgstr "Эс статистикасы"
 
 
-msgctxt "Operator"
-msgid "Open Blender File"
-msgstr "Blender файлын ачуу"
-
-
 msgid "Open a Blender file"
 msgstr "Blender файлын ачуу"
 
@@ -2910,10 +2869,6 @@ msgid "Audio"
 msgstr "Аудио"
 
 
-msgid "Find"
-msgstr "Табуу"
-
-
 msgid "Development"
 msgstr "Иштетүү"
 
@@ -2932,10 +2887,6 @@ msgstr "Стилдер"
 
 msgid "3D View"
 msgstr "3D-көрүнүш"
-
-
-msgid "Print3D"
-msgstr "3D-басма"
 
 
 msgctxt "Operator"
@@ -3032,6 +2983,10 @@ msgid "Memory Cache Limit"
 msgstr "Эс кэшинин чектөөсү"
 
 
+msgid "New Window"
+msgstr "Жаңы терезе"
+
+
 msgid "Translate Interface"
 msgstr "Интерфейсти которуу"
 
@@ -3062,10 +3017,6 @@ msgstr "Асман"
 
 msgid "Bake normals"
 msgstr "Нормалдарды бышыруу"
-
-
-msgid "New Window"
-msgstr "Жаңы терезе"
 
 
 msgid "Engine"
@@ -3526,6 +3477,11 @@ msgstr "Өзгөртүү:"
 
 
 msgctxt "Operator"
+msgid "Clear"
+msgstr "Тазалоо"
+
+
+msgctxt "Operator"
 msgid "All"
 msgstr "Баары"
 
@@ -3561,6 +3517,11 @@ msgstr "Пол"
 msgctxt "Operator"
 msgid "Wall"
 msgstr "Дубал"
+
+
+msgctxt "Operator"
+msgid "Back"
+msgstr "Артынан"
 
 
 msgctxt "Operator"
@@ -3652,8 +3613,13 @@ msgstr "Көбөйтүү"
 
 
 msgctxt "Operator"
-msgid "Find..."
-msgstr "Табуу..."
+msgid "Top"
+msgstr "Үстүнөн"
+
+
+msgctxt "Operator"
+msgid "Bottom"
+msgstr "Астынан"
 
 
 msgctxt "Operator"
@@ -3684,6 +3650,10 @@ msgstr "Python API маалымдамасы"
 msgctxt "Operator"
 msgid "Report a Bug"
 msgstr "Ката жөнүндө маалымдоо"
+
+
+msgid "Anti-aliasing"
+msgstr "Тегиздөө"
 
 
 msgid "New Data"
@@ -3742,23 +3712,8 @@ msgstr "Камера"
 
 
 msgctxt "Operator"
-msgid "Top"
-msgstr "Үстүнөн"
-
-
-msgctxt "Operator"
-msgid "Bottom"
-msgstr "Астынан"
-
-
-msgctxt "Operator"
 msgid "Front"
 msgstr "Алдынан"
-
-
-msgctxt "Operator"
-msgid "Back"
-msgstr "Артынан"
 
 
 msgctxt "Operator"
@@ -3868,11 +3823,6 @@ msgstr "Решётка"
 
 msgid "X-Ray"
 msgstr "Рентген"
-
-
-msgctxt "Operator"
-msgid "Energy"
-msgstr "Энергия"
 
 
 msgctxt "Operator"
@@ -4138,12 +4088,12 @@ msgid "OK"
 msgstr "ООБА"
 
 
-msgid "Cancel"
-msgstr "Жокко чыгаруу"
-
-
 msgid "File path"
 msgstr "Файлга жол"
+
+
+msgid "Cancel"
+msgstr "Жокко чыгаруу"
 
 
 msgid "File name"
@@ -4470,3 +4420,4 @@ msgstr "Которулууда"
 
 msgid "Starting"
 msgstr "Башталууда"
+

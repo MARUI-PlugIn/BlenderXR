@@ -35,8 +35,6 @@ extern "C" {
 struct BLI_Iterator;
 struct Base;
 struct Collection;
-struct Depsgraph;
-struct ID;
 struct Main;
 struct Object;
 struct Scene;
@@ -72,20 +70,16 @@ struct Collection *BKE_collection_duplicate(struct Main *bmain,
                                             const bool do_hierarchy,
                                             const bool do_objects,
                                             const bool do_obdata);
-struct Collection *BKE_collection_copy_master(struct Main *bmain,
-                                              struct Collection *collection,
-                                              const int flag);
 
 /* Master Collection for Scene */
 
-struct Collection *BKE_collection_master(const struct Scene *scene);
 struct Collection *BKE_collection_master_add(void);
 struct Scene *BKE_collection_master_scene_search(const struct Main *bmain,
                                                  const struct Collection *master_collection);
 
 /* Collection Objects */
 
-bool BKE_collection_has_object(struct Collection *collection, struct Object *ob);
+bool BKE_collection_has_object(struct Collection *collection, const struct Object *ob);
 bool BKE_collection_has_object_recursive(struct Collection *collection, struct Object *ob);
 struct Collection *BKE_collection_object_find(struct Main *bmain,
                                               struct Scene *scene,
@@ -171,7 +165,7 @@ void BKE_main_collections_parent_relations_rebuild(struct Main *bmain);
 typedef void (*BKE_scene_objects_Cb)(struct Object *ob, void *data);
 typedef void (*BKE_scene_collections_Cb)(struct Collection *ob, void *data);
 
-/* Iteratorion over objects in collection. */
+/* Iteration over objects in collection. */
 
 #define FOREACH_COLLECTION_VISIBLE_OBJECT_RECURSIVE_BEGIN(_collection, _object, _mode) \
   { \
@@ -227,7 +221,7 @@ void BKE_scene_objects_iterator_end(struct BLI_Iterator *iter);
     bool is_scene_collection = (_scene) != NULL; \
 \
     if (_scene) { \
-      _instance_next = BKE_collection_master(_scene); \
+      _instance_next = _scene->master_collection; \
     } \
     else { \
       _instance_next = (_bmain)->collections.first; \

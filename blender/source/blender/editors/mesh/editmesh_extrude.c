@@ -145,10 +145,10 @@ static bool edbm_extrude_discrete_faces(BMEditMesh *em, wmOperator *op, const ch
 }
 
 /* extrudes individual edges */
-static bool edbm_extrude_edges_indiv(BMEditMesh *em,
-                                     wmOperator *op,
-                                     const char hflag,
-                                     const bool use_normal_flip)
+bool edbm_extrude_edges_indiv(BMEditMesh *em,
+                              wmOperator *op,
+                              const char hflag,
+                              const bool use_normal_flip)
 {
   BMesh *bm = em->bm;
   BMOperator bmop;
@@ -658,6 +658,7 @@ void MESH_OT_extrude_faces_indiv(wmOperatorType *ot)
 
 static int edbm_dupli_extrude_cursor_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
+  struct Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   ViewContext vc;
   BMVert *v1;
   BMIter iter;
@@ -819,7 +820,7 @@ static int edbm_dupli_extrude_cursor_invoke(bContext *C, wmOperator *op, const w
 
         /* also project the source, for retopo workflow */
         if (use_proj) {
-          EDBM_project_snap_verts(C, vc.ar, vc.em);
+          EDBM_project_snap_verts(C, depsgraph, vc.ar, vc.em);
         }
       }
 
@@ -852,7 +853,7 @@ static int edbm_dupli_extrude_cursor_invoke(bContext *C, wmOperator *op, const w
     }
 
     if (use_proj) {
-      EDBM_project_snap_verts(C, vc.ar, vc.em);
+      EDBM_project_snap_verts(C, depsgraph, vc.ar, vc.em);
     }
 
     /* This normally happens when pushing undo but modal operators

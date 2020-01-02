@@ -73,6 +73,7 @@ set(SRC
   intern/depsgraph_query.cc
   intern/depsgraph_query_foreach.cc
   intern/depsgraph_query_iter.cc
+  intern/depsgraph_registry.cc
   intern/depsgraph_tag.cc
   intern/depsgraph_type.cc
   intern/depsgraph_update.cc
@@ -107,6 +108,7 @@ set(SRC
   intern/node/deg_node_time.h
   intern/depsgraph.h
   intern/depsgraph_physics.h
+  intern/depsgraph_registry.h
   intern/depsgraph_tag.h
   intern/depsgraph_type.h
   intern/depsgraph_update.h
@@ -114,12 +116,5 @@ set(SRC
 
 set(LIB
 )
-
-if(WITH_BOOST)
-  list(APPEND INC_SYS
-    ${BOOST_INCLUDE_DIR}
-  )
-  add_definitions(-DHAVE_BOOST_FUNCTION_BINDINGS)
-endif()
 
 blender_add_lib(bf_depsgraph "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")

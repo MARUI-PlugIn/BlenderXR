@@ -23,6 +23,7 @@ set(INC
   ../../blentranslation
   ../../bmesh
   ../../depsgraph
+  ../../draw
   ../../gpu
   ../../imbuf
   ../../makesdna
@@ -42,6 +43,7 @@ set(SRC
   editface.c
   editmesh_add.c
   editmesh_add_gizmo.c
+  editmesh_automerge.c
   editmesh_bevel.c
   editmesh_bisect.c
   editmesh_extrude.c
@@ -53,6 +55,7 @@ set(SRC
   editmesh_knife.c
   editmesh_knife_project.c
   editmesh_loopcut.c
+  editmesh_mask_extract.c
   editmesh_path.c
   editmesh_polybuild.c
   editmesh_preselect_edgering.c

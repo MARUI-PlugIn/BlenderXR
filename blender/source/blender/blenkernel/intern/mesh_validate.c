@@ -1200,7 +1200,7 @@ void BKE_mesh_strip_loose_polysloops(Mesh *me)
     int i = p->loopstart;
     int stop = i + p->totloop;
 
-    if (stop > me->totloop || stop < i) {
+    if (stop > me->totloop || stop < i || p->loopstart < 0) {
       invalid = true;
     }
     else {
@@ -1618,6 +1618,12 @@ void BKE_mesh_calc_edges_loose(Mesh *mesh)
   MLoop *ml = mesh->mloop;
   for (int i = 0; i < mesh->totloop; i++, ml++) {
     mesh->medge[ml->e].flag &= ~ME_LOOSEEDGE;
+  }
+  med = mesh->medge;
+  for (int i = 0; i < mesh->totedge; i++, med++) {
+    if (med->flag & ME_LOOSEEDGE) {
+      med->flag |= ME_EDGEDRAW;
+    }
   }
 }
 

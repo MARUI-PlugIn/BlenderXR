@@ -52,6 +52,7 @@
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_build.h"
+#include "DEG_depsgraph_query.h"
 
 #include "RNA_define.h"
 #include "RNA_access.h"
@@ -351,7 +352,7 @@ static bool object_hook_index_array(Main *bmain,
       em = me->edit_mesh;
 
       EDBM_mesh_normals_update(em);
-      BKE_editmesh_tessface_calc(em);
+      BKE_editmesh_looptri_calc(em);
 
       /* check selected vertices first */
       if (return_editmesh_indexar(em, r_tot, r_indexar, r_cent) == 0) {
@@ -435,7 +436,7 @@ static void object_hook_from_context(
   HookModifierData *hmd;
 
   if (ptr->data) { /* if modifier context is available, use that */
-    ob = ptr->id.data;
+    ob = (Object *)ptr->owner_id;
     hmd = ptr->data;
   }
   else { /* use the provided property */
@@ -527,6 +528,7 @@ static int add_hook_object(const bContext *C,
                            int mode,
                            ReportList *reports)
 {
+  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   ModifierData *md = NULL;
   HookModifierData *hmd = NULL;
   float cent[3];
@@ -601,11 +603,14 @@ static int add_hook_object(const bContext *C,
   /* matrix calculus */
   /* vert x (obmat x hook->imat) x hook->obmat x ob->imat */
   /*        (parentinv         )                          */
-  BKE_object_where_is_calc(CTX_data_depsgraph(C), scene, ob);
+  Scene *scene_eval = DEG_get_evaluated_scene(depsgraph);
+  Object *object_eval = DEG_get_evaluated_object(depsgraph, ob);
+  BKE_object_transform_copy(object_eval, ob);
+  BKE_object_where_is_calc(depsgraph, scene_eval, object_eval);
 
-  invert_m4_m4(ob->imat, ob->obmat);
+  invert_m4_m4(object_eval->imat, object_eval->obmat);
   /* apparently this call goes from right to left... */
-  mul_m4_series(hmd->parentinv, pose_mat, ob->imat, obedit->obmat);
+  mul_m4_series(hmd->parentinv, pose_mat, object_eval->imat, obedit->obmat);
 
   DEG_relations_tag_update(bmain);
 

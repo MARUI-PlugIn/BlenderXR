@@ -188,11 +188,11 @@ BLI_INLINE int next_ind(int i)
 }
 
 static float compute_collision_point(float a1[3],
-                                     float a2[3],
-                                     float a3[3],
-                                     float b1[3],
-                                     float b2[3],
-                                     float b3[3],
+                                     const float a2[3],
+                                     const float a3[3],
+                                     const float b1[3],
+                                     const float b2[3],
+                                     const float b3[3],
                                      bool culling,
                                      bool use_normal,
                                      float r_a[3],
@@ -419,7 +419,7 @@ static float compute_collision_point(float a1[3],
 
 // w3 is not perfect
 static void collision_compute_barycentric(
-    float pv[3], float p1[3], float p2[3], float p3[3], float *w1, float *w2, float *w3)
+    const float pv[3], float p1[3], float p2[3], float p3[3], float *w1, float *w2, float *w3)
 {
   /* dot_v3v3 */
 #define INPR(v1, v2) ((v1)[0] * (v2)[0] + (v1)[1] * (v2)[1] + (v1)[2] * (v2)[2])
@@ -851,7 +851,7 @@ static int cloth_selfcollision_response_static(ClothModifierData *clmd,
 
 static void cloth_collision(void *__restrict userdata,
                             const int index,
-                            const ParallelRangeTLS *__restrict UNUSED(tls))
+                            const TaskParallelTLS *__restrict UNUSED(tls))
 {
   ColDetectData *data = (ColDetectData *)userdata;
 
@@ -908,7 +908,7 @@ static void cloth_collision(void *__restrict userdata,
 
 static void cloth_selfcollision(void *__restrict userdata,
                                 const int index,
-                                const ParallelRangeTLS *__restrict UNUSED(tls))
+                                const TaskParallelTLS *__restrict UNUSED(tls))
 {
   SelfColDetectData *data = (SelfColDetectData *)userdata;
 
@@ -1154,7 +1154,7 @@ static bool cloth_bvh_objcollisions_nearcheck(ClothModifierData *clmd,
       .collided = false,
   };
 
-  ParallelRangeSettings settings;
+  TaskParallelSettings settings;
   BLI_parallel_range_settings_defaults(&settings);
   settings.use_threading = true;
   BLI_task_parallel_range(0, numresult, &data, cloth_collision, &settings);
@@ -1174,7 +1174,7 @@ static bool cloth_bvh_selfcollisions_nearcheck(ClothModifierData *clmd,
       .collided = false,
   };
 
-  ParallelRangeSettings settings;
+  TaskParallelSettings settings;
   BLI_parallel_range_settings_defaults(&settings);
   settings.use_threading = true;
   BLI_task_parallel_range(0, numresult, &data, cloth_selfcollision, &settings);
@@ -1499,7 +1499,7 @@ BLI_INLINE bool cloth_point_face_collision_params(const float p1[3],
 }
 
 static CollPair *cloth_point_collpair(float p1[3],
-                                      float p2[3],
+                                      const float p2[3],
                                       const MVert *mverts,
                                       int bp1,
                                       int bp2,
@@ -1742,7 +1742,7 @@ void cloth_free_contacts(ColliderContacts *collider_contacts, int totcolliders)
 {
   if (collider_contacts) {
     int i;
-    for (i = 0; i < totcolliders; ++i) {
+    for (i = 0; i < totcolliders; i++) {
       ColliderContacts *ct = collider_contacts + i;
       if (ct->collisions) {
         MEM_freeN(ct->collisions);

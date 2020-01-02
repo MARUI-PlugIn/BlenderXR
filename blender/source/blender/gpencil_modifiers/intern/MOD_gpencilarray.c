@@ -171,6 +171,7 @@ static void generate_geometry(GpencilModifierData *md,
      */
     if (is_stroke_affected_by_modifier(ob,
                                        mmd->layername,
+                                       mmd->materialname,
                                        mmd->pass_index,
                                        mmd->layer_pass,
                                        1,
@@ -178,7 +179,8 @@ static void generate_geometry(GpencilModifierData *md,
                                        gps,
                                        mmd->flag & GP_ARRAY_INVERT_LAYER,
                                        mmd->flag & GP_ARRAY_INVERT_PASS,
-                                       mmd->flag & GP_ARRAY_INVERT_LAYERPASS)) {
+                                       mmd->flag & GP_ARRAY_INVERT_LAYERPASS,
+                                       mmd->flag & GP_ARRAY_INVERT_MATERIAL)) {
       valid_strokes[idx] = true;
       num_valid++;
     }
@@ -315,14 +317,6 @@ static void foreachObjectLink(GpencilModifierData *md,
   walk(userData, ob, &mmd->object, IDWALK_CB_NOP);
 }
 
-static int getDuplicationFactor(GpencilModifierData *md)
-{
-  ArrayGpencilModifierData *mmd = (ArrayGpencilModifierData *)md;
-  int t = mmd->count;
-  CLAMP_MIN(t, 1);
-  return t;
-}
-
 GpencilModifierTypeInfo modifierType_Gpencil_Array = {
     /* name */ "Array",
     /* structName */ "ArrayGpencilModifierData",
@@ -345,5 +339,4 @@ GpencilModifierTypeInfo modifierType_Gpencil_Array = {
     /* foreachObjectLink */ foreachObjectLink,
     /* foreachIDLink */ NULL,
     /* foreachTexLink */ NULL,
-    /* getDuplicationFactor */ getDuplicationFactor,
 };

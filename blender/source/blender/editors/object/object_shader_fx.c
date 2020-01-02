@@ -282,8 +282,9 @@ void OBJECT_OT_shaderfx_add(wmOperatorType *ot)
   ot->prop = RNA_def_enum(
       ot->srna, "type", rna_enum_object_shaderfx_type_items, eShaderFxType_Blur, "Type", "");
   RNA_def_enum_funcs(ot->prop, shaderfx_add_itemf);
-  RNA_def_property_translation_context(ot->prop,
-                                       BLT_I18NCONTEXT_ID_ID); /* Abused, for "Light"... */
+
+  /* Abused, for "Light"... */
+  RNA_def_property_translation_context(ot->prop, BLT_I18NCONTEXT_ID_ID);
 }
 
 /* -------------------------------------------------------------------- */
@@ -293,7 +294,7 @@ void OBJECT_OT_shaderfx_add(wmOperatorType *ot)
 static bool edit_shaderfx_poll_generic(bContext *C, StructRNA *rna_type, int obtype_flag)
 {
   PointerRNA ptr = CTX_data_pointer_get_type(C, "shaderfx", rna_type);
-  Object *ob = (ptr.id.data) ? ptr.id.data : ED_object_active_context(C);
+  Object *ob = (ptr.owner_id) ? (Object *)ptr.owner_id : ED_object_active_context(C);
 
   if (!ptr.data) {
     CTX_wm_operator_poll_msg_set(C, "Context missing 'shaderfx'");
@@ -306,7 +307,7 @@ static bool edit_shaderfx_poll_generic(bContext *C, StructRNA *rna_type, int obt
   if (obtype_flag && ((1 << ob->type) & obtype_flag) == 0) {
     return 0;
   }
-  if (ptr.id.data && ID_IS_LINKED(ptr.id.data)) {
+  if (ptr.owner_id && ID_IS_LINKED(ptr.owner_id)) {
     return 0;
   }
 

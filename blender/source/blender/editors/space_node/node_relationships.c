@@ -572,10 +572,10 @@ static int node_count_links(bNodeTree *ntree, bNodeSocket *sock)
   int count = 0;
   for (link = ntree->links.first; link; link = link->next) {
     if (link->fromsock == sock) {
-      ++count;
+      count++;
     }
     if (link->tosock == sock) {
-      ++count;
+      count++;
     }
   }
   return count;
@@ -599,7 +599,7 @@ static void node_remove_extra_links(SpaceNode *snode, bNodeLink *link)
       if (from_count > from->limit) {
         nodeRemLink(ntree, tlink);
         tlink = NULL;
-        --from_count;
+        from_count--;
       }
     }
 
@@ -607,7 +607,7 @@ static void node_remove_extra_links(SpaceNode *snode, bNodeLink *link)
       if (to_count > to->limit) {
         nodeRemLink(ntree, tlink);
         tlink = NULL;
-        --to_count;
+        to_count--;
       }
     }
   }
@@ -1103,7 +1103,7 @@ void NODE_OT_links_cut(wmOperatorType *ot)
   RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
 
   /* internal */
-  RNA_def_int(ot->srna, "cursor", BC_KNIFECURSOR, 0, INT_MAX, "Cursor", "", 0, INT_MAX);
+  RNA_def_int(ot->srna, "cursor", WM_CURSOR_KNIFE, 0, INT_MAX, "Cursor", "", 0, INT_MAX);
 }
 
 /* ********************** Detach links operator ***************** */
@@ -1567,7 +1567,7 @@ static bNodeSocket *socket_best_match(ListBase *sockets)
   }
 
   /* try all types, starting from 'highest' (i.e. colors, vectors, values) */
-  for (type = maxtype; type >= 0; --type) {
+  for (type = maxtype; type >= 0; type--) {
     for (sock = sockets->first; sock; sock = sock->next) {
       if (!nodeSocketIsHidden(sock) && type == sock->type) {
         return sock;
@@ -1576,7 +1576,7 @@ static bNodeSocket *socket_best_match(ListBase *sockets)
   }
 
   /* no visible sockets, unhide first of highest type */
-  for (type = maxtype; type >= 0; --type) {
+  for (type = maxtype; type >= 0; type--) {
     for (sock = sockets->first; sock; sock = sock->next) {
       if (type == sock->type) {
         sock->flag &= ~SOCK_HIDDEN;

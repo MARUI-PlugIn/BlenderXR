@@ -44,8 +44,6 @@ struct bPoseChannel;
 struct ReportList;
 struct bContext;
 
-struct Depsgraph;
-
 struct EnumPropertyItem;
 struct PointerRNA;
 struct PropertyRNA;
@@ -113,8 +111,7 @@ int insert_vert_fcurve(
  * Use this to insert a keyframe using the current value being keyframed, in the
  * nominated F-Curve (no creation of animation data performed). Returns success.
  */
-bool insert_keyframe_direct(struct Depsgraph *depsgraph,
-                            struct ReportList *reports,
+bool insert_keyframe_direct(struct ReportList *reports,
                             struct PointerRNA ptr,
                             struct PropertyRNA *prop,
                             struct FCurve *fcu,
@@ -130,7 +127,6 @@ bool insert_keyframe_direct(struct Depsgraph *depsgraph,
  * using the current value being keyframed, in the relevant place. Returns success.
  */
 short insert_keyframe(struct Main *bmain,
-                      struct Depsgraph *depsgraph,
                       struct ReportList *reports,
                       struct ID *id,
                       struct bAction *act,
@@ -314,13 +310,24 @@ extern EnumPropertyItem prop_driver_create_mapping_types[];
 
 /* -------- */
 
+typedef enum eDriverFCurveCreationMode {
+  DRIVER_FCURVE_LOOKUP_ONLY = 0, /* Don't add anything if not found. */
+  DRIVER_FCURVE_KEYFRAMES = 1,   /* Add with keyframes, for visual tweaking. */
+  DRIVER_FCURVE_GENERATOR = 2,   /* Add with generator, for script backwards compatibility. */
+  DRIVER_FCURVE_EMPTY = 3        /* Add without data, for pasting. */
+} eDriverFCurveCreationMode;
+
 /* Low-level call to add a new driver F-Curve. This shouldn't be used directly for most tools,
  * although there are special cases where this approach is preferable.
  */
 struct FCurve *verify_driver_fcurve(struct ID *id,
                                     const char rna_path[],
                                     const int array_index,
-                                    short add);
+                                    eDriverFCurveCreationMode creation_mode);
+
+struct FCurve *alloc_driver_fcurve(const char rna_path[],
+                                   const int array_index,
+                                   eDriverFCurveCreationMode creation_mode);
 
 /* -------- */
 
@@ -400,6 +407,12 @@ bool ANIM_driver_vars_copy(struct ReportList *reports, struct FCurve *fcu);
 
 /* Paste the variables in the buffer to the given FCurve */
 bool ANIM_driver_vars_paste(struct ReportList *reports, struct FCurve *fcu, bool replace);
+
+/* -------- */
+
+/* Create a driver & variable that reads the specified property,
+ * and store it in the buffers for Paste Driver and Paste Variables. */
+void ANIM_copy_as_driver(struct ID *target_id, const char *target_path, const char *var_name);
 
 /* ************ Auto-Keyframing ********************** */
 /* Notes:

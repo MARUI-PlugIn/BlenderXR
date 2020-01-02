@@ -32,6 +32,7 @@
 
 #include "BLI_utildefines.h"
 
+#include "BKE_global.h"
 #include "BKE_library.h"
 #include "BKE_scene.h"
 
@@ -182,7 +183,7 @@ static PyObject *bpygpu_offscreen_unbind(BPyGPUOffScreen *self, PyObject *args, 
 
 PyDoc_STRVAR(
     bpygpu_offscreen_draw_view3d_doc,
-    ".. method:: draw_view3d(scene, view3d, region, view_matrix, projection_matrix)\n"
+    ".. method:: draw_view3d(scene, view_layer, view3d, region, view_matrix, projection_matrix)\n"
     "\n"
     "   Draw the 3d viewport in the offscreen object.\n"
     "\n"
@@ -238,7 +239,7 @@ static PyObject *bpygpu_offscreen_draw_view3d(BPyGPUOffScreen *self,
 
   BLI_assert(BKE_id_is_in_global_main(&scene->id));
 
-  depsgraph = BKE_scene_get_depsgraph(scene, view_layer, true);
+  depsgraph = BKE_scene_get_depsgraph(G_MAIN, scene, view_layer, true);
 
   rv3d_mats = ED_view3d_mats_rv3d_backup(ar->regiondata);
 

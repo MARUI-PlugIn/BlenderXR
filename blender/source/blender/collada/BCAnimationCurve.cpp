@@ -249,7 +249,7 @@ const int BCAnimationCurve::closest_index_below(const float sample_frame) const
   int lower_index = 0;
   int upper_index = 0;
 
-  for (int fcu_index = 0; fcu_index < fcurve->totvert; ++fcu_index) {
+  for (int fcu_index = 0; fcu_index < fcurve->totvert; fcu_index++) {
     upper_index = fcu_index;
 
     const int cframe = fcurve->bezt[fcu_index].vec[1][0];  // inacurate!
@@ -383,7 +383,7 @@ void BCAnimationCurve::adjust_range(const int frame_index)
 void BCAnimationCurve::add_value(const float val, const int frame_index)
 {
   FCurve *fcu = get_edit_fcurve();
-  fcu->auto_smoothing = FCURVE_SMOOTH_CONT_ACCEL;
+  fcu->auto_smoothing = U.auto_smoothing_new;
   insert_vert_fcurve(fcu, frame_index, val, BEZT_KEYTYPE_KEYFRAME, INSERTKEY_NOFLAGS);
 
   if (fcu->totvert == 1) {
@@ -537,7 +537,7 @@ bool BCAnimationCurve::is_keyframe(int frame)
     return false;
   }
 
-  for (int i = 0; i < fcurve->totvert; ++i) {
+  for (int i = 0; i < fcurve->totvert; i++) {
     const int cframe = nearbyint(fcurve->bezt[i].vec[1][0]);
     if (cframe == frame) {
       return true;

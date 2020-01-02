@@ -82,7 +82,7 @@ static void subdiv_mesh_ctx_cache_uv_layers(SubdivMeshContext *ctx)
 {
   Mesh *subdiv_mesh = ctx->subdiv_mesh;
   ctx->num_uv_layers = CustomData_number_of_layers(&subdiv_mesh->ldata, CD_MLOOPUV);
-  for (int layer_index = 0; layer_index < ctx->num_uv_layers; ++layer_index) {
+  for (int layer_index = 0; layer_index < ctx->num_uv_layers; layer_index++) {
     ctx->uv_layers[layer_index] = CustomData_get_layer_n(
         &subdiv_mesh->ldata, CD_MLOOPUV, layer_index);
   }
@@ -220,7 +220,7 @@ static void vertex_interpolation_init(const SubdivMeshContext *ctx,
     const float weight = 1.0f / (float)coarse_poly->totloop;
     float *weights = BLI_array_alloca(weights, coarse_poly->totloop);
     int *indices = BLI_array_alloca(indices, coarse_poly->totloop);
-    for (int i = 0; i < coarse_poly->totloop; ++i) {
+    for (int i = 0; i < coarse_poly->totloop; i++) {
       weights[i] = weight;
       indices[i] = coarse_mloop[coarse_poly->loopstart + i].v;
     }
@@ -352,7 +352,7 @@ static void loop_interpolation_init(const SubdivMeshContext *ctx,
     const float weight = 1.0f / (float)coarse_poly->totloop;
     float *weights = BLI_array_alloca(weights, coarse_poly->totloop);
     int *indices = BLI_array_alloca(indices, coarse_poly->totloop);
-    for (int i = 0; i < coarse_poly->totloop; ++i) {
+    for (int i = 0; i < coarse_poly->totloop; i++) {
       weights[i] = weight;
       indices[i] = coarse_poly->loopstart + i;
     }
@@ -482,6 +482,8 @@ static void subdiv_accumulate_vertex_normal_and_displacement(SubdivMeshContext *
   }
   /* Accumulate displacement if needed. */
   if (ctx->have_displacement) {
+    /* NOTE: The subdivided mesh is allocated in this module, and its vertices are kept at zero
+     * locations as a default calloc(). */
     BKE_subdiv_eval_displacement(subdiv, ptex_face_index, u, v, dPdu, dPdv, D);
     add_v3_v3(subdiv_vert->co, D);
   }
@@ -498,9 +500,14 @@ static bool subdiv_mesh_topology_info(const SubdivForeachContext *foreach_contex
                                       const int num_loops,
                                       const int num_polygons)
 {
+  /* Multires grid data will be applied or become invalid after subdivision,
+   * so don't try to preserve it and use memory. */
+  CustomData_MeshMasks mask = CD_MASK_EVERYTHING;
+  mask.lmask &= ~CD_MASK_MULTIRES_GRIDS;
+
   SubdivMeshContext *subdiv_context = foreach_context->user_data;
-  subdiv_context->subdiv_mesh = BKE_mesh_new_nomain_from_template(
-      subdiv_context->coarse_mesh, num_vertices, num_edges, 0, num_loops, num_polygons);
+  subdiv_context->subdiv_mesh = BKE_mesh_new_nomain_from_template_ex(
+      subdiv_context->coarse_mesh, num_vertices, num_edges, 0, num_loops, num_polygons, mask);
   subdiv_mesh_ctx_cache_custom_data_layers(subdiv_context);
   subdiv_mesh_prepare_accumulator(subdiv_context, num_vertices);
   return true;
@@ -1086,20 +1093,27 @@ static void subdiv_mesh_vertex_of_loose_edge(const struct SubdivForeachContext *
   const MEdge *coarse_edge = &coarse_mesh->medge[coarse_edge_index];
   Mesh *subdiv_mesh = ctx->subdiv_mesh;
   MVert *subdiv_mvert = subdiv_mesh->mvert;
+  const bool is_simple = ctx->subdiv->settings.is_simple;
   /* Find neighbors of the current loose edge. */
   const MEdge *neighbors[2];
   find_edge_neighbors(ctx, coarse_edge, neighbors);
-  /* Get points for b-spline interpolation. */
-  float points[4][3];
-  points_for_loose_edges_interpolation_get(ctx, coarse_edge, neighbors, points);
-  /* Perform interpolation. */
-  float weights[4];
-  key_curve_position_weights(u, weights, KEY_BSPLINE);
   /* Interpolate custom data. */
   subdiv_mesh_vertex_of_loose_edge_interpolate(ctx, coarse_edge, u, subdiv_vertex_index);
-  /* Initialize  */
+  /* Interpolate coordinate. */
   MVert *subdiv_vertex = &subdiv_mvert[subdiv_vertex_index];
-  interp_v3_v3v3v3v3(subdiv_vertex->co, points[0], points[1], points[2], points[3], weights);
+  if (is_simple) {
+    const MVert *coarse_mvert = coarse_mesh->mvert;
+    const MVert *vert_1 = &coarse_mvert[coarse_edge->v1];
+    const MVert *vert_2 = &coarse_mvert[coarse_edge->v2];
+    interp_v3_v3v3(subdiv_vertex->co, vert_1->co, vert_2->co, u);
+  }
+  else {
+    float points[4][3];
+    points_for_loose_edges_interpolation_get(ctx, coarse_edge, neighbors, points);
+    float weights[4];
+    key_curve_position_weights(u, weights, KEY_BSPLINE);
+    interp_v3_v3v3v3v3(subdiv_vertex->co, points[0], points[1], points[2], points[3], weights);
+  }
   /* Reset flags and such. */
   subdiv_vertex->flag = 0;
   /* TODO(sergey): This matches old behavior, but we can as well interpolate
@@ -1152,7 +1166,7 @@ Mesh *BKE_subdiv_to_mesh(Subdiv *subdiv,
   /* Make sure evaluator is up to date with possible new topology, and that
    * is is refined for the new positions of coarse vertices.
    */
-  if (!BKE_subdiv_eval_update_from_mesh(subdiv, coarse_mesh)) {
+  if (!BKE_subdiv_eval_update_from_mesh(subdiv, coarse_mesh, NULL)) {
     /* This could happen in two situations:
      * - OpenSubdiv is disabled.
      * - Something totally bad happened, and OpenSubdiv rejected our
@@ -1163,7 +1177,7 @@ Mesh *BKE_subdiv_to_mesh(Subdiv *subdiv,
       return NULL;
     }
   }
-  /* Initialize subdivion mesh creation context/ */
+  /* Initialize subdivion mesh creation context. */
   SubdivMeshContext subdiv_context = {0};
   subdiv_context.settings = settings;
   subdiv_context.coarse_mesh = coarse_mesh;
@@ -1186,7 +1200,7 @@ Mesh *BKE_subdiv_to_mesh(Subdiv *subdiv,
   if (!subdiv_context.can_evaluate_normals) {
     result->runtime.cd_dirty_vert |= CD_MASK_NORMAL;
   }
-  /* Free used memoty. */
+  /* Free used memory. */
   subdiv_mesh_context_free(&subdiv_context);
   return result;
 }

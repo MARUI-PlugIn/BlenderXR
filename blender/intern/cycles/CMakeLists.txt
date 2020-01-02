@@ -178,11 +178,13 @@ if(CXX_HAS_AVX2)
 endif()
 
 if(WITH_CYCLES_OSL)
+  # LLVM and OSL need to build without RTTI
   if(WIN32 AND MSVC)
     set(RTTI_DISABLE_FLAGS "/GR- -DBOOST_NO_RTTI -DBOOST_NO_TYPEID")
   elseif(CMAKE_COMPILER_IS_GNUCC OR (CMAKE_C_COMPILER_ID MATCHES "Clang"))
     set(RTTI_DISABLE_FLAGS "-fno-rtti -DBOOST_NO_RTTI -DBOOST_NO_TYPEID")
   endif()
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${RTTI_DISABLE_FLAGS}")
 endif()
 
 # Definitions and Includes
@@ -207,14 +209,32 @@ endif()
 
 if(WITH_CYCLES_OSL)
   add_definitions(-DWITH_OSL)
-  #osl 1.9.x
+  # osl 1.9.x
   add_definitions(-DOSL_STATIC_BUILD)
-  #pre 1.9
+  # pre 1.9
   add_definitions(-DOSL_STATIC_LIBRARY)
   include_directories(
     SYSTEM
     ${OSL_INCLUDE_DIR}
   )
+endif()
+
+if(WITH_CYCLES_DEVICE_OPTIX)
+  find_package(OptiX)
+
+  if(OPTIX_FOUND)
+    add_definitions(-DWITH_OPTIX)
+    include_directories(
+      SYSTEM
+      ${OPTIX_INCLUDE_DIR}
+      )
+
+    # Need pre-compiled CUDA binaries in the OptiX device
+    set(WITH_CYCLES_CUDA_BINARIES ON)
+  else()
+    message(STATUS "Optix not found, disabling it from Cycles")
+    set(WITH_CYCLES_DEVICE_OPTIX OFF)
+  endif()
 endif()
 
 if(WITH_CYCLES_EMBREE)

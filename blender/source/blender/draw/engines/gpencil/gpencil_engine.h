@@ -28,12 +28,14 @@
 struct GPENCIL_Data;
 struct GPENCIL_StorageList;
 struct MaterialGPencilStyle;
-struct ModifierData;
 struct Object;
 struct RenderEngine;
 struct RenderLayer;
 struct bGPDstroke;
-struct tGPspoint;
+
+struct GPUBatch;
+struct GPUVertBuf;
+struct GPUVertFormat;
 
 #define GPENCIL_CACHE_BLOCK_SIZE 8
 #define GPENCIL_MAX_SHGROUPS 65536
@@ -45,23 +47,6 @@ struct tGPspoint;
 #define GPENCIL_COLOR_SOLID 0
 #define GPENCIL_COLOR_TEXTURE 1
 #define GPENCIL_COLOR_PATTERN 2
-
-#define GP_SIMPLIFY(scene) ((scene->r.simplify_gpencil & SIMPLIFY_GPENCIL_ENABLE))
-#define GP_SIMPLIFY_ONPLAY(playing) \
-  (((playing == true) && (scene->r.simplify_gpencil & SIMPLIFY_GPENCIL_ON_PLAY)) || \
-   ((scene->r.simplify_gpencil & SIMPLIFY_GPENCIL_ON_PLAY) == 0))
-#define GP_SIMPLIFY_FILL(scene, playing) \
-  ((GP_SIMPLIFY_ONPLAY(playing) && (GP_SIMPLIFY(scene)) && \
-    (scene->r.simplify_gpencil & SIMPLIFY_GPENCIL_FILL)))
-#define GP_SIMPLIFY_MODIF(scene, playing) \
-  ((GP_SIMPLIFY_ONPLAY(playing) && (GP_SIMPLIFY(scene)) && \
-    (scene->r.simplify_gpencil & SIMPLIFY_GPENCIL_MODIFIER)))
-#define GP_SIMPLIFY_FX(scene, playing) \
-  ((GP_SIMPLIFY_ONPLAY(playing) && (GP_SIMPLIFY(scene)) && \
-    (scene->r.simplify_gpencil & SIMPLIFY_GPENCIL_FX)))
-#define GP_SIMPLIFY_BLEND(scene, playing) \
-  ((GP_SIMPLIFY_ONPLAY(playing) && (GP_SIMPLIFY(scene)) && \
-    (scene->r.simplify_gpencil & SIMPLIFY_GPENCIL_BLEND)))
 
 #define GP_IS_CAMERAVIEW ((rv3d != NULL) && (rv3d->persp == RV3D_CAMOB && v3d->camera))
 
@@ -160,6 +145,7 @@ typedef struct GPENCIL_Storage {
   bool is_mat_preview;
   bool background_ready;
   int is_xray;
+  bool is_ontop;
   bool reset_cache;
   const float *pixsize;
   float render_pixsize;
@@ -167,6 +153,7 @@ typedef struct GPENCIL_Storage {
   int do_select_outline;
   float select_color[4];
   short multisamples;
+  float grid_matrix[4][4];
 
   short framebuffer_flag; /* flag what framebuffer need to create */
 
@@ -279,9 +266,6 @@ typedef struct g_data {
   /* grid geometry */
   GPUBatch *batch_grid;
 
-  /* textures */
-  struct GPUTexture *gpencil_blank_texture;
-
   /* runtime pointers texture */
   struct GPUTexture *input_depth_tx;
   struct GPUTexture *input_color_tx;
@@ -311,6 +295,9 @@ typedef enum eGPsession_Flag {
 } eGPsession_Flag;
 
 typedef struct GPENCIL_e_data {
+  /* textures */
+  struct GPUTexture *gpencil_blank_texture;
+
   /* general drawing shaders */
   struct GPUShader *gpencil_fill_sh;
   struct GPUShader *gpencil_stroke_sh;
@@ -341,13 +328,13 @@ typedef struct GPENCIL_e_data {
 
 } GPENCIL_e_data; /* Engine data */
 
-/* GPUBatch Cache */
+/* GPUBatch Cache Element */
 typedef struct GpencilBatchCacheElem {
   GPUBatch *batch;
   GPUVertBuf *vbo;
   int vbo_len;
   /* attr ids */
-  GPUVertFormat format;
+  GPUVertFormat *format;
   uint pos_id;
   uint color_id;
   uint thickness_id;
@@ -358,6 +345,7 @@ typedef struct GpencilBatchCacheElem {
   int tot_vertex;
 } GpencilBatchCacheElem;
 
+/* Defines each batch group to define later the shgroup */
 typedef struct GpencilBatchGroup {
   struct bGPDlayer *gpl;  /* reference to original layer */
   struct bGPDframe *gpf;  /* reference to original frame */
@@ -375,6 +363,7 @@ typedef enum GpencilBatchGroup_Type {
   eGpencilBatchGroupType_Edlin = 5,
 } GpencilBatchGroup_Type;
 
+/* Runtime data for GPU and evaluated frames after applying modifiers */
 typedef struct GpencilBatchCache {
   GpencilBatchCacheElem b_stroke;
   GpencilBatchCacheElem b_point;
@@ -382,25 +371,28 @@ typedef struct GpencilBatchCache {
   GpencilBatchCacheElem b_edit;
   GpencilBatchCacheElem b_edlin;
 
-  /* settings to determine if cache is invalid */
+  /** Cache is dirty */
   bool is_dirty;
+  /** Edit mode flag */
   bool is_editmode;
+  /** Last cache frame */
   int cache_frame;
 
-  /* data with the shading groups */
-  int grp_used;                        /* total groups in arrays */
-  int grp_size;                        /* max size of the array */
-  struct GpencilBatchGroup *grp_cache; /* array of elements */
-
-  int tot_layers;
-  struct bGPDframe *derived_array; /* runtime data created by modifiers */
+  /** Total groups in arrays */
+  int grp_used;
+  /** Max size of the array */
+  int grp_size;
+  /** Array of cache elements */
+  struct GpencilBatchGroup *grp_cache;
 } GpencilBatchCache;
 
 /* general drawing functions */
-struct DRWShadingGroup *gpencil_shgroup_stroke_create(struct GPENCIL_Data *vedata,
+struct DRWShadingGroup *gpencil_shgroup_stroke_create(struct GPENCIL_e_data *e_data,
+                                                      struct GPENCIL_Data *vedata,
                                                       struct DRWPass *pass,
                                                       struct GPUShader *shader,
                                                       struct Object *ob,
+                                                      float (*obmat)[4],
                                                       struct bGPdata *gpd,
                                                       struct bGPDlayer *gpl,
                                                       struct bGPDstroke *gps,
@@ -449,7 +441,7 @@ void gpencil_get_edit_geom(struct GpencilBatchCacheElem *be,
 void gpencil_get_edlin_geom(struct GpencilBatchCacheElem *be,
                             struct bGPDstroke *gps,
                             float alpha,
-                            short dflag);
+                            const bool hide_select);
 
 struct GPUBatch *gpencil_get_buffer_stroke_geom(struct bGPdata *gpd, short thickness);
 struct GPUBatch *gpencil_get_buffer_fill_geom(struct bGPdata *gpd);

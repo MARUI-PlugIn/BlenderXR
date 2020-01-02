@@ -33,6 +33,8 @@ class DebugFlags {
   /* Use static BVH in viewport, to match final render exactly. */
   bool viewport_static_bvh;
 
+  bool running_inside_blender;
+
   /* Descriptor of CPU feature-set to be used. */
   struct CPU {
     CPU();
@@ -95,6 +97,17 @@ class DebugFlags {
 
     /* Whether split kernel is used */
     bool split_kernel;
+  };
+
+  /* Descriptor of OptiX feature-set to be used. */
+  struct OptiX {
+    OptiX();
+
+    /* Reset flags to their defaults. */
+    void reset();
+
+    /* Number of CUDA streams to launch kernels concurrently from. */
+    int cuda_streams;
   };
 
   /* Descriptor of OpenCL feature-set to be used. */
@@ -162,6 +175,9 @@ class DebugFlags {
 
   /* Requested CUDA flags. */
   CUDA cuda;
+
+  /* Requested OptiX flags. */
+  OptiX optix;
 
   /* Requested OpenCL flags. */
   OpenCL opencl;

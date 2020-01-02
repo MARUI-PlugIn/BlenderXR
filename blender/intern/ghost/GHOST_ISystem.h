@@ -235,7 +235,8 @@ class GHOST_ISystem {
    * \param state: The state of the window when opened.
    * \param type: The type of drawing context installed in this window.
    * \param glSettings: Misc OpenGL settings.
-   * \param exclusive: Use to show the window on top and ignore others (used fullscreen).
+   * \param exclusive: Use to show the window on top and ignore others (used full-screen).
+   * \param is_dialog: Stay on top of parent window, no icon in taskbar, can't be minimized.
    * \param parentWindow: Parent (embedder) window
    * \return The new window (or 0 if creation failed).
    */
@@ -248,7 +249,8 @@ class GHOST_ISystem {
                                       GHOST_TDrawingContextType type,
                                       GHOST_GLSettings glSettings,
                                       const bool exclusive = false,
-                                      const GHOST_TEmbedderWindowID parentWindow = 0) = 0;
+                                      const bool is_dialog = false,
+                                      const GHOST_IWindow *parentWindow = NULL) = 0;
 
   /**
    * Dispose a window.
@@ -402,7 +404,7 @@ class GHOST_ISystem {
 #ifdef WITH_INPUT_NDOF
   /**
    * Sets 3D mouse deadzone
-   * \param deadzone: Deadzone of the 3D mouse (both for rotation and pan) relative to full range
+   * \param deadzone: Dead-zone of the 3D mouse (both for rotation and pan) relative to full range
    */
   virtual void setNDOFDeadZone(float deadzone) = 0;
 #endif
@@ -434,6 +436,27 @@ class GHOST_ISystem {
    * Put data to the Clipboard
    */
   virtual void putClipboard(GHOST_TInt8 *buffer, bool selection) const = 0;
+
+  /***************************************************************************************
+   * System Message Box.
+   ***************************************************************************************/
+
+  /**
+   * Show a system message box
+   *
+   * \param title                   The title of the message box
+   * \param message                 The message to display
+   * \param help_label              Help button label
+   * \param continue_label          Continue button label
+   * \param link                    An optional hyperlink
+   * \param dialog_options Options  how to display the message
+   */
+  virtual GHOST_TSuccess showMessageBox(const char * /*title*/,
+                                        const char * /*message*/,
+                                        const char * /*help_label*/,
+                                        const char * /*continue_label*/,
+                                        const char * /*link*/,
+                                        GHOST_DialogOptions /*dialog_options*/) const = 0;
 
  protected:
   /**

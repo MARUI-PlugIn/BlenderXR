@@ -29,6 +29,7 @@
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_gpencil_types.h"
+#include "DNA_defaults.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -39,6 +40,7 @@
 #include "BKE_context.h"
 #include "BKE_curve.h"
 #include "BKE_icons.h"
+#include "BKE_idprop.h"
 #include "BKE_lattice.h"
 #include "BKE_main.h"
 #include "BKE_mball.h"
@@ -52,9 +54,6 @@
 #include "ED_screen.h"
 #include "ED_transform.h"
 
-#include "GPU_framebuffer.h"
-#include "GPU_material.h"
-#include "GPU_viewport.h"
 #include "GPU_matrix.h"
 
 #include "DRW_engine.h"
@@ -246,56 +245,11 @@ static SpaceLink *view3d_new(const ScrArea *UNUSED(sa), const Scene *scene)
   View3D *v3d;
   RegionView3D *rv3d;
 
-  v3d = MEM_callocN(sizeof(View3D), "initview3d");
-  v3d->spacetype = SPACE_VIEW3D;
+  v3d = DNA_struct_default_alloc(View3D);
+
   if (scene) {
     v3d->camera = scene->camera;
   }
-  v3d->scenelock = true;
-  v3d->grid = 1.0f;
-  v3d->gridlines = 16;
-  v3d->gridsubdiv = 10;
-  BKE_screen_view3d_shading_init(&v3d->shading);
-
-  v3d->overlay.wireframe_threshold = 1.0f;
-  v3d->overlay.xray_alpha_bone = 0.5f;
-  v3d->overlay.texture_paint_mode_opacity = 1.0f;
-  v3d->overlay.weight_paint_mode_opacity = 1.0f;
-  v3d->overlay.vertex_paint_mode_opacity = 1.0f;
-  /* Intentionally different to vertex/paint mode,
-   * we typically want to see shading too. */
-  v3d->overlay.sculpt_mode_mask_opacity = 0.75f;
-
-  v3d->overlay.edit_flag = V3D_OVERLAY_EDIT_FACES | V3D_OVERLAY_EDIT_SEAMS |
-                           V3D_OVERLAY_EDIT_SHARP | V3D_OVERLAY_EDIT_FREESTYLE_EDGE |
-                           V3D_OVERLAY_EDIT_FREESTYLE_FACE | V3D_OVERLAY_EDIT_EDGES |
-                           V3D_OVERLAY_EDIT_CREASES | V3D_OVERLAY_EDIT_BWEIGHTS |
-                           V3D_OVERLAY_EDIT_CU_HANDLES | V3D_OVERLAY_EDIT_CU_NORMALS;
-
-  v3d->gridflag = V3D_SHOW_X | V3D_SHOW_Y | V3D_SHOW_FLOOR | V3D_SHOW_ORTHO_GRID;
-
-  v3d->flag = V3D_SELECT_OUTLINE;
-  v3d->flag2 = V3D_SHOW_RECONSTRUCTION | V3D_SHOW_ANNOTATION;
-
-  v3d->lens = 50.0f;
-  v3d->clip_start = 0.01f;
-  v3d->clip_end = 1000.0f;
-
-  v3d->overlay.gpencil_paper_opacity = 0.5f;
-  v3d->overlay.gpencil_grid_opacity = 0.9f;
-
-  v3d->bundle_size = 0.2f;
-  v3d->bundle_drawtype = OB_PLAINAXES;
-
-  /* stereo */
-  v3d->stereo3d_camera = STEREO_3D_ID;
-  v3d->stereo3d_flag |= V3D_S3D_DISPPLANE;
-  v3d->stereo3d_convergence_alpha = 0.15f;
-  v3d->stereo3d_volume_alpha = 0.05f;
-
-  /* grease pencil settings */
-  v3d->vertex_opacity = 1.0f;
-  v3d->gp_flag |= V3D_GP_SHOW_EDIT_LINES;
 
   /* tool header */
   ar = MEM_callocN(sizeof(ARegion), "tool header for view3d");
@@ -357,11 +311,9 @@ static void view3d_free(SpaceLink *sl)
     MEM_freeN(vd->runtime.properties_storage);
   }
 
-  if (vd->fx_settings.ssao) {
-    MEM_freeN(vd->fx_settings.ssao);
-  }
-  if (vd->fx_settings.dof) {
-    MEM_freeN(vd->fx_settings.dof);
+  if (vd->shading.prop) {
+    IDP_FreeProperty(vd->shading.prop);
+    vd->shading.prop = NULL;
   }
 }
 
@@ -382,19 +334,20 @@ static SpaceLink *view3d_duplicate(SpaceLink *sl)
     v3dn->runtime.properties_storage = NULL;
   }
 
+  v3dn->local_collections_uuid = 0;
+  v3dn->flag &= ~V3D_LOCAL_COLLECTIONS;
+
   if (v3dn->shading.type == OB_RENDER) {
     v3dn->shading.type = OB_SOLID;
+  }
+
+  if (v3dn->shading.prop) {
+    v3dn->shading.prop = IDP_CopyProperty(v3do->shading.prop);
   }
 
   /* copy or clear inside new stuff */
 
   v3dn->runtime.properties_storage = NULL;
-  if (v3dn->fx_settings.dof) {
-    v3dn->fx_settings.dof = MEM_dupallocN(v3do->fx_settings.dof);
-  }
-  if (v3dn->fx_settings.ssao) {
-    v3dn->fx_settings.ssao = MEM_dupallocN(v3do->fx_settings.ssao);
-  }
 
   return (SpaceLink *)v3dn;
 }
@@ -618,7 +571,7 @@ static void view3d_lightcache_update(bContext *C)
 
   Scene *scene = CTX_data_scene(C);
 
-  if (strcmp(scene->r.engine, RE_engine_id_BLENDER_EEVEE) != 0) {
+  if (!BKE_scene_uses_blender_eevee(scene)) {
     /* Only do auto bake if eevee is the active engine */
     return;
   }
@@ -842,6 +795,9 @@ static void view3d_main_region_listener(
           ATTR_FALLTHROUGH;
         }
         case ND_DATA:
+          ED_region_tag_redraw(ar);
+          WM_gizmomap_tag_refresh(gzmap);
+          break;
         case ND_VERTEX_GROUP:
           ED_region_tag_redraw(ar);
           break;
@@ -992,7 +948,7 @@ static void view3d_main_region_message_subscribe(const struct bContext *C,
    * accepting some redundant redraws.
    *
    * For other space types we might try avoid this, keep the 3D view as an exceptional case! */
-  wmMsgParams_RNA msg_key_params = {{{0}}};
+  wmMsgParams_RNA msg_key_params = {{0}};
 
   /* Only subscribe to types. */
   StructRNA *type_array[] = {
@@ -1079,10 +1035,10 @@ static void view3d_main_region_cursor(wmWindow *win, ScrArea *sa, ARegion *ar)
   ViewLayer *view_layer = WM_window_get_active_view_layer(win);
   Object *obedit = OBEDIT_FROM_VIEW_LAYER(view_layer);
   if (obedit) {
-    WM_cursor_set(win, CURSOR_EDIT);
+    WM_cursor_set(win, WM_CURSOR_EDIT);
   }
   else {
-    WM_cursor_set(win, CURSOR_STD);
+    WM_cursor_set(win, WM_CURSOR_DEFAULT);
   }
 }
 
@@ -1133,6 +1089,9 @@ static void view3d_header_region_listener(wmWindow *UNUSED(win),
       if (wmn->data & ND_GPENCIL_EDITMODE) {
         ED_region_tag_redraw(ar);
       }
+      else if (wmn->action == NA_EDITED) {
+        ED_region_tag_redraw(ar);
+      }
       break;
     case NC_BRUSH:
       ED_region_tag_redraw(ar);
@@ -1140,7 +1099,7 @@ static void view3d_header_region_listener(wmWindow *UNUSED(win),
   }
 
     /* From topbar, which ones are needed? split per header? */
-    /* Disable for now, re-enable if neede, or remove - campbell. */
+    /* Disable for now, re-enable if needed, or remove - campbell. */
 #if 0
   /* context changes */
   switch (wmn->category) {
@@ -1176,7 +1135,7 @@ static void view3d_header_region_message_subscribe(const struct bContext *UNUSED
                                                    struct ARegion *ar,
                                                    struct wmMsgBus *mbus)
 {
-  wmMsgParams_RNA msg_key_params = {{{0}}};
+  wmMsgParams_RNA msg_key_params = {{0}};
 
   /* Only subscribe to types. */
   StructRNA *type_array[] = {
@@ -1497,7 +1456,7 @@ static int view3d_context(const bContext *C, const char *member, bContextDataRes
     if (view_layer->basact) {
       Object *ob = view_layer->basact->object;
       /* if hidden but in edit mode, we still display, can happen with animation */
-      if ((view_layer->basact->flag & BASE_VISIBLE) != 0 || (ob->mode & OB_MODE_EDIT)) {
+      if ((view_layer->basact->flag & BASE_VISIBLE_DEPSGRAPH) != 0 || (ob->mode & OB_MODE_EDIT)) {
         CTX_data_pointer_set(result, &scene->id, &RNA_ObjectBase, view_layer->basact);
       }
     }
@@ -1509,7 +1468,8 @@ static int view3d_context(const bContext *C, const char *member, bContextDataRes
     if (view_layer->basact) {
       Object *ob = view_layer->basact->object;
       /* if hidden but in edit mode, we still display, can happen with animation */
-      if ((view_layer->basact->flag & BASE_VISIBLE) != 0 || (ob->mode & OB_MODE_EDIT) != 0) {
+      if ((view_layer->basact->flag & BASE_VISIBLE_DEPSGRAPH) != 0 ||
+          (ob->mode & OB_MODE_EDIT) != 0) {
         CTX_data_id_pointer_set(result, &ob->id);
       }
     }

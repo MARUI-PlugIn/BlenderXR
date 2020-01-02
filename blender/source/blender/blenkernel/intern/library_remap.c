@@ -389,7 +389,7 @@ static void libblock_remap_data_postprocess_obdata_relink(Main *bmain, Object *o
   if (ob->data == new_id) {
     switch (GS(new_id->name)) {
       case ID_ME:
-        multires_force_update(ob);
+        multires_force_sculpt_rebuild(ob);
         break;
       case ID_CU:
         BKE_curve_type_test(ob);
@@ -497,6 +497,7 @@ static void libblock_remap_data(
   if (new_id && (new_id->tag & LIB_TAG_INDIRECT) &&
       (r_id_remap_data->status & ID_REMAP_IS_LINKED_DIRECT)) {
     new_id->tag &= ~LIB_TAG_INDIRECT;
+    new_id->flag &= ~LIB_INDIRECT_WEAK_LINK;
     new_id->tag |= LIB_TAG_EXTERN;
   }
 
@@ -652,12 +653,11 @@ void BKE_libblock_unlink(Main *bmain,
  *     ... sigh
  */
 void BKE_libblock_relink_ex(
-    Main *bmain, void *idv, void *old_idv, void *new_idv, const bool us_min_never_null)
+    Main *bmain, void *idv, void *old_idv, void *new_idv, const short remap_flags)
 {
   ID *id = idv;
   ID *old_id = old_idv;
   ID *new_id = new_idv;
-  int remap_flags = us_min_never_null ? 0 : ID_REMAP_SKIP_NEVER_NULL_USAGE;
 
   /* No need to lock here, we are only affecting given ID, not bmain database. */
 
@@ -677,7 +677,8 @@ void BKE_libblock_relink_ex(
    * Maybe we should do a per-ID callback for this instead?
    */
   switch (GS(id->name)) {
-    case ID_SCE: {
+    case ID_SCE:
+    case ID_GR: {
       if (old_id) {
         switch (GS(old_id->name)) {
           case ID_OB:
@@ -707,6 +708,8 @@ void BKE_libblock_relink_ex(
     default:
       break;
   }
+
+  DEG_relations_tag_update(bmain);
 }
 
 static int id_relink_to_newid_looper(void *UNUSED(user_data),
@@ -757,7 +760,7 @@ void BKE_libblock_free_data(ID *id, const bool do_id_user)
   }
 
   if (id->override_library) {
-    BKE_override_library_free(&id->override_library);
+    BKE_override_library_free(&id->override_library, do_id_user);
   }
 
   /* XXX TODO remove animdata handling from each type's freeing func,
@@ -945,7 +948,7 @@ void BKE_id_free_ex(Main *bmain, void *idv, int flag, const bool use_flag_from_i
 #endif
 
   if ((flag & LIB_ID_FREE_NO_USER_REFCOUNT) == 0) {
-    BKE_libblock_relink_ex(bmain, id, NULL, NULL, true);
+    BKE_libblock_relink_ex(bmain, id, NULL, NULL, 0);
   }
 
   BKE_libblock_free_datablock(id, flag);
@@ -1091,7 +1094,7 @@ static void id_delete(Main *bmain, const bool do_tagged_deletion)
             bmain, id, NULL, ID_REMAP_FLAG_NEVER_NULL_USAGE | ID_REMAP_FORCE_NEVER_NULL_USAGE);
         /* Since we removed ID from Main,
          * we also need to unlink its own other IDs usages ourself. */
-        BKE_libblock_relink_ex(bmain, id, NULL, NULL, true);
+        BKE_libblock_relink_ex(bmain, id, NULL, NULL, 0);
         /* Now we can safely mark that ID as not being in Main database anymore. */
         id->tag |= LIB_TAG_NO_MAIN;
         /* This is needed because we may not have remapped usages
@@ -1144,8 +1147,7 @@ static void id_delete(Main *bmain, const bool do_tagged_deletion)
 #ifdef DEBUG_PRINT
           printf("%s: deleting %s (%d)\n", __func__, id->name, id->us);
 #endif
-          /* Text always has a single user, skip assert in this case. */
-          BLI_assert((id->us == 0) || ELEM(GS(id->name), ID_TXT));
+          BLI_assert(id->us == 0);
         }
         BKE_id_free_ex(bmain, id, free_flag, !do_tagged_deletion);
       }

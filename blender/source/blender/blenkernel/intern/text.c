@@ -166,6 +166,8 @@ Text *BKE_text_add(Main *bmain, const char *name)
   Text *ta;
 
   ta = BKE_libblock_alloc(bmain, ID_TXT, name, 0);
+  /* Texts always have 'real' user (see also read code). */
+  id_us_ensure_real(&ta->id);
 
   BKE_text_init(ta);
 
@@ -310,7 +312,7 @@ bool BKE_text_reload(Text *text)
   }
 
   BLI_strncpy(filepath_abs, text->name, FILE_MAX);
-  BLI_path_abs(filepath_abs, BKE_main_blendfile_path_from_global());
+  BLI_path_abs(filepath_abs, ID_BLEND_PATH_FROM_GLOBAL(&text->id));
 
   buffer = BLI_file_read_text_as_mem(filepath_abs, 0, &buffer_len);
   if (buffer == NULL) {
@@ -350,11 +352,12 @@ Text *BKE_text_load_ex(Main *bmain, const char *file, const char *relpath, const
 
   buffer = BLI_file_read_text_as_mem(filepath_abs, 0, &buffer_len);
   if (buffer == NULL) {
-    return false;
+    return NULL;
   }
 
   ta = BKE_libblock_alloc(bmain, ID_TXT, BLI_path_basename(filepath_abs), 0);
-  ta->id.us = 0;
+  /* Texts always have 'real' user (see also read code). */
+  id_us_ensure_real(&ta->id);
 
   BLI_listbase_clear(&ta->lines);
   ta->curl = ta->sell = NULL;
@@ -474,7 +477,7 @@ int BKE_text_file_modified_check(Text *text)
   }
 
   BLI_strncpy(file, text->name, FILE_MAX);
-  BLI_path_abs(file, BKE_main_blendfile_path_from_global());
+  BLI_path_abs(file, ID_BLEND_PATH_FROM_GLOBAL(&text->id));
 
   if (!BLI_exists(file)) {
     return 2;
@@ -508,7 +511,7 @@ void BKE_text_file_modified_ignore(Text *text)
   }
 
   BLI_strncpy(file, text->name, FILE_MAX);
-  BLI_path_abs(file, BKE_main_blendfile_path_from_global());
+  BLI_path_abs(file, ID_BLEND_PATH_FROM_GLOBAL(&text->id));
 
   if (!BLI_exists(file)) {
     return;
@@ -700,50 +703,6 @@ bool txt_cursor_is_line_end(Text *text)
 /* Cursor movement functions */
 /*****************************/
 
-int txt_utf8_offset_to_index(const char *str, int offset)
-{
-  int index = 0, pos = 0;
-  while (pos != offset) {
-    pos += BLI_str_utf8_size(str + pos);
-    index++;
-  }
-  return index;
-}
-
-int txt_utf8_index_to_offset(const char *str, int index)
-{
-  int offset = 0, pos = 0;
-  while (pos != index) {
-    offset += BLI_str_utf8_size(str + offset);
-    pos++;
-  }
-  return offset;
-}
-
-int txt_utf8_offset_to_column(const char *str, int offset)
-{
-  int column = 0, pos = 0;
-  while (pos < offset) {
-    column += BLI_str_utf8_char_width_safe(str + pos);
-    pos += BLI_str_utf8_size_safe(str + pos);
-  }
-  return column;
-}
-
-int txt_utf8_column_to_offset(const char *str, int column)
-{
-  int offset = 0, pos = 0, col;
-  while (*(str + offset) && pos < column) {
-    col = BLI_str_utf8_char_width_safe(str + offset);
-    if (pos + col > column) {
-      break;
-    }
-    offset += BLI_str_utf8_size_safe(str + offset);
-    pos += col;
-  }
-  return offset;
-}
-
 void txt_move_up(Text *text, const bool sel)
 {
   TextLine **linep;
@@ -761,9 +720,9 @@ void txt_move_up(Text *text, const bool sel)
   }
 
   if ((*linep)->prev) {
-    int column = txt_utf8_offset_to_column((*linep)->line, *charp);
+    int column = BLI_str_utf8_offset_to_column((*linep)->line, *charp);
     *linep = (*linep)->prev;
-    *charp = txt_utf8_column_to_offset((*linep)->line, column);
+    *charp = BLI_str_utf8_offset_from_column((*linep)->line, column);
   }
   else {
     txt_move_bol(text, sel);
@@ -791,9 +750,9 @@ void txt_move_down(Text *text, const bool sel)
   }
 
   if ((*linep)->next) {
-    int column = txt_utf8_offset_to_column((*linep)->line, *charp);
+    int column = BLI_str_utf8_offset_to_column((*linep)->line, *charp);
     *linep = (*linep)->next;
-    *charp = txt_utf8_column_to_offset((*linep)->line, column);
+    *charp = BLI_str_utf8_offset_from_column((*linep)->line, column);
   }
   else {
     txt_move_eol(text, sel);
@@ -1257,6 +1216,58 @@ void txt_sel_line(Text *text)
   text->curc = 0;
   text->sell = text->curl;
   text->selc = text->sell->len;
+}
+
+void txt_sel_set(Text *text, int startl, int startc, int endl, int endc)
+{
+  TextLine *froml, *tol;
+  int fromllen, tollen;
+
+  /* Support negative indices. */
+  if (startl < 0 || endl < 0) {
+    int end = BLI_listbase_count(&text->lines) - 1;
+    if (startl < 0) {
+      startl = end + startl + 1;
+    }
+    if (endl < 0) {
+      endl = end + endl + 1;
+    }
+  }
+  CLAMP_MIN(startl, 0);
+  CLAMP_MIN(endl, 0);
+
+  froml = BLI_findlink(&text->lines, startl);
+  if (froml == NULL) {
+    froml = text->lines.last;
+  }
+  if (startl == endl) {
+    tol = froml;
+  }
+  else {
+    tol = BLI_findlink(&text->lines, endl);
+    if (tol == NULL) {
+      tol = text->lines.last;
+    }
+  }
+
+  fromllen = BLI_strlen_utf8(froml->line);
+  tollen = BLI_strlen_utf8(tol->line);
+
+  /* Support negative indices. */
+  if (startc < 0) {
+    startc = fromllen + startc + 1;
+  }
+  if (endc < 0) {
+    endc = tollen + endc + 1;
+  }
+
+  CLAMP(startc, 0, fromllen);
+  CLAMP(endc, 0, tollen);
+
+  text->curl = froml;
+  text->curc = BLI_str_utf8_offset_from_index(froml->line, startc);
+  text->sell = tol;
+  text->selc = BLI_str_utf8_offset_from_index(tol->line, endc);
 }
 
 /* -------------------------------------------------------------------- */
@@ -1972,9 +1983,9 @@ bool txt_replace_char(Text *text, unsigned int add)
  *
  * \note caller must handle undo.
  */
-static void txt_select_prefix(Text *text, const char *add)
+static void txt_select_prefix(Text *text, const char *add, bool skip_blank_lines)
 {
-  int len, num, curc_old;
+  int len, num, curc_old, selc_old;
   char *tmp;
 
   const int indentlen = strlen(add);
@@ -1982,12 +1993,13 @@ static void txt_select_prefix(Text *text, const char *add)
   BLI_assert(!ELEM(NULL, text->curl, text->sell));
 
   curc_old = text->curc;
+  selc_old = text->selc;
 
   num = 0;
   while (true) {
 
     /* don't indent blank lines */
-    if (text->curl->len != 0) {
+    if ((text->curl->len != 0) || (skip_blank_lines == 0)) {
       tmp = MEM_mallocN(text->curl->len + indentlen + 1, "textline_string");
 
       text->curc = 0;
@@ -2011,7 +2023,9 @@ static void txt_select_prefix(Text *text, const char *add)
     }
 
     if (text->curl == text->sell) {
-      text->selc += indentlen;
+      if (text->curl->len != 0) {
+        text->selc += indentlen;
+      }
       break;
     }
     else {
@@ -2019,19 +2033,26 @@ static void txt_select_prefix(Text *text, const char *add)
       num++;
     }
   }
-  if (!curc_old) {
-    text->curc = 0;
-  }
-  else {
-    text->curc = curc_old + indentlen;
-  }
 
   while (num > 0) {
     text->curl = text->curl->prev;
     num--;
   }
 
-  /* caller must handle undo */
+  /* Keep the cursor left aligned if we don't have a selection. */
+  if (curc_old == 0 && !(text->curl == text->sell && curc_old == selc_old)) {
+    if (text->curl == text->sell) {
+      if (text->curc == text->selc) {
+        text->selc = 0;
+      }
+    }
+    text->curc = 0;
+  }
+  else {
+    if (text->curl->len != 0) {
+      text->curc = curc_old + indentlen;
+    }
+  }
 }
 
 /**
@@ -2039,16 +2060,42 @@ static void txt_select_prefix(Text *text, const char *add)
  *
  * \param r_line_index_mask: List of lines that are already at indent level 0,
  * to store them later into the undo buffer.
+ * \param require_all: When true, all non-empty lines must have this prefix.
+ * Needed for comments where we might want to un-comment a block which contains some comments.
  *
  * \note caller must handle undo.
  */
-static void txt_select_unprefix(Text *text, const char *remove)
+static bool txt_select_unprefix(Text *text, const char *remove, const bool require_all)
 {
   int num = 0;
   const int indentlen = strlen(remove);
   bool unindented_first = false;
+  bool changed_any = false;
 
   BLI_assert(!ELEM(NULL, text->curl, text->sell));
+
+  if (require_all) {
+    /* Check all non-empty lines use this 'remove',
+     * so the operation is applied equally or not at all. */
+    TextLine *l = text->curl;
+    while (true) {
+      if (STREQLEN(l->line, remove, indentlen)) {
+        /* pass */
+      }
+      else {
+        /* Blank lines or whitespace can be skipped. */
+        for (int i = 0; i < l->len; i++) {
+          if (!ELEM(l->line[i], '\t', ' ')) {
+            return false;
+          }
+        }
+      }
+      if (l == text->sell) {
+        break;
+      }
+      l = l->next;
+    }
+  }
 
   while (true) {
     bool changed = false;
@@ -2059,6 +2106,7 @@ static void txt_select_unprefix(Text *text, const char *remove)
       text->curl->len -= indentlen;
       memmove(text->curl->line, text->curl->line + indentlen, text->curl->len + 1);
       changed = true;
+      changed_any = true;
     }
 
     txt_make_dirty(text);
@@ -2086,6 +2134,7 @@ static void txt_select_unprefix(Text *text, const char *remove)
   }
 
   /* caller must handle undo */
+  return changed_any;
 }
 
 void txt_comment(Text *text)
@@ -2096,18 +2145,19 @@ void txt_comment(Text *text)
     return;
   }
 
-  txt_select_prefix(text, prefix);
+  const bool skip_blank_lines = txt_has_sel(text);
+  txt_select_prefix(text, prefix, skip_blank_lines);
 }
 
-void txt_uncomment(Text *text)
+bool txt_uncomment(Text *text)
 {
   const char *prefix = "#";
 
   if (ELEM(NULL, text->curl, text->sell)) {
-    return;
+    return false;
   }
 
-  txt_select_unprefix(text, prefix);
+  return txt_select_unprefix(text, prefix, true);
 }
 
 void txt_indent(Text *text)
@@ -2118,18 +2168,18 @@ void txt_indent(Text *text)
     return;
   }
 
-  txt_select_prefix(text, prefix);
+  txt_select_prefix(text, prefix, true);
 }
 
-void txt_unindent(Text *text)
+bool txt_unindent(Text *text)
 {
   const char *prefix = (text->flags & TXT_TABSTOSPACES) ? tab_to_spaces : "\t";
 
   if (ELEM(NULL, text->curl, text->sell)) {
-    return;
+    return false;
   }
 
-  txt_select_unprefix(text, prefix);
+  return txt_select_unprefix(text, prefix, false);
 }
 
 void txt_move_lines(struct Text *text, const int direction)

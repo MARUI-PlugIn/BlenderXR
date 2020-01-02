@@ -38,12 +38,12 @@
 
 #include "ED_clip.h"
 #include "ED_mask.h" /* own include */
+#include "ED_screen.h"
 #include "ED_space_api.h"
 
 #include "BIF_glutil.h"
 
 #include "GPU_immediate.h"
-#include "GPU_draw.h"
 #include "GPU_shader.h"
 #include "GPU_matrix.h"
 #include "GPU_state.h"
@@ -391,7 +391,7 @@ static void mask_draw_array(unsigned int pos,
                             unsigned int vertex_len)
 {
   immBegin(prim_type, vertex_len);
-  for (unsigned int i = 0; i < vertex_len; ++i) {
+  for (unsigned int i = 0; i < vertex_len; i++) {
     immVertex2fv(pos, points[i]);
   }
   immEnd();
@@ -803,6 +803,10 @@ void ED_mask_draw_frames(Mask *mask, ARegion *ar, const int cfra, const int sfra
     unsigned int num_lines = BLI_listbase_count(&masklay->splines_shapes);
 
     if (num_lines > 0) {
+      /* Local coordinate visible rect inside region, to accommodate overlapping ui. */
+      const rcti *rect_visible = ED_region_visible_rect(ar);
+      const int region_bottom = rect_visible->ymin;
+
       uint pos = GPU_vertformat_attr_add(
           immVertexFormat(), "pos", GPU_COMP_I32, 2, GPU_FETCH_INT_TO_FLOAT);
 
@@ -818,8 +822,8 @@ void ED_mask_draw_frames(Mask *mask, ARegion *ar, const int cfra, const int sfra
         /* draw_keyframe(i, CFRA, sfra, framelen, 1); */
         int height = (frame == cfra) ? 22 : 10;
         int x = (frame - sfra) * framelen;
-        immVertex2i(pos, x, 0);
-        immVertex2i(pos, x, height);
+        immVertex2i(pos, x, region_bottom);
+        immVertex2i(pos, x, region_bottom + height * UI_DPI_FAC);
       }
       immEnd();
       immUnbindProgram();

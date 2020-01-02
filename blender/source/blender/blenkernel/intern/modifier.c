@@ -761,6 +761,23 @@ Object *modifiers_isDeformedByCurve(Object *ob)
   return NULL;
 }
 
+bool modifiers_usesMultires(Object *ob)
+{
+  VirtualModifierData virtualModifierData;
+  ModifierData *md = modifiers_getVirtualModifierList(ob, &virtualModifierData);
+  MultiresModifierData *mmd = NULL;
+
+  for (; md; md = md->next) {
+    if (md->type == eModifierType_Multires) {
+      mmd = (MultiresModifierData *)md;
+      if (mmd->totlvl != 0) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 bool modifiers_usesArmature(Object *ob, bArmature *arm)
 {
   VirtualModifierData virtualModifierData;
@@ -802,7 +819,7 @@ bool modifiers_usesSubsurfFacedots(struct Scene *scene, Object *ob)
       }
     }
     else if (mti->type == eModifierTypeType_OnlyDeform) {
-      /* Theses modifiers do not reset the subdiv flag nor change the topology.
+      /* These modifiers do not reset the subdiv flag nor change the topology.
        * We can still search for a subsurf modifier. */
     }
     else {

@@ -80,7 +80,7 @@ BlenderSync::~BlenderSync()
 
 /* Sync */
 
-void BlenderSync::sync_recalc(BL::Depsgraph &b_depsgraph)
+void BlenderSync::sync_recalc(BL::Depsgraph &b_depsgraph, BL::SpaceView3D &b_v3d)
 {
   /* Sync recalc flags from blender to cycles. Actual update is done separate,
    * so we can do it later on if doing it immediate is not suitable. */
@@ -175,6 +175,11 @@ void BlenderSync::sync_recalc(BL::Depsgraph &b_depsgraph)
     }
   }
 
+  BlenderViewportParameters new_viewport_parameters(b_v3d);
+  if (viewport_parameters.modified(new_viewport_parameters)) {
+    world_recalc = true;
+  }
+
   /* Updates shader with object dependency if objects changed. */
   if (has_updated_objects) {
     if (scene->default_background->has_object_dependency) {
@@ -201,8 +206,8 @@ void BlenderSync::sync_data(BL::RenderSettings &b_render,
 
   sync_view_layer(b_v3d, b_view_layer);
   sync_integrator();
-  sync_film();
-  sync_shaders(b_depsgraph);
+  sync_film(b_v3d);
+  sync_shaders(b_depsgraph, b_v3d);
   sync_images();
   sync_curve_settings();
 
@@ -210,9 +215,9 @@ void BlenderSync::sync_data(BL::RenderSettings &b_render,
 
   if (scene->need_motion() == Scene::MOTION_PASS || scene->need_motion() == Scene::MOTION_NONE ||
       scene->camera->motion_position == Camera::MOTION_POSITION_CENTER) {
-    sync_objects(b_depsgraph);
+    sync_objects(b_depsgraph, b_v3d);
   }
-  sync_motion(b_render, b_depsgraph, b_override, width, height, python_thread_state);
+  sync_motion(b_render, b_depsgraph, b_v3d, b_override, width, height, python_thread_state);
 
   mesh_synced.clear();
 
@@ -255,13 +260,13 @@ void BlenderSync::sync_integrator()
 
   integrator->seed = get_int(cscene, "seed");
   if (get_boolean(cscene, "use_animated_seed")) {
-    integrator->seed = hash_int_2d(b_scene.frame_current(), get_int(cscene, "seed"));
+    integrator->seed = hash_uint2(b_scene.frame_current(), get_int(cscene, "seed"));
     if (b_scene.frame_subframe() != 0.0f) {
       /* TODO(sergey): Ideally should be some sort of hash_merge,
        * but this is good enough for now.
        */
-      integrator->seed += hash_int_2d((int)(b_scene.frame_subframe() * (float)INT_MAX),
-                                      get_int(cscene, "seed"));
+      integrator->seed += hash_uint2((int)(b_scene.frame_subframe() * (float)INT_MAX),
+                                     get_int(cscene, "seed"));
     }
   }
 
@@ -331,12 +336,16 @@ void BlenderSync::sync_integrator()
 
 /* Film */
 
-void BlenderSync::sync_film()
+void BlenderSync::sync_film(BL::SpaceView3D &b_v3d)
 {
   PointerRNA cscene = RNA_pointer_get(&b_scene.ptr, "cycles");
 
   Film *film = scene->film;
   Film prevfilm = *film;
+
+  if (b_v3d) {
+    film->display_pass = update_viewport_display_passes(b_v3d, film->passes);
+  }
 
   film->exposure = get_float(cscene, "film_exposure");
   film->filter_type = (FilterType)get_enum(
@@ -363,8 +372,10 @@ void BlenderSync::sync_film()
     }
   }
 
-  if (film->modified(prevfilm))
+  if (film->modified(prevfilm)) {
     film->tag_update(scene);
+    film->tag_passes_update(scene, prevfilm.passes, false);
+  }
 }
 
 /* Render Layer */
@@ -509,7 +520,6 @@ int BlenderSync::get_denoising_pass(BL::RenderPass &b_pass)
 vector<Pass> BlenderSync::sync_render_passes(BL::RenderLayer &b_rlay, BL::ViewLayer &b_view_layer)
 {
   vector<Pass> passes;
-  Pass::add(PASS_COMBINED, passes);
 
   /* loop over passes */
   BL::RenderLayer::passes_iterator b_pass_iter;
@@ -747,7 +757,7 @@ SessionParams BlenderSync::get_session_params(BL::RenderEngine &b_engine,
     preview_samples = preview_samples * preview_samples;
   }
 
-  if (get_enum(cscene, "progressive") == 0) {
+  if (get_enum(cscene, "progressive") == 0 && (params.device.type != DEVICE_OPTIX)) {
     if (background) {
       params.samples = aa_samples;
     }

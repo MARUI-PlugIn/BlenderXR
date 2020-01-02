@@ -204,14 +204,13 @@ static void compo_initjob(void *cjv)
   Scene *scene = cj->scene;
   ViewLayer *view_layer = cj->view_layer;
 
-  cj->compositor_depsgraph = DEG_graph_new(scene, view_layer, DAG_EVAL_RENDER);
+  cj->compositor_depsgraph = DEG_graph_new(bmain, scene, view_layer, DAG_EVAL_RENDER);
   DEG_graph_build_for_compositor_preview(
       cj->compositor_depsgraph, bmain, scene, view_layer, cj->ntree);
 
   /* NOTE: Don't update animation to preserve unkeyed changes, this means can not use
    * evaluate_on_framechange. */
-  DEG_graph_flush_update(bmain, cj->compositor_depsgraph);
-  DEG_evaluate_on_refresh(cj->compositor_depsgraph);
+  DEG_evaluate_on_refresh(bmain, cj->compositor_depsgraph);
 
   bNodeTree *ntree_eval = (bNodeTree *)DEG_get_evaluated_id(cj->compositor_depsgraph,
                                                             &cj->ntree->id);
@@ -1838,7 +1837,7 @@ static int node_output_file_add_socket_exec(bContext *C, wmOperator *op)
 
   if (ptr.data) {
     node = ptr.data;
-    ntree = ptr.id.data;
+    ntree = (bNodeTree *)ptr.owner_id;
   }
   else if (snode && snode->edittree) {
     ntree = snode->edittree;
@@ -1886,7 +1885,7 @@ static int node_output_file_remove_active_socket_exec(bContext *C, wmOperator *U
 
   if (ptr.data) {
     node = ptr.data;
-    ntree = ptr.id.data;
+    ntree = (bNodeTree *)ptr.owner_id;
   }
   else if (snode && snode->edittree) {
     ntree = snode->edittree;
@@ -2535,7 +2534,7 @@ static int node_shader_script_update_exec(bContext *C, wmOperator *op)
 
   /* get node */
   if (nodeptr.data) {
-    ntree_base = nodeptr.id.data;
+    ntree_base = (bNodeTree *)nodeptr.owner_id;
     node = nodeptr.data;
   }
   else if (snode && snode->edittree) {
@@ -2734,7 +2733,7 @@ static int node_cryptomatte_add_socket_exec(bContext *C, wmOperator *UNUSED(op))
 
   if (ptr.data) {
     node = ptr.data;
-    ntree = ptr.id.data;
+    ntree = (bNodeTree *)ptr.owner_id;
   }
   else if (snode && snode->edittree) {
     ntree = snode->edittree;
@@ -2778,7 +2777,7 @@ static int node_cryptomatte_remove_socket_exec(bContext *C, wmOperator *UNUSED(o
 
   if (ptr.data) {
     node = ptr.data;
-    ntree = ptr.id.data;
+    ntree = (bNodeTree *)ptr.owner_id;
   }
   else if (snode && snode->edittree) {
     ntree = snode->edittree;

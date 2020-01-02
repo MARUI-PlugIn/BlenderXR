@@ -28,18 +28,14 @@
 extern "C" {
 #endif
 
-#include "DNA_vec_types.h"
-
 struct Camera;
 struct Depsgraph;
-struct GPUFXSettings;
 struct Main;
 struct Object;
 struct RegionView3D;
 struct RenderData;
 struct Scene;
 struct View3D;
-struct ViewLayer;
 struct rctf;
 
 /* Camera Datablock */

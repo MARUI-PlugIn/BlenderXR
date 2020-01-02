@@ -203,6 +203,9 @@ void BKE_collection_copy_data(Main *bmain,
                               const Collection *collection_src,
                               const int flag)
 {
+  BLI_assert(((collection_src->flag & COLLECTION_IS_MASTER) != 0) ==
+             ((collection_src->id.flag & LIB_PRIVATE_DATA) != 0));
+
   /* Do not copy collection's preview (same behavior as for objects). */
   if ((flag & LIB_ID_COPY_NO_PREVIEW) == 0 && false) { /* XXX TODO temp hack */
     BKE_previewimg_id_copy(&collection_dst->id, &collection_src->id);
@@ -239,8 +242,9 @@ static Collection *collection_duplicate_recursive(Main *bmain,
 
   if (!do_hierarchy || collection_old->id.newid == NULL) {
     BKE_id_copy(bmain, &collection_old->id, (ID **)&collection_new);
-    id_us_min(
-        &collection_new->id); /* Copying add one user by default, need to get rid of that one. */
+
+    /* Copying add one user by default, need to get rid of that one. */
+    id_us_min(&collection_new->id);
 
     if (do_hierarchy) {
       ID_NEW_SET(collection_old, collection_new);
@@ -287,16 +291,6 @@ static Collection *collection_duplicate_recursive(Main *bmain,
 
       collection_object_add(bmain, collection_new, ob_new, 0, true);
       collection_object_remove(bmain, collection_new, ob_old, false);
-
-      if (ob_new->rigidbody_object != NULL) {
-        BLI_assert(ob_old->rigidbody_object != NULL);
-        for (Scene *scene = bmain->scenes.first; scene != NULL; scene = scene->id.next) {
-          if (scene->rigidbody_world != NULL &&
-              BKE_collection_has_object(scene->rigidbody_world->group, ob_old)) {
-            collection_object_add(bmain, scene->rigidbody_world->group, ob_new, 0, true);
-          }
-        }
-      }
     }
   }
 
@@ -347,8 +341,9 @@ Collection *BKE_collection_duplicate(Main *bmain,
                                      const bool do_obdata)
 {
   /* It's not allowed to copy the master collection. */
+  BLI_assert((collection->id.flag & LIB_PRIVATE_DATA) == 0);
+  BLI_assert((collection->flag & COLLECTION_IS_MASTER) == 0);
   if (collection->flag & COLLECTION_IS_MASTER) {
-    BLI_assert("!Master collection can't be duplicated");
     return NULL;
   }
 
@@ -372,15 +367,6 @@ Collection *BKE_collection_duplicate(Main *bmain,
   BKE_main_collection_sync(bmain);
 
   return collection_new;
-}
-
-Collection *BKE_collection_copy_master(Main *bmain, Collection *collection, const int flag)
-{
-  BLI_assert(collection->flag & COLLECTION_IS_MASTER);
-
-  Collection *collection_dst = MEM_dupallocN(collection);
-  BKE_collection_copy_data(bmain, collection_dst, collection, flag);
-  return collection_dst;
 }
 
 void BKE_collection_make_local(Main *bmain, Collection *collection, const bool lib_local)
@@ -508,13 +494,9 @@ Collection *BKE_collection_master_add()
   /* Not an actual datablock, but owned by scene. */
   Collection *master_collection = MEM_callocN(sizeof(Collection), "Master Collection");
   STRNCPY(master_collection->id.name, "GRMaster Collection");
+  master_collection->id.flag |= LIB_PRIVATE_DATA;
   master_collection->flag |= COLLECTION_IS_MASTER;
   return master_collection;
-}
-
-Collection *BKE_collection_master(const Scene *scene)
-{
-  return scene->master_collection;
 }
 
 Scene *BKE_collection_master_scene_search(const Main *bmain, const Collection *master_collection)
@@ -572,7 +554,7 @@ bool BKE_collection_object_cyclic_check(Main *bmain, Object *object, Collection 
 
 /******************* Collection Object Membership *******************/
 
-bool BKE_collection_has_object(Collection *collection, Object *ob)
+bool BKE_collection_has_object(Collection *collection, const Object *ob)
 {
   if (ELEM(NULL, collection, ob)) {
     return false;
@@ -593,7 +575,7 @@ bool BKE_collection_has_object_recursive(Collection *collection, Object *ob)
 
 static Collection *collection_next_find(Main *bmain, Scene *scene, Collection *collection)
 {
-  if (scene && collection == BKE_collection_master(scene)) {
+  if (scene && collection == scene->master_collection) {
     return bmain->collections.first;
   }
   else {
@@ -610,7 +592,7 @@ Collection *BKE_collection_object_find(Main *bmain,
     collection = collection_next_find(bmain, scene, collection);
   }
   else if (scene) {
-    collection = BKE_collection_master(scene);
+    collection = scene->master_collection;
   }
   else {
     collection = bmain->collections.first;
@@ -752,7 +734,7 @@ void BKE_collection_object_add_from(Main *bmain, Scene *scene, Object *ob_src, O
   if (!is_instantiated) {
     /* In case we could not find any non-linked collections in which instantiate our ob_dst,
      * fallback to scene's master collection... */
-    collection_object_add(bmain, BKE_collection_master(scene), ob_dst, 0, true);
+    collection_object_add(bmain, scene->master_collection, ob_dst, 0, true);
   }
 
   BKE_main_collection_sync(bmain);
@@ -791,7 +773,7 @@ static bool scene_collections_object_remove(
   bool removed = false;
 
   if (collection_skip == NULL) {
-    BKE_scene_remove_rigidbody_object(bmain, scene, ob);
+    BKE_scene_remove_rigidbody_object(bmain, scene, ob, free_us);
   }
 
   FOREACH_SCENE_COLLECTION_BEGIN (scene, collection) {
@@ -894,7 +876,7 @@ void BKE_collections_child_remove_nulls(Main *bmain, Collection *collection)
       collection_null_children_remove(collection);
     }
     for (Scene *scene = bmain->scenes.first; scene != NULL; scene = scene->id.next) {
-      collection_null_children_remove(BKE_collection_master(scene));
+      collection_null_children_remove(scene->master_collection);
     }
 
     for (collection = bmain->collections.first; collection != NULL;
@@ -902,7 +884,7 @@ void BKE_collections_child_remove_nulls(Main *bmain, Collection *collection)
       collection_missing_parents_remove(collection);
     }
     for (Scene *scene = bmain->scenes.first; scene != NULL; scene = scene->id.next) {
-      collection_missing_parents_remove(BKE_collection_master(scene));
+      collection_missing_parents_remove(scene->master_collection);
     }
   }
   else {
@@ -1110,7 +1092,7 @@ void BKE_collection_parent_relations_rebuild(Collection *collection)
 static void collection_parents_rebuild_recursive(Collection *collection)
 {
   BKE_collection_parent_relations_rebuild(collection);
-  collection->id.tag &= ~LIB_TAG_DOIT;
+  collection->tag &= ~COLLECTION_TAG_RELATION_REBUILD;
 
   for (CollectionChild *child = collection->children.first; child != NULL; child = child->next) {
     collection_parents_rebuild_recursive(child->collection);
@@ -1119,8 +1101,6 @@ static void collection_parents_rebuild_recursive(Collection *collection)
 
 /**
  * Rebuild parent relationships from child ones, for all collections in given \a bmain.
- *
- * \note Uses LIB_TAG_DOIT internally...
  */
 void BKE_main_collections_parent_relations_rebuild(Main *bmain)
 {
@@ -1129,7 +1109,7 @@ void BKE_main_collections_parent_relations_rebuild(Main *bmain)
        collection = collection->id.next) {
     BLI_freelistN(&collection->parents);
 
-    collection->id.tag |= LIB_TAG_DOIT;
+    collection->tag |= COLLECTION_TAG_RELATION_REBUILD;
   }
 
   /* Scene's master collections will be 'root' parent of most of our collections, so start with
@@ -1142,7 +1122,7 @@ void BKE_main_collections_parent_relations_rebuild(Main *bmain)
    * lib_link_collection_data() seems to assume that, so do the same here. */
   for (Collection *collection = bmain->collections.first; collection != NULL;
        collection = collection->id.next) {
-    if (collection->id.tag & LIB_TAG_DOIT) {
+    if (collection->tag & COLLECTION_TAG_RELATION_REBUILD) {
       /* Note: we do not have easy access to 'which collections is root' info in that case, which
        * means test for cycles in collection relationships may fail here. I don't think that is an
        * issue in practice here, but worth keeping in mind... */
@@ -1180,7 +1160,7 @@ static Collection *collection_from_index_recursive(Collection *collection,
 Collection *BKE_collection_from_index(Scene *scene, const int index)
 {
   int index_current = 0;
-  Collection *master_collection = BKE_collection_master(scene);
+  Collection *master_collection = scene->master_collection;
   return collection_from_index_recursive(master_collection, index, &index_current);
 }
 
@@ -1325,6 +1305,9 @@ bool BKE_collection_move(Main *bmain,
 
   BLI_ghash_free(view_layer_hash, NULL, NULL);
 
+  /* We need to sync it again to pass the correct flags to the collections objects. */
+  BKE_main_collection_sync(bmain);
+
   return true;
 }
 
@@ -1374,7 +1357,7 @@ static void scene_collections_array(Scene *scene, Collection ***collections_arra
     return;
   }
 
-  collection = BKE_collection_master(scene);
+  collection = scene->master_collection;
   BLI_assert(collection != NULL);
   scene_collection_callback(collection, scene_collections_count, tot);
 

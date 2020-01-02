@@ -221,13 +221,11 @@ void LightManager::disable_ineffective_light(Scene *scene)
      */
     Shader *shader = (scene->background->shader) ? scene->background->shader :
                                                    scene->default_background;
-    bool disable_mis = !(has_portal || shader->has_surface_spatial_varying);
-    if (disable_mis) {
-      VLOG(1) << "Background MIS has been disabled.\n";
-      foreach (Light *light, scene->lights) {
-        if (light->type == LIGHT_BACKGROUND) {
-          light->is_enabled = false;
-        }
+    const bool disable_mis = !(has_portal || shader->has_surface_spatial_varying);
+    VLOG_IF(1, disable_mis) << "Background MIS has been disabled.\n";
+    foreach (Light *light, scene->lights) {
+      if (light->type == LIGHT_BACKGROUND) {
+        light->is_enabled = !disable_mis;
       }
     }
   }
@@ -944,7 +942,7 @@ void LightManager::tag_update(Scene * /*scene*/)
   need_update = true;
 }
 
-int LightManager::add_ies_from_file(ustring filename)
+int LightManager::add_ies_from_file(const string &filename)
 {
   string content;
 
@@ -953,10 +951,10 @@ int LightManager::add_ies_from_file(ustring filename)
     content = "\n";
   }
 
-  return add_ies(ustring(content));
+  return add_ies(content);
 }
 
-int LightManager::add_ies(ustring content)
+int LightManager::add_ies(const string &content)
 {
   uint hash = hash_string(content.c_str());
 

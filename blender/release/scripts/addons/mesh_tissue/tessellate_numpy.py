@@ -2689,10 +2689,10 @@ class update_tessellate(Operator):
 
 class TISSUE_PT_tessellate(Panel):
     bl_label = "Tissue Tools"
-    bl_category = "Tissue"
+    bl_category = "Edit"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    #bl_options = {'DEFAULT_OPEN'}
+    bl_options = {'DEFAULT_CLOSED'}
 
     @classmethod
     def poll(cls, context):
@@ -2964,7 +2964,7 @@ class TISSUE_PT_tessellate_object(Panel):
                 if props.bool_multi_components:
                     col2.enabled = False
 
-                # TRANFER DATA ### OFF
+                # TRANSFER DATA ### OFF
                 if props.fill_mode != 'PATCH' and False:
                     col = layout.column(align=True)
                     col.label(text="Component Data:")

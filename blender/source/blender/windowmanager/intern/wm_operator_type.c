@@ -227,8 +227,8 @@ void wm_operatortype_free(void)
  */
 void WM_operatortype_props_advanced_begin(wmOperatorType *ot)
 {
-  if (ot_prop_basic_count ==
-      -1) { /* Don't do anything if _begin was called before, but not _end  */
+  if (ot_prop_basic_count == -1) {
+    /* Don't do anything if _begin was called before, but not _end  */
     ot_prop_basic_count = RNA_struct_count_properties(ot->srna);
   }
 }
@@ -593,6 +593,37 @@ const char *WM_operatortype_name(struct wmOperatorType *ot, struct PointerRNA *p
   }
 
   return (name && name[0]) ? name : RNA_struct_ui_name(ot->srna);
+}
+
+char *WM_operatortype_description(struct bContext *C,
+                                  struct wmOperatorType *ot,
+                                  struct PointerRNA *properties)
+{
+  if (ot->get_description && properties) {
+    char *description = ot->get_description(C, ot, properties);
+
+    if (description) {
+      if (description[0]) {
+        return description;
+      }
+      else {
+        MEM_freeN(description);
+      }
+    }
+  }
+
+  const char *info = RNA_struct_ui_description(ot->srna);
+
+  if (!(info && info[0])) {
+    info = RNA_struct_ui_name(ot->srna);
+  }
+
+  if (info && info[0]) {
+    return BLI_strdup(info);
+  }
+  else {
+    return NULL;
+  }
 }
 
 /** \} */

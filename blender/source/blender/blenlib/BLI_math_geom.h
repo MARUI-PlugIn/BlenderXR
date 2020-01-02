@@ -92,14 +92,15 @@ float volume_tetrahedron_signed_v3(const float v1[3],
                                    const float v3[3],
                                    const float v4[3]);
 
+bool is_edge_convex_v3(const float v1[3], const float v2[3], const float v3[3], const float v4[3]);
 bool is_quad_convex_v3(const float v1[3], const float v2[3], const float v3[3], const float v4[3]);
 bool is_quad_convex_v2(const float v1[2], const float v2[2], const float v3[2], const float v4[2]);
 bool is_poly_convex_v2(const float verts[][2], unsigned int nr);
 int is_quad_flip_v3(const float v1[3], const float v2[3], const float v3[3], const float v4[3]);
-bool is_quad_flip_v3_first_third_fast(const float v0[3],
-                                      const float v1[3],
+bool is_quad_flip_v3_first_third_fast(const float v1[3],
                                       const float v2[3],
-                                      const float v3[3]);
+                                      const float v3[3],
+                                      const float v4[3]);
 
 /********************************* Distance **********************************/
 
@@ -187,6 +188,10 @@ float dist_squared_to_projected_aabb_simple(const float projmat[4][4],
                                             const float bbmax[3]);
 
 float closest_to_line_v2(float r_close[2], const float p[2], const float l1[2], const float l2[2]);
+double closest_to_line_v2_db(double r_close[2],
+                             const double p[2],
+                             const double l1[2],
+                             const double l2[2]);
 float closest_to_line_v3(float r_close[3], const float p[3], const float l1[3], const float l2[3]);
 void closest_to_line_segment_v2(float r_close[2],
                                 const float p[2],
@@ -266,7 +271,12 @@ bool isect_seg_seg_v2_simple(const float v1[2],
                              const float v2[2],
                              const float v3[2],
                              const float v4[2]);
-
+int isect_seg_seg_v2_lambda_mu_db(const double v1[2],
+                                  const double v2[2],
+                                  const double v3[2],
+                                  const double v4[2],
+                                  double *r_lambda,
+                                  double *r_mu);
 int isect_line_sphere_v3(const float l1[3],
                          const float l2[3],
                          const float sp[3],
@@ -301,6 +311,19 @@ bool isect_line_line_strict_v3(const float v1[3],
                                const float v4[3],
                                float vi[3],
                                float *r_lambda);
+bool isect_ray_ray_epsilon_v3(const float ray_origin_a[3],
+                              const float ray_direction_a[3],
+                              const float ray_origin_b[3],
+                              const float ray_direction_b[3],
+                              const float epsilon,
+                              float *r_lambda_a,
+                              float *r_lambda_b);
+bool isect_ray_ray_v3(const float ray_origin_a[3],
+                      const float ray_direction_a[3],
+                      const float ray_origin_b[3],
+                      const float ray_direction_b[3],
+                      float *r_lambda_a,
+                      float *r_lambda_b);
 
 bool isect_ray_plane_v3(const float ray_origin[3],
                         const float ray_direction[3],
@@ -382,6 +405,13 @@ bool isect_tri_tri_epsilon_v3(const float t_a0[3],
                               float r_i1[3],
                               float r_i2[3],
                               const float epsilon);
+
+bool isect_tri_tri_v2(const float p1[2],
+                      const float q1[2],
+                      const float r1[2],
+                      const float p2[2],
+                      const float q2[2],
+                      const float r2[2]);
 
 /* water-tight raycast (requires pre-calculation) */
 struct IsectRayPrecalc {
@@ -627,6 +657,14 @@ void projmat_dimensions(const float projmat[4][4],
                         float *r_top,
                         float *r_near,
                         float *r_far);
+
+void projmat_from_subregion(const float projmat[4][4],
+                            const int win_size[2],
+                            const int x_min,
+                            const int x_max,
+                            const int y_min,
+                            const int y_max,
+                            float r_projmat[4][4]);
 
 int box_clip_bounds_m4(float boundbox[2][3], const float bounds[4], float winmat[4][4]);
 void box_minmax_bounds_m4(float min[3], float max[3], float boundbox[2][3], float mat[4][4]);

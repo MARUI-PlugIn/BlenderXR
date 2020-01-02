@@ -44,6 +44,8 @@
 #include "BLI_threads.h"
 #include "BLI_utildefines.h"
 
+#include "atomic_ops.h"
+
 #include "BLT_translation.h"
 
 #include "IMB_imbuf.h"
@@ -75,15 +77,11 @@
 #include "BKE_report.h"
 #include "BKE_scene.h"
 #include "BKE_screen.h"
-#include "BKE_texture.h"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_query.h"
 
-#include "UI_interface.h"
-
 #include "ED_object.h"
-#include "ED_mesh.h"
 #include "ED_node.h"
 #include "ED_paint.h"
 #include "ED_screen.h"
@@ -91,6 +89,7 @@
 #include "ED_view3d.h"
 
 #include "GPU_extensions.h"
+#include "GPU_init_exit.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -103,7 +102,6 @@
 
 #include "IMB_colormanagement.h"
 
-#include "bmesh.h"
 //#include "bmesh_tools.h"
 
 #include "paint_intern.h"
@@ -366,7 +364,7 @@ typedef struct ProjPaintState {
   int bucketMin[2];
   int bucketMax[2];
   /** must lock threads while accessing these. */
-  int context_bucket_x, context_bucket_y;
+  int context_bucket_index;
 
   struct CurveMapping *cavity_curve;
   BlurKernel *blurkernel;
@@ -1693,7 +1691,7 @@ static float project_paint_uvpixel_mask(const ProjPaintState *ps,
     ca3 = ps->cavities[lt_vtri[2]];
 
     ca_mask = w[0] * ca1 + w[1] * ca2 + w[2] * ca3;
-    ca_mask = curvemapping_evaluateF(ps->cavity_curve, 0, ca_mask);
+    ca_mask = BKE_curvemapping_evaluateF(ps->cavity_curve, 0, ca_mask);
     CLAMP(ca_mask, 0.0f, 1.0f);
     mask *= ca_mask;
   }
@@ -1717,9 +1715,9 @@ static float project_paint_uvpixel_mask(const ProjPaintState *ps,
       normalize_v3(no);
     }
     else {
-      /* incase the */
 #if 1
-      /* normalizing per pixel isn't optimal, we could cache or check ps->*/
+      /* In case the normalizing per pixel isn't optimal,
+       * we could cache or access from evaluated mesh. */
       normal_tri_v3(no,
                     ps->mvert_eval[lt_vtri[0]].co,
                     ps->mvert_eval[lt_vtri[1]].co,
@@ -1769,7 +1767,7 @@ static float project_paint_uvpixel_mask(const ProjPaintState *ps,
     }
     else if (angle_cos < ps->normal_angle_inner__cos) {
       mask *= (ps->normal_angle - acosf(angle_cos)) / ps->normal_angle_range;
-    } /* otherwise no mask normal is needed, were within the limit */
+    } /* otherwise no mask normal is needed, we're within the limit */
   }
 
   /* This only works when the opacity doesn't change while painting, stylus pressure messes with
@@ -1810,31 +1808,31 @@ static int project_paint_undo_subtiles(const TileInfo *tinf, int tx, int ty)
   }
 
   if (generate_tile) {
-    ListBase *undo_tiles = ED_image_undo_get_tiles();
+    ListBase *undo_tiles = ED_image_paint_tile_list_get();
     volatile void *undorect;
     if (tinf->masked) {
-      undorect = image_undo_push_tile(undo_tiles,
-                                      pjIma->ima,
-                                      pjIma->ibuf,
-                                      tinf->tmpibuf,
-                                      tx,
-                                      ty,
-                                      &pjIma->maskRect[tile_index],
-                                      &pjIma->valid[tile_index],
-                                      true,
-                                      false);
+      undorect = ED_image_paint_tile_push(undo_tiles,
+                                          pjIma->ima,
+                                          pjIma->ibuf,
+                                          tinf->tmpibuf,
+                                          tx,
+                                          ty,
+                                          &pjIma->maskRect[tile_index],
+                                          &pjIma->valid[tile_index],
+                                          true,
+                                          false);
     }
     else {
-      undorect = image_undo_push_tile(undo_tiles,
-                                      pjIma->ima,
-                                      pjIma->ibuf,
-                                      tinf->tmpibuf,
-                                      tx,
-                                      ty,
-                                      NULL,
-                                      &pjIma->valid[tile_index],
-                                      true,
-                                      false);
+      undorect = ED_image_paint_tile_push(undo_tiles,
+                                          pjIma->ima,
+                                          pjIma->ibuf,
+                                          tinf->tmpibuf,
+                                          tx,
+                                          ty,
+                                          NULL,
+                                          &pjIma->valid[tile_index],
+                                          true,
+                                          false);
     }
 
     BKE_image_mark_dirty(pjIma->ima, pjIma->ibuf);
@@ -1883,14 +1881,14 @@ static ProjPixel *project_paint_uvpixel_init(const ProjPaintState *ps,
 
   /* calculate the undo tile offset of the pixel, used to store the original
    * pixel color and accumulated mask if any */
-  x_tile = x_px >> IMAPAINT_TILE_BITS;
-  y_tile = y_px >> IMAPAINT_TILE_BITS;
+  x_tile = x_px >> ED_IMAGE_UNDO_TILE_BITS;
+  y_tile = y_px >> ED_IMAGE_UNDO_TILE_BITS;
 
-  x_round = x_tile * IMAPAINT_TILE_SIZE;
-  y_round = y_tile * IMAPAINT_TILE_SIZE;
+  x_round = x_tile * ED_IMAGE_UNDO_TILE_SIZE;
+  y_round = y_tile * ED_IMAGE_UNDO_TILE_SIZE;
   // memset(projPixel, 0, size);
 
-  tile_offset = (x_px - x_round) + (y_px - y_round) * IMAPAINT_TILE_SIZE;
+  tile_offset = (x_px - x_round) + (y_px - y_round) * ED_IMAGE_UNDO_TILE_SIZE;
   tile_index = project_paint_undo_subtiles(tinf, x_tile, y_tile);
 
   /* other thread may be initializing the tile so wait here */
@@ -1898,8 +1896,9 @@ static ProjPixel *project_paint_uvpixel_init(const ProjPaintState *ps,
     /* pass */
   }
 
-  BLI_assert(tile_index < (IMAPAINT_TILE_NUMBER(ibuf->x) * IMAPAINT_TILE_NUMBER(ibuf->y)));
-  BLI_assert(tile_offset < (IMAPAINT_TILE_SIZE * IMAPAINT_TILE_SIZE));
+  BLI_assert(tile_index <
+             (ED_IMAGE_UNDO_TILE_NUMBER(ibuf->x) * ED_IMAGE_UNDO_TILE_NUMBER(ibuf->y)));
+  BLI_assert(tile_offset < (ED_IMAGE_UNDO_TILE_SIZE * ED_IMAGE_UNDO_TILE_SIZE));
 
   projPixel->valid = projima->valid[tile_index];
 
@@ -2977,7 +2976,7 @@ static void project_paint_face_init(const ProjPaintState *ps,
   TileInfo tinf = {
       ps->tile_lock,
       ps->do_masking,
-      IMAPAINT_TILE_NUMBER(ibuf->x),
+      ED_IMAGE_UNDO_TILE_NUMBER(ibuf->x),
       tmpibuf,
       ps->projImages + image_index,
   };
@@ -3157,7 +3156,7 @@ static void project_paint_face_init(const ProjPaintState *ps,
           //#endif
         }
 
-#if 0 /* TODO - investigate why this dosnt work sometimes! it should! */
+#if 0 /* TODO - investigate why this doesn't work sometimes! it should! */
         /* no intersection for this entire row,
          * after some intersection above means we can quit now */
         if (has_x_isect == 0 && has_isect) {
@@ -3213,7 +3212,7 @@ static void project_paint_face_init(const ProjPaintState *ps,
        * clipped by the bucket's screen aligned rectangle. */
       float bucket_clip_edges[2][2];
       float edge_verts_inset_clip[2][3];
-      /* face edge pairs - loop throuh these:
+      /* face edge pairs - loop through these:
        * ((0,1), (1,2), (2,3), (3,0)) or ((0,1), (1,2), (2,0)) for a tri */
       int fidx1, fidx2;
 
@@ -3393,12 +3392,12 @@ static void project_paint_face_init(const ProjPaintState *ps,
                   }
                   else if (has_x_isect) {
                     /* assuming the face is not a bow-tie - we know
-                     * we cant intersect again on the X */
+                     * we can't intersect again on the X */
                     break;
                   }
                 }
 
-#  if 0 /* TODO - investigate why this dosnt work sometimes! it should! */
+#  if 0 /* TODO - investigate why this doesn't work sometimes! it should! */
                 /* no intersection for this entire row,
                  * after some intersection above means we can quit now */
                 if (has_x_isect == 0 && has_isect) {
@@ -3929,7 +3928,7 @@ static void proj_paint_state_thread_init(ProjPaintState *ps, const bool reset_th
       BLI_spin_init(ps->tile_lock);
     }
 
-    image_undo_init_locks();
+    ED_image_paint_tile_lock_init();
   }
 
   for (a = 0; a < ps->thread_tot; a++) {
@@ -4010,7 +4009,7 @@ static void project_paint_bleed_add_face_user(const ProjPaintState *ps,
 /* Return true if evaluated mesh can be painted on, false otherwise */
 static bool proj_paint_state_mesh_eval_init(const bContext *C, ProjPaintState *ps)
 {
-  Depsgraph *depsgraph = CTX_data_depsgraph(C);
+  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   Object *ob = ps->ob;
 
   Scene *scene_eval = DEG_get_evaluated_scene(depsgraph);
@@ -4247,8 +4246,8 @@ static void project_paint_build_proj_ima(ProjPaintState *ps,
     projIma->ima = node->link;
     projIma->touch = 0;
     projIma->ibuf = BKE_image_acquire_ibuf(projIma->ima, NULL, NULL);
-    size = sizeof(void **) * IMAPAINT_TILE_NUMBER(projIma->ibuf->x) *
-           IMAPAINT_TILE_NUMBER(projIma->ibuf->y);
+    size = sizeof(void **) * ED_IMAGE_UNDO_TILE_NUMBER(projIma->ibuf->x) *
+           ED_IMAGE_UNDO_TILE_NUMBER(projIma->ibuf->y);
     projIma->partRedrawRect = BLI_memarena_alloc(
         arena, sizeof(ImagePaintPartialRedraw) * PROJ_BOUNDBOX_SQUARED);
     partial_redraw_array_init(projIma->partRedrawRect);
@@ -4386,7 +4385,7 @@ static void project_paint_prepare_all_faces(ProjPaintState *ps,
         image_index = BLI_linklist_index(image_LinkList.list, tpage);
 
         if (image_index == -1 && BKE_image_has_ibuf(tpage, NULL)) {
-          /* MemArena dosnt have an append func */
+          /* MemArena doesn't have an append func */
           BLI_linklist_append(&image_LinkList, tpage);
           image_index = ps->image_tot;
           ps->image_tot++;
@@ -4538,8 +4537,6 @@ static void project_paint_end(ProjPaintState *ps)
 {
   int a;
 
-  image_undo_remove_masks();
-
   /* dereference used image buffers */
   if (ps->is_shared_user == false) {
     ProjPaintImage *projIma;
@@ -4581,7 +4578,7 @@ static void project_paint_end(ProjPaintState *ps)
       MEM_freeN((void *)ps->tile_lock);
     }
 
-    image_undo_end_locks();
+    ED_image_paint_tile_lock_end();
 
 #ifndef PROJ_DEBUG_NOSEAMBLEED
     if (ps->seam_bleed_px > 0.0f) {
@@ -4712,11 +4709,8 @@ static bool project_bucket_iter_init(ProjPaintState *ps, const float mval_f[2])
 
     /* mouse outside the model areas? */
     if (ps->bucketMin[0] == ps->bucketMax[0] || ps->bucketMin[1] == ps->bucketMax[1]) {
-      return 0;
+      return false;
     }
-
-    ps->context_bucket_x = ps->bucketMin[0];
-    ps->context_bucket_y = ps->bucketMin[1];
   }
   else { /* reproject: PROJ_SRC_* */
     ps->bucketMin[0] = 0;
@@ -4724,11 +4718,10 @@ static bool project_bucket_iter_init(ProjPaintState *ps, const float mval_f[2])
 
     ps->bucketMax[0] = ps->buckets_x;
     ps->bucketMax[1] = ps->buckets_y;
-
-    ps->context_bucket_x = 0;
-    ps->context_bucket_y = 0;
   }
-  return 1;
+
+  ps->context_bucket_index = ps->bucketMin[0] + ps->bucketMin[1] * ps->buckets_x;
+  return true;
 }
 
 static bool project_bucket_iter_next(ProjPaintState *ps,
@@ -4738,37 +4731,28 @@ static bool project_bucket_iter_next(ProjPaintState *ps,
 {
   const int diameter = 2 * ps->brush_size;
 
-  if (ps->thread_tot > 1) {
-    BLI_thread_lock(LOCK_CUSTOM1);
-  }
+  const int max_bucket_idx = ps->bucketMax[0] + (ps->bucketMax[1] - 1) * ps->buckets_x;
 
-  // printf("%d %d\n", ps->context_bucket_x, ps->context_bucket_y);
+  for (int bidx = atomic_fetch_and_add_int32(&ps->context_bucket_index, 1); bidx < max_bucket_idx;
+       bidx = atomic_fetch_and_add_int32(&ps->context_bucket_index, 1)) {
+    const int bucket_y = bidx / ps->buckets_x;
+    const int bucket_x = bidx - (bucket_y * ps->buckets_x);
 
-  for (; ps->context_bucket_y < ps->bucketMax[1]; ps->context_bucket_y++) {
-    for (; ps->context_bucket_x < ps->bucketMax[0]; ps->context_bucket_x++) {
-
+    BLI_assert(bucket_y >= ps->bucketMin[1] && bucket_y < ps->bucketMax[1]);
+    if (bucket_x >= ps->bucketMin[0] && bucket_x < ps->bucketMax[0]) {
       /* use bucket_bounds for project_bucket_isect_circle and project_bucket_init*/
-      project_bucket_bounds(ps, ps->context_bucket_x, ps->context_bucket_y, bucket_bounds);
+      project_bucket_bounds(ps, bucket_x, bucket_y, bucket_bounds);
 
       if ((ps->source != PROJ_SRC_VIEW) ||
           project_bucket_isect_circle(mval, (float)(diameter * diameter), bucket_bounds)) {
-        *bucket_index = ps->context_bucket_x + (ps->context_bucket_y * ps->buckets_x);
-        ps->context_bucket_x++;
+        *bucket_index = bidx;
 
-        if (ps->thread_tot > 1) {
-          BLI_thread_unlock(LOCK_CUSTOM1);
-        }
-
-        return 1;
+        return true;
       }
     }
-    ps->context_bucket_x = ps->bucketMin[0];
   }
 
-  if (ps->thread_tot > 1) {
-    BLI_thread_unlock(LOCK_CUSTOM1);
-  }
-  return 0;
+  return false;
 }
 
 /* Each thread gets one of these, also used as an argument to pass to project_paint_op */
@@ -5103,6 +5087,22 @@ static void image_paint_partial_redraw_expand(ImagePaintPartialRedraw *cell,
   cell->y2 = max_ii(cell->y2, (int)projPixel->y_px + 1);
 }
 
+static void copy_original_alpha_channel(ProjPixel *pixel, bool is_floatbuf)
+{
+  /* Use the original alpha channel data instead of the modified one */
+  if (is_floatbuf) {
+    /* slightly more involved case since floats are in premultiplied space we need
+     * to make sure alpha is consistent, see T44627 */
+    float rgb_straight[4];
+    premul_to_straight_v4_v4(rgb_straight, pixel->pixel.f_pt);
+    rgb_straight[3] = pixel->origColor.f_pt[3];
+    straight_to_premul_v4_v4(pixel->pixel.f_pt, rgb_straight);
+  }
+  else {
+    pixel->pixel.ch_pt[3] = pixel->origColor.ch_pt[3];
+  }
+}
+
 /* Run this for single and multi-threaded painting. */
 static void do_projectpaint_thread(TaskPool *__restrict UNUSED(pool),
                                    void *ph_v,
@@ -5207,8 +5207,10 @@ static void do_projectpaint_thread(TaskPool *__restrict UNUSED(pool),
             float line_len_sq_inv, line_len;
             float f;
             float color_f[4];
-            float p[2] = {projPixel->projCoSS[0] - lastpos[0],
-                          projPixel->projCoSS[1] - lastpos[1]};
+            const float p[2] = {
+                projPixel->projCoSS[0] - lastpos[0],
+                projPixel->projCoSS[1] - lastpos[1],
+            };
 
             sub_v2_v2v2(tangent, pos, lastpos);
             line_len = len_squared_v2(tangent);
@@ -5274,17 +5276,7 @@ static void do_projectpaint_thread(TaskPool *__restrict UNUSED(pool),
           }
 
           if (lock_alpha) {
-            if (is_floatbuf) {
-              /* slightly more involved case since floats are in premultiplied space we need
-               * to make sure alpha is consistent, see T44627 */
-              float rgb_straight[4];
-              premul_to_straight_v4_v4(rgb_straight, projPixel->pixel.f_pt);
-              rgb_straight[3] = projPixel->origColor.f_pt[3];
-              straight_to_premul_v4_v4(projPixel->pixel.f_pt, rgb_straight);
-            }
-            else {
-              projPixel->pixel.ch_pt[3] = projPixel->origColor.ch_pt[3];
-            }
+            copy_original_alpha_channel(projPixel, is_floatbuf);
           }
 
           last_partial_redraw_cell = last_projIma->partRedrawRect + projPixel->bb_cell_index;
@@ -5489,17 +5481,7 @@ static void do_projectpaint_thread(TaskPool *__restrict UNUSED(pool),
               }
 
               if (lock_alpha) {
-                if (is_floatbuf) {
-                  /* slightly more involved case since floats are in premultiplied space we need
-                   * to make sure alpha is consistent, see T44627 */
-                  float rgb_straight[4];
-                  premul_to_straight_v4_v4(rgb_straight, projPixel->pixel.f_pt);
-                  rgb_straight[3] = projPixel->origColor.f_pt[3];
-                  straight_to_premul_v4_v4(projPixel->pixel.f_pt, rgb_straight);
-                }
-                else {
-                  projPixel->pixel.ch_pt[3] = projPixel->origColor.ch_pt[3];
-                }
+                copy_original_alpha_channel(projPixel, is_floatbuf);
               }
             }
 
@@ -5515,11 +5497,17 @@ static void do_projectpaint_thread(TaskPool *__restrict UNUSED(pool),
     for (node = smearPixels; node; node = node->next) { /* this wont run for a float image */
       projPixel = node->link;
       *projPixel->pixel.uint_pt = ((ProjPixelClone *)projPixel)->clonepx.uint;
+      if (lock_alpha) {
+        copy_original_alpha_channel(projPixel, false);
+      }
     }
 
     for (node = smearPixels_f; node; node = node->next) {
       projPixel = node->link;
       copy_v4_v4(projPixel->pixel.f_pt, ((ProjPixelClone *)projPixel)->clonepx.f);
+      if (lock_alpha) {
+        copy_original_alpha_channel(projPixel, true);
+      }
     }
 
     BLI_memarena_free(smearArena);
@@ -5529,11 +5517,17 @@ static void do_projectpaint_thread(TaskPool *__restrict UNUSED(pool),
     for (node = softenPixels; node; node = node->next) { /* this wont run for a float image */
       projPixel = node->link;
       *projPixel->pixel.uint_pt = projPixel->newColor.uint;
+      if (lock_alpha) {
+        copy_original_alpha_channel(projPixel, false);
+      }
     }
 
     for (node = softenPixels_f; node; node = node->next) {
       projPixel = node->link;
       copy_v4_v4(projPixel->pixel.f_pt, projPixel->newColor.f);
+      if (lock_alpha) {
+        copy_original_alpha_channel(projPixel, true);
+      }
     }
 
     BLI_memarena_free(softenArena);
@@ -5721,7 +5715,7 @@ void paint_proj_stroke(const bContext *C,
   /* clone gets special treatment here to avoid going through image initialization */
   if (ps_handle->is_clone_cursor_pick) {
     Scene *scene = ps_handle->scene;
-    struct Depsgraph *depsgraph = CTX_data_depsgraph(C);
+    struct Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
     View3D *v3d = CTX_wm_view3d(C);
     ARegion *ar = CTX_wm_region(C);
     float *cursor = scene->cursor.location;
@@ -5733,6 +5727,7 @@ void paint_proj_stroke(const bContext *C,
       return;
     }
 
+    DEG_id_tag_update(&scene->id, ID_RECALC_COPY_ON_WRITE);
     ED_region_tag_redraw(ar);
 
     return;
@@ -5789,7 +5784,7 @@ static void project_state_init(bContext *C, Object *ob, ProjPaintState *ps, int 
   ps->rv3d = CTX_wm_region_view3d(C);
   ps->ar = CTX_wm_region(C);
 
-  ps->depsgraph = CTX_data_depsgraph(C);
+  ps->depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   ps->scene = scene;
   /* allow override of active object */
   ps->ob = ob;
@@ -6143,6 +6138,9 @@ static bool texture_paint_image_from_view_poll(bContext *C)
     CTX_wm_operator_poll_msg_set(C, "No 3D viewport found to create image from");
     return false;
   }
+  if (!GPU_is_initialized()) {
+    return false;
+  }
   return true;
 }
 
@@ -6153,7 +6151,7 @@ static int texture_paint_image_from_view_exec(bContext *C, wmOperator *op)
   char filename[FILE_MAX];
 
   Main *bmain = CTX_data_main(C);
-  Depsgraph *depsgraph = CTX_data_depsgraph(C);
+  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   Scene *scene = CTX_data_scene(C);
   ToolSettings *settings = scene->toolsettings;
   int w = settings->imapaint.screen_grab_size[0];
@@ -6244,8 +6242,7 @@ static int texture_paint_image_from_view_exec(bContext *C, wmOperator *op)
     array += sizeof(rv3d->winmat) / sizeof(float);
     memcpy(array, rv3d->viewmat, sizeof(rv3d->viewmat));
     array += sizeof(rv3d->viewmat) / sizeof(float);
-    is_ortho = ED_view3d_clip_range_get(
-        CTX_data_depsgraph(C), v3d, rv3d, &array[0], &array[1], true);
+    is_ortho = ED_view3d_clip_range_get(depsgraph, v3d, rv3d, &array[0], &array[1], true);
     /* using float for a bool is dodgy but since its an extra member in the array...
      * easier then adding a single bool prop */
     array[2] = is_ortho ? 1.0f : 0.0f;

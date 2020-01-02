@@ -60,6 +60,7 @@
 #include "BKE_mesh_mapping.h"
 #include "BKE_mesh_runtime.h"
 #include "BKE_modifier.h"
+#include "BKE_multires.h"
 #include "BKE_object.h"
 #include "BKE_paint.h"
 #include "BKE_pbvh.h"
@@ -224,7 +225,6 @@ const EnumPropertyItem *BKE_paint_get_tool_enum_from_paintmode(ePaintMode mode)
       return rna_enum_brush_image_tool_items;
     case PAINT_MODE_SCULPT_UV:
       return rna_enum_brush_uv_sculpt_tool_items;
-      return NULL;
     case PAINT_MODE_GPENCIL:
       return rna_enum_brush_gpencil_types_items;
     case PAINT_MODE_INVALID:
@@ -658,15 +658,16 @@ void BKE_paint_cavity_curve_preset(Paint *p, int preset)
   CurveMap *cm = NULL;
 
   if (!p->cavity_curve) {
-    p->cavity_curve = curvemapping_add(1, 0, 0, 1, 1);
+    p->cavity_curve = BKE_curvemapping_add(1, 0, 0, 1, 1);
   }
 
   cm = p->cavity_curve->cm;
   cm->flag &= ~CUMA_EXTEND_EXTRAPOLATE;
 
   p->cavity_curve->preset = preset;
-  curvemap_reset(cm, &p->cavity_curve->clipr, p->cavity_curve->preset, CURVEMAP_SLOPE_POSITIVE);
-  curvemapping_changed(p->cavity_curve, false);
+  BKE_curvemap_reset(
+      cm, &p->cavity_curve->clipr, p->cavity_curve->preset, CURVEMAP_SLOPE_POSITIVE);
+  BKE_curvemapping_changed(p->cavity_curve, false);
 }
 
 eObjectMode BKE_paint_object_mode_from_paintmode(ePaintMode mode)
@@ -778,7 +779,7 @@ void BKE_paint_init(Main *bmain, Scene *sce, ePaintMode mode, const char col[3])
 
 void BKE_paint_free(Paint *paint)
 {
-  curvemapping_free(paint->cavity_curve);
+  BKE_curvemapping_free(paint->cavity_curve);
   MEM_SAFE_FREE(paint->tool_slots);
 }
 
@@ -789,7 +790,7 @@ void BKE_paint_free(Paint *paint)
 void BKE_paint_copy(Paint *src, Paint *tar, const int flag)
 {
   tar->brush = src->brush;
-  tar->cavity_curve = curvemapping_copy(src->cavity_curve);
+  tar->cavity_curve = BKE_curvemapping_copy(src->cavity_curve);
   tar->tool_slots = MEM_dupallocN(src->tool_slots);
 
   if ((flag & LIB_ID_CREATE_NO_USER_REFCOUNT) == 0) {
@@ -991,9 +992,23 @@ static void sculptsession_free_pbvh(Object *object)
 {
   SculptSession *ss = object->sculpt;
 
-  if (ss && ss->pbvh) {
+  if (!ss) {
+    return;
+  }
+
+  if (ss->pbvh) {
     BKE_pbvh_free(ss->pbvh);
     ss->pbvh = NULL;
+  }
+
+  if (ss->pmap) {
+    MEM_freeN(ss->pmap);
+    ss->pmap = NULL;
+  }
+
+  if (ss->pmap_mem) {
+    MEM_freeN(ss->pmap_mem);
+    ss->pmap_mem = NULL;
   }
 }
 
@@ -1059,6 +1074,10 @@ void BKE_sculptsession_free(Object *ob)
       MEM_freeN(ss->deform_imats);
     }
 
+    if (ss->preview_vert_index_list) {
+      MEM_freeN(ss->preview_vert_index_list);
+    }
+
     BKE_sculptsession_free_vwpaint_data(ob->sculpt);
 
     MEM_freeN(ss);
@@ -1085,6 +1104,12 @@ MultiresModifierData *BKE_sculpt_multires_active(Scene *scene, Object *ob)
     return NULL;
   }
 
+  /* Weight paint operates on original vertices, and needs to treat multires as regular modifier
+   * to make it so that PBVH vertices are at the multires surface. */
+  if ((ob->mode & OB_MODE_SCULPT) == 0) {
+    return NULL;
+  }
+
   for (md = modifiers_getVirtualModifierList(ob, &virtualModifierData); md; md = md->next) {
     if (md->type == eModifierType_Multires) {
       MultiresModifierData *mmd = (MultiresModifierData *)md;
@@ -1093,7 +1118,7 @@ MultiresModifierData *BKE_sculpt_multires_active(Scene *scene, Object *ob)
         continue;
       }
 
-      if (mmd->sculptlvl > 0) {
+      if (BKE_multires_sculpt_level_get(mmd) > 0) {
         return mmd;
       }
       else {
@@ -1130,7 +1155,10 @@ static bool sculpt_modifiers_active(Scene *scene, Sculpt *sd, Object *ob)
     if (!modifier_isEnabled(scene, md, eModifierMode_Realtime)) {
       continue;
     }
-    if (ELEM(md->type, eModifierType_ShapeKey, eModifierType_Multires)) {
+    if (md->type == eModifierType_Multires && (ob->mode & OB_MODE_SCULPT)) {
+      continue;
+    }
+    if (md->type == eModifierType_ShapeKey) {
       continue;
     }
 
@@ -1157,8 +1185,7 @@ static void sculpt_update_object(
   Mesh *me = BKE_object_get_original_mesh(ob);
   MultiresModifierData *mmd = BKE_sculpt_multires_active(scene, ob);
 
-  ss->modifiers_active = sculpt_modifiers_active(scene, sd, ob);
-  ss->show_diffuse_color = (sd->flags & SCULPT_SHOW_DIFFUSE) != 0;
+  ss->deform_modifiers_active = sculpt_modifiers_active(scene, sd, ob);
   ss->show_mask = (sd->flags & SCULPT_HIDE_MASK) == 0;
 
   ss->building_vp_handle = false;
@@ -1179,10 +1206,11 @@ static void sculpt_update_object(
   /* tessfaces aren't used and will become invalid */
   BKE_mesh_tessface_clear(me);
 
-  ss->kb = (mmd == NULL) ? BKE_keyblock_from_object(ob) : NULL;
+  ss->shapekey_active = (mmd == NULL) ? BKE_keyblock_from_object(ob) : NULL;
 
-  /* VWPaint require mesh info for loop lookup, so require sculpt mode here */
-  if (mmd && ob->mode & OB_MODE_SCULPT) {
+  /* NOTE: Weight pPaint require mesh info for loop lookup, but it never uses multires code path,
+   * so no extra checks is needed here. */
+  if (mmd) {
     ss->multires = mmd;
     ss->totvert = me_eval->totvert;
     ss->totpoly = me_eval->totpoly;
@@ -1206,29 +1234,27 @@ static void sculpt_update_object(
   BLI_assert(pbvh == ss->pbvh);
   UNUSED_VARS_NDEBUG(pbvh);
 
-  MEM_SAFE_FREE(ss->pmap);
-  MEM_SAFE_FREE(ss->pmap_mem);
-  if (need_pmap && ob->type == OB_MESH) {
+  if (need_pmap && ob->type == OB_MESH && !ss->pmap) {
     BKE_mesh_vert_poly_map_create(
         &ss->pmap, &ss->pmap_mem, me->mpoly, me->mloop, me->totvert, me->totpoly, me->totloop);
   }
 
-  pbvh_show_diffuse_color_set(ss->pbvh, ss->show_diffuse_color);
   pbvh_show_mask_set(ss->pbvh, ss->show_mask);
 
-  if (ss->modifiers_active) {
+  if (ss->deform_modifiers_active) {
     if (!ss->orig_cos) {
       int a;
 
       BKE_sculptsession_free_deformMats(ss);
 
-      ss->orig_cos = (ss->kb) ? BKE_keyblock_convert_to_vertcos(ob, ss->kb) :
-                                BKE_mesh_vertexCos_get(me, NULL);
+      ss->orig_cos = (ss->shapekey_active) ?
+                         BKE_keyblock_convert_to_vertcos(ob, ss->shapekey_active) :
+                         BKE_mesh_vert_coords_alloc(me, NULL);
 
       BKE_crazyspace_build_sculpt(depsgraph, scene, ob, &ss->deform_imats, &ss->deform_cos);
-      BKE_pbvh_apply_vertCos(ss->pbvh, ss->deform_cos, me->totvert);
+      BKE_pbvh_vert_coords_apply(ss->pbvh, ss->deform_cos, me->totvert);
 
-      for (a = 0; a < me->totvert; ++a) {
+      for (a = 0; a < me->totvert; a++) {
         invert_m3(ss->deform_imats[a]);
       }
     }
@@ -1237,20 +1263,20 @@ static void sculpt_update_object(
     BKE_sculptsession_free_deformMats(ss);
   }
 
-  if (ss->kb != NULL && ss->deform_cos == NULL) {
-    ss->deform_cos = BKE_keyblock_convert_to_vertcos(ob, ss->kb);
+  if (ss->shapekey_active != NULL && ss->deform_cos == NULL) {
+    ss->deform_cos = BKE_keyblock_convert_to_vertcos(ob, ss->shapekey_active);
   }
 
   /* if pbvh is deformed, key block is already applied to it */
-  if (ss->kb) {
-    bool pbvh_deformed = BKE_pbvh_isDeformed(ss->pbvh);
+  if (ss->shapekey_active) {
+    bool pbvh_deformed = BKE_pbvh_is_deformed(ss->pbvh);
     if (!pbvh_deformed || ss->deform_cos == NULL) {
-      float(*vertCos)[3] = BKE_keyblock_convert_to_vertcos(ob, ss->kb);
+      float(*vertCos)[3] = BKE_keyblock_convert_to_vertcos(ob, ss->shapekey_active);
 
       if (vertCos) {
         if (!pbvh_deformed) {
           /* apply shape keys coordinates to PBVH */
-          BKE_pbvh_apply_vertCos(ss->pbvh, vertCos, me->totvert);
+          BKE_pbvh_vert_coords_apply(ss->pbvh, vertCos, me->totvert);
         }
         if (ss->deform_cos == NULL) {
           ss->deform_cos = vertCos;
@@ -1269,7 +1295,7 @@ void BKE_sculpt_update_object_before_eval(Object *ob)
   SculptSession *ss = ob->sculpt;
 
   if (ss && ss->building_vp_handle == false) {
-    if (!ss->cache) {
+    if (!ss->cache && !ss->filter_cache) {
       /* We free pbvh on changes, except in the middle of drawing a stroke
        * since it can't deal with changing PVBH node organization, we hope
        * topology does not change in the meantime .. weak. */
@@ -1335,7 +1361,7 @@ int BKE_sculpt_mask_layers_ensure(Object *ob, MultiresModifierData *mmd)
    * isn't one already */
   if (mmd && !CustomData_has_layer(&me->ldata, CD_GRID_PAINT_MASK)) {
     GridPaintMask *gmask;
-    int level = max_ii(1, mmd->sculptlvl);
+    int level = max_ii(1, BKE_multires_sculpt_level_get(mmd));
     int gridsize = BKE_ccg_gridsize(level);
     int gridarea = gridsize * gridsize;
     int i, j;
@@ -1424,17 +1450,17 @@ static bool check_sculpt_object_deformed(Object *object, const bool for_construc
    * on birth of PBVH and sculpt "layer" levels, so use PBVH only for internal brush
    * stuff and show final evaluated mesh so user would see actual object shape.
    */
-  deformed |= object->sculpt->modifiers_active;
+  deformed |= object->sculpt->deform_modifiers_active;
 
   if (for_construction) {
-    deformed |= object->sculpt->kb != NULL;
+    deformed |= object->sculpt->shapekey_active != NULL;
   }
   else {
     /* As in case with modifiers, we can't synchronize deformation made against
      * PBVH and non-locked keyblock, so also use PBVH only for brushes and
      * final DM to give final result to user.
      */
-    deformed |= object->sculpt->kb && (object->shapeflag & OB_SHAPE_LOCK) == 0;
+    deformed |= object->sculpt->shapekey_active && (object->shapeflag & OB_SHAPE_LOCK) == 0;
   }
 
   return deformed;
@@ -1449,7 +1475,6 @@ static PBVH *build_pbvh_for_dynamic_topology(Object *ob)
                        ob->sculpt->bm_log,
                        ob->sculpt->cd_vert_node_offset,
                        ob->sculpt->cd_face_node_offset);
-  pbvh_show_diffuse_color_set(pbvh, ob->sculpt->show_diffuse_color);
   pbvh_show_mask_set(pbvh, ob->sculpt->show_mask);
   return pbvh;
 }
@@ -1465,6 +1490,7 @@ static PBVH *build_pbvh_from_regular_mesh(Object *ob, Mesh *me_eval_deform)
   BKE_mesh_recalc_looptri(me->mloop, me->mpoly, me->mvert, me->totloop, me->totpoly, looptri);
 
   BKE_pbvh_build_mesh(pbvh,
+                      me,
                       me->mpoly,
                       me->mloop,
                       me->mvert,
@@ -1474,14 +1500,13 @@ static PBVH *build_pbvh_from_regular_mesh(Object *ob, Mesh *me_eval_deform)
                       looptri,
                       looptris_num);
 
-  pbvh_show_diffuse_color_set(pbvh, ob->sculpt->show_diffuse_color);
   pbvh_show_mask_set(pbvh, ob->sculpt->show_mask);
 
   const bool is_deformed = check_sculpt_object_deformed(ob, true);
   if (is_deformed && me_eval_deform != NULL) {
     int totvert;
-    float(*v_cos)[3] = BKE_mesh_vertexCos_get(me_eval_deform, &totvert);
-    BKE_pbvh_apply_vertCos(pbvh, v_cos, totvert);
+    float(*v_cos)[3] = BKE_mesh_vert_coords_alloc(me_eval_deform, &totvert);
+    BKE_pbvh_vert_coords_apply(pbvh, v_cos, totvert);
     MEM_freeN(v_cos);
   }
 
@@ -1500,7 +1525,6 @@ static PBVH *build_pbvh_from_ccg(Object *ob, SubdivCCG *subdiv_ccg)
                        (void **)subdiv_ccg->grid_faces,
                        subdiv_ccg->grid_flag_mats,
                        subdiv_ccg->grid_hidden);
-  pbvh_show_diffuse_color_set(pbvh, ob->sculpt->show_diffuse_color);
   pbvh_show_mask_set(pbvh, ob->sculpt->show_mask);
   return pbvh;
 }
@@ -1566,7 +1590,7 @@ bool BKE_sculptsession_use_pbvh_draw(const Object *ob, const View3D *v3d)
   if (BKE_pbvh_type(ss->pbvh) == PBVH_FACES) {
     /* Regular mesh only draws from PBVH without modifiers and shape keys. */
     const bool full_shading = (v3d && (v3d->shading.type > OB_SOLID));
-    return !(ss->kb || ss->modifiers_active || full_shading);
+    return !(ss->shapekey_active || ss->deform_modifiers_active || full_shading);
   }
   else {
     /* Multires and dyntopo always draw directly from the PBVH. */

@@ -33,17 +33,24 @@
 #include "zlib.h"
 
 #ifdef WIN32
+#  include <windows.h>
+#  include <shellapi.h>
+#  include <shobjidl.h>
 #  include <io.h>
 #  include "BLI_winstuff.h"
-#  include "BLI_callbacks.h"
 #  include "BLI_fileops_types.h"
 #  include "utf_winfunc.h"
 #  include "utfconv.h"
 #else
+#  if defined(__APPLE__)
+#    include <CoreFoundation/CoreFoundation.h>
+#    include <objc/runtime.h>
+#    include <objc/message.h>
+#  endif
 #  include <sys/param.h>
 #  include <dirent.h>
 #  include <unistd.h>
-#  include <sys/stat.h>
+#  include <sys/wait.h>
 #endif
 
 #include "MEM_guardedalloc.h"
@@ -105,7 +112,7 @@ int BLI_file_gzip(const char *from, const char *to)
 #endif
 
 /* gzip the file in from_file and write it to memory to_mem, at most size bytes.
- * return the unziped size
+ * return the unzipped size
  */
 char *BLI_file_ungzip_to_mem(const char *from_file, int *r_size)
 {
@@ -289,6 +296,64 @@ int BLI_access(const char *filename, int mode)
   return uaccess(filename, mode);
 }
 
+static bool delete_soft(const wchar_t *path_16, const char **error_message)
+{
+  /* Deletes file or directory to recycling bin. The latter moves all contained files and
+   * directories recursively to the recycling bin as well. */
+  IFileOperation *pfo;
+  IShellItem *pSI;
+
+  HRESULT hr = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
+
+  if (FAILED(hr)) {
+    *error_message = "Failed to initialize COM";
+    goto error_1;
+  }
+
+  hr = CoCreateInstance(
+      &CLSID_FileOperation, NULL, CLSCTX_ALL, &IID_IFileOperation, (void **)&pfo);
+  if (FAILED(hr)) {
+    *error_message = "Failed to create FileOperation instance";
+    goto error_2;
+  }
+
+  /* Flags for deletion:
+   * FOF_ALLOWUNDO: Enables moving file to recycling bin.
+   * FOF_SILENT: Don't show progress dialog box.
+   * FOF_WANTNUKEWARNING: Show dialog box if file can't be moved to recycling bin. */
+  hr = pfo->lpVtbl->SetOperationFlags(pfo, FOF_ALLOWUNDO | FOF_SILENT | FOF_WANTNUKEWARNING);
+
+  if (FAILED(hr)) {
+    *error_message = "Failed to set operation flags";
+    goto error_2;
+  }
+
+  hr = SHCreateItemFromParsingName(path_16, NULL, &IID_IShellItem, (void **)&pSI);
+  if (FAILED(hr)) {
+    *error_message = "Failed to parse path";
+    goto error_2;
+  }
+
+  hr = pfo->lpVtbl->DeleteItem(pfo, pSI, NULL);
+  if (FAILED(hr)) {
+    *error_message = "Failed to prepare delete operation";
+    goto error_2;
+  }
+
+  hr = pfo->lpVtbl->PerformOperations(pfo);
+
+  if (FAILED(hr)) {
+    *error_message = "Failed to delete file or directory";
+  }
+
+error_2:
+  pfo->lpVtbl->Release(pfo);
+  CoUninitialize(); /* Has to be uninitialized when CoInitializeEx returns either S_OK or S_FALSE
+                     */
+error_1:
+  return FAILED(hr);
+}
+
 static bool delete_unique(const char *path, const bool dir)
 {
   bool err;
@@ -343,7 +408,7 @@ static bool delete_recursive(const char *dir)
         err = true;
       }
     }
-    ++fl;
+    fl++;
   }
 
   if (!err && delete_unique(dir, true)) {
@@ -367,6 +432,24 @@ int BLI_delete(const char *file, bool dir, bool recursive)
   else {
     err = delete_unique(file, dir);
   }
+
+  return err;
+}
+
+/**
+ * Moves the files or directories to the recycling bin.
+ */
+int BLI_delete_soft(const char *file, const char **error_message)
+{
+  int err;
+
+  BLI_assert(!BLI_path_is_rel(file));
+
+  UTF16_ENCODE(file);
+
+  err = delete_soft(file_16, error_message);
+
+  UTF16_UN_ENCODE(file);
 
   return err;
 }
@@ -519,7 +602,7 @@ enum {
   /* operation requested not to perform recursive digging for current path */
   RecursiveOp_Callback_StopRecurs = 1,
 
-  /* error occured in callback and recursive walking should stop immediately */
+  /* error occurred in callback and recursive walking should stop immediately */
   RecursiveOp_Callback_Error = 2,
 };
 
@@ -721,6 +804,100 @@ static int delete_single_file(const char *from, const char *UNUSED(to))
   return RecursiveOp_Callback_OK;
 }
 
+#  ifdef __APPLE__
+static int delete_soft(const char *file, const char **error_message)
+{
+  int ret = -1;
+
+  Class NSAutoreleasePoolClass = objc_getClass("NSAutoreleasePool");
+  SEL allocSel = sel_registerName("alloc");
+  SEL initSel = sel_registerName("init");
+  id poolAlloc = ((id(*)(Class, SEL))objc_msgSend)(NSAutoreleasePoolClass, allocSel);
+  id pool = ((id(*)(id, SEL))objc_msgSend)(poolAlloc, initSel);
+
+  Class NSStringClass = objc_getClass("NSString");
+  SEL stringWithUTF8StringSel = sel_registerName("stringWithUTF8String:");
+  id pathString = ((id(*)(Class, SEL, const char *))objc_msgSend)(
+      NSStringClass, stringWithUTF8StringSel, file);
+
+  Class NSFileManagerClass = objc_getClass("NSFileManager");
+  SEL defaultManagerSel = sel_registerName("defaultManager");
+  id fileManager = ((id(*)(Class, SEL))objc_msgSend)(NSFileManagerClass, defaultManagerSel);
+
+  Class NSURLClass = objc_getClass("NSURL");
+  SEL fileURLWithPathSel = sel_registerName("fileURLWithPath:");
+  id nsurl = ((id(*)(Class, SEL, id))objc_msgSend)(NSURLClass, fileURLWithPathSel, pathString);
+
+  SEL trashItemAtURLSel = sel_registerName("trashItemAtURL:resultingItemURL:error:");
+  BOOL deleteSuccessful = ((BOOL(*)(id, SEL, id, id, id))objc_msgSend)(
+      fileManager, trashItemAtURLSel, nsurl, nil, nil);
+
+  if (deleteSuccessful) {
+    ret = 0;
+  }
+  else {
+    *error_message = "The Cocoa API call to delete file or directory failed";
+  }
+
+  SEL drainSel = sel_registerName("drain");
+  ((void (*)(id, SEL))objc_msgSend)(pool, drainSel);
+
+  return ret;
+}
+#  else
+static int delete_soft(const char *file, const char **error_message)
+{
+  const char *args[5];
+  const char *process_failed;
+
+  char *xdg_current_desktop = getenv("XDG_CURRENT_DESKTOP");
+  char *xdg_session_desktop = getenv("XDG_SESSION_DESKTOP");
+
+  if ((xdg_current_desktop != NULL && strcmp(xdg_current_desktop, "KDE") == 0) ||
+      (xdg_session_desktop != NULL && strcmp(xdg_session_desktop, "KDE") == 0)) {
+    args[0] = "kioclient5";
+    args[1] = "move";
+    args[2] = file;
+    args[3] = "trash:/";
+    args[4] = NULL;
+    process_failed = "kioclient5 reported failure";
+  }
+  else {
+    args[0] = "gio";
+    args[1] = "trash";
+    args[2] = file;
+    args[3] = NULL;
+    process_failed = "gio reported failure";
+  }
+
+  int pid = fork();
+
+  if (pid != 0) {
+    /* Parent process */
+    int wstatus = 0;
+
+    waitpid(pid, &wstatus, 0);
+
+    if (!WIFEXITED(wstatus)) {
+      *error_message =
+          "Blender may not support moving files or directories to trash on your system.";
+      return -1;
+    }
+    else if (WIFEXITED(wstatus) && WEXITSTATUS(wstatus)) {
+      *error_message = process_failed;
+      return -1;
+    }
+
+    return 0;
+  }
+
+  execvp(args[0], (char **)args);
+
+  *error_message = "Forking process failed.";
+  return -1; /* This should only be reached if execvp fails and stack isn't replaced. */
+}
+#  endif
+
 FILE *BLI_fopen(const char *filename, const char *mode)
 {
   BLI_assert(!BLI_path_is_rel(filename));
@@ -771,7 +948,20 @@ int BLI_delete(const char *file, bool dir, bool recursive)
 }
 
 /**
- * Do the two paths denote the same filesystem object?
+ * Soft deletes the specified file or directory (depending on dir) by moving the files to the
+ * recycling bin, optionally doing recursive delete of directory contents.
+ *
+ * \return zero on success (matching 'remove' behavior).
+ */
+int BLI_delete_soft(const char *file, const char **error_message)
+{
+  BLI_assert(!BLI_path_is_rel(file));
+
+  return delete_soft(file, error_message);
+}
+
+/**
+ * Do the two paths denote the same file-system object?
  */
 static bool check_the_same(const char *path_a, const char *path_b)
 {

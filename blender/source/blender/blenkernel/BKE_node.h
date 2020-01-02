@@ -30,13 +30,7 @@
 #include "DNA_listBase.h"
 
 /* for FOREACH_NODETREE_BEGIN */
-#include "DNA_light_types.h"
-#include "DNA_material_types.h"
 #include "DNA_node_types.h"
-#include "DNA_scene_types.h"
-#include "DNA_texture_types.h"
-#include "DNA_world_types.h"
-#include "DNA_linestyle_types.h"
 
 #include "RNA_types.h"
 
@@ -54,20 +48,23 @@ extern "C"
 struct ARegion;
 struct ColorManagedDisplaySettings;
 struct ColorManagedViewSettings;
+struct FreestyleLineStyle;
 struct GPUMaterial;
 struct GPUNodeStack;
 struct ID;
 struct ImBuf;
 struct ImageFormatData;
+struct Light;
 struct ListBase;
 struct MTex;
 struct Main;
+struct Material;
 struct PointerRNA;
 struct RenderData;
 struct Scene;
 struct SpaceNode;
 struct Tex;
-struct ViewRender;
+struct World;
 struct bContext;
 struct bNode;
 struct bNodeExecContext;
@@ -318,9 +315,8 @@ typedef struct bNodeTreeType {
   /* callbacks */
   void (*free_cache)(struct bNodeTree *ntree);
   void (*free_node_cache)(struct bNodeTree *ntree, struct bNode *node);
-  void (*foreach_nodeclass)(struct Scene *scene,
-                            void *calldata,
-                            bNodeClassCallback func); /* iteration over all node classes */
+  /* Iteration over all node classes. */
+  void (*foreach_nodeclass)(struct Scene *scene, void *calldata, bNodeClassCallback func);
   /* Check visibility in the node editor */
   bool (*poll)(const struct bContext *C, struct bNodeTreeType *ntreetype);
   /* Select a node tree from the context */
@@ -394,6 +390,7 @@ void ntreeUserIncrefID(struct bNodeTree *ntree);
 void ntreeUserDecrefID(struct bNodeTree *ntree);
 
 struct bNodeTree *ntreeFromID(const struct ID *id);
+struct ID *BKE_node_tree_find_owner_ID(struct Main *bmain, struct bNodeTree *ntree);
 
 void ntreeMakeLocal(struct Main *bmain,
                     struct bNodeTree *ntree,
@@ -602,6 +599,11 @@ void nodeChainIter(const bNodeTree *ntree,
                    bool (*callback)(bNode *, bNode *, void *, const bool),
                    void *userdata,
                    const bool reversed);
+void nodeChainIterBackwards(const bNodeTree *ntree,
+                            const bNode *node_start,
+                            bool (*callback)(bNode *, bNode *, void *),
+                            void *userdata,
+                            int recursion_lvl);
 void nodeParentsIter(bNode *node, bool (*callback)(bNode *, void *), void *userdata);
 
 struct bNodeLink *nodeFindLink(struct bNodeTree *ntree,
@@ -624,6 +626,7 @@ void nodeUpdateInternalLinks(struct bNodeTree *ntree, struct bNode *node);
 
 int nodeSocketIsHidden(struct bNodeSocket *sock);
 void ntreeTagUsedSockets(struct bNodeTree *ntree);
+void nodeSetSocketAvailability(struct bNodeSocket *sock, bool is_available);
 
 /* Node Clipboard */
 void BKE_node_clipboard_init(struct bNodeTree *ntree);
@@ -840,11 +843,11 @@ void BKE_node_tree_unlink_id(ID *id, struct bNodeTree *ntree);
 struct NodeTreeIterStore {
   bNodeTree *ngroup;
   Scene *scene;
-  Material *mat;
+  struct Material *mat;
   Tex *tex;
-  Light *light;
-  World *world;
-  FreestyleLineStyle *linestyle;
+  struct Light *light;
+  struct World *world;
+  struct FreestyleLineStyle *linestyle;
 };
 
 void BKE_node_tree_iter_init(struct NodeTreeIterStore *ntreeiter, struct Main *bmain);
@@ -903,7 +906,7 @@ void BKE_nodetree_remove_layer_n(struct bNodeTree *ntree,
 #define SH_NODE_CURVE_RGB 111
 #define SH_NODE_CAMERA 114
 #define SH_NODE_MATH 115
-#define SH_NODE_VECT_MATH 116
+#define SH_NODE_VECTOR_MATH 116
 #define SH_NODE_SQUEEZE 117
 //#define SH_NODE_MATERIAL_EXT  118
 #define SH_NODE_INVERT 119
@@ -984,6 +987,11 @@ void BKE_nodetree_remove_layer_n(struct bNodeTree *ntree,
 #define SH_NODE_VOLUME_PRINCIPLED 200
 /* 201..700 occupied by other node types, continue from 701 */
 #define SH_NODE_BSDF_HAIR_PRINCIPLED 701
+#define SH_NODE_MAP_RANGE 702
+#define SH_NODE_CLAMP 703
+#define SH_NODE_TEX_WHITE_NOISE 704
+#define SH_NODE_VOLUME_INFO 705
+#define SH_NODE_VERTEX_COLOR 706
 
 /* custom defines options for Material node */
 #define SH_NODE_MAT_DIFF 1
@@ -1136,6 +1144,7 @@ void ntreeGPUMaterialNodes(struct bNodeTree *localtree,
 #define CMP_NODE_CORNERPIN 321
 #define CMP_NODE_SWITCH_VIEW 322
 #define CMP_NODE_CRYPTOMATTE 323
+#define CMP_NODE_DENOISE 324
 
 /* channel toggles */
 #define CMP_CHAN_RGB 1

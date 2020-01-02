@@ -72,6 +72,7 @@
 #include "UI_view2d.h"
 
 #include "WM_api.h"
+#include "WM_types.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -333,7 +334,7 @@ static void drawseqwave(View2D *v2d,
         value2 = (1.0f - f) * value2 + f * waveform->data[p * 3 + 4];
       }
 
-      if (fcu) {
+      if (fcu && !BKE_fcurve_is_empty(fcu)) {
         float evaltime = x1_offset + (i * stepsize);
         volume = evaluate_fcurve(fcu, evaltime);
       }
@@ -1045,9 +1046,8 @@ ImBuf *sequencer_ibuf_get(struct Main *bmain,
       bmain, depsgraph, scene, rectx, recty, proxy_size, false, &context);
   context.view_id = BKE_scene_multiview_view_id_get(&scene->r, viewname);
 
-  /* sequencer could start rendering, in this case we need to be sure it wouldn't be canceled
-   * by Esc pressed somewhere in the past
-   */
+  /* Sequencer could start rendering, in this case we need to be sure it wouldn't be canceled
+   * by Escape pressed somewhere in the past. */
   G.is_break = false;
 
   /* Rendering can change OGL context. Save & Restore framebuffer. */
@@ -1223,6 +1223,14 @@ void sequencer_draw_maskedit(const bContext *C, Scene *scene, ARegion *ar, Space
   }
 }
 #endif
+
+/* Force redraw, when prefetching and using cache view. */
+static void seq_prefetch_wm_notify(const bContext *C, Scene *scene)
+{
+  if (BKE_sequencer_prefetch_need_redraw(CTX_data_main(C), scene)) {
+    WM_event_add_notifier(C, NC_SCENE | ND_SEQUENCER, NULL);
+  }
+}
 
 static void *sequencer_OCIO_transform_ibuf(
     const bContext *C, ImBuf *ibuf, bool *glsl_used, int *format, int *type)
@@ -1546,7 +1554,7 @@ void sequencer_draw_preview(const bContext *C,
                             bool draw_backdrop)
 {
   struct Main *bmain = CTX_data_main(C);
-  struct Depsgraph *depsgraph = CTX_data_depsgraph(C);
+  struct Depsgraph *depsgraph = CTX_data_expect_evaluated_depsgraph(C);
   struct View2D *v2d = &ar->v2d;
   struct ImBuf *ibuf = NULL;
   struct ImBuf *scope = NULL;
@@ -1613,6 +1621,7 @@ void sequencer_draw_preview(const bContext *C,
   }
 
   UI_view2d_view_restore(C);
+  seq_prefetch_wm_notify(C, scene);
 }
 
 #if 0
@@ -2005,6 +2014,8 @@ void draw_timeline_seq(const bContext *C, ARegion *ar)
   short cfra_flag = 0;
   float col[3];
 
+  seq_prefetch_wm_notify(C, scene);
+
   /* clear and setup matrix */
   UI_GetThemeColor3fv(TH_BACK, col);
   if (ed && ed->metastack.first) {
@@ -2076,9 +2087,11 @@ void draw_timeline_seq(const bContext *C, ARegion *ar)
                         scene->r.cfra + scene->ed->over_ofs;
 
     uint pos = GPU_vertformat_attr_add(immVertexFormat(), "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
-    immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+    immBindBuiltinProgram(GPU_SHADER_3D_LINE_DASHED_UNIFORM_COLOR);
 
-    immUniformColor3f(0.2f, 0.2f, 0.2f);
+    immUniform1f("dash_width", 20.0f * U.pixelsize);
+    immUniform1f("dash_factor", 0.5f);
+    immUniformThemeColor(TH_CFRAME);
 
     immBegin(GPU_PRIM_LINES, 2);
     immVertex2f(pos, cfra_over, v2d->cur.ymin);

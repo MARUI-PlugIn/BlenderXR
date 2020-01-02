@@ -91,7 +91,7 @@ void EEVEE_render_init(EEVEE_Data *ved, RenderEngine *engine, struct Depsgraph *
     copy_v4_fl4(camtexcofac, 1.0f, 1.0f, 0.0f, 0.0f);
   }
 
-  /* XXX overiding viewport size. Simplify things but is not really 100% safe. */
+  /* XXX overriding viewport size. Simplify things but is not really 100% safe. */
   DRW_render_viewport_size_set((int[2]){size_orig[0] + g_data->overscan_pixels * 2.0f,
                                         size_orig[1] + g_data->overscan_pixels * 2.0f});
 
@@ -133,7 +133,7 @@ void EEVEE_render_init(EEVEE_Data *ved, RenderEngine *engine, struct Depsgraph *
   /* EEVEE_effects_init needs to go first for TAA */
   EEVEE_effects_init(sldata, vedata, ob_camera_eval, false);
   EEVEE_materials_init(sldata, stl, fbl);
-  EEVEE_lights_init(sldata);
+  EEVEE_shadows_init(sldata);
   EEVEE_lightprobes_init(sldata, vedata);
 
   /* INIT CACHE */
@@ -198,7 +198,7 @@ void EEVEE_render_cache(void *vedata,
   }
 
   if (cast_shadow) {
-    EEVEE_lights_cache_shcaster_object_add(sldata, ob);
+    EEVEE_shadows_caster_register(sldata, ob);
   }
 }
 
@@ -369,7 +369,7 @@ static void eevee_render_result_z(RenderLayer *rl,
     DRW_view_winmat_get(NULL, winmat, false);
 
     /* Convert ogl depth [0..1] to view Z [near..far] */
-    for (int i = 0; i < rp->rectx * rp->recty; ++i) {
+    for (int i = 0; i < rp->rectx * rp->recty; i++) {
       if (rp->rect[i] == 1.0f) {
         rp->rect[i] = 1e10f; /* Background */
       }
@@ -478,7 +478,8 @@ static void eevee_render_draw_background(EEVEE_Data *vedata)
                                  GPU_ATTACHMENT_LEAVE,
                                  GPU_ATTACHMENT_TEXTURE(stl->effects->ssr_normal_input),
                                  GPU_ATTACHMENT_TEXTURE(stl->effects->ssr_specrough_input),
-                                 GPU_ATTACHMENT_TEXTURE(stl->effects->sss_data),
+                                 GPU_ATTACHMENT_TEXTURE(stl->effects->sss_irradiance),
+                                 GPU_ATTACHMENT_TEXTURE(stl->effects->sss_radius),
                                  GPU_ATTACHMENT_TEXTURE(stl->effects->sss_albedo)});
   GPU_framebuffer_bind(fbl->main_fb);
 }
@@ -582,8 +583,8 @@ void EEVEE_render_draw(EEVEE_Data *vedata, RenderEngine *engine, RenderLayer *rl
     EEVEE_lightprobes_refresh_planar(sldata, vedata);
 
     /* Refresh Shadows */
-    EEVEE_lights_update(sldata, vedata);
-    EEVEE_draw_shadows(sldata, vedata, stl->effects->taa_view);
+    EEVEE_shadows_update(sldata, vedata);
+    EEVEE_shadows_draw(sldata, vedata, stl->effects->taa_view);
 
     /* Set matrices. */
     DRW_view_set_active(stl->effects->taa_view);
@@ -605,9 +606,7 @@ void EEVEE_render_draw(EEVEE_Data *vedata, RenderEngine *engine, RenderLayer *rl
     /* Shading pass */
     eevee_render_draw_background(vedata);
     GPU_framebuffer_bind(fbl->main_fb);
-    EEVEE_draw_default_passes(psl);
-    DRW_draw_pass(psl->material_pass);
-    DRW_draw_pass(psl->material_pass_cull);
+    EEVEE_materials_draw_opaque(sldata, psl);
     EEVEE_subsurface_data_render(sldata, vedata);
     /* Effects pre-transparency */
     EEVEE_subsurface_compute(sldata, vedata);
@@ -628,7 +627,11 @@ void EEVEE_render_draw(EEVEE_Data *vedata, RenderEngine *engine, RenderLayer *rl
     /* Mist output */
     EEVEE_mist_output_accumulate(sldata, vedata);
     /* Transparent */
+    GPU_framebuffer_texture_attach(fbl->main_color_fb, dtxl->depth, 0, 0);
+    GPU_framebuffer_bind(fbl->main_color_fb);
     DRW_draw_pass(psl->transparent_pass);
+    GPU_framebuffer_bind(fbl->main_fb);
+    GPU_framebuffer_texture_detach(fbl->main_color_fb, dtxl->depth);
     /* Result Z */
     eevee_render_result_z(rl, viewname, rect, vedata, sldata);
     /* Post Process */

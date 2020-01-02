@@ -29,8 +29,6 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "GPU_draw.h"
-#include "GPU_matrix.h"
 #include "GPU_batch.h"
 #include "GPU_immediate.h"
 #include "GPU_state.h"
@@ -173,12 +171,13 @@ void icon_draw_rect_input(float x,
 
   const bool simple_text = false;
 
-  if ((event_type >= AKEY) || (ZKEY <= event_type)) {
+  if ((event_type >= AKEY) && (event_type <= ZKEY)) {
     char str[2] = {'A' + (event_type - AKEY), '\0'};
     icon_draw_rect_input_default_text(&rect, color, margin, str);
   }
-  if ((event_type >= F1KEY) || (F12KEY <= event_type)) {
-    char str[3] = {'F', '1' + (event_type - F1KEY), '\0'};
+  else if ((event_type >= F1KEY) && (event_type <= F12KEY)) {
+    char str[4];
+    SNPRINTF(str, "F%d", 1 + (event_type - F1KEY));
     icon_draw_rect_input_default_text(&rect, color, margin, str);
   }
   else if (event_type == LEFTSHIFTKEY) {

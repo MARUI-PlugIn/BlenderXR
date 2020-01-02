@@ -46,17 +46,14 @@ extern "C" {
  * except in some specific cases requiring advanced (and potentially dangerous) handling.
  */
 
-struct BlendThumbnail;
 struct GHash;
 struct ID;
-struct ImBuf;
 struct Library;
 struct ListBase;
 struct Main;
 struct PointerRNA;
 struct PropertyRNA;
 struct bContext;
-struct wmWindowManager;
 
 size_t BKE_libblock_get_alloc_info(short type, const char **name);
 void *BKE_libblock_alloc_notest(short type) ATTR_WARN_UNUSED_RESULT;
@@ -120,7 +117,7 @@ enum {
 void BKE_libblock_copy_ex(struct Main *bmain,
                           const struct ID *id,
                           struct ID **r_newid,
-                          const int flag);
+                          const int orig_flag);
 void *BKE_libblock_copy(struct Main *bmain, const struct ID *id) ATTR_WARN_UNUSED_RESULT
     ATTR_NONNULL();
 /* Special version. sued by datablock localization. */
@@ -178,6 +175,7 @@ void BKE_libblock_management_usercounts_clear(struct Main *bmain, void *idv);
 
 void BKE_id_lib_local_paths(struct Main *bmain, struct Library *lib, struct ID *id);
 void id_lib_extern(struct ID *id);
+void id_lib_indirect_weak_link(struct ID *id);
 void BKE_library_filepath_set(struct Main *bmain, struct Library *lib, const char *filepath);
 void id_us_ensure_real(struct ID *id);
 void id_us_clear_real(struct ID *id);
@@ -223,7 +221,7 @@ void BKE_main_id_flag_all(struct Main *bmain, const int flag, const bool value);
 
 void BKE_main_id_clear_newpoins(struct Main *bmain);
 
-void BLE_main_id_refcount_recompute(struct Main *bmain, const bool do_linked_only);
+void BKE_main_id_refcount_recompute(struct Main *bmain, const bool do_linked_only);
 
 void BKE_main_lib_objects_recalc_all(struct Main *bmain);
 

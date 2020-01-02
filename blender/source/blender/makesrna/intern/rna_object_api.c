@@ -37,6 +37,7 @@
 #include "DNA_object_types.h"
 
 #include "BKE_layer.h"
+#include "BKE_gpencil.h"
 
 #include "DEG_depsgraph.h"
 
@@ -69,6 +70,7 @@ static const EnumPropertyItem space_items[] = {
 #  include "BKE_customdata.h"
 #  include "BKE_font.h"
 #  include "BKE_global.h"
+#  include "BKE_layer.h"
 #  include "BKE_main.h"
 #  include "BKE_mesh.h"
 #  include "BKE_mball.h"
@@ -220,36 +222,43 @@ static bool rna_Object_indirect_only_get(Object *ob, bContext *C, ViewLayer *vie
   return ((base->flag & BASE_INDIRECT_ONLY) != 0);
 }
 
-static Base *rna_Object_local_view_property_helper(
-    bScreen *sc, View3D *v3d, Object *ob, ReportList *reports, Scene **r_scene)
+static Base *rna_Object_local_view_property_helper(bScreen *sc,
+                                                   View3D *v3d,
+                                                   ViewLayer *view_layer,
+                                                   Object *ob,
+                                                   ReportList *reports,
+                                                   Scene **r_scene)
 {
+  wmWindow *win = NULL;
   if (v3d->localvd == NULL) {
     BKE_report(reports, RPT_ERROR, "Viewport not in local view");
     return NULL;
   }
 
-  wmWindow *win = ED_screen_window_find(sc, G_MAIN->wm.first);
-  ViewLayer *view_layer = WM_window_get_active_view_layer(win);
+  if (view_layer == NULL) {
+    win = ED_screen_window_find(sc, G_MAIN->wm.first);
+    view_layer = WM_window_get_active_view_layer(win);
+  }
+
   Base *base = BKE_view_layer_base_find(view_layer, ob);
   if (base == NULL) {
     BKE_reportf(
         reports, RPT_WARNING, "Object %s not in view layer %s", ob->id.name + 2, view_layer->name);
   }
-  if (r_scene) {
+  if (r_scene != NULL && win != NULL) {
     *r_scene = win->scene;
   }
   return base;
 }
 
-static bool rna_Object_local_view_get(Object *ob, ReportList *reports, PointerRNA *v3d_ptr)
+static bool rna_Object_local_view_get(Object *ob, ReportList *reports, View3D *v3d)
 {
-  bScreen *sc = v3d_ptr->id.data;
-  View3D *v3d = v3d_ptr->data;
-  Base *base = rna_Object_local_view_property_helper(sc, v3d, ob, reports, NULL);
-  if (base == NULL) {
-    return false; /* Error reported. */
+  if (v3d->localvd == NULL) {
+    BKE_report(reports, RPT_ERROR, "Viewport not in local view");
+    return false;
   }
-  return (base->local_view_bits & v3d->local_view_uuid) != 0;
+
+  return ((ob->base_local_view_bits & v3d->local_view_uuid) != 0);
 }
 
 static void rna_Object_local_view_set(Object *ob,
@@ -257,10 +266,10 @@ static void rna_Object_local_view_set(Object *ob,
                                       PointerRNA *v3d_ptr,
                                       bool state)
 {
-  bScreen *sc = v3d_ptr->id.data;
+  bScreen *sc = (bScreen *)v3d_ptr->owner_id;
   View3D *v3d = v3d_ptr->data;
   Scene *scene;
-  Base *base = rna_Object_local_view_property_helper(sc, v3d, ob, reports, &scene);
+  Base *base = rna_Object_local_view_property_helper(sc, v3d, NULL, ob, reports, &scene);
   if (base == NULL) {
     return; /* Error reported. */
   }
@@ -275,7 +284,13 @@ static void rna_Object_local_view_set(Object *ob,
   }
 }
 
-/* Convert a given matrix from a space to another (using the object and/or a bone as reference). */
+static bool rna_Object_visible_in_viewport_get(Object *ob, View3D *v3d)
+{
+  return BKE_object_is_visible_in_viewport(v3d, ob);
+}
+
+/* Convert a given matrix from a space to another (using the object and/or a bone as
+ * reference). */
 static void rna_Object_mat_convert_space(Object *ob,
                                          ReportList *reports,
                                          bPoseChannel *pchan,
@@ -465,6 +480,8 @@ static int mesh_looptri_to_poly_index(Mesh *me_eval, const MLoopTri *lt)
   return index_mp_to_orig ? index_mp_to_orig[lt->poly] : lt->poly;
 }
 
+/* TOOD(sergey): Make the Python API more clear that evaluation might happen, or requite
+ * passing fully evaluated depsgraph. */
 static Object *eval_object_ensure(Object *ob,
                                   bContext *C,
                                   ReportList *reports,
@@ -474,7 +491,7 @@ static Object *eval_object_ensure(Object *ob,
     Object *ob_orig = ob;
     Depsgraph *depsgraph = rnaptr_depsgraph != NULL ? rnaptr_depsgraph->data : NULL;
     if (depsgraph == NULL) {
-      depsgraph = CTX_data_depsgraph(C);
+      depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
     }
     if (depsgraph != NULL) {
       ob = DEG_get_evaluated_object(depsgraph, ob);
@@ -502,6 +519,8 @@ static void rna_Object_ray_cast(Object *ob,
 {
   bool success = false;
 
+  /* TODO(sergey): This isn't very reliable check. It is possible to have non-NULL pointer
+   * but which is out of date, and possibly dangling one. */
   if (ob->runtime.mesh_eval == NULL &&
       (ob = eval_object_ensure(ob, C, reports, rnaptr_depsgraph)) == NULL) {
     return;
@@ -681,6 +700,30 @@ static bool rna_Object_update_from_editmode(Object *ob, Main *bmain)
   }
   return result;
 }
+
+bool rna_Object_generate_gpencil_strokes(Object *ob,
+                                         bContext *C,
+                                         ReportList *reports,
+                                         Object *ob_gpencil,
+                                         bool gpencil_lines,
+                                         bool use_collections)
+{
+  if (ob->type != OB_CURVE) {
+    BKE_reportf(reports,
+                RPT_ERROR,
+                "Object '%s' not valid for this operation! Only curves supported.",
+                ob->id.name + 2);
+    return false;
+  }
+  Main *bmain = CTX_data_main(C);
+  Scene *scene = CTX_data_scene(C);
+
+  BKE_gpencil_convert_curve(bmain, scene, ob_gpencil, ob, gpencil_lines, use_collections, false);
+
+  WM_main_add_notifier(NC_GPENCIL | ND_DATA, NULL);
+
+  return true;
+}
 #else /* RNA_RUNTIME */
 
 void RNA_api_object(StructRNA *srna)
@@ -729,7 +772,7 @@ void RNA_api_object(StructRNA *srna)
   RNA_def_function_flag(func, FUNC_USE_CONTEXT);
   parm = RNA_def_pointer(
       func, "view_layer", "ViewLayer", "", "Use this instead of the active view layer");
-  parm = RNA_def_boolean(func, "result", 0, "", "Object hideed");
+  parm = RNA_def_boolean(func, "result", 0, "", "Object hidden");
   RNA_def_function_return(func, parm);
 
   func = RNA_def_function(srna, "hide_set", "rna_Object_hide_set");
@@ -776,7 +819,7 @@ void RNA_api_object(StructRNA *srna)
   RNA_def_function_ui_description(func, "Get the local view state for this object");
   RNA_def_function_flag(func, FUNC_USE_REPORTS);
   parm = RNA_def_pointer(func, "viewport", "SpaceView3D", "", "Viewport in local view");
-  RNA_def_parameter_flags(parm, 0, PARM_RNAPTR | PARM_REQUIRED);
+  RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
   parm = RNA_def_boolean(func, "result", 0, "", "Object local view state");
   RNA_def_function_return(func, parm);
 
@@ -787,6 +830,15 @@ void RNA_api_object(StructRNA *srna)
   RNA_def_parameter_flags(parm, 0, PARM_RNAPTR | PARM_REQUIRED);
   parm = RNA_def_boolean(func, "state", 0, "", "Local view state to define");
   RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
+
+  /* Viewport */
+  func = RNA_def_function(srna, "visible_in_viewport_get", "rna_Object_visible_in_viewport_get");
+  RNA_def_function_ui_description(
+      func, "Check for local view and local collections for this viewport and object");
+  parm = RNA_def_pointer(func, "viewport", "SpaceView3D", "", "Viewport in local collections");
+  RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
+  parm = RNA_def_boolean(func, "result", 0, "", "Object viewport visibility");
+  RNA_def_function_return(func, parm);
 
   /* Matrix space conversion */
   func = RNA_def_function(srna, "convert_space", "rna_Object_mat_convert_space");
@@ -972,7 +1024,7 @@ void RNA_api_object(StructRNA *srna)
   RNA_def_parameter_flags(parm, 0, PARM_RNAPTR);
 
   /* return location and normal */
-  parm = RNA_def_boolean(func, "result", 0, "", "Wheter the ray successfully hit the geometry");
+  parm = RNA_def_boolean(func, "result", 0, "", "Whether the ray successfully hit the geometry");
   RNA_def_function_output(func, parm);
   parm = RNA_def_float_vector(func,
                               "location",
@@ -1035,7 +1087,7 @@ void RNA_api_object(StructRNA *srna)
   RNA_def_parameter_flags(parm, 0, PARM_RNAPTR);
 
   /* return location and normal */
-  parm = RNA_def_boolean(func, "result", 0, "", "Wheter closest point on geometry was found");
+  parm = RNA_def_boolean(func, "result", 0, "", "Whether closest point on geometry was found");
   RNA_def_function_output(func, parm);
   parm = RNA_def_float_vector(func,
                               "location",
@@ -1109,7 +1161,7 @@ void RNA_api_object(StructRNA *srna)
       "(only needed if current Context's depsgraph is not suitable)");
   RNA_def_parameter_flags(parm, 0, PARM_RNAPTR);
   /* weak!, no way to return dynamic string type */
-  parm = RNA_def_string(func, "result", NULL, 16384, "", "Requested informations");
+  parm = RNA_def_string(func, "result", NULL, 16384, "", "Requested information");
   RNA_def_parameter_flags(parm, PROP_THICK_WRAP, 0); /* needed for string return value */
   RNA_def_function_output(func, parm);
 #  endif /* NDEBUG */
@@ -1124,6 +1176,20 @@ void RNA_api_object(StructRNA *srna)
   RNA_def_function_ui_description(func,
                                   "Release memory used by caches associated with this object. "
                                   "Intended to be used by render engines only");
+
+  /* Convert curve object to gpencil strokes. */
+  func = RNA_def_function(srna, "generate_gpencil_strokes", "rna_Object_generate_gpencil_strokes");
+  RNA_def_function_ui_description(func, "Convert a curve object to grease pencil strokes.");
+  RNA_def_function_flag(func, FUNC_USE_CONTEXT | FUNC_USE_REPORTS);
+
+  parm = RNA_def_pointer(
+      func, "ob_gpencil", "Object", "", "Grease Pencil object used to create new strokes");
+  RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
+  parm = RNA_def_boolean(func, "gpencil_lines", 0, "", "Create Lines");
+  parm = RNA_def_boolean(func, "use_collections", 1, "", "Use Collections");
+
+  parm = RNA_def_boolean(func, "result", 0, "", "Result");
+  RNA_def_function_return(func, parm);
 }
 
 #endif /* RNA_RUNTIME */

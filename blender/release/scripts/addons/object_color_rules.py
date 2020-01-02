@@ -167,7 +167,7 @@ def object_colors_calc(rules, objects):
                 if is_set is False:
                     obj_color = color
                 else:
-                    # prevent mixing colors loosing saturation
+                    # prevent mixing colors losing saturation
                     obj_color_s = obj_color.s
                     obj_color = (obj_color * blend[0]) + (color * blend[1])
                     obj_color.s = (obj_color_s * blend[0]) + (color.s * blend[1])
@@ -236,6 +236,7 @@ class OBJECT_PT_color_rules(Panel):
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
     bl_context = "object"
+    bl_options = {'DEFAULT_CLOSED'}
 
     def draw(self, context):
         layout = self.layout

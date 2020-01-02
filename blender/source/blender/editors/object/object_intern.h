@@ -71,7 +71,7 @@ void OBJECT_OT_hide_view_set(struct wmOperatorType *ot);
 void OBJECT_OT_hide_view_clear(struct wmOperatorType *ot);
 void OBJECT_OT_hide_collection(struct wmOperatorType *ot);
 void OBJECT_OT_mode_set(struct wmOperatorType *ot);
-void OBJECT_OT_mode_set_or_submode(struct wmOperatorType *ot);
+void OBJECT_OT_mode_set_with_submode(struct wmOperatorType *ot);
 void OBJECT_OT_editmode_toggle(struct wmOperatorType *ot);
 void OBJECT_OT_posemode_toggle(struct wmOperatorType *ot);
 void OBJECT_OT_proxy_make(struct wmOperatorType *ot);
@@ -137,7 +137,10 @@ void COLLECTION_OT_objects_add_active(struct wmOperatorType *ot);
 void COLLECTION_OT_objects_remove_active(struct wmOperatorType *ot);
 
 /* object_modifier.c */
-bool edit_modifier_poll_generic(struct bContext *C, struct StructRNA *rna_type, int obtype_flag);
+bool edit_modifier_poll_generic(struct bContext *C,
+                                struct StructRNA *rna_type,
+                                int obtype_flag,
+                                const bool is_editmode_allowed);
 bool edit_modifier_poll(struct bContext *C);
 void edit_modifier_properties(struct wmOperatorType *ot);
 int edit_modifier_invoke_properties(struct bContext *C, struct wmOperator *op);
@@ -275,6 +278,10 @@ void OBJECT_OT_bake(wmOperatorType *ot);
 
 /* object_random.c */
 void TRANSFORM_OT_vertex_random(struct wmOperatorType *ot);
+
+/* object_remesh.c */
+void OBJECT_OT_voxel_remesh(struct wmOperatorType *ot);
+void OBJECT_OT_quadriflow_remesh(struct wmOperatorType *ot);
 
 /* object_transfer_data.c */
 void OBJECT_OT_data_transfer(struct wmOperatorType *ot);

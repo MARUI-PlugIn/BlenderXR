@@ -42,13 +42,13 @@ typedef struct CustomDataLayer {
   int flag;
   /** Number of the active layer of this type. */
   int active;
-  /** Number of the layer to rende.r*/
+  /** Number of the layer to render. */
   int active_rnd;
-  /** Number of the layer to rende.r*/
+  /** Number of the layer to render. */
   int active_clone;
-  /** Number of the layer to rende.r*/
+  /** Number of the layer to render. */
   int active_mask;
-  /** Shape keyblock unique id referenc.e*/
+  /** Shape keyblock unique id reference. */
   int uid;
   /** Layer name, MAX_CUSTOMDATA_LAYER_NAME. */
   char name[64];
@@ -196,6 +196,9 @@ typedef enum CustomDataType {
 
 /** Data types that may be defined for all mesh elements types. */
 #define CD_MASK_GENERIC_DATA (CD_MASK_PROP_FLT | CD_MASK_PROP_INT | CD_MASK_PROP_STR)
+
+/** Multires loop data. */
+#define CD_MASK_MULTIRES_GRIDS (CD_MASK_MDISPS | CD_GRID_PAINT_MASK)
 
 typedef struct CustomData_MeshMasks {
   uint64_t vmask;

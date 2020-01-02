@@ -35,6 +35,7 @@
 #include "BKE_brush.h"
 #include "BKE_context.h"
 #include "BKE_gpencil.h"
+#include "BKE_main.h"
 #include "BKE_material.h"
 
 #include "WM_api.h"
@@ -97,12 +98,12 @@ static void gpencil_insert_points_to_stroke(bGPDstroke *gps,
 
 static bGPDstroke *gpencil_prepare_stroke(bContext *C, wmOperator *op, int totpoints)
 {
+  Main *bmain = CTX_data_main(C);
   ToolSettings *ts = CTX_data_tool_settings(C);
-  Depsgraph *depsgraph = CTX_data_depsgraph(C);
   Object *ob = CTX_data_active_object(C);
   bGPDlayer *gpl = CTX_data_active_gpencil_layer(C);
 
-  int cfra_eval = (int)DEG_get_ctime(depsgraph);
+  Scene *scene = CTX_data_scene(C);
 
   const bool back = RNA_boolean_get(op->ptr, "back");
   const bool additive = RNA_boolean_get(op->ptr, "additive");
@@ -112,7 +113,7 @@ static bGPDstroke *gpencil_prepare_stroke(bContext *C, wmOperator *op, int totpo
   /* if not exist, create a new one */
   if ((paint->brush == NULL) || (paint->brush->gpencil_settings == NULL)) {
     /* create new brushes */
-    BKE_brush_gpencil_presets(C);
+    BKE_brush_gpencil_presets(bmain, ts);
   }
   Brush *brush = paint->brush;
 
@@ -124,7 +125,7 @@ static bGPDstroke *gpencil_prepare_stroke(bContext *C, wmOperator *op, int totpo
   else {
     add_frame_mode = GP_GETFRAME_ADD_NEW;
   }
-  bGPDframe *gpf = BKE_gpencil_layer_getframe(gpl, cfra_eval, add_frame_mode);
+  bGPDframe *gpf = BKE_gpencil_layer_getframe(gpl, CFRA, add_frame_mode);
 
   /* stroke */
   bGPDstroke *gps = MEM_callocN(sizeof(bGPDstroke), "gp_stroke");
@@ -450,7 +451,7 @@ static bool gp_strokes_merge_poll(bContext *C)
 
   /* check material */
   Material *ma = NULL;
-  ma = give_current_material(ob, ob->actcol);
+  ma = BKE_material_gpencil_get(ob, ob->actcol);
   if ((ma == NULL) || (ma->gp_style == NULL)) {
     return false;
   }

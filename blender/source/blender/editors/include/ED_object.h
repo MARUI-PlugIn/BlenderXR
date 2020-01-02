@@ -34,7 +34,6 @@ struct EnumPropertyItem;
 struct EnumPropertyItem;
 struct ID;
 struct Main;
-struct Menu;
 struct ModifierData;
 struct Object;
 struct PointerRNA;
@@ -44,16 +43,15 @@ struct Scene;
 struct ShaderFxData;
 struct View3D;
 struct ViewLayer;
+struct XFormObjectData;
 struct bConstraint;
 struct bContext;
 struct bFaceMap;
 struct bPoseChannel;
 struct uiLayout;
 struct wmKeyConfig;
-struct wmKeyMap;
 struct wmOperator;
 struct wmOperatorType;
-struct wmWindow;
 struct wmWindowManager;
 
 #include "DNA_object_enums.h"
@@ -166,13 +164,13 @@ void ED_object_vpaintmode_enter_ex(struct Main *bmain,
                                    struct wmWindowManager *wm,
                                    struct Scene *scene,
                                    struct Object *ob);
-void ED_object_vpaintmode_enter(struct bContext *C);
+void ED_object_vpaintmode_enter(struct bContext *C, struct Depsgraph *depsgraph);
 void ED_object_wpaintmode_enter_ex(struct Main *bmain,
                                    struct Depsgraph *depsgraph,
                                    struct wmWindowManager *wm,
                                    struct Scene *scene,
                                    struct Object *ob);
-void ED_object_wpaintmode_enter(struct bContext *C);
+void ED_object_wpaintmode_enter(struct bContext *C, struct Depsgraph *depsgraph);
 
 void ED_object_vpaintmode_exit_ex(struct Object *ob);
 void ED_object_vpaintmode_exit(struct bContext *C);
@@ -185,20 +183,21 @@ void ED_object_sculptmode_enter_ex(struct Main *bmain,
                                    struct Object *ob,
                                    const bool force_dyntopo,
                                    struct ReportList *reports);
-void ED_object_sculptmode_enter(struct bContext *C, struct ReportList *reports);
+void ED_object_sculptmode_enter(struct bContext *C,
+                                struct Depsgraph *depsgraph,
+                                struct ReportList *reports);
 void ED_object_sculptmode_exit_ex(struct Main *bmain,
                                   struct Depsgraph *depsgraph,
                                   struct Scene *scene,
                                   struct Object *ob);
-void ED_object_sculptmode_exit(struct bContext *C);
+void ED_object_sculptmode_exit(struct bContext *C, struct Depsgraph *depsgraph);
 
 void ED_object_location_from_view(struct bContext *C, float loc[3]);
 void ED_object_rotation_from_quat(float rot[3], const float quat[4], const char align_axis);
 void ED_object_rotation_from_view(struct bContext *C, float rot[3], const char align_axis);
-void ED_object_base_init_transform(struct bContext *C,
-                                   struct Base *base,
-                                   const float loc[3],
-                                   const float rot[3]);
+void ED_object_base_init_transform_on_add(struct Object *obejct,
+                                          const float loc[3],
+                                          const float rot[3]);
 float ED_object_new_primitive_matrix(struct bContext *C,
                                      struct Object *editob,
                                      const float loc[3],
@@ -239,9 +238,17 @@ void ED_object_single_user(struct Main *bmain, struct Scene *scene, struct Objec
 
 /* object motion paths */
 void ED_objects_clear_paths(struct bContext *C, bool only_selected);
+
+/* Corresponds to eAnimvizCalcRange. */
+typedef enum eObjectPathCalcRange {
+  OBJECT_PATH_CALC_RANGE_CURRENT_FRAME,
+  OBJECT_PATH_CALC_RANGE_CHANGED,
+  OBJECT_PATH_CALC_RANGE_FULL,
+} eObjectPathCalcRange;
+
 void ED_objects_recalculate_paths(struct bContext *C,
                                   struct Scene *scene,
-                                  bool current_frame_only);
+                                  eObjectPathCalcRange range);
 
 /* constraints */
 struct ListBase *get_active_constraints(struct Object *ob);
@@ -271,7 +278,7 @@ bool ED_object_mode_compat_set(struct bContext *C,
                                struct ReportList *reports);
 void ED_object_mode_toggle(struct bContext *C, eObjectMode mode);
 void ED_object_mode_set(struct bContext *C, eObjectMode mode);
-void ED_object_mode_exit(struct bContext *C);
+void ED_object_mode_exit(struct bContext *C, struct Depsgraph *depsgraph);
 
 bool ED_object_mode_generic_enter(struct bContext *C, eObjectMode object_mode);
 void ED_object_mode_generic_exit(struct Main *bmain,
@@ -401,6 +408,12 @@ bool ED_object_jump_to_bone(struct bContext *C,
 /* object_facemap_ops.c */
 void ED_object_facemap_face_add(struct Object *ob, struct bFaceMap *fmap, int facenum);
 void ED_object_facemap_face_remove(struct Object *ob, struct bFaceMap *fmap, int facenum);
+
+/* object_data_transform.c */
+struct XFormObjectData *ED_object_data_xform_create(struct ID *id);
+void ED_object_data_xform_destroy(struct XFormObjectData *xod);
+
+void ED_object_data_xform_by_mat4(struct XFormObjectData *xod, const float mat[4][4]);
 
 #ifdef __cplusplus
 }

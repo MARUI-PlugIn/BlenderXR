@@ -48,7 +48,7 @@ typedef enum {
   GPU_BATCH_READY_TO_DRAW,
 } GPUBatchPhase;
 
-#define GPU_BATCH_VBO_MAX_LEN 4
+#define GPU_BATCH_VBO_MAX_LEN 6
 #define GPU_BATCH_VAO_STATIC_LEN 3
 #define GPU_BATCH_VAO_DYN_ALLOC_COUNT 16
 
@@ -113,8 +113,9 @@ void GPU_batch_copy(GPUBatch *batch_dst, GPUBatch *batch_src);
 #define GPU_batch_create(prim, verts, elem) GPU_batch_create_ex(prim, verts, elem, 0)
 #define GPU_batch_init(batch, prim, verts, elem) GPU_batch_init_ex(batch, prim, verts, elem, 0)
 
-void GPU_batch_clear(
-    GPUBatch *); /* Same as discard but does not free. (does not clal free callback) */
+/* Same as discard but does not free. (does not call free callback). */
+void GPU_batch_clear(GPUBatch *);
+
 void GPU_batch_discard(GPUBatch *); /* verts & elem are not discarded */
 
 void GPU_batch_vao_cache_clear(GPUBatch *);
@@ -122,6 +123,7 @@ void GPU_batch_vao_cache_clear(GPUBatch *);
 void GPU_batch_callback_free_set(GPUBatch *, void (*callback)(GPUBatch *, void *), void *);
 
 void GPU_batch_instbuf_set(GPUBatch *, GPUVertBuf *, bool own_vbo); /* Instancing */
+void GPU_batch_elembuf_set(GPUBatch *batch, GPUIndexBuf *elem, bool own_ibo);
 
 int GPU_batch_vertbuf_add_ex(GPUBatch *, GPUVertBuf *, bool own_vbo);
 
@@ -198,6 +200,19 @@ GPUBatch *create_BatchWithOwnVertexBufferAndElementList(GPUPrimType,
 GPUBatch *create_BatchInGeneral(GPUPrimType, VertexBufferStuff, ElementListStuff);
 
 #endif /* future plans */
+
+/**
+ * #GPUDrawList is an API to do lots of similar draw-calls very fast using multi-draw-indirect.
+ * There is a fallback if the feature is not supported.
+ */
+typedef struct GPUDrawList GPUDrawList;
+
+GPUDrawList *GPU_draw_list_create(int length);
+void GPU_draw_list_discard(GPUDrawList *list);
+void GPU_draw_list_init(GPUDrawList *list, GPUBatch *batch);
+void GPU_draw_list_command_add(
+    GPUDrawList *list, int v_first, int v_count, int i_first, int i_count);
+void GPU_draw_list_submit(GPUDrawList *list);
 
 void gpu_batch_init(void);
 void gpu_batch_exit(void);

@@ -432,9 +432,14 @@ typedef enum ID_Type {
 #define ID_BLEND_PATH_FROM_GLOBAL(_id) \
   ((_id)->lib ? (_id)->lib->filepath : BKE_main_blendfile_path_from_global())
 
-#define ID_MISSING(_id) (((_id)->tag & LIB_TAG_MISSING) != 0)
+#define ID_MISSING(_id) ((((ID *)(_id))->tag & LIB_TAG_MISSING) != 0)
 
 #define ID_IS_LINKED(_id) (((ID *)(_id))->lib != NULL)
+
+/* Note that this is a fairly high-level check, should be used at user interaction level, not in
+ * BKE_library_override typically (especially due to the check on LIB_TAG_EXTERN). */
+#define ID_IS_OVERRIDABLE_LIBRARY(_id) \
+  (ID_IS_LINKED(_id) && !ID_MISSING(_id) && (((ID *)(_id))->tag & LIB_TAG_EXTERN) != 0)
 
 #define ID_IS_OVERRIDE_LIBRARY(_id) \
   (((ID *)(_id))->override_library != NULL && ((ID *)(_id))->override_library->reference != NULL)
@@ -467,7 +472,15 @@ typedef enum ID_Type {
 
 /* id->flag (persitent). */
 enum {
+  /* Don't delete the datablock even if unused. */
   LIB_FAKEUSER = 1 << 9,
+  /* The datablock structure is a sub-object of a different one.
+   * Direct persistent references are not allowed. */
+  LIB_PRIVATE_DATA = 1 << 10,
+  /* Datablock is from a library and linked indirectly, with LIB_TAG_INDIRECT
+   * tag set. But the current .blend file also has a weak pointer to it that
+   * we want to restore if possible, and silently drop if it's missing. */
+  LIB_INDIRECT_WEAK_LINK = 1 << 11,
 };
 
 /**
@@ -616,6 +629,15 @@ typedef enum IDRecalcFlag {
 
   ID_RECALC_PARAMETERS = (1 << 21),
 
+  /* Makes it so everything what depends on time.
+   * Basically, the same what changing frame in a timeline will do. */
+  ID_RECALC_TIME = (1 << 22),
+
+  /* Input has changed and datablock is to be reload from disk.
+   * Applies to movie clips to inform that copy-on-written version is to be refreshed for the new
+   * input file or for color space changes. */
+  ID_RECALC_SOURCE = (1 << 23),
+
   /***************************************************************************
    * Pseudonyms, to have more semantic meaning in the actual code without
    * using too much low-level and implementation specific tags. */
@@ -674,6 +696,14 @@ enum {
   FILTER_ID_WS = (1 << 29),
   FILTER_ID_LP = (1u << 31),
 };
+
+#define FILTER_ID_ALL \
+  (FILTER_ID_AC | FILTER_ID_AR | FILTER_ID_BR | FILTER_ID_CA | FILTER_ID_CU | FILTER_ID_GD | \
+   FILTER_ID_GR | FILTER_ID_IM | FILTER_ID_LA | FILTER_ID_LS | FILTER_ID_LT | FILTER_ID_MA | \
+   FILTER_ID_MB | FILTER_ID_MC | FILTER_ID_ME | FILTER_ID_MSK | FILTER_ID_NT | FILTER_ID_OB | \
+   FILTER_ID_PA | FILTER_ID_PAL | FILTER_ID_PC | FILTER_ID_SCE | FILTER_ID_SPK | FILTER_ID_SO | \
+   FILTER_ID_TE | FILTER_ID_TXT | FILTER_ID_VF | FILTER_ID_WO | FILTER_ID_CF | FILTER_ID_WS | \
+   FILTER_ID_LP)
 
 /* IMPORTANT: this enum matches the order currently use in set_listbasepointers,
  * keep them in sync! */

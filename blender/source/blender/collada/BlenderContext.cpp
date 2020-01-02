@@ -21,6 +21,8 @@
 #include <vector>
 
 #include "BlenderContext.h"
+#include "ExportSettings.h"
+
 #include "BKE_scene.h"
 
 bool bc_is_base_node(LinkNode *export_set, Object *ob, ViewLayer *view_layer)
@@ -121,7 +123,7 @@ bContext *BlenderContext::get_context()
 Depsgraph *BlenderContext::get_depsgraph()
 {
   if (!depsgraph) {
-    depsgraph = BKE_scene_get_depsgraph(scene, view_layer, true);
+    depsgraph = BKE_scene_get_depsgraph(main, scene, view_layer, true);
   }
   return depsgraph;
 }

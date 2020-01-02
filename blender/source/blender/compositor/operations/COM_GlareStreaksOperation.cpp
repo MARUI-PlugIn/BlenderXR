@@ -41,7 +41,7 @@ void GlareStreaksOperation::generateGlare(float *data,
   for (a = 0.0f; a < DEG2RADF(360.0f) && (!breaked); a += ang) {
     const float an = a + settings->angle_ofs;
     const float vx = cos((double)an), vy = sin((double)an);
-    for (n = 0; n < settings->iter && (!breaked); ++n) {
+    for (n = 0; n < settings->iter && (!breaked); n++) {
       const float p4 = pow(4.0, (double)n);
       const float vxp = vx * p4, vyp = vy * p4;
       const float wt = pow((double)settings->fade, (double)p4);
@@ -50,8 +50,8 @@ void GlareStreaksOperation::generateGlare(float *data,
                                    (double)n +
                                        1);  // colormodulation amount relative to current pass
       float *tdstcol = tdst->getBuffer();
-      for (y = 0; y < tsrc->getHeight() && (!breaked); ++y) {
-        for (x = 0; x < tsrc->getWidth(); ++x, tdstcol += 4) {
+      for (y = 0; y < tsrc->getHeight() && (!breaked); y++) {
+        for (x = 0; x < tsrc->getWidth(); x++, tdstcol += 4) {
           // first pass no offset, always same for every pass, exact copy,
           // otherwise results in uneven brightness, only need once
           if (n == 0) {
@@ -78,7 +78,7 @@ void GlareStreaksOperation::generateGlare(float *data,
           tdstcol[2] = 0.5f * (tdstcol[2] + c1[2] + wt * (c2[2] + wt * (c3[2] + wt * c4[2])));
           tdstcol[3] = 1.0f;
         }
-        if (isBreaked()) {
+        if (isBraked()) {
           breaked = true;
         }
       }

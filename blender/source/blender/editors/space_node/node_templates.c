@@ -342,7 +342,7 @@ static void ui_node_link_items(NodeLinkArg *arg,
         ListBase *lb = (in_out == SOCK_IN ? &ngroup->inputs : &ngroup->outputs);
         bNodeSocket *stemp;
         int index;
-        for (stemp = lb->first, index = 0; stemp; stemp = stemp->next, ++index, ++i) {
+        for (stemp = lb->first, index = 0; stemp; stemp = stemp->next, index++, i++) {
           NodeLinkItem *item = &items[i];
 
           item->socket_index = index;
@@ -363,15 +363,15 @@ static void ui_node_link_items(NodeLinkArg *arg,
     bNodeSocketTemplate *stemp;
     int i;
 
-    for (stemp = socket_templates; stemp && stemp->type != -1; ++stemp) {
-      ++totitems;
+    for (stemp = socket_templates; stemp && stemp->type != -1; stemp++) {
+      totitems++;
     }
 
     if (totitems > 0) {
       items = MEM_callocN(sizeof(NodeLinkItem) * totitems, "ui node link items");
 
       i = 0;
-      for (stemp = socket_templates; stemp && stemp->type != -1; ++stemp, ++i) {
+      for (stemp = socket_templates; stemp && stemp->type != -1; stemp++, i++) {
         NodeLinkItem *item = &items[i];
 
         item->socket_index = i;
@@ -441,7 +441,7 @@ static int ui_node_item_name_compare(const void *a, const void *b)
 {
   const bNodeType *type_a = *(const bNodeType **)a;
   const bNodeType *type_b = *(const bNodeType **)b;
-  return BLI_natstrcmp(type_a->ui_name, type_b->ui_name);
+  return BLI_strcasecmp_natural(type_a->ui_name, type_b->ui_name);
 }
 
 static bool ui_node_item_special_poll(const bNodeTree *UNUSED(ntree), const bNodeType *ntype)
@@ -506,13 +506,13 @@ static void ui_node_menu_column(NodeLinkArg *arg, int nclass, const char *cname)
 
     ui_node_link_items(arg, SOCK_OUT, &items, &totitems);
 
-    for (i = 0; i < totitems; ++i) {
+    for (i = 0; i < totitems; i++) {
       if (ui_compatible_sockets(items[i].socket_type, sock->type)) {
         num++;
       }
     }
 
-    for (i = 0; i < totitems; ++i) {
+    for (i = 0; i < totitems; i++) {
       if (!ui_compatible_sockets(items[i].socket_type, sock->type)) {
         continue;
       }

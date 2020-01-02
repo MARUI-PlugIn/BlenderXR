@@ -76,7 +76,7 @@ static void metadata_panel_context_draw(const bContext *C, Panel *panel)
     return;
   }
   struct Main *bmain = CTX_data_main(C);
-  struct Depsgraph *depsgraph = CTX_data_depsgraph(C);
+  struct Depsgraph *depsgraph = CTX_data_expect_evaluated_depsgraph(C);
   struct Scene *scene = CTX_data_scene(C);
   SpaceSeq *space_sequencer = CTX_wm_space_seq(C);
   /* NOTE: We can only reliably show metadata for the original (current)
@@ -117,5 +117,6 @@ void sequencer_buttons_register(ARegionType *art)
   pt->poll = metadata_panel_context_poll;
   pt->draw = metadata_panel_context_draw;
   pt->flag |= PNL_DEFAULT_CLOSED;
+  pt->order = 10;
   BLI_addtail(&art->paneltypes, pt);
 }

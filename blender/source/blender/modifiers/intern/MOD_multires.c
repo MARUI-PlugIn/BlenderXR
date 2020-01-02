@@ -38,6 +38,7 @@
 #include "BKE_paint.h"
 #include "BKE_subdiv.h"
 #include "BKE_subdiv_ccg.h"
+#include "BKE_subdiv_deform.h"
 #include "BKE_subdiv_mesh.h"
 #include "BKE_subsurf.h"
 
@@ -168,6 +169,10 @@ static Mesh *multires_as_ccg(MultiresModifierData *mmd,
 static Mesh *applyModifier(ModifierData *md, const ModifierEvalContext *ctx, Mesh *mesh)
 {
   Mesh *result = mesh;
+#if !defined(WITH_OPENSUBDIV)
+  modifier_setError(md, "Disabled, built without OpenSubdiv");
+  return result;
+#endif
   MultiresModifierData *mmd = (MultiresModifierData *)md;
   SubdivSettings subdiv_settings;
   BKE_multires_subdiv_settings_init(&subdiv_settings, mmd);
@@ -223,6 +228,42 @@ static Mesh *applyModifier(ModifierData *md, const ModifierEvalContext *ctx, Mes
   return result;
 }
 
+static void deformMatrices(ModifierData *md,
+                           const ModifierEvalContext *UNUSED(ctx),
+                           Mesh *mesh,
+                           float (*vertex_cos)[3],
+                           float (*deform_matrices)[3][3],
+                           int num_verts)
+
+{
+#if !defined(WITH_OPENSUBDIV)
+  modifier_setError(md, "Disabled, built without OpenSubdiv");
+  return;
+#endif
+
+  /* Subsurf does not require extra space mapping, keep matrices as is. */
+  (void)deform_matrices;
+
+  MultiresModifierData *mmd = (MultiresModifierData *)md;
+  SubdivSettings subdiv_settings;
+  BKE_multires_subdiv_settings_init(&subdiv_settings, mmd);
+  if (subdiv_settings.level == 0) {
+    return;
+  }
+  BKE_subdiv_settings_validate_for_mesh(&subdiv_settings, mesh);
+  MultiresRuntimeData *runtime_data = multires_ensure_runtime(mmd);
+  Subdiv *subdiv = subdiv_descriptor_ensure(mmd, &subdiv_settings, mesh);
+  if (subdiv == NULL) {
+    /* Happens on bad topology, ut also on empty input mesh. */
+    return;
+  }
+  BKE_subdiv_displacement_attach_from_multires(subdiv, mesh, mmd);
+  BKE_subdiv_deform_coarse_vertices(subdiv, mesh, vertex_cos, num_verts);
+  if (subdiv != runtime_data->subdiv) {
+    BKE_subdiv_free(subdiv);
+  }
+}
+
 ModifierTypeInfo modifierType_Multires = {
     /* name */ "Multires",
     /* structName */ "MultiresModifierData",
@@ -234,7 +275,7 @@ ModifierTypeInfo modifierType_Multires = {
     /* copyData */ copyData,
 
     /* deformVerts */ NULL,
-    /* deformMatrices */ NULL,
+    /* deformMatrices */ deformMatrices,
     /* deformVertsEM */ NULL,
     /* deformMatricesEM */ NULL,
     /* applyModifier */ applyModifier,

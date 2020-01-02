@@ -104,7 +104,7 @@ void AnimationImporter::animation_to_fcurves(COLLADAFW::AnimationCurve *curve)
 
         fcu->flag = (FCURVE_VISIBLE | FCURVE_AUTO_HANDLES | FCURVE_SELECTED);
         fcu->array_index = 0;
-        fcu->auto_smoothing = FCURVE_SMOOTH_CONT_ACCEL;
+        fcu->auto_smoothing = U.auto_smoothing_new;
 
         for (unsigned int j = 0; j < curve->getKeyCount(); j++) {
           BezTriple bez;
@@ -733,7 +733,7 @@ void AnimationImporter::Assign_float_animations(const COLLADAFW::UniqueId &listi
            * Reason: old blender versions stored spot_size in radians (was a bug)
            */
           if (this->import_from_version == "" ||
-              BLI_natstrcmp(this->import_from_version.c_str(), "2.69.10") != -1) {
+              BLI_strcasecmp_natural(this->import_from_version.c_str(), "2.69.10") != -1) {
             fcurve_deg_to_rad(fcu);
           }
         }
@@ -751,7 +751,7 @@ float AnimationImporter::convert_to_focal_length(float in_xfov,
                                                  float aspect,
                                                  float sensorx)
 {
-  /* NOTE: Needs more testing (As we curretnly have no official test data for this) */
+  /* NOTE: Needs more testing (As we currently have no official test data for this) */
   float xfov = (fov_type == CAMERA_YFOV) ?
                    (2.0f * atanf(aspect * tanf(DEG2RADF(in_xfov) * 0.5f))) :
                    DEG2RADF(in_xfov);
@@ -966,7 +966,7 @@ void AnimationImporter::apply_matrix_curves(Object *ob,
 }
 
 /*
- * This function returns the aspet ration from the Collada camera.
+ * This function returns the aspect ration from the Collada camera.
  *
  * Note:COLLADA allows to specify either XFov, or YFov alone.
  * In that case the aspect ratio can be determined from

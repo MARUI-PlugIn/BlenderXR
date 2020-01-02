@@ -29,15 +29,12 @@
 
 #define RNA_MAGIC ((int)~0)
 
-struct Depsgraph;
 struct FreestyleSettings;
 struct ID;
 struct IDOverrideLibrary;
-struct IDOverrideLibraryProperty;
 struct IDOverrideLibraryPropertyOperation;
 struct IDProperty;
 struct Main;
-struct Mesh;
 struct Object;
 struct ReportList;
 struct SDNA;
@@ -77,6 +74,11 @@ typedef struct PropertyDefRNA {
   const char *dnatype;
   int dnaarraylength;
   int dnapointerlevel;
+  /**
+   * Offset in bytes within `dnastructname`.
+   * -1 when unusable (follows pointer for e.g.). */
+  int dnaoffset;
+  int dnasize;
 
   /* for finding length of array collections */
   const char *dnalengthstructname;
@@ -226,7 +228,7 @@ bool rna_AnimaData_override_apply(struct Main *bmain,
 void rna_def_animviz_common(struct StructRNA *srna);
 void rna_def_motionpath_common(struct StructRNA *srna);
 
-void rna_def_bone_curved_common(struct StructRNA *srna, bool is_posebone);
+void rna_def_bone_curved_common(struct StructRNA *srna, bool is_posebone, bool is_editbone);
 
 void rna_def_texmat_common(struct StructRNA *srna, const char *texspace_editable);
 void rna_def_mtex_common(struct BlenderRNA *brna,
@@ -545,6 +547,11 @@ PointerRNA rna_array_lookup_int(
     PointerRNA *ptr, StructRNA *type, void *data, int itemsize, int length, int index);
 
 /* Duplicated code since we can't link in blenlib */
+
+#ifndef RNA_RUNTIME
+void *rna_alloc_from_buffer(const char *buffer, int buffer_len);
+void *rna_calloc(int buffer_len);
+#endif
 
 void rna_addtail(struct ListBase *listbase, void *vlink);
 void rna_freelinkN(struct ListBase *listbase, void *vlink);

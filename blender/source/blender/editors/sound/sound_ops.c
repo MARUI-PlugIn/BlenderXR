@@ -273,8 +273,11 @@ static void sound_update_animation_flags(Scene *scene)
 
 static int sound_update_animation_flags_exec(bContext *C, wmOperator *UNUSED(op))
 {
+  Scene *scene = CTX_data_scene(C);
+
   BKE_main_id_tag_idcode(CTX_data_main(C), ID_SCE, LIB_TAG_DOIT, false);
   sound_update_animation_flags(CTX_data_scene(C));
+  DEG_id_tag_update(&scene->id, ID_RECALC_SEQUENCER_STRIPS);
   return OPERATOR_FINISHED;
 }
 
@@ -305,7 +308,9 @@ static int sound_bake_animation_exec(bContext *C, wmOperator *UNUSED(op))
 {
   Main *bmain = CTX_data_main(C);
   Scene *scene = CTX_data_scene(C);
-  struct Depsgraph *depsgraph = CTX_data_depsgraph(C);
+  /* NOTE: We will be forcefully evaluating dependency graph at every frame, so no need to ensure
+   * current scene state is evaluated as it will be lost anyway. */
+  struct Depsgraph *depsgraph = CTX_data_depsgraph_pointer(C);
   int oldfra = scene->r.cfra;
   int cfra;
 
@@ -343,7 +348,7 @@ static int sound_mixdown_exec(bContext *C, wmOperator *op)
 #ifdef WITH_AUDASPACE
   char path[FILE_MAX];
   char filename[FILE_MAX];
-  Depsgraph *depsgraph = CTX_data_depsgraph(C);
+  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   Scene *scene_eval = DEG_get_evaluated_scene(depsgraph);
   Main *bmain = CTX_data_main(C);
   int split;
@@ -708,7 +713,7 @@ static void SOUND_OT_mixdown(wmOperatorType *ot)
                                  FILE_TYPE_FOLDER | FILE_TYPE_SOUND,
                                  FILE_SPECIAL,
                                  FILE_SAVE,
-                                 WM_FILESEL_FILEPATH | WM_FILESEL_RELPATH,
+                                 WM_FILESEL_FILEPATH | WM_FILESEL_RELPATH | WM_FILESEL_SHOW_PROPS,
                                  FILE_DEFAULTDISPLAY,
                                  FILE_SORT_ALPHA);
 #ifdef WITH_AUDASPACE

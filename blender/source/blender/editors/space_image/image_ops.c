@@ -103,7 +103,9 @@
 
 #include "image_intern.h"
 
-/******************** view navigation utilities *********************/
+/* -------------------------------------------------------------------- */
+/** \name View Navigation Utilities
+ * \{ */
 
 static void sima_zoom_set(
     SpaceImage *sima, ARegion *ar, float zoom, const float location[2], const bool zoom_to_pos)
@@ -211,7 +213,7 @@ static ImageUser *image_user_from_context(const bContext *C)
   }
 }
 
-static bool image_buffer_exists_from_context(bContext *C)
+static bool image_from_context_has_data_poll(bContext *C)
 {
   Image *ima = image_from_context(C);
   ImageUser *iuser = image_user_from_context(C);
@@ -225,6 +227,16 @@ static bool image_buffer_exists_from_context(bContext *C)
   const bool has_buffer = (ibuf && (ibuf->rect || ibuf->rect_float));
   BKE_image_release_ibuf(ima, ibuf, lock);
   return has_buffer;
+}
+
+/**
+ * Use this when the image buffer is accessed without the image user.
+ */
+static bool image_from_contect_has_data_poll_no_image_user(bContext *C)
+{
+  Image *ima = image_from_context(C);
+
+  return BKE_image_has_ibuf(ima, NULL);
 }
 
 static bool image_not_packed_poll(bContext *C)
@@ -280,7 +292,12 @@ static bool image_sample_poll(bContext *C)
 
   return true;
 }
-/********************** view pan operator *********************/
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name View Pan Operator
+ * \{ */
 
 typedef struct ViewPanData {
   float x, y;
@@ -300,7 +317,7 @@ static void image_view_pan_init(bContext *C, wmOperator *op, const wmEvent *even
   /* Grab will be set when running from gizmo. */
   vpd->own_cursor = (win->grabcursor == 0);
   if (vpd->own_cursor) {
-    WM_cursor_modal_set(win, BC_NSEW_SCROLLCURSOR);
+    WM_cursor_modal_set(win, WM_CURSOR_NSEW_SCROLL);
   }
 
   vpd->x = event->x;
@@ -423,7 +440,11 @@ void IMAGE_OT_view_pan(wmOperatorType *ot)
                        FLT_MAX);
 }
 
-/********************** view zoom operator *********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name View Zoom Operator
+ * \{ */
 
 typedef struct ViewZoomData {
   float origx, origy;
@@ -453,7 +474,7 @@ static void image_view_zoom_init(bContext *C, wmOperator *op, const wmEvent *eve
   /* Grab will be set when running from gizmo. */
   vpd->own_cursor = (win->grabcursor == 0);
   if (vpd->own_cursor) {
-    WM_cursor_modal_set(win, BC_NSEW_SCROLLCURSOR);
+    WM_cursor_modal_set(win, WM_CURSOR_NSEW_SCROLL);
   }
 
   vpd->origx = event->x;
@@ -556,39 +577,38 @@ static void image_zoom_apply(ViewZoomData *vpd,
                              const bool zoom_to_pos)
 {
   float factor;
+  float delta;
+
+  if (viewzoom != USER_ZOOM_SCALE) {
+    if (U.uiflag & USER_ZOOM_HORIZ) {
+      delta = (float)(x - vpd->origx);
+    }
+    else {
+      delta = (float)(y - vpd->origy);
+    }
+  }
+  else {
+    delta = x - vpd->origx + y - vpd->origy;
+  }
+
+  delta /= U.pixelsize;
+
+  if (zoom_invert) {
+    delta = -delta;
+  }
 
   if (viewzoom == USER_ZOOM_CONT) {
     double time = PIL_check_seconds_timer();
     float time_step = (float)(time - vpd->timer_lastdraw);
-    float fac;
     float zfac;
 
-    if (U.uiflag & USER_ZOOM_HORIZ) {
-      fac = (float)(x - vpd->origx);
-    }
-    else {
-      fac = (float)(y - vpd->origy);
-    }
-
-    if (zoom_invert) {
-      fac = -fac;
-    }
-
     /* oldstyle zoom */
-    zfac = 1.0f + ((fac / 20.0f) * time_step);
+    zfac = 1.0f + ((delta / 20.0f) * time_step);
     vpd->timer_lastdraw = time;
     /* this is the final zoom, but instead make it into a factor */
-    // zoom = vpd->sima->zoom * zfac;
     factor = (vpd->sima->zoom * zfac) / vpd->zoom;
   }
   else {
-    /* for now do the same things for scale and dolly */
-    float delta = x - vpd->origx + y - vpd->origy;
-
-    if (zoom_invert) {
-      delta *= -1.0f;
-    }
-
     factor = 1.0f + delta / 300.0f;
   }
 
@@ -672,7 +692,12 @@ void IMAGE_OT_view_zoom(wmOperatorType *ot)
 }
 
 #ifdef WITH_INPUT_NDOF
-/********************** NDOF operator *********************/
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name NDOF Operator
+ * \{ */
 
 /* Combined pan/zoom from a 3D mouse device.
  * Z zooms, XY pans
@@ -722,9 +747,14 @@ void IMAGE_OT_view_ndof(wmOperatorType *ot)
   /* flags */
   ot->flag = OPTYPE_LOCK_BYPASS;
 }
+
+/** \} */
+
 #endif /* WITH_INPUT_NDOF */
 
-/********************** view all operator *********************/
+/* -------------------------------------------------------------------- */
+/** \name View All Operator
+ * \{ */
 
 /* Updates the fields of the View2D member of the SpaceImage struct.
  * Default behavior is to reset the position of the image and set the zoom to 1
@@ -801,7 +831,41 @@ void IMAGE_OT_view_all(wmOperatorType *ot)
   RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 }
 
-/********************** view selected operator *********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Center View To Cursor Operator
+ * \{ */
+
+static int view_center_cursor_exec(bContext *C, wmOperator *UNUSED(op))
+{
+  SpaceImage *sima = CTX_wm_space_image(C);
+  ARegion *ar = CTX_wm_region(C);
+
+  ED_image_view_center_to_point(sima, sima->cursor[0], sima->cursor[1]);
+
+  ED_region_tag_redraw(ar);
+
+  return OPERATOR_FINISHED;
+}
+
+void IMAGE_OT_view_center_cursor(wmOperatorType *ot)
+{
+  /* identifiers */
+  ot->name = "Center View to Cursor";
+  ot->description = "Center the view so that the cursor is in the middle of the view";
+  ot->idname = "IMAGE_OT_view_center_cursor";
+
+  /* api callbacks */
+  ot->exec = view_center_cursor_exec;
+  ot->poll = ED_space_image_cursor_poll;
+}
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name View Selected Operator
+ * \{ */
 
 static int image_view_selected_exec(bContext *C, wmOperator *UNUSED(op))
 {
@@ -867,7 +931,11 @@ void IMAGE_OT_view_selected(wmOperatorType *ot)
   ot->poll = image_view_selected_poll;
 }
 
-/********************** view zoom in/out operator *********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name View Zoom In/Out Operator
+ * \{ */
 
 static int image_view_zoom_in_exec(bContext *C, wmOperator *op)
 {
@@ -985,7 +1053,11 @@ void IMAGE_OT_view_zoom_out(wmOperatorType *ot)
   RNA_def_property_flag(prop, PROP_HIDDEN);
 }
 
-/********************** view zoom ratio operator *********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name View Zoom Ratio Operator
+ * \{ */
 
 static int image_view_zoom_ratio_exec(bContext *C, wmOperator *op)
 {
@@ -1029,7 +1101,11 @@ void IMAGE_OT_view_zoom_ratio(wmOperatorType *ot)
                 FLT_MAX);
 }
 
-/********************** view border-zoom operator *********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name View Border-Zoom Operator
+ * \{ */
 
 static int image_view_zoom_border_exec(bContext *C, wmOperator *op)
 {
@@ -1085,14 +1161,18 @@ void IMAGE_OT_view_zoom_border(wmOperatorType *ot)
   WM_operator_properties_gesture_box_zoom(ot);
 }
 
-/**************** load/replace/save callbacks ******************/
+/* load/replace/save callbacks */
 static void image_filesel(bContext *C, wmOperator *op, const char *path)
 {
   RNA_string_set(op->ptr, "filepath", path);
   WM_event_add_fileselect(C, op);
 }
 
-/******************** open image operator ********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Open Image Operator
+ * \{ */
 
 typedef struct ImageOpenData {
   PropertyPointerRNA pprop;
@@ -1432,7 +1512,7 @@ static int image_open_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(
       Image *oldima;
 
       oldptr = RNA_property_pointer_get(&ptr, prop);
-      oldima = (Image *)oldptr.id.data;
+      oldima = (Image *)oldptr.owner_id;
       /* unlikely to fail but better avoid strange crash */
       if (oldima && GS(oldima->id.name) == ID_IM) {
         ima = oldima;
@@ -1526,7 +1606,12 @@ void IMAGE_OT_open(wmOperatorType *ot)
       "Automatically detect animated sequences in selected images (based on file names)");
 }
 
-/******************** Match movie length operator ********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Match Movie Length Operator
+ * \{ */
+
 static int image_match_len_exec(bContext *C, wmOperator *UNUSED(op))
 {
   Scene *scene = CTX_data_scene(C);
@@ -1572,7 +1657,11 @@ void IMAGE_OT_match_movie_length(wmOperatorType *ot)
   ot->flag = OPTYPE_REGISTER | OPTYPE_INTERNAL /* | OPTYPE_UNDO */;
 }
 
-/******************** replace image operator ********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Replace Image Operator
+ * \{ */
 
 static int image_replace_exec(bContext *C, wmOperator *op)
 {
@@ -1657,7 +1746,11 @@ void IMAGE_OT_replace(wmOperatorType *ot)
                                  FILE_SORT_ALPHA);
 }
 
-/******************** save image as operator ********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Save Image As Operator
+ * \{ */
 
 static char imtype_best_depth(ImBuf *ibuf, const char imtype)
 {
@@ -1774,6 +1867,7 @@ static int image_save_options_init(Main *bmain,
       }
       else {
         BLI_snprintf(opts->filepath, sizeof(opts->filepath), "//%s", ima->id.name + 2);
+        BLI_path_make_safe(opts->filepath);
         BLI_path_abs(opts->filepath, is_prev_save ? G.ima : BKE_main_blendfile_path(bmain));
       }
     }
@@ -1970,7 +2064,7 @@ static void image_save_as_draw(bContext *UNUSED(C), wmOperator *op)
 
 static bool image_save_as_poll(bContext *C)
 {
-  if (!image_buffer_exists_from_context(C)) {
+  if (!image_from_context_has_data_poll(C)) {
     return false;
   }
 
@@ -2021,12 +2115,16 @@ void IMAGE_OT_save_as(wmOperatorType *ot)
                                  FILE_TYPE_FOLDER | FILE_TYPE_IMAGE | FILE_TYPE_MOVIE,
                                  FILE_SPECIAL,
                                  FILE_SAVE,
-                                 WM_FILESEL_FILEPATH | WM_FILESEL_RELPATH,
+                                 WM_FILESEL_FILEPATH | WM_FILESEL_RELPATH | WM_FILESEL_SHOW_PROPS,
                                  FILE_DEFAULTDISPLAY,
                                  FILE_SORT_ALPHA);
 }
 
-/******************** save image operator ********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Save Image Operator
+ * \{ */
 
 static bool image_file_path_saveable(bContext *C, Image *ima, ImageUser *iuser)
 {
@@ -2067,7 +2165,7 @@ static bool image_file_path_saveable(bContext *C, Image *ima, ImageUser *iuser)
 static bool image_save_poll(bContext *C)
 {
   /* Can't save if there are no pixels. */
-  if (image_buffer_exists_from_context(C) == false) {
+  if (image_from_context_has_data_poll(C) == false) {
     return false;
   }
 
@@ -2147,7 +2245,11 @@ void IMAGE_OT_save(wmOperatorType *ot)
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
-/******************* save sequence operator ********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Save Sequence Operator
+ * \{ */
 
 static int image_save_sequence_exec(bContext *C, wmOperator *op)
 {
@@ -2233,13 +2335,17 @@ void IMAGE_OT_save_sequence(wmOperatorType *ot)
 
   /* api callbacks */
   ot->exec = image_save_sequence_exec;
-  ot->poll = image_buffer_exists_from_context;
+  ot->poll = image_from_context_has_data_poll;
 
   /* flags */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
-/********************** save all operator **********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Save All Operator
+ * \{ */
 
 static bool image_should_be_saved_when_modified(Image *ima)
 {
@@ -2389,7 +2495,11 @@ void IMAGE_OT_save_all_modified(wmOperatorType *ot)
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
-/******************** reload image operator ********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Reload Image Operator
+ * \{ */
 
 static int image_reload_exec(bContext *C, wmOperator *UNUSED(op))
 {
@@ -2426,7 +2536,12 @@ void IMAGE_OT_reload(wmOperatorType *ot)
   ot->flag = OPTYPE_REGISTER; /* no undo, image buffer is not handled by undo */
 }
 
-/********************** new image operator *********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name New Image Operator
+ * \{ */
+
 #define IMA_DEF_NAME N_("Untitled")
 
 enum {
@@ -2642,22 +2757,18 @@ void IMAGE_OT_new(wmOperatorType *ot)
 
 #undef IMA_DEF_NAME
 
-/********************* invert operators *********************/
+/** \} */
 
-static bool image_invert_poll(bContext *C)
-{
-  Image *ima = image_from_context(C);
-
-  return BKE_image_has_ibuf(ima, NULL);
-}
+/* -------------------------------------------------------------------- */
+/** \name Invert Operators
+ * \{ */
 
 static int image_invert_exec(bContext *C, wmOperator *op)
 {
   Image *ima = image_from_context(C);
   ImBuf *ibuf = BKE_image_acquire_ibuf(ima, NULL, NULL);
   SpaceImage *sima = CTX_wm_space_image(C);
-  /* undo is supported only on image paint mode currently */
-  bool support_undo = ((sima != NULL) && (sima->mode == SI_MODE_PAINT));
+  const bool is_paint = ((sima != NULL) && (sima->mode == SI_MODE_PAINT));
 
   /* flags indicate if this channel should be inverted */
   const bool r = RNA_boolean_get(op->ptr, "invert_r");
@@ -2672,14 +2783,12 @@ static int image_invert_exec(bContext *C, wmOperator *op)
     return OPERATOR_CANCELLED;
   }
 
-  if (support_undo) {
-    ED_image_undo_push_begin(op->type->name, PAINT_MODE_TEXTURE_2D);
-    /* not strictly needed, because we only imapaint_dirty_region to invalidate all tiles
-     * but better do this right in case someone copies this for a tool that uses partial
-     * redraw better */
+  ED_image_undo_push_begin_with_image(op->type->name, ima, ibuf);
+
+  if (is_paint) {
     ED_imapaint_clear_partial_redraw();
-    ED_imapaint_dirty_region(ima, ibuf, 0, 0, ibuf->x, ibuf->y, false);
   }
+
   /* TODO: make this into an IMB_invert_channels(ibuf,r,g,b,a) method!? */
   if (ibuf->rect_float) {
 
@@ -2733,9 +2842,7 @@ static int image_invert_exec(bContext *C, wmOperator *op)
     ibuf->userflags |= IB_MIPMAP_INVALID;
   }
 
-  if (support_undo) {
-    ED_image_undo_push_end();
-  }
+  ED_image_undo_push_end();
 
   /* force GPU reupload, all image is invalid */
   GPU_free_image(ima);
@@ -2758,7 +2865,7 @@ void IMAGE_OT_invert(wmOperatorType *ot)
 
   /* api callbacks */
   ot->exec = image_invert_exec;
-  ot->poll = image_invert_poll;
+  ot->poll = image_from_contect_has_data_poll_no_image_user;
 
   /* properties */
   prop = RNA_def_boolean(ot->srna, "invert_r", 0, "Red", "Invert Red Channel");
@@ -2771,10 +2878,96 @@ void IMAGE_OT_invert(wmOperatorType *ot)
   RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 
   /* flags */
-  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+  ot->flag = OPTYPE_REGISTER;
 }
 
-/********************* pack operator *********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Scale Operator
+ * \{ */
+
+static int image_scale_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
+{
+  Image *ima = image_from_context(C);
+  PropertyRNA *prop = RNA_struct_find_property(op->ptr, "size");
+  if (!RNA_property_is_set(op->ptr, prop)) {
+    ImBuf *ibuf = BKE_image_acquire_ibuf(ima, NULL, NULL);
+    const int size[2] = {ibuf->x, ibuf->y};
+    RNA_property_int_set_array(op->ptr, prop, size);
+    BKE_image_release_ibuf(ima, ibuf, NULL);
+  }
+  return WM_operator_props_dialog_popup(C, op, 200, 200);
+}
+
+static int image_scale_exec(bContext *C, wmOperator *op)
+{
+  Image *ima = image_from_context(C);
+  ImBuf *ibuf = BKE_image_acquire_ibuf(ima, NULL, NULL);
+  SpaceImage *sima = CTX_wm_space_image(C);
+  const bool is_paint = ((sima != NULL) && (sima->mode == SI_MODE_PAINT));
+
+  if (ibuf == NULL) {
+    /* TODO: this should actually never happen, but does for render-results -> cleanup */
+    return OPERATOR_CANCELLED;
+  }
+
+  if (is_paint) {
+    ED_imapaint_clear_partial_redraw();
+  }
+
+  PropertyRNA *prop = RNA_struct_find_property(op->ptr, "size");
+  int size[2];
+  if (RNA_property_is_set(op->ptr, prop)) {
+    RNA_property_int_get_array(op->ptr, prop, size);
+  }
+  else {
+    size[0] = ibuf->x;
+    size[1] = ibuf->y;
+    RNA_property_int_set_array(op->ptr, prop, size);
+  }
+
+  ED_image_undo_push_begin_with_image(op->type->name, ima, ibuf);
+
+  ibuf->userflags |= IB_DISPLAY_BUFFER_INVALID;
+  IMB_scaleImBuf(ibuf, size[0], size[1]);
+  BKE_image_release_ibuf(ima, ibuf, NULL);
+
+  ED_image_undo_push_end();
+
+  /* force GPU reupload, all image is invalid */
+  GPU_free_image(ima);
+
+  DEG_id_tag_update(&ima->id, 0);
+  WM_event_add_notifier(C, NC_IMAGE | NA_EDITED, ima);
+
+  return OPERATOR_FINISHED;
+}
+
+void IMAGE_OT_resize(wmOperatorType *ot)
+{
+  /* identifiers */
+  ot->name = "Resize Image";
+  ot->idname = "IMAGE_OT_resize";
+  ot->description = "Resize the image";
+
+  /* api callbacks */
+  ot->invoke = image_scale_invoke;
+  ot->exec = image_scale_exec;
+  ot->poll = image_from_contect_has_data_poll_no_image_user;
+
+  /* properties */
+  RNA_def_int_vector(ot->srna, "size", 2, NULL, 1, INT_MAX, "Size", "", 1, SHRT_MAX);
+
+  /* flags */
+  ot->flag = OPTYPE_REGISTER;
+}
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Pack Operator
+ * \{ */
 
 static bool image_pack_test(bContext *C, wmOperator *op)
 {
@@ -2827,7 +3020,11 @@ void IMAGE_OT_pack(wmOperatorType *ot)
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
-/********************* unpack operator *********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Unpack Operator
+ * \{ */
 
 static int image_unpack_exec(bContext *C, wmOperator *op)
 {
@@ -2926,7 +3123,11 @@ void IMAGE_OT_unpack(wmOperatorType *ot)
       ot->srna, "id", NULL, MAX_ID_NAME - 2, "Image Name", "Image data-block name to unpack");
 }
 
-/******************** sample image operator ********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Sample Image Operator
+ * \{ */
 
 typedef struct ImageSampleInfo {
   ARegionType *art;
@@ -3220,10 +3421,10 @@ static void image_sample_apply(bContext *C, wmOperator *op, const wmEvent *event
         int point = RNA_enum_get(op->ptr, "point");
 
         if (point == 1) {
-          curvemapping_set_black_white(curve_mapping, NULL, info->linearcol);
+          BKE_curvemapping_set_black_white(curve_mapping, NULL, info->linearcol);
         }
         else if (point == 0) {
-          curvemapping_set_black_white(curve_mapping, info->linearcol, NULL);
+          BKE_curvemapping_set_black_white(curve_mapping, info->linearcol, NULL);
         }
         WM_event_add_notifier(C, NC_WINDOW, NULL);
       }
@@ -3339,7 +3540,12 @@ void IMAGE_OT_sample(wmOperatorType *ot)
   RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 }
 
-/******************** sample line operator ********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Sample Line Operator
+ * \{ */
+
 static int image_sample_line_exec(bContext *C, wmOperator *op)
 {
   SpaceImage *sima = CTX_wm_space_image(C);
@@ -3421,10 +3627,14 @@ void IMAGE_OT_sample_line(wmOperatorType *ot)
   /* flags */
   ot->flag = 0; /* no undo/register since this operates on the space */
 
-  WM_operator_properties_gesture_straightline(ot, CURSOR_EDIT);
+  WM_operator_properties_gesture_straightline(ot, WM_CURSOR_EDIT);
 }
 
-/******************** set curve point operator ********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Set Curve Point Operator
+ * \{ */
 
 void IMAGE_OT_curves_point_set(wmOperatorType *ot)
 {
@@ -3458,7 +3668,11 @@ void IMAGE_OT_curves_point_set(wmOperatorType *ot)
   RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 }
 
-/********************* cycle render slot operator *********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Cycle Render Slot Operator
+ * \{ */
 
 static bool image_cycle_render_slot_poll(bContext *C)
 {
@@ -3504,7 +3718,11 @@ void IMAGE_OT_cycle_render_slot(wmOperatorType *ot)
   RNA_def_boolean(ot->srna, "reverse", 0, "Cycle in Reverse", "");
 }
 
-/********************* clear render slot operator *********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Clear Render Slot Operator
+ * \{ */
 
 static int image_clear_render_slot_exec(bContext *C, wmOperator *UNUSED(op))
 {
@@ -3535,7 +3753,11 @@ void IMAGE_OT_clear_render_slot(wmOperatorType *ot)
   ot->flag = OPTYPE_REGISTER;
 }
 
-/********************* add render slot operator *********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Add Render Slot Operator
+ * \{ */
 
 static int image_add_render_slot_exec(bContext *C, wmOperator *UNUSED(op))
 {
@@ -3564,7 +3786,11 @@ void IMAGE_OT_add_render_slot(wmOperatorType *ot)
   ot->flag = OPTYPE_REGISTER;
 }
 
-/********************* remove render slot operator *********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Remove Render Slot Operator
+ * \{ */
 
 static int image_remove_render_slot_exec(bContext *C, wmOperator *UNUSED(op))
 {
@@ -3595,7 +3821,11 @@ void IMAGE_OT_remove_render_slot(wmOperatorType *ot)
   ot->flag = OPTYPE_REGISTER;
 }
 
-/********************** change frame operator *********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Change Frame Operator
+ * \{ */
 
 static bool change_frame_poll(bContext *C)
 {
@@ -3656,7 +3886,12 @@ static int change_frame_invoke(bContext *C, wmOperator *op, const wmEvent *event
 
   if (ar->regiontype == RGN_TYPE_WINDOW) {
     SpaceImage *sima = CTX_wm_space_image(C);
-    if (event->mval[1] > 16 || !ED_space_image_show_cache(sima)) {
+
+    /* Local coordinate visible rect inside region, to accommodate overlapping ui. */
+    const rcti *rect_visible = ED_region_visible_rect(ar);
+    const int region_bottom = rect_visible->ymin;
+
+    if (event->mval[1] > (region_bottom + 16 * UI_DPI_FAC) || !ED_space_image_show_cache(sima)) {
       return OPERATOR_PASS_THROUGH;
     }
   }
@@ -3746,7 +3981,11 @@ void IMAGE_OT_read_viewlayers(wmOperatorType *ot)
   ot->flag = 0;
 }
 
-/* ********************* Render border operator ****************** */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Render Border Operator
+ * \{ */
 
 static int render_border_exec(bContext *C, wmOperator *op)
 {
@@ -3815,7 +4054,11 @@ void IMAGE_OT_render_border(wmOperatorType *ot)
   WM_operator_properties_border(ot);
 }
 
-/* ********************* Clear render border operator ****************** */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Clear Render Border Operator
+ * \{ */
 
 static int clear_render_border_exec(bContext *C, wmOperator *UNUSED(op))
 {
@@ -3840,3 +4083,5 @@ void IMAGE_OT_clear_render_border(wmOperatorType *ot)
   /* flags */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
+
+/** \} */

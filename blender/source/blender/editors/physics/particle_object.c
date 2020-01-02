@@ -186,7 +186,7 @@ static int new_particle_settings_exec(bContext *C, wmOperator *UNUSED(op))
     part = BKE_particlesettings_add(bmain, "ParticleSettings");
   }
 
-  ob = ptr.id.data;
+  ob = (Object *)ptr.owner_id;
 
   if (psys->part) {
     id_us_min(&psys->part->id);
@@ -226,7 +226,7 @@ static int new_particle_target_exec(bContext *C, wmOperator *UNUSED(op))
   Main *bmain = CTX_data_main(C);
   PointerRNA ptr = CTX_data_pointer_get_type(C, "particle_system", &RNA_ParticleSystem);
   ParticleSystem *psys = ptr.data;
-  Object *ob = ptr.id.data;
+  Object *ob = (Object *)ptr.owner_id;
 
   ParticleTarget *pt;
 
@@ -273,7 +273,7 @@ static int remove_particle_target_exec(bContext *C, wmOperator *UNUSED(op))
   Main *bmain = CTX_data_main(C);
   PointerRNA ptr = CTX_data_pointer_get_type(C, "particle_system", &RNA_ParticleSystem);
   ParticleSystem *psys = ptr.data;
-  Object *ob = ptr.id.data;
+  Object *ob = (Object *)ptr.owner_id;
 
   ParticleTarget *pt;
 
@@ -323,7 +323,7 @@ static int target_move_up_exec(bContext *C, wmOperator *UNUSED(op))
 {
   PointerRNA ptr = CTX_data_pointer_get_type(C, "particle_system", &RNA_ParticleSystem);
   ParticleSystem *psys = ptr.data;
-  Object *ob = ptr.id.data;
+  Object *ob = (Object *)ptr.owner_id;
   ParticleTarget *pt;
 
   if (!psys) {
@@ -363,7 +363,7 @@ static int target_move_down_exec(bContext *C, wmOperator *UNUSED(op))
 {
   PointerRNA ptr = CTX_data_pointer_get_type(C, "particle_system", &RNA_ParticleSystem);
   ParticleSystem *psys = ptr.data;
-  Object *ob = ptr.id.data;
+  Object *ob = (Object *)ptr.owner_id;
   ParticleTarget *pt;
 
   if (!psys) {
@@ -652,7 +652,7 @@ static void disconnect_hair(Depsgraph *depsgraph, Scene *scene, Object *ob, Part
 
 static int disconnect_hair_exec(bContext *C, wmOperator *op)
 {
-  Depsgraph *depsgraph = CTX_data_depsgraph(C);
+  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   Scene *scene = CTX_data_scene(C);
   Object *ob = ED_object_context(C);
   ParticleSystem *psys = NULL;
@@ -704,8 +704,8 @@ static bool remap_hair_emitter(Depsgraph *depsgraph,
                                Object *target_ob,
                                ParticleSystem *target_psys,
                                PTCacheEdit *target_edit,
-                               float from_mat[4][4],
-                               float to_mat[4][4],
+                               const float from_mat[4][4],
+                               const float to_mat[4][4],
                                bool from_global,
                                bool to_global)
 {
@@ -934,7 +934,7 @@ static bool connect_hair(Depsgraph *depsgraph, Scene *scene, Object *ob, Particl
 
 static int connect_hair_exec(bContext *C, wmOperator *op)
 {
-  Depsgraph *depsgraph = CTX_data_depsgraph(C);
+  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   Scene *scene = CTX_data_scene(C);
   Object *ob = ED_object_context(C);
   ParticleSystem *psys = NULL;
@@ -1017,13 +1017,11 @@ static void copy_particle_edit(Depsgraph *depsgraph,
 
   edit->points = MEM_dupallocN(edit_from->points);
   pa = psys->particles;
-  LOOP_POINTS
-  {
+  LOOP_POINTS {
     HairKey *hkey = pa->hair;
 
     point->keys = MEM_dupallocN(point->keys);
-    LOOP_KEYS
-    {
+    LOOP_KEYS {
       key->co = hkey->co;
       key->time = &hkey->time;
       key->flag = hkey->editflag;
@@ -1037,7 +1035,7 @@ static void copy_particle_edit(Depsgraph *depsgraph,
 
     pa++;
   }
-  update_world_cos(depsgraph, ob, edit);
+  update_world_cos(ob, edit);
 
   UI_GetThemeColor3ubv(TH_EDGE_SELECT, edit->sel_col);
   UI_GetThemeColor3ubv(TH_WIRE, edit->nosel_col);
@@ -1086,11 +1084,10 @@ static bool copy_particle_systems_to_object(const bContext *C,
                                             bool duplicate_settings)
 {
   Main *bmain = CTX_data_main(C);
-  Depsgraph *depsgraph = CTX_data_depsgraph(C);
+  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   ModifierData *md;
   ParticleSystem *psys_start = NULL, *psys, *psys_from;
   ParticleSystem **tmp_psys;
-  Mesh *final_mesh;
   CustomData_MeshMasks cdmask = {0};
   int i, totpsys;
 
@@ -1117,7 +1114,7 @@ static bool copy_particle_systems_to_object(const bContext *C,
 
   tmp_psys = MEM_mallocN(sizeof(ParticleSystem *) * totpsys, "temporary particle system array");
 
-  for (psys_from = PSYS_FROM_FIRST, i = 0; psys_from; psys_from = PSYS_FROM_NEXT(psys_from), ++i) {
+  for (psys_from = PSYS_FROM_FIRST, i = 0; psys_from; psys_from = PSYS_FROM_NEXT(psys_from), i++) {
     psys = BKE_object_copy_particlesystem(psys_from, 0);
     tmp_psys[i] = psys;
 
@@ -1132,9 +1129,6 @@ static bool copy_particle_systems_to_object(const bContext *C,
    */
   psys_start = totpsys > 0 ? tmp_psys[0] : NULL;
 
-  /* Get the evaluated mesh (psys and their modifiers have not been appended yet) */
-  final_mesh = mesh_get_eval_final(depsgraph, scene, ob_to, &cdmask);
-
   /* now append psys to the object and make modifiers */
   for (i = 0, psys_from = PSYS_FROM_FIRST; i < totpsys;
        ++i, psys_from = PSYS_FROM_NEXT(psys_from)) {
@@ -1144,6 +1138,7 @@ static bool copy_particle_systems_to_object(const bContext *C,
 
     /* append to the object */
     BLI_addtail(&ob_to->particlesystem, psys);
+    psys_unique_name(ob_to, psys, psys->name);
 
     /* add a particle system modifier for each system */
     md = modifier_new(eModifierType_ParticleSystem);
@@ -1155,10 +1150,6 @@ static bool copy_particle_systems_to_object(const bContext *C,
     modifier_unique_name(&ob_to->modifiers, (ModifierData *)psmd);
 
     psmd->psys = psys;
-    BKE_id_copy_ex(NULL, &final_mesh->id, (ID **)&psmd->mesh_final, LIB_ID_COPY_LOCALIZE);
-
-    BKE_mesh_calc_normals(psmd->mesh_final);
-    BKE_mesh_tessface_ensure(psmd->mesh_final);
 
     if (psys_from->edit) {
       copy_particle_edit(depsgraph, scene, ob_to, psys, psys_from);
@@ -1175,7 +1166,7 @@ static bool copy_particle_systems_to_object(const bContext *C,
    * the remapping otherwise makes final_dm invalid!
    */
   for (psys = psys_start, psys_from = PSYS_FROM_FIRST, i = 0; psys;
-       psys = psys->next, psys_from = PSYS_FROM_NEXT(psys_from), ++i) {
+       psys = psys->next, psys_from = PSYS_FROM_NEXT(psys_from), i++) {
     float(*from_mat)[4], (*to_mat)[4];
 
     switch (space) {

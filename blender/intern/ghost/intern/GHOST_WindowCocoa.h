@@ -66,7 +66,9 @@ class GHOST_WindowCocoa : public GHOST_Window {
                     GHOST_TWindowState state,
                     GHOST_TDrawingContextType type = GHOST_kDrawingContextTypeNone,
                     const bool stereoVisual = false,
-                    bool is_debug = false);
+                    bool is_debug = false,
+                    bool dialog = false,
+                    GHOST_WindowCocoa *parentWindow = 0);
 
   /**
    * Destructor.
@@ -215,7 +217,10 @@ class GHOST_WindowCocoa : public GHOST_Window {
    */
   GHOST_TSuccess setOrder(GHOST_TWindowOrder order);
 
+  NSCursor *getStandardCursor(GHOST_TStandardCursor cursor) const;
   void loadCursor(bool visible, GHOST_TStandardCursor cursor) const;
+
+  bool isDialog() const;
 
   const GHOST_TabletData *GetTabletData()
   {
@@ -296,6 +301,7 @@ class GHOST_WindowCocoa : public GHOST_Window {
    * native window system calls.
    */
   GHOST_TSuccess setWindowCursorShape(GHOST_TStandardCursor shape);
+  GHOST_TSuccess hasCursorShape(GHOST_TStandardCursor shape);
 
   /**
    * Sets the cursor shape on the window using
@@ -326,6 +332,7 @@ class GHOST_WindowCocoa : public GHOST_Window {
 
   bool m_immediateDraw;
   bool m_debug_context;  // for debug messages during context setup
+  bool m_is_dialog;
 };
 
 #endif  // __GHOST_WINDOWCOCOA_H__

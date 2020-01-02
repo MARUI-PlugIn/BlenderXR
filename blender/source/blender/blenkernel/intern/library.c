@@ -165,8 +165,19 @@ void id_lib_extern(ID *id)
     BLI_assert(BKE_idcode_is_linkable(GS(id->name)));
     if (id->tag & LIB_TAG_INDIRECT) {
       id->tag &= ~LIB_TAG_INDIRECT;
+      id->flag &= ~LIB_INDIRECT_WEAK_LINK;
       id->tag |= LIB_TAG_EXTERN;
       id->lib->parent = NULL;
+    }
+  }
+}
+
+void id_lib_indirect_weak_link(ID *id)
+{
+  if (id && ID_IS_LINKED(id)) {
+    BLI_assert(BKE_idcode_is_linkable(GS(id->name)));
+    if (id->tag & LIB_TAG_INDIRECT) {
+      id->flag |= LIB_INDIRECT_WEAK_LINK;
     }
   }
 }
@@ -851,8 +862,8 @@ void BKE_id_swap(Main *bmain, ID *id_a, ID *id_b)
   id_b->properties = id_a_back.properties;
 
   /* Swap will have broken internal references to itself, restore them. */
-  BKE_libblock_relink_ex(bmain, id_a, id_b, id_a, false);
-  BKE_libblock_relink_ex(bmain, id_b, id_a, id_b, false);
+  BKE_libblock_relink_ex(bmain, id_a, id_b, id_a, ID_REMAP_SKIP_NEVER_NULL_USAGE);
+  BKE_libblock_relink_ex(bmain, id_b, id_a, id_b, ID_REMAP_SKIP_NEVER_NULL_USAGE);
 }
 
 /** Does *not* set ID->newid pointer. */
@@ -1130,7 +1141,7 @@ void BKE_main_lib_objects_recalc_all(Main *bmain)
  * **************************** */
 
 /**
- * Get allocation size fo a given data-block type and optionally allocation name.
+ * Get allocation size of a given data-block type and optionally allocation name.
  */
 size_t BKE_libblock_get_alloc_info(short type, const char **name)
 {
@@ -1264,15 +1275,14 @@ void BKE_libblock_init_empty(ID *id)
       break;
     case ID_OB: {
       Object *ob = (Object *)id;
-      ob->type = OB_EMPTY;
-      BKE_object_init(ob);
+      BKE_object_init(ob, OB_EMPTY);
       break;
     }
     case ID_ME:
       BKE_mesh_init((Mesh *)id);
       break;
     case ID_CU:
-      BKE_curve_init((Curve *)id);
+      BKE_curve_init((Curve *)id, 0);
       break;
     case ID_MB:
       BKE_mball_init((MetaBall *)id);
@@ -1408,20 +1418,31 @@ void *BKE_id_new_nomain(const short type, const char *name)
   return id;
 }
 
-void BKE_libblock_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag)
+void BKE_libblock_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int orig_flag)
 {
   ID *new_id = *r_newid;
+  int flag = orig_flag;
 
-  /* Grrrrrrrrr... Not adding 'root' nodetrees to bmain.... grrrrrrrrrrrrrrrrrrrr! */
-  /* This is taken from original ntree copy code, might be weak actually? */
-  const bool use_nodetree_alloc_exception = ((GS(id->name) == ID_NT) && (bmain != NULL) &&
-                                             (BLI_findindex(&bmain->nodetrees, id) < 0));
+  const bool is_private_id_data = (id->flag & LIB_PRIVATE_DATA) != 0;
 
   BLI_assert((flag & LIB_ID_CREATE_NO_MAIN) != 0 || bmain != NULL);
   BLI_assert((flag & LIB_ID_CREATE_NO_MAIN) != 0 || (flag & LIB_ID_CREATE_NO_ALLOCATE) == 0);
-  BLI_assert((flag & LIB_ID_CREATE_NO_MAIN) == 0 || (flag & LIB_ID_CREATE_NO_USER_REFCOUNT) != 0);
+  if (!is_private_id_data) {
+    /* When we are handling private ID data, we might still want to manage usercounts, even though
+     * that ID data-block is actually outside of Main... */
+    BLI_assert((flag & LIB_ID_CREATE_NO_MAIN) == 0 ||
+               (flag & LIB_ID_CREATE_NO_USER_REFCOUNT) != 0);
+  }
   /* Never implicitly copy shapekeys when generating temp data outside of Main database. */
   BLI_assert((flag & LIB_ID_CREATE_NO_MAIN) == 0 || (flag & LIB_ID_COPY_SHAPEKEY) == 0);
+
+  /* 'Private ID' data handling. */
+  if ((bmain != NULL) && is_private_id_data) {
+    flag |= LIB_ID_CREATE_NO_MAIN;
+  }
+
+  /* The id->flag bits to copy over. */
+  const int copy_idflag_mask = LIB_PRIVATE_DATA;
 
   if ((flag & LIB_ID_CREATE_NO_ALLOCATE) != 0) {
     /* r_newid already contains pointer to allocated memory. */
@@ -1432,10 +1453,7 @@ void BKE_libblock_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int fla
     /* TODO Do we want/need to copy more from ID struct itself? */
   }
   else {
-    new_id = BKE_libblock_alloc(bmain,
-                                GS(id->name),
-                                id->name + 2,
-                                flag | (use_nodetree_alloc_exception ? LIB_ID_CREATE_NO_MAIN : 0));
+    new_id = BKE_libblock_alloc(bmain, GS(id->name), id->name + 2, flag);
   }
   BLI_assert(new_id != NULL);
 
@@ -1448,8 +1466,14 @@ void BKE_libblock_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int fla
     memcpy(cpn + id_offset, cp + id_offset, id_len - id_offset);
   }
 
+  new_id->flag = (new_id->flag & ~copy_idflag_mask) | (id->flag & copy_idflag_mask);
+
+  /* We do not want any handling of usercount in code duplicating the data here, we do that all
+   * at once in id_copy_libmanagement_cb() at the end. */
+  const int copy_data_flag = orig_flag | LIB_ID_CREATE_NO_USER_REFCOUNT;
+
   if (id->properties) {
-    new_id->properties = IDP_CopyProperty_ex(id->properties, flag);
+    new_id->properties = IDP_CopyProperty_ex(id->properties, copy_data_flag);
   }
 
   /* XXX Again... We need a way to control what we copy in a much more refined way.
@@ -1466,8 +1490,11 @@ void BKE_libblock_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int fla
 
     /* the duplicate should get a copy of the animdata */
     if ((flag & LIB_ID_COPY_NO_ANIMDATA) == 0) {
-      BLI_assert((flag & LIB_ID_COPY_ACTIONS) == 0 || (flag & LIB_ID_CREATE_NO_MAIN) == 0);
-      iat->adt = BKE_animdata_copy(bmain, iat->adt, flag);
+      /* Note that even though horrors like root nodetrees are not in bmain, the actions they use
+       * in their anim data *are* in bmain... super-mega-hooray. */
+      BLI_assert((copy_data_flag & LIB_ID_COPY_ACTIONS) == 0 ||
+                 (copy_data_flag & LIB_ID_CREATE_NO_MAIN) == 0);
+      iat->adt = BKE_animdata_copy(bmain, iat->adt, copy_data_flag);
     }
     else {
       iat->adt = NULL;
@@ -1727,8 +1754,8 @@ bool BKE_id_new_name_validate(ListBase *lb, ID *id, const char *tname)
 
   /* This was in 2.43 and previous releases
    * however all data in blender should be sorted, not just duplicate names
-   * sorting should not hurt, but noting just incase it alters the way other
-   * functions work, so sort every time */
+   * sorting should not hurt, but noting just in case it alters the way other
+   * functions work, so sort every time. */
 #if 0
   if (result) {
     id_sort_by_name(lb, id);
@@ -1755,6 +1782,7 @@ void id_clear_lib_data_ex(Main *bmain, ID *id, const bool id_in_mainlist)
 
   id->lib = NULL;
   id->tag &= ~(LIB_TAG_INDIRECT | LIB_TAG_EXTERN);
+  id->flag &= ~LIB_INDIRECT_WEAK_LINK;
   if (id_in_mainlist) {
     if (BKE_id_new_name_validate(which_libbase(bmain, GS(id->name)), id, NULL)) {
       bmain->is_memfile_undo_written = false;
@@ -1815,7 +1843,7 @@ static int id_refcount_recompute_callback(void *user_data,
   return IDWALK_RET_NOP;
 }
 
-void BLE_main_id_refcount_recompute(struct Main *bmain, const bool do_linked_only)
+void BKE_main_id_refcount_recompute(struct Main *bmain, const bool do_linked_only)
 {
   ID *id;
 
@@ -1913,7 +1941,8 @@ static void library_make_local_copying_check(ID *id,
  * \param bmain: Almost certainly global main.
  * \param lib: If not NULL, only make local data-blocks from this library.
  * \param untagged_only: If true, only make local data-blocks not tagged with
- * LIB_TAG_PRE_EXISTING. \param set_fake: If true, set fake user on all localized data-blocks
+ * LIB_TAG_PRE_EXISTING.
+ * \param set_fake: If true, set fake user on all localized data-blocks
  * (except group and objects ones).
  */
 /* Note: Old (2.77) version was simply making (tagging) data-blocks as local,
@@ -1967,6 +1996,7 @@ void BKE_library_make_local(Main *bmain,
 
       if (id->lib == NULL) {
         id->tag &= ~(LIB_TAG_EXTERN | LIB_TAG_INDIRECT | LIB_TAG_NEW);
+        id->flag &= ~LIB_INDIRECT_WEAK_LINK;
       }
       /* The check on the fourth line (LIB_TAG_PRE_EXISTING) is done so it's possible to tag data
        * you don't want to be made local, used for appending data,

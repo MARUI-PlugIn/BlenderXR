@@ -124,8 +124,9 @@ typedef struct OBJECT_PassList {
   struct DRWPass *bone_axes[2];
   struct DRWPass *particle;
   struct DRWPass *lightprobes;
-  struct DRWPass *camera_images_back;
-  struct DRWPass *camera_images_front;
+  struct DRWPass *camera_images_back_alpha_under;
+  struct DRWPass *camera_images_back_alpha_over;
+  struct DRWPass *camera_images_front_alpha_over;
 } OBJECT_PassList;
 
 typedef struct OBJECT_FramebufferList {
@@ -236,6 +237,7 @@ typedef struct OBJECT_ShadingGroupList {
   /* Helpers */
   DRWCallBuffer *relationship_lines;
   DRWCallBuffer *constraint_lines;
+  DRWCallBuffer *origin_xform;
 
   /* Camera */
   DRWCallBuffer *camera;
@@ -287,15 +289,10 @@ typedef struct OBJECT_PrivateData {
   DRWShadingGroup *outlines_transform;
 
   /* Lightprobes */
-  DRWCallBuffer *lightprobes_cube_select;
-  DRWCallBuffer *lightprobes_cube_select_dupli;
-  DRWCallBuffer *lightprobes_cube_active;
-  DRWCallBuffer *lightprobes_cube_transform;
-
-  DRWCallBuffer *lightprobes_planar_select;
-  DRWCallBuffer *lightprobes_planar_select_dupli;
-  DRWCallBuffer *lightprobes_planar_active;
-  DRWCallBuffer *lightprobes_planar_transform;
+  DRWShadingGroup *probe_outlines_transform;
+  DRWShadingGroup *probe_outlines_select;
+  DRWShadingGroup *probe_outlines_select_dupli;
+  DRWShadingGroup *probe_outlines_active;
 
   /* Objects Centers */
   DRWCallBuffer *center_active;
@@ -303,17 +300,6 @@ typedef struct OBJECT_PrivateData {
   DRWCallBuffer *center_deselected;
   DRWCallBuffer *center_selected_lib;
   DRWCallBuffer *center_deselected_lib;
-
-  /* Outlines id offset (accessed as an array) */
-  int id_ofs_active;
-  int id_ofs_select;
-  int id_ofs_select_dupli;
-  int id_ofs_transform;
-
-  int id_ofs_prb_active;
-  int id_ofs_prb_select;
-  int id_ofs_prb_select_dupli;
-  int id_ofs_prb_transform;
 
   bool xray_enabled;
   bool xray_enabled_and_not_wire;
@@ -334,7 +320,7 @@ static struct {
 
   OBJECT_Shaders sh_data[GPU_SHADER_CFG_LEN];
 
-  float grid_settings[5];
+  float grid_distance;
   float grid_mesh_size;
   int grid_flag;
   float grid_axes[3];
@@ -342,6 +328,7 @@ static struct {
   int zneg_flag;
   float zplane_axes[3];
   float inv_viewport_size[2];
+  float grid_steps[8];
   bool draw_grid;
   /* Temp buffer textures */
   struct GPUTexture *outlines_depth_tx;
@@ -417,7 +404,10 @@ static void OBJECT_engine_init(void *vedata)
   if (!sh_data->outline_resolve) {
     /* Outline */
     sh_data->outline_prepass = GPU_shader_create_from_arrays({
-        .vert = (const char *[]){sh_cfg_data->lib, datatoc_gpu_shader_3D_vert_glsl, NULL},
+        .vert = (const char *[]){sh_cfg_data->lib,
+                                 datatoc_common_view_lib_glsl,
+                                 datatoc_object_outline_prepass_vert_glsl,
+                                 NULL},
         .frag = (const char *[]){datatoc_object_outline_prepass_frag_glsl, NULL},
         .defs = (const char *[]){sh_cfg_data->def, NULL},
     });
@@ -431,7 +421,7 @@ static void OBJECT_engine_init(void *vedata)
                                  datatoc_object_outline_prepass_geom_glsl,
                                  NULL},
         .frag = (const char *[]){datatoc_object_outline_prepass_frag_glsl, NULL},
-        .defs = (const char *[]){sh_cfg_data->def, NULL},
+        .defs = (const char *[]){sh_cfg_data->def, "#define USE_GEOM\n", NULL},
     });
 
     sh_data->outline_resolve = DRW_shader_create_fullscreen(
@@ -522,12 +512,13 @@ static void OBJECT_engine_init(void *vedata)
                                                     NULL,
                                                     datatoc_gpu_shader_flat_color_frag_glsl,
                                                     datatoc_common_view_lib_glsl,
-                                                    NULL);
+                                                    "#define IN_PLACE_INSTANCES\n");
 
     sh_data->part_axis = DRW_shader_create_with_lib(datatoc_object_particle_prim_vert_glsl,
                                                     NULL,
                                                     datatoc_gpu_shader_flat_color_frag_glsl,
                                                     datatoc_common_view_lib_glsl,
+                                                    "#define IN_PLACE_INSTANCES\n"
                                                     "#define USE_AXIS\n");
 
     sh_data->part_dot = DRW_shader_create_with_lib(datatoc_object_particle_dot_vert_glsl,
@@ -539,10 +530,11 @@ static void OBJECT_engine_init(void *vedata)
     /* Lightprobes */
     sh_data->lightprobe_grid = GPU_shader_create_from_arrays({
         .vert = (const char *[]){sh_cfg_data->lib,
+                                 datatoc_common_view_lib_glsl,
                                  datatoc_common_globals_lib_glsl,
                                  datatoc_object_lightprobe_grid_vert_glsl,
                                  NULL},
-        .frag = (const char *[]){datatoc_gpu_shader_flat_id_frag_glsl, NULL},
+        .frag = (const char *[]){datatoc_object_outline_prepass_frag_glsl, NULL},
         .defs = (const char *[]){sh_cfg_data->def, NULL},
     });
 
@@ -561,8 +553,6 @@ static void OBJECT_engine_init(void *vedata)
     View3D *v3d = draw_ctx->v3d;
     Scene *scene = draw_ctx->scene;
     RegionView3D *rv3d = draw_ctx->rv3d;
-    float grid_scale = ED_view3d_grid_scale(scene, v3d, NULL);
-    float grid_res;
 
     const bool show_axis_x = (v3d->gridflag & V3D_SHOW_X) != 0;
     const bool show_axis_y = (v3d->gridflag & V3D_SHOW_Y) != 0;
@@ -578,21 +568,6 @@ static void OBJECT_engine_init(void *vedata)
 
     /* if perps */
     if (winmat[3][3] == 0.0f) {
-      float fov;
-      float viewvecs[2][4] = {
-          {1.0f, -1.0f, -1.0f, 1.0f},
-          {-1.0f, 1.0f, -1.0f, 1.0f},
-      };
-
-      /* convert the view vectors to view space */
-      for (int i = 0; i < 2; i++) {
-        mul_m4_v4(wininv, viewvecs[i]);
-        mul_v3_fl(viewvecs[i], 1.0f / viewvecs[i][2]); /* perspective divide */
-      }
-
-      fov = angle_v3v3(viewvecs[0], viewvecs[1]) / 2.0f;
-      grid_res = fabsf(tanf(fov)) / grid_scale;
-
       e_data.grid_flag = (1 << 4); /* XY plane */
       if (show_axis_x) {
         e_data.grid_flag |= SHOW_AXIS_X;
@@ -605,14 +580,6 @@ static void OBJECT_engine_init(void *vedata)
       }
     }
     else {
-      if (rv3d->view != RV3D_VIEW_USER) {
-        /* Allow 3 more subdivisions. */
-        grid_scale /= powf(v3d->gridsubdiv, 3);
-      }
-
-      float viewdist = 1.0f / max_ff(fabsf(winmat[0][0]), fabsf(winmat[1][1]));
-      grid_res = viewdist / grid_scale;
-
       if (ELEM(rv3d->view, RV3D_VIEW_RIGHT, RV3D_VIEW_LEFT)) {
         e_data.draw_grid = show_ortho_grid;
         e_data.grid_flag = PLANE_YZ | SHOW_AXIS_Y | SHOW_AXIS_Z | SHOW_GRID | GRID_BACK;
@@ -690,12 +657,7 @@ static void OBJECT_engine_init(void *vedata)
       dist = v3d->clip_end;
     }
 
-    e_data.grid_settings[0] = dist / 2.0f;     /* gridDistance */
-    e_data.grid_settings[1] = grid_res;        /* gridResolution */
-    e_data.grid_settings[2] = grid_scale;      /* gridScale */
-    e_data.grid_settings[3] = v3d->gridsubdiv; /* gridSubdiv */
-    e_data.grid_settings[4] = (v3d->gridsubdiv > 1) ? 1.0f / logf(v3d->gridsubdiv) :
-                                                      0.0f; /* 1/log(gridSubdiv) */
+    e_data.grid_distance = dist / 2.0f; /* gridDistance */
 
     if (winmat[3][3] == 0.0f) {
       e_data.grid_mesh_size = dist;
@@ -710,10 +672,11 @@ static void OBJECT_engine_init(void *vedata)
        *  which may not be correct if the user is "shrunk" or "enlarged" by zooming in or out.
        *  Therefore, we need to compensate the values here. */
       float viewinvscale = len_v3(viewinv[0]); /* Assumption is uniform scaling (all column vectors are of same length). */
-      e_data.grid_settings[0] *= viewinvscale; /* gridDistance */
+      e_data.grid_distance *= viewinvscale; /* gridDistance */
       e_data.grid_mesh_size *= viewinvscale;
 	}
 #endif
+    ED_view3d_grid_steps(scene, v3d, rv3d, e_data.grid_steps);
   }
 
   copy_v2_v2(e_data.inv_viewport_size, DRW_viewport_size_get());
@@ -735,12 +698,12 @@ static void OBJECT_engine_free(void)
 }
 
 static DRWShadingGroup *shgroup_outline(DRWPass *pass,
-                                        const int *ofs,
+                                        int outline_id,
                                         GPUShader *sh,
                                         eGPUShaderConfig sh_cfg)
 {
   DRWShadingGroup *grp = DRW_shgroup_create(sh, pass);
-  DRW_shgroup_uniform_int(grp, "baseId", ofs, 1);
+  DRW_shgroup_uniform_int_copy(grp, "outlineId", outline_id);
 
   if (sh_cfg == GPU_SHADER_CFG_CLIPPED) {
     DRW_shgroup_state_enable(grp, DRW_STATE_CLIP_PLANES);
@@ -779,107 +742,10 @@ static DRWShadingGroup *shgroup_points(DRWPass *pass,
   return grp;
 }
 
-static int *shgroup_theme_id_to_probe_outline_counter(OBJECT_StorageList *stl,
-                                                      int theme_id,
-                                                      const int base_flag)
-{
-  if (UNLIKELY(base_flag & BASE_FROM_DUPLI)) {
-    switch (theme_id) {
-      case TH_ACTIVE:
-      case TH_SELECT:
-        return &stl->g_data->id_ofs_prb_select_dupli;
-      case TH_TRANSFORM:
-      default:
-        return &stl->g_data->id_ofs_prb_transform;
-    }
-  }
-
-  switch (theme_id) {
-    case TH_ACTIVE:
-      return &stl->g_data->id_ofs_prb_active;
-    case TH_SELECT:
-      return &stl->g_data->id_ofs_prb_select;
-    case TH_TRANSFORM:
-    default:
-      return &stl->g_data->id_ofs_prb_transform;
-  }
-}
-
-static int *shgroup_theme_id_to_outline_counter(OBJECT_StorageList *stl,
-                                                int theme_id,
-                                                const int base_flag)
-{
-  if (UNLIKELY(base_flag & BASE_FROM_DUPLI)) {
-    switch (theme_id) {
-      case TH_ACTIVE:
-      case TH_SELECT:
-        return &stl->g_data->id_ofs_select_dupli;
-      case TH_TRANSFORM:
-      default:
-        return &stl->g_data->id_ofs_transform;
-    }
-  }
-
-  switch (theme_id) {
-    case TH_ACTIVE:
-      return &stl->g_data->id_ofs_active;
-    case TH_SELECT:
-      return &stl->g_data->id_ofs_select;
-    case TH_TRANSFORM:
-    default:
-      return &stl->g_data->id_ofs_transform;
-  }
-}
-
-static DRWCallBuffer *buffer_theme_id_to_probe_planar_outline_shgrp(OBJECT_StorageList *stl,
-                                                                    int theme_id)
-{
-  /* does not increment counter */
-  switch (theme_id) {
-    case TH_ACTIVE:
-      return stl->g_data->lightprobes_planar_active;
-    case TH_SELECT:
-      return stl->g_data->lightprobes_planar_select;
-    case TH_TRANSFORM:
-    default:
-      return stl->g_data->lightprobes_planar_transform;
-  }
-}
-
-static DRWCallBuffer *buffer_theme_id_to_probe_cube_outline_shgrp(OBJECT_StorageList *stl,
-                                                                  int theme_id,
-                                                                  const int base_flag)
-{
-  /* does not increment counter */
-  if (UNLIKELY(base_flag & BASE_FROM_DUPLI)) {
-    switch (theme_id) {
-      case TH_ACTIVE:
-      case TH_SELECT:
-        return stl->g_data->lightprobes_cube_select_dupli;
-      case TH_TRANSFORM:
-      default:
-        return stl->g_data->lightprobes_cube_transform;
-    }
-  }
-
-  switch (theme_id) {
-    case TH_ACTIVE:
-      return stl->g_data->lightprobes_cube_active;
-    case TH_SELECT:
-      return stl->g_data->lightprobes_cube_select;
-    case TH_TRANSFORM:
-    default:
-      return stl->g_data->lightprobes_cube_transform;
-  }
-}
-
 static DRWShadingGroup *shgroup_theme_id_to_outline_or_null(OBJECT_StorageList *stl,
                                                             int theme_id,
                                                             const int base_flag)
 {
-  int *counter = shgroup_theme_id_to_outline_counter(stl, theme_id, base_flag);
-  *counter += 1;
-
   if (UNLIKELY(base_flag & BASE_FROM_DUPLI)) {
     switch (theme_id) {
       case TH_ACTIVE:
@@ -901,6 +767,64 @@ static DRWShadingGroup *shgroup_theme_id_to_outline_or_null(OBJECT_StorageList *
       return stl->g_data->outlines_transform;
     default:
       return NULL;
+  }
+}
+
+static DRWShadingGroup *shgroup_theme_id_to_probe_outline_or_null(OBJECT_StorageList *stl,
+                                                                  int theme_id,
+                                                                  const int base_flag)
+{
+  if (UNLIKELY(DRW_state_is_select())) {
+    return stl->g_data->probe_outlines_select;
+  }
+
+  if (UNLIKELY(base_flag & BASE_FROM_DUPLI)) {
+    switch (theme_id) {
+      case TH_ACTIVE:
+      case TH_SELECT:
+        return stl->g_data->probe_outlines_select_dupli;
+      case TH_TRANSFORM:
+        return stl->g_data->probe_outlines_transform;
+      default:
+        return NULL;
+    }
+  }
+
+  switch (theme_id) {
+    case TH_ACTIVE:
+      return stl->g_data->probe_outlines_active;
+    case TH_SELECT:
+      return stl->g_data->probe_outlines_select;
+    case TH_TRANSFORM:
+      return stl->g_data->probe_outlines_transform;
+    default:
+      return NULL;
+  }
+}
+
+static int shgroup_theme_id_to_outline_id(int theme_id, const int base_flag)
+{
+  if (UNLIKELY(base_flag & BASE_FROM_DUPLI)) {
+    switch (theme_id) {
+      case TH_ACTIVE:
+      case TH_SELECT:
+        return 2;
+      case TH_TRANSFORM:
+        return 0;
+      default:
+        return -1;
+    }
+  }
+
+  switch (theme_id) {
+    case TH_ACTIVE:
+      return 3;
+    case TH_SELECT:
+      return 1;
+    case TH_TRANSFORM:
+      return 0;
+    default:
+      return -1;
   }
 }
 
@@ -1080,13 +1004,19 @@ static void DRW_shgroup_empty_image(OBJECT_Shaders *sh_data,
   }
 }
 
-/* Draw Camera Background Images */
+/* -------------------------------------------------------------------- */
+/** \name Camera Background Images
+ * \{ */
 typedef struct CameraEngineData {
   DrawData dd;
   ListBase bg_data;
 } CameraEngineData;
+
 typedef struct CameraEngineBGData {
+  CameraBGImage *camera_image;
+  GPUTexture *texture;
   float transform_mat[4][4];
+  bool premultiplied;
 } CameraEngineBGData;
 
 static void camera_engine_data_free(DrawData *dd)
@@ -1121,12 +1051,36 @@ static void camera_background_images_stereo_setup(Scene *scene,
     iuser->flag &= ~IMA_SHOW_STEREO;
   }
 }
+static void camera_background_images_add_shgroup(DRWPass *pass,
+                                                 CameraEngineBGData *bg_data,
+                                                 GPUShader *shader,
+                                                 GPUBatch *batch)
+{
+  CameraBGImage *camera_image = bg_data->camera_image;
+  DRWShadingGroup *grp = DRW_shgroup_create(shader, pass);
+
+  DRW_shgroup_uniform_float_copy(
+      grp, "depth", camera_image->flag & CAM_BGIMG_FLAG_FOREGROUND ? 0.000001f : 0.999999f);
+  DRW_shgroup_uniform_float_copy(grp, "alpha", camera_image->alpha);
+  DRW_shgroup_uniform_texture(grp, "image", bg_data->texture);
+  DRW_shgroup_uniform_bool_copy(grp, "imagePremultiplied", bg_data->premultiplied);
+  DRW_shgroup_uniform_float_copy(
+      grp, "flipX", (camera_image->flag & CAM_BGIMG_FLAG_FLIP_X) ? -1.0 : 1.0);
+  DRW_shgroup_uniform_float_copy(
+      grp, "flipY", (camera_image->flag & CAM_BGIMG_FLAG_FLIP_Y) ? -1.0 : 1.0);
+  DRW_shgroup_uniform_mat4(grp, "TransformMat", bg_data->transform_mat);
+  DRW_shgroup_call(grp, batch, NULL);
+}
 
 static void DRW_shgroup_camera_background_images(OBJECT_Shaders *sh_data,
                                                  OBJECT_PassList *psl,
                                                  Object *ob,
                                                  RegionView3D *rv3d)
 {
+  if (DRW_state_is_select()) {
+    return;
+  }
+
   if (!BKE_object_empty_image_frame_is_visible_in_view3d(ob, rv3d)) {
     return;
   }
@@ -1254,7 +1208,7 @@ static void DRW_shgroup_camera_background_images(OBJECT_Shaders *sh_data,
       unit_m4(win_m4_scale);
       unit_m4(win_m4_translate);
       unit_m4(scale_m4);
-      axis_angle_to_mat4_single(rot_m4, 'Z', bgpic->rotation);
+      axis_angle_to_mat4_single(rot_m4, 'Z', -bgpic->rotation);
       unit_m4(translate_m4);
 
       const float *size = DRW_viewport_size_get();
@@ -1262,13 +1216,13 @@ static void DRW_shgroup_camera_background_images(OBJECT_Shaders *sh_data,
       float camera_aspect_y = 1.0;
       float camera_offset_x = 0.0;
       float camera_offset_y = 0.0;
-      float camera_aspect = 1.0;
       float camera_width = size[0];
       float camera_height = size[1];
+      float camera_aspect = camera_width / camera_height;
 
       if (!DRW_state_is_image_render()) {
         rctf render_border;
-        ED_view3d_calc_camera_border(scene, depsgraph, ar, v3d, rv3d, &render_border, true);
+        ED_view3d_calc_camera_border(scene, depsgraph, ar, v3d, rv3d, &render_border, false);
         camera_width = render_border.xmax - render_border.xmin;
         camera_height = render_border.ymax - render_border.ymin;
         camera_aspect = camera_width / camera_height;
@@ -1292,30 +1246,59 @@ static void DRW_shgroup_camera_background_images(OBJECT_Shaders *sh_data,
       uv2img_space[0][0] = image_width;
       uv2img_space[1][1] = image_height;
 
-      img2cam_space[0][0] = (1.0 / image_width);
-      img2cam_space[1][1] = (1.0 / image_height);
+      const float fit_scale = image_aspect / camera_aspect;
+      if (camera_aspect < image_aspect) {
+        img2cam_space[0][0] = 1.0 / (1.0 / fit_scale) / image_width;
+        img2cam_space[1][1] = 1.0 / image_height;
+      }
+      else {
+        img2cam_space[0][0] = 1.0 / image_width;
+        img2cam_space[1][1] = 1.0 / fit_scale / image_height;
+      }
 
       /* Update scaling based on image and camera framing */
       float scale_x = bgpic->scale;
       float scale_y = bgpic->scale;
 
+      float scale_x_offset = image_width;
+      float scale_y_offset = image_height;
+      if (image_aspect > 1.0f) {
+        scale_x_offset /= image_aspect;
+        if (camera_aspect > 1.0f) {
+          scale_x_offset *= min_ff(image_aspect, camera_aspect);
+          scale_y_offset *= min_ff(image_aspect, camera_aspect);
+        }
+      }
+      else {
+        scale_y_offset *= image_aspect;
+        if (camera_aspect < 1.0f) {
+          scale_x_offset /= max_ff(image_aspect, camera_aspect);
+          scale_y_offset /= max_ff(image_aspect, camera_aspect);
+        }
+      }
+
       if (bgpic->flag & CAM_BGIMG_FLAG_CAMERA_ASPECT) {
-        float fit_scale = image_aspect / camera_aspect;
         if (bgpic->flag & CAM_BGIMG_FLAG_CAMERA_CROP) {
-          if (image_aspect > camera_aspect) {
-            scale_x *= fit_scale;
-          }
-          else {
-            scale_y /= fit_scale;
-          }
+          /* pass */
         }
         else {
-          if (image_aspect > camera_aspect) {
+          if (camera_aspect < image_aspect) {
+            scale_x /= fit_scale;
             scale_y /= fit_scale;
           }
           else {
             scale_x *= fit_scale;
+            scale_y *= fit_scale;
           }
+        }
+      }
+      else {
+        /* Stretch image to camera aspect */
+        if (camera_aspect < image_aspect) {
+          scale_x /= fit_scale;
+        }
+        else {
+          scale_y *= fit_scale;
         }
       }
 
@@ -1323,38 +1306,59 @@ static void DRW_shgroup_camera_background_images(OBJECT_Shaders *sh_data,
       scale_m4[0][0] = scale_x;
       scale_m4[1][1] = scale_y;
 
-      // translate
-      translate_m4[3][0] = bgpic->offset[0];
-      translate_m4[3][1] = bgpic->offset[1];
+      /* Translate */
+      translate_m4[3][0] = bgpic->offset[0] * 2.0f * scale_x_offset;
+      translate_m4[3][1] = bgpic->offset[1] * 2.0f * scale_y_offset;
 
       mul_m4_series(bg_data->transform_mat,
                     win_m4_translate,
                     win_m4_scale,
-                    translate_m4,
                     img2cam_space,
-                    scale_m4,
+                    translate_m4,
                     rot_m4,
+                    scale_m4,
                     uv2img_space);
 
-      DRWPass *pass = (bgpic->flag & CAM_BGIMG_FLAG_FOREGROUND) ? psl->camera_images_front :
-                                                                  psl->camera_images_back;
-      GPUShader *shader = DRW_state_do_color_management() ? sh_data->object_camera_image_cm :
-                                                            sh_data->object_camera_image;
-      DRWShadingGroup *grp = DRW_shgroup_create(shader, pass);
+      /* Keep the references so we can reverse the loop */
+      bg_data->camera_image = bgpic;
+      bg_data->texture = tex;
+      bg_data->premultiplied = premultiplied;
+    }
 
-      DRW_shgroup_uniform_float_copy(
-          grp, "depth", (bgpic->flag & CAM_BGIMG_FLAG_FOREGROUND) ? 0.000001 : 0.999999);
-      DRW_shgroup_uniform_float_copy(grp, "alpha", bgpic->alpha);
-      DRW_shgroup_uniform_texture(grp, "image", tex);
-      DRW_shgroup_uniform_bool_copy(grp, "imagePremultiplied", premultiplied);
+    /* Mark the rest bg_data's to be reused in the next drawing call */
+    LinkData *last_node = list_node ? list_node->prev : camera_engine_data->bg_data.last;
+    while (list_node != NULL) {
+      CameraEngineBGData *bg_data = (CameraEngineBGData *)list_node->data;
+      bg_data->texture = NULL;
+      bg_data->camera_image = NULL;
+      list_node = list_node->next;
+    }
 
-      DRW_shgroup_uniform_float_copy(
-          grp, "flipX", (bgpic->flag & CAM_BGIMG_FLAG_FLIP_X) ? -1.0 : 1.0);
-      DRW_shgroup_uniform_float_copy(
-          grp, "flipY", (bgpic->flag & CAM_BGIMG_FLAG_FLIP_Y) ? -1.0 : 1.0);
-      DRW_shgroup_uniform_mat4(grp, "TransformMat", bg_data->transform_mat);
+    GPUShader *shader = DRW_state_do_color_management() ? sh_data->object_camera_image_cm :
+                                                          sh_data->object_camera_image;
+    /* loop 1: camera images alpha under */
+    for (list_node = last_node; list_node; list_node = list_node->prev) {
+      CameraEngineBGData *bg_data = (CameraEngineBGData *)list_node->data;
+      CameraBGImage *camera_image = bg_data->camera_image;
+      if ((camera_image->flag & CAM_BGIMG_FLAG_FOREGROUND) == 0) {
+        camera_background_images_add_shgroup(
+            psl->camera_images_back_alpha_under, bg_data, shader, batch);
+      }
+    }
 
-      DRW_shgroup_call(grp, batch, NULL);
+    /* loop 2: camera images alpha over */
+    for (list_node = camera_engine_data->bg_data.first; list_node; list_node = list_node->next) {
+      CameraEngineBGData *bg_data = (CameraEngineBGData *)list_node->data;
+      CameraBGImage *camera_image = bg_data->camera_image;
+      if (camera_image == NULL) {
+        break;
+      }
+      camera_background_images_add_shgroup((camera_image->flag & CAM_BGIMG_FLAG_FOREGROUND) ?
+                                               psl->camera_images_front_alpha_over :
+                                               psl->camera_images_back_alpha_over,
+                                           bg_data,
+                                           shader,
+                                           batch);
     }
   }
 }
@@ -1367,6 +1371,7 @@ static void camera_background_images_free_textures(void)
   }
   BLI_freelistN(&e_data.movie_clips);
 }
+/* \} */
 
 static void OBJECT_cache_init(void *vedata)
 {
@@ -1376,7 +1381,8 @@ static void OBJECT_cache_init(void *vedata)
   DefaultTextureList *dtxl = DRW_viewport_texture_list_get();
   OBJECT_PrivateData *g_data;
   const DRWContextState *draw_ctx = DRW_context_state_get();
-  OBJECT_Shaders *sh_data = &e_data.sh_data[draw_ctx->sh_cfg];
+  eGPUShaderConfig cfg = draw_ctx->sh_cfg;
+  OBJECT_Shaders *sh_data = &e_data.sh_data[cfg];
 
   const float outline_width = UI_GetThemeValuef(TH_OUTLINE_WIDTH);
   const bool do_outline_expand = (U.pixelsize > 1.0) || (outline_width > 2.0f);
@@ -1397,59 +1403,25 @@ static void OBJECT_cache_init(void *vedata)
 
   {
     DRWState state = DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS_EQUAL;
-    psl->outlines = DRW_pass_create("Outlines Depth Pass", state);
+    psl->lightprobes = DRW_pass_create("Outlines Probe Pass", state);
 
     GPUShader *sh = sh_data->outline_prepass;
+
+    g_data->probe_outlines_transform = shgroup_outline(psl->lightprobes, 0, sh, cfg);
+    g_data->probe_outlines_select = shgroup_outline(psl->lightprobes, 1, sh, cfg);
+    g_data->probe_outlines_select_dupli = shgroup_outline(psl->lightprobes, 2, sh, cfg);
+    g_data->probe_outlines_active = shgroup_outline(psl->lightprobes, 3, sh, cfg);
+
+    psl->outlines = DRW_pass_create("Outlines Depth Pass", state);
 
     if (g_data->xray_enabled_and_not_wire) {
       sh = sh_data->outline_prepass_wire;
     }
 
-    g_data->outlines_select = shgroup_outline(
-        psl->outlines, &g_data->id_ofs_select, sh, draw_ctx->sh_cfg);
-    g_data->outlines_select_dupli = shgroup_outline(
-        psl->outlines, &g_data->id_ofs_select_dupli, sh, draw_ctx->sh_cfg);
-    g_data->outlines_transform = shgroup_outline(
-        psl->outlines, &g_data->id_ofs_transform, sh, draw_ctx->sh_cfg);
-    g_data->outlines_active = shgroup_outline(
-        psl->outlines, &g_data->id_ofs_active, sh, draw_ctx->sh_cfg);
-
-    g_data->id_ofs_select = 0;
-    g_data->id_ofs_select_dupli = 0;
-    g_data->id_ofs_active = 0;
-    g_data->id_ofs_transform = 0;
-  }
-
-  {
-    DRWState state = DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS_EQUAL;
-    DRWPass *pass = psl->lightprobes = DRW_pass_create("Object Probe Pass", state);
-    struct GPUBatch *sphere = DRW_cache_sphere_get();
-    struct GPUBatch *quad = DRW_cache_quad_get();
-
-    /* Cubemap */
-    g_data->lightprobes_cube_select = buffer_instance_outline(
-        pass, sphere, &g_data->id_ofs_prb_select, draw_ctx->sh_cfg);
-    g_data->lightprobes_cube_select_dupli = buffer_instance_outline(
-        pass, sphere, &g_data->id_ofs_prb_select_dupli, draw_ctx->sh_cfg);
-    g_data->lightprobes_cube_active = buffer_instance_outline(
-        pass, sphere, &g_data->id_ofs_prb_active, draw_ctx->sh_cfg);
-    g_data->lightprobes_cube_transform = buffer_instance_outline(
-        pass, sphere, &g_data->id_ofs_prb_transform, draw_ctx->sh_cfg);
-
-    /* Planar */
-    g_data->lightprobes_planar_select = buffer_instance_outline(
-        pass, quad, &g_data->id_ofs_prb_select, draw_ctx->sh_cfg);
-    g_data->lightprobes_planar_select_dupli = buffer_instance_outline(
-        pass, quad, &g_data->id_ofs_prb_select_dupli, draw_ctx->sh_cfg);
-    g_data->lightprobes_planar_active = buffer_instance_outline(
-        pass, quad, &g_data->id_ofs_prb_active, draw_ctx->sh_cfg);
-    g_data->lightprobes_planar_transform = buffer_instance_outline(
-        pass, quad, &g_data->id_ofs_prb_transform, draw_ctx->sh_cfg);
-
-    g_data->id_ofs_prb_select = 0;
-    g_data->id_ofs_prb_select_dupli = 0;
-    g_data->id_ofs_prb_active = 0;
-    g_data->id_ofs_prb_transform = 0;
+    g_data->outlines_transform = shgroup_outline(psl->outlines, 0, sh, cfg);
+    g_data->outlines_select = shgroup_outline(psl->outlines, 1, sh, cfg);
+    g_data->outlines_select_dupli = shgroup_outline(psl->outlines, 2, sh, cfg);
+    g_data->outlines_active = shgroup_outline(psl->outlines, 3, sh, cfg);
   }
 
   {
@@ -1468,7 +1440,6 @@ static void OBJECT_cache_init(void *vedata)
     DRW_shgroup_uniform_texture_ref(grp, "sceneDepth", &dtxl->depth);
     DRW_shgroup_uniform_block(grp, "globalsBlock", G_draw.block_ubo);
     DRW_shgroup_uniform_float_copy(grp, "alphaOcclu", alphaOcclu);
-    DRW_shgroup_uniform_int(grp, "idOffsets", &stl->g_data->id_ofs_active, 4);
     DRW_shgroup_call(grp, quad, NULL);
 
     /* This is the bleed pass if do_outline_expand is false. */
@@ -1516,10 +1487,10 @@ static void OBJECT_cache_init(void *vedata)
     DRWShadingGroup *grp = DRW_shgroup_create(sh_data->grid, psl->grid);
     DRW_shgroup_uniform_int(grp, "gridFlag", &e_data.zneg_flag, 1);
     DRW_shgroup_uniform_vec3(grp, "planeAxes", e_data.zplane_axes, 1);
-    DRW_shgroup_uniform_vec4(grp, "gridSettings", e_data.grid_settings, 1);
+    DRW_shgroup_uniform_vec3(grp, "screenVecs[0]", DRW_viewport_screenvecs_get(), 2);
+    DRW_shgroup_uniform_float(grp, "gridDistance", &e_data.grid_distance, 1);
     DRW_shgroup_uniform_float_copy(grp, "lineKernel", grid_line_size);
     DRW_shgroup_uniform_float_copy(grp, "meshSize", e_data.grid_mesh_size);
-    DRW_shgroup_uniform_float(grp, "gridOneOverLogSubdiv", &e_data.grid_settings[4], 1);
     DRW_shgroup_uniform_block(grp, "globalsBlock", G_draw.block_ubo);
     DRW_shgroup_uniform_texture_ref(grp, "depthBuffer", &dtxl->depth);
     DRW_shgroup_call(grp, geom, NULL);
@@ -1529,6 +1500,7 @@ static void OBJECT_cache_init(void *vedata)
     DRW_shgroup_uniform_vec3(grp, "planeAxes", e_data.grid_axes, 1);
     DRW_shgroup_uniform_block(grp, "globalsBlock", G_draw.block_ubo);
     DRW_shgroup_uniform_texture_ref(grp, "depthBuffer", &dtxl->depth);
+    DRW_shgroup_uniform_float(grp, "gridSteps", e_data.grid_steps, ARRAY_SIZE(e_data.grid_steps));
     DRW_shgroup_call(grp, geom, NULL);
 
     grp = DRW_shgroup_create(sh_data->grid, psl->grid);
@@ -1541,12 +1513,18 @@ static void OBJECT_cache_init(void *vedata)
 
   /* Camera background images */
   {
-    DRWState state = DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_LESS_EQUAL | DRW_STATE_BLEND_ALPHA;
-    psl->camera_images_back = DRW_pass_create("Camera Images Back", state);
-    psl->camera_images_front = DRW_pass_create("Camera Images Front", state);
+    psl->camera_images_back_alpha_over = DRW_pass_create(
+        "Camera Images Back Over",
+        DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_LESS_EQUAL | DRW_STATE_BLEND_ALPHA_PREMUL);
+    psl->camera_images_back_alpha_under = DRW_pass_create(
+        "Camera Images Back Under",
+        DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_GREATER | DRW_STATE_BLEND_ALPHA_UNDER_PREMUL);
+    psl->camera_images_front_alpha_over = DRW_pass_create(
+        "Camera Images Front Over",
+        DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_LESS_EQUAL | DRW_STATE_BLEND_ALPHA_PREMUL);
   }
 
-  for (int i = 0; i < 2; ++i) {
+  for (int i = 0; i < 2; i++) {
     OBJECT_ShadingGroupList *sgl = (i == 1) ? &stl->g_data->sgl_ghost : &stl->g_data->sgl;
 
     /* Solid bones */
@@ -1569,7 +1547,7 @@ static void OBJECT_cache_init(void *vedata)
     sgl->bone_axes = psl->bone_axes[i] = DRW_pass_create("Bone Axes Pass", state);
   }
 
-  for (int i = 0; i < 2; ++i) {
+  for (int i = 0; i < 2; i++) {
     OBJECT_ShadingGroupList *sgl = (i == 1) ? &stl->g_data->sgl_ghost : &stl->g_data->sgl;
 
     /* Non Meshes Pass (Camera, empties, lights ...) */
@@ -1764,6 +1742,16 @@ static void OBJECT_cache_init(void *vedata)
         sgl->non_meshes, gb->colorWire, draw_ctx->sh_cfg);
     sgl->constraint_lines = buffer_dynlines_dashed_uniform_color(
         sgl->non_meshes, gb->colorGridAxisZ, draw_ctx->sh_cfg);
+
+    {
+      DRWShadingGroup *grp_axes;
+      sgl->origin_xform = buffer_instance_color_axes(
+          sgl->non_meshes, DRW_cache_bone_arrows_get(), &grp_axes, draw_ctx->sh_cfg);
+
+      DRW_shgroup_state_disable(grp_axes, DRW_STATE_DEPTH_LESS_EQUAL);
+      DRW_shgroup_state_enable(grp_axes, DRW_STATE_DEPTH_ALWAYS);
+      DRW_shgroup_state_enable(grp_axes, DRW_STATE_WIRE_SMOOTH);
+    }
 
     /* Force Field Curve Guide End (here because of stipple) */
     /* TODO port to shader stipple */
@@ -1984,9 +1972,10 @@ static void DRW_shgroup_light(OBJECT_ShadingGroupList *sgl, Object *ob, ViewLaye
       }
 
       if (la->mode & LA_SHOW_CONE) {
-
-        DRW_buffer_add_entry(sgl->light_spot_volume_rect, cone_inside, &one, shapemat);
-        DRW_buffer_add_entry(sgl->light_spot_volume_rect_outside, cone_outside, &one, shapemat);
+        if (!DRW_state_is_select()) {
+          DRW_buffer_add_entry(sgl->light_spot_volume_rect, cone_inside, &one, shapemat);
+          DRW_buffer_add_entry(sgl->light_spot_volume_rect_outside, cone_outside, &one, shapemat);
+        }
       }
     }
     else {
@@ -2000,8 +1989,10 @@ static void DRW_shgroup_light(OBJECT_ShadingGroupList *sgl, Object *ob, ViewLaye
       }
 
       if (la->mode & LA_SHOW_CONE) {
-        DRW_buffer_add_entry(sgl->light_spot_volume, cone_inside, &one, shapemat);
-        DRW_buffer_add_entry(sgl->light_spot_volume_outside, cone_outside, &one, shapemat);
+        if (!DRW_state_is_select()) {
+          DRW_buffer_add_entry(sgl->light_spot_volume, cone_inside, &one, shapemat);
+          DRW_buffer_add_entry(sgl->light_spot_volume_outside, cone_outside, &one, shapemat);
+        }
       }
     }
 
@@ -2120,7 +2111,8 @@ static void camera_view3d_stereoscopy_display_extra(OBJECT_ShadingGroupList *sgl
     if (cam->stereo.convergence_mode == CAM_S3D_OFFAXIS) {
       const float shift_x = ((BKE_camera_multiview_shift_x(&scene->r, ob, viewnames[eye]) -
                               cam->shiftx) *
-                             (drawsize * scale[0] * fac));
+                             (drawsize * scale[0] * fac)) *
+                            (cam->stereo.pivot == CAM_S3D_PIVOT_CENTER ? 1.0f : 2.0f);
 
       for (int i = 0; i < 4; i++) {
         cam->runtime.drw_corners[eye][i][0] += shift_x;
@@ -2173,7 +2165,7 @@ static void camera_view3d_stereoscopy_display_extra(OBJECT_ShadingGroupList *sgl
     static float one = 1.0f;
     float plane_mat[4][4], scale_mat[4][4];
     float scale_factor[3] = {1.0f, 1.0f, 1.0f};
-    float color_plane[2][4] = {
+    const float color_plane[2][4] = {
         {0.0f, 0.0f, 0.0f, v3d->stereo3d_convergence_alpha},
         {0.0f, 0.0f, 0.0f, 1.0f},
     };
@@ -2199,7 +2191,7 @@ static void camera_view3d_stereoscopy_display_extra(OBJECT_ShadingGroupList *sgl
   /* Draw convergence volume. */
   if (is_stereo3d_volume && !is_select) {
     static float one = 1.0f;
-    float color_volume[3][4] = {
+    const float color_volume[3][4] = {
         {0.0f, 1.0f, 1.0f, v3d->stereo3d_volume_alpha},
         {1.0f, 0.0f, 0.0f, v3d->stereo3d_volume_alpha},
         {0.0f, 0.0f, 0.0f, 1.0f},
@@ -2325,7 +2317,7 @@ static void camera_view3d_reconstruction(OBJECT_ShadingGroupList *sgl,
           DRW_shgroup_empty_ex(sgl, bundle_mat, &v3d->bundle_size, v3d->bundle_drawtype, color);
         }
 
-        float bundle_color_v4[4] = {
+        const float bundle_color_v4[4] = {
             bundle_color[0],
             bundle_color[1],
             bundle_color[2],
@@ -2714,12 +2706,21 @@ static void DRW_shgroup_volume_extra(OBJECT_ShadingGroupList *sgl,
   DRW_object_wire_theme_get(ob, view_layer, &color);
 
   /* Small cube showing voxel size. */
+  float min[3];
+  madd_v3fl_v3fl_v3fl_v3i(min, sds->p0, sds->cell_size, sds->res_min);
   float voxel_cubemat[4][4] = {{0.0f}};
-  voxel_cubemat[0][0] = 1.0f / (float)sds->res[0];
-  voxel_cubemat[1][1] = 1.0f / (float)sds->res[1];
-  voxel_cubemat[2][2] = 1.0f / (float)sds->res[2];
+  /* scale small cube to voxel size */
+  voxel_cubemat[0][0] = 1.0f / (float)sds->base_res[0];
+  voxel_cubemat[1][1] = 1.0f / (float)sds->base_res[1];
+  voxel_cubemat[2][2] = 1.0f / (float)sds->base_res[2];
   voxel_cubemat[3][0] = voxel_cubemat[3][1] = voxel_cubemat[3][2] = -1.0f;
   voxel_cubemat[3][3] = 1.0f;
+  /* translate small cube to corner */
+  voxel_cubemat[3][0] = min[0];
+  voxel_cubemat[3][1] = min[1];
+  voxel_cubemat[3][2] = min[2];
+  voxel_cubemat[3][3] = 1.0f;
+  /* move small cube into the domain (otherwise its centered on vertex of domain object) */
   translate_m4(voxel_cubemat, 1.0f, 1.0f, 1.0f);
   mul_m4_m4m4(voxel_cubemat, ob->obmat, voxel_cubemat);
 
@@ -2755,6 +2756,9 @@ static void DRW_shgroup_volume_extra(OBJECT_ShadingGroupList *sgl,
   DRW_shgroup_uniform_texture(grp, "velocityZ", sds->tex_velocity_z);
   DRW_shgroup_uniform_float_copy(grp, "displaySize", sds->vector_scale);
   DRW_shgroup_uniform_float_copy(grp, "slicePosition", sds->slice_depth);
+  DRW_shgroup_uniform_vec3_copy(grp, "cellSize", sds->cell_size);
+  DRW_shgroup_uniform_vec3_copy(grp, "domainOriginOffset", sds->p0);
+  DRW_shgroup_uniform_ivec3_copy(grp, "adaptiveCellOffset", sds->res_min);
   DRW_shgroup_uniform_int_copy(grp, "sliceAxis", slice_axis);
   DRW_shgroup_call_procedural_lines(grp, ob, line_count);
 
@@ -2785,15 +2789,6 @@ static void DRW_shgroup_speaker(OBJECT_ShadingGroupList *sgl, Object *ob, ViewLa
   DRW_buffer_add_entry(sgl->speaker, color, &one, ob->obmat);
 }
 
-typedef struct OBJECT_LightProbeEngineData {
-  DrawData dd;
-
-  float increment_x[3];
-  float increment_y[3];
-  float increment_z[3];
-  float corner[3];
-} OBJECT_LightProbeEngineData;
-
 static void DRW_shgroup_lightprobe(OBJECT_Shaders *sh_data,
                                    OBJECT_StorageList *stl,
                                    OBJECT_PassList *psl,
@@ -2810,13 +2805,10 @@ static void DRW_shgroup_lightprobe(OBJECT_Shaders *sh_data,
   OBJECT_ShadingGroupList *sgl = (ob->dtx & OB_DRAWXRAY) ? &stl->g_data->sgl_ghost :
                                                            &stl->g_data->sgl;
 
-  OBJECT_LightProbeEngineData *prb_data = (OBJECT_LightProbeEngineData *)DRW_drawdata_ensure(
-      &ob->id, &draw_engine_object_type, sizeof(OBJECT_LightProbeEngineData), NULL, NULL);
-
   if (DRW_state_is_select() || do_outlines) {
-    int *call_id = shgroup_theme_id_to_probe_outline_counter(stl, theme_id, ob->base_flag);
-
     if (prb->type == LIGHTPROBE_TYPE_GRID) {
+      float corner[3];
+      float increment[3][3];
       /* Update transforms */
       float cell_dim[3], half_cell_dim[3];
       cell_dim[0] = 2.0f / (float)(prb->grid_resolution_x);
@@ -2826,65 +2818,41 @@ static void DRW_shgroup_lightprobe(OBJECT_Shaders *sh_data,
       mul_v3_v3fl(half_cell_dim, cell_dim, 0.5f);
 
       /* First cell. */
-      copy_v3_fl(prb_data->corner, -1.0f);
-      add_v3_v3(prb_data->corner, half_cell_dim);
-      mul_m4_v3(ob->obmat, prb_data->corner);
+      copy_v3_fl(corner, -1.0f);
+      add_v3_v3(corner, half_cell_dim);
+      mul_m4_v3(ob->obmat, corner);
 
       /* Opposite neighbor cell. */
-      copy_v3_fl3(prb_data->increment_x, cell_dim[0], 0.0f, 0.0f);
-      add_v3_v3(prb_data->increment_x, half_cell_dim);
-      add_v3_fl(prb_data->increment_x, -1.0f);
-      mul_m4_v3(ob->obmat, prb_data->increment_x);
-      sub_v3_v3(prb_data->increment_x, prb_data->corner);
+      copy_v3_fl3(increment[0], cell_dim[0], 0.0f, 0.0f);
+      copy_v3_fl3(increment[1], 0.0f, cell_dim[1], 0.0f);
+      copy_v3_fl3(increment[2], 0.0f, 0.0f, cell_dim[2]);
 
-      copy_v3_fl3(prb_data->increment_y, 0.0f, cell_dim[1], 0.0f);
-      add_v3_v3(prb_data->increment_y, half_cell_dim);
-      add_v3_fl(prb_data->increment_y, -1.0f);
-      mul_m4_v3(ob->obmat, prb_data->increment_y);
-      sub_v3_v3(prb_data->increment_y, prb_data->corner);
+      for (int i = 0; i < 3; i++) {
+        add_v3_v3(increment[i], half_cell_dim);
+        add_v3_fl(increment[i], -1.0f);
+        mul_m4_v3(ob->obmat, increment[i]);
+        sub_v3_v3(increment[i], corner);
+      }
 
-      copy_v3_fl3(prb_data->increment_z, 0.0f, 0.0f, cell_dim[2]);
-      add_v3_v3(prb_data->increment_z, half_cell_dim);
-      add_v3_fl(prb_data->increment_z, -1.0f);
-      mul_m4_v3(ob->obmat, prb_data->increment_z);
-      sub_v3_v3(prb_data->increment_z, prb_data->corner);
-
+      int outline_id = shgroup_theme_id_to_outline_id(theme_id, ob->base_flag);
       uint cell_count = prb->grid_resolution_x * prb->grid_resolution_y * prb->grid_resolution_z;
       DRWShadingGroup *grp = DRW_shgroup_create(sh_data->lightprobe_grid, psl->lightprobes);
       DRW_shgroup_uniform_block(grp, "globalsBlock", G_draw.block_ubo);
-      DRW_shgroup_uniform_int_copy(grp, "call_id", *call_id);
-      DRW_shgroup_uniform_int(grp, "baseId", call_id, 1); /* that's correct */
-      DRW_shgroup_uniform_vec3(grp, "corner", prb_data->corner, 1);
-      DRW_shgroup_uniform_vec3(grp, "increment_x", prb_data->increment_x, 1);
-      DRW_shgroup_uniform_vec3(grp, "increment_y", prb_data->increment_y, 1);
-      DRW_shgroup_uniform_vec3(grp, "increment_z", prb_data->increment_z, 1);
-      DRW_shgroup_uniform_ivec3(grp, "grid_resolution", &prb->grid_resolution_x, 1);
+      DRW_shgroup_uniform_int_copy(grp, "outlineId", outline_id);
+      DRW_shgroup_uniform_vec3_copy(grp, "corner", corner);
+      DRW_shgroup_uniform_vec3_copy(grp, "increment_x", increment[0]);
+      DRW_shgroup_uniform_vec3_copy(grp, "increment_y", increment[1]);
+      DRW_shgroup_uniform_vec3_copy(grp, "increment_z", increment[2]);
+      DRW_shgroup_uniform_ivec3_copy(grp, "grid_resolution", &prb->grid_resolution_x);
       if (sh_cfg == GPU_SHADER_CFG_CLIPPED) {
         DRW_shgroup_state_enable(grp, DRW_STATE_CLIP_PLANES);
       }
       DRW_shgroup_call_procedural_points(grp, NULL, cell_count);
-      *call_id += 1;
     }
-    else if (prb->type == LIGHTPROBE_TYPE_CUBE) {
-      float draw_size = 1.0f;
-      float probe_cube_mat[4][4];
-      // prb_data->draw_size = prb->data_draw_size * 0.1f;
-      // unit_m4(prb_data->probe_cube_mat);
-      // copy_v3_v3(prb_data->probe_cube_mat[3], ob->obmat[3]);
-
-      DRWCallBuffer *buf = buffer_theme_id_to_probe_cube_outline_shgrp(
+    else if (prb->type == LIGHTPROBE_TYPE_PLANAR && (prb->flag & LIGHTPROBE_FLAG_SHOW_DATA)) {
+      DRWShadingGroup *grp = shgroup_theme_id_to_probe_outline_or_null(
           stl, theme_id, ob->base_flag);
-      /* TODO remove or change the drawing of the cube probes. Theses line draws nothing on purpose
-       * to keep the call ids correct. */
-      zero_m4(probe_cube_mat);
-      DRW_buffer_add_entry(buf, call_id, &draw_size, probe_cube_mat);
-      *call_id += 1;
-    }
-    else if (prb->flag & LIGHTPROBE_FLAG_SHOW_DATA) {
-      float draw_size = 1.0f;
-      DRWCallBuffer *buf = buffer_theme_id_to_probe_planar_outline_shgrp(stl, theme_id);
-      DRW_buffer_add_entry(buf, call_id, &draw_size, ob->obmat);
-      *call_id += 1;
+      DRW_shgroup_call_no_cull(grp, DRW_cache_quad_get(), ob);
     }
   }
 
@@ -3001,7 +2969,7 @@ static void DRW_shgroup_lightprobe(OBJECT_Shaders *sh_data,
            {0.0, 0.0, 0.0, 1.0}},
       };
 
-      for (int i = 0; i < 6; ++i) {
+      for (int i = 0; i < 6; i++) {
         float clipmat[4][4];
         normalize_m4_m4(clipmat, ob->obmat);
         mul_m4_m4m4(clipmat, clipmat, cubefacemat[i]);
@@ -3157,13 +3125,11 @@ static void DRW_shgroup_texture_space(OBJECT_ShadingGroupList *sgl, Object *ob, 
 
   switch (GS(ob_data->name)) {
     case ID_ME:
-      BKE_mesh_texspace_get_reference((Mesh *)ob_data, NULL, &texcoloc, NULL, &texcosize);
+      BKE_mesh_texspace_get_reference((Mesh *)ob_data, NULL, &texcoloc, &texcosize);
       break;
     case ID_CU: {
       Curve *cu = (Curve *)ob_data;
-      if (cu->bb == NULL || (cu->bb->flag & BOUNDBOX_DIRTY)) {
-        BKE_curve_texspace_calc(cu);
-      }
+      BKE_curve_texspace_ensure(cu);
       texcoloc = cu->loc;
       texcosize = cu->size;
       break;
@@ -3195,7 +3161,8 @@ static void DRW_shgroup_texture_space(OBJECT_ShadingGroupList *sgl, Object *ob, 
   DRW_buffer_add_entry(sgl->texspace, color, &one, tmp);
 }
 
-static void DRW_shgroup_bounds(OBJECT_ShadingGroupList *sgl, Object *ob, int theme_id)
+static void DRW_shgroup_bounds(
+    OBJECT_ShadingGroupList *sgl, Object *ob, int theme_id, char boundtype, bool around_origin)
 {
   float color[4], center[3], size[3], tmp[4][4], final_mat[4][4], one = 1.0f;
   BoundBox bb_local;
@@ -3221,10 +3188,16 @@ static void DRW_shgroup_bounds(OBJECT_ShadingGroupList *sgl, Object *ob, int the
   }
 
   UI_GetThemeColor4fv(theme_id, color);
-  BKE_boundbox_calc_center_aabb(bb, center);
   BKE_boundbox_calc_size_aabb(bb, size);
 
-  switch (ob->boundtype) {
+  if (around_origin) {
+    zero_v3(center);
+  }
+  else {
+    BKE_boundbox_calc_center_aabb(bb, center);
+  }
+
+  switch (boundtype) {
     case OB_BOUND_BOX:
       size_to_mat4(tmp, size);
       copy_v3_v3(tmp[3], center);
@@ -3273,6 +3246,27 @@ static void DRW_shgroup_bounds(OBJECT_ShadingGroupList *sgl, Object *ob, int the
       tmp[2][2] = max_ff(0.0f, size[2] * 2.0f - size[0] * 2.0f);
       mul_m4_m4m4(final_mat, ob->obmat, tmp);
       DRW_buffer_add_entry(sgl->empties.capsule_body, color, &one, final_mat);
+      break;
+  }
+}
+
+static void DRW_shgroup_collision(OBJECT_ShadingGroupList *sgl, Object *ob, int theme_id)
+{
+  switch (ob->rigidbody_object->shape) {
+    case RB_SHAPE_BOX:
+      DRW_shgroup_bounds(sgl, ob, theme_id, OB_BOUND_BOX, true);
+      break;
+    case RB_SHAPE_SPHERE:
+      DRW_shgroup_bounds(sgl, ob, theme_id, OB_BOUND_SPHERE, true);
+      break;
+    case RB_SHAPE_CONE:
+      DRW_shgroup_bounds(sgl, ob, theme_id, OB_BOUND_CONE, true);
+      break;
+    case RB_SHAPE_CYLINDER:
+      DRW_shgroup_bounds(sgl, ob, theme_id, OB_BOUND_CYLINDER, true);
+      break;
+    case RB_SHAPE_CAPSULE:
+      DRW_shgroup_bounds(sgl, ob, theme_id, OB_BOUND_CAPSULE, true);
       break;
   }
 }
@@ -3625,6 +3619,10 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
         if (hide_object_extra) {
           break;
         }
+        if ((ob->base_flag & BASE_FROM_DUPLI) && (ob->transflag & OB_DUPLICOLLECTION) &&
+            ob->instance_collection) {
+          break;
+        }
         DRW_shgroup_empty(sh_data, sgl, ob, view_layer, rv3d, draw_ctx->sh_cfg);
         break;
       case OB_SPEAKER:
@@ -3702,7 +3700,20 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
     if (theme_id == TH_UNDEFINED) {
       theme_id = DRW_object_wire_theme_get(ob, view_layer, NULL);
     }
-    DRW_shgroup_bounds(sgl, ob, theme_id);
+    DRW_shgroup_bounds(sgl, ob, theme_id, ob->boundtype, false);
+  }
+
+  /* Helpers for when we're transforming origins. */
+  if (draw_ctx->object_mode == OB_MODE_OBJECT) {
+    if (scene->toolsettings->transform_flag & SCE_XFORM_DATA_ORIGIN) {
+      if (ob->base_flag & BASE_SELECTED) {
+        if (!DRW_state_is_select()) {
+          const float color[4] = {0.75, 0.75, 0.75, 0.5};
+          float axes_size = 1.0f;
+          DRW_buffer_add_entry(sgl->origin_xform, color, &axes_size, ob->obmat);
+        }
+      }
+    }
   }
 
   /* don't show object extras in set's */
@@ -3715,7 +3726,7 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
       DRW_shgroup_relationship_lines(sgl, draw_ctx->depsgraph, scene, ob);
     }
 
-    const bool draw_extra = (ob->dtx != 0);
+    const bool draw_extra = ob->dtx & (OB_DRAWNAME | OB_TEXSPACE | OB_DRAWBOUNDOX);
     if (draw_extra && (theme_id == TH_UNDEFINED)) {
       theme_id = DRW_object_wire_theme_get(ob, view_layer, NULL);
     }
@@ -3748,7 +3759,7 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
     /* Don't draw bounding box again if draw type is bound box. */
     if ((ob->dtx & OB_DRAWBOUNDOX) && (ob->dt != OB_BOUNDBOX) &&
         !ELEM(ob->type, OB_LAMP, OB_CAMERA, OB_EMPTY, OB_SPEAKER, OB_LIGHTPROBE)) {
-      DRW_shgroup_bounds(sgl, ob, theme_id);
+      DRW_shgroup_bounds(sgl, ob, theme_id, ob->boundtype, false);
     }
 
     if (ob->dtx & OB_AXIS) {
@@ -3756,6 +3767,10 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
       DRW_object_wire_theme_get(ob, view_layer, &color);
 
       DRW_buffer_add_entry(sgl->empties.empty_axes, color, &axes_size, ob->obmat);
+    }
+
+    if (ob->rigidbody_object) {
+      DRW_shgroup_collision(sgl, ob, theme_id);
     }
 
     if ((md = modifiers_findByType(ob, eModifierType_Smoke)) &&
@@ -3788,54 +3803,32 @@ static void OBJECT_draw_scene(void *vedata)
   DefaultFramebufferList *dfbl = DRW_viewport_framebuffer_list_get();
   DefaultTextureList *dtxl = DRW_viewport_texture_list_get();
 
-  int id_len_select = g_data->id_ofs_select;
-  int id_len_select_dupli = g_data->id_ofs_select_dupli;
-  int id_len_active = g_data->id_ofs_active;
-  int id_len_transform = g_data->id_ofs_transform;
-
-  int id_len_prb_select = g_data->id_ofs_prb_select;
-  int id_len_prb_select_dupli = g_data->id_ofs_prb_select_dupli;
-  int id_len_prb_active = g_data->id_ofs_prb_active;
-  int id_len_prb_transform = g_data->id_ofs_prb_transform;
-
-  int outline_calls = id_len_select + id_len_select_dupli + id_len_active + id_len_transform;
-  outline_calls += id_len_prb_select + id_len_prb_select_dupli + id_len_prb_active +
-                   id_len_prb_transform;
+  int do_outlines = !DRW_pass_is_empty(psl->outlines) || !DRW_pass_is_empty(psl->lightprobes);
 
   float clearcol[4] = {0.0f, 0.0f, 0.0f, 0.0f};
 
-  DRW_draw_pass(psl->camera_images_back);
+  DRW_draw_pass(psl->camera_images_back_alpha_under);
+  DRW_draw_pass(psl->camera_images_back_alpha_over);
 
   /* Don't draw Transparent passes in MSAA buffer. */
   //  DRW_draw_pass(psl->bone_envelope);  /* Never drawn in Object mode currently. */
-  DRW_draw_pass(stl->g_data->sgl.transp_shapes);
+  DRW_draw_pass(g_data->sgl.transp_shapes);
 
   MULTISAMPLE_SYNC_ENABLE(dfbl, dtxl);
 
-  DRW_draw_pass(stl->g_data->sgl.bone_solid);
-  DRW_draw_pass(stl->g_data->sgl.bone_wire);
-  DRW_draw_pass(stl->g_data->sgl.bone_outline);
-  DRW_draw_pass(stl->g_data->sgl.non_meshes);
+  DRW_draw_pass(g_data->sgl.bone_solid);
+  DRW_draw_pass(g_data->sgl.bone_wire);
+  DRW_draw_pass(g_data->sgl.bone_outline);
+  DRW_draw_pass(g_data->sgl.non_meshes);
   DRW_draw_pass(psl->particle);
-  DRW_draw_pass(stl->g_data->sgl.bone_axes);
+  DRW_draw_pass(g_data->sgl.bone_axes);
 
   MULTISAMPLE_SYNC_DISABLE(dfbl, dtxl);
 
-  DRW_draw_pass(stl->g_data->sgl.image_empties);
+  DRW_draw_pass(g_data->sgl.image_empties);
 
-  if (DRW_state_is_fbo() && outline_calls > 0) {
+  if (DRW_state_is_fbo() && do_outlines) {
     DRW_stats_group_start("Outlines");
-
-    g_data->id_ofs_active = 1;
-    g_data->id_ofs_select = g_data->id_ofs_active + id_len_active + id_len_prb_active + 1;
-    g_data->id_ofs_select_dupli = g_data->id_ofs_select + id_len_select + id_len_prb_select + 1;
-    g_data->id_ofs_transform = g_data->id_ofs_select_dupli + id_len_select_dupli +
-                               id_len_prb_select_dupli + 1;
-
-    g_data->id_ofs_prb_active = g_data->id_ofs_active + id_len_active;
-    g_data->id_ofs_prb_select = g_data->id_ofs_select + id_len_select;
-    g_data->id_ofs_prb_select_dupli = g_data->id_ofs_select_dupli + id_len_select_dupli;
-    g_data->id_ofs_prb_transform = g_data->id_ofs_transform + id_len_transform;
 
     /* Render filled polygon on a separate framebuffer */
     GPU_framebuffer_bind(fbl->outlines_fb);
@@ -3871,7 +3864,7 @@ static void OBJECT_draw_scene(void *vedata)
     }
 
     /* Combine with scene buffer last */
-    if (outline_calls > 0) {
+    if (do_outlines) {
       DRW_draw_pass(psl->outlines_resolve);
     }
   }
@@ -3923,7 +3916,7 @@ static void OBJECT_draw_scene(void *vedata)
 
   batch_camera_path_free(&stl->g_data->sgl_ghost.camera_path);
 
-  DRW_draw_pass(psl->camera_images_front);
+  DRW_draw_pass(psl->camera_images_front_alpha_over);
   camera_background_images_free_textures();
 
   DRW_draw_pass(psl->ob_center);

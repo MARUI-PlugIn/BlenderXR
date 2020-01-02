@@ -35,11 +35,9 @@
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_query.h"
 
-#include "GPU_draw.h"
 #include "GPU_shader.h"
 #include "GPU_immediate.h"
 #include "GPU_batch.h"
-#include "GPU_matrix.h"
 #include "GPU_state.h"
 
 #include "ED_mesh.h"
@@ -96,7 +94,7 @@ void imm_drawcircball(const float cent[3], float rad, const float tmat[4][4], un
   circball_array_fill(verts, cent, rad, tmat);
 
   immBegin(GPU_PRIM_LINE_LOOP, CIRCLE_RESOL);
-  for (int i = 0; i < CIRCLE_RESOL; ++i) {
+  for (int i = 0; i < CIRCLE_RESOL; i++) {
     immVertex3fv(pos, verts[i]);
   }
   immEnd();
@@ -145,7 +143,7 @@ void ED_draw_object_facemap(Depsgraph *depsgraph,
 
     facemap_data = CustomData_get_layer(&me->pdata, CD_FACEMAP);
 
-    /* use gawain immediate mode fore now */
+    /* Make a batch and free it each time for now. */
     const int looptris_len = poly_to_tri_count(mpoly_len, mloop_len);
     const int vbo_len_capacity = looptris_len * 3;
     int vbo_len_used = 0;

@@ -169,8 +169,8 @@ class GreasePencilStrokeEditPanel:
         layout.label(text="Edit:")
         row = layout.row(align=True)
         row.operator("gpencil.copy", text="Copy")
-        row.operator("gpencil.paste", text="Paste").type = 'COPY'
-        row.operator("gpencil.paste", text="Paste & Merge").type = 'MERGE'
+        row.operator("gpencil.paste", text="Paste").type = 'ACTIVE'
+        row.operator("gpencil.paste", text="Paste by Layer").type = 'LAYER'
 
         col = layout.column(align=True)
         col.operator("gpencil.delete")
@@ -311,7 +311,7 @@ class GreasePencilAppearancePanel:
             layout.prop(gp_settings, "use_cursor", text="Show Brush")
 
             if brush.gpencil_tool == 'DRAW':
-                layout.prop(gp_settings, "show_lasso", text="Show fill color while drawing")
+                layout.prop(gp_settings, "show_lasso", text="Show Fill Color While Drawing")
 
             if brush.gpencil_tool == 'FILL':
                 layout.prop(brush, "cursor_color_add", text="Color")
@@ -507,8 +507,9 @@ class GPENCIL_MT_pie_tools_more(Menu):
         # gpd = context.gpencil_data
 
         col = pie.column(align=True)
-        col.operator("gpencil.copy", icon='COPYDOWN', text="Copy")
-        col.operator("gpencil.paste", icon='PASTEDOWN', text="Paste")
+        col.operator("gpencil.copy", text="Copy", icon='COPYDOWN')
+        col.operator("gpencil.paste", text="Paste", icon='PASTEDOWN').type = 'ACTIVE'
+        col.operator("gpencil.paste", text="Paste by Layer").type = 'LAYER'
 
         col = pie.column(align=True)
         col.operator("gpencil.select_more", icon='ADD')
@@ -590,40 +591,65 @@ class GPENCIL_MT_snap(Menu):
         layout.operator("view3d.snap_cursor_to_grid", text="Cursor to Grid")
 
 
-class GPENCIL_MT_separate(Menu):
-    bl_label = "Separate"
+class GPENCIL_MT_move_to_layer(Menu):
+    bl_label = "Move to Layer"
 
-    def draw(self, _context):
+    def draw(self, context):
         layout = self.layout
-        layout.operator("gpencil.stroke_separate", text="Selected Points").mode = 'POINT'
-        layout.operator("gpencil.stroke_separate", text="Selected Strokes").mode = 'STROKE'
-        layout.operator("gpencil.stroke_separate", text="Active Layer").mode = 'LAYER'
+        gpd = context.gpencil_data
+        if gpd:
+            gpl_active = context.active_gpencil_layer
+            tot_layers = len(gpd.layers)
+            i = tot_layers - 1
+            while(i >= 0):
+                gpl = gpd.layers[i]
+                if gpl.info == gpl_active.info:
+                    icon = 'GREASEPENCIL'
+                else:
+                    icon = 'NONE'
+                layout.operator("gpencil.move_to_layer", text=gpl.info, icon=icon).layer = i
+                i -= 1
+
+            layout.separator()
+
+        layout.operator("gpencil.layer_add", text="New Layer", icon='ADD')
 
 
 class GPENCIL_MT_gpencil_draw_delete(Menu):
-    bl_label = "GPencil Draw Delete"
+    bl_label = "Delete"
 
     def draw(self, _context):
         layout = self.layout
 
         layout.operator_context = 'INVOKE_REGION_WIN'
 
-        layout.operator("gpencil.active_frames_delete_all", text="Delete Frame")
+        layout.operator("gpencil.delete", text="Delete Active Keyframe (Active Layer)").type = 'FRAME'
+        layout.operator("gpencil.active_frames_delete_all", text="Delete Active Keyframes (All Layers)")
 
 
 class GPENCIL_MT_cleanup(Menu):
     bl_label = "Clean Up"
 
     def draw(self, _context):
+
+        ob = _context.active_object
+
         layout = self.layout
-        layout.operator("gpencil.frame_clean_loose", text="Loose Points")
+
+        layout.operator("gpencil.frame_clean_loose", text="Delete Loose Points")
+
+        if ob.mode != 'PAINT_GPENCIL':
+            layout.operator("gpencil.stroke_merge_by_distance", text="Merge by Distance")
+
         layout.separator()
 
         layout.operator("gpencil.frame_clean_fill", text="Boundary Strokes").mode = 'ACTIVE'
         layout.operator("gpencil.frame_clean_fill", text="Boundary Strokes all Frames").mode = 'ALL'
-        layout.separator()
 
-        layout.operator("gpencil.reproject")
+        if ob.mode != 'PAINT_GPENCIL':
+            layout.separator()
+
+            layout.operator("gpencil.reproject")
 
 
 class GPENCIL_UL_annotation_layer(UIList):
@@ -866,7 +892,8 @@ class GreasePencilMaterialsPanel:
             if is_view3d and brush is not None:
                 gp_settings = brush.gpencil_settings
                 if gp_settings.use_material_pin is False:
-                    ma = ob.material_slots[ob.active_material_index].material
+                    if ob.active_material_index >= 0:
+                        ma = ob.material_slots[ob.active_material_index].material
                 else:
                     ma = gp_settings.material
 
@@ -924,6 +951,34 @@ class GPENCIL_UL_layer(UIList):
             )
 
 
+class GreasePencilSimplifyPanel:
+
+    def draw_header(self, context):
+        rd = context.scene.render
+        self.layout.prop(rd, "simplify_gpencil", text="")
+
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+
+        rd = context.scene.render
+
+        layout.active = rd.simplify_gpencil
+
+        col = layout.column()
+        col.prop(rd, "simplify_gpencil_onplay", text="Playback Only")
+        col.prop(rd, "simplify_gpencil_view_modifier", text="Modifiers")
+        col.prop(rd, "simplify_gpencil_shader_fx", text="ShaderFX")
+        col.prop(rd, "simplify_gpencil_blend", text="Layers Blending")
+        col.prop(rd, "simplify_gpencil_tint", text="Layers Tinting")
+
+        col.prop(rd, "simplify_gpencil_view_fill")
+        sub = col.column()
+        sub.active = rd.simplify_gpencil_view_fill
+        sub.prop(rd, "simplify_gpencil_remove_lines", text="Lines")
+
+
 classes = (
     GPENCIL_MT_pie_tool_palette,
     GPENCIL_MT_pie_settings_palette,
@@ -931,8 +986,8 @@ classes = (
     GPENCIL_MT_pie_sculpt,
 
     GPENCIL_MT_snap,
-    GPENCIL_MT_separate,
     GPENCIL_MT_cleanup,
+    GPENCIL_MT_move_to_layer,
 
     GPENCIL_MT_gpencil_draw_delete,
 

@@ -128,6 +128,8 @@ typedef enum eMaterialGPencilStyle_Flag {
   GP_STYLE_FILL_SHOW = (1 << 9),
   /* mix stroke texture */
   GP_STYLE_STROKE_TEX_MIX = (1 << 11),
+  /* disable stencil clipping (overlap) */
+  GP_STYLE_DISABLE_STENCIL = (1 << 12),
 } eMaterialGPencilStyle_Flag;
 
 typedef enum eMaterialGPencilStyle_Mode {
@@ -304,12 +306,12 @@ typedef struct Material {
 
 /* blend_method */
 enum {
-  MA_BM_SOLID,
-  MA_BM_ADD,
-  MA_BM_MULTIPLY,
-  MA_BM_CLIP,
-  MA_BM_HASHED,
-  MA_BM_BLEND,
+  MA_BM_SOLID = 0,
+  // MA_BM_ADD = 1, /* deprecated */
+  // MA_BM_MULTIPLY = 2,  /* deprecated */
+  MA_BM_CLIP = 3,
+  MA_BM_HASHED = 4,
+  MA_BM_BLEND = 5,
 };
 
 /* blend_flag */

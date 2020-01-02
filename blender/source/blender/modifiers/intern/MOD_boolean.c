@@ -71,7 +71,12 @@ static bool isDisabled(const struct Scene *UNUSED(scene),
 {
   BooleanModifierData *bmd = (BooleanModifierData *)md;
 
-  return !bmd->object;
+  /* The object type check is only needed here in case we have a placeholder
+   * object assigned (because the library containing the mesh is missing).
+   *
+   * In other cases it should be impossible to have a type mismatch.
+   */
+  return !bmd->object || bmd->object->type != OB_MESH;
 }
 
 static void foreachObjectLink(ModifierData *md, Object *ob, ObjectWalkFunc walk, void *userData)
@@ -262,8 +267,9 @@ static Mesh *applyModifier(ModifierData *md, const ModifierEvalContext *ctx, Mes
             BM_ITER_MESH (efa, &iter, bm, BM_FACES_OF_MESH) {
               mul_transposed_m3_v3(nmat, efa->no);
               normalize_v3(efa->no);
-              BM_elem_flag_enable(
-                  efa, BM_FACE_TAG); /* temp tag to test which side split faces are from */
+
+              /* Temp tag to test which side split faces are from. */
+              BM_elem_flag_enable(efa, BM_FACE_TAG);
 
               /* remap material */
               if (LIKELY(efa->mat_nr < ob_src_totcol)) {
@@ -310,7 +316,7 @@ static Mesh *applyModifier(ModifierData *md, const ModifierEvalContext *ctx, Mes
         MEM_freeN(looptris);
       }
 
-      result = BKE_mesh_from_bmesh_for_eval_nomain(bm, NULL);
+      result = BKE_mesh_from_bmesh_for_eval_nomain(bm, NULL, mesh);
 
       BM_mesh_free(bm);
 

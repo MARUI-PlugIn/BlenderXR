@@ -236,9 +236,9 @@ void action_group_colors_sync(bActionGroup *grp, const bActionGroup *ref_grp)
        */
       else if (grp->cs.solid[0] == 0) {
         /* define for setting colors in theme below */
-        rgba_char_args_set(grp->cs.solid, 0xff, 0x00, 0x00, 255);
-        rgba_char_args_set(grp->cs.select, 0x81, 0xe6, 0x14, 255);
-        rgba_char_args_set(grp->cs.active, 0x18, 0xb6, 0xe0, 255);
+        rgba_uchar_args_set(grp->cs.solid, 0xff, 0x00, 0x00, 255);
+        rgba_uchar_args_set(grp->cs.select, 0x81, 0xe6, 0x14, 255);
+        rgba_uchar_args_set(grp->cs.active, 0x18, 0xb6, 0xe0, 255);
       }
     }
   }
@@ -1420,9 +1420,7 @@ short action_get_item_transforms(bAction *act, Object *ob, bPoseChannel *pchan, 
 
       if ((curves) || (flags & ACT_TRANS_PROP) == 0) {
         /* custom properties only */
-        pPtr = strstr(
-            bPtr,
-            "[\""); /* extra '"' comment here to keep my texteditor functionlist working :) */
+        pPtr = strstr(bPtr, "[\"");
         if (pPtr) {
           flags |= ACT_TRANS_PROP;
 
@@ -1474,7 +1472,7 @@ void BKE_pose_rest(bPose *pose)
   }
 }
 
-void BKE_pose_copyesult_pchan_result(bPoseChannel *pchanto, const bPoseChannel *pchanfrom)
+void BKE_pose_copy_pchan_result(bPoseChannel *pchanto, const bPoseChannel *pchanfrom)
 {
   copy_m4_m4(pchanto->pose_mat, pchanfrom->pose_mat);
   copy_m4_m4(pchanto->chan_mat, pchanfrom->chan_mat);
@@ -1525,7 +1523,7 @@ bool BKE_pose_copy_result(bPose *to, bPose *from)
   for (pchanfrom = from->chanbase.first; pchanfrom; pchanfrom = pchanfrom->next) {
     pchanto = BKE_pose_channel_find_name(to, pchanfrom->name);
     if (pchanto != NULL) {
-      BKE_pose_copyesult_pchan_result(pchanto, pchanfrom);
+      BKE_pose_copy_pchan_result(pchanto, pchanfrom);
     }
   }
   return true;
@@ -1612,6 +1610,6 @@ void what_does_obaction(
     adt.action = act;
 
     /* execute effects of Action on to workob (or it's PoseChannels) */
-    BKE_animsys_evaluate_animdata(NULL, NULL, &workob->id, &adt, cframe, ADT_RECALC_ANIM);
+    BKE_animsys_evaluate_animdata(NULL, &workob->id, &adt, cframe, ADT_RECALC_ANIM, false);
   }
 }

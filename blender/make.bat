@@ -26,18 +26,13 @@ if "%SHOW_HELP%" == "1" (
 	goto EOF
 )
 
-if "%BUILD_UPDATE%" == "1" (
-	call "%BLENDER_DIR%\build_files\windows\update_sources.cmd"
-	goto EOF
-)
-
-
 if "%FORMAT%" == "1" (
 	call "%BLENDER_DIR%\build_files\windows\format.cmd"
 	goto EOF
 )
 
 call "%BLENDER_DIR%\build_files\windows\detect_architecture.cmd"
+if errorlevel 1 goto EOF
 
 if "%BUILD_VS_YEAR%" == "" (
 	call "%BLENDER_DIR%\build_files\windows\autodetect_msvc.cmd"
@@ -53,12 +48,25 @@ if "%BUILD_VS_YEAR%" == "" (
 	)
 )
 
+if "%BUILD_UPDATE%" == "1" (
+	call "%BLENDER_DIR%\build_files\windows\check_libraries.cmd"
+	if errorlevel 1 goto EOF
+
+	call "%BLENDER_DIR%\build_files\windows\update_sources.cmd"
+	goto EOF
+)
+
 call "%BLENDER_DIR%\build_files\windows\set_build_dir.cmd"
 
 echo Building blender with VS%BUILD_VS_YEAR% for %BUILD_ARCH% in %BUILD_DIR%
 
 call "%BLENDER_DIR%\build_files\windows\check_libraries.cmd"
 if errorlevel 1 goto EOF
+
+if "%TEST%" == "1" (
+	call "%BLENDER_DIR%\build_files\windows\test.cmd"
+	goto EOF
+)
 
 call "%BLENDER_DIR%\build_files\windows\check_submodules.cmd"
 if errorlevel 1 goto EOF

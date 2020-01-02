@@ -1,8 +1,9 @@
+
 msgid ""
 msgstr ""
-"Project-Id-Version: Blender 2.80 (sub 75) (b'8e1516b7bcca')\n"
+"Project-Id-Version: Blender 2.81 (sub 16) (b'99640d062234')\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2019-07-29 00:00:00\n"
+"POT-Creation-Date: 2019-11-20 13:23:12\n"
 "PO-Revision-Date: 2019-06-01 18:12+0700\n"
 "Last-Translator: gongpha <gongpha@gmail.com>\n"
 "Language-Team: Thai Translation Team <gongpha@gmail.com>\n"
@@ -441,8 +442,16 @@ msgid "Head"
 msgstr "หัว"
 
 
+msgid "Full"
+msgstr "เต็ม"
+
+
 msgid "Layers"
 msgstr "ชั้น"
+
+
+msgid "Length"
+msgstr "ความยาว"
 
 
 msgid "Parent"
@@ -647,6 +656,10 @@ msgstr "กลับค่า Y"
 
 msgid "Invert Z"
 msgstr "กลับค่า Z"
+
+
+msgid "Mix Mode"
+msgstr "โหมดผสม"
 
 
 msgid "Power"
@@ -860,6 +873,10 @@ msgid "Workspace"
 msgstr "พื้นที่ใช้งาน"
 
 
+msgid "Rotation Mode"
+msgstr "โหมดหมุน"
+
+
 msgid "Replace Color"
 msgstr "แทนที่สี"
 
@@ -980,10 +997,6 @@ msgid "Advanced Options"
 msgstr "การตั้งค่าขั้นสูง"
 
 
-msgid "Samples"
-msgstr "ตัวอย่าง"
-
-
 msgid "Custom"
 msgstr "กำหนดเอง"
 
@@ -1044,10 +1057,6 @@ msgid "Vertex Group"
 msgstr "กลุ่มจุดยอด"
 
 
-msgid "Length"
-msgstr "ความยาว"
-
-
 msgctxt "Curve"
 msgid "Curve"
 msgstr "เส้นโค้ง"
@@ -1095,6 +1104,10 @@ msgid "Fixed"
 msgstr "คงที่"
 
 
+msgid "Merge"
+msgstr "ผสาน"
+
+
 msgid "Simple"
 msgstr "ง่าย ๆ"
 
@@ -1135,12 +1148,24 @@ msgid "Add Color"
 msgstr "เพิ่มสี"
 
 
+msgid "Root"
+msgstr "ฐาน"
+
+
+msgid "Sharp"
+msgstr "แหลม"
+
+
 msgid "Repeat"
 msgstr "ทำซ้ำ"
 
 
 msgid "Sculpt Tool"
 msgstr "เครื่องแกะสลัก"
+
+
+msgid "Pose"
+msgstr "ท่าทาง"
 
 
 msgid "Rotate"
@@ -1177,10 +1202,6 @@ msgstr "ส่วน"
 
 msgid "Dimensions"
 msgstr "มิติ"
-
-
-msgid "Full"
-msgstr "เต็ม"
 
 
 msgid "Resolution U"
@@ -1323,6 +1344,10 @@ msgstr "พื้นที่"
 
 msgid "Inverse Square"
 msgstr "จัตุรัสผกผัน"
+
+
+msgid "Samples"
+msgstr "ตัวอย่าง"
 
 
 msgid "Rectangle"
@@ -1533,16 +1558,8 @@ msgid "Texture Paint"
 msgstr "วาดพื้นผิว"
 
 
-msgid "Pose"
-msgstr "ท่าทาง"
-
-
 msgid "Euler Rotation"
 msgstr "หมุน"
-
-
-msgid "Rotation Mode"
-msgstr "โหมดหมุน"
 
 
 msgid "Scaling of the object"
@@ -1583,10 +1600,6 @@ msgstr "แนวฉาก"
 
 msgid "Path Start"
 msgstr "เส้นทางเริ้่มต้น"
-
-
-msgid "Root"
-msgstr "ฐาน"
 
 
 msgid "Global"
@@ -1679,10 +1692,6 @@ msgstr "สะท้อน Y"
 
 msgid "Pattern"
 msgstr "ลวดลาย"
-
-
-msgid "Sharp"
-msgstr "แหลม"
 
 
 msgid "Rings"
@@ -1912,10 +1921,6 @@ msgid "Face Data"
 msgstr "ข้อมูลด้าน"
 
 
-msgid "Merge"
-msgstr "ผสาน"
-
-
 msgid "Normals"
 msgstr "แนวฉาก"
 
@@ -1974,10 +1979,6 @@ msgstr "แพตช์"
 
 msgid "Percent"
 msgstr "ร้อยละ"
-
-
-msgid "Mix Mode"
-msgstr "โหมดผสม"
 
 
 msgid "Ray Radius"
@@ -2129,8 +2130,12 @@ msgid "Object Info"
 msgstr "ข้อมูลวัตถุ"
 
 
-msgid "Closest"
-msgstr "ใกล้ชิดที่สุด"
+msgid "Mouse X"
+msgstr "เมาส์ X"
+
+
+msgid "Mouse Y"
+msgstr "เมาส์ Y"
 
 
 msgctxt "Operator"
@@ -2319,10 +2324,6 @@ msgstr "ขึ้น -Z"
 
 msgid "Selection Only"
 msgstr "เลือกเท่านั้น"
-
-
-msgid "!EXPERIMENTAL! Apply Transform"
-msgstr "!การทดลอง! นำการปรับเปลี่ยนไปใช้"
 
 
 msgid "Scene Collections"
@@ -2572,10 +2573,6 @@ msgid "Add Torus"
 msgstr "เพิ่มทอรัส"
 
 
-msgid "Add a torus mesh"
-msgstr "เพิ่มเมชทอรัส"
-
-
 msgctxt "Operator"
 msgid "Add UV Sphere"
 msgstr "เพิ่มทรงกลม UV"
@@ -2607,14 +2604,6 @@ msgstr "-Z ไป +Z"
 
 msgid "+Z to -Z"
 msgstr "+Z ไปยัง -Z"
-
-
-msgid "Mouse X"
-msgstr "เมาส์ X"
-
-
-msgid "Mouse Y"
-msgstr "เมาส์ Y"
 
 
 msgctxt "Operator"
@@ -2689,6 +2678,10 @@ msgstr "   โดยน้ำหนักเยื่อหุ้ม"
 
 msgid "Vertex (Triangle)"
 msgstr "จุดยอด (สามเหลี่ยม)"
+
+
+msgid "Edge Length"
+msgstr "ความยาวของเส้นขอบ"
 
 
 msgid "View %"
@@ -2845,6 +2838,10 @@ msgid "Save As"
 msgstr "บันทึกเป็น"
 
 
+msgid "Closest"
+msgstr "ใกล้ชิดที่สุด"
+
+
 msgid "Transformation orientation"
 msgstr "ทิศทางการแปลง"
 
@@ -2927,16 +2924,6 @@ msgstr "เล่น"
 
 
 msgctxt "Operator"
-msgid "Link from Library"
-msgstr "ลิ้งค์"
-
-
-msgctxt "Operator"
-msgid "Open Blender File"
-msgstr "เปิดไฟล์ Blender"
-
-
-msgctxt "Operator"
 msgid "Restore Defaults"
 msgstr "คืนค่าเดิม"
 
@@ -2958,11 +2945,6 @@ msgstr "โหลดการตั้งค่าโรงงาน"
 msgctxt "Operator"
 msgid "Reload Start-Up File"
 msgstr "โหลดไฟล์เริ่มต้นใหม่"
-
-
-msgctxt "Operator"
-msgid "Save As Blender File"
-msgstr "บันทึกเป็นไฟล์ Blender"
 
 
 msgid "Save Copy"
@@ -3060,10 +3042,6 @@ msgstr "มุมมอง"
 
 msgid "Render Presets"
 msgstr "รูปแบบล่วงหน้าของการเรนเดอร์"
-
-
-msgid "Find"
-msgstr "ค้นหา"
 
 
 msgid "Playback"
@@ -3222,6 +3200,10 @@ msgid "UI Line Width"
 msgstr "ความหนาเส้น UI"
 
 
+msgid "New Window"
+msgstr "หน้าต่างใหม่"
+
+
 msgid "Interface Font"
 msgstr "ฟอนต์อินเตอร์เฟส"
 
@@ -3292,10 +3274,6 @@ msgstr "ขวาไปซ้าย"
 
 msgid "View layer name"
 msgstr "แสดงชื่อชั้น"
-
-
-msgid "New Window"
-msgstr "หน้าต่างใหม่"
 
 
 msgid "Engine"
@@ -3623,10 +3601,6 @@ msgid "Draw Edges"
 msgstr "วาดเส้นขอบ"
 
 
-msgid "Edge Length"
-msgstr "ความยาวของเส้นขอบ"
-
-
 msgid "Display Grid Floor"
 msgstr "แสดงพื้นตาราง"
 
@@ -3800,11 +3774,6 @@ msgstr "เลือก:"
 
 
 msgctxt "Operator"
-msgid "Paste & Merge"
-msgstr "วาง และ ผสาน"
-
-
-msgctxt "Operator"
 msgid "& Copy"
 msgstr "และคัดลอก"
 
@@ -3879,6 +3848,11 @@ msgstr "คำนวณ"
 
 msgid "%s: %s"
 msgstr "%s: %s"
+
+
+msgctxt "Operator"
+msgid "Back"
+msgstr "หลัง"
 
 
 msgctxt "Operator"
@@ -3961,8 +3935,14 @@ msgid "Scene"
 msgstr "ฉาก"
 
 
-msgid "View Axis:"
-msgstr "แกนมุมมอง:"
+msgctxt "Operator"
+msgid "Top"
+msgstr "บน"
+
+
+msgctxt "Operator"
+msgid "Bottom"
+msgstr "ล่าง"
 
 
 msgctxt "Operator"
@@ -4207,23 +4187,8 @@ msgstr "ข้อผิดพลาด (ดูที่คอนโซล)"
 
 
 msgctxt "Operator"
-msgid "Top"
-msgstr "บน"
-
-
-msgctxt "Operator"
-msgid "Bottom"
-msgstr "ล่าง"
-
-
-msgctxt "Operator"
 msgid "Front"
 msgstr "หน้า"
-
-
-msgctxt "Operator"
-msgid "Back"
-msgstr "หลัง"
 
 
 msgctxt "Operator"
@@ -4556,6 +4521,14 @@ msgid "| Full Sample %d "
 msgstr "| ตัวอย่างแบบเต็ม %d "
 
 
+msgid "Blender Render"
+msgstr "ตัวเรนเดอร์ของ Blender"
+
+
+msgid "Blender Preferences"
+msgstr "การตั้งค่า Blender"
+
+
 msgid "OK"
 msgstr "ตกลง"
 
@@ -4853,14 +4826,6 @@ msgid "%s '%s' not found"
 msgstr "ไม่พบ %s '%s'"
 
 
-msgid "Blender Render"
-msgstr "ตัวเรนเดอร์ของ Blender"
-
-
-msgid "Blender Preferences"
-msgstr "การตั้งค่า Blender"
-
-
 msgid "Add Curve"
 msgstr "เพิ่มเส้นโค้ง"
 
@@ -5071,3 +5036,4 @@ msgstr "อยู่ระหว่างการดำเนินการ"
 
 msgid "Starting"
 msgstr "กำลังเริ่มต้น"
+

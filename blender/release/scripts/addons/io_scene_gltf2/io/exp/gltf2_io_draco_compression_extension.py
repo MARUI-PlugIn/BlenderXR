@@ -14,7 +14,7 @@
 
 import bpy
 import sys
-from ctypes import *
+from ctypes import c_void_p, c_uint32, c_uint64, c_bool, c_char_p, cdll
 from pathlib import Path
 
 from io_scene_gltf2.io.exp.gltf2_io_binary_data import BinaryData
@@ -28,11 +28,12 @@ def dll_path() -> Path:
     """
     lib_name = 'extern_draco'
     blender_root = Path(bpy.app.binary_path).parent
-    python_lib = Path('2.80/python/lib')
+    python_lib = Path("{v[0]}.{v[1]}/python/lib".format(v=bpy.app.version))
+    python_version = "python{v[0]}.{v[1]}".format(v=sys.version_info)
     paths = {
         'win32': blender_root/python_lib/'site-packages'/'{}.dll'.format(lib_name),
-        'linux': blender_root/python_lib/'python3.7'/'site-packages'/'lib{}.so'.format(lib_name),
-        'darwin': blender_root.parent/'Resources'/python_lib/'python3.7'/'site-packages'/'lib{}.dylib'.format(lib_name)
+        'linux': blender_root/python_lib/python_version/'site-packages'/'lib{}.so'.format(lib_name),
+        'darwin': blender_root.parent/'Resources'/python_lib/python_version/'site-packages'/'lib{}.dylib'.format(lib_name)
     }
 
     path = paths.get(sys.platform)
@@ -199,7 +200,7 @@ def __compress_primitive(primitive, dll, export_settings):
     # it can finally be compressed.
     if dll.compress(compressor):
 
-        # Compression was successfull.
+        # Compression was successful.
         # Move compressed data into a bytes object,
         # which is referenced by a 'gltf2_io_binary_data.BinaryData':
         #

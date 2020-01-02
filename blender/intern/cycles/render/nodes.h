@@ -206,7 +206,8 @@ class NoiseTextureNode : public TextureNode {
  public:
   SHADER_NODE_CLASS(NoiseTextureNode)
 
-  float scale, detail, distortion;
+  int dimensions;
+  float w, scale, detail, distortion;
   float3 vector;
 };
 
@@ -219,10 +220,22 @@ class VoronoiTextureNode : public TextureNode {
     return NODE_GROUP_LEVEL_2;
   }
 
-  NodeVoronoiColoring coloring;
+  virtual int get_feature()
+  {
+    int result = ShaderNode::get_feature();
+    if (dimensions == 4) {
+      result |= NODE_FEATURE_VORONOI_EXTRA;
+    }
+    else if (dimensions >= 2 && feature == NODE_VORONOI_SMOOTH_F1) {
+      result |= NODE_FEATURE_VORONOI_EXTRA;
+    }
+    return result;
+  }
+
+  int dimensions;
   NodeVoronoiDistanceMetric metric;
   NodeVoronoiFeature feature;
-  float scale, exponent;
+  float w, scale, exponent, smoothness, randomness;
   float3 vector;
 };
 
@@ -235,8 +248,9 @@ class MusgraveTextureNode : public TextureNode {
     return NODE_GROUP_LEVEL_2;
   }
 
+  int dimensions;
   NodeMusgraveType type;
-  float scale, detail, dimension, lacunarity, offset, gain;
+  float w, scale, detail, dimension, lacunarity, offset, gain;
   float3 vector;
 };
 
@@ -370,6 +384,19 @@ class IESLightNode : public TextureNode {
   void get_slot();
 };
 
+class WhiteNoiseTextureNode : public ShaderNode {
+ public:
+  SHADER_NODE_CLASS(WhiteNoiseTextureNode)
+  virtual int get_group()
+  {
+    return NODE_GROUP_LEVEL_2;
+  }
+
+  int dimensions;
+  float3 vector;
+  float w;
+};
+
 class MappingNode : public ShaderNode {
  public:
   SHADER_NODE_CLASS(MappingNode)
@@ -377,9 +404,10 @@ class MappingNode : public ShaderNode {
   {
     return NODE_GROUP_LEVEL_2;
   }
+  void constant_fold(const ConstantFolder &folder);
 
-  float3 vector;
-  TextureMapping tex_mapping;
+  float3 vector, location, rotation, scale;
+  NodeMappingType type;
 };
 
 class RGBToBWNode : public ShaderNode {
@@ -948,6 +976,37 @@ class HairInfoNode : public ShaderNode {
   }
 };
 
+class VolumeInfoNode : public ShaderNode {
+ public:
+  SHADER_NODE_CLASS(VolumeInfoNode)
+  void attributes(Shader *shader, AttributeRequestSet *attributes);
+  bool has_attribute_dependency()
+  {
+    return true;
+  }
+  bool has_spatial_varying()
+  {
+    return true;
+  }
+  void expand(ShaderGraph *graph);
+};
+
+class VertexColorNode : public ShaderNode {
+ public:
+  SHADER_NODE_CLASS(VertexColorNode)
+  void attributes(Shader *shader, AttributeRequestSet *attributes);
+  bool has_attribute_dependency()
+  {
+    return true;
+  }
+  bool has_spatial_varying()
+  {
+    return true;
+  }
+
+  ustring layer_name;
+};
+
 class ValueNode : public ShaderNode {
  public:
   SHADER_NODE_CLASS(ValueNode)
@@ -1228,6 +1287,31 @@ class BlackbodyNode : public ShaderNode {
   float temperature;
 };
 
+class MapRangeNode : public ShaderNode {
+ public:
+  SHADER_NODE_CLASS(MapRangeNode)
+  void constant_fold(const ConstantFolder &folder);
+  virtual int get_group()
+  {
+    return NODE_GROUP_LEVEL_3;
+  }
+  void expand(ShaderGraph *graph);
+
+  float value, from_min, from_max, to_min, to_max;
+  bool clamp;
+};
+
+class ClampNode : public ShaderNode {
+ public:
+  SHADER_NODE_CLASS(ClampNode)
+  void constant_fold(const ConstantFolder &folder);
+  virtual int get_group()
+  {
+    return NODE_GROUP_LEVEL_3;
+  }
+  float value, min, max;
+};
+
 class MathNode : public ShaderNode {
  public:
   SHADER_NODE_CLASS(MathNode)
@@ -1235,11 +1319,12 @@ class MathNode : public ShaderNode {
   {
     return NODE_GROUP_LEVEL_1;
   }
+  void expand(ShaderGraph *graph);
   void constant_fold(const ConstantFolder &folder);
 
   float value1;
   float value2;
-  NodeMath type;
+  NodeMathType type;
   bool use_clamp;
 };
 
@@ -1266,7 +1351,8 @@ class VectorMathNode : public ShaderNode {
 
   float3 vector1;
   float3 vector2;
-  NodeVectorMath type;
+  float scale;
+  NodeVectorMathType type;
 };
 
 class VectorTransformNode : public ShaderNode {

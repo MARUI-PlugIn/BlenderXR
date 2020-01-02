@@ -695,7 +695,7 @@ void MeshImporter::read_polys(COLLADAFW::Mesh *collada_mesh, Mesh *me)
               first_vertex, position_indices[1], position_indices[2]};
           set_poly_indices(mpoly, mloop, loop_index, triangle_vertex_indices, 3);
 
-          if (mp_has_normals) {  // vertex normals, same inplementation as for the triangles
+          if (mp_has_normals) {  // vertex normals, same implementation as for the triangles
             // the same for vertces normals
             unsigned int vertex_normal_indices[3] = {
                 first_normal, normal_indices[1], normal_indices[2]};
@@ -1149,8 +1149,9 @@ Object *MeshImporter::create_mesh_object(
   BKE_mesh_assign_object(m_bmain, ob, new_mesh);
   BKE_mesh_calc_normals(new_mesh);
 
-  id_us_plus(
-      &old_mesh->id); /* Because BKE_mesh_assign_object would have already decreased it... */
+  /* Because BKE_mesh_assign_object would have already decreased it... */
+  id_us_plus(&old_mesh->id);
+
   BKE_id_free_us(m_bmain, old_mesh);
 
   COLLADAFW::MaterialBindingArray &mat_array = geom->getMaterialBindings();

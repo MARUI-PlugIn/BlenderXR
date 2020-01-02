@@ -23,7 +23,7 @@
 /** \file
  * \ingroup bke
  */
-
+ 
 #include "../vr/vr_build.h"
 #if WITH_VR
 #ifdef __cplusplus
@@ -32,30 +32,44 @@ extern "C"
 #endif
 #endif
 
-struct ArrayGpencilModifierData;
 struct BoundBox;
 struct Brush;
 struct CurveMapping;
 struct Depsgraph;
-struct GpencilModifierData;
-struct LatticeGpencilModifierData;
 struct ListBase;
 struct Main;
 struct Material;
 struct Object;
-struct SimplifyGpencilModifierData;
+struct Scene;
 struct ToolSettings;
 struct bDeformGroup;
 struct bGPDframe;
 struct bGPDlayer;
-struct bGPDpalette;
-struct bGPDpalettecolor;
 struct bGPDspoint;
 struct bGPDstroke;
 struct bGPdata;
 
 struct MDeformVert;
-struct MDeformWeight;
+
+#define GPENCIL_SIMPLIFY(scene) ((scene->r.simplify_gpencil & SIMPLIFY_GPENCIL_ENABLE))
+#define GPENCIL_SIMPLIFY_ONPLAY(playing) \
+  (((playing == true) && (scene->r.simplify_gpencil & SIMPLIFY_GPENCIL_ON_PLAY)) || \
+   ((scene->r.simplify_gpencil & SIMPLIFY_GPENCIL_ON_PLAY) == 0))
+#define GPENCIL_SIMPLIFY_FILL(scene, playing) \
+  ((GPENCIL_SIMPLIFY_ONPLAY(playing) && (GPENCIL_SIMPLIFY(scene)) && \
+    (scene->r.simplify_gpencil & SIMPLIFY_GPENCIL_FILL)))
+#define GPENCIL_SIMPLIFY_MODIF(scene, playing) \
+  ((GPENCIL_SIMPLIFY_ONPLAY(playing) && (GPENCIL_SIMPLIFY(scene)) && \
+    (scene->r.simplify_gpencil & SIMPLIFY_GPENCIL_MODIFIER)))
+#define GPENCIL_SIMPLIFY_FX(scene, playing) \
+  ((GPENCIL_SIMPLIFY_ONPLAY(playing) && (GPENCIL_SIMPLIFY(scene)) && \
+    (scene->r.simplify_gpencil & SIMPLIFY_GPENCIL_FX)))
+#define GPENCIL_SIMPLIFY_BLEND(scene, playing) \
+  ((GPENCIL_SIMPLIFY_ONPLAY(playing) && (GPENCIL_SIMPLIFY(scene)) && \
+    (scene->r.simplify_gpencil & SIMPLIFY_GPENCIL_BLEND)))
+#define GPENCIL_SIMPLIFY_TINT(scene, playing) \
+  ((GPENCIL_SIMPLIFY_ONPLAY(playing) && (GPENCIL_SIMPLIFY(scene)) && \
+    (scene->r.simplify_gpencil & SIMPLIFY_GPENCIL_TINT)))
 
 /* ------------ Grease-Pencil API ------------------ */
 
@@ -65,7 +79,7 @@ void BKE_gpencil_free_stroke(struct bGPDstroke *gps);
 bool BKE_gpencil_free_strokes(struct bGPDframe *gpf);
 void BKE_gpencil_free_frames(struct bGPDlayer *gpl);
 void BKE_gpencil_free_layers(struct ListBase *list);
-bool BKE_gpencil_free_frame_runtime_data(struct bGPDframe *derived_gpf);
+bool BKE_gpencil_free_frame_runtime_data(struct bGPDframe *gpf_eval);
 void BKE_gpencil_free(struct bGPdata *gpd, bool free_all);
 
 void BKE_gpencil_batch_cache_dirty_tag(struct bGPdata *gpd);
@@ -95,6 +109,7 @@ void BKE_gpencil_frame_delete_laststroke(struct bGPDlayer *gpl, struct bGPDframe
 
 /* materials */
 void BKE_gpencil_material_index_reassign(struct bGPdata *gpd, int totcol, int index);
+bool BKE_gpencil_material_index_used(struct bGPdata *gpd, int index);
 void BKE_gpencil_material_remap(struct bGPdata *gpd,
                                 const unsigned int *remap,
                                 unsigned int remap_len);
@@ -146,13 +161,14 @@ bool BKE_gpencil_layer_delframe(struct bGPDlayer *gpl, struct bGPDframe *gpf);
 struct bGPDlayer *BKE_gpencil_layer_getactive(struct bGPdata *gpd);
 void BKE_gpencil_layer_setactive(struct bGPdata *gpd, struct bGPDlayer *active);
 void BKE_gpencil_layer_delete(struct bGPdata *gpd, struct bGPDlayer *gpl);
+void BKE_gpencil_layer_autolock_set(struct bGPdata *gpd, const bool unlock);
 
 /* Brush */
 struct Material *BKE_gpencil_brush_material_get(struct Brush *brush);
 void BKE_gpencil_brush_material_set(struct Brush *brush, struct Material *material);
 
 /* Object */
-struct Material *BKE_gpencil_object_material_ensure_active(struct Main *bmain, struct Object *ob);
+struct Material *BKE_gpencil_object_material_ensure_active(struct Object *ob);
 struct Material *BKE_gpencil_object_material_ensure_from_brush(struct Main *bmain,
                                                                struct Object *ob,
                                                                struct Brush *brush);
@@ -176,8 +192,7 @@ struct Material *BKE_gpencil_object_material_ensure_from_active_input_toolsettin
 struct Material *BKE_gpencil_object_material_ensure_from_active_input_brush(struct Main *bmain,
                                                                             struct Object *ob,
                                                                             struct Brush *brush);
-struct Material *BKE_gpencil_object_material_ensure_from_active_input_material(struct Main *bmain,
-                                                                               struct Object *ob);
+struct Material *BKE_gpencil_object_material_ensure_from_active_input_material(struct Object *ob);
 
 /* object boundbox */
 bool BKE_gpencil_data_minmax(const struct bGPdata *gpd, float r_min[3], float r_max[3]);
@@ -204,6 +219,10 @@ void BKE_gpencil_simplify_stroke(struct bGPDstroke *gps, float factor);
 void BKE_gpencil_simplify_fixed(struct bGPDstroke *gps);
 void BKE_gpencil_subdivide(struct bGPDstroke *gps, int level, int flag);
 bool BKE_gpencil_trim_stroke(struct bGPDstroke *gps);
+void BKE_gpencil_merge_distance_stroke(struct bGPDframe *gpf,
+                                       struct bGPDstroke *gps,
+                                       const float threshold,
+                                       const bool use_unselected);
 
 void BKE_gpencil_stroke_2d_flat(const struct bGPDspoint *points,
                                 int totpoints,
@@ -219,15 +238,25 @@ void BKE_gpencil_stroke_2d_flat_ref(const struct bGPDspoint *ref_points,
 
 void BKE_gpencil_transform(struct bGPdata *gpd, float mat[4][4]);
 
+bool BKE_gpencil_sample_stroke(struct bGPDstroke *gps, const float dist, const bool select);
 bool BKE_gpencil_smooth_stroke(struct bGPDstroke *gps, int i, float inf);
 bool BKE_gpencil_smooth_stroke_strength(struct bGPDstroke *gps, int point_index, float influence);
 bool BKE_gpencil_smooth_stroke_thickness(struct bGPDstroke *gps, int point_index, float influence);
 bool BKE_gpencil_smooth_stroke_uv(struct bGPDstroke *gps, int point_index, float influence);
 bool BKE_gpencil_close_stroke(struct bGPDstroke *gps);
+void BKE_gpencil_dissolve_points(struct bGPDframe *gpf, struct bGPDstroke *gps, const short tag);
 
 void BKE_gpencil_get_range_selected(struct bGPDlayer *gpl, int *r_initframe, int *r_endframe);
 float BKE_gpencil_multiframe_falloff_calc(
     struct bGPDframe *gpf, int actnum, int f_init, int f_end, struct CurveMapping *cur_falloff);
+
+void BKE_gpencil_convert_curve(struct Main *bmain,
+                               struct Scene *scene,
+                               struct Object *ob_gp,
+                               struct Object *ob_cu,
+                               const bool gpencil_lines,
+                               const bool use_collections,
+                               const bool only_stroke);
 
 extern void (*BKE_gpencil_batch_cache_dirty_tag_cb)(struct bGPdata *gpd);
 extern void (*BKE_gpencil_batch_cache_free_cb)(struct bGPdata *gpd);

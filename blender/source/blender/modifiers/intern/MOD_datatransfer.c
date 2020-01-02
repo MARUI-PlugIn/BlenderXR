@@ -141,9 +141,14 @@ static bool isDisabled(const struct Scene *UNUSED(scene),
                        ModifierData *md,
                        bool UNUSED(useRenderParams))
 {
-  DataTransferModifierData *dtmd = (DataTransferModifierData *)md;
   /* If no source object, bypass. */
-  return (dtmd->ob_source == NULL);
+  DataTransferModifierData *dtmd = (DataTransferModifierData *)md;
+  /* The object type check is only needed here in case we have a placeholder
+   * object assigned (because the library containing the mesh is missing).
+   *
+   * In other cases it should be impossible to have a type mismatch.
+   */
+  return !dtmd->ob_source || dtmd->ob_source->type != OB_MESH;
 }
 
 #define HIGH_POLY_WARNING 10000
@@ -158,7 +163,7 @@ static Mesh *applyModifier(ModifierData *md, const ModifierEvalContext *ctx, Mes
   Mesh *result = me_mod;
   ReportList reports;
 
-  /* Only used to check wehther we are operating on org data or not... */
+  /* Only used to check whether we are operating on org data or not... */
   Mesh *me = ctx->object->data;
 
   Object *ob_source = dtmd->ob_source;

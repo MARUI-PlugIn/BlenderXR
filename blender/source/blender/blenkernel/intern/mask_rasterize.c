@@ -589,7 +589,7 @@ void BKE_maskrasterize_handle_init(MaskRasterHandle *mr_handle,
       (do_aspect_correct && width > height) ? (float)height / (float)width : 1.0f,
       (do_aspect_correct && width < height) ? (float)width / (float)height : 1.0f};
 
-  const float zvec[3] = {0.0f, 0.0f, 1.0f};
+  const float zvec[3] = {0.0f, 0.0f, -1.0f};
   MaskLayer *masklay;
   unsigned int masklay_index;
   MemArena *sf_arena;
@@ -1462,7 +1462,7 @@ typedef struct MaskRasterizeBufferData {
 
 static void maskrasterize_buffer_cb(void *__restrict userdata,
                                     const int y,
-                                    const ParallelRangeTLS *__restrict UNUSED(tls))
+                                    const TaskParallelTLS *__restrict UNUSED(tls))
 {
   MaskRasterizeBufferData *data = userdata;
 
@@ -1503,7 +1503,7 @@ void BKE_maskrasterize_buffer(MaskRasterHandle *mr_handle,
       .width = width,
       .buffer = buffer,
   };
-  ParallelRangeSettings settings;
+  TaskParallelSettings settings;
   BLI_parallel_range_settings_defaults(&settings);
   settings.use_threading = ((size_t)height * width > 10000);
   BLI_task_parallel_range(0, (int)height, &data, maskrasterize_buffer_cb, &settings);

@@ -47,7 +47,7 @@
 
 static PyObject *Vector_copy(VectorObject *self);
 static PyObject *Vector_deepcopy(VectorObject *self, PyObject *args);
-static PyObject *Vector_to_tuple_ext(VectorObject *self, int ndigits);
+static PyObject *Vector_to_tuple_ex(VectorObject *self, int ndigits);
 static int row_vector_multiplication(float rvec[MAX_DIMENSIONS],
                                      VectorObject *vec,
                                      MatrixObject *mat);
@@ -630,7 +630,7 @@ PyDoc_STRVAR(Vector_to_tuple_doc,
              "   :return: the values of the vector rounded by *precision*\n"
              "   :rtype: tuple\n");
 /* note: BaseMath_ReadCallback must be called beforehand */
-static PyObject *Vector_to_tuple_ext(VectorObject *self, int ndigits)
+static PyObject *Vector_to_tuple_ex(VectorObject *self, int ndigits)
 {
   PyObject *ret;
   int i;
@@ -674,7 +674,7 @@ static PyObject *Vector_to_tuple(VectorObject *self, PyObject *args)
     return NULL;
   }
 
-  return Vector_to_tuple_ext(self, ndigits);
+  return Vector_to_tuple_ex(self, ndigits);
 }
 
 PyDoc_STRVAR(Vector_to_track_quat_doc,
@@ -691,7 +691,8 @@ PyDoc_STRVAR(Vector_to_track_quat_doc,
 static PyObject *Vector_to_track_quat(VectorObject *self, PyObject *args)
 {
   float vec[3], quat[4];
-  const char *strack, *sup;
+  const char *strack = NULL;
+  const char *sup = NULL;
   short track = 2, up = 1;
 
   if (!PyArg_ParseTuple(args, "|ss:to_track_quat", &strack, &sup)) {
@@ -786,10 +787,8 @@ static PyObject *Vector_to_track_quat(VectorObject *self, PyObject *args)
     return NULL;
   }
 
-  /*
-   * flip vector around, since vectoquat expect a vector from target to tracking object
-   * and the python function expects the inverse (a vector to the target).
-   */
+  /* Flip vector around, since #vec_to_quat expect a vector from target to tracking object
+   * and the python function expects the inverse (a vector to the target). */
   negate_v3_v3(vec, self->vec);
 
   vec_to_quat(quat, vec, track, up);
@@ -1338,7 +1337,7 @@ static PyObject *Vector_repr(VectorObject *self)
     return NULL;
   }
 
-  tuple = Vector_to_tuple_ext(self, -1);
+  tuple = Vector_to_tuple_ex(self, -1);
   ret = PyUnicode_FromFormat("Vector(%R)", tuple);
   Py_DECREF(tuple);
   return ret;
@@ -1834,7 +1833,7 @@ static PyObject *Vector_imul(PyObject *v1, PyObject *v2)
     mul_vn_vn(vec1->vec, vec2->vec, vec1->size);
 #else
     PyErr_Format(PyExc_TypeError,
-                 "Inplace element-wise multiplication: "
+                 "In place element-wise multiplication: "
                  "not supported between '%.200s' and '%.200s' types",
                  Py_TYPE(v1)->tp_name,
                  Py_TYPE(v2)->tp_name);
@@ -1847,7 +1846,7 @@ static PyObject *Vector_imul(PyObject *v1, PyObject *v2)
   }
   else {
     PyErr_Format(PyExc_TypeError,
-                 "Inplace element-wise multiplication: "
+                 "In place element-wise multiplication: "
                  "not supported between '%.200s' and '%.200s' types",
                  Py_TYPE(v1)->tp_name,
                  Py_TYPE(v2)->tp_name);
@@ -1925,7 +1924,7 @@ static PyObject *Vector_matmul(PyObject *v1, PyObject *v2)
 static PyObject *Vector_imatmul(PyObject *v1, PyObject *v2)
 {
   PyErr_Format(PyExc_TypeError,
-               "Inplace vector multiplication: "
+               "In place vector multiplication: "
                "not supported between '%.200s' and '%.200s' types",
                Py_TYPE(v1)->tp_name,
                Py_TYPE(v2)->tp_name);
@@ -2352,26 +2351,26 @@ static PyObject *Vector_length_squared_get(VectorObject *self, void *UNUSED(clos
  *
  * axis_dict = {}
  * axis_pos = {'x': 0, 'y': 1, 'z': 2, 'w': 3}
- * axises = 'xyzw'
- * while len(axises) >= 2:
- *     for axis_0 in axises:
+ * axis_chars = 'xyzw'
+ * while len(axis_chars) >= 2:
+ *     for axis_0 in axis_chars:
  *         axis_0_pos = axis_pos[axis_0]
- *         for axis_1 in axises:
+ *         for axis_1 in axis_chars:
  *             axis_1_pos = axis_pos[axis_1]
  *             axis_dict[axis_0 + axis_1] = (
  *                 '((%s | SWIZZLE_VALID_AXIS) | '
  *                 '((%s | SWIZZLE_VALID_AXIS) << SWIZZLE_BITS_PER_AXIS))' %
  *                 (axis_0_pos, axis_1_pos))
- *             if len(axises) > 2:
- *                 for axis_2 in axises:
+ *             if len(axis_chars) > 2:
+ *                 for axis_2 in axis_chars:
  *                     axis_2_pos = axis_pos[axis_2]
  *                     axis_dict[axis_0 + axis_1 + axis_2] = (
  *                         '((%s | SWIZZLE_VALID_AXIS) | '
  *                         '((%s | SWIZZLE_VALID_AXIS) << SWIZZLE_BITS_PER_AXIS) | '
  *                         '((%s | SWIZZLE_VALID_AXIS) << (SWIZZLE_BITS_PER_AXIS * 2)))' %
  *                         (axis_0_pos, axis_1_pos, axis_2_pos))
- *                     if len(axises) > 3:
- *                         for axis_3 in axises:
+ *                     if len(axis_chars) > 3:
+ *                         for axis_3 in axis_chars:
  *                             axis_3_pos = axis_pos[axis_3]
  *                             axis_dict[axis_0 + axis_1 + axis_2 + axis_3] = (
  *                                 '((%s | SWIZZLE_VALID_AXIS) | '
@@ -2381,7 +2380,7 @@ static PyObject *Vector_length_squared_get(VectorObject *self, void *UNUSED(clos
  *                                 %
  *                                 (axis_0_pos, axis_1_pos, axis_2_pos, axis_3_pos))
  *
- *     axises = axises[:-1]
+ *     axis_chars = axis_chars[:-1]
  * items = list(axis_dict.items())
  * items.sort(
  *     key=lambda a: a[0].replace('x', '0').replace('y', '1').replace('z', '2').replace('w', '3')
@@ -3056,7 +3055,7 @@ PyTypeObject vector_Type = {
     /* Methods to implement standard operations */
 
     (destructor)BaseMathObject_dealloc, /* destructor tp_dealloc; */
-    NULL,                               /* printfunc tp_print; */
+    (printfunc)NULL,                    /* printfunc tp_print; */
     NULL,                               /* getattrfunc tp_getattr; */
     NULL,                               /* setattrfunc tp_setattr; */
     NULL,                               /* cmpfunc tp_compare; */

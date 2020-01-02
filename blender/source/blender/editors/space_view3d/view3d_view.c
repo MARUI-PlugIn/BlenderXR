@@ -27,6 +27,7 @@
 
 #include "MEM_guardedalloc.h"
 
+#include "BLI_listbase.h"
 #include "BLI_math.h"
 #include "BLI_rect.h"
 #include "BLI_utildefines.h"
@@ -200,8 +201,8 @@ void ED_view3d_smooth_view_ex(
     sms.to_camera = true; /* restore view3d values in end */
   }
 
-  /* skip smooth viewing for render engine draw */
-  if (smooth_viewtx && v3d->shading.type != OB_RENDER) {
+  /* skip smooth viewing for external render engine draw */
+  if (smooth_viewtx && !(v3d->shading.type == OB_RENDER && rv3d->render_engine)) {
     bool changed = false; /* zero means no difference */
 
     if (sview->camera_old != sview->camera) {
@@ -309,7 +310,7 @@ void ED_view3d_smooth_view(bContext *C,
                            const int smooth_viewtx,
                            const struct V3D_SmoothParams *sview)
 {
-  const Depsgraph *depsgraph = CTX_data_depsgraph(C);
+  const Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   wmWindowManager *wm = CTX_wm_manager(C);
   wmWindow *win = CTX_wm_window(C);
   ScrArea *sa = CTX_wm_area(C);
@@ -320,7 +321,6 @@ void ED_view3d_smooth_view(bContext *C,
 /* only meant for timer usage */
 static void view3d_smoothview_apply(bContext *C, View3D *v3d, ARegion *ar, bool sync_boxview)
 {
-  const Depsgraph *depsgraph = CTX_data_depsgraph(C);
   RegionView3D *rv3d = ar->regiondata;
   struct SmoothView3DStore *sms = rv3d->sms;
   float step, step_inv;
@@ -341,6 +341,8 @@ static void view3d_smoothview_apply(bContext *C, View3D *v3d, ARegion *ar, bool 
       view3d_smooth_view_state_restore(&sms->org, v3d, rv3d);
     }
     else {
+      const Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
+
       view3d_smooth_view_state_restore(&sms->dst, v3d, rv3d);
 
       ED_view3d_camera_lock_sync(depsgraph, v3d, rv3d);
@@ -377,6 +379,7 @@ static void view3d_smoothview_apply(bContext *C, View3D *v3d, ARegion *ar, bool 
     rv3d->dist = sms->dst.dist * step + sms->src.dist * step_inv;
     v3d->lens = sms->dst.lens * step + sms->src.lens * step_inv;
 
+    const Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
     ED_view3d_camera_lock_sync(depsgraph, v3d, rv3d);
     if (ED_screen_animation_playing(CTX_wm_manager(C))) {
       ED_view3d_camera_lock_autokey(v3d, rv3d, C, true, true);
@@ -433,7 +436,7 @@ void ED_view3d_smooth_view_force_finish(bContext *C, View3D *v3d, ARegion *ar)
 
     /* force update of view matrix so tools that run immediately after
      * can use them without redrawing first */
-    Depsgraph *depsgraph = CTX_data_depsgraph(C);
+    Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
     Scene *scene = CTX_data_scene(C);
     ED_view3d_update_viewmat(depsgraph, scene, v3d, ar, NULL, NULL, NULL, false);
   }
@@ -462,7 +465,7 @@ void VIEW3D_OT_smoothview(wmOperatorType *ot)
 
 static int view3d_camera_to_view_exec(bContext *C, wmOperator *UNUSED(op))
 {
-  const Depsgraph *depsgraph = CTX_data_depsgraph(C);
+  const Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   View3D *v3d;
   ARegion *ar;
   RegionView3D *rv3d;
@@ -510,7 +513,7 @@ static bool view3d_camera_to_view_poll(bContext *C)
 void VIEW3D_OT_camera_to_view(wmOperatorType *ot)
 {
   /* identifiers */
-  ot->name = "Align Camera To View";
+  ot->name = "Align Camera to View";
   ot->description = "Set camera view to active view";
   ot->idname = "VIEW3D_OT_camera_to_view";
 
@@ -532,7 +535,7 @@ void VIEW3D_OT_camera_to_view(wmOperatorType *ot)
  * meant to take into account vertex/bone selection for eg. */
 static int view3d_camera_to_view_selected_exec(bContext *C, wmOperator *op)
 {
-  Depsgraph *depsgraph = CTX_data_depsgraph(C);
+  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   Scene *scene = CTX_data_scene(C);
   View3D *v3d = CTX_wm_view3d(C); /* can be NULL */
   Object *camera_ob = v3d ? v3d->camera : scene->camera;
@@ -1199,7 +1202,7 @@ finally:
 /** \name Local View Operators
  * \{ */
 
-static uint free_localbit(Main *bmain)
+static uint free_localview_bit(Main *bmain)
 {
   ScrArea *sa;
   bScreen *sc;
@@ -1254,7 +1257,7 @@ static bool view3d_localview_init(const Depsgraph *depsgraph,
 
   INIT_MINMAX(min, max);
 
-  local_view_bit = free_localbit(bmain);
+  local_view_bit = free_localview_bit(bmain);
 
   if (local_view_bit == 0) {
     /* TODO(dfelinto): We can kick one of the other 3D views out of local view
@@ -1427,7 +1430,7 @@ static void view3d_localview_exit(const Depsgraph *depsgraph,
 
 static int localview_exec(bContext *C, wmOperator *op)
 {
-  const Depsgraph *depsgraph = CTX_data_depsgraph(C);
+  const Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   const int smooth_viewtx = WM_operator_smooth_viewtx_get(op);
   wmWindowManager *wm = CTX_wm_manager(C);
   wmWindow *win = CTX_wm_window(C);
@@ -1543,6 +1546,143 @@ void VIEW3D_OT_localview_remove_from(wmOperatorType *ot)
   ot->invoke = WM_operator_confirm;
   ot->poll = localview_remove_from_poll;
   ot->flag = OPTYPE_UNDO;
+}
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Local Collections
+ * \{ */
+
+static uint free_localcollection_bit(Main *bmain,
+                                     unsigned short local_collections_uuid,
+                                     bool *reset)
+{
+  ScrArea *sa;
+  bScreen *sc;
+
+  ushort local_view_bits = 0;
+
+  /* Check all areas: which localviews are in use? */
+  for (sc = bmain->screens.first; sc; sc = sc->id.next) {
+    for (sa = sc->areabase.first; sa; sa = sa->next) {
+      SpaceLink *sl = sa->spacedata.first;
+      for (; sl; sl = sl->next) {
+        if (sl->spacetype == SPACE_VIEW3D) {
+          View3D *v3d = (View3D *)sl;
+          if (v3d->flag & V3D_LOCAL_COLLECTIONS) {
+            local_view_bits |= v3d->local_collections_uuid;
+          }
+        }
+      }
+    }
+  }
+
+  /* First try to keep the old uuid. */
+  if (local_collections_uuid && ((local_collections_uuid & local_view_bits) == 0)) {
+    return local_collections_uuid;
+  }
+
+  /* Otherwise get the first free available. */
+  for (int i = 0; i < 16; i++) {
+    if ((local_view_bits & (1 << i)) == 0) {
+      *reset = true;
+      return (1 << i);
+    }
+  }
+
+  return 0;
+}
+
+static void local_collections_reset_uuid(LayerCollection *layer_collection,
+                                         const unsigned short local_view_bit)
+{
+  if (layer_collection->flag & LAYER_COLLECTION_HIDE) {
+    layer_collection->local_collections_bits &= ~local_view_bit;
+  }
+  else {
+    layer_collection->local_collections_bits |= local_view_bit;
+  }
+
+  LISTBASE_FOREACH (LayerCollection *, child, &layer_collection->layer_collections) {
+    local_collections_reset_uuid(child, local_view_bit);
+  }
+}
+
+static void view3d_local_collections_reset(Main *bmain, const uint local_view_bit)
+{
+  LISTBASE_FOREACH (Scene *, scene, &bmain->scenes) {
+    LISTBASE_FOREACH (ViewLayer *, view_layer, &scene->view_layers) {
+      LISTBASE_FOREACH (LayerCollection *, layer_collection, &view_layer->layer_collections) {
+        local_collections_reset_uuid(layer_collection, local_view_bit);
+      }
+    }
+  }
+}
+
+/**
+ * See if current uuid is valid, otherwise set a valid uuid to v3d,
+ * Try to keep the same uuid previously used to allow users to
+ * quickly toggle back and forth.
+ */
+bool ED_view3d_local_collections_set(Main *bmain, struct View3D *v3d)
+{
+  if ((v3d->flag & V3D_LOCAL_COLLECTIONS) == 0) {
+    return true;
+  }
+
+  bool reset = false;
+  v3d->flag &= ~V3D_LOCAL_COLLECTIONS;
+  uint local_view_bit = free_localcollection_bit(bmain, v3d->local_collections_uuid, &reset);
+
+  if (local_view_bit == 0) {
+    return false;
+  }
+
+  v3d->local_collections_uuid = local_view_bit;
+  v3d->flag |= V3D_LOCAL_COLLECTIONS;
+
+  if (reset) {
+    view3d_local_collections_reset(bmain, local_view_bit);
+  }
+
+  return true;
+}
+
+void ED_view3d_local_collections_reset(struct bContext *C, const bool reset_all)
+{
+  Main *bmain = CTX_data_main(C);
+  uint local_view_bit = ~(0);
+  bool do_reset = false;
+
+  /* Reset only the ones that are not in use. */
+  LISTBASE_FOREACH (bScreen *, screen, &bmain->screens) {
+    LISTBASE_FOREACH (ScrArea *, area, &screen->areabase) {
+      LISTBASE_FOREACH (SpaceLink *, sl, &area->spacedata) {
+        if (sl->spacetype == SPACE_VIEW3D) {
+          View3D *v3d = (View3D *)sl;
+          if (v3d->local_collections_uuid) {
+            if (v3d->flag & V3D_LOCAL_COLLECTIONS) {
+              local_view_bit &= ~v3d->local_collections_uuid;
+            }
+            else {
+              do_reset = true;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  if (do_reset) {
+    view3d_local_collections_reset(bmain, local_view_bit);
+  }
+  else if (reset_all && (do_reset || (local_view_bit != ~(0)))) {
+    view3d_local_collections_reset(bmain, ~(0));
+    View3D v3d = {.local_collections_uuid = ~(0)};
+    BKE_layer_collection_local_sync(CTX_data_view_layer(C), &v3d);
+    DEG_id_tag_update(&CTX_data_scene(C)->id, ID_RECALC_BASE_FLAGS);
+  }
 }
 
 /** \} */

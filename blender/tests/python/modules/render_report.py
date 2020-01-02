@@ -431,6 +431,7 @@ class Report:
 
             # Run process
             crash = False
+            output = None
             try:
                 output = subprocess.check_output(command)
             except subprocess.CalledProcessError as e:
@@ -440,14 +441,15 @@ class Report:
 
             if verbose:
                 print(" ".join(command))
-                print(output.decode("utf-8"))
+                if output:
+                    print(output.decode("utf-8"))
 
             # Detect missing filepaths and consider those errors
             for filepath, output_filepath in zip(remaining_filepaths[:], output_filepaths):
                 remaining_filepaths.pop(0)
 
                 if crash:
-                    # In case of crash, stop after missing files and re-render remaing
+                    # In case of crash, stop after missing files and re-render remaining
                     if not os.path.exists(output_filepath):
                         errors.append("CRASH")
                         print_message("Crash running Blender")

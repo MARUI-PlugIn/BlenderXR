@@ -23,6 +23,7 @@
 
 #define _USE_MATH_DEFINES
 
+#include "GHOST_WindowManager.h"
 #include "GHOST_WindowWin32.h"
 #include "GHOST_SystemWin32.h"
 #include "GHOST_DropTargetWin32.h"
@@ -66,8 +67,9 @@ GHOST_WindowWin32::GHOST_WindowWin32(GHOST_SystemWin32 *system,
                                      GHOST_TDrawingContextType type,
                                      bool wantStereoVisual,
                                      bool alphaBackground,
-                                     GHOST_TEmbedderWindowID parentwindowhwnd,
-                                     bool is_debug)
+                                     GHOST_WindowWin32 *parentwindow,
+                                     bool is_debug,
+                                     bool dialog)
     : GHOST_Window(width, height, state, wantStereoVisual, false),
       m_inLiveResize(false),
       m_system(system),
@@ -82,7 +84,7 @@ GHOST_WindowWin32::GHOST_WindowWin32(GHOST_SystemWin32 *system,
       m_fpGetPointerInfo(NULL),
       m_fpGetPointerPenInfo(NULL),
       m_fpGetPointerTouchInfo(NULL),
-      m_parentWindowHwnd(parentwindowhwnd),
+      m_parentWindowHwnd(parentwindow ? parentwindow->m_hWnd : NULL),
       m_debug_context(is_debug)
 {
   // Initialize tablet variables
@@ -146,9 +148,9 @@ GHOST_WindowWin32::GHOST_WindowWin32(GHOST_SystemWin32 *system,
       top = monitor.rcWork.top;
 
     int wintype = WS_OVERLAPPEDWINDOW;
-    if (m_parentWindowHwnd != 0) {
+    if ((m_parentWindowHwnd != 0) && !dialog) {
       wintype = WS_CHILD;
-      GetWindowRect((HWND)m_parentWindowHwnd, &rect);
+      GetWindowRect(m_parentWindowHwnd, &rect);
       left = 0;
       top = 0;
       width = rect.right - rect.left;
@@ -156,14 +158,14 @@ GHOST_WindowWin32::GHOST_WindowWin32(GHOST_SystemWin32 *system,
     }
 
     wchar_t *title_16 = alloc_utf16_from_8((char *)(const char *)title, 0);
-    m_hWnd = ::CreateWindowW(s_windowClassName,         // pointer to registered class name
-                             title_16,                  // pointer to window name
-                             wintype,                   // window style
-                             left,                      // horizontal position of window
-                             top,                       // vertical position of window
-                             width,                     // window width
-                             height,                    // window height
-                             (HWND)m_parentWindowHwnd,  // handle to parent or owner window
+    m_hWnd = ::CreateWindowW(s_windowClassName,                // pointer to registered class name
+                             title_16,                         // pointer to window name
+                             wintype,                          // window style
+                             left,                             // horizontal position of window
+                             top,                              // vertical position of window
+                             width,                            // window width
+                             height,                           // window height
+                             dialog ? 0 : m_parentWindowHwnd,  // handle to parent or owner window
                              0,                     // handle to menu or child-window identifier
                              ::GetModuleHandle(0),  // handle to application instance
                              0);                    // pointer to window-creation data
@@ -267,7 +269,14 @@ GHOST_WindowWin32::GHOST_WindowWin32(GHOST_SystemWin32 *system,
     }
   }
 
-  if (parentwindowhwnd != 0) {
+  if (dialog && parentwindow) {
+    ::SetWindowLongPtr(
+        m_hWnd, GWL_STYLE, WS_VISIBLE | WS_POPUPWINDOW | WS_CAPTION | WS_MAXIMIZEBOX | WS_SIZEBOX);
+    ::SetWindowLongPtr(m_hWnd, GWLP_HWNDPARENT, (LONG_PTR)m_parentWindowHwnd);
+    ::SetWindowPos(
+        m_hWnd, 0, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
+  }
+  else if (parentwindow) {
     RAWINPUTDEVICE device = {0};
     device.usUsagePage = 0x01; /* usUsagePage & usUsage for keyboard*/
     device.usUsage = 0x06;     /* http://msdn.microsoft.com/en-us/windows/hardware/gg487473.aspx */
@@ -386,6 +395,16 @@ GHOST_WindowWin32::~GHOST_WindowWin32()
   }
 
   if (m_hWnd) {
+    /* If this window is referenced by others as parent, clear that relation or windows will free
+     * the handle while we still reference it. */
+    for (GHOST_IWindow *iter_win : m_system->getWindowManager()->getWindows()) {
+      GHOST_WindowWin32 *iter_winwin = (GHOST_WindowWin32 *)iter_win;
+      if (iter_winwin->m_parentWindowHwnd == m_hWnd) {
+        ::SetWindowLongPtr(iter_winwin->m_hWnd, GWLP_HWNDPARENT, NULL);
+        iter_winwin->m_parentWindowHwnd = 0;
+      }
+    }
+
     if (m_dropTarget) {
       // Disable DragDrop
       RevokeDragDrop(m_hWnd);
@@ -528,7 +547,7 @@ GHOST_TWindowState GHOST_WindowWin32::getState() const
   // we need to find a way to combine parented windows + resizing if we simply set the
   // state as GHOST_kWindowStateEmbedded we will need to check for them somewhere else.
   // It's also strange that in Windows is the only platform we need to make this separation.
-  if (m_parentWindowHwnd != 0) {
+  if ((m_parentWindowHwnd != 0) && !isDialog()) {
     state = GHOST_kWindowStateEmbedded;
     return state;
   }
@@ -574,6 +593,7 @@ void GHOST_WindowWin32::clientToScreen(GHOST_TInt32 inX,
 GHOST_TSuccess GHOST_WindowWin32::setState(GHOST_TWindowState state)
 {
   GHOST_TWindowState curstate = getState();
+  LONG_PTR newstyle = -1;
   WINDOWPLACEMENT wp;
   wp.length = sizeof(WINDOWPLACEMENT);
   ::GetWindowPlacement(m_hWnd, &wp);
@@ -587,7 +607,7 @@ GHOST_TSuccess GHOST_WindowWin32::setState(GHOST_TWindowState state)
       break;
     case GHOST_kWindowStateMaximized:
       wp.showCmd = SW_SHOWMAXIMIZED;
-      ::SetWindowLongPtr(m_hWnd, GWL_STYLE, WS_OVERLAPPEDWINDOW);
+      newstyle = WS_OVERLAPPEDWINDOW;
       break;
     case GHOST_kWindowStateFullScreen:
       if (curstate != state && curstate != GHOST_kWindowStateMinimized)
@@ -595,17 +615,21 @@ GHOST_TSuccess GHOST_WindowWin32::setState(GHOST_TWindowState state)
       wp.showCmd = SW_SHOWMAXIMIZED;
       wp.ptMaxPosition.x = 0;
       wp.ptMaxPosition.y = 0;
-      ::SetWindowLongPtr(m_hWnd, GWL_STYLE, WS_MAXIMIZE);
+      newstyle = WS_MAXIMIZE;
       break;
     case GHOST_kWindowStateEmbedded:
-      ::SetWindowLongPtr(m_hWnd, GWL_STYLE, WS_CHILD);
+      newstyle = WS_CHILD;
       break;
     case GHOST_kWindowStateNormal:
     default:
       wp.showCmd = SW_SHOWNORMAL;
-      ::SetWindowLongPtr(m_hWnd, GWL_STYLE, WS_OVERLAPPEDWINDOW);
+      newstyle = WS_OVERLAPPEDWINDOW;
       break;
   }
+  if ((newstyle >= 0) && !isDialog()) {
+    ::SetWindowLongPtr(m_hWnd, GWL_STYLE, newstyle);
+  }
+
   /* Clears window cache for SetWindowLongPtr */
   ::SetWindowPos(m_hWnd, 0, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
 
@@ -737,6 +761,14 @@ void GHOST_WindowWin32::lostMouseCapture()
   }
 }
 
+bool GHOST_WindowWin32::isDialog() const
+{
+  HWND parent = (HWND)::GetWindowLongPtr(m_hWnd, GWLP_HWNDPARENT);
+  long int style = (long int)::GetWindowLongPtr(m_hWnd, GWL_STYLE);
+
+  return (parent != 0) && (style & WS_POPUPWINDOW);
+}
+
 void GHOST_WindowWin32::registerMouseClickEvent(int press)
 {
 
@@ -766,7 +798,133 @@ void GHOST_WindowWin32::registerMouseClickEvent(int press)
   }
 }
 
-void GHOST_WindowWin32::loadCursor(bool visible, GHOST_TStandardCursor cursor) const
+HCURSOR GHOST_WindowWin32::getStandardCursor(GHOST_TStandardCursor shape) const
+{
+  // Convert GHOST cursor to Windows OEM cursor
+  HANDLE cursor = NULL;
+  HMODULE module = ::GetModuleHandle(0);
+  GHOST_TUns32 flags = LR_SHARED | LR_DEFAULTSIZE;
+  int cx = 0, cy = 0;
+
+  switch (shape) {
+    case GHOST_kStandardCursorCustom:
+      if (m_customCursor) {
+        return m_customCursor;
+      }
+      else {
+        return NULL;
+      }
+    case GHOST_kStandardCursorRightArrow:
+      cursor = ::LoadImage(module, "arrowright_cursor", IMAGE_CURSOR, cx, cy, flags);
+      break;
+    case GHOST_kStandardCursorLeftArrow:
+      cursor = ::LoadImage(module, "arrowleft_cursor", IMAGE_CURSOR, cx, cy, flags);
+      break;
+    case GHOST_kStandardCursorUpArrow:
+      cursor = ::LoadImage(module, "arrowup_cursor", IMAGE_CURSOR, cx, cy, flags);
+      break;
+    case GHOST_kStandardCursorDownArrow:
+      cursor = ::LoadImage(module, "arrowdown_cursor", IMAGE_CURSOR, cx, cy, flags);
+      break;
+    case GHOST_kStandardCursorVerticalSplit:
+      cursor = ::LoadImage(module, "splitv_cursor", IMAGE_CURSOR, cx, cy, flags);
+      break;
+    case GHOST_kStandardCursorHorizontalSplit:
+      cursor = ::LoadImage(module, "splith_cursor", IMAGE_CURSOR, cx, cy, flags);
+      break;
+    case GHOST_kStandardCursorKnife:
+      cursor = ::LoadImage(module, "knife_cursor", IMAGE_CURSOR, cx, cy, flags);
+      break;
+    case GHOST_kStandardCursorEyedropper:
+      cursor = ::LoadImage(module, "eyedropper_cursor", IMAGE_CURSOR, cx, cy, flags);
+      break;
+    case GHOST_kStandardCursorZoomIn:
+      cursor = ::LoadImage(module, "zoomin_cursor", IMAGE_CURSOR, cx, cy, flags);
+      break;
+    case GHOST_kStandardCursorZoomOut:
+      cursor = ::LoadImage(module, "zoomout_cursor", IMAGE_CURSOR, cx, cy, flags);
+      break;
+    case GHOST_kStandardCursorMove:
+      cursor = ::LoadImage(module, "handopen_cursor", IMAGE_CURSOR, cx, cy, flags);
+      break;
+    case GHOST_kStandardCursorNSEWScroll:
+      cursor = ::LoadImage(module, "scrollnsew_cursor", IMAGE_CURSOR, cx, cy, flags);
+      break;
+    case GHOST_kStandardCursorNSScroll:
+      cursor = ::LoadImage(module, "scrollns_cursor", IMAGE_CURSOR, cx, cy, flags);
+      break;
+    case GHOST_kStandardCursorEWScroll:
+      cursor = ::LoadImage(module, "scrollew_cursor", IMAGE_CURSOR, cx, cy, flags);
+      break;
+    case GHOST_kStandardCursorHelp:
+      cursor = ::LoadImage(NULL, IDC_HELP, IMAGE_CURSOR, cx, cy, flags);
+      break;  // Arrow and question mark
+    case GHOST_kStandardCursorWait:
+      cursor = ::LoadImage(NULL, IDC_WAIT, IMAGE_CURSOR, cx, cy, flags);
+      break;  // Hourglass
+    case GHOST_kStandardCursorText:
+      cursor = ::LoadImage(NULL, IDC_IBEAM, IMAGE_CURSOR, cx, cy, flags);
+      break;  // I-beam
+    case GHOST_kStandardCursorCrosshair:
+      cursor = ::LoadImage(module, "cross_cursor", IMAGE_CURSOR, cx, cy, flags);
+      break;  // Standard Cross
+    case GHOST_kStandardCursorCrosshairA:
+      cursor = ::LoadImage(module, "crossA_cursor", IMAGE_CURSOR, cx, cy, flags);
+      break;  // Crosshair A
+    case GHOST_kStandardCursorCrosshairB:
+      cursor = ::LoadImage(module, "crossB_cursor", IMAGE_CURSOR, cx, cy, flags);
+      break;  // Diagonal Crosshair B
+    case GHOST_kStandardCursorCrosshairC:
+      cursor = ::LoadImage(module, "crossC_cursor", IMAGE_CURSOR, cx, cy, flags);
+      break;  // Minimal Crosshair C
+    case GHOST_kStandardCursorBottomSide:
+    case GHOST_kStandardCursorUpDown:
+      cursor = ::LoadImage(module, "movens_cursor", IMAGE_CURSOR, cx, cy, flags);
+      break;  // Double-pointed arrow pointing north and south
+    case GHOST_kStandardCursorLeftSide:
+    case GHOST_kStandardCursorLeftRight:
+      cursor = ::LoadImage(module, "moveew_cursor", IMAGE_CURSOR, cx, cy, flags);
+      break;  // Double-pointed arrow pointing west and east
+    case GHOST_kStandardCursorTopSide:
+      cursor = ::LoadImage(NULL, IDC_UPARROW, IMAGE_CURSOR, cx, cy, flags);
+      break;  // Vertical arrow
+    case GHOST_kStandardCursorTopLeftCorner:
+      cursor = ::LoadImage(NULL, IDC_SIZENWSE, IMAGE_CURSOR, cx, cy, flags);
+      break;
+    case GHOST_kStandardCursorTopRightCorner:
+      cursor = ::LoadImage(NULL, IDC_SIZENESW, IMAGE_CURSOR, cx, cy, flags);
+      break;
+    case GHOST_kStandardCursorBottomRightCorner:
+      cursor = ::LoadImage(NULL, IDC_SIZENWSE, IMAGE_CURSOR, cx, cy, flags);
+      break;
+    case GHOST_kStandardCursorBottomLeftCorner:
+      cursor = ::LoadImage(NULL, IDC_SIZENESW, IMAGE_CURSOR, cx, cy, flags);
+      break;
+    case GHOST_kStandardCursorPencil:
+      cursor = ::LoadImage(module, "pencil_cursor", IMAGE_CURSOR, cx, cy, flags);
+      break;
+    case GHOST_kStandardCursorEraser:
+      cursor = ::LoadImage(module, "eraser_cursor", IMAGE_CURSOR, cx, cy, flags);
+      break;
+    case GHOST_kStandardCursorDestroy:
+    case GHOST_kStandardCursorStop:
+      cursor = ::LoadImage(module, "forbidden_cursor", IMAGE_CURSOR, cx, cy, flags);
+      break;  // Slashed circle
+    case GHOST_kStandardCursorDefault:
+      cursor = NULL;
+      break;
+    default:
+      return NULL;
+  }
+
+  if (cursor == NULL) {
+    cursor = ::LoadImage(NULL, IDC_ARROW, IMAGE_CURSOR, cx, cy, flags);
+  }
+
+  return (HCURSOR)cursor;
+}
+
+void GHOST_WindowWin32::loadCursor(bool visible, GHOST_TStandardCursor shape) const
 {
   if (!visible) {
     while (::ShowCursor(FALSE) >= 0)
@@ -777,88 +935,11 @@ void GHOST_WindowWin32::loadCursor(bool visible, GHOST_TStandardCursor cursor) c
       ;
   }
 
-  if (cursor == GHOST_kStandardCursorCustom && m_customCursor) {
-    ::SetCursor(m_customCursor);
+  HCURSOR cursor = getStandardCursor(shape);
+  if (cursor == NULL) {
+    cursor = getStandardCursor(GHOST_kStandardCursorDefault);
   }
-  else {
-    // Convert GHOST cursor to Windows OEM cursor
-    bool success = true;
-    LPCSTR id;
-    switch (cursor) {
-      case GHOST_kStandardCursorDefault:
-        id = IDC_ARROW;
-        break;
-      case GHOST_kStandardCursorRightArrow:
-        id = IDC_ARROW;
-        break;
-      case GHOST_kStandardCursorLeftArrow:
-        id = IDC_ARROW;
-        break;
-      case GHOST_kStandardCursorInfo:
-        id = IDC_SIZEALL;
-        break;  // Four-pointed arrow pointing north, south, east, and west
-      case GHOST_kStandardCursorDestroy:
-        id = IDC_NO;
-        break;  // Slashed circle
-      case GHOST_kStandardCursorHelp:
-        id = IDC_HELP;
-        break;  // Arrow and question mark
-      case GHOST_kStandardCursorCycle:
-        id = IDC_NO;
-        break;  // Slashed circle
-      case GHOST_kStandardCursorSpray:
-        id = IDC_SIZEALL;
-        break;  // Four-pointed arrow pointing north, south, east, and west
-      case GHOST_kStandardCursorWait:
-        id = IDC_WAIT;
-        break;  // Hourglass
-      case GHOST_kStandardCursorText:
-        id = IDC_IBEAM;
-        break;  // I-beam
-      case GHOST_kStandardCursorCrosshair:
-        id = IDC_CROSS;
-        break;  // Crosshair
-      case GHOST_kStandardCursorUpDown:
-        id = IDC_SIZENS;
-        break;  // Double-pointed arrow pointing north and south
-      case GHOST_kStandardCursorLeftRight:
-        id = IDC_SIZEWE;
-        break;  // Double-pointed arrow pointing west and east
-      case GHOST_kStandardCursorTopSide:
-        id = IDC_UPARROW;
-        break;  // Vertical arrow
-      case GHOST_kStandardCursorBottomSide:
-        id = IDC_SIZENS;
-        break;
-      case GHOST_kStandardCursorLeftSide:
-        id = IDC_SIZEWE;
-        break;
-      case GHOST_kStandardCursorTopLeftCorner:
-        id = IDC_SIZENWSE;
-        break;
-      case GHOST_kStandardCursorTopRightCorner:
-        id = IDC_SIZENESW;
-        break;
-      case GHOST_kStandardCursorBottomRightCorner:
-        id = IDC_SIZENWSE;
-        break;
-      case GHOST_kStandardCursorBottomLeftCorner:
-        id = IDC_SIZENESW;
-        break;
-      case GHOST_kStandardCursorPencil:
-        id = IDC_ARROW;
-        break;
-      case GHOST_kStandardCursorCopy:
-        id = IDC_ARROW;
-        break;
-      default:
-        success = false;
-    }
-
-    if (success) {
-      ::SetCursor(::LoadCursor(0, id));
-    }
-  }
+  ::SetCursor(cursor);
 }
 
 GHOST_TSuccess GHOST_WindowWin32::setWindowCursorVisibility(bool visible)
@@ -908,16 +989,16 @@ GHOST_TSuccess GHOST_WindowWin32::setWindowCursorGrab(GHOST_TGrabCursorMode mode
 
 GHOST_TSuccess GHOST_WindowWin32::setWindowCursorShape(GHOST_TStandardCursor cursorShape)
 {
-  if (m_customCursor) {
-    DestroyCursor(m_customCursor);
-    m_customCursor = NULL;
-  }
-
   if (::GetForegroundWindow() == m_hWnd) {
     loadCursor(getCursorVisibility(), cursorShape);
   }
 
   return GHOST_kSuccess;
+}
+
+GHOST_TSuccess GHOST_WindowWin32::hasCursorShape(GHOST_TStandardCursor cursorShape)
+{
+  return (getStandardCursor(cursorShape)) ? GHOST_kSuccess : GHOST_kFailure;
 }
 
 GHOST_TSuccess GHOST_WindowWin32::getPointerInfo(GHOST_PointerInfoWin32 *pointerInfo,

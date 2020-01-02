@@ -25,6 +25,8 @@ extern "C" {
 
 #include "BLI_compiler_attrs.h"
 
+struct wmWindowManager;
+
 /* BKE_libblock_free, delete are declared in BKE_library.h for convenience. */
 
 /* Also IDRemap->flag. */
@@ -83,7 +85,7 @@ void BKE_libblock_relink_ex(struct Main *bmain,
                             void *idv,
                             void *old_idv,
                             void *new_idv,
-                            const bool us_min_never_null) ATTR_NONNULL(1, 2);
+                            const short remap_flags) ATTR_NONNULL(1, 2);
 
 void BKE_libblock_relink_to_newid(struct ID *id) ATTR_NONNULL();
 

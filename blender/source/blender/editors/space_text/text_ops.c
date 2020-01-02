@@ -61,7 +61,9 @@
 
 static void txt_screen_clamp(SpaceText *st, ARegion *ar);
 
-/************************ util ***************************/
+/* -------------------------------------------------------------------- */
+/** \name Util
+ * \{ */
 
 /**
  * Tests if the given character represents a start of a new line or the
@@ -138,13 +140,17 @@ static char *buf_tabs_to_spaces(const char *in_buf, const int tab_size)
   return out_buf;
 }
 
-/************************ poll ***************************/
-
 BLI_INLINE int text_pixel_x_to_column(SpaceText *st, const int x)
 {
-  /* add half the char width so mouse cursor selection is inbetween letters */
+  /* Add half the char width so mouse cursor selection is in between letters. */
   return (x + (st->cwidth / 2)) / st->cwidth;
 }
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Operator Poll
+ * \{ */
 
 static bool text_new_poll(bContext *UNUSED(C))
 {
@@ -206,7 +212,11 @@ static bool text_region_edit_poll(bContext *C)
   return 1;
 }
 
-/********************** updates *********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Updates
+ * \{ */
 
 void text_update_line_edited(TextLine *line)
 {
@@ -230,7 +240,11 @@ void text_update_edited(Text *text)
   }
 }
 
-/******************* new operator *********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name New Operator
+ * \{ */
 
 static int text_new_exec(bContext *C, wmOperator *UNUSED(op))
 {
@@ -241,6 +255,8 @@ static int text_new_exec(bContext *C, wmOperator *UNUSED(op))
   PropertyRNA *prop;
 
   text = BKE_text_add(bmain, "Text");
+  /* Texts have no user by default... Only the 'real' user flag. */
+  id_us_min(&text->id);
 
   /* hook into UI */
   UI_context_active_but_prop_get_templateID(C, &ptr, &prop);
@@ -279,7 +295,11 @@ void TEXT_OT_new(wmOperatorType *ot)
   ot->flag = OPTYPE_UNDO;
 }
 
-/******************* open operator *********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Open Operator
+ * \{ */
 
 static void text_open_init(bContext *C, wmOperator *op)
 {
@@ -307,6 +327,8 @@ static int text_open_exec(bContext *C, wmOperator *op)
   RNA_string_get(op->ptr, "filepath", str);
 
   text = BKE_text_load_ex(bmain, str, BKE_main_blendfile_path(bmain), internal);
+  /* Texts have no user by default... Only the 'real' user flag. */
+  id_us_min(&text->id);
 
   if (!text) {
     if (op->customdata) {
@@ -321,8 +343,6 @@ static int text_open_exec(bContext *C, wmOperator *op)
 
   /* hook into UI */
   pprop = op->customdata;
-
-  id_us_ensure_real(&text->id);
 
   if (pprop->prop) {
     RNA_id_pointer_create(&text->id, &idptr);
@@ -390,7 +410,11 @@ void TEXT_OT_open(wmOperatorType *ot)
       ot->srna, "internal", 0, "Make internal", "Make text file internal after loading");
 }
 
-/******************* reload operator *********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Reload Operator
+ * \{ */
 
 static int text_reload_exec(bContext *C, wmOperator *op)
 {
@@ -419,6 +443,8 @@ static int text_reload_exec(bContext *C, wmOperator *op)
   text_drawcache_tag_update(CTX_wm_space_text(C), 1);
   WM_event_add_notifier(C, NC_TEXT | NA_EDITED, text);
 
+  text->flags &= ~TXT_ISDIRTY;
+
   /* return to scroll position */
   st->top = orig_top;
   txt_screen_clamp(st, ar);
@@ -441,7 +467,11 @@ void TEXT_OT_reload(wmOperatorType *ot)
   ot->poll = text_edit_poll;
 }
 
-/******************* delete operator *********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Delete Operator
+ * \{ */
 
 static bool text_unlink_poll(bContext *C)
 {
@@ -493,7 +523,11 @@ void TEXT_OT_unlink(wmOperatorType *ot)
   ot->flag = OPTYPE_UNDO;
 }
 
-/******************* make internal operator *********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Make Internal Operator
+ * \{ */
 
 static int text_make_internal_exec(bContext *C, wmOperator *UNUSED(op))
 {
@@ -527,7 +561,11 @@ void TEXT_OT_make_internal(wmOperatorType *ot)
   ot->flag = OPTYPE_UNDO;
 }
 
-/******************* save operator *********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Save Operator
+ * \{ */
 
 static bool text_save_poll(bContext *C)
 {
@@ -612,7 +650,11 @@ void TEXT_OT_save(wmOperatorType *ot)
   ot->poll = text_save_poll;
 }
 
-/******************* save as operator *********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Save As Operator
+ * \{ */
 
 static int text_save_as_exec(bContext *C, wmOperator *op)
 {
@@ -688,7 +730,11 @@ void TEXT_OT_save_as(wmOperatorType *ot)
                                  FILE_SORT_ALPHA);  // XXX TODO, relative_path
 }
 
-/******************* run script operator *********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Run Script Operator
+ * \{ */
 
 static bool text_run_script_poll(bContext *C)
 {
@@ -763,7 +809,11 @@ void TEXT_OT_run_script(wmOperatorType *ot)
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
-/******************* refresh pyconstraints operator *********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Refresh Pyconstraints Operator
+ * \{ */
 
 static int text_refresh_pyconstraints_exec(bContext *UNUSED(C), wmOperator *UNUSED(op))
 {
@@ -823,7 +873,11 @@ void TEXT_OT_refresh_pyconstraints(wmOperatorType *ot)
   ot->poll = text_edit_poll;
 }
 
-/******************* paste operator *********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Paste Operator
+ * \{ */
 
 static int text_paste_exec(bContext *C, wmOperator *op)
 {
@@ -887,7 +941,11 @@ void TEXT_OT_paste(wmOperatorType *ot)
                   "Paste text selected elsewhere rather than copied (X11 only)");
 }
 
-/**************** duplicate operator *******************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Duplicate Operator
+ * \{ */
 
 static int text_duplicate_line_exec(bContext *C, wmOperator *UNUSED(op))
 {
@@ -922,7 +980,11 @@ void TEXT_OT_duplicate_line(wmOperatorType *ot)
   ot->flag = OPTYPE_UNDO;
 }
 
-/******************* copy operator *********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Copy Operator
+ * \{ */
 
 static void txt_copy_clipboard(Text *text)
 {
@@ -961,7 +1023,11 @@ void TEXT_OT_copy(wmOperatorType *ot)
   ot->poll = text_edit_poll;
 }
 
-/******************* cut operator *********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Cut Operator
+ * \{ */
 
 static int text_cut_exec(bContext *C, wmOperator *UNUSED(op))
 {
@@ -1000,7 +1066,11 @@ void TEXT_OT_cut(wmOperatorType *ot)
   ot->flag = OPTYPE_UNDO;
 }
 
-/******************* indent operator *********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Indent Operator
+ * \{ */
 
 static int text_indent_exec(bContext *C, wmOperator *UNUSED(op))
 {
@@ -1041,7 +1111,11 @@ void TEXT_OT_indent(wmOperatorType *ot)
   ot->flag = OPTYPE_UNDO;
 }
 
-/******************* unindent operator *********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Unindent Operator
+ * \{ */
 
 static int text_unindent_exec(bContext *C, wmOperator *UNUSED(op))
 {
@@ -1077,7 +1151,11 @@ void TEXT_OT_unindent(wmOperatorType *ot)
   ot->flag = OPTYPE_UNDO;
 }
 
-/******************* line break operator *********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Line Break Operator
+ * \{ */
 
 static int text_line_break_exec(bContext *C, wmOperator *UNUSED(op))
 {
@@ -1130,35 +1208,59 @@ void TEXT_OT_line_break(wmOperatorType *ot)
   ot->flag = OPTYPE_UNDO;
 }
 
-/******************* comment operator *********************/
+/** \} */
 
-static int text_comment_exec(bContext *C, wmOperator *UNUSED(op))
+/* -------------------------------------------------------------------- */
+/** \name Toggle-Comment Operator
+ * \{ */
+
+static int text_comment_exec(bContext *C, wmOperator *op)
 {
   Text *text = CTX_data_edit_text(C);
+  int type = RNA_enum_get(op->ptr, "type");
+
+  text_drawcache_tag_update(CTX_wm_space_text(C), 0);
+
+  ED_text_undo_push_init(C);
 
   if (txt_has_sel(text)) {
-    text_drawcache_tag_update(CTX_wm_space_text(C), 0);
-
-    ED_text_undo_push_init(C);
-
     txt_order_cursors(text, false);
-    txt_comment(text);
-    text_update_edited(text);
-
-    text_update_cursor_moved(C);
-    WM_event_add_notifier(C, NC_TEXT | NA_EDITED, text);
-    return OPERATOR_FINISHED;
   }
 
-  return OPERATOR_CANCELLED;
+  switch (type) {
+    case 1:
+      txt_comment(text);
+      break;
+    case -1:
+      txt_uncomment(text);
+      break;
+    default:
+      if (txt_uncomment(text) == false) {
+        txt_comment(text);
+      }
+      break;
+  }
+
+  text_update_edited(text);
+
+  text_update_cursor_moved(C);
+  WM_event_add_notifier(C, NC_TEXT | NA_EDITED, text);
+
+  return OPERATOR_FINISHED;
 }
 
-void TEXT_OT_comment(wmOperatorType *ot)
+void TEXT_OT_comment_toggle(wmOperatorType *ot)
 {
+  static const EnumPropertyItem comment_items[] = {
+      {0, "TOGGLE", 0, "Toggle Comments", NULL},
+      {1, "COMMENT", 0, "Comment", NULL},
+      {-1, "UNCOMMENT", 0, "Un-Comment", NULL},
+      {0, NULL, 0, NULL, NULL},
+  };
+
   /* identifiers */
-  ot->name = "Comment";
-  ot->idname = "TEXT_OT_comment";
-  ot->description = "Convert selected text to comment";
+  ot->name = "Toggle Comments";
+  ot->idname = "TEXT_OT_comment_toggle";
 
   /* api callbacks */
   ot->exec = text_comment_exec;
@@ -1166,48 +1268,18 @@ void TEXT_OT_comment(wmOperatorType *ot)
 
   /* flags */
   ot->flag = OPTYPE_UNDO;
+
+  /* properties */
+  PropertyRNA *prop;
+  prop = RNA_def_enum(ot->srna, "type", comment_items, 0, "Type", "Add or remove comments");
+  RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
 }
 
-/******************* uncomment operator *********************/
+/** \} */
 
-static int text_uncomment_exec(bContext *C, wmOperator *UNUSED(op))
-{
-  Text *text = CTX_data_edit_text(C);
-
-  if (txt_has_sel(text)) {
-    text_drawcache_tag_update(CTX_wm_space_text(C), 0);
-
-    ED_text_undo_push_init(C);
-
-    txt_order_cursors(text, false);
-    txt_uncomment(text);
-    text_update_edited(text);
-
-    text_update_cursor_moved(C);
-    WM_event_add_notifier(C, NC_TEXT | NA_EDITED, text);
-
-    return OPERATOR_FINISHED;
-  }
-
-  return OPERATOR_CANCELLED;
-}
-
-void TEXT_OT_uncomment(wmOperatorType *ot)
-{
-  /* identifiers */
-  ot->name = "Uncomment";
-  ot->idname = "TEXT_OT_uncomment";
-  ot->description = "Convert selected comment to text";
-
-  /* api callbacks */
-  ot->exec = text_uncomment_exec;
-  ot->poll = text_edit_poll;
-
-  /* flags */
-  ot->flag = OPTYPE_UNDO;
-}
-
-/******************* convert whitespace operator *********************/
+/* -------------------------------------------------------------------- */
+/** \name Convert Whitespace Operator
+ * \{ */
 
 enum { TO_SPACES, TO_TABS };
 static const EnumPropertyItem whitespace_type_items[] = {
@@ -1358,7 +1430,11 @@ void TEXT_OT_convert_whitespace(wmOperatorType *ot)
                "Type of whitespace to convert to");
 }
 
-/******************* select all operator *********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Select All Operator
+ * \{ */
 
 static int text_select_all_exec(bContext *C, wmOperator *UNUSED(op))
 {
@@ -1384,7 +1460,11 @@ void TEXT_OT_select_all(wmOperatorType *ot)
   ot->poll = text_edit_poll;
 }
 
-/******************* select line operator *********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Select Line Operator
+ * \{ */
 
 static int text_select_line_exec(bContext *C, wmOperator *UNUSED(op))
 {
@@ -1410,7 +1490,11 @@ void TEXT_OT_select_line(wmOperatorType *ot)
   ot->poll = text_edit_poll;
 }
 
-/******************* select word operator *********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Select Word Operator
+ * \{ */
 
 static int text_select_word_exec(bContext *C, wmOperator *UNUSED(op))
 {
@@ -1439,7 +1523,11 @@ void TEXT_OT_select_word(wmOperatorType *ot)
   ot->poll = text_edit_poll;
 }
 
-/********************* move lines operators ***********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Move Lines Operators
+ * \{ */
 
 static int move_lines_exec(bContext *C, wmOperator *op)
 {
@@ -1485,7 +1573,11 @@ void TEXT_OT_move_lines(wmOperatorType *ot)
   RNA_def_enum(ot->srna, "direction", direction_items, 1, "Direction", "");
 }
 
-/************************ move operator ************************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Move Operator
+ * \{ */
 
 static const EnumPropertyItem move_type_items[] = {
     {LINE_BEGIN, "LINE_BEGIN", 0, "Line Begin", ""},
@@ -1735,7 +1827,7 @@ static void txt_wrap_move_bol(SpaceText *st, ARegion *ar, const bool sel)
 
         if (j >= oldc) {
           if (ch == '\0') {
-            *charp = txt_utf8_column_to_offset((*linep)->line, start);
+            *charp = BLI_str_utf8_offset_from_column((*linep)->line, start);
           }
           loop = 0;
           break;
@@ -1751,7 +1843,7 @@ static void txt_wrap_move_bol(SpaceText *st, ARegion *ar, const bool sel)
       }
       else if (ch == ' ' || ch == '-' || ch == '\0') {
         if (j >= oldc) {
-          *charp = txt_utf8_column_to_offset((*linep)->line, start);
+          *charp = BLI_str_utf8_offset_from_column((*linep)->line, start);
           loop = 0;
           break;
         }
@@ -2124,7 +2216,11 @@ void TEXT_OT_move(wmOperatorType *ot)
   RNA_def_enum(ot->srna, "type", move_type_items, LINE_BEGIN, "Type", "Where to move cursor to");
 }
 
-/******************* move select operator ********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Move Select Operator
+ * \{ */
 
 static int text_move_select_exec(bContext *C, wmOperator *op)
 {
@@ -2153,7 +2249,11 @@ void TEXT_OT_move_select(wmOperatorType *ot)
                "Where to move cursor to, to make a selection");
 }
 
-/******************* jump operator *********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Jump Operator
+ * \{ */
 
 static int text_jump_exec(bContext *C, wmOperator *op)
 {
@@ -2201,7 +2301,11 @@ void TEXT_OT_jump(wmOperatorType *ot)
   RNA_def_property_translation_context(prop, BLT_I18NCONTEXT_ID_TEXT);
 }
 
-/******************* delete operator **********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Delete Operator
+ * \{ */
 
 static const EnumPropertyItem delete_type_items[] = {
     {DEL_NEXT_CHAR, "NEXT_CHARACTER", 0, "Next Character", ""},
@@ -2315,7 +2419,11 @@ void TEXT_OT_delete(wmOperatorType *ot)
   RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
 }
 
-/******************* toggle overwrite operator **********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Toggle Overwrite Operator
+ * \{ */
 
 static int text_toggle_overwrite_exec(bContext *C, wmOperator *UNUSED(op))
 {
@@ -2340,7 +2448,11 @@ void TEXT_OT_overwrite_toggle(wmOperatorType *ot)
   ot->poll = text_space_edit_poll;
 }
 
-/******************* scroll operator **********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Scroll Operator
+ * \{ */
 
 static void txt_screen_clamp(SpaceText *st, ARegion *ar)
 {
@@ -2569,7 +2681,11 @@ void TEXT_OT_scroll(wmOperatorType *ot)
       ot->srna, "lines", 1, INT_MIN, INT_MAX, "Lines", "Number of lines to scroll", -100, 100);
 }
 
-/******************** scroll bar operator *******************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Scroll Bar Operator
+ * \{ */
 
 static bool text_region_scroll_poll(bContext *C)
 {
@@ -3071,7 +3187,11 @@ void TEXT_OT_selection_set(wmOperatorType *ot)
   RNA_def_boolean(ot->srna, "select", 0, "Select", "Set selection end rather than cursor");
 }
 
-/******************* set cursor operator **********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Set Cursor Operator
+ * \{ */
 
 static int text_cursor_set_exec(bContext *C, wmOperator *op)
 {
@@ -3119,7 +3239,11 @@ void TEXT_OT_cursor_set(wmOperatorType *ot)
   RNA_def_int(ot->srna, "y", 0, INT_MIN, INT_MAX, "Y", "", INT_MIN, INT_MAX);
 }
 
-/******************* line number operator **********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Line Number Operator
+ * \{ */
 
 static int text_line_number_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *event)
 {
@@ -3175,7 +3299,11 @@ void TEXT_OT_line_number(wmOperatorType *ot)
   ot->poll = text_region_edit_poll;
 }
 
-/******************* insert operator **********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Insert Operator
+ * \{ */
 
 static int text_insert_exec(bContext *C, wmOperator *op)
 {
@@ -3282,7 +3410,11 @@ void TEXT_OT_insert(wmOperatorType *ot)
   RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 }
 
-/******************* find operator *********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Find Operator
+ * \{ */
 
 /* mode */
 #define TEXT_FIND 0
@@ -3352,7 +3484,7 @@ static int text_find_and_replace(bContext *C, wmOperator *op, short mode)
   }
   else {
     if (!found) {
-      BKE_reportf(op->reports, RPT_ERROR, "Text not found: %s", st->findstr);
+      BKE_reportf(op->reports, RPT_WARNING, "Text not found: %s", st->findstr);
     }
   }
 
@@ -3376,7 +3508,11 @@ void TEXT_OT_find(wmOperatorType *ot)
   ot->poll = text_space_edit_poll;
 }
 
-/******************* replace operator *********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Replace Operator
+ * \{ */
 
 static int text_replace_exec(bContext *C, wmOperator *op)
 {
@@ -3398,7 +3534,11 @@ void TEXT_OT_replace(wmOperatorType *ot)
   ot->flag = OPTYPE_UNDO;
 }
 
-/******************* find set selected *********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Find Set Selected
+ * \{ */
 
 static int text_find_set_selected_exec(bContext *C, wmOperator *op)
 {
@@ -3429,7 +3569,11 @@ void TEXT_OT_find_set_selected(wmOperatorType *ot)
   ot->poll = text_space_edit_poll;
 }
 
-/******************* replace set selected *********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Replace Set Selected
+ * \{ */
 
 static int text_replace_set_selected_exec(bContext *C, wmOperator *UNUSED(op))
 {
@@ -3459,7 +3603,11 @@ void TEXT_OT_replace_set_selected(wmOperatorType *ot)
   ot->flag = OPTYPE_UNDO;
 }
 
-/****************** resolve conflict operator ******************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Resolve Conflict Operator
+ * \{ */
 
 enum { RESOLVE_IGNORE, RESOLVE_RELOAD, RESOLVE_SAVE, RESOLVE_MAKE_INTERNAL };
 static const EnumPropertyItem resolution_items[] = {
@@ -3572,7 +3720,11 @@ void TEXT_OT_resolve_conflict(wmOperatorType *ot)
                "How to solve conflict due to differences in internal and external text");
 }
 
-/********************** to 3d object operator *****************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name To 3D Object Operator
+ * \{ */
 
 static int text_to_3d_object_exec(bContext *C, wmOperator *op)
 {
@@ -3602,3 +3754,5 @@ void TEXT_OT_to_3d_object(wmOperatorType *ot)
   RNA_def_boolean(
       ot->srna, "split_lines", 0, "Split Lines", "Create one object per line in the text");
 }
+
+/** \} */

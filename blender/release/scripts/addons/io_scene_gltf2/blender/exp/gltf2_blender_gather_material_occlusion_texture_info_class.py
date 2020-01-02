@@ -18,6 +18,8 @@ from io_scene_gltf2.blender.exp.gltf2_blender_gather_cache import cached
 from io_scene_gltf2.io.com import gltf2_io
 from io_scene_gltf2.blender.exp import gltf2_blender_gather_texture
 from io_scene_gltf2.blender.exp import gltf2_blender_search_node_tree
+from io_scene_gltf2.blender.exp import gltf2_blender_get
+from io_scene_gltf2.io.com.gltf2_io_extensions import Extension
 
 
 @cached
@@ -35,6 +37,9 @@ def gather_material_occlusion_texture_info_class(blender_shader_sockets_or_textu
         tex_coord=__gather_tex_coord(blender_shader_sockets_or_texture_slots, export_settings)
     )
 
+    if texture_info.index is None:
+        return None
+
     return texture_info
 
 
@@ -51,7 +56,19 @@ def __filter_texture_info(blender_shader_sockets_or_texture_slots, export_settin
 
 
 def __gather_extensions(blender_shader_sockets_or_texture_slots, export_settings):
-    return None
+    if not hasattr(blender_shader_sockets_or_texture_slots[0], 'links'):
+        return None
+
+    tex_nodes = [__get_tex_from_socket(socket).shader_node for socket in blender_shader_sockets_or_texture_slots]
+    texture_node = tex_nodes[0] if (tex_nodes is not None and len(tex_nodes) > 0) else None
+    if texture_node is None:
+        return None
+    texture_transform = gltf2_blender_get.get_texture_transform_from_texture_node(texture_node)
+    if texture_transform is None:
+        return None
+
+    extension = Extension("KHR_texture_transform", texture_transform)
+    return {"KHR_texture_transform": extension}
 
 
 def __gather_extras(blender_shader_sockets_or_texture_slots, export_settings):
@@ -108,6 +125,8 @@ def __get_tex_from_socket(socket):
         socket,
         gltf2_blender_search_node_tree.FilterByType(bpy.types.ShaderNodeTexImage))
     if not result:
+        return None
+    if result[0].shader_node.image is None:
         return None
     return result[0]
 

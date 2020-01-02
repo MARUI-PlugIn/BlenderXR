@@ -234,7 +234,7 @@ def readtexturefolder(objekti, mat_list, texturelist, is_new, udim_textures): #r
                             else:
                                 os.remove(texture_info[3])
                         elif texture_info[2] == 'alpha' or texture_info[2] == 'opacity':
-                            if (index_mat.material.coat3D_metalness):
+                            if (index_mat.material.coat3D_alpha):
                                 texcoat['alpha'].append(texture_info[3])
                                 create_nodes = True
                             else:
@@ -293,7 +293,7 @@ def readtexturefolder(objekti, mat_list, texturelist, is_new, udim_textures): #r
                             else:
                                 os.remove(texture_info[3])
                         elif texture_info[2] == 'alpha' or texture_info[2] == 'opacity':
-                            if (index_mat.material.coat3D_metalness):
+                            if (index_mat.material.coat3D_alpha):
                                 texcoat['alpha'].append(texture_info[3])
                                 create_nodes = True
                             else:
@@ -347,8 +347,7 @@ def readtexturefolder(objekti, mat_list, texturelist, is_new, udim_textures): #r
                 coat3D.remove_path = True
             createnodes(index_mat, texcoat, create_group_node, tile_list, objekti, ind, is_new)
 
-
-def createnodes(active_mat,texcoat, create_group_node, tile_list, objekti, ind, is_new): # Cretes new nodes and link textures into them
+def createnodes(active_mat,texcoat, create_group_node, tile_list, objekti, ind, is_new): # Creates new nodes and link textures into them
     bring_color = True # Meaning of these is to check if we can only update textures or do we need to create new nodes
     bring_metalness = True
     bring_roughness = True
@@ -367,7 +366,7 @@ def createnodes(active_mat,texcoat, create_group_node, tile_list, objekti, ind, 
     main_material = coatMat.node_tree
     applink_group_node = False
 
-    # First go throug all image nodes and let's check if it starts with 3DC and reload if needed
+    # First go through all image nodes and let's check if it starts with 3DC and reload if needed
 
     for node in coatMat.node_tree.nodes:
         if (node.type == 'OUTPUT_MATERIAL'):
@@ -483,7 +482,7 @@ def createnodes(active_mat,texcoat, create_group_node, tile_list, objekti, ind, 
 
         # READ DATA.JSON FILE
 
-        json_address = os.path.dirname(bpy.app.binary_path) + os.sep + '2.80' + os.sep + 'scripts' + os.sep + 'addons' + os.sep + 'io_coat3D' + os.sep + 'data.json'
+        json_address = os.path.dirname(bpy.app.binary_path) + os.sep + str(bpy.app.version[0]) + '.' + str(bpy.app.version[1]) + os.sep + 'scripts' + os.sep + 'addons' + os.sep + 'io_coat3D' + os.sep + 'data.json'
         with open(json_address, encoding='utf-8') as data_file:
             data = json.loads(data_file.read())
 
@@ -511,7 +510,7 @@ def createnodes(active_mat,texcoat, create_group_node, tile_list, objekti, ind, 
             if (bring_displacement == True and texcoat['displacement'] != []):
                 CreateTextureLine(data['displacement'], act_material, main_mat, texcoat, coat3D, notegroup,
                                   main_material, applink_tree, out_mat, coatMat, tile_list, objekti, ind, is_new)
-            if (bring_color == True and texcoat['alpha'] != []):
+            if (bring_alpha == True and texcoat['alpha'] != []):
                 CreateTextureLine(data['alpha'], act_material, main_mat, texcoat, coat3D, notegroup,
                                   main_material, applink_tree, out_mat, coatMat, tile_list, objekti, ind, is_new)
 
@@ -563,17 +562,19 @@ def CreateTextureLine(type, act_material, main_mat, texcoat, coat3D, notegroup, 
             map_node.location = map_loc
             map_node.name = '3DC_' + tile
             map_node.vector_type = 'TEXTURE'
-            map_node.use_min = True
-            map_node.use_max = True
 
             tile_int_x = int(tile[3])
             tile_int_y = int(tile[2])
-
-            map_node.min[0] = tile_int_x - 1
-            map_node.max[0] = tile_int_x
-
-            map_node.min[1] = tile_int_y
-            map_node.max[1] = tile_int_y + 1
+            
+            min_node = texture_tree.nodes.new('ShaderNodeVectorMath')
+            min_node.operation = "MINIMUM"
+            min_node.inputs[1].default_value[0] = tile_int_x - 1
+            min_node.inputs[1].default_value[1] = tile_int_y
+ 
+            max_node = texture_tree.nodes.new('ShaderNodeVectorMath')
+            max_node.operation = "MAXIMUM"
+            max_node.inputs[1].default_value[0] = tile_int_x
+            max_node.inputs[1].default_value[1] = tile_int_y + 1
 
 
             if(index == 0):
@@ -625,7 +626,9 @@ def CreateTextureLine(type, act_material, main_mat, texcoat, coat3D, notegroup, 
             map_loc[1] -= 300
 
             texture_tree.links.new(tex_uv_node.outputs[0], map_node.inputs[0])
-            texture_tree.links.new(map_node.outputs[0], tex_img_node.inputs[0])
+            texture_tree.links.new(map_node.outputs[0], min_node.inputs[0])
+            texture_tree.links.new(min_node.outputs['Vector'], max_node.inputs[0])
+            texture_tree.links.new(max_node.outputs['Vector'], tex_img_node.inputs[0])
 
         if(count > 1):
             texture_tree.links.new(mix_node.outputs[0], notegroupend.inputs[0])
@@ -716,19 +719,25 @@ def CreateTextureLine(type, act_material, main_mat, texcoat, coat3D, notegroup, 
             coatMat.cycles.displacement_method = 'BOTH'
 
         else:
-
             if (texcoat['alpha'] != []):
-                if (type['name'] == 'color'):
-                    act_material.links.new(node.outputs[1], notegroup.inputs[8])
-            else:
                 if (type['name'] == 'alpha'):
                     act_material.links.new(node.outputs[1], notegroup.inputs[8])
+            else:
+                if (type['name'] == 'color'):
+                    act_material.links.new(node.outputs[1], notegroup.inputs[8])
+            if(type['name'] != 'alpha'):
+                huenode = createExtraNodes(act_material, node, type)
+            else:
+                huenode = node
+                huenode.location = -100, -800
 
-            huenode = createExtraNodes(act_material, node, type)
-
-            act_material.links.new(huenode.outputs[0], notegroup.inputs[type['input']])
+            if(type['name'] != 'alpha'):
+                act_material.links.new(huenode.outputs[0], notegroup.inputs[type['input']])
             if (main_mat.type != 'MIX_SHADER' and input_color != -1):
                 main_material.links.new(applink_tree.outputs[type['input']], main_mat.inputs[input_color])
+                if(type['name'] == 'color'): #Alpha connection into Principled shader
+                    main_material.links.new(applink_tree.outputs['Alpha'], main_mat.inputs['Alpha'])
+
             else:
                 location = main_mat.location
                 #applink_tree.location = main_mat.location[0], main_mat.location[1] + 200

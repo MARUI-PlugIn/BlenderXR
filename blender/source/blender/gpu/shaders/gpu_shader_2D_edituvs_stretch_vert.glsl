@@ -4,12 +4,15 @@ uniform vec2 aspect;
 
 in vec2 pos;
 
-#ifndef STRETCH_ANGLE
-in float stretch;
-#else
-
-in vec4 uv_adj;
+#ifdef STRETCH_ANGLE
+in vec2 uv_angles;
 in float angle;
+
+#else
+in float ratio;
+uniform float totalAreaRatio;
+uniform float totalAreaRatioInv;
+
 #endif
 
 noperspective out vec4 finalColor;
@@ -52,6 +55,11 @@ vec3 weight_to_rgb(float weight)
 
 #define M_PI 3.1415926535897932
 
+vec2 angle_to_v2(float angle)
+{
+  return vec2(cos(angle), sin(angle));
+}
+
 /* Adapted from BLI_math_vector.h */
 float angle_normalized_v2v2(vec2 v1, vec2 v2)
 {
@@ -64,15 +72,26 @@ float angle_normalized_v2v2(vec2 v1, vec2 v2)
   return (q) ? a : M_PI - a;
 }
 
+float area_ratio_to_stretch(float ratio, float tot_ratio, float inv_tot_ratio)
+{
+  ratio *= (ratio > 0.0f) ? tot_ratio : -inv_tot_ratio;
+  return (ratio > 1.0f) ? (1.0f / ratio) : ratio;
+}
+
 void main()
 {
   gl_Position = ModelViewProjectionMatrix * vec4(pos, 0.0, 1.0);
 
 #ifdef STRETCH_ANGLE
-  float uv_angle = angle_normalized_v2v2(uv_adj.xy, uv_adj.zw) / M_PI;
+  vec2 v1 = angle_to_v2(uv_angles.x * M_PI);
+  vec2 v2 = angle_to_v2(uv_angles.y * M_PI);
+  float uv_angle = angle_normalized_v2v2(v1, v2) / M_PI;
   float stretch = 1.0 - abs(uv_angle - angle);
   stretch = stretch;
   stretch = 1.0 - stretch * stretch;
+#else
+  float stretch = 1.0 - area_ratio_to_stretch(ratio, totalAreaRatio, -totalAreaRatioInv);
+
 #endif
 
   finalColor = vec4(weight_to_rgb(stretch), 1.0);

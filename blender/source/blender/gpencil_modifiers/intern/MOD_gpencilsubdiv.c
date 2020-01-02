@@ -47,6 +47,7 @@ static void initData(GpencilModifierData *md)
   gpmd->pass_index = 0;
   gpmd->level = 1;
   gpmd->layername[0] = '\0';
+  gpmd->materialname[0] = '\0';
 }
 
 static void copyData(const GpencilModifierData *md, GpencilModifierData *target)
@@ -59,20 +60,27 @@ static void deformStroke(GpencilModifierData *md,
                          Depsgraph *UNUSED(depsgraph),
                          Object *ob,
                          bGPDlayer *gpl,
+                         bGPDframe *UNUSED(gpf),
                          bGPDstroke *gps)
 {
   SubdivGpencilModifierData *mmd = (SubdivGpencilModifierData *)md;
 
+  /* It makes sense when adding points to a straight line */
+  /* e.g. for creating thickness variation in later modifiers. */
+  const int minimum_vert = (mmd->flag & GP_SUBDIV_SIMPLE) ? 2 : 3;
+
   if (!is_stroke_affected_by_modifier(ob,
                                       mmd->layername,
+                                      mmd->materialname,
                                       mmd->pass_index,
                                       mmd->layer_pass,
-                                      3,
+                                      minimum_vert,
                                       gpl,
                                       gps,
                                       mmd->flag & GP_SUBDIV_INVERT_LAYER,
                                       mmd->flag & GP_SUBDIV_INVERT_PASS,
-                                      mmd->flag & GP_SUBDIV_INVERT_LAYERPASS)) {
+                                      mmd->flag & GP_SUBDIV_INVERT_LAYERPASS,
+                                      mmd->flag & GP_SUBDIV_INVERT_MATERIAL)) {
     return;
   }
 
@@ -89,18 +97,10 @@ static void bakeModifier(struct Main *UNUSED(bmain),
   for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
     for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
       for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
-        deformStroke(md, depsgraph, ob, gpl, gps);
+        deformStroke(md, depsgraph, ob, gpl, gpf, gps);
       }
     }
   }
-}
-
-static int getDuplicationFactor(GpencilModifierData *md)
-{
-  SubdivGpencilModifierData *mmd = (SubdivGpencilModifierData *)md;
-  int t = (mmd->level + 1) * (mmd->level + 1);
-  CLAMP_MIN(t, 2);
-  return t;
 }
 
 GpencilModifierTypeInfo modifierType_Gpencil_Subdiv = {
@@ -125,5 +125,4 @@ GpencilModifierTypeInfo modifierType_Gpencil_Subdiv = {
     /* foreachObjectLink */ NULL,
     /* foreachIDLink */ NULL,
     /* foreachTexLink */ NULL,
-    /* getDuplicationFactor */ getDuplicationFactor,
 };

@@ -69,6 +69,7 @@
 
 #include "ED_armature.h"
 #include "ED_object.h"
+#include "ED_outliner.h"
 #include "ED_screen.h"
 #include "ED_select_utils.h"
 #include "ED_keyframing.h"
@@ -213,7 +214,7 @@ bool ED_object_base_deselect_all(ViewLayer *view_layer, View3D *v3d, int action)
 
 static int get_base_select_priority(Base *base)
 {
-  if (base->flag & BASE_VISIBLE) {
+  if (base->flag & BASE_VISIBLE_DEPSGRAPH) {
     if (base->flag & BASE_SELECTABLE) {
       return 3;
     }
@@ -287,7 +288,7 @@ bool ED_object_jump_to_object(bContext *C, Object *ob, const bool UNUSED(reveal_
     if (!(base->flag & BASE_SELECTED)) {
       ED_object_base_deselect_all(view_layer, v3d, SEL_DESELECT);
 
-      if (base->flag & BASE_VISIBLE) {
+      if (BASE_VISIBLE(v3d, base)) {
         ED_object_base_select(base, BA_SELECT);
       }
 
@@ -435,6 +436,8 @@ static int object_select_by_type_exec(bContext *C, wmOperator *op)
   Scene *scene = CTX_data_scene(C);
   DEG_id_tag_update(&scene->id, ID_RECALC_SELECT);
   WM_event_add_notifier(C, NC_SCENE | ND_OB_SELECT, scene);
+
+  ED_outliner_select_sync_from_object_tag(C);
 
   return OPERATOR_FINISHED;
 }
@@ -717,6 +720,7 @@ static int object_select_linked_exec(bContext *C, wmOperator *op)
   if (changed) {
     DEG_id_tag_update(&scene->id, ID_RECALC_SELECT);
     WM_event_add_notifier(C, NC_SCENE | ND_OB_SELECT, scene);
+    ED_outliner_select_sync_from_object_tag(C);
     return OPERATOR_FINISHED;
   }
 
@@ -1100,6 +1104,7 @@ static int object_select_grouped_exec(bContext *C, wmOperator *op)
   if (changed) {
     DEG_id_tag_update(&scene->id, ID_RECALC_SELECT);
     WM_event_add_notifier(C, NC_SCENE | ND_OB_SELECT, scene);
+    ED_outliner_select_sync_from_object_tag(C);
     return OPERATOR_FINISHED;
   }
 
@@ -1149,6 +1154,8 @@ static int object_select_all_exec(bContext *C, wmOperator *op)
     Scene *scene = CTX_data_scene(C);
     DEG_id_tag_update(&scene->id, ID_RECALC_SELECT);
     WM_event_add_notifier(C, NC_SCENE | ND_OB_SELECT, scene);
+
+    ED_outliner_select_sync_from_object_tag(C);
 
     return OPERATOR_FINISHED;
   }
@@ -1218,6 +1225,8 @@ static int object_select_same_collection_exec(bContext *C, wmOperator *op)
   DEG_id_tag_update(&scene->id, ID_RECALC_SELECT);
   WM_event_add_notifier(C, NC_SCENE | ND_OB_SELECT, scene);
 
+  ED_outliner_select_sync_from_object_tag(C);
+
   return OPERATOR_FINISHED;
 }
 
@@ -1280,6 +1289,8 @@ static int object_select_mirror_exec(bContext *C, wmOperator *op)
   /* undo? */
   DEG_id_tag_update(&scene->id, ID_RECALC_SELECT);
   WM_event_add_notifier(C, NC_SCENE | ND_OB_SELECT, scene);
+
+  ED_outliner_select_sync_from_object_tag(C);
 
   return OPERATOR_FINISHED;
 }
@@ -1369,6 +1380,9 @@ static int object_select_more_exec(bContext *C, wmOperator *UNUSED(op))
     Scene *scene = CTX_data_scene(C);
     DEG_id_tag_update(&scene->id, ID_RECALC_SELECT);
     WM_event_add_notifier(C, NC_SCENE | ND_OB_SELECT, scene);
+
+    ED_outliner_select_sync_from_object_tag(C);
+
     return OPERATOR_FINISHED;
   }
   else {
@@ -1399,6 +1413,9 @@ static int object_select_less_exec(bContext *C, wmOperator *UNUSED(op))
     Scene *scene = CTX_data_scene(C);
     DEG_id_tag_update(&scene->id, ID_RECALC_SELECT);
     WM_event_add_notifier(C, NC_SCENE | ND_OB_SELECT, scene);
+
+    ED_outliner_select_sync_from_object_tag(C);
+
     return OPERATOR_FINISHED;
   }
   else {
@@ -1447,6 +1464,8 @@ static int object_select_random_exec(bContext *C, wmOperator *op)
   Scene *scene = CTX_data_scene(C);
   DEG_id_tag_update(&scene->id, ID_RECALC_SELECT);
   WM_event_add_notifier(C, NC_SCENE | ND_OB_SELECT, scene);
+
+  ED_outliner_select_sync_from_object_tag(C);
 
   return OPERATOR_FINISHED;
 }

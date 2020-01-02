@@ -63,7 +63,7 @@ static struct DRWTimerPool {
 void DRW_stats_free(void)
 {
   if (DTP.timers != NULL) {
-    for (int i = 0; i < DTP.timer_count; ++i) {
+    for (int i = 0; i < DTP.timer_count; i++) {
       DRWTimer *timer = &DTP.timers[i];
       glDeleteQueries(2, timer->query);
     }
@@ -169,7 +169,7 @@ void DRW_stats_reset(void)
     GLuint64 lvl_time[MAX_NESTED_TIMER] = {0};
 
     /* Swap queries for the next frame and sum up each lvl time. */
-    for (int i = DTP.timer_increment - 1; i >= 0; --i) {
+    for (int i = DTP.timer_increment - 1; i >= 0; i--) {
       DRWTimer *timer = &DTP.timers[i];
       SWAP(GLuint, timer->query[0], timer->query[1]);
 
@@ -200,7 +200,7 @@ void DRW_stats_reset(void)
   }
 }
 
-static void draw_stat_5row(rcti *rect, int u, int v, const char *txt, const int size)
+static void draw_stat_5row(const rcti *rect, int u, int v, const char *txt, const int size)
 {
   BLF_draw_default_ascii(rect->xmin + (1 + u * 5) * U.widget_unit,
                          rect->ymax - (3 + v) * U.widget_unit,
@@ -209,13 +209,13 @@ static void draw_stat_5row(rcti *rect, int u, int v, const char *txt, const int 
                          size);
 }
 
-static void draw_stat(rcti *rect, int u, int v, const char *txt, const int size)
+static void draw_stat(const rcti *rect, int u, int v, const char *txt, const int size)
 {
   BLF_draw_default_ascii(
       rect->xmin + (1 + u) * U.widget_unit, rect->ymax - (3 + v) * U.widget_unit, 0.0f, txt, size);
 }
 
-void DRW_stats_draw(rcti *rect)
+void DRW_stats_draw(const rcti *rect)
 {
   char stat_string[64];
   int lvl_index[MAX_NESTED_TIMER];
@@ -323,7 +323,7 @@ void DRW_stats_draw(rcti *rect)
   BLI_strncpy(stat_string, "GPU Render Timings", sizeof(stat_string));
   draw_stat(rect, 0, v++, stat_string, sizeof(stat_string));
 
-  for (int i = 0; i < DTP.timer_increment; ++i) {
+  for (int i = 0; i < DTP.timer_increment; i++) {
     double time_ms, time_percent;
     DRWTimer *timer = &DTP.timers[i];
     DRWTimer *timer_parent = (timer->lvl > 0) ? &DTP.timers[lvl_index[timer->lvl - 1]] : NULL;

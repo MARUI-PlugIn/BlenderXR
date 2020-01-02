@@ -37,6 +37,52 @@ from bl_ui.properties_paint_common import (
 from bl_ui.utils import PresetPanel
 
 
+class VIEW3D_MT_brush_context_menu(Menu):
+    bl_label = "Material Specials"
+
+    def draw(self, context):
+        layout = self.layout
+
+        settings = UnifiedPaintPanel.paint_settings(context)
+        brush = getattr(settings, "brush", None)
+
+        # skip if no active brush
+        if not brush:
+            layout.label(text="No Brushes currently available", icon='INFO')
+            return
+
+        # brush paint modes
+        layout.menu("VIEW3D_MT_brush_paint_modes")
+
+        # brush tool
+
+        if context.image_paint_object:
+            layout.prop_menu_enum(brush, "image_tool")
+        elif context.vertex_paint_object:
+            layout.prop_menu_enum(brush, "vertex_tool")
+        elif context.weight_paint_object:
+            layout.prop_menu_enum(brush, "weight_tool")
+        elif context.sculpt_object:
+            layout.prop_menu_enum(brush, "sculpt_tool")
+            layout.operator("brush.reset")
+
+
+class VIEW3D_MT_brush_context_menu_paint_modes(Menu):
+    bl_label = "Enabled Modes"
+
+    def draw(self, context):
+        layout = self.layout
+
+        settings = UnifiedPaintPanel.paint_settings(context)
+        brush = settings.brush
+
+        layout.prop(brush, "use_paint_sculpt", text="Sculpt")
+        layout.prop(brush, "use_paint_uv_sculpt", text="UV Sculpt")
+        layout.prop(brush, "use_paint_vertex", text="Vertex Paint")
+        layout.prop(brush, "use_paint_weight", text="Weight Paint")
+        layout.prop(brush, "use_paint_image", text="Texture Paint")
+
+
 class View3DPanel:
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
@@ -75,6 +121,39 @@ def is_not_gpencil_edit_mode(context):
     return not is_gpmode
 
 
+# ********** default tools for object mode ****************
+
+
+class VIEW3D_PT_tools_object_options(View3DPanel, Panel):
+    bl_category = "Tool"
+    bl_context = ".objectmode"  # dot on purpose (access from topbar)
+    bl_label = "Options"
+
+    def draw(self, context):
+        # layout = self.layout
+        pass
+
+
+class VIEW3D_PT_tools_object_options_transform(View3DPanel, Panel):
+    bl_category = "Tool"
+    bl_context = ".objectmode"  # dot on purpose (access from topbar)
+    bl_label = "Transform"
+    bl_parent_id = "VIEW3D_PT_tools_object_options"
+
+    def draw(self, context):
+        layout = self.layout
+
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+
+        tool_settings = context.tool_settings
+
+        layout.label(text="Affect Only")
+        layout.prop(tool_settings, "use_transform_data_origin", text="Origins")
+        layout.prop(tool_settings, "use_transform_pivot_point_align", text="Locations")
+        layout.prop(tool_settings, "use_transform_skip_children", text="Parents")
+
+
 # ********** default tools for editmode_mesh ****************
 
 
@@ -97,11 +176,21 @@ class VIEW3D_PT_tools_meshedit_options(View3DPanel, Panel):
         ob = context.active_object
         mesh = ob.data
 
-        col = layout.column(align=True)
-        col.prop(mesh, "use_mirror_x")
+        split = layout.split()
+
+        col = split.column()
+        col.alignment = 'RIGHT'
+        col.label(text="Mirror")
+
+        col = split.column()
 
         row = col.row(align=True)
-        row.active = ob.data.use_mirror_x
+        row.prop(mesh, "use_mirror_x", text="X", toggle=True)
+        row.prop(mesh, "use_mirror_y", text="Y", toggle=True)
+        row.prop(mesh, "use_mirror_z", text="Z", toggle=True)
+
+        row = layout.row(align=True)
+        row.active = ob.data.use_mirror_x or ob.data.use_mirror_y or ob.data.use_mirror_z
         row.prop(mesh, "use_mirror_topology")
 
 
@@ -129,8 +218,10 @@ class VIEW3D_PT_tools_meshedit_options_automerge(View3DPanel, Panel):
         layout.use_property_split = True
         layout.use_property_decorate = False
 
-        layout.active = tool_settings.use_mesh_automerge
-        layout.prop(tool_settings, "double_threshold", text="Threshold")
+        col = layout.column(align=True)
+        col.active = tool_settings.use_mesh_automerge
+        col.prop(tool_settings, "use_mesh_automerge_and_split", toggle=False)
+        col.prop(tool_settings, "double_threshold", text="Threshold")
 
 # ********** default tools for editmode_curve ****************
 
@@ -214,11 +305,16 @@ class VIEW3D_PT_tools_posemode_options(View3DPanel, Panel):
         pose = context.active_object.pose
         layout = self.layout
 
+        tool_settings = context.tool_settings
+
         layout.prop(pose, "use_auto_ik")
         layout.prop(pose, "use_mirror_x")
         col = layout.column()
         col.active = pose.use_mirror_x
         col.prop(pose, "use_mirror_relative")
+
+        layout.label(text="Affect Only")
+        layout.prop(tool_settings, "use_transform_pivot_point_align", text="Locations")
 
 # ********** default tools for paint modes ****************
 
@@ -299,8 +395,9 @@ class VIEW3D_PT_tools_brush(Panel, View3DPaintPanel):
         brush = settings.brush
 
         if not self.is_popover:
-            col = layout.split().column()
-            col.template_ID_preview(settings, "brush", new="brush.add", rows=3, cols=8)
+            row = layout.row()
+            row.column().template_ID_preview(settings, "brush", new="brush.add", rows=3, cols=8)
+            row.menu("VIEW3D_MT_brush_context_menu", icon='DOWNARROW_HLT', text="")
 
         # Sculpt Mode #
         if context.sculpt_object and brush:
@@ -314,6 +411,25 @@ class VIEW3D_PT_tools_brush(Panel, View3DPaintPanel):
 
             if not self.is_popover:
                 brush_basic_sculpt_settings(col, context, brush)
+
+            # normal_radius_factor
+            col.separator()
+            row = col.row()
+            row.prop(brush, "normal_radius_factor", slider=True)
+
+            if brush.sculpt_tool == 'ELASTIC_DEFORM':
+                col.separator()
+                row = col.row()
+                row.prop(brush, "elastic_deform_type")
+                row = col.row()
+                row.prop(brush, "elastic_deform_volume_preservation", slider=True)
+            elif brush.sculpt_tool == 'POSE':
+                row = col.row()
+                row.prop(brush, "pose_offset")
+            elif brush.sculpt_tool == 'GRAB':
+                col.separator()
+                row = col.row()
+                row.prop(brush, "use_grab_active_vertex")
 
             # topology_rake_factor
             if (
@@ -337,7 +453,10 @@ class VIEW3D_PT_tools_brush(Panel, View3DPaintPanel):
             # crease_pinch_factor
             if capabilities.has_pinch_factor:
                 row = col.row(align=True)
-                row.prop(brush, "crease_pinch_factor", slider=True, text="Pinch")
+                if brush.sculpt_tool in {'BLOB', 'SNAKE_HOOK'}:
+                    row.prop(brush, "crease_pinch_factor", slider=True, text="Magnify")
+                else:
+                    row.prop(brush, "crease_pinch_factor", slider=True, text="Pinch")
 
             # rake_factor
             if capabilities.has_rake_factor:
@@ -384,7 +503,7 @@ class VIEW3D_PT_tools_brush(Panel, View3DPaintPanel):
         # Texture Paint Mode #
 
         elif context.image_paint_object and brush:
-            brush_texpaint_common(self, context, layout, brush, settings, True)
+            brush_texpaint_common(self, context, layout, brush, settings, projpaint=True)
 
         # Weight Paint Mode #
         elif context.weight_paint_object and brush:
@@ -402,6 +521,8 @@ class VIEW3D_PT_tools_brush(Panel, View3DPaintPanel):
             from bl_ui.properties_paint_common import (
                 brush_basic_vpaint_settings,
             )
+
+            col = layout.column()
 
             if not self.is_popover:
                 brush_basic_vpaint_settings(col, context, brush)
@@ -429,9 +550,16 @@ class VIEW3D_PT_tools_brush_color(Panel, View3DPaintPanel):
         settings = self.paint_settings(context)
         brush = settings.brush
 
-        layout.active = not brush.use_gradient
+        if context.vertex_paint_object:
+            brush_texpaint_common_color(self, context, layout, brush, settings, projpaint=True)
 
-        brush_texpaint_common_color(self, context, layout, brush, settings, True)
+        else:
+            layout.prop(brush, "color_type", expand=True)
+
+            if brush.color_type == 'COLOR':
+                brush_texpaint_common_color(self, context, layout, brush, settings, projpaint=True)
+            elif brush.color_type == 'GRADIENT':
+                brush_texpaint_common_gradient(self, context, layout, brush, settings, projpaint=True)
 
 
 class VIEW3D_PT_tools_brush_swatches(Panel, View3DPaintPanel):
@@ -461,37 +589,6 @@ class VIEW3D_PT_tools_brush_swatches(Panel, View3DPaintPanel):
             layout.template_palette(settings, "palette", color=True)
 
 
-class VIEW3D_PT_tools_brush_gradient(Panel, View3DPaintPanel):
-    bl_context = ".paint_common"  # dot on purpose (access from topbar)
-    bl_parent_id = "VIEW3D_PT_tools_brush"
-    bl_label = "Gradient"
-    bl_options = {'DEFAULT_CLOSED'}
-
-    @classmethod
-    def poll(cls, context):
-        settings = cls.paint_settings(context)
-        brush = settings.brush
-        capabilities = brush.image_paint_capabilities
-
-        return capabilities.has_color and context.image_paint_object
-
-    def draw_header(self, context):
-        settings = self.paint_settings(context)
-        brush = settings.brush
-        self.layout.prop(brush, "use_gradient", text="")
-
-    def draw(self, context):
-        layout = self.layout
-        layout.use_property_split = False
-        layout.use_property_decorate = False  # No animation.
-        settings = self.paint_settings(context)
-        brush = settings.brush
-
-        layout.active = brush.use_gradient
-
-        brush_texpaint_common_gradient(self, context, layout, brush, settings, True)
-
-
 class VIEW3D_PT_tools_brush_clone(Panel, View3DPaintPanel):
     bl_context = ".paint_common"  # dot on purpose (access from topbar)
     bl_parent_id = "VIEW3D_PT_tools_brush"
@@ -516,7 +613,7 @@ class VIEW3D_PT_tools_brush_clone(Panel, View3DPaintPanel):
 
         layout.active = settings.use_clone_layer
 
-        brush_texpaint_common_clone(self, context, layout, brush, settings, True)
+        brush_texpaint_common_clone(self, context, layout, brush, settings, projpaint=True)
 
 
 class VIEW3D_PT_tools_brush_options(Panel, View3DPaintPanel):
@@ -538,9 +635,10 @@ class VIEW3D_PT_tools_brush_options(Panel, View3DPaintPanel):
         col = layout.column()
 
         if context.image_paint_object and brush:
-            brush_texpaint_common_options(self, context, layout, brush, settings, True)
+            brush_texpaint_common_options(self, context, layout, brush, settings, projpaint=True)
 
         elif context.sculpt_object and brush:
+            col.prop(brush, "use_automasking_topology")
             if capabilities.has_accumulate:
                 col.prop(brush, "use_accumulate")
 
@@ -549,6 +647,7 @@ class VIEW3D_PT_tools_brush_options(Panel, View3DPaintPanel):
             if capabilities.has_sculpt_plane:
                 col.prop(brush, "sculpt_plane")
                 col.prop(brush, "use_original_normal")
+                col.prop(brush, "use_original_plane")
 
             col.prop(brush, "use_frontface", text="Front Faces Only")
             col.prop(brush, "use_projected")
@@ -676,6 +775,7 @@ class VIEW3D_PT_stencil_projectpaint(View3DPanel, Panel):
     bl_context = ".imagepaint"  # dot on purpose (access from topbar)
     bl_label = "Mask"
     bl_options = {'DEFAULT_CLOSED'}
+    bl_ui_units_x = 14
 
     @classmethod
     def poll(cls, context):
@@ -700,20 +800,20 @@ class VIEW3D_PT_stencil_projectpaint(View3DPanel, Panel):
         col = layout.column()
         col.active = ipaint.use_stencil_layer
 
+        col.label(text="Stencil Image")
+        col.template_ID(ipaint, "stencil_image", new="image.new", open="image.open")
+
         stencil_text = mesh.uv_layer_stencil.name if mesh.uv_layer_stencil else ""
-        split = col.split(factor=0.5)
+
+        col.separator()
+
+        split = col.split()
         colsub = split.column()
         colsub.alignment = 'RIGHT'
         colsub.label(text="UV Layer")
         split.column().menu("VIEW3D_MT_tools_projectpaint_stencil", text=stencil_text, translate=False)
 
-        # todo this should be combinded into a single row
-        split = col.split(factor=0.5)
-        colsub = split.column()
-        colsub.alignment = 'RIGHT'
-        colsub.label(text="Stencil Image")
-        colsub = split.column()
-        colsub.template_ID(ipaint, "stencil_image", new="image.new", open="image.open")
+        col.separator()
 
         row = col.row(align=True)
         row.prop(ipaint, "stencil_color", text="Display Color")
@@ -886,6 +986,8 @@ class VIEW3D_PT_tools_brush_stroke(Panel, View3DPaintPanel):
             if brush.sculpt_capabilities.has_space_attenuation:
                 col.prop(brush, "use_space_attenuation")
 
+            col.prop(brush, "use_scene_spacing")
+
             if brush.sculpt_capabilities.has_jitter:
 
                 row = col.row(align=True)
@@ -958,16 +1060,21 @@ class VIEW3D_PT_tools_brush_falloff(Panel, View3DPaintPanel):
         settings = self.paint_settings(context)
         brush = settings.brush
 
-        layout.template_curve_mapping(brush, "curve", brush=True)
-
         col = layout.column(align=True)
         row = col.row(align=True)
-        row.operator("brush.curve_preset", icon='SMOOTHCURVE', text="").shape = 'SMOOTH'
-        row.operator("brush.curve_preset", icon='SPHERECURVE', text="").shape = 'ROUND'
-        row.operator("brush.curve_preset", icon='ROOTCURVE', text="").shape = 'ROOT'
-        row.operator("brush.curve_preset", icon='SHARPCURVE', text="").shape = 'SHARP'
-        row.operator("brush.curve_preset", icon='LINCURVE', text="").shape = 'LINE'
-        row.operator("brush.curve_preset", icon='NOCURVE', text="").shape = 'MAX'
+        row.prop(brush, "curve_preset", text="")
+
+        if brush.curve_preset == 'CUSTOM':
+            layout.template_curve_mapping(brush, "curve", brush=True)
+
+            col = layout.column(align=True)
+            row = col.row(align=True)
+            row.operator("brush.curve_preset", icon='SMOOTHCURVE', text="").shape = 'SMOOTH'
+            row.operator("brush.curve_preset", icon='SPHERECURVE', text="").shape = 'ROUND'
+            row.operator("brush.curve_preset", icon='ROOTCURVE', text="").shape = 'ROOT'
+            row.operator("brush.curve_preset", icon='SHARPCURVE', text="").shape = 'SHARP'
+            row.operator("brush.curve_preset", icon='LINCURVE', text="").shape = 'LINE'
+            row.operator("brush.curve_preset", icon='NOCURVE', text="").shape = 'MAX'
 
 
 class VIEW3D_PT_tools_brush_falloff_frontface(View3DPaintPanel, Panel):
@@ -1108,6 +1215,32 @@ class VIEW3D_PT_sculpt_dyntopo_remesh(Panel, View3DPaintPanel):
             col = flow.column()
             col.operator("sculpt.detail_flood_fill")
 
+
+class VIEW3D_PT_sculpt_voxel_remesh(Panel, View3DPaintPanel):
+    bl_context = ".sculpt_mode"  # dot on purpose (access from topbar)
+    bl_label = "Remesh"
+    bl_options = {'DEFAULT_CLOSED'}
+    bl_ui_units_x = 12
+
+    @classmethod
+    def poll(cls, context):
+        return (context.sculpt_object and context.tool_settings.sculpt)
+
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+
+        col = layout.column()
+        mesh = context.active_object.data
+        col.prop(mesh, "remesh_voxel_size")
+        col.prop(mesh, "remesh_voxel_adaptivity")
+        col.prop(mesh, "use_remesh_fix_poles")
+        col.prop(mesh, "use_remesh_smooth_normals")
+        col.prop(mesh, "use_remesh_preserve_volume")
+        col.prop(mesh, "use_remesh_preserve_paint_mask")
+        col.operator("object.voxel_remesh", text="Remesh")
+
 # TODO, move to space_view3d.py
 
 
@@ -1136,10 +1269,6 @@ class VIEW3D_PT_sculpt_options(Panel, View3DPaintPanel):
         col.prop(sculpt, "show_low_resolution")
         col = flow.column()
         col.prop(sculpt, "use_deform_only")
-        col = flow.column()
-        col.prop(sculpt, "show_diffuse_color")
-        col = flow.column()
-        col.prop(sculpt, "show_mask")
 
 
 class VIEW3D_PT_sculpt_options_unified(Panel, View3DPaintPanel):
@@ -1723,7 +1852,7 @@ class VIEW3D_PT_tools_grease_pencil_brush(View3DPanel, Panel):
         brush = gpencil_paint.brush
 
         sub = col.column(align=True)
-        sub.operator("gpencil.brush_presets_create", icon='HELP', text="")
+        sub.operator("gpencil.brush_presets_create", icon='PRESET_NEW', text="")
 
         if brush is not None:
             gp_settings = brush.gpencil_settings
@@ -1751,7 +1880,6 @@ class VIEW3D_PT_tools_grease_pencil_brush_option(View3DPanel, Panel):
     bl_context = ".greasepencil_paint"
     bl_label = "Options"
     bl_category = "Tool"
-    bl_options = {'DEFAULT_CLOSED'}
 
     @classmethod
     def poll(cls, context):
@@ -1831,7 +1959,6 @@ class VIEW3D_PT_tools_grease_pencil_brush_settings(View3DPanel, Panel):
     bl_parent_id = 'VIEW3D_PT_tools_grease_pencil_brush_option'
     bl_label = "Post-Processing"
     bl_category = "Tool"
-    bl_options = {'DEFAULT_CLOSED'}
 
     @classmethod
     def poll(cls, context):
@@ -1863,6 +1990,9 @@ class VIEW3D_PT_tools_grease_pencil_brush_settings(View3DPanel, Panel):
         col = layout.column(align=True)
         col.prop(gp_settings, "pen_subdivision_steps")
         col.prop(gp_settings, "random_subdiv", text="Randomness", slider=True)
+
+        col = layout.column(align=True)
+        col.prop(gp_settings, "simplify_factor")
 
         col = layout.column(align=True)
         col.prop(gp_settings, "trim")
@@ -2057,7 +2187,7 @@ class VIEW3D_PT_tools_grease_pencil_weight_paint(View3DPanel, Panel):
             brush_basic_gpencil_weight_settings(col, context, brush)
 
 
-# Grease Pencil Brush Appeareance (one for each mode)
+# Grease Pencil Brush Appearance (one for each mode)
 class VIEW3D_PT_tools_grease_pencil_paint_appearance(GreasePencilAppearancePanel, View3DPanel, Panel):
     bl_context = ".greasepencil_paint"
     bl_label = "Display"
@@ -2092,6 +2222,10 @@ class VIEW3D_PT_gpencil_brush_presets(PresetPanel, Panel):
 
 
 classes = (
+    VIEW3D_MT_brush_context_menu,
+    VIEW3D_MT_brush_context_menu_paint_modes,
+    VIEW3D_PT_tools_object_options,
+    VIEW3D_PT_tools_object_options_transform,
     VIEW3D_PT_tools_meshedit_options,
     VIEW3D_PT_tools_meshedit_options_automerge,
     VIEW3D_PT_tools_curveedit_options_stroke,
@@ -2101,7 +2235,6 @@ classes = (
     VIEW3D_PT_tools_brush,
     VIEW3D_PT_tools_brush_color,
     VIEW3D_PT_tools_brush_swatches,
-    VIEW3D_PT_tools_brush_gradient,
     VIEW3D_PT_tools_brush_clone,
     VIEW3D_PT_tools_brush_options,
     TEXTURE_UL_texpaintslots,
@@ -2119,6 +2252,7 @@ classes = (
     VIEW3D_PT_tools_brush_display_custom_icon,
     VIEW3D_PT_sculpt_dyntopo,
     VIEW3D_PT_sculpt_dyntopo_remesh,
+    VIEW3D_PT_sculpt_voxel_remesh,
     VIEW3D_PT_sculpt_symmetry,
     VIEW3D_PT_sculpt_symmetry_for_topbar,
     VIEW3D_PT_sculpt_options,

@@ -176,13 +176,57 @@ static PyObject *Quaternion_to_axis_angle(QuaternionObject *self)
   return ret;
 }
 
+PyDoc_STRVAR(Quaternion_to_swing_twist_doc,
+             ".. method:: to_swing_twist(axis)\n"
+             "\n"
+             "   Split the rotation into a swing quaternion with the specified\n"
+             "   axis fixed at zero, and the remaining twist rotation angle.\n"
+             "\n"
+             "   :arg axis: twist axis as a string in ['X', 'Y', 'Z']\n"
+             "   :return: swing, twist angle.\n"
+             "   :rtype: (:class:`Quaternion`, float) pair\n");
+static PyObject *Quaternion_to_swing_twist(QuaternionObject *self, PyObject *axis_arg)
+{
+  PyObject *ret;
+
+  const char *axis_str = NULL;
+  float swing[4], twist;
+  int axis;
+
+  if (axis_arg && PyUnicode_Check(axis_arg)) {
+    axis_str = _PyUnicode_AsString(axis_arg);
+  }
+
+  if (axis_str && axis_str[0] >= 'X' && axis_str[0] <= 'Z' && axis_str[1] == 0) {
+    axis = axis_str[0] - 'X';
+  }
+  else {
+    PyErr_SetString(PyExc_ValueError,
+                    "Quaternion.to_swing_twist(): "
+                    "the axis argument must be "
+                    "a string in 'X', 'Y', 'Z'");
+    return NULL;
+  }
+
+  if (BaseMath_ReadCallback(self) == -1) {
+    return NULL;
+  }
+
+  twist = quat_split_swing_and_twist(self->quat, axis, swing, NULL);
+
+  ret = PyTuple_New(2);
+  PyTuple_SET_ITEMS(
+      ret, Quaternion_CreatePyObject(swing, Py_TYPE(self)), PyFloat_FromDouble(twist));
+  return ret;
+}
+
 PyDoc_STRVAR(
     Quaternion_to_exponential_map_doc,
     ".. method:: to_exponential_map()\n"
     "\n"
     "   Return the exponential map representation of the quaternion.\n"
     "\n"
-    "   This representation consist of the rotation axis multiplied by the rotation angle."
+    "   This representation consist of the rotation axis multiplied by the rotation angle.\n"
     "   Such a representation is useful for interpolation between multiple orientations.\n"
     "\n"
     "   :return: exponential map.\n"
@@ -935,7 +979,7 @@ static PyObject *Quaternion_imul(PyObject *q1, PyObject *q2)
     mul_vn_vn(quat1->quat, quat2->quat, QUAT_SIZE);
 #else
     PyErr_Format(PyExc_TypeError,
-                 "Inplace element-wise multiplication: "
+                 "In place element-wise multiplication: "
                  "not supported between '%.200s' and '%.200s' types",
                  Py_TYPE(q1)->tp_name,
                  Py_TYPE(q2)->tp_name);
@@ -1015,7 +1059,7 @@ static PyObject *Quaternion_matmul(PyObject *q1, PyObject *q2)
   return NULL;
 }
 /*------------------------obj @= obj------------------------------
- * inplace quaternion multiplication */
+ * in-place quaternion multiplication */
 static PyObject *Quaternion_imatmul(PyObject *q1, PyObject *q2)
 {
   float quat[QUAT_SIZE];
@@ -1040,7 +1084,7 @@ static PyObject *Quaternion_imatmul(PyObject *q1, PyObject *q2)
   }
   else {
     PyErr_Format(PyExc_TypeError,
-                 "Inplace quaternion multiplication: "
+                 "In place quaternion multiplication: "
                  "not supported between '%.200s' and '%.200s' types",
                  Py_TYPE(q1)->tp_name,
                  Py_TYPE(q2)->tp_name);
@@ -1368,6 +1412,10 @@ static struct PyMethodDef Quaternion_methods[] = {
      (PyCFunction)Quaternion_to_axis_angle,
      METH_NOARGS,
      Quaternion_to_axis_angle_doc},
+    {"to_swing_twist",
+     (PyCFunction)Quaternion_to_swing_twist,
+     METH_O,
+     Quaternion_to_swing_twist_doc},
     {"to_exponential_map",
      (PyCFunction)Quaternion_to_exponential_map,
      METH_NOARGS,
@@ -1479,7 +1527,7 @@ PyTypeObject quaternion_Type = {
     sizeof(QuaternionObject),                    /* tp_basicsize */
     0,                                           /* tp_itemsize */
     (destructor)BaseMathObject_dealloc,          /* tp_dealloc */
-    NULL,                                        /* tp_print */
+    (printfunc)NULL,                             /* tp_print */
     NULL,                                        /* tp_getattr */
     NULL,                                        /* tp_setattr */
     NULL,                                        /* tp_compare */

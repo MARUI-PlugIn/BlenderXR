@@ -37,7 +37,6 @@
 #include "BKE_ccg.h"
 #include "BKE_context.h"
 #include "BKE_mesh.h"
-#include "BKE_mesh_runtime.h"
 #include "BKE_multires.h"
 #include "BKE_paint.h"
 #include "BKE_subsurf.h"
@@ -135,7 +134,6 @@ static void partialvis_update_grids(Depsgraph *depsgraph,
                                     float planes[4][4])
 {
   CCGElem **grids;
-  CCGKey key;
   BLI_bitmap **grid_hidden;
   int *grid_indices, totgrid, i;
   bool any_changed = false, any_visible = false;
@@ -143,7 +141,7 @@ static void partialvis_update_grids(Depsgraph *depsgraph,
   /* get PBVH data */
   BKE_pbvh_node_get_grids(pbvh, node, &grid_indices, &totgrid, NULL, NULL, &grids);
   grid_hidden = BKE_pbvh_grid_hidden(pbvh);
-  BKE_pbvh_get_grid_key(pbvh, &key);
+  CCGKey key = *BKE_pbvh_get_grid_key(pbvh);
 
   sculpt_undo_push_node(ob, node, SCULPT_UNDO_HIDDEN);
 
@@ -299,15 +297,17 @@ static void rect_from_props(rcti *rect, PointerRNA *ptr)
   rect->ymax = RNA_int_get(ptr, "ymax");
 }
 
-static void clip_planes_from_rect(bContext *C, float clip_planes[4][4], const rcti *rect)
+static void clip_planes_from_rect(bContext *C,
+                                  Depsgraph *depsgraph,
+                                  float clip_planes[4][4],
+                                  const rcti *rect)
 {
   ViewContext vc;
   BoundBox bb;
 
   view3d_operator_needs_opengl(C);
-  ED_view3d_viewcontext_init(C, &vc);
+  ED_view3d_viewcontext_init(C, &vc, depsgraph);
   ED_view3d_clipping_calc(&bb, clip_planes, vc.ar, vc.obact, rect);
-  negate_m4(clip_planes);
 }
 
 /* If mode is inside, get all PBVH nodes that lie at least partially
@@ -322,24 +322,25 @@ static void get_pbvh_nodes(
   /* select search callback */
   switch (mode) {
     case PARTIALVIS_INSIDE:
-      cb = BKE_pbvh_node_planes_contain_AABB;
+      cb = BKE_pbvh_node_frustum_contain_AABB;
       break;
     case PARTIALVIS_OUTSIDE:
-      cb = BKE_pbvh_node_planes_exclude_AABB;
+      cb = BKE_pbvh_node_frustum_exclude_AABB;
       break;
     case PARTIALVIS_ALL:
     case PARTIALVIS_MASKED:
       break;
   }
 
-  BKE_pbvh_search_gather(pbvh, cb, clip_planes, nodes, totnode);
+  PBVHFrustumPlanes frustum = {.planes = clip_planes, .num_planes = 4};
+  BKE_pbvh_search_gather(pbvh, cb, &frustum, nodes, totnode);
 }
 
 static int hide_show_exec(bContext *C, wmOperator *op)
 {
   ARegion *ar = CTX_wm_region(C);
   Object *ob = CTX_data_active_object(C);
-  Depsgraph *depsgraph = CTX_data_depsgraph(C);
+  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   Mesh *me = ob->data;
   PartialVisAction action;
   PartialVisArea area;
@@ -355,13 +356,15 @@ static int hide_show_exec(bContext *C, wmOperator *op)
   area = RNA_enum_get(op->ptr, "area");
   rect_from_props(&rect, op->ptr);
 
-  clip_planes_from_rect(C, clip_planes, &rect);
+  clip_planes_from_rect(C, depsgraph, clip_planes, &rect);
 
   pbvh = BKE_sculpt_object_pbvh_ensure(depsgraph, ob);
   BLI_assert(ob->sculpt->pbvh == pbvh);
 
   get_pbvh_nodes(pbvh, &nodes, &totnode, clip_planes, area);
   pbvh_type = BKE_pbvh_type(pbvh);
+
+  negate_m4(clip_planes);
 
   /* start undo */
   switch (action) {

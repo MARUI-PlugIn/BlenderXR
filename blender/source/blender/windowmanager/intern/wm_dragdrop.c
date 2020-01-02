@@ -265,7 +265,7 @@ static void wm_drop_operator_options(bContext *C, wmDrag *drag, const wmEvent *e
 
     if (opname) {
       BLI_strncpy(drag->opname, opname, sizeof(drag->opname));
-      // WM_cursor_modal_set(win, CURSOR_COPY);
+      // WM_cursor_modal_set(win, WM_CURSOR_COPY);
     }
     // else
     //  WM_cursor_modal_restore(win);
@@ -403,7 +403,7 @@ void wm_drags_draw(bContext *C, wmWindow *win, rcti *rect)
   /* XXX todo, multiline drag draws... but maybe not, more types mixed wont work well */
   GPU_blend(true);
   for (drag = wm->drags.first; drag; drag = drag->next) {
-    const char text_col[] = {255, 255, 255, 255};
+    const uchar text_col[] = {255, 255, 255, 255};
     int iconsize = UI_DPI_ICON_SIZE;
     int padding = 4 * UI_DPI_FAC;
 
@@ -461,7 +461,7 @@ void wm_drags_draw(bContext *C, wmWindow *win, rcti *rect)
       drag_rect_minmax(rect, x, y, x + w, y + iconsize);
     }
     else {
-      UI_fontstyle_draw_simple(fstyle, x, y, wm_drag_name(drag), (uchar *)text_col);
+      UI_fontstyle_draw_simple(fstyle, x, y, wm_drag_name(drag), text_col);
     }
 
     /* operator name with roundbox */

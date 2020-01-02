@@ -117,7 +117,6 @@ struct ID;
 struct ImBuf;
 struct bContext;
 struct wmEvent;
-struct wmMsgBus;
 struct wmOperator;
 struct wmWindowManager;
 
@@ -180,8 +179,6 @@ enum {
   OPTYPE_LOCK_BYPASS = (1 << 9),
   /** Special type of undo which doesn't store itself multiple times. */
   OPTYPE_UNDO_GROUPED = (1 << 10),
-  /** Need evaluated data (i.e. a valid, up-to-date depsgraph for current context). */
-  OPTYPE_USE_EVAL_DATA = (1 << 11),
 };
 
 /** For #WM_cursor_grab_enable wrap axis. */
@@ -740,6 +737,12 @@ typedef struct wmOperatorType {
    */
   const char *(*get_name)(struct wmOperatorType *, struct PointerRNA *);
 
+  /**
+   * Return a different description to use in the user interface, based on property values.
+   * The returned string must be freed by the caller, unless NULL.
+   */
+  char *(*get_description)(struct bContext *C, struct wmOperatorType *, struct PointerRNA *);
+
   /** rna for properties */
   struct StructRNA *srna;
 
@@ -771,6 +774,16 @@ typedef struct wmOperatorType {
   short flag;
 
 } wmOperatorType;
+
+/**
+ * Wrapper to reference a #wmOperatorType together with some set properties and other relevant
+ * information to invoke the operator in a customizable way.
+ */
+typedef struct wmOperatorCallParams {
+  struct wmOperatorType *optype;
+  struct PointerRNA *opptr;
+  short opcontext;
+} wmOperatorCallParams;
 
 #ifdef WITH_INPUT_IME
 /* *********** Input Method Editor (IME) *********** */

@@ -26,6 +26,7 @@
 #include "BLI_blenlib.h"
 #include "BLI_utildefines.h"
 
+#include "BKE_global.h"
 #include "BKE_context.h"
 #include "BKE_screen.h"
 
@@ -148,11 +149,11 @@ static void console_main_region_init(wmWindowManager *wm, ARegion *ar)
 static void console_cursor(wmWindow *win, ScrArea *sa, ARegion *ar)
 {
   SpaceText *st = sa->spacedata.first;
-  int wmcursor = BC_TEXTEDITCURSOR;
+  int wmcursor = WM_CURSOR_TEXT_EDIT;
 
   if (st->text &&
       BLI_rcti_isect_pt(&st->txtbar, win->eventstate->x - ar->winrct.xmin, st->txtbar.ymin)) {
-    wmcursor = CURSOR_STD;
+    wmcursor = WM_CURSOR_DEFAULT;
   }
 
   WM_cursor_set(win, wmcursor);
@@ -173,7 +174,7 @@ static void id_drop_copy(wmDrag *drag, wmDropBox *drop)
   ID *id = WM_drag_ID(drag, 0);
 
   /* copy drag path to properties */
-  char *text = RNA_path_full_ID_py(id);
+  char *text = RNA_path_full_ID_py(G_MAIN, id);
   RNA_string_set(drop->ptr, "text", text);
   MEM_freeN(text);
 }

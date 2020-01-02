@@ -22,6 +22,7 @@
  */
 
 #include "DNA_curve_types.h"
+#include "DNA_mesh_types.h"
 #include "DNA_object_types.h"
 
 #include "BLI_math.h"
@@ -57,7 +58,7 @@ static LinkNode *knifeproject_poly_from_object(const bContext *C,
                                                Object *ob,
                                                LinkNode *polys)
 {
-  Depsgraph *depsgraph = CTX_data_depsgraph(C);
+  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   ARegion *ar = CTX_wm_region(C);
   struct Mesh *me_eval;
   bool me_eval_needs_free;
@@ -142,10 +143,21 @@ static int knifeproject_exec(bContext *C, wmOperator *op)
     /* select only tagged faces */
     BM_mesh_elem_hflag_disable_all(em->bm, BM_VERT | BM_EDGE | BM_FACE, BM_ELEM_SELECT, false);
 
-    /* not essential, but switch out of vertex mode since the
-     * selected regions wont be nicely isolated after flushing.
-     * note: call after de-select to avoid selection flushing */
-    EDBM_selectmode_disable(scene, em, SCE_SELECT_VERTEX, SCE_SELECT_EDGE);
+    CTX_DATA_BEGIN (C, Object *, ob, selected_objects) {
+      if (ob->type == OB_MESH) {
+        Mesh *me = (Mesh *)ob->data;
+        BMEditMesh *embm = me->edit_mesh;
+        if (embm) {
+          /* not essential, but switch out of vertex mode since the
+           * selected regions wont be nicely isolated after flushing.
+           * note: call after de-select to avoid selection flushing.
+           * note: do this on all participating meshes so this is in sync
+           * e.g. for later selection picking, see T68852.*/
+          EDBM_selectmode_disable(scene, embm, SCE_SELECT_VERTEX, SCE_SELECT_EDGE);
+        }
+      }
+    }
+    CTX_DATA_END;
 
     BM_mesh_elem_hflag_enable_test(em->bm, BM_FACE, BM_ELEM_SELECT, true, false, BM_ELEM_TAG);
 
@@ -173,7 +185,7 @@ void MESH_OT_knife_project(wmOperatorType *ot)
   ot->poll = ED_operator_editmesh_region_view3d;
 
   /* flags */
-  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_BLOCKING | OPTYPE_USE_EVAL_DATA;
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_BLOCKING;
 
   /* parameters */
   RNA_def_boolean(ot->srna,

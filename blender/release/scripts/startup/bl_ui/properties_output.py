@@ -376,7 +376,7 @@ class RENDER_PT_encoding_video(RenderOutputButtonsPanel, Panel):
         layout = self.layout
         ffmpeg = context.scene.render.ffmpeg
 
-        needs_codec = ffmpeg.format in {'AVI', 'QUICKTIME', 'MKV', 'OGG', 'MPEG4'}
+        needs_codec = ffmpeg.format in {'AVI', 'QUICKTIME', 'MKV', 'OGG', 'MPEG4', 'WEBM'}
         if needs_codec:
             layout.prop(ffmpeg, "codec")
 
@@ -479,9 +479,7 @@ class RENDER_PT_stereoscopy(RenderOutputButtonsPanel, Panel):
         basic_stereo = rd.views_format == 'STEREO_3D'
 
         row = layout.row()
-        row.use_property_split = True
-        row.use_property_decorate = False
-        row.prop(rd, "views_format")
+        layout.row().prop(rd, "views_format", expand=True)
 
         if basic_stereo:
             row = layout.row()

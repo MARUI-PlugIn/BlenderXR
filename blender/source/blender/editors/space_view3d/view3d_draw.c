@@ -39,6 +39,7 @@
 #include "BKE_scene.h"
 #include "BKE_object.h"
 #include "BKE_paint.h"
+#include "BKE_studiolight.h"
 #include "BKE_unit.h"
 
 #include "BLF_api.h"
@@ -803,12 +804,18 @@ void ED_view3d_draw_depth(Depsgraph *depsgraph, ARegion *ar, View3D *v3d, bool a
 
   GPU_depth_test(true);
 
+  /* Needed in cases the view-port isn't already setup. */
+  WM_draw_region_viewport_ensure(ar, SPACE_VIEW3D);
+  WM_draw_region_viewport_bind(ar);
+
   GPUViewport *viewport = WM_draw_region_get_viewport(ar, 0);
   /* When Blender is starting, a click event can trigger a depth test while the viewport is not
    * yet available. */
   if (viewport != NULL) {
-    DRW_draw_depth_loop(depsgraph, ar, v3d, viewport);
+    DRW_draw_depth_loop(depsgraph, ar, v3d, viewport, false);
   }
+
+  WM_draw_region_viewport_unbind(ar);
 
   if (rv3d->rflag & RV3D_CLIPPING) {
     ED_view3d_clipping_disable();
@@ -853,6 +860,51 @@ float ED_view3d_grid_scale(Scene *scene, View3D *v3d, const char **grid_unit)
   return v3d->grid * ED_scene_grid_scale(scene, grid_unit);
 }
 
+#define STEPS_LEN 8
+void ED_view3d_grid_steps(Scene *scene,
+                          View3D *v3d,
+                          RegionView3D *rv3d,
+                          float r_grid_steps[STEPS_LEN])
+{
+  const void *usys;
+  int i, len;
+  bUnit_GetSystem(scene->unit.system, B_UNIT_LENGTH, &usys, &len);
+  float grid_scale = v3d->grid;
+
+  if (usys) {
+    if (rv3d->view == RV3D_VIEW_USER) {
+      /* Skip steps */
+      len = bUnit_GetBaseUnit(usys) + 1;
+    }
+
+    grid_scale /= scene->unit.scale_length;
+
+    for (i = 0; i < len; i++) {
+      r_grid_steps[i] = (float)bUnit_GetScaler(usys, len - 1 - i) * grid_scale;
+    }
+    for (; i < STEPS_LEN; i++) {
+      /* Fill last slots */
+      r_grid_steps[i] = 10.0f * r_grid_steps[i - 1];
+    }
+  }
+  else {
+    if (rv3d->view != RV3D_VIEW_USER) {
+      /* Allow 3 more subdivisions. */
+      grid_scale /= powf(v3d->gridsubdiv, 3);
+    }
+    int subdiv = 1;
+    for (i = 0;; i++) {
+      r_grid_steps[i] = grid_scale * subdiv;
+
+      if (i == STEPS_LEN - 1) {
+        break;
+      }
+      subdiv *= v3d->gridsubdiv;
+    }
+  }
+}
+#undef STEPS_LEN
+
 /* Simulates the grid scale that is actually viewed.
  * The actual code is seen in `object_grid_frag.glsl` (see `grid_res`).
  * Currently the simulation is only done when RV3D_VIEW_IS_AXIS. */
@@ -861,23 +913,34 @@ float ED_view3d_grid_view_scale(Scene *scene,
                                 RegionView3D *rv3d,
                                 const char **grid_unit)
 {
-  float grid_scale = ED_view3d_grid_scale(scene, v3d, grid_unit);
+  float grid_scale;
   if (!rv3d->is_persp && RV3D_VIEW_IS_AXIS(rv3d->view)) {
     /* Decrease the distance between grid snap points depending on zoom. */
-    float grid_subdiv = v3d->gridsubdiv;
-    if (grid_subdiv > 1) {
-      /* Allow 3 more subdivisions (see OBJECT_engine_init). */
-      grid_scale /= powf(grid_subdiv, 3);
-
-      /* `3.0` was a value obtained by trial and error in order to get
-       * a nice snap distance.*/
-      float grid_res = 3.0 * (rv3d->dist / v3d->lens);
-      float lvl = (logf(grid_res / grid_scale) / logf(grid_subdiv));
-
-      CLAMP_MIN(lvl, 0.0f);
-
-      grid_scale *= pow(grid_subdiv, (int)lvl);
+    /* `0.38` was a value visually obtained in order to get a snap distance
+     * that matches previous versions Blender.*/
+    float min_dist = 0.38f * (rv3d->dist / v3d->lens);
+    float grid_steps[8];
+    ED_view3d_grid_steps(scene, v3d, rv3d, grid_steps);
+    int i;
+    for (i = 0; i < ARRAY_SIZE(grid_steps); i++) {
+      grid_scale = grid_steps[i];
+      if (grid_scale > min_dist) {
+        break;
+      }
     }
+
+    if (grid_unit) {
+      const void *usys;
+      int len;
+      bUnit_GetSystem(scene->unit.system, B_UNIT_LENGTH, &usys, &len);
+
+      if (usys) {
+        *grid_unit = bUnit_GetNameDisplay(usys, len - i - 1);
+      }
+    }
+  }
+  else {
+    grid_scale = ED_view3d_grid_scale(scene, v3d, grid_unit);
   }
 
   return grid_scale;
@@ -1026,7 +1089,7 @@ static void draw_rotation_guide(const RegionView3D *rv3d)
       color[3] = 63; /* somewhat faint */
       immAttr4ubv(col, color);
       float angle = 0.0f;
-      for (int i = 0; i < ROT_AXIS_DETAIL; ++i, angle += step) {
+      for (int i = 0; i < ROT_AXIS_DETAIL; i++, angle += step) {
         float p[3] = {s * cosf(angle), s * sinf(angle), 0.0f};
 
         if (!upright) {
@@ -1076,7 +1139,7 @@ static void draw_rotation_guide(const RegionView3D *rv3d)
 static void view3d_draw_border(const bContext *C, ARegion *ar)
 {
   Scene *scene = CTX_data_scene(C);
-  Depsgraph *depsgraph = CTX_data_depsgraph(C);
+  Depsgraph *depsgraph = CTX_data_expect_evaluated_depsgraph(C);
   RegionView3D *rv3d = ar->regiondata;
   View3D *v3d = CTX_wm_view3d(C);
 
@@ -1354,6 +1417,27 @@ static void draw_selected_name(
   BLF_disable(font_id, BLF_SHADOW);
 }
 
+static void draw_grid_unit_name(
+    Scene *scene, RegionView3D *rv3d, View3D *v3d, int xoffset, int *yoffset)
+{
+  if (!rv3d->is_persp && RV3D_VIEW_IS_AXIS(rv3d->view)) {
+    const char *grid_unit = NULL;
+    ED_view3d_grid_view_scale(scene, v3d, rv3d, &grid_unit);
+
+    if (grid_unit) {
+      char numstr[32] = "";
+      UI_FontThemeColor(BLF_default(), TH_TEXT_HI);
+      if (v3d->grid != 1.0f) {
+        BLI_snprintf(numstr, sizeof(numstr), "%s x %.4g", grid_unit, v3d->grid);
+      }
+
+      *yoffset -= U.widget_unit;
+      BLF_draw_default_ascii(
+          xoffset, *yoffset, 0.0f, numstr[0] ? numstr : grid_unit, sizeof(numstr));
+    }
+  }
+}
+
 /**
  * Information drawn on top of the solid plates and composed data
  */
@@ -1376,8 +1460,7 @@ void view3d_draw_region_info(const bContext *C, ARegion *ar)
   ED_region_pixelspace(ar);
 
   /* local coordinate visible rect inside region, to accommodate overlapping ui */
-  rcti rect;
-  ED_region_visible_rect(ar, &rect);
+  const rcti *rect = ED_region_visible_rect(ar);
 
   view3d_draw_border(C, ar);
   view3d_draw_grease_pencil(C);
@@ -1393,14 +1476,14 @@ void view3d_draw_region_info(const bContext *C, ARegion *ar)
         /* The gizmo handles it's own drawing. */
         break;
       case USER_MINI_AXIS_TYPE_MINIMAL:
-        draw_view_axis(rv3d, &rect);
+        draw_view_axis(rv3d, rect);
       case USER_MINI_AXIS_TYPE_NONE:
         break;
     }
   }
 
-  int xoffset = rect.xmin + U.widget_unit;
-  int yoffset = rect.ymax;
+  int xoffset = rect->xmin + U.widget_unit;
+  int yoffset = rect->ymax;
 
   if ((v3d->flag2 & V3D_HIDE_OVERLAYS) == 0 && (v3d->overlay.flag & V3D_OVERLAY_HIDE_TEXT) == 0) {
     if ((U.uiflag & USER_SHOW_FPS) && ED_screen_animation_no_scrub(wm)) {
@@ -1416,19 +1499,10 @@ void view3d_draw_region_info(const bContext *C, ARegion *ar)
       draw_selected_name(scene, view_layer, ob, xoffset, &yoffset);
     }
 
-#if 0 /* TODO */
-    if (grid_unit) { /* draw below the viewport name */
-      char numstr[32] = "";
-
-      UI_FontThemeColor(BLF_default(), TH_TEXT_HI);
-      if (v3d->grid != 1.0f) {
-        BLI_snprintf(numstr, sizeof(numstr), "%s x %.4g", grid_unit, v3d->grid);
-      }
-
-      *yoffset -= U.widget_unit;
-      BLF_draw_default_ascii(xoffset, *yoffset, numstr[0] ? numstr : grid_unit, sizeof(numstr));
+    if (v3d->gridflag & (V3D_SHOW_FLOOR | V3D_SHOW_X | V3D_SHOW_Y | V3D_SHOW_Z)) {
+      /* draw below the viewport name */
+      draw_grid_unit_name(scene, rv3d, v3d, xoffset, &yoffset);
     }
-#endif
   }
 
   if ((v3d->overlay.flag & V3D_OVERLAY_HIDE_TEXT) == 0) {
@@ -1447,7 +1521,7 @@ void view3d_draw_region_info(const bContext *C, ARegion *ar)
 static void view3d_draw_view(const bContext *C, ARegion *ar)
 {
   ED_view3d_draw_setup_view(CTX_wm_window(C),
-                            CTX_data_depsgraph(C),
+                            CTX_data_expect_evaluated_depsgraph(C),
                             CTX_data_scene(C),
                             ar,
                             CTX_wm_view3d(C),
@@ -1487,7 +1561,7 @@ void view3d_main_region_draw(const bContext *C, ARegion *ar)
   GPU_pass_cache_garbage_collect();
 
   /* XXX This is in order to draw UI batches with the DRW
-   * olg context since we now use it for drawing the entire area */
+   * old context since we now use it for drawing the entire area. */
   gpu_batch_presets_reset();
 
   /* No depth test for drawing action zones afterwards. */
@@ -1786,6 +1860,9 @@ ImBuf *ED_view3d_draw_offscreen_imbuf_simple(Depsgraph *depsgraph,
 
   if (drawtype == OB_MATERIAL) {
     v3d.shading.flag = V3D_SHADING_SCENE_WORLD | V3D_SHADING_SCENE_LIGHTS;
+  }
+  else if (drawtype == OB_RENDER) {
+    v3d.shading.flag = V3D_SHADING_SCENE_WORLD_RENDER | V3D_SHADING_SCENE_LIGHTS_RENDER;
   }
 
   v3d.flag2 = V3D_HIDE_OVERLAYS;

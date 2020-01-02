@@ -48,12 +48,17 @@ CCL_NAMESPACE_BEGIN
 #define NODE_FEATURE_HAIR (1 << 1)
 #define NODE_FEATURE_BUMP (1 << 2)
 #define NODE_FEATURE_BUMP_STATE (1 << 3)
+#define NODE_FEATURE_VORONOI_EXTRA (1 << 4)
 /* TODO(sergey): Consider using something like ((uint)(-1)).
  * Need to check carefully operand types around usage of this
  * define first.
  */
 #define NODE_FEATURE_ALL \
-  (NODE_FEATURE_VOLUME | NODE_FEATURE_HAIR | NODE_FEATURE_BUMP | NODE_FEATURE_BUMP_STATE)
+  (NODE_FEATURE_VOLUME | NODE_FEATURE_HAIR | NODE_FEATURE_BUMP | NODE_FEATURE_BUMP_STATE | \
+   NODE_FEATURE_VORONOI_EXTRA)
+
+#define NODES_GROUP(group) ((group) <= __NODES_MAX_GROUP__)
+#define NODES_FEATURE(feature) ((__NODES_FEATURES__ & (feature)) != 0)
 
 typedef enum ShaderNodeType {
   NODE_END = 0,
@@ -138,12 +143,20 @@ typedef enum ShaderNodeType {
   NODE_VECTOR_DISPLACEMENT,
   NODE_PRINCIPLED_VOLUME,
   NODE_IES,
+  NODE_MAP_RANGE,
+  NODE_CLAMP,
+  NODE_TEXTURE_MAPPING,
+  NODE_TEX_WHITE_NOISE,
+  NODE_VERTEX_COLOR,
+  NODE_VERTEX_COLOR_BUMP_DX,
+  NODE_VERTEX_COLOR_BUMP_DY,
 } ShaderNodeType;
 
 typedef enum NodeAttributeType {
   NODE_ATTR_FLOAT = 0,
   NODE_ATTR_FLOAT2,
   NODE_ATTR_FLOAT3,
+  NODE_ATTR_RGBA,
   NODE_ATTR_MATRIX
 } NodeAttributeType;
 
@@ -158,6 +171,7 @@ typedef enum NodeGeometry {
 
 typedef enum NodeObjectInfo {
   NODE_INFO_OB_LOCATION,
+  NODE_INFO_OB_COLOR,
   NODE_INFO_OB_INDEX,
   NODE_INFO_MAT_INDEX,
   NODE_INFO_OB_RANDOM
@@ -242,7 +256,7 @@ typedef enum NodeMix {
   NODE_MIX_CLAMP /* used for the clamp UI option */
 } NodeMix;
 
-typedef enum NodeMath {
+typedef enum NodeMathType {
   NODE_MATH_ADD,
   NODE_MATH_SUBTRACT,
   NODE_MATH_MULTIPLY,
@@ -265,19 +279,42 @@ typedef enum NodeMath {
   NODE_MATH_ARCTAN2,
   NODE_MATH_FLOOR,
   NODE_MATH_CEIL,
-  NODE_MATH_FRACT,
+  NODE_MATH_FRACTION,
   NODE_MATH_SQRT,
-  NODE_MATH_CLAMP /* used for the clamp UI option */
-} NodeMath;
+} NodeMathType;
 
-typedef enum NodeVectorMath {
+typedef enum NodeVectorMathType {
   NODE_VECTOR_MATH_ADD,
   NODE_VECTOR_MATH_SUBTRACT,
-  NODE_VECTOR_MATH_AVERAGE,
-  NODE_VECTOR_MATH_DOT_PRODUCT,
+  NODE_VECTOR_MATH_MULTIPLY,
+  NODE_VECTOR_MATH_DIVIDE,
+
   NODE_VECTOR_MATH_CROSS_PRODUCT,
-  NODE_VECTOR_MATH_NORMALIZE
-} NodeVectorMath;
+  NODE_VECTOR_MATH_PROJECT,
+  NODE_VECTOR_MATH_REFLECT,
+  NODE_VECTOR_MATH_DOT_PRODUCT,
+
+  NODE_VECTOR_MATH_DISTANCE,
+  NODE_VECTOR_MATH_LENGTH,
+  NODE_VECTOR_MATH_SCALE,
+  NODE_VECTOR_MATH_NORMALIZE,
+
+  NODE_VECTOR_MATH_SNAP,
+  NODE_VECTOR_MATH_FLOOR,
+  NODE_VECTOR_MATH_CEIL,
+  NODE_VECTOR_MATH_MODULO,
+  NODE_VECTOR_MATH_FRACTION,
+  NODE_VECTOR_MATH_ABSOLUTE,
+  NODE_VECTOR_MATH_MINIMUM,
+  NODE_VECTOR_MATH_MAXIMUM,
+} NodeVectorMathType;
+
+typedef enum NodeMappingType {
+  NODE_MAPPING_TYPE_POINT,
+  NODE_MAPPING_TYPE_TEXTURE,
+  NODE_MAPPING_TYPE_VECTOR,
+  NODE_MAPPING_TYPE_NORMAL
+} NodeMappingType;
 
 typedef enum NodeVectorTransformType {
   NODE_VECTOR_TRANSFORM_TYPE_VECTOR,
@@ -329,24 +366,19 @@ typedef enum NodeGradientType {
   NODE_BLEND_SPHERICAL
 } NodeGradientType;
 
-typedef enum NodeVoronoiColoring {
-  NODE_VORONOI_INTENSITY,
-  NODE_VORONOI_CELLS
-} NodeVoronoiColoring;
-
 typedef enum NodeVoronoiDistanceMetric {
-  NODE_VORONOI_DISTANCE,
+  NODE_VORONOI_EUCLIDEAN,
   NODE_VORONOI_MANHATTAN,
   NODE_VORONOI_CHEBYCHEV,
-  NODE_VORONOI_MINKOWSKI
+  NODE_VORONOI_MINKOWSKI,
 } NodeVoronoiDistanceMetric;
 
 typedef enum NodeVoronoiFeature {
   NODE_VORONOI_F1,
   NODE_VORONOI_F2,
-  NODE_VORONOI_F3,
-  NODE_VORONOI_F4,
-  NODE_VORONOI_F2F1
+  NODE_VORONOI_SMOOTH_F1,
+  NODE_VORONOI_DISTANCE_TO_EDGE,
+  NODE_VORONOI_N_SPHERE_RADIUS,
 } NodeVoronoiFeature;
 
 typedef enum NodeBlendWeightType {

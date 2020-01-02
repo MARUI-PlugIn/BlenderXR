@@ -39,7 +39,7 @@
 #include "GPU_immediate.h"
 #include "GPU_texture.h"
 #include "GPU_viewport.h"
-#include "GPU_draw.h"
+#include "GPU_uniformbuffer.h"
 
 #include "DRW_engine.h"
 
@@ -309,7 +309,7 @@ GPUTexture *GPU_viewport_texture_pool_query(
         (GPU_texture_width(tmp_tex->texture) == width) &&
         (GPU_texture_height(tmp_tex->texture) == height)) {
       /* Search if the engine is not already using this texture */
-      for (int i = 0; i < MAX_ENGINE_BUFFER_SHARING; ++i) {
+      for (int i = 0; i < MAX_ENGINE_BUFFER_SHARING; i++) {
         if (tmp_tex->user[i] == engine) {
           break;
         }
@@ -345,7 +345,7 @@ static void gpu_viewport_texture_pool_clear_users(GPUViewport *viewport)
   for (ViewportTempTexture *tmp_tex = viewport->tex_pool.first; tmp_tex; tmp_tex = tmp_tex_next) {
     tmp_tex_next = tmp_tex->next;
     bool no_user = true;
-    for (int i = 0; i < MAX_ENGINE_BUFFER_SHARING; ++i) {
+    for (int i = 0; i < MAX_ENGINE_BUFFER_SHARING; i++) {
       if (tmp_tex->user[i] != NULL) {
         tmp_tex->user[i] = NULL;
         no_user = false;
@@ -626,11 +626,20 @@ void GPU_viewport_free(GPUViewport *viewport)
   MEM_freeN(viewport->fbl);
   MEM_freeN(viewport->txl);
 
-  if (viewport->vmempool.calls != NULL) {
-    BLI_memblock_destroy(viewport->vmempool.calls, NULL);
+  if (viewport->vmempool.commands != NULL) {
+    BLI_memblock_destroy(viewport->vmempool.commands, NULL);
   }
-  if (viewport->vmempool.states != NULL) {
-    BLI_memblock_destroy(viewport->vmempool.states, NULL);
+  if (viewport->vmempool.commands_small != NULL) {
+    BLI_memblock_destroy(viewport->vmempool.commands_small, NULL);
+  }
+  if (viewport->vmempool.callbuffers != NULL) {
+    BLI_memblock_destroy(viewport->vmempool.callbuffers, NULL);
+  }
+  if (viewport->vmempool.obmats != NULL) {
+    BLI_memblock_destroy(viewport->vmempool.obmats, NULL);
+  }
+  if (viewport->vmempool.obinfos != NULL) {
+    BLI_memblock_destroy(viewport->vmempool.obinfos, NULL);
   }
   if (viewport->vmempool.cullstates != NULL) {
     BLI_memblock_destroy(viewport->vmempool.cullstates, NULL);
@@ -656,6 +665,13 @@ void GPU_viewport_free(GPUViewport *viewport)
     }
     BLI_memblock_destroy(viewport->vmempool.images, NULL);
   }
+
+  for (int i = 0; i < viewport->vmempool.ubo_len; i++) {
+    GPU_uniformbuffer_free(viewport->vmempool.matrices_ubo[i]);
+    GPU_uniformbuffer_free(viewport->vmempool.obinfos_ubo[i]);
+  }
+  MEM_SAFE_FREE(viewport->vmempool.matrices_ubo);
+  MEM_SAFE_FREE(viewport->vmempool.obinfos_ubo);
 
   DRW_instance_data_list_free(viewport->idatalist);
   MEM_freeN(viewport->idatalist);

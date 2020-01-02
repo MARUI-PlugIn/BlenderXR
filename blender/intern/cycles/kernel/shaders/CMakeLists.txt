@@ -13,6 +13,7 @@ set(SRC_OSL
   node_bump.osl
   node_camera.osl
   node_checker_texture.osl
+  node_clamp.osl
   node_combine_rgb.osl
   node_combine_hsv.osl
   node_combine_xyz.osl
@@ -46,6 +47,7 @@ set(SRC_OSL
   node_light_falloff.osl
   node_light_path.osl
   node_magic_texture.osl
+  node_map_range.osl
   node_mapping.osl
   node_math.osl
   node_mix.osl
@@ -78,11 +80,13 @@ set(SRC_OSL
   node_vector_math.osl
   node_vector_transform.osl
   node_velvet_bsdf.osl
+  node_vertex_color.osl
   node_voronoi_texture.osl
   node_voxel_texture.osl
   node_wavelength.osl
   node_blackbody.osl
   node_wave_texture.osl
+  node_white_noise_texture.osl
   node_wireframe.osl
   node_hair_bsdf.osl
   node_principled_hair_bsdf.osl
@@ -94,10 +98,13 @@ set(SRC_OSL
 set(SRC_OSL_HEADERS
   node_color.h
   node_fresnel.h
+  node_hash.h
+  node_noise.h
   node_ramp_util.h
-  node_texture.h
   stdosl.h
   oslutil.h
+  vector2.h
+  vector4.h
 )
 
 set(SRC_OSO

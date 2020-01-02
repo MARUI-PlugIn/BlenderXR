@@ -212,10 +212,11 @@ static Mesh *applyModifier(ModifierData *md, const ModifierEvalContext *ctx, Mes
                 spread,
                 mesh->smoothresh);
 
-  result = BKE_mesh_from_bmesh_for_eval_nomain(bm, NULL);
+  result = BKE_mesh_from_bmesh_for_eval_nomain(bm, NULL, mesh);
 
-  BLI_assert(bm->vtoolflagpool == NULL && bm->etoolflagpool == NULL &&
-             bm->ftoolflagpool == NULL); /* make sure we never alloc'd these */
+  /* Make sure we never alloc'd these. */
+  BLI_assert(bm->vtoolflagpool == NULL && bm->etoolflagpool == NULL && bm->ftoolflagpool == NULL);
+
   BM_mesh_free(bm);
 
   result->runtime.cd_dirty_vert |= CD_MASK_NORMAL;

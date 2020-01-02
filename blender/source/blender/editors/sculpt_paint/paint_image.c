@@ -113,10 +113,10 @@ void imapaint_region_tiles(
 
   IMB_rectclip(ibuf, NULL, &x, &y, &srcx, &srcy, &w, &h);
 
-  *tw = ((x + w - 1) >> IMAPAINT_TILE_BITS);
-  *th = ((y + h - 1) >> IMAPAINT_TILE_BITS);
-  *tx = (x >> IMAPAINT_TILE_BITS);
-  *ty = (y >> IMAPAINT_TILE_BITS);
+  *tw = ((x + w - 1) >> ED_IMAGE_UNDO_TILE_BITS);
+  *th = ((y + h - 1) >> ED_IMAGE_UNDO_TILE_BITS);
+  *tx = (x >> ED_IMAGE_UNDO_TILE_BITS);
+  *ty = (y >> ED_IMAGE_UNDO_TILE_BITS);
 }
 
 void ED_imapaint_dirty_region(Image *ima, ImBuf *ibuf, int x, int y, int w, int h, bool find_old)
@@ -147,11 +147,12 @@ void ED_imapaint_dirty_region(Image *ima, ImBuf *ibuf, int x, int y, int w, int 
 
   imapaint_region_tiles(ibuf, x, y, w, h, &tilex, &tiley, &tilew, &tileh);
 
-  ListBase *undo_tiles = ED_image_undo_get_tiles();
+  ListBase *undo_tiles = ED_image_paint_tile_list_get();
 
   for (ty = tiley; ty <= tileh; ty++) {
     for (tx = tilex; tx <= tilew; tx++) {
-      image_undo_push_tile(undo_tiles, ima, ibuf, &tmpibuf, tx, ty, NULL, NULL, false, find_old);
+      ED_image_paint_tile_push(
+          undo_tiles, ima, ibuf, &tmpibuf, tx, ty, NULL, NULL, false, find_old);
     }
   }
 
@@ -467,12 +468,13 @@ static void gradient_draw_line(bContext *UNUSED(C), int x, int y, void *customda
 
 static PaintOperation *texture_paint_init(bContext *C, wmOperator *op, const float mouse[2])
 {
+  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   Scene *scene = CTX_data_scene(C);
   ToolSettings *settings = scene->toolsettings;
   PaintOperation *pop = MEM_callocN(sizeof(PaintOperation), "PaintOperation"); /* caller frees */
   Brush *brush = BKE_paint_brush(&settings->imapaint.paint);
   int mode = RNA_enum_get(op->ptr, "mode");
-  ED_view3d_viewcontext_init(C, &pop->vc);
+  ED_view3d_viewcontext_init(C, &pop->vc, depsgraph);
 
   copy_v2_v2(pop->prevmouse, mouse);
   copy_v2_v2(pop->startmouse, mouse);
@@ -538,7 +540,7 @@ static void paint_stroke_update_step(bContext *C, struct PaintStroke *stroke, Po
   RNA_float_get_array(itemptr, "mouse", mouse);
   pressure = RNA_float_get(itemptr, "pressure");
   eraser = RNA_boolean_get(itemptr, "pen_flip");
-  size = max_ff(1.0f, RNA_float_get(itemptr, "size"));
+  size = RNA_float_get(itemptr, "size");
 
   /* stroking with fill tool only acts on stroke end */
   if (brush->imagepaint_tool == PAINT_TOOL_FILL) {
@@ -699,7 +701,7 @@ static int paint_invoke(bContext *C, wmOperator *op, const wmEvent *event)
                                     event->type);
 
   if ((retval = op->type->modal(C, op, event)) == OPERATOR_FINISHED) {
-    paint_stroke_data_free(op);
+    paint_stroke_free(C, op);
     return OPERATOR_FINISHED;
   }
   /* add modal handler */
@@ -757,17 +759,14 @@ void PAINT_OT_image_paint(wmOperatorType *ot)
   paint_stroke_operator_properties(ot);
 }
 
-int get_imapaint_zoom(bContext *C, float *zoomx, float *zoomy)
+bool get_imapaint_zoom(bContext *C, float *zoomx, float *zoomy)
 {
-  RegionView3D *rv3d = CTX_wm_region_view3d(C);
-
-  if (!rv3d) {
-    SpaceImage *sima = CTX_wm_space_image(C);
-
+  ScrArea *sa = CTX_wm_area(C);
+  if (sa && sa->spacetype == SPACE_IMAGE) {
+    SpaceImage *sima = sa->spacedata.first;
     if (sima->mode == SI_MODE_PAINT) {
       ARegion *ar = CTX_wm_region(C);
       ED_space_image_get_zoom(sima, ar, zoomx, zoomy);
-
       return 1;
     }
   }
@@ -1022,7 +1021,7 @@ static int sample_color_invoke(bContext *C, wmOperator *op, const wmEvent *event
                                   !RNA_boolean_get(op->ptr, "merged");
 
   paint_sample_color(C, ar, event->mval[0], event->mval[1], use_sample_texture, false);
-  WM_cursor_modal_set(win, BC_EYEDROPPER_CURSOR);
+  WM_cursor_modal_set(win, WM_CURSOR_EYEDROPPER);
 
   WM_event_add_notifier(C, NC_BRUSH | NA_EDITED, brush);
 
@@ -1238,7 +1237,7 @@ void PAINT_OT_texture_paint_toggle(wmOperatorType *ot)
   ot->poll = texture_paint_toggle_poll;
 
   /* flags */
-  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_USE_EVAL_DATA;
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
 static int brush_colors_flip_exec(bContext *C, wmOperator *UNUSED(op))
@@ -1246,8 +1245,7 @@ static int brush_colors_flip_exec(bContext *C, wmOperator *UNUSED(op))
   Scene *scene = CTX_data_scene(C);
   UnifiedPaintSettings *ups = &scene->toolsettings->unified_paint_settings;
 
-  ViewLayer *view_layer = CTX_data_view_layer(C);
-  Paint *paint = BKE_paint_get_active(scene, view_layer);
+  Paint *paint = BKE_paint_get_active_from_context(C);
   Brush *br = BKE_paint_brush(paint);
 
   if (ups->flag & UNIFIED_PAINT_COLOR) {
@@ -1256,6 +1254,10 @@ static int brush_colors_flip_exec(bContext *C, wmOperator *UNUSED(op))
   else if (br) {
     swap_v3_v3(br->rgb, br->secondary_rgb);
   }
+  else {
+    return OPERATOR_CANCELLED;
+  }
+
   WM_event_add_notifier(C, NC_BRUSH | NA_EDITED, br);
 
   return OPERATOR_FINISHED;

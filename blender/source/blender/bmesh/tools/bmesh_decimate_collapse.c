@@ -363,7 +363,7 @@ static void bm_decim_build_edge_cost(BMesh *bm,
 struct KD_Symmetry_Data {
   /* pre-flipped coords */
   float e_v1_co[3], e_v2_co[3];
-  /* Use to compare the correct endpoints incase v1/v2 are swapped */
+  /* Use to compare the correct endpoints in case v1/v2 are swapped. */
   float e_dir[3];
 
   int e_found_index;
@@ -698,7 +698,7 @@ static void bm_edge_collapse_loop_customdata(
   const bool is_manifold = BM_edge_is_manifold(l->e);
   int side;
 
-  /* first find the loop of 'v_other' thats attached to the face of 'l' */
+  /* first find the loop of 'v_other' that's attached to the face of 'l' */
   if (l->v == v_clear) {
     l_clear = l;
     l_other = l->next;
@@ -882,7 +882,7 @@ static bool bm_edge_collapse_is_degenerate_topology(BMEdge *e_first)
     bm_edge_tag_enable(e_iter);
   } while ((e_iter = bmesh_disk_edge_next(e_iter, e_first->v1)) != e_first);
 
-  /* ... except for the edge we will collapse, we know thats shared,
+  /* ... except for the edge we will collapse, we know that's shared,
    * disable this to avoid false positive. We could be smart and never enable these
    * face/edge tags in the first place but easier to do this */
   // bm_edge_tag_disable(e_first);
@@ -1371,8 +1371,8 @@ void BM_mesh_decimate_collapse(BMesh *bm,
       /* handy to detect corruptions elsewhere */
       BLI_assert(BM_elem_index_get(e) < tot_edge_orig);
 
-      /* under normal conditions wont be accessed again,
-       * but NULL just incase so we don't use freed node */
+      /* Under normal conditions wont be accessed again,
+       * but NULL just in case so we don't use freed node. */
       eheap_table[BM_elem_index_get(e)] = NULL;
 
       bm_decim_edge_collapse(bm,

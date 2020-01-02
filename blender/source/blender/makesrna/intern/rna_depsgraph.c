@@ -255,14 +255,19 @@ static void rna_Depsgraph_debug_stats(Depsgraph *depsgraph, char *result)
   DEG_stats_simple(depsgraph, &outer, &ops, &rels);
   BLI_snprintf(result,
                STATS_MAX_SIZE,
-               "Approx %lu Operations, %lu Relations, %lu Outer Nodes",
+               "Approx %zu Operations, %zu Relations, %zu Outer Nodes",
                ops,
                rels,
                outer);
 }
 
-static void rna_Depsgraph_update(Depsgraph *depsgraph, Main *bmain)
+static void rna_Depsgraph_update(Depsgraph *depsgraph, Main *bmain, ReportList *reports)
 {
+  if (DEG_is_evaluating(depsgraph)) {
+    BKE_report(reports, RPT_ERROR, "Dependency graph update requested during evaluation");
+    return;
+  }
+
 #  ifdef WITH_PYTHON
   /* Allow drivers to be evaluated */
   BPy_BEGIN_ALLOW_THREADS;
@@ -346,7 +351,7 @@ static void rna_Depsgraph_object_instances_next(CollectionPropertyIterator *iter
   RNA_Depsgraph_Instances_Iterator *di_it = (RNA_Depsgraph_Instances_Iterator *)
                                                 iter->internal.custom;
 
-  /* We need to copy current iterator status to next one beeing worked on. */
+  /* We need to copy current iterator status to next one being worked on. */
   di_it->iterators[(di_it->counter + 1) % 2] = di_it->iterators[di_it->counter % 2];
   di_it->deg_data[(di_it->counter + 1) % 2] = di_it->deg_data[di_it->counter % 2];
   di_it->counter++;
@@ -654,7 +659,7 @@ static void rna_def_depsgraph(BlenderRNA *brna)
       func,
       "Re-evaluate any modified data-blocks, for example for animation or modifiers. "
       "This invalidates all references to evaluated data-blocks from this dependency graph.");
-  RNA_def_function_flag(func, FUNC_USE_MAIN);
+  RNA_def_function_flag(func, FUNC_USE_MAIN | FUNC_USE_REPORTS);
 
   /* Queries for original datablockls (the ones depsgraph is built for). */
 

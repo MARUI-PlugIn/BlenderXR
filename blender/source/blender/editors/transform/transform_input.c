@@ -63,8 +63,8 @@ static void InputSpringFlip(TransInfo *t, MouseInput *mi, const double mval[2], 
 
   /* flip scale */
   /* values can become really big when zoomed in so use longs [#26598] */
-  if ((int64_t)((int)mi->center[0] - mval[0]) * (int64_t)((int)mi->center[0] - mi->imval[0]) +
-          (int64_t)((int)mi->center[1] - mval[1]) * (int64_t)((int)mi->center[1] - mi->imval[1]) <
+  if (((int64_t)((int)mi->center[0] - mval[0]) * (int64_t)((int)mi->center[0] - mi->imval[0]) +
+       (int64_t)((int)mi->center[1] - mval[1]) * (int64_t)((int)mi->center[1] - mi->imval[1])) <
       0) {
     output[0] *= -1.0f;
   }
@@ -115,7 +115,8 @@ static void InputVerticalRatio(TransInfo *t, MouseInput *mi, const double mval[2
 {
   const int winy = t->ar ? t->ar->winy : 1;
 
-  output[0] = ((mval[1] - mi->imval[1]) / winy) * 2.0f;
+  /* Flip so dragging up increases (matching viewport zoom). */
+  output[0] = ((mval[1] - mi->imval[1]) / winy) * -2.0f;
 }
 
 static void InputVerticalAbsolute(TransInfo *t,
@@ -128,7 +129,8 @@ static void InputVerticalAbsolute(TransInfo *t,
   InputVector(t, mi, mval, vec);
   project_v3_v3v3(vec, vec, t->viewinv[1]);
 
-  output[0] = dot_v3v3(t->viewinv[1], vec) * 2.0f;
+  /* Flip so dragging up increases (matching viewport zoom). */
+  output[0] = dot_v3v3(t->viewinv[1], vec) * -2.0f;
 }
 
 void setCustomPoints(TransInfo *UNUSED(t),
@@ -299,7 +301,7 @@ static void calcSpringFactor(MouseInput *mi)
 
 void initMouseInputMode(TransInfo *t, MouseInput *mi, MouseInputMode mode)
 {
-  /* incase we allocate a new value */
+  /* In case we allocate a new value. */
   void *mi_data_prev = mi->data;
 
   mi->use_virtual_mval = true;
@@ -389,7 +391,7 @@ void initMouseInputMode(TransInfo *t, MouseInput *mi, MouseInputMode mode)
       /* INPUT_VECTOR, INPUT_CUSTOM_RATIO, INPUT_CUSTOM_RATIO_FLIP */
       if (t->flag & T_MODAL) {
         t->flag |= T_MODAL_CURSOR_SET;
-        WM_cursor_modal_set(win, BC_NSEW_SCROLLCURSOR);
+        WM_cursor_modal_set(win, WM_CURSOR_NSEW_SCROLL);
       }
       break;
     case HLP_SPRING:
@@ -400,7 +402,7 @@ void initMouseInputMode(TransInfo *t, MouseInput *mi, MouseInputMode mode)
     case HLP_CARROW:
       if (t->flag & T_MODAL) {
         t->flag |= T_MODAL_CURSOR_SET;
-        WM_cursor_modal_set(win, CURSOR_NONE);
+        WM_cursor_modal_set(win, WM_CURSOR_NONE);
       }
       break;
     default:

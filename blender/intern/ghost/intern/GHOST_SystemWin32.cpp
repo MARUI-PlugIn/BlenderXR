@@ -28,12 +28,21 @@
 #  define _WIN32_IE 0x0501 /* shipped before XP, so doesn't impose additional requirements */
 #endif
 
+/* clang-format off */
+#pragma comment(linker,"\"/manifestdependency:type='win32' \
+name='Microsoft.Windows.Common-Controls' version='6.0.0.0' \
+processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
+/* clang-format on */
+
+#include <commctrl.h>
 #include <shlobj.h>
 #include <tlhelp32.h>
 #include <psapi.h>
+#include <shellapi.h>
 #include <windowsx.h>
 
 #include "utfconv.h"
+#include "utf_winfunc.h"
 
 #include "GHOST_DisplayManagerWin32.h"
 #include "GHOST_EventButton.h"
@@ -266,7 +275,8 @@ GHOST_IWindow *GHOST_SystemWin32::createWindow(const STR_String &title,
                                                GHOST_TDrawingContextType type,
                                                GHOST_GLSettings glSettings,
                                                const bool exclusive,
-                                               const GHOST_TEmbedderWindowID parentWindow)
+                                               const bool is_dialog,
+                                               const GHOST_IWindow *parentWindow)
 {
   GHOST_WindowWin32 *window = new GHOST_WindowWin32(
       this,
@@ -279,8 +289,9 @@ GHOST_IWindow *GHOST_SystemWin32::createWindow(const STR_String &title,
       type,
       ((glSettings.flags & GHOST_glStereoVisual) != 0),
       ((glSettings.flags & GHOST_glAlphaBackground) != 0),
-      parentWindow,
-      ((glSettings.flags & GHOST_glDebugContext) != 0));
+      (GHOST_WindowWin32 *)parentWindow,
+      ((glSettings.flags & GHOST_glDebugContext) != 0),
+      is_dialog);
 
   if (window->getValid()) {
     // Store the pointer to the window
@@ -356,14 +367,8 @@ GHOST_IContext *GHOST_SystemWin32::createOffscreenContext()
     goto finished;
   }
   else {
-    MessageBox(NULL,
-               "A graphics card and driver with support for OpenGL 3.3 or higher is required.\n"
-               "Installing the latest driver for your graphics card may resolve the issue.\n\n"
-               "The program will now close.",
-               "Blender - Unsupported Graphics Card or Driver",
-               MB_OK | MB_ICONERROR);
     delete context;
-    exit();
+    return NULL;
   }
 
 #elif defined(WITH_GL_PROFILE_COMPAT)
@@ -514,6 +519,7 @@ GHOST_TSuccess GHOST_SystemWin32::getButtons(GHOST_Buttons &buttons) const
 GHOST_TSuccess GHOST_SystemWin32::init()
 {
   GHOST_TSuccess success = GHOST_System::init();
+  InitCommonControls();
 
   /* Disable scaling on high DPI displays on Vista */
   HMODULE
@@ -1435,7 +1441,7 @@ LRESULT WINAPI GHOST_SystemWin32::s_wndProc(HWND hwnd, UINT msg, WPARAM wParam, 
         ////////////////////////////////////////////////////////////////////////
         case WM_NCMOUSEMOVE:
         /* The WM_NCMOUSEMOVE message is posted to a window when the cursor is moved
-         * within the nonclient area of the window. This message is posted to the window that
+         * within the non-client area of the window. This message is posted to the window that
          * contains the cursor. If a window has captured the mouse, this message is not posted.
          */
         case WM_NCHITTEST:
@@ -1602,7 +1608,7 @@ LRESULT WINAPI GHOST_SystemWin32::s_wndProc(HWND hwnd, UINT msg, WPARAM wParam, 
         /* An application sends the WM_NCPAINT message to a window
          * when its frame must be painted. */
         case WM_NCACTIVATE:
-        /* The WM_NCACTIVATE message is sent to a window when its nonclient area needs to be
+        /* The WM_NCACTIVATE message is sent to a window when its non-client area needs to be
          * changed to indicate an active or inactive state. */
         case WM_DESTROY:
         /* The WM_DESTROY message is sent when a window is being destroyed. It is sent to the
@@ -1611,7 +1617,7 @@ LRESULT WINAPI GHOST_SystemWin32::s_wndProc(HWND hwnd, UINT msg, WPARAM wParam, 
          * windows (if any) as they are destroyed. During the processing of the message, it can
          * be assumed that all child windows still exist. */
         case WM_NCDESTROY:
-          /* The WM_NCDESTROY message informs a window that its nonclient area is being
+          /* The WM_NCDESTROY message informs a window that its non-client area is being
            * destroyed. The DestroyWindow function sends the WM_NCDESTROY message to the window
            * following the WM_DESTROY message. WM_DESTROY is used to free the allocated memory
            * object associated with the window.
@@ -1773,6 +1779,57 @@ void GHOST_SystemWin32::putClipboard(GHOST_TInt8 *buffer, bool selection) const
     return;
   }
 }
+
+/** \name Message Box
+ * \{ */
+GHOST_TSuccess GHOST_SystemWin32::showMessageBox(const char *title,
+                                                 const char *message,
+                                                 const char *help_label,
+                                                 const char *continue_label,
+                                                 const char *link,
+                                                 GHOST_DialogOptions dialog_options) const
+{
+  const wchar_t *title_16 = alloc_utf16_from_8(title, 0);
+  const wchar_t *message_16 = alloc_utf16_from_8(message, 0);
+  const wchar_t *help_label_16 = alloc_utf16_from_8(help_label, 0);
+  const wchar_t *continue_label_16 = alloc_utf16_from_8(continue_label, 0);
+
+  int nButtonPressed = 0;
+  TASKDIALOGCONFIG config = {0};
+  const TASKDIALOG_BUTTON buttons[] = {{IDOK, help_label_16}, {IDCONTINUE, continue_label_16}};
+
+  config.cbSize = sizeof(config);
+  config.hInstance = 0;
+  config.dwCommonButtons = 0;
+  config.pszMainIcon = (dialog_options & GHOST_DialogError ?
+                            TD_ERROR_ICON :
+                            dialog_options & GHOST_DialogWarning ? TD_WARNING_ICON :
+                                                                   TD_INFORMATION_ICON);
+  config.pszWindowTitle = L"Blender";
+  config.pszMainInstruction = title_16;
+  config.pszContent = message_16;
+  config.pButtons = (link) ? buttons : buttons + 1;
+  config.cButtons = (link) ? 2 : 1;
+
+  TaskDialogIndirect(&config, &nButtonPressed, NULL, NULL);
+  switch (nButtonPressed) {
+    case IDOK:
+      ShellExecute(NULL, "open", link, NULL, NULL, SW_SHOWNORMAL);
+      break;
+    case IDCONTINUE:
+      break;
+    default:
+      break;  // should never happen
+  }
+
+  free((void *)title_16);
+  free((void *)message_16);
+  free((void *)help_label_16);
+  free((void *)continue_label_16);
+
+  return GHOST_kSuccess;
+}
+/* \} */
 
 static DWORD GetParentProcessID(void)
 {

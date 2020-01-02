@@ -60,11 +60,23 @@ from bpy.props import (
 looptools_cache = {}
 
 
-def get_annotation(self, context):
-    if 'Annotations' in bpy.data.grease_pencils.keys():
-        return True
+def get_strokes(self, context):
+    looptools =  context.window_manager.looptools
+    if looptools.gstretch_use_guide == "Annotation":
+        try:
+            strokes = bpy.data.grease_pencils[0].layers.active.active_frame.strokes
+            return True
+        except:
+            self.report({'WARNING'}, "active Annotation strokes not found")
+            return False
+    if looptools.gstretch_use_guide == "GPencil" and not looptools.gstretch_guide == None:
+        try:
+            strokes = looptools.gstretch_guide.data.layers.active.active_frame.strokes
+            return True
+        except:
+            self.report({'WARNING'}, "active GPencil strokes not found")
+            return False
     else:
-        self.report({'WARNING'}, "Annotation not found")
         return False
 
 # force a full recalculation next time
@@ -2835,12 +2847,16 @@ def gstretch_get_fake_strokes(object, bm_mod, loops):
 
     return(strokes)
 
-# get annotation strokes
+# get strokes
 def gstretch_get_strokes(self, context):
-    gp = get_annotation(self, context)
+    looptools =  context.window_manager.looptools
+    gp = get_strokes(self, context)
     if not gp:
         return(None)
-    layer = bpy.data.grease_pencils["Annotations"].layers["Note"]
+    if looptools.gstretch_use_guide == "Annotation":
+        layer = bpy.data.grease_pencils[0].layers.active
+    if looptools.gstretch_use_guide == "GPencil" and not looptools.gstretch_guide == None:
+        layer = looptools.gstretch_guide.data.layers.active
     if not layer:
         return(None)
     frame = layer.active_frame
@@ -3815,19 +3831,38 @@ class Flatten(Operator):
         return{'FINISHED'}
 
 
-# gstretch operator
-class RemoveGP(Operator):
-    bl_idname = "remove.gp"
-    bl_label = "Remove GP"
+# Annotation operator
+class RemoveAnnotation(Operator):
+    bl_idname = "remove.annotation"
+    bl_label = "Remove Annotation"
     bl_description = "Remove all Annotation Strokes"
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
 
-        if get_annotation(self, context):
-            bpy.data.grease_pencils["Annotations"].layers["Note"].clear()
-        else:
+        try:
+            bpy.data.grease_pencils[0].layers.active.clear()
+        except:
             self.report({'INFO'}, "No Annotation data to Unlink")
+            return {'CANCELLED'}
+
+        return{'FINISHED'}
+        
+# GPencil operator
+class RemoveGPencil(Operator):
+    bl_idname = "remove.gp"
+    bl_label = "Remove GPencil"
+    bl_description = "Remove all GPencil Strokes"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+
+        try:
+            looptools =  context.window_manager.looptools
+            looptools.gstretch_guide.data.layers.data.clear()
+            looptools.gstretch_guide.data.update_tag()
+        except:
+            self.report({'INFO'}, "No GPencil data to Unlink")
             return {'CANCELLED'}
 
         return{'FINISHED'}
@@ -3836,28 +3871,28 @@ class RemoveGP(Operator):
 class GStretch(Operator):
     bl_idname = "mesh.looptools_gstretch"
     bl_label = "Gstretch"
-    bl_description = "Stretch selected vertices to Annotation stroke"
+    bl_description = "Stretch selected vertices to active stroke"
     bl_options = {'REGISTER', 'UNDO'}
 
     conversion: EnumProperty(
         name="Conversion",
         items=(("distance", "Distance", "Set the distance between vertices "
-                "of the converted annotation stroke"),
+                "of the converted  stroke"),
                ("limit_vertices", "Limit vertices", "Set the minimum and maximum "
-                "number of vertices that converted annotation strokes will have"),
+                "number of vertices that converted strokes will have"),
                ("vertices", "Exact vertices", "Set the exact number of vertices "
-                "that converted annotation strokes will have. Short strokes "
+                "that converted strokes will have. Short strokes "
                 "with few points may contain less vertices than this number."),
-               ("none", "No simplification", "Convert each annotation point "
+               ("none", "No simplification", "Convert each point "
                 "to a vertex")),
-        description="If annotation strokes are converted to geometry, "
+        description="If strokes are converted to geometry, "
                     "use this simplification method",
         default='limit_vertices'
         )
     conversion_distance: FloatProperty(
         name="Distance",
         description="Absolute distance between vertices along the converted "
-                    "annotation stroke",
+                    " stroke",
         default=0.1,
         min=0.000001,
         soft_min=0.01,
@@ -3865,7 +3900,7 @@ class GStretch(Operator):
         )
     conversion_max: IntProperty(
         name="Max Vertices",
-        description="Maximum number of vertices annotation strokes will "
+        description="Maximum number of vertices strokes will "
                     "have, when they are converted to geomtery",
         default=32,
         min=3,
@@ -3874,7 +3909,7 @@ class GStretch(Operator):
         )
     conversion_min: IntProperty(
         name="Min Vertices",
-        description="Minimum number of vertices annotation strokes will "
+        description="Minimum number of vertices strokes will "
                     "have, when they are converted to geomtery",
         default=8,
         min=3,
@@ -3883,7 +3918,7 @@ class GStretch(Operator):
         )
     conversion_vertices: IntProperty(
         name="Vertices",
-        description="Number of vertices annotation strokes will "
+        description="Number of vertices strokes will "
                     "have, when they are converted to geometry. If strokes have less "
                     "points than required, the 'Spread evenly' method is used",
         default=32,
@@ -3892,8 +3927,8 @@ class GStretch(Operator):
         )
     delete_strokes: BoolProperty(
         name="Delete strokes",
-        description="Remove annotation strokes if they have been used "
-                    "for Annotation. WARNING: DOES NOT SUPPORT UNDO",
+        description="Remove strokes if they have been used."
+                    "WARNING: DOES NOT SUPPORT UNDO",
         default=False
         )
     influence: FloatProperty(
@@ -3928,7 +3963,7 @@ class GStretch(Operator):
                 "stroke, retaining relative distances between the vertices"),
                 ("regular", "Spread evenly", "Distribute vertices at regular "
                 "distances along the full stroke")),
-        description="Method of distributing the vertices over the annotation "
+        description="Method of distributing the vertices over the "
                     "stroke",
         default='regular'
         )
@@ -3939,9 +3974,10 @@ class GStretch(Operator):
         return(ob and ob.type == 'MESH' and context.mode == 'EDIT_MESH')
 
     def draw(self, context):
+        looptools =  context.window_manager.looptools
         layout = self.layout
         col = layout.column()
-
+        
         col.prop(self, "method")
         col.separator()
 
@@ -3973,7 +4009,10 @@ class GStretch(Operator):
             row.prop(self, "lock_z", text="Z", icon='UNLOCKED')
         col_move.prop(self, "influence")
         col.separator()
-        col.operator("remove.gp", text="Delete GP Strokes")
+        if looptools.gstretch_use_guide == "Annotation":
+            col.operator("remove.annotation", text="Delete annotation strokes")
+        if looptools.gstretch_use_guide == "GPencil":
+            col.operator("remove.gp", text="Delete GPencil strokes")
 
     def invoke(self, context, event):
         # flush cached strokes
@@ -3996,7 +4035,7 @@ class GStretch(Operator):
             if safe_strokes:
                 strokes = gstretch_safe_to_true_strokes(safe_strokes)
             # cached strokes were flushed (see operator's invoke function)
-            elif get_annotation(self, context):
+            elif get_strokes(self, context):
                 strokes = gstretch_get_strokes(self, context)
             else:
                 # straightening function (no GP) -> loops ignore modifiers
@@ -4011,7 +4050,7 @@ class GStretch(Operator):
                 derived, bm_mod = get_derived_bmesh(object, bm)
         else:
             # get loops and strokes
-            if get_annotation(self, context):
+            if get_strokes(self, context):
                 # find loops
                 derived, bm_mod, loops = get_connected_input(object, bm, input='selected')
                 mapping = get_mapping(derived, bm, bm_mod, False, False, loops)
@@ -4065,7 +4104,7 @@ class GStretch(Operator):
                 if self.delete_strokes:
                     if type(stroke) != bpy.types.GPencilStroke:
                         # in case of cached fake stroke, get the real one
-                        if get_annotation(self, context):
+                        if get_strokes(self, context):
                             strokes = gstretch_get_strokes(self, context)
                             if loops and strokes:
                                 ls_pairs = gstretch_match_loops_strokes(loops,
@@ -4196,7 +4235,7 @@ class Relax(Operator):
 class Space(Operator):
     bl_idname = "mesh.looptools_space"
     bl_label = "Space"
-    bl_description = "Space the vertices in a regular distrubtion on the loop"
+    bl_description = "Space the vertices in a regular distribution on the loop"
     bl_options = {'REGISTER', 'UNDO'}
 
     influence: FloatProperty(
@@ -4499,6 +4538,9 @@ class VIEW3D_PT_tools_looptools(Panel):
         # gstretch settings
         if lt.display_gstretch:
             box = col.column(align=True).box().column()
+            box.prop(lt, "gstretch_use_guide")
+            if lt.gstretch_use_guide == "GPencil":
+                box.prop(lt, "gstretch_guide")
             box.prop(lt, "gstretch_method")
 
             col_conv = box.column(align=True)
@@ -4528,7 +4570,10 @@ class VIEW3D_PT_tools_looptools(Panel):
             else:
                 row.prop(lt, "gstretch_lock_z", text="Z", icon='UNLOCKED')
             col_move.prop(lt, "gstretch_influence")
-            box.operator("remove.gp", text="Delete Annotation Strokes")
+            if lt.gstretch_use_guide == "Annotation":
+                box.operator("remove.annotation", text="Delete Annotation Strokes")
+            if lt.gstretch_use_guide == "GPencil":
+                box.operator("remove.gp", text="Delete GPencil Strokes")
 
         # loft - first line
         split = col.split(factor=0.15, align=True)
@@ -4880,22 +4925,22 @@ class LoopToolsProps(PropertyGroup):
     gstretch_conversion: EnumProperty(
         name="Conversion",
         items=(("distance", "Distance", "Set the distance between vertices "
-            "of the converted annotation stroke"),
+            "of the converted stroke"),
             ("limit_vertices", "Limit vertices", "Set the minimum and maximum "
             "number of vertices that converted GP strokes will have"),
             ("vertices", "Exact vertices", "Set the exact number of vertices "
-            "that converted annotation strokes will have. Short strokes "
+            "that converted strokes will have. Short strokes "
             "with few points may contain less vertices than this number."),
-            ("none", "No simplification", "Convert each annotation point "
+            ("none", "No simplification", "Convert each point "
             "to a vertex")),
-        description="If annotation strokes are converted to geometry, "
+        description="If strokes are converted to geometry, "
                     "use this simplification method",
         default='limit_vertices'
         )
     gstretch_conversion_distance: FloatProperty(
         name="Distance",
         description="Absolute distance between vertices along the converted "
-                    "annotation stroke",
+                    "stroke",
         default=0.1,
         min=0.000001,
         soft_min=0.01,
@@ -4903,7 +4948,7 @@ class LoopToolsProps(PropertyGroup):
         )
     gstretch_conversion_max: IntProperty(
         name="Max Vertices",
-        description="Maximum number of vertices annotation strokes will "
+        description="Maximum number of vertices strokes will "
                     "have, when they are converted to geomtery",
         default=32,
         min=3,
@@ -4912,7 +4957,7 @@ class LoopToolsProps(PropertyGroup):
         )
     gstretch_conversion_min: IntProperty(
         name="Min Vertices",
-        description="Minimum number of vertices annotation strokes will "
+        description="Minimum number of vertices strokes will "
                     "have, when they are converted to geomtery",
         default=8,
         min=3,
@@ -4921,7 +4966,7 @@ class LoopToolsProps(PropertyGroup):
         )
     gstretch_conversion_vertices: IntProperty(
         name="Vertices",
-        description="Number of vertices annotation strokes will "
+        description="Number of vertices strokes will "
                     "have, when they are converted to geometry. If strokes have less "
                     "points than required, the 'Spread evenly' method is used",
         default=32,
@@ -4969,6 +5014,18 @@ class LoopToolsProps(PropertyGroup):
         description="Method of distributing the vertices over the Grease "
                     "Pencil stroke",
         default='regular'
+        )
+    gstretch_use_guide: EnumProperty(
+        name="Use guides",
+        items=(("None", "None", "None"),
+                ("Annotation", "Annotation", "Annotation"),
+                ("GPencil", "GPencil", "GPencil")),
+        default="None"
+        )
+    gstretch_guide: PointerProperty(
+        name="GPencil object",
+        description="Set GPencil object",
+        type=bpy.types.Object
         )
 
     # relax properties
@@ -5042,7 +5099,6 @@ class LoopToolsProps(PropertyGroup):
         default=False
         )
 
-
 # draw function for integration in menus
 def menu_func(self, context):
     self.layout.menu("VIEW3D_MT_edit_mesh_looptools")
@@ -5107,7 +5163,8 @@ classes = (
     Relax,
     Space,
     LoopPreferences,
-    RemoveGP,
+    RemoveAnnotation,
+    RemoveGPencil,
 )
 
 

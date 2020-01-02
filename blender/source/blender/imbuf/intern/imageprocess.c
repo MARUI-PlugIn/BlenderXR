@@ -110,8 +110,8 @@ void bicubic_interpolation(ImBuf *in, ImBuf *out, float u, float v, int xout, in
     return;
   }
 
-  pixel_from_buffer(
-      out, &outI, &outF, xout, yout); /* gcc warns these could be uninitialized, but its ok */
+  /* gcc warns these could be uninitialized, but its ok. */
+  pixel_from_buffer(out, &outI, &outF, xout, yout);
 
   bicubic_interpolation_color(in, outI, outF, u, v);
 }
@@ -220,8 +220,8 @@ void bilinear_interpolation(ImBuf *in, ImBuf *out, float u, float v, int xout, i
     return;
   }
 
-  pixel_from_buffer(
-      out, &outI, &outF, xout, yout); /* gcc warns these could be uninitialized, but its ok */
+  /* gcc warns these could be uninitialized, but its ok. */
+  pixel_from_buffer(out, &outI, &outF, xout, yout);
 
   bilinear_interpolation_color(in, outI, outF, u, v);
 }
@@ -332,8 +332,8 @@ void nearest_interpolation(ImBuf *in, ImBuf *out, float x, float y, int xout, in
     return;
   }
 
-  pixel_from_buffer(
-      out, &outI, &outF, xout, yout); /* gcc warns these could be uninitialized, but its ok */
+  /* gcc warns these could be uninitialized, but its ok. */
+  pixel_from_buffer(out, &outI, &outF, xout, yout);
 
   nearest_interpolation_color(in, outI, outF, x, y);
 }
@@ -400,11 +400,6 @@ typedef struct ScanlineGlobalData {
   int scanlines_per_task;
   int total_scanlines;
 } ScanlineGlobalData;
-
-typedef struct ScanlineTask {
-  int start_scanline;
-  int num_scanlines;
-} ScanlineTask;
 
 static void processor_apply_scanline_func(TaskPool *__restrict pool,
                                           void *taskdata,

@@ -18,12 +18,12 @@ CCL_NAMESPACE_BEGIN
 
 /* Wave */
 
-ccl_device_noinline float svm_wave(NodeWaveType type,
-                                   NodeWaveProfile profile,
-                                   float3 p,
-                                   float detail,
-                                   float distortion,
-                                   float dscale)
+ccl_device_noinline_cpu float svm_wave(NodeWaveType type,
+                                       NodeWaveProfile profile,
+                                       float3 p,
+                                       float detail,
+                                       float distortion,
+                                       float dscale)
 {
   float n;
 
@@ -33,7 +33,7 @@ ccl_device_noinline float svm_wave(NodeWaveType type,
     n = len(p) * 20.0f;
 
   if (distortion != 0.0f)
-    n += distortion * noise_turbulence(p * dscale, detail, 0);
+    n += distortion * fractal_noise_3d(p * dscale, detail);
 
   if (profile == NODE_WAVE_PROFILE_SIN) {
     return 0.5f + 0.5f * sinf(n);
@@ -54,8 +54,8 @@ ccl_device void svm_node_tex_wave(
   uint co_offset, scale_offset, detail_offset, dscale_offset, distortion_offset, color_offset,
       fac_offset;
 
-  decode_node_uchar4(node.y, &type, &color_offset, &fac_offset, &dscale_offset);
-  decode_node_uchar4(node.z, &co_offset, &scale_offset, &detail_offset, &distortion_offset);
+  svm_unpack_node_uchar4(node.y, &type, &color_offset, &fac_offset, &dscale_offset);
+  svm_unpack_node_uchar4(node.z, &co_offset, &scale_offset, &detail_offset, &distortion_offset);
 
   float3 co = stack_load_float3(stack, co_offset);
   float scale = stack_load_float_default(stack, scale_offset, node2.x);

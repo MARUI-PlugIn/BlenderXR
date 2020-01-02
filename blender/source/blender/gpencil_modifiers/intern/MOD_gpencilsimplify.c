@@ -45,7 +45,10 @@ static void initData(GpencilModifierData *md)
   gpmd->pass_index = 0;
   gpmd->step = 1;
   gpmd->factor = 0.0f;
+  gpmd->length = 0.1f;
+  gpmd->distance = 0.1f;
   gpmd->layername[0] = '\0';
+  gpmd->materialname[0] = '\0';
 }
 
 static void copyData(const GpencilModifierData *md, GpencilModifierData *target)
@@ -57,31 +60,49 @@ static void deformStroke(GpencilModifierData *md,
                          Depsgraph *UNUSED(depsgraph),
                          Object *ob,
                          bGPDlayer *gpl,
+                         bGPDframe *gpf,
                          bGPDstroke *gps)
 {
   SimplifyGpencilModifierData *mmd = (SimplifyGpencilModifierData *)md;
 
   if (!is_stroke_affected_by_modifier(ob,
                                       mmd->layername,
+                                      mmd->materialname,
                                       mmd->pass_index,
                                       mmd->layer_pass,
-                                      4,
+                                      mmd->mode == GP_SIMPLIFY_SAMPLE ? 3 : 4,
                                       gpl,
                                       gps,
                                       mmd->flag & GP_SIMPLIFY_INVERT_LAYER,
                                       mmd->flag & GP_SIMPLIFY_INVERT_PASS,
-                                      mmd->flag & GP_SIMPLIFY_INVERT_LAYERPASS)) {
+                                      mmd->flag & GP_SIMPLIFY_INVERT_LAYERPASS,
+                                      mmd->flag & GP_SIMPLIFY_INVERT_MATERIAL)) {
     return;
   }
 
-  if (mmd->mode == GP_SIMPLIFY_FIXED) {
-    for (int i = 0; i < mmd->step; i++) {
-      BKE_gpencil_simplify_fixed(gps);
+  /* Select simplification mode. */
+  switch (mmd->mode) {
+    case GP_SIMPLIFY_FIXED: {
+      for (int i = 0; i < mmd->step; i++) {
+        BKE_gpencil_simplify_fixed(gps);
+      }
+      break;
     }
-  }
-  else {
-    /* simplify stroke using Ramer-Douglas-Peucker algorithm */
-    BKE_gpencil_simplify_stroke(gps, mmd->factor);
+    case GP_SIMPLIFY_ADAPTIVE: {
+      /* simplify stroke using Ramer-Douglas-Peucker algorithm */
+      BKE_gpencil_simplify_stroke(gps, mmd->factor);
+      break;
+    }
+    case GP_SIMPLIFY_SAMPLE: {
+      BKE_gpencil_sample_stroke(gps, mmd->length, false);
+      break;
+    }
+    case GP_SIMPLIFY_MERGE: {
+      BKE_gpencil_merge_distance_stroke(gpf, gps, mmd->distance, true);
+      break;
+    }
+    default:
+      break;
   }
 }
 
@@ -95,7 +116,7 @@ static void bakeModifier(struct Main *UNUSED(bmain),
   for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
     for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
       for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
-        deformStroke(md, depsgraph, ob, gpl, gps);
+        deformStroke(md, depsgraph, ob, gpl, gpf, gps);
       }
     }
   }
@@ -123,5 +144,4 @@ GpencilModifierTypeInfo modifierType_Gpencil_Simplify = {
     /* foreachObjectLink */ NULL,
     /* foreachIDLink */ NULL,
     /* foreachTexLink */ NULL,
-    /* getDuplicationFactor */ NULL,
 };

@@ -25,11 +25,6 @@
 #define __DNA_VIEW3D_TYPES_H__
 
 struct BoundBox;
-struct GPUViewport;
-struct Image;
-struct Material;
-struct MovieClip;
-struct MovieClipUser;
 struct Object;
 struct RenderEngine;
 struct SmoothView3DStore;
@@ -43,7 +38,6 @@ struct wmTimer;
 #include "DNA_image_types.h"
 #include "DNA_object_types.h"
 #include "DNA_movieclip_types.h"
-#include "DNA_gpu_types.h"
 
 #include "../vr/vr_build.h"
 
@@ -146,7 +140,7 @@ typedef struct View3DCursor {
 
 /** 3D Viewport Shading settings. */
 typedef struct View3DShading {
-  /** Shading type (VIEW3D_SHADE_SOLID, ..). */
+  /** Shading type (OB_SOLID, ..). */
   char type;
   /** Runtime, for toggle between rendered viewport. */
   char prev_type;
@@ -159,7 +153,7 @@ typedef struct View3DShading {
   char background_type;
   char cavity_type;
   char wire_color_type;
-  char _pad[6];
+  char _pad[2];
 
   /** FILE_MAXFILE. */
   char studio_light[256];
@@ -173,6 +167,7 @@ typedef struct View3DShading {
 
   float studiolight_rot_z;
   float studiolight_background;
+  float studiolight_intensity;
 
   float object_outline_color[3];
   float xray_alpha;
@@ -186,6 +181,7 @@ typedef struct View3DShading {
   float curvature_ridge_factor;
   float curvature_valley_factor;
 
+  struct IDProperty *prop;
 } View3DShading;
 
 /** 3D Viewport Overlay settings. */
@@ -271,6 +267,8 @@ typedef struct View3D {
   unsigned short local_view_uuid;
   char _pad6[2];
   int layact DNA_DEPRECATED;
+  unsigned short local_collections_uuid;
+  short _pad7[3];
 
   /** Optional bool for 3d cursor to define center. */
   short ob_centre_cursor;
@@ -304,10 +302,6 @@ typedef struct View3D {
   /** Actually only used to define the opacity of the grease pencil vertex in edit mode. */
   float vertex_opacity;
 
-  /* note, 'fx_settings.dof' is currently _not_ allocated,
-   * instead set (temporarily) from camera */
-  struct GPUFXSettings fx_settings;
-
   /* XXX deprecated? */
   /** Grease-Pencil Data (annotation layers). */
   struct bGPdata *gpd DNA_DEPRECATED;
@@ -332,12 +326,13 @@ typedef struct View3D {
 #define V3D_S3D_DISPCAMERAS (1 << 0)
 #define V3D_S3D_DISPPLANE (1 << 1)
 #define V3D_S3D_DISPVOLUME (1 << 2)
+
 #if WITH_VR
 #define V3D_S3D_DISPVR (1 << 3)
 #endif
 
 /** #View3D.flag */
-#define V3D_FLAG_UNUSED_0 (1 << 0) /* cleared */
+#define V3D_LOCAL_COLLECTIONS (1 << 0)
 #define V3D_FLAG_UNUSED_1 (1 << 1) /* cleared */
 #define V3D_HIDE_HELPLINES (1 << 2)
 #define V3D_INVALID_BACKBUF (1 << 3)
@@ -357,8 +352,9 @@ typedef struct View3D {
 #define RV3D_CLIPPING (1 << 2)
 #define RV3D_NAVIGATING (1 << 3)
 #define RV3D_GPULIGHT_UPDATE (1 << 4)
+#define RV3D_PAINTING (1 << 5)
 #if WITH_VR
-#define RV3D_IS_VR (1 << 5)
+#define RV3D_IS_VR (1 << 6)
 #endif
 /*#define RV3D_IS_GAME_ENGINE       (1 << 5) */ /* UNUSED */
 /**
@@ -407,8 +403,9 @@ typedef struct View3D {
 #define V3D_GP_SHOW_GRID (1 << 1)  /* Activate paper grid */
 #define V3D_GP_SHOW_EDIT_LINES (1 << 2)
 #define V3D_GP_SHOW_MULTIEDIT_LINES (1 << 3)
-#define V3D_GP_SHOW_ONION_SKIN (1 << 4)      /* main switch at view level */
-#define V3D_GP_FADE_NOACTIVE_LAYERS (1 << 5) /* fade layers not active */
+#define V3D_GP_SHOW_ONION_SKIN (1 << 4)       /* main switch at view level */
+#define V3D_GP_FADE_NOACTIVE_LAYERS (1 << 5)  /* fade layers not active */
+#define V3D_GP_FADE_NOACTIVE_GPENCIL (1 << 6) /* Fade other GPencil objects */
 
 /** #View3DShading.light */
 enum {
@@ -431,6 +428,8 @@ enum {
   V3D_SHADING_WORLD_ORIENTATION = (1 << 9),
   V3D_SHADING_BACKFACE_CULLING = (1 << 10),
   V3D_SHADING_DEPTH_OF_FIELD = (1 << 11),
+  V3D_SHADING_SCENE_LIGHTS_RENDER = (1 << 12),
+  V3D_SHADING_SCENE_WORLD_RENDER = (1 << 13),
 };
 
 /** #View3DShading.color_type */

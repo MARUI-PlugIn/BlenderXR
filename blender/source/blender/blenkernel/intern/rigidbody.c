@@ -34,6 +34,7 @@
 #include "MEM_guardedalloc.h"
 
 #include "BLI_math.h"
+#include "BLI_listbase.h"
 
 #ifdef WITH_BULLET
 #  include "RBI_api.h"
@@ -50,6 +51,7 @@
 
 #include "BKE_collection.h"
 #include "BKE_effect.h"
+#include "BKE_global.h"
 #include "BKE_layer.h"
 #include "BKE_main.h"
 #include "BKE_mesh.h"
@@ -60,7 +62,6 @@
 #include "BKE_rigidbody.h"
 #include "BKE_scene.h"
 #ifdef WITH_BULLET
-#  include "BKE_global.h"
 #  include "BKE_library.h"
 #  include "BKE_library_query.h"
 #endif
@@ -173,12 +174,21 @@ void BKE_rigidbody_free_object(Object *ob, RigidBodyWorld *rbw)
   /* free physics references */
   if (is_orig) {
     if (rbo->shared->physics_object) {
-      BLI_assert(rbw);
-      if (rbw) {
+      if (rbw != NULL) {
         /* We can only remove the body from the world if the world is known.
          * The world is generally only unknown if it's an evaluated copy of
          * an object that's being freed, in which case this code isn't run anyway. */
         RB_dworld_remove_body(rbw->shared->physics_world, rbo->shared->physics_object);
+      }
+      else {
+        /* We have no access to 'owner' RBW when deleting the object ID itself... No choice bu to
+         * loop over all scenes then. */
+        for (Scene *scene = G_MAIN->scenes.first; scene != NULL; scene = scene->id.next) {
+          RigidBodyWorld *scene_rbw = scene->rigidbody_world;
+          if (scene_rbw != NULL) {
+            RB_dworld_remove_body(scene_rbw->shared->physics_world, rbo->shared->physics_object);
+          }
+        }
       }
 
       RB_body_delete(rbo->shared->physics_object);
@@ -228,7 +238,7 @@ void BKE_rigidbody_free_constraint(Object *ob)
  * be added to relevant groups later...
  */
 
-RigidBodyOb *BKE_rigidbody_copy_object(const Object *ob, const int flag)
+static RigidBodyOb *rigidbody_copy_object(const Object *ob, const int flag)
 {
   RigidBodyOb *rboN = NULL;
 
@@ -249,7 +259,7 @@ RigidBodyOb *BKE_rigidbody_copy_object(const Object *ob, const int flag)
   return rboN;
 }
 
-RigidBodyCon *BKE_rigidbody_copy_constraint(const Object *ob, const int UNUSED(flag))
+static RigidBodyCon *rigidbody_copy_constraint(const Object *ob, const int UNUSED(flag))
 {
   RigidBodyCon *rbcN = NULL;
 
@@ -266,6 +276,54 @@ RigidBodyCon *BKE_rigidbody_copy_constraint(const Object *ob, const int UNUSED(f
 
   /* return new copy of settings */
   return rbcN;
+}
+
+void BKE_rigidbody_object_copy(Main *bmain, Object *ob_dst, const Object *ob_src, const int flag)
+{
+  ob_dst->rigidbody_object = rigidbody_copy_object(ob_src, flag);
+  ob_dst->rigidbody_constraint = rigidbody_copy_constraint(ob_src, flag);
+
+  if (flag & LIB_ID_CREATE_NO_MAIN) {
+    return;
+  }
+
+  /* We have to ensure that duplicated object ends up in relevant rigidbody collections...
+   * Otherwise duplicating the RB data itself is meaningless. */
+  LISTBASE_FOREACH (Scene *, scene, &bmain->scenes) {
+    RigidBodyWorld *rigidbody_world = scene->rigidbody_world;
+
+    if (rigidbody_world != NULL) {
+      bool need_objects_update = false;
+      bool need_constraints_update = false;
+
+      if (ob_dst->rigidbody_object) {
+        if (BKE_collection_has_object(rigidbody_world->group, ob_src)) {
+          BKE_collection_object_add(bmain, rigidbody_world->group, ob_dst);
+          need_objects_update = true;
+        }
+      }
+      if (ob_dst->rigidbody_constraint) {
+        if (BKE_collection_has_object(rigidbody_world->constraints, ob_src)) {
+          BKE_collection_object_add(bmain, rigidbody_world->constraints, ob_dst);
+          need_constraints_update = true;
+        }
+      }
+
+      if ((flag & LIB_ID_CREATE_NO_DEG_TAG) == 0 &&
+          (need_objects_update || need_constraints_update)) {
+        BKE_rigidbody_cache_reset(rigidbody_world);
+
+        DEG_relations_tag_update(bmain);
+        if (need_objects_update) {
+          DEG_id_tag_update(&rigidbody_world->group->id, ID_RECALC_COPY_ON_WRITE);
+        }
+        if (need_constraints_update) {
+          DEG_id_tag_update(&rigidbody_world->constraints->id, ID_RECALC_COPY_ON_WRITE);
+        }
+        DEG_id_tag_update(&ob_dst->id, ID_RECALC_TRANSFORM);
+      }
+    }
+  }
 }
 
 /* ************************************** */
@@ -1366,7 +1424,7 @@ bool BKE_rigidbody_add_object(Main *bmain, Scene *scene, Object *ob, int type, R
   return true;
 }
 
-void BKE_rigidbody_remove_object(Main *bmain, Scene *scene, Object *ob)
+void BKE_rigidbody_remove_object(Main *bmain, Scene *scene, Object *ob, const bool free_us)
 {
   RigidBodyWorld *rbw = scene->rigidbody_world;
   RigidBodyCon *rbc;
@@ -1389,8 +1447,13 @@ void BKE_rigidbody_remove_object(Main *bmain, Scene *scene, Object *ob)
       FOREACH_COLLECTION_OBJECT_RECURSIVE_BEGIN (rbw->constraints, obt) {
         if (obt && obt->rigidbody_constraint) {
           rbc = obt->rigidbody_constraint;
-          if (ELEM(ob, rbc->ob1, rbc->ob2)) {
-            BKE_rigidbody_remove_constraint(scene, obt);
+          if (rbc->ob1 == ob) {
+            rbc->ob1 = NULL;
+            DEG_id_tag_update(&obt->id, ID_RECALC_COPY_ON_WRITE);
+          }
+          if (rbc->ob2 == ob) {
+            rbc->ob2 = NULL;
+            DEG_id_tag_update(&obt->id, ID_RECALC_COPY_ON_WRITE);
           }
         }
       }
@@ -1403,9 +1466,9 @@ void BKE_rigidbody_remove_object(Main *bmain, Scene *scene, Object *ob)
       /* Some users seems to find it funny to use a view-layer instancing collection
        * as RBW collection... Despite this being a bad (ab)use of the system, avoid losing objects
        * when we remove them from RB simulation. */
-      BKE_collection_object_add(bmain, BKE_collection_master(scene), ob);
+      BKE_collection_object_add(bmain, scene->master_collection, ob);
     }
-    BKE_collection_object_remove(bmain, rbw->group, ob, false);
+    BKE_collection_object_remove(bmain, rbw->group, ob, free_us);
   }
 
   /* remove object's settings */
@@ -1419,15 +1482,24 @@ void BKE_rigidbody_remove_object(Main *bmain, Scene *scene, Object *ob)
   DEG_id_tag_update(&ob->id, ID_RECALC_TRANSFORM);
 }
 
-void BKE_rigidbody_remove_constraint(Scene *scene, Object *ob)
+void BKE_rigidbody_remove_constraint(Main *bmain, Scene *scene, Object *ob, const bool free_us)
 {
   RigidBodyWorld *rbw = scene->rigidbody_world;
   RigidBodyCon *rbc = ob->rigidbody_constraint;
 
-  /* remove from rigidbody world, free object won't do this */
-  if (rbw && rbw->shared->physics_world && rbc->physics_constraint) {
-    RB_dworld_remove_constraint(rbw->shared->physics_world, rbc->physics_constraint);
+  if (rbw != NULL) {
+    /* Remove from RBW constraints collection. */
+    if (rbw->constraints != NULL) {
+      BKE_collection_object_remove(bmain, rbw->constraints, ob, free_us);
+      DEG_id_tag_update(&rbw->constraints->id, ID_RECALC_COPY_ON_WRITE);
+    }
+
+    /* remove from rigidbody world, free object won't do this */
+    if (rbw->shared->physics_world && rbc->physics_constraint) {
+      RB_dworld_remove_constraint(rbw->shared->physics_world, rbc->physics_constraint);
+    }
   }
+
   /* remove object's settings */
   BKE_rigidbody_free_constraint(ob);
 
@@ -1558,7 +1630,7 @@ static void rigidbody_update_sim_ob(
 
       /* create dummy 'point' which represents last known position of object as result of sim */
       /* XXX: this can create some inaccuracies with sim position,
-       * but is probably better than using unsimulated vals? */
+       * but is probably better than using un-simulated values? */
       RB_body_get_position(rbo->shared->physics_object, eff_loc);
       RB_body_get_linear_velocity(rbo->shared->physics_object, eff_vel);
 
@@ -1608,9 +1680,12 @@ static void rigidbody_update_simulation(Depsgraph *depsgraph,
   float ctime = DEG_get_ctime(depsgraph);
 
   /* update world */
-  if (rebuild) {
-    BKE_rigidbody_validate_sim_world(scene, rbw, true);
+  /* Note physics_world can get NULL when undoing the deletion of the last object in it (see
+   * T70667). */
+  if (rebuild || rbw->shared->physics_world == NULL) {
+    BKE_rigidbody_validate_sim_world(scene, rbw, rebuild);
   }
+
   rigidbody_update_sim_world(scene, rbw);
 
   /* XXX TODO For rebuild: remove all constraints first.
@@ -1983,13 +2058,8 @@ void BKE_rigidbody_do_simulation(Depsgraph *depsgraph, Scene *scene, float ctime
 #    pragma GCC diagnostic ignored "-Wunused-parameter"
 #  endif
 
-struct RigidBodyOb *BKE_rigidbody_copy_object(const Object *ob, const int flag)
+void BKE_rigidbody_object_copy(Main *bmain, Object *ob_dst, const Object *ob_src, const int flag)
 {
-  return NULL;
-}
-struct RigidBodyCon *BKE_rigidbody_copy_constraint(const Object *ob, const int flag)
-{
-  return NULL;
 }
 void BKE_rigidbody_validate_sim_world(Scene *scene, RigidBodyWorld *rbw, bool rebuild)
 {
@@ -2042,10 +2112,10 @@ bool BKE_rigidbody_add_object(Main *bmain, Scene *scene, Object *ob, int type, R
   return false;
 }
 
-void BKE_rigidbody_remove_object(struct Main *bmain, Scene *scene, Object *ob)
+void BKE_rigidbody_remove_object(struct Main *bmain, Scene *scene, Object *ob, const bool free_us)
 {
 }
-void BKE_rigidbody_remove_constraint(Scene *scene, Object *ob)
+void BKE_rigidbody_remove_constraint(Main *bmain, Scene *scene, Object *ob, const bool free_us)
 {
 }
 void BKE_rigidbody_sync_transforms(RigidBodyWorld *rbw, Object *ob, float ctime)

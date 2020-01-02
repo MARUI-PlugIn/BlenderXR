@@ -54,7 +54,7 @@ static int gpencil_monkey_color(
   short *totcol = give_totcolp(ob);
   Material *ma = NULL;
   for (short i = 0; i < *totcol; i++) {
-    ma = give_current_material(ob, i + 1);
+    ma = BKE_material_gpencil_get(ob, i + 1);
     if (STREQ(ma->id.name, pct->name)) {
       return i;
     }
@@ -829,8 +829,7 @@ static const ColorTemplate gp_monkey_pct_pupils = {
 void ED_gpencil_create_monkey(bContext *C, Object *ob, float mat[4][4])
 {
   Main *bmain = CTX_data_main(C);
-  Depsgraph *depsgraph = CTX_data_depsgraph(C);
-  int cfra_eval = (int)DEG_get_ctime(depsgraph);
+  Scene *scene = CTX_data_scene(C);
   bGPdata *gpd = (bGPdata *)ob->data;
   bGPDstroke *gps;
 
@@ -852,8 +851,8 @@ void ED_gpencil_create_monkey(bContext *C, Object *ob, float mat[4][4])
 
   /* frames */
   /* NOTE: No need to check for existing, as this will take care of it for us */
-  bGPDframe *frameFills = BKE_gpencil_frame_addnew(Fills, cfra_eval);
-  bGPDframe *frameLines = BKE_gpencil_frame_addnew(Lines, cfra_eval);
+  bGPDframe *frameFills = BKE_gpencil_frame_addnew(Fills, CFRA);
+  bGPDframe *frameLines = BKE_gpencil_frame_addnew(Lines, CFRA);
 
   /* generate strokes */
   gps = BKE_gpencil_add_stroke(frameFills, color_Skin, 270, 75);

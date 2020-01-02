@@ -555,8 +555,10 @@ int BKE_fcm_envelope_find_index(FCM_EnvelopeData array[],
    */
   for (loopbreaker = 0; (start <= end) && (loopbreaker < maxloop); loopbreaker++) {
     /* compute and get midpoint */
-    int mid = start + ((end - start) /
-                       2); /* we calculate the midpoint this way to avoid int overflows... */
+
+    /* we calculate the midpoint this way to avoid int overflows... */
+    int mid = start + ((end - start) / 2);
+
     float midfra = array[mid].time;
 
     /* check if exactly equal to midpoint */
@@ -819,7 +821,7 @@ static void fcm_noise_evaluate(
   FMod_Noise *data = (FMod_Noise *)fcm->data;
   float noise;
 
-  /* generate noise using good ol' Blender Noise
+  /* generate noise using good old Blender Noise
    * - 0.1 is passed as the 'z' value, otherwise evaluation fails for size = phase = 1
    *   with evaltime being an integer (which happens when evaluating on frame by frame basis)
    */

@@ -149,7 +149,7 @@ bool check_relation_can_murder(Relation *relation)
 
 Relation *select_relation_to_murder(Relation *relation, StackEntry *cycle_start_entry)
 {
-  /* More or less russian roulette solver, which will make sure only
+  /* More or less Russian roulette solver, which will make sure only
    * specially marked relations are kept alive.
    *
    * TODO(sergey): There might be better strategies here. */
@@ -176,7 +176,7 @@ void solve_cycles(CyclesSolverState *state)
     OperationNode *node = entry->node;
     bool all_child_traversed = true;
     const int num_visited = get_node_num_visited_children(node);
-    for (int i = num_visited; i < node->outlinks.size(); ++i) {
+    for (int i = num_visited; i < node->outlinks.size(); i++) {
       Relation *rel = node->outlinks[i];
       if (rel->to->type == NodeType::OPERATION) {
         OperationNode *to = (OperationNode *)rel->to;

@@ -389,7 +389,7 @@ static void rna_print_data_get(FILE *f, PropertyDefRNA *dp)
 
 static void rna_print_id_get(FILE *f, PropertyDefRNA *UNUSED(dp))
 {
-  fprintf(f, "    ID *id = ptr->id.data;\n");
+  fprintf(f, "    ID *id = ptr->owner_id;\n");
 }
 
 static void rna_construct_function_name(
@@ -409,23 +409,30 @@ static void rna_construct_wrapper_function_name(
   }
 }
 
+void *rna_alloc_from_buffer(const char *buffer, int buffer_len)
+{
+  AllocDefRNA *alloc = MEM_callocN(sizeof(AllocDefRNA), "AllocDefRNA");
+  alloc->mem = MEM_mallocN(buffer_len, __func__);
+  memcpy(alloc->mem, buffer, buffer_len);
+  rna_addtail(&DefRNA.allocs, alloc);
+  return alloc->mem;
+}
+
+void *rna_calloc(int buffer_len)
+{
+  AllocDefRNA *alloc = MEM_callocN(sizeof(AllocDefRNA), "AllocDefRNA");
+  alloc->mem = MEM_callocN(buffer_len, __func__);
+  rna_addtail(&DefRNA.allocs, alloc);
+  return alloc->mem;
+}
+
 static char *rna_alloc_function_name(const char *structname,
                                      const char *propname,
                                      const char *type)
 {
-  AllocDefRNA *alloc;
   char buffer[2048];
-  char *result;
-
   rna_construct_function_name(buffer, sizeof(buffer), structname, propname, type);
-  result = MEM_callocN(sizeof(char) * strlen(buffer) + 1, "rna_alloc_function_name");
-  strcpy(result, buffer);
-
-  alloc = MEM_callocN(sizeof(AllocDefRNA), "AllocDefRNA");
-  alloc->mem = result;
-  rna_addtail(&DefRNA.allocs, alloc);
-
-  return result;
+  return rna_alloc_from_buffer(buffer, strlen(buffer) + 1);
 }
 
 static StructRNA *rna_find_struct(const char *identifier)
@@ -622,8 +629,8 @@ static char *rna_def_property_get_func(
 
       if (prop->type == PROP_FLOAT) {
         if (IS_DNATYPE_FLOAT_COMPAT(dp->dnatype) == 0) {
-          if (prop->subtype !=
-              PROP_COLOR_GAMMA) { /* colors are an exception. these get translated */
+          /* Colors are an exception. these get translated. */
+          if (prop->subtype != PROP_COLOR_GAMMA) {
             CLOG_ERROR(&LOG,
                        "%s.%s is a '%s' but wrapped as type '%s'.",
                        srna->identifier,
@@ -2470,7 +2477,7 @@ static void rna_def_struct_function_call_impl_cpp(FILE *f, StructRNA *srna, Func
   dsrna = rna_find_struct_def(srna);
 
   if (func->flag & FUNC_USE_SELF_ID) {
-    WRITE_PARAM("(::ID *) ptr.id.data");
+    WRITE_PARAM("(::ID *) ptr.owner_id");
   }
 
   if ((func->flag & FUNC_NO_SELF) == 0) {
@@ -2532,6 +2539,12 @@ static void rna_def_struct_function_call_impl_cpp(FILE *f, StructRNA *srna, Func
                   rna_safe_id(dp->prop->identifier));
         }
       }
+      else if (dp->prop->flag_parameter & PARM_RNAPTR) {
+        fprintf(f,
+                "(::%s *) &%s",
+                rna_parameter_type_name(dp->prop),
+                rna_safe_id(dp->prop->identifier));
+      }
       else {
         fprintf(f,
                 "(::%s *) %s.ptr.data",
@@ -2579,7 +2592,7 @@ static void rna_def_struct_function_impl_cpp(FILE *f, StructRNA *srna, FunctionD
         }
         else {
           fprintf(f,
-                  "\t\tRNA_pointer_create((::ID *) ptr.id.data, &RNA_%s, retdata, &result);\n",
+                  "\t\tRNA_pointer_create((::ID *) ptr.owner_id, &RNA_%s, retdata, &result);\n",
                   (const char *)pprop->type);
         }
       }
@@ -2792,7 +2805,7 @@ static void rna_def_function_funcs(FILE *f, StructDefRNA *dsrna, FunctionDefRNA 
 
   /* assign self */
   if (func->flag & FUNC_USE_SELF_ID) {
-    fprintf(f, "\t_selfid = (struct ID *)_ptr->id.data;\n");
+    fprintf(f, "\t_selfid = (struct ID *)_ptr->owner_id;\n");
   }
 
   if ((func->flag & FUNC_NO_SELF) == 0) {

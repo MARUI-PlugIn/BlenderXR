@@ -46,6 +46,7 @@
 
 #include "BKE_action.h"
 #include "BKE_colortools.h"
+#include "BKE_collection.h"
 #include "BKE_deform.h"
 #include "BKE_main.h"
 #include "BKE_brush.h"
@@ -57,6 +58,7 @@
 #include "BKE_tracking.h"
 
 #include "WM_api.h"
+#include "WM_types.h"
 #include "WM_toolsystem.h"
 
 #include "RNA_access.h"
@@ -259,7 +261,7 @@ bGPdata *ED_gpencil_data_get_active_evaluated(const bContext *C)
   ID *screen_id = (ID *)CTX_wm_screen(C);
   ScrArea *sa = CTX_wm_area(C);
 
-  const Depsgraph *depsgraph = CTX_data_depsgraph(C);
+  const Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   Scene *scene_eval = DEG_get_evaluated_scene(depsgraph);
   Object *ob = CTX_data_active_object(C);
   Object *ob_eval = DEG_get_evaluated_object(depsgraph, ob);
@@ -401,17 +403,7 @@ const EnumPropertyItem *ED_gpencil_layers_with_new_enum_itemf(bContext *C,
 
   /* Create new layer */
   /* TODO: have some way of specifying that we don't want this? */
-  {
-    /* "New Layer" entry */
-    item_tmp.identifier = "__CREATE__";
-    item_tmp.name = "New Layer";
-    item_tmp.value = -1;
-    item_tmp.icon = ICON_ADD;
-    RNA_enum_item_add(&item, &totitem, &item_tmp);
 
-    /* separator */
-    RNA_enum_item_add_separator(&item, &totitem);
-  }
   const int tot = BLI_listbase_count(&gpd->layers);
   /* Existing layers */
   for (gpl = gpd->layers.last, i = 0; gpl; gpl = gpl->prev, i++) {
@@ -426,6 +418,17 @@ const EnumPropertyItem *ED_gpencil_layers_with_new_enum_itemf(bContext *C,
       item_tmp.icon = ICON_NONE;
     }
 
+    RNA_enum_item_add(&item, &totitem, &item_tmp);
+  }
+  {
+    /* separator */
+    RNA_enum_item_add_separator(&item, &totitem);
+
+    /* "New Layer" entry */
+    item_tmp.identifier = "__CREATE__";
+    item_tmp.name = "New Layer";
+    item_tmp.value = -1;
+    item_tmp.icon = ICON_ADD;
     RNA_enum_item_add(&item, &totitem, &item_tmp);
   }
 
@@ -548,7 +551,7 @@ void gp_point_conversion_init(bContext *C, GP_SpaceConversion *r_gsc)
   if (sa->spacetype == SPACE_VIEW3D) {
     wmWindow *win = CTX_wm_window(C);
     Scene *scene = CTX_data_scene(C);
-    struct Depsgraph *depsgraph = CTX_data_depsgraph(C);
+    struct Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
     View3D *v3d = (View3D *)CTX_wm_space_data(C);
     RegionView3D *rv3d = ar->regiondata;
 
@@ -560,8 +563,7 @@ void gp_point_conversion_init(bContext *C, GP_SpaceConversion *r_gsc)
 
     /* for camera view set the subrect */
     if (rv3d->persp == RV3D_CAMOB) {
-      ED_view3d_calc_camera_border(
-          scene, CTX_data_depsgraph(C), ar, v3d, rv3d, &r_gsc->subrect_data, true);
+      ED_view3d_calc_camera_border(scene, depsgraph, ar, v3d, rv3d, &r_gsc->subrect_data, true);
       r_gsc->subrect = &r_gsc->subrect_data;
     }
   }
@@ -929,7 +931,7 @@ void ED_gp_get_drawing_reference(
 void ED_gpencil_project_stroke_to_view(bContext *C, bGPDlayer *gpl, bGPDstroke *gps)
 {
   Scene *scene = CTX_data_scene(C);
-  Depsgraph *depsgraph = CTX_data_depsgraph(C);
+  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   Object *ob = CTX_data_active_object(C);
   bGPdata *gpd = (bGPdata *)ob->data;
   GP_SpaceConversion gsc = {NULL};
@@ -1094,7 +1096,7 @@ void ED_gp_project_point_to_plane(const Scene *scene,
   /* get a vector from the point with the current view direction of the viewport */
   ED_view3d_global_to_vector(rv3d, &pt->x, vn);
 
-  /* calculate line extrem point to create a ray that cross the plane */
+  /* calculate line extreme point to create a ray that cross the plane */
   mul_v3_fl(vn, -50.0f);
   add_v3_v3v3(ray, &pt->x, vn);
 
@@ -1389,7 +1391,7 @@ void ED_gpencil_add_defaults(bContext *C, Object *ob)
   /* if not exist, create a new one */
   if ((paint->brush == NULL) || (paint->brush->gpencil_settings == NULL)) {
     /* create new brushes */
-    BKE_brush_gpencil_presets(C);
+    BKE_brush_gpencil_presets(bmain, ts);
   }
 
   /* ensure a color exists and is assigned to object */
@@ -1397,13 +1399,13 @@ void ED_gpencil_add_defaults(bContext *C, Object *ob)
 
   /* ensure multiframe falloff curve */
   if (ts->gp_sculpt.cur_falloff == NULL) {
-    ts->gp_sculpt.cur_falloff = curvemapping_add(1, 0.0f, 0.0f, 1.0f, 1.0f);
+    ts->gp_sculpt.cur_falloff = BKE_curvemapping_add(1, 0.0f, 0.0f, 1.0f, 1.0f);
     CurveMapping *gp_falloff_curve = ts->gp_sculpt.cur_falloff;
-    curvemapping_initialize(gp_falloff_curve);
-    curvemap_reset(gp_falloff_curve->cm,
-                   &gp_falloff_curve->clipr,
-                   CURVE_PRESET_GAUSS,
-                   CURVEMAP_SLOPE_POSITIVE);
+    BKE_curvemapping_initialize(gp_falloff_curve);
+    BKE_curvemap_reset(gp_falloff_curve->cm,
+                       &gp_falloff_curve->clipr,
+                       CURVE_PRESET_GAUSS,
+                       CURVEMAP_SLOPE_POSITIVE);
   }
 }
 
@@ -1740,7 +1742,7 @@ static void gp_brush_cursor_draw(bContext *C, int x, int y, void *customdata)
     }
 
     /* while drawing hide */
-    if ((gpd->runtime.sbuffer_size > 0) &&
+    if ((gpd->runtime.sbuffer_used > 0) &&
         ((brush->gpencil_settings->flag & GP_BRUSH_STABILIZE_MOUSE) == 0) &&
         ((brush->gpencil_settings->flag & GP_BRUSH_STABILIZE_MOUSE_TEMP) == 0)) {
       return;
@@ -1950,7 +1952,7 @@ void ED_gpencil_setup_modes(bContext *C, bGPdata *gpd, int newmode)
 /* helper to convert 2d to 3d for simple drawing buffer */
 static void gpencil_stroke_convertcoords(ARegion *ar,
                                          const tGPspoint *point2D,
-                                         float origin[3],
+                                         const float origin[3],
                                          float out[3])
 {
   float mval_f[2] = {(float)point2D->x, (float)point2D->y};
@@ -2064,7 +2066,7 @@ void ED_gpencil_update_color_uv(Main *bmain, Material *mat)
               if (ED_gpencil_stroke_color_use(ob, gpl, gps) == false) {
                 continue;
               }
-              gps_ma = give_current_material(ob, gps->mat_nr + 1);
+              gps_ma = BKE_material_gpencil_get(ob, gps->mat_nr + 1);
               /* update */
               if ((gps_ma) && (gps_ma == mat)) {
                 ED_gpencil_calc_stroke_uv(ob, gps);
@@ -2082,8 +2084,8 @@ static bool gpencil_check_collision(bGPDstroke *gps,
                                     bGPDstroke **gps_array,
                                     GHash *all_2d,
                                     int totstrokes,
-                                    float p2d_a1[2],
-                                    float p2d_a2[2],
+                                    const float p2d_a1[2],
+                                    const float p2d_a2[2],
                                     float r_hit[2])
 {
   bool hit = false;
@@ -2162,7 +2164,7 @@ static void gp_copy_points(bGPDstroke *gps, bGPDspoint *pt, bGPDspoint *pt_final
 }
 
 static void gp_insert_point(
-    bGPDstroke *gps, bGPDspoint *a_pt, bGPDspoint *b_pt, float co_a[3], float co_b[3])
+    bGPDstroke *gps, bGPDspoint *a_pt, bGPDspoint *b_pt, const float co_a[3], float co_b[3])
 {
   bGPDspoint *temp_points;
   int totnewpoints, oldtotpoints;
@@ -2524,4 +2526,64 @@ void ED_gpencil_select_toggle_all(bContext *C, int action)
     }
     CTX_DATA_END;
   }
+}
+
+/* Ensure the SBuffer (while drawing stroke) size is enough to save all points of the stroke */
+tGPspoint *ED_gpencil_sbuffer_ensure(tGPspoint *buffer_array,
+                                     int *buffer_size,
+                                     int *buffer_used,
+                                     const bool clear)
+{
+  tGPspoint *p = NULL;
+
+  /* By default a buffer is created with one block with a predefined number of free points,
+   * if the size is not enough, the cache is reallocated adding a new block of free points.
+   * This is done in order to keep cache small and improve speed. */
+  if (*buffer_used + 1 > *buffer_size) {
+    if ((*buffer_size == 0) || (buffer_array == NULL)) {
+      p = MEM_callocN(sizeof(struct tGPspoint) * GP_STROKE_BUFFER_CHUNK, "GPencil Sbuffer");
+      *buffer_size = GP_STROKE_BUFFER_CHUNK;
+    }
+    else {
+      *buffer_size += GP_STROKE_BUFFER_CHUNK;
+      p = MEM_recallocN(buffer_array, sizeof(struct tGPspoint) * *buffer_size);
+    }
+
+    if (p == NULL) {
+      *buffer_size = *buffer_used = 0;
+    }
+
+    buffer_array = p;
+  }
+
+  /* clear old data */
+  if (clear) {
+    *buffer_used = 0;
+    if (buffer_array != NULL) {
+      memset(buffer_array, 0, sizeof(tGPspoint) * *buffer_size);
+    }
+  }
+
+  return buffer_array;
+}
+
+/* Tag all scene grease pencil object to update. */
+void ED_gpencil_tag_scene_gpencil(Scene *scene)
+{
+  /* mark all grease pencil datablocks of the scene */
+  FOREACH_SCENE_COLLECTION_BEGIN (scene, collection) {
+    FOREACH_COLLECTION_OBJECT_RECURSIVE_BEGIN (collection, ob) {
+      if (ob->type == OB_GPENCIL) {
+        bGPdata *gpd = (bGPdata *)ob->data;
+        gpd->flag |= GP_DATA_CACHE_IS_DIRTY;
+        DEG_id_tag_update(&gpd->id, ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY);
+      }
+    }
+    FOREACH_COLLECTION_OBJECT_RECURSIVE_END;
+  }
+  FOREACH_SCENE_COLLECTION_END;
+
+  DEG_id_tag_update(&scene->id, ID_RECALC_COPY_ON_WRITE);
+
+  WM_main_add_notifier(NC_GPENCIL | NA_EDITED, NULL);
 }

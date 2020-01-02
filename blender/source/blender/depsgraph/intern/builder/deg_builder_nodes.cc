@@ -527,6 +527,9 @@ void DepsgraphNodeBuilder::build_object(int base_index,
                                         eDepsNode_LinkedState_Type linked_state,
                                         bool is_visible)
 {
+  if (object->proxy != NULL) {
+    object->proxy->proxy_from = object;
+  }
   const bool has_object = built_map_.checkIsBuiltAndTag(object);
   /* Skip rest of components if the ID node was already there. */
   if (has_object) {
@@ -609,12 +612,8 @@ void DepsgraphNodeBuilder::build_object(int base_index,
     build_particle_systems(object, is_visible);
   }
   /* Proxy object to copy from. */
-  if (object->proxy_from != NULL) {
-    build_object(-1, object->proxy_from, DEG_ID_LINKED_INDIRECTLY, is_visible);
-  }
-  if (object->proxy_group != NULL) {
-    build_object(-1, object->proxy_group, DEG_ID_LINKED_INDIRECTLY, is_visible);
-  }
+  build_object_proxy_from(object, is_visible);
+  build_object_proxy_group(object, is_visible);
   /* Object dupligroup. */
   if (object->instance_collection != NULL) {
     const bool is_current_parent_collection_visible = is_parent_collection_visible_;
@@ -623,7 +622,7 @@ void DepsgraphNodeBuilder::build_object(int base_index,
     is_parent_collection_visible_ = is_current_parent_collection_visible;
     add_operation_node(&object->id, NodeType::DUPLI, OperationCode::DUPLI);
   }
-  /* Syncronization back to original object. */
+  /* Synchronization back to original object. */
   add_operation_node(&object->id,
                      NodeType::SYNCHRONIZATION,
                      OperationCode::SYNCHRONIZE_TO_ORIGINAL,
@@ -651,6 +650,22 @@ void DepsgraphNodeBuilder::build_object_flags(int base_index,
                                    object_cow,
                                    base_index,
                                    is_from_set));
+}
+
+void DepsgraphNodeBuilder::build_object_proxy_from(Object *object, bool is_visible)
+{
+  if (object->proxy_from == NULL) {
+    return;
+  }
+  build_object(-1, object->proxy_from, DEG_ID_LINKED_INDIRECTLY, is_visible);
+}
+
+void DepsgraphNodeBuilder::build_object_proxy_group(Object *object, bool is_visible)
+{
+  if (object->proxy_group == NULL) {
+    return;
+  }
+  build_object(-1, object->proxy_group, DEG_ID_LINKED_INDIRECTLY, is_visible);
 }
 
 void DepsgraphNodeBuilder::build_object_data(Object *object, bool is_object_visible)
@@ -900,19 +915,17 @@ void DepsgraphNodeBuilder::build_driver(ID *id, FCurve *fcurve, int driver_index
 {
   /* Create data node for this driver */
   ID *id_cow = get_cow_id(id);
-  ChannelDriver *driver_orig = fcurve->driver;
 
   /* TODO(sergey): ideally we could pass the COW of fcu, but since it
    * has not yet been allocated at this point we can't. As a workaround
    * the animation systems allocates an array so we can do a fast lookup
    * with the driver index. */
-  ensure_operation_node(
-      id,
-      NodeType::PARAMETERS,
-      OperationCode::DRIVER,
-      function_bind(BKE_animsys_eval_driver, _1, id_cow, driver_index, driver_orig),
-      fcurve->rna_path ? fcurve->rna_path : "",
-      fcurve->array_index);
+  ensure_operation_node(id,
+                        NodeType::PARAMETERS,
+                        OperationCode::DRIVER,
+                        function_bind(BKE_animsys_eval_driver, _1, id_cow, driver_index, fcurve),
+                        fcurve->rna_path ? fcurve->rna_path : "",
+                        fcurve->array_index);
   build_driver_variables(id, fcurve);
 }
 
@@ -944,8 +957,9 @@ void DepsgraphNodeBuilder::build_driver_id_property(ID *id, const char *rna_path
   }
   PointerRNA id_ptr, ptr;
   PropertyRNA *prop;
+  int index;
   RNA_id_pointer_create(id, &id_ptr);
-  if (!RNA_path_resolve_full(&id_ptr, rna_path, &ptr, &prop, NULL)) {
+  if (!RNA_path_resolve_full(&id_ptr, rna_path, &ptr, &prop, &index)) {
     return;
   }
   if (prop == NULL) {
@@ -1154,7 +1168,7 @@ void DepsgraphNodeBuilder::build_particle_settings(ParticleSettings *particle_se
       &particle_settings->id, NodeType::PARTICLE_SETTINGS, OperationCode::PARTICLE_SETTINGS_EVAL);
   op_node->set_as_exit();
   /* Texture slots. */
-  for (int mtex_index = 0; mtex_index < MAX_MTEX; ++mtex_index) {
+  for (int mtex_index = 0; mtex_index < MAX_MTEX; mtex_index++) {
     MTex *mtex = particle_settings->mtex[mtex_index];
     if (mtex == NULL || mtex->tex == NULL) {
       continue;
@@ -1435,7 +1449,7 @@ void DepsgraphNodeBuilder::build_material(Material *material)
 
 void DepsgraphNodeBuilder::build_materials(Material **materials, int num_materials)
 {
-  for (int i = 0; i < num_materials; ++i) {
+  for (int i = 0; i < num_materials; i++) {
     if (materials[i] == NULL) {
       continue;
     }
@@ -1557,7 +1571,7 @@ void DepsgraphNodeBuilder::build_movieclip(MovieClip *clip)
   add_operation_node(clip_id,
                      NodeType::PARAMETERS,
                      OperationCode::MOVIECLIP_EVAL,
-                     function_bind(BKE_movieclip_eval_update, _1, clip_cow));
+                     function_bind(BKE_movieclip_eval_update, _1, bmain_, clip_cow));
 
   add_operation_node(clip_id,
                      NodeType::BATCH_CACHE,

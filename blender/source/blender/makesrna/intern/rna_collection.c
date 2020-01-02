@@ -130,11 +130,11 @@ static bool rna_Collection_objects_override_apply(Main *bmain,
                                                   PointerRNA *UNUSED(ptr_item_storage),
                                                   IDOverrideLibraryPropertyOperation *opop)
 {
-  (void)opop;
   BLI_assert(opop->operation == IDOVERRIDE_LIBRARY_OP_REPLACE &&
              "Unsupported RNA override operation on collections' objects");
+  UNUSED_VARS_NDEBUG(opop);
 
-  Collection *coll_dst = ptr_dst->id.data;
+  Collection *coll_dst = (Collection *)ptr_dst->owner_id;
 
   if (ptr_item_dst->type == NULL || ptr_item_src->type == NULL) {
     BLI_assert(0 && "invalid source or destination object.");
@@ -233,11 +233,11 @@ static bool rna_Collection_children_override_apply(Main *bmain,
                                                    PointerRNA *UNUSED(ptr_item_storage),
                                                    IDOverrideLibraryPropertyOperation *opop)
 {
-  (void)opop;
   BLI_assert(opop->operation == IDOVERRIDE_LIBRARY_OP_REPLACE &&
-             "Unsupported RNA override operation on collections' objects");
+             "Unsupported RNA override operation on collections' children");
+  UNUSED_VARS_NDEBUG(opop);
 
-  Collection *coll_dst = ptr_dst->id.data;
+  Collection *coll_dst = (Collection *)ptr_dst->owner_id;
 
   if (ptr_item_dst->type == NULL || ptr_item_src->type == NULL) {
     BLI_assert(0 && "invalid source or destination sub-collection.");
@@ -403,6 +403,7 @@ void RNA_def_collections(BlenderRNA *brna)
   RNA_def_property_struct_type(prop, "Object");
   RNA_def_property_ui_text(
       prop, "All Objects", "Objects that are in this collection and its child collections");
+  RNA_def_property_override_flag(prop, PROPOVERRIDE_NO_COMPARISON);
   RNA_def_property_collection_funcs(prop,
                                     "rna_Collection_all_objects_begin",
                                     "rna_iterator_listbase_next",

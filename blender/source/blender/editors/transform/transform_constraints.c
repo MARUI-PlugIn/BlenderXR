@@ -53,11 +53,12 @@
 #include "UI_resources.h"
 
 #include "transform.h"
+#include "transform_snap.h"
 
 static void drawObjectConstraint(TransInfo *t);
 
 /* ************************** CONSTRAINTS ************************* */
-static void constraintAutoValues(TransInfo *t, float vec[3])
+static void constraintValuesFinal(TransInfo *t, float vec[3])
 {
   int mode = t->con.mode;
   if (mode & CON_APPLY) {
@@ -147,10 +148,10 @@ static void postConstraintChecks(TransInfo *t, float vec[3], float pvec[3])
     removeAspectRatio(t, vec);
   }
 
-  /* autovalues is operator param, use that directly but not if snapping is forced */
-  if (t->flag & T_AUTOVALUES && (t->tsnap.status & SNAP_FORCED) == 0) {
-    copy_v3_v3(vec, t->auto_values);
-    constraintAutoValues(t, vec);
+  /* If `t->values` is operator param, use that directly but not if snapping is forced */
+  if (t->flag & T_INPUT_IS_VALUES_FINAL && (t->tsnap.status & SNAP_FORCED) == 0) {
+    copy_v3_v3(vec, t->values);
+    constraintValuesFinal(t, vec);
     /* inverse transformation at the end */
   }
 
@@ -235,8 +236,7 @@ static void axisProjection(const TransInfo *t,
     normalize_v3_v3_length(out, axis, -factor);
   }
   else {
-    float v[3], i1[3], i2[3];
-    float v2[3], v4[3];
+    float v[3];
     float norm_center[3];
     float plane[3];
 
@@ -261,14 +261,16 @@ static void axisProjection(const TransInfo *t,
       }
     }
     else {
-      add_v3_v3v3(v2, t_con_center, axis);
-      add_v3_v3v3(v4, v, norm);
-
-      isect_line_line_v3(t_con_center, v2, v, v4, i1, i2);
-
-      sub_v3_v3v3(v, i2, v);
-
-      sub_v3_v3v3(out, i1, t_con_center);
+      /* Use ray-ray intersection instead of line-line because this gave
+       * precision issues adding small values to large numbers. */
+      float mul;
+      if (isect_ray_ray_v3(t_con_center, axis, v, norm, &mul, NULL)) {
+        mul_v3_v3fl(out, axis, mul);
+      }
+      else {
+        /* In practice this should never fail. */
+        BLI_assert(0);
+      }
 
       /* possible some values become nan when
        * viewpoint and object are both zero */
@@ -325,7 +327,7 @@ static void planeProjection(const TransInfo *t, const float in[3], float out[3])
   sub_v3_v3v3(vec, out, in);
 
   factor = dot_v3v3(vec, norm);
-  if (fabsf(factor) <= 0.001f) {
+  if (factor == 0.0f) {
     return; /* prevent divide by zero */
   }
   factor = dot_v3v3(vec, vec) / factor;

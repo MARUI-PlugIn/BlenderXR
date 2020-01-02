@@ -29,16 +29,18 @@
 #include <deque>
 #include <cmath>
 
-#include "BKE_object.h"
-
 #include "BLI_utildefines.h"
 #include "BLI_listbase.h"
 #include "BLI_math_vector.h"
 #include "BLI_task.h"
 #include "BLI_ghash.h"
 
+#include "BKE_object.h"
+#include "BKE_scene.h"
+
 extern "C" {
 #include "DNA_object_types.h"
+#include "DNA_scene_types.h"
 
 #include "DRW_engine.h"
 } /* extern "C" */
@@ -53,6 +55,7 @@ extern "C" {
 #include "intern/node/deg_node_factory.h"
 #include "intern/node/deg_node_id.h"
 #include "intern/node/deg_node_operation.h"
+#include "intern/node/deg_node_time.h"
 
 #include "intern/eval/deg_eval_copy_on_write.h"
 
@@ -84,18 +87,9 @@ typedef std::deque<OperationNode *> FlushQueue;
 
 namespace {
 
-void flush_init_operation_node_func(void *__restrict data_v,
-                                    const int i,
-                                    const ParallelRangeTLS *__restrict /*tls*/)
-{
-  Depsgraph *graph = (Depsgraph *)data_v;
-  OperationNode *node = graph->operations[i];
-  node->scheduled = false;
-}
-
 void flush_init_id_node_func(void *__restrict data_v,
                              const int i,
-                             const ParallelRangeTLS *__restrict /*tls*/)
+                             const TaskParallelTLS *__restrict /*tls*/)
 {
   Depsgraph *graph = (Depsgraph *)data_v;
   IDNode *id_node = graph->id_nodes[i];
@@ -107,16 +101,13 @@ void flush_init_id_node_func(void *__restrict data_v,
 
 BLI_INLINE void flush_prepare(Depsgraph *graph)
 {
-  {
-    const int num_operations = graph->operations.size();
-    ParallelRangeSettings settings;
-    BLI_parallel_range_settings_defaults(&settings);
-    settings.min_iter_per_thread = 1024;
-    BLI_task_parallel_range(0, num_operations, graph, flush_init_operation_node_func, &settings);
+  for (OperationNode *node : graph->operations) {
+    node->scheduled = false;
   }
+
   {
     const int num_id_nodes = graph->id_nodes.size();
-    ParallelRangeSettings settings;
+    TaskParallelSettings settings;
     BLI_parallel_range_settings_defaults(&settings);
     settings.min_iter_per_thread = 1024;
     BLI_task_parallel_range(0, num_id_nodes, graph, flush_init_id_node_func, &settings);
@@ -348,6 +339,13 @@ void deg_graph_flush_updates(Main *bmain, Depsgraph *graph)
   BLI_assert(bmain != NULL);
   BLI_assert(graph != NULL);
   /* Nothing to update, early out. */
+  if (graph->need_update_time) {
+    const Scene *scene_orig = graph->scene;
+    const float ctime = BKE_scene_frame_get(scene_orig);
+    DEG::TimeSourceNode *time_source = graph->find_time_source();
+    graph->ctime = ctime;
+    time_source->tag_update(graph, DEG::DEG_UPDATE_SOURCE_TIME);
+  }
   if (BLI_gset_len(graph->entry_tags) == 0) {
     return;
   }
@@ -385,27 +383,13 @@ void deg_graph_flush_updates(Main *bmain, Depsgraph *graph)
   invalidate_tagged_evaluated_data(graph);
 }
 
-static void graph_clear_operation_func(void *__restrict data_v,
-                                       const int i,
-                                       const ParallelRangeTLS *__restrict /*tls*/)
-{
-  Depsgraph *graph = (Depsgraph *)data_v;
-  OperationNode *node = graph->operations[i];
-  /* Clear node's "pending update" settings. */
-  node->flag &= ~(DEPSOP_FLAG_DIRECTLY_MODIFIED | DEPSOP_FLAG_NEEDS_UPDATE |
-                  DEPSOP_FLAG_USER_MODIFIED);
-}
-
 /* Clear tags from all operation nodes. */
 void deg_graph_clear_tags(Depsgraph *graph)
 {
   /* Go over all operation nodes, clearing tags. */
-  {
-    const int num_operations = graph->operations.size();
-    ParallelRangeSettings settings;
-    BLI_parallel_range_settings_defaults(&settings);
-    settings.min_iter_per_thread = 1024;
-    BLI_task_parallel_range(0, num_operations, graph, graph_clear_operation_func, &settings);
+  for (OperationNode *node : graph->operations) {
+    node->flag &= ~(DEPSOP_FLAG_DIRECTLY_MODIFIED | DEPSOP_FLAG_NEEDS_UPDATE |
+                    DEPSOP_FLAG_USER_MODIFIED);
   }
   /* Clear any entry tags which haven't been flushed. */
   BLI_gset_clear(graph->entry_tags, NULL);

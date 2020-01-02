@@ -55,7 +55,6 @@
 #include "BIF_glutil.h"
 
 #include "GPU_immediate.h"
-#include "GPU_draw.h"
 #include "GPU_state.h"
 
 #include "ED_gpencil.h"
@@ -96,7 +95,7 @@ static void annotation_draw_stroke_buffer(const tGPspoint *points,
                                           short thickness,
                                           short dflag,
                                           short sflag,
-                                          float ink[4])
+                                          const float ink[4])
 {
   int draw_points = 0;
 
@@ -924,7 +923,7 @@ static void annotation_draw_data_layers(
        * i.e. tGPspoints NOT bGPDspoints
        */
       annotation_draw_stroke_buffer(gpd->runtime.sbuffer,
-                                    gpd->runtime.sbuffer_size,
+                                    gpd->runtime.sbuffer_used,
                                     lthick,
                                     dflag,
                                     gpd->runtime.sbuffer_sflag,
@@ -936,7 +935,6 @@ static void annotation_draw_data_layers(
 /* draw a short status message in the top-right corner */
 static void annotation_draw_status_text(const bGPdata *gpd, ARegion *ar)
 {
-  rcti rect;
 
   /* Cannot draw any status text when drawing OpenGL Renders */
   if (G.f & G_FLAG_RENDER_VIEWPORT) {
@@ -944,7 +942,7 @@ static void annotation_draw_status_text(const bGPdata *gpd, ARegion *ar)
   }
 
   /* Get bounds of region - Necessary to avoid problems with region overlap */
-  ED_region_visible_rect(ar, &rect);
+  const rcti *rect = ED_region_visible_rect(ar);
 
   /* for now, this should only be used to indicate when we are in stroke editmode */
   if (gpd->flag & GP_DATA_STROKE_EDITMODE) {
@@ -956,8 +954,8 @@ static void annotation_draw_status_text(const bGPdata *gpd, ARegion *ar)
     BLF_width_and_height(
         font_id, printable, BLF_DRAW_STR_DUMMY_MAX, &printable_size[0], &printable_size[1]);
 
-    int xco = (rect.xmax - U.widget_unit) - (int)printable_size[0];
-    int yco = (rect.ymax - U.widget_unit);
+    int xco = (rect->xmax - U.widget_unit) - (int)printable_size[0];
+    int yco = (rect->ymax - U.widget_unit);
 
     /* text label */
     UI_FontThemeColor(font_id, TH_TEXT_HI);

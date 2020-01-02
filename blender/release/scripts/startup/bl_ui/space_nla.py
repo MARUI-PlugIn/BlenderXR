@@ -91,7 +91,6 @@ class NLA_MT_view(Menu):
         layout.separator()
 
         layout.prop(st, "use_realtime_update")
-        layout.prop(st, "show_frame_indicator")
 
         layout.prop(st, "show_seconds")
         layout.prop(st, "show_locked_time")
@@ -126,7 +125,7 @@ class NLA_MT_select(Menu):
 
         layout.separator()
         layout.operator("nla.select_box").axis_range = False
-        layout.operator("nla.select_box", text="Border Axis Range").axis_range = True
+        layout.operator("nla.select_box", text="Box Select (Axis Range)").axis_range = True
 
         layout.separator()
         props = layout.operator("nla.select_leftright", text="Before Current Frame")

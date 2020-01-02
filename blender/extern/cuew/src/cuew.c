@@ -77,6 +77,7 @@ tcuDriverGetVersion *cuDriverGetVersion;
 tcuDeviceGet *cuDeviceGet;
 tcuDeviceGetCount *cuDeviceGetCount;
 tcuDeviceGetName *cuDeviceGetName;
+tcuDeviceGetUuid *cuDeviceGetUuid;
 tcuDeviceTotalMem_v2 *cuDeviceTotalMem_v2;
 tcuDeviceGetAttribute *cuDeviceGetAttribute;
 tcuDeviceGetProperties *cuDeviceGetProperties;
@@ -194,6 +195,7 @@ tcuStreamCreate *cuStreamCreate;
 tcuStreamCreateWithPriority *cuStreamCreateWithPriority;
 tcuStreamGetPriority *cuStreamGetPriority;
 tcuStreamGetFlags *cuStreamGetFlags;
+tcuStreamGetCtx *cuStreamGetCtx;
 tcuStreamWaitEvent *cuStreamWaitEvent;
 tcuStreamAddCallback *cuStreamAddCallback;
 tcuStreamAttachMemAsync *cuStreamAttachMemAsync;
@@ -385,6 +387,7 @@ static int cuewCudaInit(void) {
   CUDA_LIBRARY_FIND(cuDeviceGet);
   CUDA_LIBRARY_FIND(cuDeviceGetCount);
   CUDA_LIBRARY_FIND(cuDeviceGetName);
+  CUDA_LIBRARY_FIND(cuDeviceGetUuid);
   CUDA_LIBRARY_FIND(cuDeviceTotalMem_v2);
   CUDA_LIBRARY_FIND(cuDeviceGetAttribute);
   CUDA_LIBRARY_FIND(cuDeviceGetProperties);
@@ -502,6 +505,7 @@ static int cuewCudaInit(void) {
   CUDA_LIBRARY_FIND(cuStreamCreateWithPriority);
   CUDA_LIBRARY_FIND(cuStreamGetPriority);
   CUDA_LIBRARY_FIND(cuStreamGetFlags);
+  CUDA_LIBRARY_FIND(cuStreamGetCtx);
   CUDA_LIBRARY_FIND(cuStreamWaitEvent);
   CUDA_LIBRARY_FIND(cuStreamAddCallback);
   CUDA_LIBRARY_FIND(cuStreamAttachMemAsync);
@@ -619,10 +623,11 @@ static int cuewNvrtcInit(void) {
   /* Library paths. */
 #ifdef _WIN32
   /* Expected in c:/windows/system or similar, no path needed. */
-  const char *nvrtc_paths[] = {"nvrtc64_80.dll",
-                               "nvrtc64_90.dll",
+  const char *nvrtc_paths[] = {"nvrtc64_101_0.dll",
+                               "nvrtc64_100_0.dll",
                                "nvrtc64_91.dll",
-                               "nvrtc64_10_0.dll",
+                               "nvrtc64_90.dll",
+                               "nvrtc64_80.dll",
                                NULL};
 #elif defined(__APPLE__)
   /* Default installation path. */
@@ -854,6 +859,23 @@ int cuewNvrtcVersion(void) {
   return 0;
 }
 
+static size_t safe_strnlen(const char *s, size_t maxlen) {
+  size_t length;
+  for (length = 0; length < maxlen; s++, length++) {
+    if (*s == '\0') {
+      break;
+    }
+  }
+  return length;
+}
+
+static char *safe_strncpy(char *dest, const char *src, size_t n) {
+  const size_t src_len = safe_strnlen(src, n - 1);
+  memcpy(dest, src, src_len);
+  dest[src_len] = '\0';
+  return dest;
+}
+
 int cuewCompilerVersion(void) {
   const char *path = cuewCompilerPath();
   const char *marker = "Cuda compilation tools, release ";
@@ -869,7 +891,7 @@ int cuewCompilerVersion(void) {
   }
 
   /* get --version output */
-  strncpy(command, path, sizeof(command));
+  safe_strncpy(command, path, sizeof(command));
   strncat(command, " --version", sizeof(command) - strlen(path));
   pipe = popen(command, "r");
   if (!pipe) {

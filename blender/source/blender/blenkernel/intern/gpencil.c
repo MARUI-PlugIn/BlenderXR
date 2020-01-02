@@ -48,14 +48,18 @@
 
 #include "BKE_action.h"
 #include "BKE_animsys.h"
+#include "BKE_curve.h"
+#include "BKE_collection.h"
+#include "BKE_colortools.h"
 #include "BKE_deform.h"
 #include "BKE_gpencil.h"
-#include "BKE_colortools.h"
 #include "BKE_icons.h"
 #include "BKE_library.h"
 #include "BKE_main.h"
-#include "BKE_object.h"
 #include "BKE_material.h"
+#include "BKE_object.h"
+
+#include "BLI_math_color.h"
 
 #include "DEG_depsgraph.h"
 
@@ -148,19 +152,19 @@ bool BKE_gpencil_free_strokes(bGPDframe *gpf)
 }
 
 /* Free strokes and colors belonging to a gp-frame */
-bool BKE_gpencil_free_frame_runtime_data(bGPDframe *derived_gpf)
+bool BKE_gpencil_free_frame_runtime_data(bGPDframe *gpf_eval)
 {
   bGPDstroke *gps_next;
-  if (!derived_gpf) {
+  if (!gpf_eval) {
     return false;
   }
 
   /* free strokes */
-  for (bGPDstroke *gps = derived_gpf->strokes.first; gps; gps = gps_next) {
+  for (bGPDstroke *gps = gpf_eval->strokes.first; gps; gps = gps_next) {
     gps_next = gps->next;
     BKE_gpencil_free_stroke(gps);
   }
-  BLI_listbase_clear(&derived_gpf->strokes);
+  BLI_listbase_clear(&gpf_eval->strokes);
 
   return true;
 }
@@ -263,7 +267,8 @@ bGPDframe *BKE_gpencil_frame_addnew(bGPDlayer *gpl, int cframe)
 
   /* check whether frame was added successfully */
   if (state == -1) {
-    CLOG_ERROR(&LOG, "Frame (%d) existed already for this layer. Using existing frame", cframe);
+    CLOG_ERROR(
+        &LOG, "Frame (%d) existed already for this layer_active. Using existing frame", cframe);
 
     /* free the newly created one, and use the old one instead */
     MEM_freeN(gpf);
@@ -414,7 +419,7 @@ bGPdata *BKE_gpencil_data_addnew(Main *bmain, const char name[])
   /* general flags */
   gpd->flag |= GP_DATA_VIEWALIGN;
   gpd->flag |= GP_DATA_STROKE_FORCE_RECALC;
-  /* always enable object onion skin swith */
+  /* always enable object onion skin switch */
   gpd->flag |= GP_DATA_SHOW_ONIONSKINS;
   /* GP object specific settings */
   ARRAY_SET_ITEMS(gpd->line_color, 0.6f, 0.6f, 0.6f, 0.5f);
@@ -422,9 +427,9 @@ bGPdata *BKE_gpencil_data_addnew(Main *bmain, const char name[])
   gpd->pixfactor = GP_DEFAULT_PIX_FACTOR;
 
   /* grid settings */
-  ARRAY_SET_ITEMS(gpd->grid.color, 0.5f, 0.5f, 0.5f);  // Color
-  ARRAY_SET_ITEMS(gpd->grid.scale, 1.0f, 1.0f);        // Scale
-  gpd->grid.lines = GP_DEFAULT_GRID_LINES;             // Number of lines
+  ARRAY_SET_ITEMS(gpd->grid.color, 0.5f, 0.5f, 0.5f); /* Color */
+  ARRAY_SET_ITEMS(gpd->grid.scale, 1.0f, 1.0f);       /* Scale */
+  gpd->grid.lines = GP_DEFAULT_GRID_LINES;            /* Number of lines */
 
   /* onion-skinning settings (datablock level) */
   gpd->onion_flag |= (GP_ONION_GHOST_PREVCOL | GP_ONION_GHOST_NEXTCOL);
@@ -642,8 +647,10 @@ void BKE_gpencil_copy_data(bGPdata *gpd_dst, const bGPdata *gpd_src, const int U
   BLI_listbase_clear(&gpd_dst->layers);
   for (const bGPDlayer *gpl_src = gpd_src->layers.first; gpl_src; gpl_src = gpl_src->next) {
     /* make a copy of source layer and its data */
-    bGPDlayer *gpl_dst = BKE_gpencil_layer_duplicate(
-        gpl_src); /* TODO here too could add unused flags... */
+
+    /* TODO here too could add unused flags... */
+    bGPDlayer *gpl_dst = BKE_gpencil_layer_duplicate(gpl_src);
+
     BLI_addtail(&gpd_dst->layers, gpl_dst);
   }
 }
@@ -657,7 +664,7 @@ bGPdata *BKE_gpencil_copy(Main *bmain, const bGPdata *gpd)
 }
 
 /* make a copy of a given gpencil datablock */
-// XXX: Should this be deprecated?
+/* XXX: Should this be deprecated? */
 bGPdata *BKE_gpencil_data_duplicate(Main *bmain, const bGPdata *gpd_src, bool internal_copy)
 {
   bGPdata *gpd_dst;
@@ -800,7 +807,7 @@ bGPDframe *BKE_gpencil_layer_find_frame(bGPDlayer *gpl, int cframe)
 bGPDframe *BKE_gpencil_layer_getframe(bGPDlayer *gpl, int cframe, eGP_GetFrame_Mode addnew)
 {
   bGPDframe *gpf = NULL;
-  short found = 0;
+  bool found = false;
 
   /* error checking */
   if (gpl == NULL) {
@@ -826,11 +833,11 @@ bGPDframe *BKE_gpencil_layer_getframe(bGPDlayer *gpl, int cframe, eGP_GetFrame_M
     if (gpf->framenum < cframe) {
       for (; gpf; gpf = gpf->next) {
         if (gpf->framenum == cframe) {
-          found = 1;
+          found = true;
           break;
         }
         else if ((gpf->next) && (gpf->next->framenum > cframe)) {
-          found = 1;
+          found = true;
           break;
         }
       }
@@ -857,7 +864,7 @@ bGPDframe *BKE_gpencil_layer_getframe(bGPDlayer *gpl, int cframe, eGP_GetFrame_M
     else {
       for (; gpf; gpf = gpf->prev) {
         if (gpf->framenum <= cframe) {
-          found = 1;
+          found = true;
           break;
         }
       }
@@ -891,7 +898,7 @@ bGPDframe *BKE_gpencil_layer_getframe(bGPDlayer *gpl, int cframe, eGP_GetFrame_M
       /* find gp-frame which is less than or equal to cframe */
       for (gpf = gpl->frames.last; gpf; gpf = gpf->prev) {
         if (gpf->framenum <= cframe) {
-          found = 1;
+          found = true;
           break;
         }
       }
@@ -900,7 +907,7 @@ bGPDframe *BKE_gpencil_layer_getframe(bGPDlayer *gpl, int cframe, eGP_GetFrame_M
       /* find gp-frame which is less than or equal to cframe */
       for (gpf = gpl->frames.first; gpf; gpf = gpf->next) {
         if (gpf->framenum <= cframe) {
-          found = 1;
+          found = true;
           break;
         }
       }
@@ -1006,6 +1013,39 @@ void BKE_gpencil_layer_setactive(bGPdata *gpd, bGPDlayer *active)
   active->flag |= GP_LAYER_ACTIVE;
   if (gpd->flag & GP_DATA_AUTOLOCK_LAYERS) {
     active->flag &= ~GP_LAYER_LOCKED;
+  }
+}
+
+/* Set locked layers for autolock mode. */
+void BKE_gpencil_layer_autolock_set(bGPdata *gpd, const bool unlock)
+{
+  BLI_assert(gpd != NULL);
+
+  bGPDlayer *gpl;
+
+  if (gpd->flag & GP_DATA_AUTOLOCK_LAYERS) {
+    bGPDlayer *layer_active = BKE_gpencil_layer_getactive(gpd);
+
+    /* Lock all other layers */
+    for (gpl = gpd->layers.first; gpl; gpl = gpl->next) {
+      /* unlock active layer */
+      if (gpl == layer_active) {
+        gpl->flag &= ~GP_LAYER_LOCKED;
+      }
+      else {
+        gpl->flag |= GP_LAYER_LOCKED;
+      }
+    }
+  }
+  else {
+    /* If disable is better unlock all layers by default or it looks there is
+     * a problem in the UI because the user expects all layers will be unlocked
+     */
+    if (unlock) {
+      for (gpl = gpd->layers.first; gpl; gpl = gpl->next) {
+        gpl->flag &= ~GP_LAYER_LOCKED;
+      }
+    }
   }
 }
 
@@ -1159,38 +1199,34 @@ Material *BKE_gpencil_object_material_ensure_from_active_input_brush(Main *bmain
       brush->gpencil_settings->flag &= ~GP_BRUSH_MATERIAL_PINNED;
     }
   }
-  return BKE_gpencil_object_material_ensure_from_active_input_material(bmain, ob);
+  return BKE_gpencil_object_material_ensure_from_active_input_material(ob);
 }
 
 /**
  * Guaranteed to return a material assigned to object. Returns never NULL.
  * Only use this for materials unrelated to user input.
  */
-Material *BKE_gpencil_object_material_ensure_from_active_input_material(Main *bmain, Object *ob)
+Material *BKE_gpencil_object_material_ensure_from_active_input_material(Object *ob)
 {
   Material *ma = give_current_material(ob, ob->actcol);
   if (ma) {
     return ma;
   }
-  /* If the slot is empty, remove because will be added again,
-   * if not, we will get an empty slot. */
-  if ((ob->totcol > 0) && (ob->actcol == ob->totcol)) {
-    BKE_object_material_slot_remove(bmain, ob);
-  }
-  return BKE_gpencil_object_material_new(bmain, ob, "Material", NULL);
+
+  return &defgpencil_material;
 }
 
 /* Get active color, and add all default settings if we don't find anything */
-Material *BKE_gpencil_object_material_ensure_active(Main *bmain, Object *ob)
+Material *BKE_gpencil_object_material_ensure_active(Object *ob)
 {
   Material *ma = NULL;
 
   /* sanity checks */
-  if (ELEM(NULL, bmain, ob)) {
+  if (ob == NULL) {
     return NULL;
   }
 
-  ma = BKE_gpencil_object_material_ensure_from_active_input_material(bmain, ob);
+  ma = BKE_gpencil_object_material_ensure_from_active_input_material(ob);
   if (ma->gp_style == NULL) {
     BKE_material_init_gpencil_settings(ma);
   }
@@ -1361,6 +1397,7 @@ void BKE_gpencil_vgroup_remove(Object *ob, bDeformGroup *defgroup)
   bGPdata *gpd = ob->data;
   MDeformVert *dvert = NULL;
   const int def_nr = BLI_findindex(&ob->defbase, defgroup);
+  const int totgrp = BLI_listbase_count(&ob->defbase);
 
   /* Remove points data */
   if (gpd) {
@@ -1375,9 +1412,9 @@ void BKE_gpencil_vgroup_remove(Object *ob, bDeformGroup *defgroup)
                 defvert_remove_group(dvert, dw);
               }
               else {
-                /* reorganize weights in other strokes */
-                for (int g = 0; g < gps->dvert->totweight; g++) {
-                  dw = &dvert->dw[g];
+                /* Reorganize weights for other groups after deleted one. */
+                for (int g = 0; g < totgrp; g++) {
+                  dw = defvert_find_index(dvert, g);
                   if ((dw != NULL) && (dw->def_nr > def_nr)) {
                     dw->def_nr--;
                   }
@@ -1404,6 +1441,317 @@ void BKE_gpencil_dvert_ensure(bGPDstroke *gps)
 
 /* ************************************************** */
 
+static void stroke_defvert_create_nr_list(MDeformVert *dv_list,
+                                          int count,
+                                          ListBase *result,
+                                          int *totweight)
+{
+  LinkData *ld;
+  MDeformVert *dv;
+  MDeformWeight *dw;
+  int i, j;
+  int tw = 0;
+  for (i = 0; i < count; i++) {
+    dv = &dv_list[i];
+
+    /* find def_nr in list, if not exist, then create one */
+    for (j = 0; j < dv->totweight; j++) {
+      bool found = false;
+      dw = &dv->dw[j];
+      for (ld = result->first; ld; ld = ld->next) {
+        if (ld->data == POINTER_FROM_INT(dw->def_nr)) {
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        ld = MEM_callocN(sizeof(LinkData), "def_nr_item");
+        ld->data = POINTER_FROM_INT(dw->def_nr);
+        BLI_addtail(result, ld);
+        tw++;
+      }
+    }
+  }
+
+  *totweight = tw;
+}
+
+static MDeformVert *stroke_defvert_new_count(int count, int totweight, ListBase *def_nr_list)
+{
+  int i, j;
+  LinkData *ld;
+  MDeformVert *dst = MEM_mallocN(count * sizeof(MDeformVert), "new_deformVert");
+
+  for (i = 0; i < count; i++) {
+    dst[i].dw = MEM_mallocN(sizeof(MDeformWeight) * totweight, "new_deformWeight");
+    dst[i].totweight = totweight;
+    j = 0;
+    /* re-assign deform groups */
+    for (ld = def_nr_list->first; ld; ld = ld->next) {
+      dst[i].dw[j].def_nr = POINTER_AS_INT(ld->data);
+      j++;
+    }
+  }
+
+  return dst;
+}
+
+static void stroke_interpolate_deform_weights(
+    bGPDstroke *gps, int index_from, int index_to, float ratio, MDeformVert *vert)
+{
+  const MDeformVert *vl = &gps->dvert[index_from];
+  const MDeformVert *vr = &gps->dvert[index_to];
+  int i;
+
+  for (i = 0; i < vert->totweight; i++) {
+    float wl = defvert_find_weight(vl, vert->dw[i].def_nr);
+    float wr = defvert_find_weight(vr, vert->dw[i].def_nr);
+    vert->dw[i].weight = interpf(wr, wl, ratio);
+  }
+}
+
+static int stroke_march_next_point(const bGPDstroke *gps,
+                                   const int index_next_pt,
+                                   const float *current,
+                                   const float dist,
+                                   float *result,
+                                   float *pressure,
+                                   float *strength,
+                                   float *ratio_result,
+                                   int *index_from,
+                                   int *index_to)
+{
+  float remaining_till_next = 0.0f;
+  float remaining_march = dist;
+  float step_start[3];
+  float point[3];
+  int next_point_index = index_next_pt;
+  bGPDspoint *pt = NULL;
+
+  if (!(next_point_index < gps->totpoints)) {
+    return -1;
+  }
+
+  copy_v3_v3(step_start, current);
+  pt = &gps->points[next_point_index];
+  copy_v3_v3(point, &pt->x);
+  remaining_till_next = len_v3v3(point, step_start);
+
+  while (remaining_till_next < remaining_march) {
+    remaining_march -= remaining_till_next;
+    pt = &gps->points[next_point_index];
+    copy_v3_v3(point, &pt->x);
+    copy_v3_v3(step_start, point);
+    next_point_index++;
+    if (!(next_point_index < gps->totpoints)) {
+      next_point_index = gps->totpoints - 1;
+      break;
+    }
+    pt = &gps->points[next_point_index];
+    copy_v3_v3(point, &pt->x);
+    remaining_till_next = len_v3v3(point, step_start);
+  }
+  if (remaining_till_next < remaining_march) {
+    pt = &gps->points[next_point_index];
+    copy_v3_v3(result, &pt->x);
+    *pressure = gps->points[next_point_index].pressure;
+    *strength = gps->points[next_point_index].strength;
+
+    *index_from = next_point_index - 1;
+    *index_to = next_point_index;
+    *ratio_result = 1.0f;
+
+    return 0;
+  }
+  else {
+    float ratio = remaining_march / remaining_till_next;
+    interp_v3_v3v3(result, step_start, point, ratio);
+    *pressure = interpf(
+        gps->points[next_point_index].pressure, gps->points[next_point_index - 1].pressure, ratio);
+    *strength = interpf(
+        gps->points[next_point_index].strength, gps->points[next_point_index - 1].strength, ratio);
+
+    *index_from = next_point_index - 1;
+    *index_to = next_point_index;
+    *ratio_result = ratio;
+
+    return next_point_index;
+  }
+}
+
+static int stroke_march_next_point_no_interp(const bGPDstroke *gps,
+                                             const int index_next_pt,
+                                             const float *current,
+                                             const float dist,
+                                             float *result)
+{
+  float remaining_till_next = 0.0f;
+  float remaining_march = dist;
+  float step_start[3];
+  float point[3];
+  int next_point_index = index_next_pt;
+  bGPDspoint *pt = NULL;
+
+  if (!(next_point_index < gps->totpoints)) {
+    return -1;
+  }
+
+  copy_v3_v3(step_start, current);
+  pt = &gps->points[next_point_index];
+  copy_v3_v3(point, &pt->x);
+  remaining_till_next = len_v3v3(point, step_start);
+
+  while (remaining_till_next < remaining_march) {
+    remaining_march -= remaining_till_next;
+    pt = &gps->points[next_point_index];
+    copy_v3_v3(point, &pt->x);
+    copy_v3_v3(step_start, point);
+    next_point_index++;
+    if (!(next_point_index < gps->totpoints)) {
+      next_point_index = gps->totpoints - 1;
+      break;
+    }
+    pt = &gps->points[next_point_index];
+    copy_v3_v3(point, &pt->x);
+    remaining_till_next = len_v3v3(point, step_start);
+  }
+  if (remaining_till_next < remaining_march) {
+    pt = &gps->points[next_point_index];
+    copy_v3_v3(result, &pt->x);
+    return 0;
+  }
+  else {
+    float ratio = remaining_march / remaining_till_next;
+    interp_v3_v3v3(result, step_start, point, ratio);
+    return next_point_index;
+  }
+}
+
+static int stroke_march_count(const bGPDstroke *gps, const float dist)
+{
+  int point_count = 0;
+  float point[3];
+  int next_point_index = 1;
+  bGPDspoint *pt = NULL;
+
+  pt = &gps->points[0];
+  copy_v3_v3(point, &pt->x);
+  point_count++;
+
+  while ((next_point_index = stroke_march_next_point_no_interp(
+              gps, next_point_index, point, dist, point)) > -1) {
+    point_count++;
+    if (next_point_index == 0) {
+      break; /* last point finished */
+    }
+  }
+  return point_count;
+}
+
+/**
+ * Resample a stroke
+ * \param gps: Stroke to sample
+ * \param dist: Distance of one segment
+ */
+bool BKE_gpencil_sample_stroke(bGPDstroke *gps, const float dist, const bool select)
+{
+  bGPDspoint *pt = gps->points;
+  bGPDspoint *pt1 = NULL;
+  bGPDspoint *pt2 = NULL;
+  int i;
+  LinkData *ld;
+  ListBase def_nr_list = {0};
+
+  if (gps->totpoints < 2 || dist < FLT_EPSILON) {
+    return false;
+  }
+  /* TODO: Implement feature point preservation. */
+  int count = stroke_march_count(gps, dist);
+
+  bGPDspoint *new_pt = MEM_callocN(sizeof(bGPDspoint) * count, "gp_stroke_points_sampled");
+  MDeformVert *new_dv = NULL;
+
+  int result_totweight;
+
+  if (gps->dvert != NULL) {
+    stroke_defvert_create_nr_list(gps->dvert, gps->totpoints, &def_nr_list, &result_totweight);
+    new_dv = stroke_defvert_new_count(count, result_totweight, &def_nr_list);
+  }
+
+  int next_point_index = 1;
+  i = 0;
+  float pressure, strength, ratio_result;
+  int index_from, index_to;
+  float last_coord[3];
+
+  /*  1st point is always at the start */
+  pt1 = &gps->points[0];
+  copy_v3_v3(last_coord, &pt1->x);
+  pt2 = &new_pt[i];
+  copy_v3_v3(&pt2->x, last_coord);
+  new_pt[i].pressure = pt[0].pressure;
+  new_pt[i].strength = pt[0].strength;
+  if (select) {
+    new_pt[i].flag |= GP_SPOINT_SELECT;
+  }
+  i++;
+
+  if (new_dv) {
+    stroke_interpolate_deform_weights(gps, 0, 0, 0, &new_dv[0]);
+  }
+
+  /*  the rest */
+  while ((next_point_index = stroke_march_next_point(gps,
+                                                     next_point_index,
+                                                     last_coord,
+                                                     dist,
+                                                     last_coord,
+                                                     &pressure,
+                                                     &strength,
+                                                     &ratio_result,
+                                                     &index_from,
+                                                     &index_to)) > -1) {
+    pt2 = &new_pt[i];
+    copy_v3_v3(&pt2->x, last_coord);
+    new_pt[i].pressure = pressure;
+    new_pt[i].strength = strength;
+    if (select) {
+      new_pt[i].flag |= GP_SPOINT_SELECT;
+    }
+
+    if (new_dv) {
+      stroke_interpolate_deform_weights(gps, index_from, index_to, ratio_result, &new_dv[i]);
+    }
+
+    i++;
+    if (next_point_index == 0) {
+      break; /* last point finished */
+    }
+  }
+
+  gps->points = new_pt;
+  /* Free original vertex list. */
+  MEM_freeN(pt);
+
+  if (new_dv) {
+    /* Free original weight data. */
+    BKE_gpencil_free_stroke_weights(gps);
+    MEM_freeN(gps->dvert);
+    while ((ld = BLI_pophead(&def_nr_list))) {
+      MEM_freeN(ld);
+    }
+
+    gps->dvert = new_dv;
+  }
+
+  gps->totpoints = i;
+
+  gps->flag |= GP_STROKE_RECALC_GEOMETRY;
+  gps->tot_triangles = 0;
+
+  return true;
+}
+
 /**
  * Apply smooth to stroke point
  * \param gps: Stroke to smooth
@@ -1413,7 +1761,6 @@ void BKE_gpencil_dvert_ensure(bGPDstroke *gps)
 bool BKE_gpencil_smooth_stroke(bGPDstroke *gps, int i, float inf)
 {
   bGPDspoint *pt = &gps->points[i];
-  // float pressure = 0.0f;
   float sco[3] = {0.0f};
 
   /* Do nothing if not enough points to smooth out */
@@ -1475,33 +1822,55 @@ bool BKE_gpencil_smooth_stroke_strength(bGPDstroke *gps, int point_index, float 
   bGPDspoint *ptb = &gps->points[point_index];
 
   /* Do nothing if not enough points */
-  if (gps->totpoints <= 2) {
+  if ((gps->totpoints <= 2) || (point_index < 1)) {
     return false;
   }
-
-  /* Compute theoretical optimal value using distances */
-  bGPDspoint *pta, *ptc;
-  int before = point_index - 1;
-  int after = point_index + 1;
-
-  CLAMP_MIN(before, 0);
-  CLAMP_MAX(after, gps->totpoints - 1);
-
-  pta = &gps->points[before];
-  ptc = &gps->points[after];
-
-  /* the optimal value is the corresponding to the interpolation of the strength
-   * at the distance of point b
-   */
-  float fac = line_point_factor_v3(&ptb->x, &pta->x, &ptc->x);
-  /* sometimes the factor can be wrong due stroke geometry, so use middle point */
-  if ((fac < 0.0f) || (fac > 1.0f)) {
-    fac = 0.5f;
+  /* Only affect endpoints by a fraction of the normal influence */
+  float inf = influence;
+  if ((point_index == 0) || (point_index == gps->totpoints - 1)) {
+    inf *= 0.01f;
   }
-  const float optimal = (1.0f - fac) * pta->strength + fac * ptc->strength;
+  /* Limit max influence to reduce pop effect. */
+  CLAMP_MAX(inf, 0.98f);
 
-  /* Based on influence factor, blend between original and optimal */
-  ptb->strength = (1.0f - influence) * ptb->strength + influence * optimal;
+  float total = 0.0f;
+  float max_strength = 0.0f;
+  const int steps = 4;
+  const float average_fac = 1.0f / (float)(steps * 2 + 1);
+  int step;
+
+  /* add the point itself */
+  total += ptb->strength * average_fac;
+  max_strength = ptb->strength;
+
+  /* n-steps before/after current point */
+  for (step = 1; step <= steps; step++) {
+    bGPDspoint *pt1, *pt2;
+    int before = point_index - step;
+    int after = point_index + step;
+
+    CLAMP_MIN(before, 0);
+    CLAMP_MAX(after, gps->totpoints - 1);
+
+    pt1 = &gps->points[before];
+    pt2 = &gps->points[after];
+
+    /* add both these points to the average-sum (s += p[i]/n) */
+    total += pt1->strength * average_fac;
+    total += pt2->strength * average_fac;
+    /* Save max value. */
+    if (max_strength < pt1->strength) {
+      max_strength = pt1->strength;
+    }
+    if (max_strength < pt2->strength) {
+      max_strength = pt2->strength;
+    }
+  }
+
+  /* Based on influence factor, blend between original and optimal smoothed value. */
+  ptb->strength = interpf(ptb->strength, total, inf);
+  /* Clamp to maximum stroke strength to avoid weird results. */
+  CLAMP_MAX(ptb->strength, max_strength);
 
   return true;
 }
@@ -1516,31 +1885,52 @@ bool BKE_gpencil_smooth_stroke_thickness(bGPDstroke *gps, int point_index, float
   if ((gps->totpoints <= 2) || (point_index < 1)) {
     return false;
   }
-
-  /* Compute theoretical optimal value using distances */
-  bGPDspoint *pta, *ptc;
-  int before = point_index - 1;
-  int after = point_index + 1;
-
-  CLAMP_MIN(before, 0);
-  CLAMP_MAX(after, gps->totpoints - 1);
-
-  pta = &gps->points[before];
-  ptc = &gps->points[after];
-
-  /* the optimal value is the corresponding to the interpolation of the pressure
-   * at the distance of point b
-   */
-  float fac = line_point_factor_v3(&ptb->x, &pta->x, &ptc->x);
-  /* sometimes the factor can be wrong due stroke geometry, so use middle point */
-  if ((fac < 0.0f) || (fac > 1.0f)) {
-    fac = 0.5f;
+  /* Only affect endpoints by a fraction of the normal influence */
+  float inf = influence;
+  if ((point_index == 0) || (point_index == gps->totpoints - 1)) {
+    inf *= 0.01f;
   }
-  float optimal = interpf(ptc->pressure, pta->pressure, fac);
+  /* Limit max influence to reduce pop effect. */
+  CLAMP_MAX(inf, 0.98f);
 
-  /* Based on influence factor, blend between original and optimal */
-  ptb->pressure = interpf(optimal, ptb->pressure, influence);
+  float total = 0.0f;
+  float max_pressure = 0.0f;
+  const int steps = 4;
+  const float average_fac = 1.0f / (float)(steps * 2 + 1);
+  int step;
 
+  /* add the point itself */
+  total += ptb->pressure * average_fac;
+  max_pressure = ptb->pressure;
+
+  /* n-steps before/after current point */
+  for (step = 1; step <= steps; step++) {
+    bGPDspoint *pt1, *pt2;
+    int before = point_index - step;
+    int after = point_index + step;
+
+    CLAMP_MIN(before, 0);
+    CLAMP_MAX(after, gps->totpoints - 1);
+
+    pt1 = &gps->points[before];
+    pt2 = &gps->points[after];
+
+    /* add both these points to the average-sum (s += p[i]/n) */
+    total += pt1->pressure * average_fac;
+    total += pt2->pressure * average_fac;
+    /* Save max value. */
+    if (max_pressure < pt1->pressure) {
+      max_pressure = pt1->pressure;
+    }
+    if (max_pressure < pt2->pressure) {
+      max_pressure = pt2->pressure;
+    }
+  }
+
+  /* Based on influence factor, blend between original and optimal smoothed value. */
+  ptb->pressure = interpf(ptb->pressure, total, inf);
+  /* Clamp to maximum stroke thickness to avoid weird results. */
+  CLAMP_MAX(ptb->pressure, max_pressure);
   return true;
 }
 
@@ -1632,13 +2022,13 @@ float BKE_gpencil_multiframe_falloff_calc(
   if (gpf->framenum < actnum) {
     fnum = (float)(gpf->framenum - f_init) / (actnum - f_init);
     fnum *= 0.5f;
-    value = curvemapping_evaluateF(cur_falloff, 0, fnum);
+    value = BKE_curvemapping_evaluateF(cur_falloff, 0, fnum);
   }
   /* frames to the left of the active frame */
   else if (gpf->framenum > actnum) {
     fnum = (float)(gpf->framenum - actnum) / (f_end - actnum);
     fnum *= 0.5f;
-    value = curvemapping_evaluateF(cur_falloff, 0, fnum + 0.5f);
+    value = BKE_curvemapping_evaluateF(cur_falloff, 0, fnum + 0.5f);
   }
   else {
     value = 1.0f;
@@ -1656,10 +2046,27 @@ void BKE_gpencil_material_index_reassign(bGPdata *gpd, int totcol, int index)
         /* reassign strokes */
         if ((gps->mat_nr > index) || (gps->mat_nr > totcol - 1)) {
           gps->mat_nr--;
+          CLAMP_MIN(gps->mat_nr, 0);
         }
       }
     }
   }
+}
+
+/* remove strokes using a material */
+bool BKE_gpencil_material_index_used(bGPdata *gpd, int index)
+{
+  for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
+    for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
+      for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
+        if (gps->mat_nr == index) {
+          return true;
+        }
+      }
+    }
+  }
+
+  return false;
 }
 
 void BKE_gpencil_material_remap(struct bGPdata *gpd,
@@ -1990,6 +2397,12 @@ bool BKE_gpencil_close_stroke(bGPDstroke *gps)
   pt2 = &gps->points[0];
   float dist_close = len_v3v3(&pt1->x, &pt2->x);
 
+  /* if the distance to close is very small, don't need add points and just enable cyclic. */
+  if (dist_close <= dist_avg) {
+    gps->flag |= GP_STROKE_CYCLIC;
+    return true;
+  }
+
   /* Calc number of points required using the average distance. */
   int tot_newpoints = MAX2(dist_close / dist_avg, 1);
 
@@ -2006,9 +2419,11 @@ bool BKE_gpencil_close_stroke(bGPDstroke *gps)
   pt2 = &gps->points[0];
   bGPDspoint *pt = &gps->points[old_tot];
   for (int i = 1; i < tot_newpoints + 1; i++, pt++) {
-    float step = ((float)i / (float)tot_newpoints);
+    float step = (tot_newpoints > 1) ? ((float)i / (float)tot_newpoints) : 0.99f;
     /* Clamp last point to be near, but not on top of first point. */
-    CLAMP(step, 0.0f, 0.99f);
+    if ((tot_newpoints > 1) && (i == tot_newpoints)) {
+      step *= 0.99f;
+    }
 
     /* Average point. */
     interp_v3_v3v3(&pt->x, &pt1->x, &pt2->x, step);
@@ -2039,4 +2454,561 @@ bool BKE_gpencil_close_stroke(bGPDstroke *gps)
   gps->flag |= GP_STROKE_CYCLIC;
 
   return true;
+}
+/* Dissolve points in stroke */
+void BKE_gpencil_dissolve_points(bGPDframe *gpf, bGPDstroke *gps, const short tag)
+{
+  bGPDspoint *pt;
+  MDeformVert *dvert = NULL;
+  int i;
+
+  int tot = gps->totpoints; /* number of points in new buffer */
+  /* first pass: count points to remove */
+  /* Count how many points are selected (i.e. how many to remove) */
+  for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
+    if (pt->flag & tag) {
+      /* selected point - one of the points to remove */
+      tot--;
+    }
+  }
+
+  /* if no points are left, we simply delete the entire stroke */
+  if (tot <= 0) {
+    /* remove the entire stroke */
+    if (gps->points) {
+      MEM_freeN(gps->points);
+    }
+    if (gps->dvert) {
+      BKE_gpencil_free_stroke_weights(gps);
+      MEM_freeN(gps->dvert);
+    }
+    if (gps->triangles) {
+      MEM_freeN(gps->triangles);
+    }
+    BLI_freelinkN(&gpf->strokes, gps);
+  }
+  else {
+    /* just copy all points to keep into a smaller buffer */
+    bGPDspoint *new_points = MEM_callocN(sizeof(bGPDspoint) * tot, "new gp stroke points copy");
+    bGPDspoint *npt = new_points;
+
+    MDeformVert *new_dvert = NULL;
+    MDeformVert *ndvert = NULL;
+
+    if (gps->dvert != NULL) {
+      new_dvert = MEM_callocN(sizeof(MDeformVert) * tot, "new gp stroke weights copy");
+      ndvert = new_dvert;
+    }
+
+    (gps->dvert != NULL) ? dvert = gps->dvert : NULL;
+    for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
+      if ((pt->flag & tag) == 0) {
+        *npt = *pt;
+        npt++;
+
+        if (gps->dvert != NULL) {
+          *ndvert = *dvert;
+          ndvert->dw = MEM_dupallocN(dvert->dw);
+          ndvert++;
+        }
+      }
+      if (gps->dvert != NULL) {
+        dvert++;
+      }
+    }
+
+    /* free the old buffer */
+    if (gps->points) {
+      MEM_freeN(gps->points);
+    }
+    if (gps->dvert) {
+      BKE_gpencil_free_stroke_weights(gps);
+      MEM_freeN(gps->dvert);
+    }
+
+    /* save the new buffer */
+    gps->points = new_points;
+    gps->dvert = new_dvert;
+    gps->totpoints = tot;
+
+    /* triangles cache needs to be recalculated */
+    gps->flag |= GP_STROKE_RECALC_GEOMETRY;
+    gps->tot_triangles = 0;
+  }
+}
+
+/* Merge by distance ------------------------------------- */
+/* Reduce a series of points when the distance is below a threshold.
+ * Special case for first and last points (both are keeped) for other points,
+ * the merge point always is at first point.
+ * \param gpf: Grease Pencil frame
+ * \param gps: Grease Pencil stroke
+ * \param threshold: Distance between points
+ * \param use_unselected: Set to true to analyze all stroke and not only selected points
+ */
+void BKE_gpencil_merge_distance_stroke(bGPDframe *gpf,
+                                       bGPDstroke *gps,
+                                       const float threshold,
+                                       const bool use_unselected)
+{
+  bGPDspoint *pt = NULL;
+  bGPDspoint *pt_next = NULL;
+  float tagged = false;
+  /* Use square distance to speed up loop */
+  const float th_square = threshold * threshold;
+  /* Need to have something to merge. */
+  if (gps->totpoints < 2) {
+    return;
+  }
+  int i = 0;
+  int step = 1;
+  while ((i < gps->totpoints - 1) && (i + step < gps->totpoints)) {
+    pt = &gps->points[i];
+    if (pt->flag & GP_SPOINT_TAG) {
+      i++;
+      step = 1;
+      continue;
+    }
+    pt_next = &gps->points[i + step];
+    /* Do not recalc tagged points. */
+    if (pt_next->flag & GP_SPOINT_TAG) {
+      step++;
+      continue;
+    }
+    /* Check if contiguous points are selected. */
+    if (!use_unselected) {
+      if (((pt->flag & GP_SPOINT_SELECT) == 0) || ((pt_next->flag & GP_SPOINT_SELECT) == 0)) {
+        i++;
+        step = 1;
+        continue;
+      }
+    }
+    float len_square = len_squared_v3v3(&pt->x, &pt_next->x);
+    if (len_square <= th_square) {
+      tagged = true;
+      if (i != gps->totpoints - 1) {
+        /* Tag second point for delete. */
+        pt_next->flag |= GP_SPOINT_TAG;
+      }
+      else {
+        pt->flag |= GP_SPOINT_TAG;
+      }
+      /* Jump to next pair of points, keeping first point segment equals.*/
+      step++;
+    }
+    else {
+      /* Analyze next point. */
+      i++;
+      step = 1;
+    }
+  }
+
+  /* Always untag extremes. */
+  pt = &gps->points[0];
+  pt->flag &= ~GP_SPOINT_TAG;
+  pt = &gps->points[gps->totpoints - 1];
+  pt->flag &= ~GP_SPOINT_TAG;
+
+  /* Dissolve tagged points */
+  if (tagged) {
+    BKE_gpencil_dissolve_points(gpf, gps, GP_SPOINT_TAG);
+  }
+}
+
+/* Helper: Check materials with same color. */
+static int gpencil_check_same_material_color(Object *ob_gp, float color[4], Material **r_mat)
+{
+  Material *ma = NULL;
+  float color_cu[4];
+  linearrgb_to_srgb_v3_v3(color_cu, color);
+  float hsv1[4];
+  rgb_to_hsv_v(color_cu, hsv1);
+  hsv1[3] = color[3];
+
+  for (int i = 1; i <= ob_gp->totcol; i++) {
+    ma = give_current_material(ob_gp, i);
+    MaterialGPencilStyle *gp_style = ma->gp_style;
+    /* Check color with small tolerance (better in HSV). */
+    float hsv2[4];
+    rgb_to_hsv_v(gp_style->fill_rgba, hsv2);
+    hsv2[3] = gp_style->fill_rgba[3];
+    if ((gp_style->fill_style == GP_STYLE_FILL_STYLE_SOLID) && (compare_v4v4(hsv1, hsv2, 0.01f))) {
+      *r_mat = ma;
+      return i - 1;
+    }
+  }
+
+  *r_mat = NULL;
+  return -1;
+}
+
+/* Helper: Add gpencil material using curve material as base. */
+static Material *gpencil_add_from_curve_material(Main *bmain,
+                                                 Object *ob_gp,
+                                                 const float cu_color[4],
+                                                 const bool gpencil_lines,
+                                                 const bool fill,
+                                                 int *r_idx)
+{
+  Material *mat_gp = BKE_gpencil_object_material_new(
+      bmain, ob_gp, (fill) ? "Material" : "Unassigned", r_idx);
+  MaterialGPencilStyle *gp_style = mat_gp->gp_style;
+
+  /* Stroke color. */
+  if (gpencil_lines) {
+    ARRAY_SET_ITEMS(gp_style->stroke_rgba, 0.0f, 0.0f, 0.0f, 1.0f);
+    gp_style->flag |= GP_STYLE_STROKE_SHOW;
+  }
+  else {
+    linearrgb_to_srgb_v4(gp_style->stroke_rgba, cu_color);
+    gp_style->flag &= ~GP_STYLE_STROKE_SHOW;
+  }
+
+  /* Fill color. */
+  linearrgb_to_srgb_v4(gp_style->fill_rgba, cu_color);
+  /* Fill is false if the original curve hasn't material assigned, so enable it. */
+  if (fill) {
+    gp_style->flag |= GP_STYLE_FILL_SHOW;
+  }
+
+  /* Check at least one is enabled. */
+  if (((gp_style->flag & GP_STYLE_STROKE_SHOW) == 0) &&
+      ((gp_style->flag & GP_STYLE_FILL_SHOW) == 0)) {
+    gp_style->flag |= GP_STYLE_STROKE_SHOW;
+  }
+
+  return mat_gp;
+}
+
+/* Helper: Create new stroke section. */
+static void gpencil_add_new_points(bGPDstroke *gps,
+                                   float *coord_array,
+                                   float pressure,
+                                   int init,
+                                   int totpoints,
+                                   const float init_co[3],
+                                   bool last)
+{
+  for (int i = 0; i < totpoints; i++) {
+    bGPDspoint *pt = &gps->points[i + init];
+    copy_v3_v3(&pt->x, &coord_array[3 * i]);
+    /* Be sure the last point is not on top of the first point of the curve or
+     * the close of the stroke will produce glitches. */
+    if ((last) && (i > 0) && (i == totpoints - 1)) {
+      float dist = len_v3v3(init_co, &pt->x);
+      if (dist < 0.1f) {
+        /* Interpolate between previous point and current to back slightly. */
+        bGPDspoint *pt_prev = &gps->points[i + init - 1];
+        interp_v3_v3v3(&pt->x, &pt_prev->x, &pt->x, 0.95f);
+      }
+    }
+
+    pt->pressure = pressure;
+    pt->strength = 1.0f;
+  }
+}
+
+/* Helper: Get the first collection that includes the object. */
+static Collection *gpencil_get_parent_collection(Scene *scene, Object *ob)
+{
+  Collection *mycol = NULL;
+  FOREACH_SCENE_COLLECTION_BEGIN (scene, collection) {
+    for (CollectionObject *cob = collection->gobject.first; cob; cob = cob->next) {
+      if ((mycol == NULL) && (cob->ob == ob)) {
+        mycol = collection;
+      }
+    }
+  }
+  FOREACH_SCENE_COLLECTION_END;
+
+  return mycol;
+}
+
+/* Helper: Convert one spline to grease pencil stroke. */
+static void gpencil_convert_spline(Main *bmain,
+                                   Object *ob_gp,
+                                   Object *ob_cu,
+                                   const bool gpencil_lines,
+                                   const bool only_stroke,
+                                   bGPDframe *gpf,
+                                   Nurb *nu)
+{
+  Curve *cu = (Curve *)ob_cu->data;
+  bool cyclic = true;
+
+  /* Create Stroke. */
+  bGPDstroke *gps = MEM_callocN(sizeof(bGPDstroke), "bGPDstroke");
+  gps->thickness = 1.0f;
+  gps->gradient_f = 1.0f;
+  ARRAY_SET_ITEMS(gps->gradient_s, 1.0f, 1.0f);
+  ARRAY_SET_ITEMS(gps->caps, GP_STROKE_CAP_ROUND, GP_STROKE_CAP_ROUND);
+  gps->inittime = 0.0f;
+
+  /* Enable recalculation flag by default. */
+  gps->flag |= GP_STROKE_RECALC_GEOMETRY;
+  gps->flag &= ~GP_STROKE_SELECT;
+  gps->flag |= GP_STROKE_3DSPACE;
+
+  gps->mat_nr = 0;
+  /* Count total points
+   * The total of points must consider that last point of each segment is equal to the first
+   * point of next segment.
+   */
+  int totpoints = 0;
+  int segments = 0;
+  int resolu = nu->resolu + 1;
+  segments = nu->pntsu;
+  if (((nu->flagu & CU_NURB_CYCLIC) == 0) || (nu->pntsu == 2)) {
+    segments--;
+    cyclic = false;
+  }
+  totpoints = (resolu * segments) - (segments - 1);
+
+  /* Initialize triangle memory to dummy data. */
+  gps->tot_triangles = 0;
+  gps->triangles = NULL;
+
+  /* Materials
+   * Notice: The color of the material is the color of viewport and not the final shader color.
+   */
+  Material *mat_gp = NULL;
+  bool fill = true;
+  /* Check if grease pencil has a material with same color.*/
+  float color[4];
+  if ((cu->mat) && (*cu->mat)) {
+    Material *mat_cu = *cu->mat;
+    copy_v4_v4(color, &mat_cu->r);
+  }
+  else {
+    /* Gray (unassigned from SVG add-on) */
+    zero_v4(color);
+    add_v3_fl(color, 0.6f);
+    color[3] = 1.0f;
+    fill = false;
+  }
+
+  /* Special case: If the color was created by the SVG add-on and the name contains '_stroke' and
+   * there is only one color, the stroke must not be closed, fill to false and use for
+   * stroke the fill color.
+   */
+  bool do_stroke = false;
+  if (ob_cu->totcol == 1) {
+    Material *ma_stroke = give_current_material(ob_cu, 1);
+    if ((ma_stroke) && (strstr(ma_stroke->id.name, "_stroke") != NULL)) {
+      do_stroke = true;
+    }
+  }
+
+  int r_idx = gpencil_check_same_material_color(ob_gp, color, &mat_gp);
+  if ((ob_cu->totcol > 0) && (r_idx < 0)) {
+    Material *mat_curve = give_current_material(ob_cu, 1);
+    mat_gp = gpencil_add_from_curve_material(bmain, ob_gp, color, gpencil_lines, fill, &r_idx);
+
+    if ((mat_curve) && (mat_curve->gp_style != NULL)) {
+      MaterialGPencilStyle *gp_style_cur = mat_curve->gp_style;
+      MaterialGPencilStyle *gp_style_gp = mat_gp->gp_style;
+
+      copy_v4_v4(gp_style_gp->mix_rgba, gp_style_cur->mix_rgba);
+      gp_style_gp->fill_style = gp_style_cur->fill_style;
+      gp_style_gp->mix_factor = gp_style_cur->mix_factor;
+      gp_style_gp->gradient_angle = gp_style_cur->gradient_angle;
+    }
+
+    /* If object has more than 1 material, use second material for stroke color. */
+    if ((!only_stroke) && (ob_cu->totcol > 1) && (give_current_material(ob_cu, 2))) {
+      mat_curve = give_current_material(ob_cu, 2);
+      if (mat_curve) {
+        linearrgb_to_srgb_v3_v3(mat_gp->gp_style->stroke_rgba, &mat_curve->r);
+        mat_gp->gp_style->stroke_rgba[3] = mat_curve->a;
+      }
+    }
+    else if ((only_stroke) || (do_stroke)) {
+      /* Also use the first color if the fill is none for stroke color. */
+      if (ob_cu->totcol > 0) {
+        mat_curve = give_current_material(ob_cu, 1);
+        if (mat_curve) {
+          linearrgb_to_srgb_v3_v3(mat_gp->gp_style->stroke_rgba, &mat_curve->r);
+          mat_gp->gp_style->stroke_rgba[3] = mat_curve->a;
+          /* Set fill and stroke depending of curve type (3D or 2D). */
+          if ((cu->flag & CU_3D) || ((cu->flag & (CU_FRONT | CU_BACK)) == 0)) {
+            mat_gp->gp_style->flag |= GP_STYLE_STROKE_SHOW;
+            mat_gp->gp_style->flag &= ~GP_STYLE_FILL_SHOW;
+          }
+          else {
+            mat_gp->gp_style->flag &= ~GP_STYLE_STROKE_SHOW;
+            mat_gp->gp_style->flag |= GP_STYLE_FILL_SHOW;
+          }
+        }
+      }
+    }
+  }
+  CLAMP_MIN(r_idx, 0);
+
+  /* Assign material index to stroke. */
+  gps->mat_nr = r_idx;
+
+  /* Add stroke to frame.*/
+  BLI_addtail(&gpf->strokes, gps);
+
+  float *coord_array = NULL;
+  float init_co[3];
+
+  switch (nu->type) {
+    case CU_POLY: {
+      /* Allocate memory for storage points. */
+      gps->totpoints = nu->pntsu;
+      gps->points = MEM_callocN(sizeof(bGPDspoint) * gps->totpoints, "gp_stroke_points");
+      /* Increase thickness for this type. */
+      gps->thickness = 10.0f;
+
+      /* Get all curve points */
+      for (int s = 0; s < gps->totpoints; s++) {
+        BPoint *bp = &nu->bp[s];
+        bGPDspoint *pt = &gps->points[s];
+        copy_v3_v3(&pt->x, bp->vec);
+        pt->pressure = bp->radius;
+        pt->strength = 1.0f;
+      }
+      break;
+    }
+    case CU_BEZIER: {
+      /* Allocate memory for storage points. */
+      gps->totpoints = totpoints;
+      gps->points = MEM_callocN(sizeof(bGPDspoint) * gps->totpoints, "gp_stroke_points");
+
+      int init = 0;
+      resolu = nu->resolu + 1;
+      segments = nu->pntsu;
+      if (((nu->flagu & CU_NURB_CYCLIC) == 0) || (nu->pntsu == 2)) {
+        segments--;
+      }
+      /* Get all interpolated curve points of Beziert */
+      for (int s = 0; s < segments; s++) {
+        int inext = (s + 1) % nu->pntsu;
+        BezTriple *prevbezt = &nu->bezt[s];
+        BezTriple *bezt = &nu->bezt[inext];
+        bool last = (bool)(s == segments - 1);
+
+        coord_array = MEM_callocN((size_t)3 * resolu * sizeof(float), __func__);
+
+        for (int j = 0; j < 3; j++) {
+          BKE_curve_forward_diff_bezier(prevbezt->vec[1][j],
+                                        prevbezt->vec[2][j],
+                                        bezt->vec[0][j],
+                                        bezt->vec[1][j],
+                                        coord_array + j,
+                                        resolu - 1,
+                                        3 * sizeof(float));
+        }
+        /* Save first point coordinates. */
+        if (s == 0) {
+          copy_v3_v3(init_co, &coord_array[0]);
+        }
+        /* Add points to the stroke */
+        gpencil_add_new_points(gps, coord_array, bezt->radius, init, resolu, init_co, last);
+        /* Free memory. */
+        MEM_SAFE_FREE(coord_array);
+
+        /* As the last point of segment is the first point of next segment, back one array
+         * element to avoid duplicated points on the same location.
+         */
+        init += resolu - 1;
+      }
+      break;
+    }
+    case CU_NURBS: {
+      if (nu->pntsv == 1) {
+
+        int nurb_points;
+        if (nu->flagu & CU_NURB_CYCLIC) {
+          resolu++;
+          nurb_points = nu->pntsu * resolu;
+        }
+        else {
+          nurb_points = (nu->pntsu - 1) * resolu;
+        }
+        /* Get all curve points. */
+        coord_array = MEM_callocN(sizeof(float[3]) * nurb_points, __func__);
+        BKE_nurb_makeCurve(nu, coord_array, NULL, NULL, NULL, resolu, sizeof(float[3]));
+
+        /* Allocate memory for storage points. */
+        gps->totpoints = nurb_points - 1;
+        gps->points = MEM_callocN(sizeof(bGPDspoint) * gps->totpoints, "gp_stroke_points");
+
+        /* Add points. */
+        gpencil_add_new_points(gps, coord_array, 1.0f, 0, gps->totpoints, init_co, false);
+
+        MEM_SAFE_FREE(coord_array);
+      }
+      break;
+    }
+    default: {
+      break;
+    }
+  }
+  /* Cyclic curve, close stroke. */
+  if ((cyclic) && (!do_stroke)) {
+    BKE_gpencil_close_stroke(gps);
+  }
+}
+
+/* Convert a curve object to grease pencil stroke.
+ *
+ * \param bmain: Main thread pointer
+ * \param scene: Original scene.
+ * \param ob_gp: Grease pencil object to add strokes.
+ * \param ob_cu: Curve to convert.
+ * \param gpencil_lines: Use lines for strokes.
+ * \param use_collections: Create layers using collection names.
+ * \param only_stroke: The material must be only stroke without fill.
+ */
+void BKE_gpencil_convert_curve(Main *bmain,
+                               Scene *scene,
+                               Object *ob_gp,
+                               Object *ob_cu,
+                               const bool gpencil_lines,
+                               const bool use_collections,
+                               const bool only_stroke)
+{
+  if (ELEM(NULL, ob_gp, ob_cu) || (ob_gp->type != OB_GPENCIL) || (ob_gp->data == NULL)) {
+    return;
+  }
+
+  Curve *cu = (Curve *)ob_cu->data;
+  bGPdata *gpd = (bGPdata *)ob_gp->data;
+  bGPDlayer *gpl = NULL;
+
+  /* If the curve is empty, cancel. */
+  if (cu->nurb.first == NULL) {
+    return;
+  }
+
+  /* Check if there is an active layer. */
+  if (use_collections) {
+    Collection *collection = gpencil_get_parent_collection(scene, ob_cu);
+    if (collection != NULL) {
+      gpl = BLI_findstring(&gpd->layers, collection->id.name + 2, offsetof(bGPDlayer, info));
+      if (gpl == NULL) {
+        gpl = BKE_gpencil_layer_addnew(gpd, collection->id.name + 2, true);
+      }
+    }
+  }
+
+  if (gpl == NULL) {
+    gpl = BKE_gpencil_layer_getactive(gpd);
+    if (gpl == NULL) {
+      gpl = BKE_gpencil_layer_addnew(gpd, DATA_("GP_Layer"), true);
+    }
+  }
+
+  /* Check if there is an active frame and add if needed. */
+  bGPDframe *gpf = BKE_gpencil_layer_getframe(gpl, CFRA, GP_GETFRAME_ADD_COPY);
+
+  /* Read all splines of the curve and create a stroke for each. */
+  for (Nurb *nu = cu->nurb.first; nu; nu = nu->next) {
+    gpencil_convert_spline(bmain, ob_gp, ob_cu, gpencil_lines, only_stroke, gpf, nu);
+  }
+
+  /* Tag for recalculation */
+  DEG_id_tag_update(&gpd->id, ID_RECALC_GEOMETRY | ID_RECALC_COPY_ON_WRITE);
 }

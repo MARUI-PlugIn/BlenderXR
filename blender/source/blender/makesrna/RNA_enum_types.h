@@ -21,6 +21,10 @@
  * \ingroup RNA
  */
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "RNA_types.h"
 
 struct bNodeSocketType;
@@ -90,7 +94,9 @@ extern const EnumPropertyItem rna_enum_color_sets_items[];
 extern const EnumPropertyItem rna_enum_beztriple_keyframe_type_items[];
 extern const EnumPropertyItem rna_enum_beztriple_interpolation_mode_items[];
 extern const EnumPropertyItem rna_enum_beztriple_interpolation_easing_items[];
+extern const EnumPropertyItem rna_enum_fcurve_auto_smoothing_items[];
 extern const EnumPropertyItem rna_enum_keyframe_handle_type_items[];
+extern const EnumPropertyItem rna_enum_driver_target_rotation_mode_items[];
 
 extern const EnumPropertyItem rna_enum_keyblock_type_items[];
 
@@ -183,6 +189,7 @@ extern const EnumPropertyItem rna_enum_file_sort_items[];
 extern const EnumPropertyItem rna_enum_node_socket_in_out_items[];
 
 extern const EnumPropertyItem rna_enum_node_math_items[];
+extern const EnumPropertyItem rna_enum_mapping_type_items[];
 extern const EnumPropertyItem rna_enum_node_vec_math_items[];
 extern const EnumPropertyItem rna_enum_node_filter_items[];
 
@@ -302,5 +309,9 @@ const EnumPropertyItem *RNA_mask_local_itemf(struct bContext *C,
 
 /* Non confirming, utility function. */
 const EnumPropertyItem *RNA_enum_node_tree_types_itemf_impl(struct bContext *C, bool *r_free);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __RNA_ENUM_TYPES_H__ */

@@ -24,13 +24,8 @@
 #include "BLI_math.h"
 #include "BLI_bitmap.h"
 
-#include "IMB_imbuf.h"
-#include "IMB_imbuf_types.h"
-#include "IMB_colormanagement.h"
-
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
-#include "DNA_particle_types.h"
 #include "DNA_brush_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
@@ -44,7 +39,6 @@
 #include "BKE_deform.h"
 #include "BKE_mesh.h"
 #include "BKE_mesh_iterators.h"
-#include "BKE_mesh_mapping.h"
 #include "BKE_mesh_runtime.h"
 #include "BKE_modifier.h"
 #include "BKE_object_deform.h"
@@ -119,7 +113,7 @@ static bool weight_from_bones_poll(bContext *C)
 
 static int weight_from_bones_exec(bContext *C, wmOperator *op)
 {
-  Depsgraph *depsgraph = CTX_data_depsgraph(C);
+  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   Scene *scene = CTX_data_scene(C);
   Object *ob = CTX_data_active_object(C);
   Object *armob = modifiers_isDeformedByArmature(ob);
@@ -161,7 +155,7 @@ void PAINT_OT_weight_from_bones(wmOperatorType *ot)
   ot->poll = weight_from_bones_poll;
 
   /* flags */
-  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_USE_EVAL_DATA;
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
   /* properties */
   ot->prop = RNA_def_enum(
@@ -178,11 +172,12 @@ void PAINT_OT_weight_from_bones(wmOperatorType *ot)
 /* note: we cant sample frontbuf, weight colors are interpolated too unpredictable */
 static int weight_sample_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
+  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   ViewContext vc;
   Mesh *me;
   bool changed = false;
 
-  ED_view3d_viewcontext_init(C, &vc);
+  ED_view3d_viewcontext_init(C, &vc, depsgraph);
   me = BKE_mesh_from_object(vc.obact);
 
   if (me && me->dvert && vc.v3d && vc.rv3d && (vc.obact->actdef != 0)) {
@@ -308,10 +303,11 @@ static const EnumPropertyItem *weight_paint_sample_enum_itemf(bContext *C,
   if (C) {
     wmWindow *win = CTX_wm_window(C);
     if (win && win->eventstate) {
+      Depsgraph *depsgraph = CTX_data_depsgraph_pointer(C);
       ViewContext vc;
       Mesh *me;
 
-      ED_view3d_viewcontext_init(C, &vc);
+      ED_view3d_viewcontext_init(C, &vc, depsgraph);
       me = BKE_mesh_from_object(vc.obact);
 
       if (me && me->dvert && vc.v3d && vc.rv3d && vc.obact->defbase.first) {
@@ -379,8 +375,9 @@ static const EnumPropertyItem *weight_paint_sample_enum_itemf(bContext *C,
 static int weight_sample_group_exec(bContext *C, wmOperator *op)
 {
   int type = RNA_enum_get(op->ptr, "group");
+  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   ViewContext vc;
-  ED_view3d_viewcontext_init(C, &vc);
+  ED_view3d_viewcontext_init(C, &vc, depsgraph);
 
   BLI_assert(type + 1 >= 0);
   vc.obact->actdef = type + 1;
@@ -580,7 +577,7 @@ typedef struct WPGradient_userData {
   BLI_bitmap *vert_visit;
 
   /* options */
-  short use_select;
+  bool use_select;
   short type;
   float weightpaint;
 } WPGradient_userData;
@@ -746,7 +743,7 @@ static int paint_weight_gradient_exec(bContext *C, wmOperator *op)
   float sco_end[2] = {x_end, y_end};
   const bool is_interactive = (gesture != NULL);
 
-  Depsgraph *depsgraph = CTX_data_depsgraph(C);
+  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
 
   WPGradient_userData data = {NULL};
 
@@ -786,7 +783,7 @@ static int paint_weight_gradient_exec(bContext *C, wmOperator *op)
   data.sco_end = sco_end;
   data.sco_line_div = 1.0f / len_v2v2(sco_start, sco_end);
   data.def_nr = ob->actdef - 1;
-  data.use_select = (me->editflag & (ME_EDIT_PAINT_FACE_SEL | ME_EDIT_PAINT_VERT_SEL));
+  data.use_select = (me->editflag & (ME_EDIT_PAINT_FACE_SEL | ME_EDIT_PAINT_VERT_SEL)) != 0;
   data.vert_cache = vert_cache;
   data.vert_visit = NULL;
   data.type = RNA_enum_get(op->ptr, "type");
@@ -796,7 +793,7 @@ static int paint_weight_gradient_exec(bContext *C, wmOperator *op)
     VPaint *wp = ts->wpaint;
     struct Brush *brush = BKE_paint_brush(&wp->paint);
 
-    curvemapping_initialize(brush->curve);
+    BKE_curvemapping_initialize(brush->curve);
 
     data.brush = brush;
     data.weightpaint = BKE_brush_weight_get(scene, brush);
@@ -880,12 +877,12 @@ void PAINT_OT_weight_gradient(wmOperatorType *ot)
   ot->cancel = WM_gesture_straightline_cancel;
 
   /* flags */
-  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_USE_EVAL_DATA;
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
   prop = RNA_def_enum(ot->srna, "type", gradient_types, 0, "Type", "");
   RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 
-  WM_operator_properties_gesture_straightline(ot, CURSOR_EDIT);
+  WM_operator_properties_gesture_straightline(ot, WM_CURSOR_EDIT);
 }
 
 /** \} */

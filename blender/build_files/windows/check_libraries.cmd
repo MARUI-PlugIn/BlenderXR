@@ -2,11 +2,7 @@ if "%BUILD_VS_YEAR%"=="2015" set BUILD_VS_LIBDIRPOST=vc14
 if "%BUILD_VS_YEAR%"=="2017" set BUILD_VS_LIBDIRPOST=vc14
 if "%BUILD_VS_YEAR%"=="2019" set BUILD_VS_LIBDIRPOST=vc14
 
-if "%BUILD_ARCH%"=="x64" (
-	set BUILD_VS_SVNDIR=win64_%BUILD_VS_LIBDIRPOST%
-) else if "%BUILD_ARCH%"=="x86" (
-	set BUILD_VS_SVNDIR=windows_%BUILD_VS_LIBDIRPOST%
-)
+set BUILD_VS_SVNDIR=win64_%BUILD_VS_LIBDIRPOST%
 set BUILD_VS_LIBDIR="%BLENDER_DIR%..\lib\%BUILD_VS_SVNDIR%"
 
 if NOT "%verbose%" == "" (
@@ -41,6 +37,15 @@ if NOT EXIST %BUILD_VS_LIBDIR% (
 				echo.
 				exit /b 1
 			)
+		)
+	)
+) else (
+	if NOT EXIST %PYTHON% (
+		if not "%SVN%"=="" (
+			echo.
+			echo Python not found in external libraries, updating to latest version
+			echo.
+			"%SVN%" update %BUILD_VS_LIBDIR%
 		)
 	)
 )

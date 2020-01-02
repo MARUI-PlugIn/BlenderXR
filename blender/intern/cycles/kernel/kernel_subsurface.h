@@ -222,7 +222,7 @@ ccl_device_inline int subsurface_scatter_disk(KernelGlobals *kg,
 
   /* intersect with the same object. if multiple intersections are found it
    * will use at most BSSRDF_MAX_HITS hits, a random subset of all hits */
-  scene_intersect_local(kg, *ray, ss_isect, sd->object, lcg_state, BSSRDF_MAX_HITS);
+  scene_intersect_local(kg, ray, ss_isect, sd->object, lcg_state, BSSRDF_MAX_HITS);
   int num_eval_hits = min(ss_isect->num_hits, BSSRDF_MAX_HITS);
 
   for (int hit = 0; hit < num_eval_hits; hit++) {
@@ -353,13 +353,19 @@ ccl_device void subsurface_random_walk_coefficients(const ShaderClosure *sc,
   *weight = safe_divide_color(bssrdf->weight, A);
 }
 
-ccl_device_noinline bool subsurface_random_walk(KernelGlobals *kg,
-                                                LocalIntersection *ss_isect,
-                                                ShaderData *sd,
-                                                ccl_addr_space PathState *state,
-                                                const ShaderClosure *sc,
-                                                const float bssrdf_u,
-                                                const float bssrdf_v)
+#ifdef __KERNEL_OPTIX__
+ccl_device_inline /* inline trace calls */
+#else
+ccl_device_noinline
+#endif
+    bool
+    subsurface_random_walk(KernelGlobals *kg,
+                           LocalIntersection *ss_isect,
+                           ShaderData *sd,
+                           ccl_addr_space PathState *state,
+                           const ShaderClosure *sc,
+                           const float bssrdf_u,
+                           const float bssrdf_v)
 {
   /* Sample diffuse surface scatter into the object. */
   float3 D;
@@ -418,7 +424,7 @@ ccl_device_noinline bool subsurface_random_walk(KernelGlobals *kg,
     float t = -logf(1.0f - rdist) / sample_sigma_t;
 
     ray->t = t;
-    scene_intersect_local(kg, *ray, ss_isect, sd->object, NULL, 1);
+    scene_intersect_local(kg, ray, ss_isect, sd->object, NULL, 1);
     hit = (ss_isect->num_hits > 0);
 
     if (hit) {

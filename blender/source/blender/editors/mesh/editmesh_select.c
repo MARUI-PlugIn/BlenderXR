@@ -24,7 +24,6 @@
 #include "MEM_guardedalloc.h"
 
 #include "BLI_bitmap.h"
-#include "BLI_bitmap_draw_2d.h"
 #include "BLI_listbase.h"
 #include "BLI_linklist.h"
 #include "BLI_linklist_stack.h"
@@ -32,15 +31,13 @@
 #include "BLI_math_bits.h"
 #include "BLI_rand.h"
 #include "BLI_array.h"
+#include "BLI_heap.h"
+#include "BLI_utildefines_stack.h"
 
 #include "BKE_context.h"
 #include "BKE_report.h"
-#include "BKE_paint.h"
 #include "BKE_editmesh.h"
 #include "BKE_layer.h"
-
-#include "IMB_imbuf_types.h"
-#include "IMB_imbuf.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -53,7 +50,6 @@
 #include "ED_mesh.h"
 #include "ED_screen.h"
 #include "ED_transform.h"
-#include "ED_select_buffer_utils.h"
 #include "ED_select_utils.h"
 #include "ED_view3d.h"
 
@@ -67,6 +63,8 @@
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_query.h"
+
+#include "DRW_select_buffer.h"
 
 #include "mesh_intern.h" /* own include */
 
@@ -170,42 +168,14 @@ void EDBM_select_mirrored(
 /** \} */
 
 /* -------------------------------------------------------------------- */
-/** \name Select Auto-Merge
- *
- * Used after transform operations.
- * \{ */
-
-void EDBM_automerge(Scene *scene, Object *obedit, bool update, const char hflag)
-{
-  bool ok;
-  BMEditMesh *em = BKE_editmesh_from_object(obedit);
-
-  ok = BMO_op_callf(em->bm,
-                    BMO_FLAG_DEFAULTS,
-                    "automerge verts=%hv dist=%f",
-                    hflag,
-                    scene->toolsettings->doublimit);
-
-  if (LIKELY(ok) && update) {
-    EDBM_update_generic(em, true, true);
-  }
-}
-
-/** \} */
-
-/* -------------------------------------------------------------------- */
 /** \name Back-Buffer OpenGL Selection
  * \{ */
 
-static BMElem *EDBM_select_id_bm_elem_get(struct EDSelectID_Context *sel_id_ctx,
-                                          Base **bases,
-                                          const uint sel_id,
-                                          uint *r_base_index)
+static BMElem *edbm_select_id_bm_elem_get(Base **bases, const uint sel_id, uint *r_base_index)
 {
   uint elem_id;
   char elem_type = 0;
-  bool success = ED_view3d_select_id_elem_get(
-      sel_id_ctx, sel_id, &elem_id, r_base_index, &elem_type);
+  bool success = DRW_select_buffer_elem_get(sel_id, &elem_id, r_base_index, &elem_type);
 
   if (success) {
     Object *obedit = bases[*r_base_index]->object;
@@ -239,20 +209,6 @@ static BMElem *EDBM_select_id_bm_elem_get(struct EDSelectID_Context *sel_id_ctx,
  * when choosing between elements of a single type, but return the real distance
  * to avoid the bias interfering with distance comparisons when mixing types.
  * \{ */
-
-#define FAKE_SELECT_MODE_BEGIN(vc, fake_select_mode, select_mode, select_mode_required) \
-  short select_mode = select_mode_required; \
-  bool fake_select_mode = (select_mode & (vc)->scene->toolsettings->selectmode) == 0; \
-  if (fake_select_mode) { \
-    (vc)->v3d->flag |= V3D_INVALID_BACKBUF; \
-  } \
-  ((void)0)
-
-#define FAKE_SELECT_MODE_END(vc, fake_select_mode) \
-  if (fake_select_mode) { \
-    (vc)->v3d->flag |= V3D_INVALID_BACKBUF; \
-  } \
-  ((void)0)
 
 #define FIND_NEAR_SELECT_BIAS 5
 #define FIND_NEAR_CYCLE_THRESHOLD_MIN 3
@@ -333,23 +289,17 @@ BMVert *EDBM_vert_find_nearest_ex(ViewContext *vc,
 
     /* No afterqueue (yet), so we check it now, otherwise the bm_xxxofs indices are bad. */
     {
-      FAKE_SELECT_MODE_BEGIN(vc, fake_select_mode, select_mode, SCE_SELECT_VERTEX);
+      DRW_select_buffer_context_create(bases, bases_len, SCE_SELECT_VERTEX);
 
-      struct EDSelectID_Context *sel_id_ctx = ED_view3d_select_id_context_create(
-          vc, bases, bases_len, select_mode);
-
-      index = ED_select_buffer_find_nearest_to_point(vc->mval, 1, UINT_MAX, &dist_px);
+      index = DRW_select_buffer_find_nearest_to_point(
+          vc->depsgraph, vc->ar, vc->v3d, vc->mval, 1, UINT_MAX, &dist_px);
 
       if (index) {
-        eve = (BMVert *)EDBM_select_id_bm_elem_get(sel_id_ctx, bases, index, &base_index);
+        eve = (BMVert *)edbm_select_id_bm_elem_get(bases, index, &base_index);
       }
       else {
         eve = NULL;
       }
-
-      ED_view3d_select_id_context_destroy(sel_id_ctx);
-
-      FAKE_SELECT_MODE_END(vc, fake_select_mode);
     }
 
     if (eve) {
@@ -562,23 +512,17 @@ BMEdge *EDBM_edge_find_nearest_ex(ViewContext *vc,
 
     /* No afterqueue (yet), so we check it now, otherwise the bm_xxxofs indices are bad. */
     {
-      FAKE_SELECT_MODE_BEGIN(vc, fake_select_mode, select_mode, SCE_SELECT_EDGE);
+      DRW_select_buffer_context_create(bases, bases_len, SCE_SELECT_EDGE);
 
-      struct EDSelectID_Context *sel_id_ctx = ED_view3d_select_id_context_create(
-          vc, bases, bases_len, select_mode);
-
-      index = ED_select_buffer_find_nearest_to_point(vc->mval, 1, UINT_MAX, &dist_px);
+      index = DRW_select_buffer_find_nearest_to_point(
+          vc->depsgraph, vc->ar, vc->v3d, vc->mval, 1, UINT_MAX, &dist_px);
 
       if (index) {
-        eed = (BMEdge *)EDBM_select_id_bm_elem_get(sel_id_ctx, bases, index, &base_index);
+        eed = (BMEdge *)edbm_select_id_bm_elem_get(bases, index, &base_index);
       }
       else {
         eed = NULL;
       }
-
-      ED_view3d_select_id_context_destroy(sel_id_ctx);
-
-      FAKE_SELECT_MODE_END(vc, fake_select_mode);
     }
 
     if (r_eed_zbuf) {
@@ -775,23 +719,16 @@ BMFace *EDBM_face_find_nearest_ex(ViewContext *vc,
     BMFace *efa;
 
     {
-      FAKE_SELECT_MODE_BEGIN(vc, fake_select_mode, select_mode, SCE_SELECT_FACE);
+      DRW_select_buffer_context_create(bases, bases_len, SCE_SELECT_FACE);
 
-      struct EDSelectID_Context *sel_id_ctx = ED_view3d_select_id_context_create(
-          vc, bases, bases_len, select_mode);
-
-      index = ED_select_buffer_sample_point(vc->mval);
+      index = DRW_select_buffer_sample_point(vc->depsgraph, vc->ar, vc->v3d, vc->mval);
 
       if (index) {
-        efa = (BMFace *)EDBM_select_id_bm_elem_get(sel_id_ctx, bases, index, &base_index);
+        efa = (BMFace *)edbm_select_id_bm_elem_get(bases, index, &base_index);
       }
       else {
         efa = NULL;
       }
-
-      ED_view3d_select_id_context_destroy(sel_id_ctx);
-
-      FAKE_SELECT_MODE_END(vc, fake_select_mode);
     }
 
     if (r_efa_zbuf) {
@@ -1066,8 +1003,11 @@ bool EDBM_unified_findnearest(ViewContext *vc,
 bool EDBM_unified_findnearest_from_raycast(ViewContext *vc,
                                            Base **bases,
                                            const uint bases_len,
-                                           bool use_boundary,
-                                           int *r_base_index,
+                                           bool use_boundary_vertices,
+                                           bool use_boundary_edges,
+                                           int *r_base_index_vert,
+                                           int *r_base_index_edge,
+                                           int *r_base_index_face,
                                            struct BMVert **r_eve,
                                            struct BMEdge **r_eed,
                                            struct BMFace **r_efa)
@@ -1080,10 +1020,30 @@ bool EDBM_unified_findnearest_from_raycast(ViewContext *vc,
     uint base_index;
     BMElem *ele;
   } best = {0, NULL};
+  /* Currently unused, keep since we may want to pick the best. */
+  UNUSED_VARS(best);
+
+  struct {
+    uint base_index;
+    BMElem *ele;
+  } best_vert = {0, NULL};
+
+  struct {
+    uint base_index;
+    BMElem *ele;
+  } best_edge = {0, NULL};
+
+  struct {
+    uint base_index;
+    BMElem *ele;
+  } best_face = {0, NULL};
 
   if (ED_view3d_win_to_ray_clipped(
           vc->depsgraph, vc->ar, vc->v3d, mval_fl, ray_origin, ray_direction, true)) {
     float dist_sq_best = FLT_MAX;
+    float dist_sq_best_vert = FLT_MAX;
+    float dist_sq_best_edge = FLT_MAX;
+    float dist_sq_best_face = FLT_MAX;
 
     const bool use_vert = (r_eve != NULL);
     const bool use_edge = (r_eed != NULL);
@@ -1113,18 +1073,23 @@ bool EDBM_unified_findnearest_from_raycast(ViewContext *vc,
         BM_mesh_elem_index_ensure(bm, BM_VERT);
       }
 
-      if (use_boundary && (use_vert || use_edge)) {
+      if ((use_boundary_vertices || use_boundary_edges) && (use_vert || use_edge)) {
         BMEdge *e;
         BMIter eiter;
         BM_ITER_MESH (e, &eiter, bm, BM_EDGES_OF_MESH) {
           if ((BM_elem_flag_test(e, BM_ELEM_HIDDEN) == false) && (BM_edge_is_boundary(e))) {
-            if (use_vert) {
+            if (use_vert && use_boundary_vertices) {
               for (uint j = 0; j < 2; j++) {
                 BMVert *v = *((&e->v1) + j);
                 float point[3];
                 mul_v3_m4v3(point, obedit->obmat, coords ? coords[BM_elem_index_get(v)] : v->co);
                 const float dist_sq_test = dist_squared_to_ray_v3_normalized(
                     ray_origin, ray_direction, point);
+                if (dist_sq_test < dist_sq_best_vert) {
+                  dist_sq_best_vert = dist_sq_test;
+                  best_vert.base_index = base_index;
+                  best_vert.ele = (BMElem *)v;
+                }
                 if (dist_sq_test < dist_sq_best) {
                   dist_sq_best = dist_sq_test;
                   best.base_index = base_index;
@@ -1133,7 +1098,7 @@ bool EDBM_unified_findnearest_from_raycast(ViewContext *vc,
               }
             }
 
-            if (use_edge) {
+            if (use_edge && use_boundary_edges) {
               float point[3];
 #if 0
               const float dist_sq_test = dist_squared_ray_to_seg_v3(
@@ -1149,6 +1114,11 @@ bool EDBM_unified_findnearest_from_raycast(ViewContext *vc,
               mul_m4_v3(obedit->obmat, point);
               const float dist_sq_test = dist_squared_to_ray_v3_normalized(
                   ray_origin, ray_direction, point);
+              if (dist_sq_test < dist_sq_best_edge) {
+                dist_sq_best_edge = dist_sq_test;
+                best_edge.base_index = base_index;
+                best_edge.ele = (BMElem *)e;
+              }
               if (dist_sq_test < dist_sq_best) {
                 dist_sq_best = dist_sq_test;
                 best.base_index = base_index;
@@ -1159,46 +1129,55 @@ bool EDBM_unified_findnearest_from_raycast(ViewContext *vc,
           }
         }
       }
-      else {
-        /* Non boundary case. */
-        if (use_vert) {
-          BMVert *v;
-          BMIter viter;
-          BM_ITER_MESH (v, &viter, bm, BM_VERTS_OF_MESH) {
-            if (BM_elem_flag_test(v, BM_ELEM_HIDDEN) == false) {
-              float point[3];
-              mul_v3_m4v3(point, obedit->obmat, v->co);
-              const float dist_sq_test = dist_squared_to_ray_v3_normalized(
-                  ray_origin, ray_direction, v->co);
-              if (dist_sq_test < dist_sq_best) {
-                dist_sq_best = dist_sq_test;
-                best.base_index = base_index;
-                best.ele = (BMElem *)v;
-              }
+      /* Non boundary case. */
+      if (use_vert && !use_boundary_vertices) {
+        BMVert *v;
+        BMIter viter;
+        BM_ITER_MESH (v, &viter, bm, BM_VERTS_OF_MESH) {
+          if (BM_elem_flag_test(v, BM_ELEM_HIDDEN) == false) {
+            float point[3];
+            mul_v3_m4v3(point, obedit->obmat, coords ? coords[BM_elem_index_get(v)] : v->co);
+            const float dist_sq_test = dist_squared_to_ray_v3_normalized(
+                ray_origin, ray_direction, point);
+            if (dist_sq_test < dist_sq_best_vert) {
+              dist_sq_best_vert = dist_sq_test;
+              best_vert.base_index = base_index;
+              best_vert.ele = (BMElem *)v;
+            }
+            if (dist_sq_test < dist_sq_best) {
+              dist_sq_best = dist_sq_test;
+              best.base_index = base_index;
+              best.ele = (BMElem *)v;
             }
           }
         }
-        if (use_edge) {
-          BMEdge *e;
-          BMIter eiter;
-          BM_ITER_MESH (e, &eiter, bm, BM_EDGES_OF_MESH) {
-            if (BM_elem_flag_test(e, BM_ELEM_HIDDEN) == false) {
-              float point[3];
-              if (coords) {
-                mid_v3_v3v3(
-                    point, coords[BM_elem_index_get(e->v1)], coords[BM_elem_index_get(e->v2)]);
-              }
-              else {
-                mid_v3_v3v3(point, e->v1->co, e->v2->co);
-              }
-              mul_m4_v3(obedit->obmat, point);
-              const float dist_sq_test = dist_squared_to_ray_v3_normalized(
-                  ray_origin, ray_direction, point);
-              if (dist_sq_test < dist_sq_best) {
-                dist_sq_best = dist_sq_test;
-                best.base_index = base_index;
-                best.ele = (BMElem *)e;
-              }
+      }
+
+      if (use_edge && !use_boundary_edges) {
+        BMEdge *e;
+        BMIter eiter;
+        BM_ITER_MESH (e, &eiter, bm, BM_EDGES_OF_MESH) {
+          if (BM_elem_flag_test(e, BM_ELEM_HIDDEN) == false) {
+            float point[3];
+            if (coords) {
+              mid_v3_v3v3(
+                  point, coords[BM_elem_index_get(e->v1)], coords[BM_elem_index_get(e->v2)]);
+            }
+            else {
+              mid_v3_v3v3(point, e->v1->co, e->v2->co);
+            }
+            mul_m4_v3(obedit->obmat, point);
+            const float dist_sq_test = dist_squared_to_ray_v3_normalized(
+                ray_origin, ray_direction, point);
+            if (dist_sq_test < dist_sq_best_edge) {
+              dist_sq_best_edge = dist_sq_test;
+              best_edge.base_index = base_index;
+              best_edge.ele = (BMElem *)e;
+            }
+            if (dist_sq_test < dist_sq_best) {
+              dist_sq_best = dist_sq_test;
+              best.base_index = base_index;
+              best.ele = (BMElem *)e;
             }
           }
         }
@@ -1219,6 +1198,11 @@ bool EDBM_unified_findnearest_from_raycast(ViewContext *vc,
             mul_m4_v3(obedit->obmat, point);
             const float dist_sq_test = dist_squared_to_ray_v3_normalized(
                 ray_origin, ray_direction, point);
+            if (dist_sq_test < dist_sq_best_face) {
+              dist_sq_best_face = dist_sq_test;
+              best_face.base_index = base_index;
+              best_face.ele = (BMElem *)f;
+            }
             if (dist_sq_test < dist_sq_best) {
               dist_sq_best = dist_sq_test;
               best.base_index = base_index;
@@ -1230,7 +1214,10 @@ bool EDBM_unified_findnearest_from_raycast(ViewContext *vc,
     }
   }
 
-  *r_base_index = best.base_index;
+  *r_base_index_vert = best_vert.base_index;
+  *r_base_index_edge = best_edge.base_index;
+  *r_base_index_face = best_face.base_index;
+
   if (r_eve) {
     *r_eve = NULL;
   }
@@ -1241,22 +1228,17 @@ bool EDBM_unified_findnearest_from_raycast(ViewContext *vc,
     *r_efa = NULL;
   }
 
-  if (best.ele) {
-    switch (best.ele->head.htype) {
-      case BM_VERT:
-        *r_eve = (BMVert *)best.ele;
-        break;
-      case BM_EDGE:
-        *r_eed = (BMEdge *)best.ele;
-        break;
-      case BM_FACE:
-        *r_efa = (BMFace *)best.ele;
-        break;
-      default:
-        BLI_assert(0);
-    }
+  if (best_vert.ele) {
+    *r_eve = (BMVert *)best_vert.ele;
   }
-  return (best.ele != NULL);
+  if (best_edge.ele) {
+    *r_eed = (BMEdge *)best_edge.ele;
+  }
+  if (best_face.ele) {
+    *r_efa = (BMFace *)best_face.ele;
+  }
+
+  return (best_vert.ele != NULL || best_edge.ele != NULL || best_face.ele != NULL);
 }
 
 /** \} */
@@ -1363,7 +1345,7 @@ static int edbm_select_mode_exec(bContext *C, wmOperator *op)
   const bool use_extend = RNA_boolean_get(op->ptr, "use_extend");
   const bool use_expand = RNA_boolean_get(op->ptr, "use_expand");
 
-  if (EDBM_selectmode_toggle(C, type, action, use_extend, use_expand)) {
+  if (EDBM_selectmode_toggle_multi(C, type, action, use_extend, use_expand)) {
     return OPERATOR_FINISHED;
   }
   else {
@@ -1401,13 +1383,6 @@ void MESH_OT_select_mode(wmOperatorType *ot)
 {
   PropertyRNA *prop;
 
-  static const EnumPropertyItem elem_items[] = {
-      {SCE_SELECT_VERTEX, "VERT", ICON_VERTEXSEL, "Vertices", ""},
-      {SCE_SELECT_EDGE, "EDGE", ICON_EDGESEL, "Edges", ""},
-      {SCE_SELECT_FACE, "FACE", ICON_FACESEL, "Faces", ""},
-      {0, NULL, 0, NULL, NULL},
-  };
-
   static const EnumPropertyItem actions_items[] = {
       {0, "DISABLE", 0, "Disable", "Disable selected markers"},
       {1, "ENABLE", 0, "Enable", "Enable selected markers"},
@@ -1434,7 +1409,7 @@ void MESH_OT_select_mode(wmOperatorType *ot)
   RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
   prop = RNA_def_boolean(ot->srna, "use_expand", false, "Expand", "");
   RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
-  ot->prop = prop = RNA_def_enum(ot->srna, "type", elem_items, 0, "Type", "");
+  ot->prop = prop = RNA_def_enum(ot->srna, "type", rna_enum_mesh_select_mode_items, 0, "Type", "");
   RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
 
   prop = RNA_def_enum(
@@ -2373,11 +2348,11 @@ void EDBM_selectmode_convert(BMEditMesh *em,
 }
 
 /* user facing function, does notification */
-bool EDBM_selectmode_toggle(bContext *C,
-                            const short selectmode_new,
-                            const int action,
-                            const bool use_extend,
-                            const bool use_expand)
+bool EDBM_selectmode_toggle_multi(bContext *C,
+                                  const short selectmode_new,
+                                  const int action,
+                                  const bool use_extend,
+                                  const bool use_expand)
 {
   Scene *scene = CTX_data_scene(C);
   ViewLayer *view_layer = CTX_data_view_layer(C);
@@ -2497,6 +2472,54 @@ bool EDBM_selectmode_toggle(bContext *C,
 
   MEM_freeN(objects);
   return ret;
+}
+
+bool EDBM_selectmode_set_multi(bContext *C, const short selectmode)
+{
+  BLI_assert(selectmode != 0);
+  bool changed = false;
+
+  {
+    Object *obedit = CTX_data_edit_object(C);
+    BMEditMesh *em = NULL;
+    if (obedit && obedit->type == OB_MESH) {
+      em = BKE_editmesh_from_object(obedit);
+    }
+    if (em == NULL) {
+      return changed;
+    }
+  }
+
+  ViewLayer *view_layer = CTX_data_view_layer(C);
+  Scene *scene = CTX_data_scene(C);
+  ToolSettings *ts = scene->toolsettings;
+
+  if (ts->selectmode != selectmode) {
+    ts->selectmode = selectmode;
+    changed = true;
+  }
+
+  uint objects_len = 0;
+  Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(
+      view_layer, CTX_wm_view3d(C), &objects_len);
+
+  for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
+    Object *ob_iter = objects[ob_index];
+    BMEditMesh *em_iter = BKE_editmesh_from_object(ob_iter);
+    if (em_iter->selectmode != ts->selectmode) {
+      em_iter->selectmode = ts->selectmode;
+      EDBM_selectmode_set(em_iter);
+      DEG_id_tag_update(ob_iter->data, ID_RECALC_COPY_ON_WRITE | ID_RECALC_SELECT);
+      WM_event_add_notifier(C, NC_GEOM | ND_SELECT, ob_iter->data);
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    WM_main_add_notifier(NC_SCENE | ND_TOOLSETTINGS, NULL);
+    DEG_id_tag_update(&scene->id, ID_RECALC_COPY_ON_WRITE);
+  }
+  return changed;
 }
 
 /**
@@ -2619,8 +2642,9 @@ bool EDBM_mesh_deselect_all_multi_ex(struct Base **bases, const uint bases_len)
 
 bool EDBM_mesh_deselect_all_multi(struct bContext *C)
 {
+  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   ViewContext vc;
-  ED_view3d_viewcontext_init(C, &vc);
+  ED_view3d_viewcontext_init(C, &vc, depsgraph);
   uint bases_len = 0;
   Base **bases = BKE_view_layer_array_from_bases_in_edit_mode_unique_data(
       vc.view_layer, vc.v3d, &bases_len);
@@ -2634,38 +2658,333 @@ bool EDBM_mesh_deselect_all_multi(struct bContext *C)
 /* -------------------------------------------------------------------- */
 /** \name Select Interior Faces
  *
- * \note This algorithm is limited to single faces and could be improved, see:
- * https://blender.stackexchange.com/questions/18916
+ * Overview of the algorithm:
+ * - Groups faces surrounded by edges with 3+ faces using them.
+ * - Calculates a cost of each face group comparing it's angle with the faces
+ *   connected to it's non-manifold edges.
+ * - Mark the face group as interior, and mark connected face groups for recalculation.
+ * - Continue to remove the face groups with the highest 'cost'.
+ *
  * \{ */
+
+struct BMFaceLink {
+  struct BMFaceLink *next, *prev;
+  BMFace *face;
+  float area;
+};
+
+static bool bm_interior_loop_filter_fn(const BMLoop *l, void *UNUSED(user_data))
+{
+  if (BM_elem_flag_test(l->e, BM_ELEM_TAG)) {
+    return false;
+  }
+  return true;
+}
+static bool bm_interior_edge_is_manifold_except_face_index(BMEdge *e,
+                                                           int face_index,
+                                                           BMLoop *r_l_pair[2])
+{
+
+  BMLoop *l_iter = e->l;
+  int loop_index = 0;
+  do {
+    BMFace *f = l_iter->f;
+    int i = BM_elem_index_get(f);
+    if (!ELEM(i, -1, face_index)) {
+      if (loop_index == 2) {
+        return false;
+      }
+      r_l_pair[loop_index++] = l_iter;
+    }
+  } while ((l_iter = l_iter->radial_next) != e->l);
+  return (loop_index == 2);
+}
+
+/**
+ * Calculate the cost of the face group.
+ * A higher value means it's more likely to remove first.
+ */
+static float bm_interior_face_group_calc_cost(ListBase *ls, const float *edge_lengths)
+{
+  /* Dividing by the area is important so larger face groups (which will become the outer shell)
+   * aren't detected as having a high cost. */
+  float area = 0.0f;
+  float cost = 0.0f;
+  bool found = false;
+  LISTBASE_FOREACH (struct BMFaceLink *, f_link, ls) {
+    BMFace *f = f_link->face;
+    area += f_link->area;
+    int i = BM_elem_index_get(f);
+    BLI_assert(i != -1);
+    BMLoop *l_iter, *l_first;
+    l_iter = l_first = BM_FACE_FIRST_LOOP(f);
+    do {
+      if (BM_elem_flag_test(l_iter->e, BM_ELEM_TAG)) {
+        float cost_test = 0.0f;
+        int cost_count = 0;
+        /* All other faces. */
+        BMLoop *l_radial_iter = l_iter;
+        do {
+          int i_other = BM_elem_index_get(l_radial_iter->f);
+          if (!ELEM(i_other, -1, i)) {
+            float angle = angle_normalized_v3v3(f->no, l_radial_iter->f->no);
+            /* Ignore face direction since in the case on non-manifold faces connecting edges,
+             * the face flipping may not be meaningful. */
+            if (angle > DEG2RADF(90)) {
+              angle = DEG2RADF(180) - angle;
+            }
+            /* Avoid calculating it inline, pass in pre-calculated edge lengths. */
+#if 0
+            cost_test += BM_edge_calc_length(l_iter->e) * angle;
+#else
+            BLI_assert(edge_lengths[BM_elem_index_get(l_iter->e)] != -1.0f);
+            cost_test += edge_lengths[BM_elem_index_get(l_iter->e)] * angle;
+#endif
+            cost_count += 1;
+          }
+        } while ((l_radial_iter = l_radial_iter->radial_next) != l_iter);
+
+        if (cost_count >= 2) {
+          cost += cost_test;
+          found = true;
+        }
+      }
+    } while ((l_iter = l_iter->next) != l_first);
+  }
+  return found ? cost / area : FLT_MAX;
+}
 
 bool EDBM_select_interior_faces(BMEditMesh *em)
 {
   BMesh *bm = em->bm;
   BMIter iter;
-  BMIter eiter;
-  BMFace *efa;
-  BMEdge *eed;
-  bool ok;
   bool changed = false;
 
-  BM_ITER_MESH (efa, &iter, em->bm, BM_FACES_OF_MESH) {
-    if (BM_elem_flag_test(efa, BM_ELEM_HIDDEN)) {
-      continue;
-    }
+  float *edge_lengths = MEM_mallocN(sizeof(*edge_lengths) * bm->totedge, __func__);
 
-    ok = true;
-    BM_ITER_ELEM (eed, &eiter, efa, BM_EDGES_OF_FACE) {
-      if (!BM_edge_face_count_is_over(eed, 2)) {
-        ok = false;
+  {
+    bool has_nonmanifold = false;
+    BMEdge *e;
+    int i;
+    BM_ITER_MESH_INDEX (e, &iter, bm, BM_EDGES_OF_MESH, i) {
+      const bool is_over = BM_edge_face_count_is_over(e, 2);
+      if (is_over) {
+        BM_elem_flag_enable(e, BM_ELEM_TAG);
+        has_nonmanifold = true;
+        edge_lengths[i] = BM_edge_calc_length(e);
+      }
+      else {
+        BM_elem_flag_disable(e, BM_ELEM_TAG);
+        edge_lengths[i] = -1.0;
+      }
+
+      BM_elem_index_set(e, i); /* set_inline */
+    }
+    bm->elem_index_dirty &= ~BM_EDGE;
+
+    if (has_nonmanifold == false) {
+      MEM_freeN(edge_lengths);
+      return false;
+    }
+  }
+
+  /* group vars */
+  int *fgroup_array;
+  int(*fgroup_index)[2];
+  int fgroup_len;
+
+  fgroup_array = MEM_mallocN(sizeof(*fgroup_array) * bm->totface, __func__);
+  fgroup_len = BM_mesh_calc_face_groups(
+      bm, fgroup_array, &fgroup_index, bm_interior_loop_filter_fn, NULL, 0, BM_EDGE);
+
+  int *fgroup_recalc_stack = MEM_mallocN(sizeof(*fgroup_recalc_stack) * fgroup_len, __func__);
+  STACK_DECLARE(fgroup_recalc_stack);
+  STACK_INIT(fgroup_recalc_stack, fgroup_len);
+
+  BM_mesh_elem_table_ensure(bm, BM_FACE);
+
+  {
+    BMFace *f;
+    BM_ITER_MESH (f, &iter, em->bm, BM_FACES_OF_MESH) {
+      BM_elem_index_set(f, -1); /* set_dirty! */
+    }
+  }
+  bm->elem_index_dirty |= BM_FACE;
+
+  ListBase *fgroup_listbase = MEM_callocN(sizeof(*fgroup_listbase) * fgroup_len, __func__);
+  struct BMFaceLink *f_link_array = MEM_callocN(sizeof(*f_link_array) * bm->totface, __func__);
+
+  for (int i = 0; i < fgroup_len; i++) {
+    const int fg_sta = fgroup_index[i][0];
+    const int fg_len = fgroup_index[i][1];
+    for (int j = 0; j < fg_len; j++) {
+      const int face_index = fgroup_array[fg_sta + j];
+      BMFace *f = BM_face_at_index(bm, face_index);
+      BM_elem_index_set(f, i);
+
+      struct BMFaceLink *f_link = &f_link_array[face_index];
+      f_link->face = f;
+      f_link->area = BM_face_calc_area(f);
+      BLI_addtail(&fgroup_listbase[i], f_link);
+    }
+  }
+
+  MEM_freeN(fgroup_array);
+  MEM_freeN(fgroup_index);
+
+  Heap *fgroup_heap = BLI_heap_new_ex(fgroup_len);
+  HeapNode **fgroup_table = MEM_mallocN(sizeof(*fgroup_table) * fgroup_len, __func__);
+  bool *fgroup_dirty = MEM_callocN(sizeof(*fgroup_dirty) * fgroup_len, __func__);
+
+  for (int i = 0; i < fgroup_len; i++) {
+    const float cost = bm_interior_face_group_calc_cost(&fgroup_listbase[i], edge_lengths);
+    if (cost != FLT_MAX) {
+      fgroup_table[i] = BLI_heap_insert(fgroup_heap, -cost, POINTER_FROM_INT(i));
+    }
+    else {
+      fgroup_table[i] = NULL;
+    }
+  }
+
+  /* Avoid re-running cost calculations for large face-groups which will end up forming the
+   * outer shell and not be considered interior.
+   * As these face groups become increasingly bigger - their chance of being considered
+   * interior reduces as does the time to calculate their cost.
+   *
+   * This delays recalculating them until they are considered can dates to remove
+   * which becomes less and less likely as they increase in area. */
+
+#define USE_DELAY_FACE_GROUP_COST_CALC
+
+  while (true) {
+
+#if defined(USE_DELAY_FACE_GROUP_COST_CALC)
+    while (!BLI_heap_is_empty(fgroup_heap)) {
+      HeapNode *node_min = BLI_heap_top(fgroup_heap);
+      const int i = POINTER_AS_INT(BLI_heap_node_ptr(node_min));
+      if (fgroup_dirty[i]) {
+        const float cost = bm_interior_face_group_calc_cost(&fgroup_listbase[i], edge_lengths);
+        if (cost != FLT_MAX) {
+          /* The cost may have improves (we may be able to skip this),
+           * however the cost should _never_ make this a choice. */
+          BLI_assert(-BLI_heap_node_value(node_min) >= cost);
+          BLI_heap_node_value_update(fgroup_heap, fgroup_table[i], -cost);
+        }
+        else {
+          BLI_heap_remove(fgroup_heap, fgroup_table[i]);
+          fgroup_table[i] = NULL;
+        }
+        fgroup_dirty[i] = false;
+      }
+      else {
         break;
       }
     }
+#endif
 
-    if (ok) {
-      BM_face_select_set(bm, efa, true);
-      changed = true;
+    if (BLI_heap_is_empty(fgroup_heap)) {
+      break;
     }
+
+    const int i_min = POINTER_AS_INT(BLI_heap_pop_min(fgroup_heap));
+    BLI_assert(fgroup_table[i_min] != NULL);
+    BLI_assert(fgroup_dirty[i_min] == false);
+    fgroup_table[i_min] = NULL;
+    changed = true;
+
+    struct BMFaceLink *f_link;
+    while ((f_link = BLI_pophead(&fgroup_listbase[i_min]))) {
+      BMFace *f = f_link->face;
+      BM_face_select_set(bm, f, true);
+      BM_elem_index_set(f, -1); /* set-dirty */
+
+      BMLoop *l_iter, *l_first;
+
+      /* Loop over edges face edges, merging groups which are no longer separated
+       * by non-manifold edges (when manifold check ignores faces from this group). */
+      l_iter = l_first = BM_FACE_FIRST_LOOP(f);
+      do {
+        BMLoop *l_pair[2];
+        if (bm_interior_edge_is_manifold_except_face_index(l_iter->e, i_min, l_pair)) {
+          BM_elem_flag_disable(l_iter->e, BM_ELEM_TAG);
+
+          int i_a = BM_elem_index_get(l_pair[0]->f);
+          int i_b = BM_elem_index_get(l_pair[1]->f);
+          if (i_a != i_b) {
+            /* Only for predictable results that don't depend on the order of radial loops,
+             * not essential.  */
+            if (i_a > i_b) {
+              SWAP(int, i_a, i_b);
+            }
+
+            /* Merge the the groups. */
+            LISTBASE_FOREACH (LinkData *, n, &fgroup_listbase[i_b]) {
+              BMFace *f_iter = n->data;
+              BM_elem_index_set(f_iter, i_a);
+            }
+            BLI_movelisttolist(&fgroup_listbase[i_a], &fgroup_listbase[i_b]);
+
+            /* This may have been added to 'fgroup_recalc_stack', instead of removing it,
+             * just check the heap node isn't NULL before recalculating. */
+            BLI_heap_remove(fgroup_heap, fgroup_table[i_b]);
+            fgroup_table[i_b] = NULL;
+            /* Keep the dirty flag as-is for 'i_b', because it may be in the 'fgroup_recalc_stack'
+             * and we don't want to add it again.
+             * Instead rely on the 'fgroup_table[i_b]' being NULL as a secondary check. */
+
+            if (fgroup_dirty[i_a] == false) {
+              BLI_assert(fgroup_table[i_a] != NULL);
+              STACK_PUSH(fgroup_recalc_stack, i_a);
+              fgroup_dirty[i_a] = true;
+            }
+          }
+        }
+
+        /* Mark all connected groups for re-calculation. */
+        BMLoop *l_radial_iter = l_iter->radial_next;
+        if (l_radial_iter != l_iter) {
+          do {
+            int i_other = BM_elem_index_get(l_radial_iter->f);
+            if (!ELEM(i_other, -1, i_min)) {
+              if ((fgroup_table[i_other] != NULL) && (fgroup_dirty[i_other] == false)) {
+#if !defined(USE_DELAY_FACE_GROUP_COST_CALC)
+                STACK_PUSH(fgroup_recalc_stack, i_other);
+#endif
+                fgroup_dirty[i_other] = true;
+              }
+            }
+          } while ((l_radial_iter = l_radial_iter->radial_next) != l_iter);
+        }
+
+      } while ((l_iter = l_iter->next) != l_first);
+    }
+
+    for (int index = 0; index < STACK_SIZE(fgroup_recalc_stack); index++) {
+      const int i = fgroup_recalc_stack[index];
+      if (fgroup_table[i] != NULL && fgroup_dirty[i] == true) {
+        /* First update edge tags. */
+        const float cost = bm_interior_face_group_calc_cost(&fgroup_listbase[i], edge_lengths);
+        if (cost != FLT_MAX) {
+          BLI_heap_node_value_update(fgroup_heap, fgroup_table[i], -cost);
+        }
+        else {
+          BLI_heap_remove(fgroup_heap, fgroup_table[i]);
+          fgroup_table[i] = NULL;
+        }
+      }
+      fgroup_dirty[i] = false;
+    }
+    STACK_CLEAR(fgroup_recalc_stack);
   }
+
+  MEM_freeN(edge_lengths);
+  MEM_freeN(f_link_array);
+  MEM_freeN(fgroup_listbase);
+  MEM_freeN(fgroup_recalc_stack);
+  MEM_freeN(fgroup_table);
+  MEM_freeN(fgroup_dirty);
+
+  BLI_heap_free(fgroup_heap, NULL);
 
   return changed;
 }
@@ -3754,7 +4073,7 @@ static void walker_deselect_nth(BMEditMesh *em,
     if (!BM_elem_flag_test(ele, BM_ELEM_TAG)) {
       /* Deselect elements that aren't at "nth" depth from active */
       const int depth = BMW_current_depth(&walker) - 1;
-      if (WM_operator_properties_checker_interval_test(op_params, depth)) {
+      if (!WM_operator_properties_checker_interval_test(op_params, depth)) {
         BM_elem_select_set(bm, ele, false);
       }
       BM_elem_flag_enable(ele, BM_ELEM_TAG);
@@ -3901,7 +4220,8 @@ void MESH_OT_select_nth(wmOperatorType *ot)
 
 void em_setup_viewcontext(bContext *C, ViewContext *vc)
 {
-  ED_view3d_viewcontext_init(C, vc);
+  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
+  ED_view3d_viewcontext_init(C, vc, depsgraph);
 
   if (vc->obedit) {
     vc->em = BKE_editmesh_from_object(vc->obedit);

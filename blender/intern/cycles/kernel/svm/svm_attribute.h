@@ -46,8 +46,8 @@ ccl_device AttributeDescriptor svm_node_attr_init(
 
 ccl_device void svm_node_attr(KernelGlobals *kg, ShaderData *sd, float *stack, uint4 node)
 {
-  NodeAttributeType type;
-  uint out_offset;
+  NodeAttributeType type = NODE_ATTR_FLOAT;
+  uint out_offset = 0;
   AttributeDescriptor desc = svm_node_attr_init(kg, sd, node, &type, &out_offset);
 
   /* fetch and store attribute */
@@ -69,6 +69,15 @@ ccl_device void svm_node_attr(KernelGlobals *kg, ShaderData *sd, float *stack, u
       stack_store_float3(stack, out_offset, make_float3(f.x, f.y, 0.0f));
     }
   }
+  else if (desc.type == NODE_ATTR_RGBA) {
+    float4 f = primitive_attribute_float4(kg, sd, desc, NULL, NULL);
+    if (type == NODE_ATTR_FLOAT) {
+      stack_store_float(stack, out_offset, average(float4_to_float3(f)));
+    }
+    else {
+      stack_store_float3(stack, out_offset, float4_to_float3(f));
+    }
+  }
   else {
     float3 f = primitive_attribute_float3(kg, sd, desc, NULL, NULL);
     if (type == NODE_ATTR_FLOAT) {
@@ -80,16 +89,10 @@ ccl_device void svm_node_attr(KernelGlobals *kg, ShaderData *sd, float *stack, u
   }
 }
 
-#ifndef __KERNEL_CUDA__
-ccl_device
-#else
-ccl_device_noinline
-#endif
-    void
-    svm_node_attr_bump_dx(KernelGlobals *kg, ShaderData *sd, float *stack, uint4 node)
+ccl_device void svm_node_attr_bump_dx(KernelGlobals *kg, ShaderData *sd, float *stack, uint4 node)
 {
-  NodeAttributeType type;
-  uint out_offset;
+  NodeAttributeType type = NODE_ATTR_FLOAT;
+  uint out_offset = 0;
   AttributeDescriptor desc = svm_node_attr_init(kg, sd, node, &type, &out_offset);
 
   /* fetch and store attribute */
@@ -113,6 +116,16 @@ ccl_device_noinline
       stack_store_float3(stack, out_offset, make_float3(f.x + dx.x, f.y + dx.y, 0.0f));
     }
   }
+  else if (desc.type == NODE_ATTR_RGBA) {
+    float4 dx;
+    float4 f = primitive_attribute_float4(kg, sd, desc, &dx, NULL);
+    if (type == NODE_ATTR_FLOAT) {
+      stack_store_float(stack, out_offset, average(float4_to_float3(f + dx)));
+    }
+    else {
+      stack_store_float3(stack, out_offset, float4_to_float3(f + dx));
+    }
+  }
   else {
     float3 dx;
     float3 f = primitive_surface_attribute_float3(kg, sd, desc, &dx, NULL);
@@ -125,16 +138,10 @@ ccl_device_noinline
   }
 }
 
-#ifndef __KERNEL_CUDA__
-ccl_device
-#else
-ccl_device_noinline
-#endif
-    void
-    svm_node_attr_bump_dy(KernelGlobals *kg, ShaderData *sd, float *stack, uint4 node)
+ccl_device void svm_node_attr_bump_dy(KernelGlobals *kg, ShaderData *sd, float *stack, uint4 node)
 {
-  NodeAttributeType type;
-  uint out_offset;
+  NodeAttributeType type = NODE_ATTR_FLOAT;
+  uint out_offset = 0;
   AttributeDescriptor desc = svm_node_attr_init(kg, sd, node, &type, &out_offset);
 
   /* fetch and store attribute */
@@ -156,6 +163,16 @@ ccl_device_noinline
     }
     else {
       stack_store_float3(stack, out_offset, make_float3(f.x + dy.x, f.y + dy.y, 0.0f));
+    }
+  }
+  else if (desc.type == NODE_ATTR_RGBA) {
+    float4 dy;
+    float4 f = primitive_attribute_float4(kg, sd, desc, NULL, &dy);
+    if (type == NODE_ATTR_FLOAT) {
+      stack_store_float(stack, out_offset, average(float4_to_float3(f + dy)));
+    }
+    else {
+      stack_store_float3(stack, out_offset, float4_to_float3(f + dy));
     }
   }
   else {

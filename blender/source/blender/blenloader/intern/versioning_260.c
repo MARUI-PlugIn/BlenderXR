@@ -41,6 +41,8 @@
 #include "DNA_sdna_types.h"
 #include "DNA_smoke_types.h"
 #include "DNA_space_types.h"
+#include "DNA_world_types.h"
+#include "DNA_light_types.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -63,7 +65,10 @@
 #include "BKE_text.h"  // for txt_extended_ascii_as_utf8
 #include "BKE_texture.h"
 #include "BKE_tracking.h"
-#include "BKE_writeffmpeg.h"
+
+#ifdef WITH_FFMPEG
+#  include "BKE_writeffmpeg.h"
+#endif
 
 #include "IMB_imbuf.h"  // for proxy / timecode versioning stuff
 
@@ -264,7 +269,7 @@ static void do_versions_nodetree_multi_file_output_format_2_62_1(Scene *sce, bNo
 
       /* if z buffer is saved, change the image type to multilayer exr.
        * XXX this is slightly messy, Z buffer was ignored before for anything but EXR and IRIS ...
-       * i'm just assuming here that IRIZ means IRIS with z buffer ...
+       * I'm just assuming here that IRIZ means IRIS with z buffer ...
        */
       if (old_data && ELEM(old_data->im_format.imtype, R_IMF_IMTYPE_IRIZ, R_IMF_IMTYPE_OPENEXR)) {
         char sockpath[FILE_MAX];
@@ -2606,7 +2611,7 @@ void do_versions_after_linking_260(Main *bmain)
           if (input_node) {
             link->fromnode = input_node;
             link->fromsock = node_group_input_find_socket(input_node, link->fromsock->identifier);
-            ++num_inputs;
+            num_inputs++;
 
             if (link->tonode) {
               if (input_locx > link->tonode->locx - offsetx) {
@@ -2624,7 +2629,7 @@ void do_versions_after_linking_260(Main *bmain)
           if (output_node) {
             link->tonode = output_node;
             link->tosock = node_group_output_find_socket(output_node, link->tosock->identifier);
-            ++num_outputs;
+            num_outputs++;
 
             if (link->fromnode) {
               if (output_locx < link->fromnode->locx + offsetx) {

@@ -103,6 +103,7 @@
 #include "ED_mesh.h"
 #include "ED_node.h"
 #include "ED_object.h"
+#include "ED_outliner.h"
 #include "ED_physics.h"
 #include "ED_render.h"
 #include "ED_screen.h"
@@ -232,25 +233,17 @@ void ED_object_rotation_from_view(bContext *C, float rot[3], const char align_ax
   }
 }
 
-void ED_object_base_init_transform(bContext *C, Base *base, const float loc[3], const float rot[3])
+void ED_object_base_init_transform_on_add(Object *object, const float loc[3], const float rot[3])
 {
-  Object *ob = base->object;
-  Scene *scene = CTX_data_scene(C);
-  Depsgraph *depsgraph = CTX_data_depsgraph(C);
-
-  if (!scene) {
-    return;
-  }
-
   if (loc) {
-    copy_v3_v3(ob->loc, loc);
+    copy_v3_v3(object->loc, loc);
   }
 
   if (rot) {
-    copy_v3_v3(ob->rot, rot);
+    copy_v3_v3(object->rot, rot);
   }
 
-  BKE_object_where_is_calc(depsgraph, scene, ob);
+  BKE_object_to_mat4(object, object->obmat);
 }
 
 /* Uses context to figure out transform for primitive.
@@ -490,7 +483,7 @@ Object *ED_object_add_type(bContext *C,
   ED_object_base_activate(C, view_layer->basact);
 
   /* more editor stuff */
-  ED_object_base_init_transform(C, view_layer->basact, loc, rot);
+  ED_object_base_init_transform_on_add(ob, loc, rot);
 
   /* TODO(sergey): This is weird to manually tag objects for update, better to
    * use DEG_id_tag_update here perhaps.
@@ -509,6 +502,8 @@ Object *ED_object_add_type(bContext *C,
 
   /* TODO(sergey): Use proper flag for tagging here. */
   DEG_id_tag_update(&scene->id, 0);
+
+  ED_outliner_select_sync_from_object_tag(C);
 
   return ob;
 }
@@ -1035,7 +1030,7 @@ static int empty_drop_named_image_invoke(bContext *C, wmOperator *op, const wmEv
     return OPERATOR_CANCELLED;
   }
   /* handled below */
-  id_us_min((ID *)ima);
+  id_us_min(&ima->id);
 
   Object *ob = NULL;
   Object *ob_cursor = ED_view3d_give_object_under_cursor(C, event->mval);
@@ -1076,7 +1071,7 @@ void OBJECT_OT_drop_named_image(wmOperatorType *ot)
   PropertyRNA *prop;
 
   /* identifiers */
-  ot->name = "Add Empty Image/Drop Image To Empty";
+  ot->name = "Add Empty Image/Drop Image to Empty";
   ot->description = "Add an empty image type to scene with data";
   ot->idname = "OBJECT_OT_drop_named_image";
 
@@ -1719,7 +1714,11 @@ static bool dupliobject_cmp(const void *a_, const void *b_)
     return true;
   }
 
-  if (ELEM(a->type, b->type, OB_DUPLICOLLECTION)) {
+  if (a->type != b->type) {
+    return true;
+  }
+
+  if (a->type == OB_DUPLICOLLECTION) {
     for (int i = 1; (i < MAX_DUPLI_RECUR); i++) {
       if (a->persistent_id[i] != b->persistent_id[i]) {
         return true;
@@ -1758,12 +1757,15 @@ static bool dupliobject_instancer_cmp(const void *a_, const void *b_)
   return false;
 }
 
-static void make_object_duplilist_real(
-    bContext *C, Scene *scene, Base *base, const bool use_base_parent, const bool use_hierarchy)
+static void make_object_duplilist_real(bContext *C,
+                                       Depsgraph *depsgraph,
+                                       Scene *scene,
+                                       Base *base,
+                                       const bool use_base_parent,
+                                       const bool use_hierarchy)
 {
   Main *bmain = CTX_data_main(C);
   ViewLayer *view_layer = CTX_data_view_layer(C);
-  Depsgraph *depsgraph = CTX_data_depsgraph(C);
   ListBase *lb_duplis;
   DupliObject *dob;
   GHash *dupli_gh, *parent_gh = NULL, *instancer_gh = NULL;
@@ -1955,6 +1957,7 @@ static void make_object_duplilist_real(
 static int object_duplicates_make_real_exec(bContext *C, wmOperator *op)
 {
   Main *bmain = CTX_data_main(C);
+  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   Scene *scene = CTX_data_scene(C);
 
   const bool use_base_parent = RNA_boolean_get(op->ptr, "use_base_parent");
@@ -1963,7 +1966,7 @@ static int object_duplicates_make_real_exec(bContext *C, wmOperator *op)
   BKE_main_id_clear_newpoins(bmain);
 
   CTX_DATA_BEGIN (C, Base *, base, selected_editable_bases) {
-    make_object_duplilist_real(C, scene, base, use_base_parent, use_hierarchy);
+    make_object_duplilist_real(C, depsgraph, scene, base, use_base_parent, use_hierarchy);
 
     /* dependencies were changed */
     WM_event_add_notifier(C, NC_OBJECT | ND_PARENT, base->object);
@@ -1990,7 +1993,7 @@ void OBJECT_OT_duplicates_make_real(wmOperatorType *ot)
   ot->poll = ED_operator_objectmode;
 
   /* flags */
-  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_USE_EVAL_DATA;
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
   RNA_def_boolean(ot->srna,
                   "use_base_parent",
@@ -2010,6 +2013,7 @@ void OBJECT_OT_duplicates_make_real(wmOperatorType *ot)
 static const EnumPropertyItem convert_target_items[] = {
     {OB_CURVE, "CURVE", ICON_OUTLINER_OB_CURVE, "Curve from Mesh/Text", ""},
     {OB_MESH, "MESH", ICON_OUTLINER_OB_MESH, "Mesh from Curve/Meta/Surf/Text", ""},
+    {OB_GPENCIL, "GPENCIL", ICON_OUTLINER_OB_GREASEPENCIL, "Grease Pencil from Curve", ""},
     {0, NULL, 0, NULL, NULL},
 };
 
@@ -2131,18 +2135,21 @@ static Base *duplibase_for_convert(
 static int convert_exec(bContext *C, wmOperator *op)
 {
   Main *bmain = CTX_data_main(C);
-  Depsgraph *depsgraph = CTX_data_evaluated_depsgraph(C);
+  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   Scene *scene = CTX_data_scene(C);
   ViewLayer *view_layer = CTX_data_view_layer(C);
+  View3D *v3d = CTX_wm_view3d(C);
   Base *basen = NULL, *basact = NULL;
   Object *ob1, *obact = CTX_data_active_object(C);
   Curve *cu;
   Nurb *nu;
   MetaBall *mb;
   Mesh *me;
+  Object *gpencil_ob = NULL;
   const short target = RNA_enum_get(op->ptr, "target");
   bool keep_original = RNA_boolean_get(op->ptr, "keep_original");
   int a, mballConverted = 0;
+  bool gpencilConverted = false;
 
   /* don't forget multiple users! */
 
@@ -2381,6 +2388,24 @@ static int convert_exec(bContext *C, wmOperator *op)
         /* meshes doesn't use displist */
         BKE_object_free_curve_cache(newob);
       }
+      else if (target == OB_GPENCIL) {
+        if (ob->type != OB_CURVE) {
+          ob->flag &= ~OB_DONE;
+          BKE_report(
+              op->reports, RPT_ERROR, "Convert Surfaces to Grease Pencil is not supported.");
+        }
+        else {
+          /* Create a new grease pencil object and copy transformations.
+           * Nurbs Surface are not supported.
+           */
+          ushort local_view_bits = (v3d && v3d->localvd) ? v3d->local_view_uuid : 0;
+          gpencil_ob = ED_gpencil_add_object(C, scene, ob->loc, local_view_bits);
+          copy_v3_v3(gpencil_ob->rot, ob->rot);
+          copy_v3_v3(gpencil_ob->scale, ob->scale);
+          BKE_gpencil_convert_curve(bmain, scene, gpencil_ob, ob, false, false, true);
+          gpencilConverted = true;
+        }
+      }
     }
     else if (ob->type == OB_MBALL && target == OB_MESH) {
       Object *baseob;
@@ -2478,6 +2503,17 @@ static int convert_exec(bContext *C, wmOperator *op)
       }
       FOREACH_SCENE_OBJECT_END;
     }
+    /* Remove curves converted to Grease Pencil object. */
+    if (gpencilConverted) {
+      FOREACH_SCENE_OBJECT_BEGIN (scene, ob_curve) {
+        if (ob_curve->type == OB_CURVE) {
+          if (ob_curve->flag & OB_DONE) {
+            ED_object_base_free_and_unlink(bmain, scene, ob_curve);
+          }
+        }
+      }
+      FOREACH_SCENE_OBJECT_END;
+    }
   }
 
   // XXX  ED_object_editmode_enter(C, 0);
@@ -2556,7 +2592,7 @@ static Base *object_add_duplicate_internal(
     DEG_id_tag_update(&obn->id, ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY);
 
     base = BKE_view_layer_base_find(view_layer, ob);
-    if ((base != NULL) && (base->flag & BASE_VISIBLE)) {
+    if ((base != NULL) && (base->flag & BASE_VISIBLE_DEPSGRAPH)) {
       BKE_collection_object_add_from(bmain, scene, ob, obn);
     }
     else {

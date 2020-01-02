@@ -62,22 +62,10 @@
 /* ************************** Object Tools Exports ******************************* */
 /* NOTE: these functions are exported to the Object module to be called from the tools there */
 
-void ED_armature_transform_apply(Main *bmain, Object *ob, float mat[4][4], const bool do_props)
-{
-  bArmature *arm = ob->data;
-
-  /* Put the armature into editmode */
-  ED_armature_to_edit(arm);
-
-  /* Transform the bones */
-  ED_armature_transform_bones(arm, mat, do_props);
-
-  /* Turn the list into an armature */
-  ED_armature_from_edit(bmain, arm);
-  ED_armature_edit_free(arm);
-}
-
-void ED_armature_transform_bones(struct bArmature *arm, float mat[4][4], const bool do_props)
+/**
+ * See #BKE_armature_transform for object-mode transform.
+ */
+void ED_armature_edit_transform(bArmature *arm, const float mat[4][4], const bool do_props)
 {
   EditBone *ebone;
   float scale = mat4_to_scale(mat); /* store the scale of the matrix here to use on envelopes */
@@ -114,21 +102,13 @@ void ED_armature_transform_bones(struct bArmature *arm, float mat[4][4], const b
   }
 }
 
-void ED_armature_transform(Main *bmain, bArmature *arm, float mat[4][4], const bool do_props)
+void ED_armature_transform(bArmature *arm, const float mat[4][4], const bool do_props)
 {
   if (arm->edbo) {
-    ED_armature_transform_bones(arm, mat, do_props);
+    ED_armature_edit_transform(arm, mat, do_props);
   }
   else {
-    /* Put the armature into editmode */
-    ED_armature_to_edit(arm);
-
-    /* Transform the bones */
-    ED_armature_transform_bones(arm, mat, do_props);
-
-    /* Go back to object mode*/
-    ED_armature_from_edit(bmain, arm);
-    ED_armature_edit_free(arm);
+    BKE_armature_transform(arm, mat, do_props);
   }
 }
 
@@ -928,8 +908,10 @@ static void bones_merge(
   newbone->parent = start->parent;
 
   /* TODO, copy more things to the new bone */
-  newbone->flag = start->flag & (BONE_HINGE | BONE_NO_DEFORM | BONE_NO_SCALE |
-                                 BONE_NO_CYCLICOFFSET | BONE_NO_LOCAL_LOCATION | BONE_DONE);
+  newbone->flag = start->flag & (BONE_HINGE | BONE_NO_DEFORM | BONE_NO_CYCLICOFFSET |
+                                 BONE_NO_LOCAL_LOCATION | BONE_DONE);
+
+  newbone->inherit_scale_mode = start->inherit_scale_mode;
 
   /* Step 2a: reparent any side chains which may be parented to any bone in the chain
    * of bones to merge - potentially several tips for side chains leading to some tree exist.

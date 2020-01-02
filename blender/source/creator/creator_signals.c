@@ -31,9 +31,6 @@
 #  endif
 
 #  ifdef WIN32
-#    if defined(_MSC_VER) && defined(_M_X64)
-#      include <math.h> /* needed for _set_FMA3_enable */
-#    endif
 #    include <windows.h>
 #    include <float.h>
 #  endif
@@ -304,6 +301,12 @@ void main_signal_setup(void)
 #  endif
   }
 
+#  ifdef WIN32
+  /* Prevent any error mode dialogs from hanging the application. */
+  SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOALIGNMENTFAULTEXCEPT | SEM_NOGPFAULTERRORBOX |
+               SEM_NOOPENFILEERRORBOX);
+#  endif
+
   if (app_state.signal.use_abort_handler) {
     signal(SIGABRT, sig_handle_abort);
   }
@@ -311,7 +314,7 @@ void main_signal_setup(void)
 
 void main_signal_setup_background(void)
 {
-  /* for all platforms, even windos has it! */
+  /* for all platforms, even windows has it! */
   BLI_assert(G.background);
 
 #  if !defined(WITH_HEADLESS)

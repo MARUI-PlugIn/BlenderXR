@@ -650,7 +650,7 @@ static void multires_reshape_neighour_boundary_vertices(MultiresReshapeContext *
   const int start_ptex_face_index = ctx->face_ptex_offset[coarse_poly_index];
   const bool is_quad = (coarse_poly->totloop == 4);
   if (corner_u == 1.0f && corner_v == 1.0f) {
-    for (int current_corner = 0; current_corner < num_corners; ++current_corner) {
+    for (int current_corner = 0; current_corner < num_corners; current_corner++) {
       if (current_corner == coarse_corner) {
         continue;
       }
@@ -795,7 +795,7 @@ static Subdiv *multires_create_subdiv_for_reshape(struct Depsgraph *depsgraph,
   SubdivSettings subdiv_settings;
   BKE_multires_subdiv_settings_init(&subdiv_settings, mmd);
   Subdiv *subdiv = BKE_subdiv_new_from_mesh(&subdiv_settings, deformed_mesh);
-  if (!BKE_subdiv_eval_update_from_mesh(subdiv, deformed_mesh)) {
+  if (!BKE_subdiv_eval_update_from_mesh(subdiv, deformed_mesh, NULL)) {
     BKE_subdiv_free(subdiv);
     return NULL;
   }
@@ -891,7 +891,7 @@ bool multiresModifier_reshapeFromObject(struct Depsgraph *depsgraph,
   Object *src_eval = DEG_get_evaluated_object(depsgraph, src);
   Mesh *src_mesh_eval = mesh_get_eval_final(depsgraph, scene_eval, src_eval, &CD_MASK_BAREMESH);
   int num_deformed_verts;
-  float(*deformed_verts)[3] = BKE_mesh_vertexCos_get(src_mesh_eval, &num_deformed_verts);
+  float(*deformed_verts)[3] = BKE_mesh_vert_coords_alloc(src_mesh_eval, &num_deformed_verts);
   bool result = multires_reshape_from_vertcos(
       depsgraph, dst, &reshape_mmd, deformed_verts, num_deformed_verts, false);
   MEM_freeN(deformed_verts);
@@ -926,7 +926,7 @@ bool multiresModifier_reshapeFromDeformModifier(struct Depsgraph *depsgraph,
    * deformation modifiers will be applied though). */
   Mesh *multires_mesh = BKE_multires_create_mesh(depsgraph, scene_eval, &highest_mmd, object);
   int num_deformed_verts;
-  float(*deformed_verts)[3] = BKE_mesh_vertexCos_get(multires_mesh, &num_deformed_verts);
+  float(*deformed_verts)[3] = BKE_mesh_vert_coords_alloc(multires_mesh, &num_deformed_verts);
   /* Apply deformation modifier on the multires, */
   const ModifierEvalContext modifier_ctx = {
       .depsgraph = depsgraph,
@@ -955,7 +955,7 @@ typedef struct ReshapeFromCCGTaskData {
 
 static void reshape_from_ccg_task(void *__restrict userdata,
                                   const int coarse_poly_index,
-                                  const ParallelRangeTLS *__restrict UNUSED(tls))
+                                  const TaskParallelTLS *__restrict UNUSED(tls))
 {
   ReshapeFromCCGTaskData *data = userdata;
   const CCGKey *key = data->key;
@@ -1045,7 +1045,7 @@ bool multiresModifier_reshapeFromCCG(const int tot_level, Mesh *coarse_mesh, Sub
   MultiresPropagateData propagate_data;
   multires_reshape_propagate_prepare(&propagate_data, coarse_mesh, key.level, top_level);
   /* Threaded grids iteration. */
-  ParallelRangeSettings parallel_range_settings;
+  TaskParallelSettings parallel_range_settings;
   BLI_parallel_range_settings_defaults(&parallel_range_settings);
   BLI_task_parallel_range(
       0, coarse_mesh->totpoly, &data, reshape_from_ccg_task, &parallel_range_settings);

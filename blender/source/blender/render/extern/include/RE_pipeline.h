@@ -28,11 +28,9 @@
 #include "DNA_vec_types.h"
 #include "DEG_depsgraph.h"
 
-struct Depsgraph;
 struct Image;
 struct ImageFormatData;
 struct Main;
-struct NodeBlurData;
 struct Object;
 struct RenderData;
 struct RenderResult;
@@ -41,7 +39,6 @@ struct Scene;
 struct StampData;
 struct ViewLayer;
 struct bMovieHandle;
-struct bNodeTree;
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 /* this include is what is exposed of render to outside world */
@@ -256,7 +253,7 @@ void RE_SetView(struct Render *re, float mat[4][4]);
 /* get current view and window transform */
 void RE_GetViewPlane(struct Render *re, rctf *r_viewplane, rcti *r_disprect);
 
-/* set the render threads based on the commandline and autothreads setting */
+/* set the render threads based on the command-line and autothreads setting */
 void RE_init_threadcount(Render *re);
 
 bool RE_WriteRenderViewsImage(struct ReportList *reports,

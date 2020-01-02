@@ -54,14 +54,16 @@
 #include "BKE_multires.h"
 #include "BKE_object.h"
 #include "BKE_object_deform.h"
+#include "BKE_object_facemap.h"
 #include "BKE_report.h"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_build.h"
 #include "DEG_depsgraph_query.h"
 
+#include "DRW_select_buffer.h"
+
 #include "ED_mesh.h"
-#include "ED_select_buffer_utils.h"
 #include "ED_object.h"
 #include "ED_view3d.h"
 
@@ -80,7 +82,7 @@ static void join_mesh_single(Depsgraph *depsgraph,
                              Scene *scene,
                              Object *ob_dst,
                              Object *ob_src,
-                             float imat[4][4],
+                             const float imat[4][4],
                              MVert **mvert_pp,
                              MEdge **medge_pp,
                              MLoop **mloop_pp,
@@ -266,6 +268,22 @@ static void join_mesh_single(Depsgraph *depsgraph,
       mpoly->loopstart += *loopofs;
       mpoly->mat_nr = matmap ? matmap[mpoly->mat_nr] : 0;
     }
+
+    /* Face maps. */
+    int *fmap = CustomData_get(pdata, *polyofs, CD_FACEMAP);
+    int *fmap_src = CustomData_get(&me->pdata, 0, CD_FACEMAP);
+
+    /* Remap to correct new face-map indices, if needed. */
+    if (fmap_src) {
+      BLI_assert(fmap != NULL);
+      int *fmap_index_map;
+      int fmap_index_map_len;
+      fmap_index_map = BKE_object_facemap_index_map_create(ob_src, ob_dst, &fmap_index_map_len);
+      BKE_object_facemap_index_map_apply(fmap, me->totpoly, fmap_index_map, fmap_index_map_len);
+      if (fmap_index_map != NULL) {
+        MEM_freeN(fmap_index_map);
+      }
+    }
   }
 
   /* these are used for relinking (cannot be set earlier, or else reattaching goes wrong) */
@@ -311,7 +329,7 @@ int join_mesh_exec(bContext *C, wmOperator *op)
     return OPERATOR_CANCELLED;
   }
 
-  Depsgraph *depsgraph = CTX_data_depsgraph(C);
+  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
 
   /* count & check */
   CTX_DATA_BEGIN (C, Object *, ob_iter, selected_editable_objects) {
@@ -402,7 +420,7 @@ int join_mesh_exec(bContext *C, wmOperator *op)
     key->type = KEY_RELATIVE;
   }
 
-  /* first pass over objects - copying materials and vertexgroups across */
+  /* First pass over objects: Copying materials, vertex-groups & face-maps across. */
   CTX_DATA_BEGIN (C, Object *, ob_iter, selected_editable_objects) {
     /* only act if a mesh, and not the one we're joining to */
     if ((ob != ob_iter) && (ob_iter->type == OB_MESH)) {
@@ -419,6 +437,19 @@ int join_mesh_exec(bContext *C, wmOperator *op)
       }
       if (ob->defbase.first && ob->actdef == 0) {
         ob->actdef = 1;
+      }
+
+      /* Join this object's face maps to the base one's. */
+      for (bFaceMap *fmap = ob_iter->fmaps.first; fmap; fmap = fmap->next) {
+        /* See if this group exists in the object (if it doesn't, add it to the end) */
+        if (BKE_object_facemap_find_name(ob, fmap->name) == NULL) {
+          bFaceMap *fmap_new = MEM_callocN(sizeof(bFaceMap), "join faceMap");
+          memcpy(fmap_new, fmap, sizeof(bFaceMap));
+          BLI_addtail(&ob->fmaps, fmap_new);
+        }
+      }
+      if (ob->fmaps.first && ob->actfmap == 0) {
+        ob->actfmap = 1;
       }
 
       if (me->totvert) {
@@ -674,7 +705,7 @@ int join_mesh_shapes_exec(bContext *C, wmOperator *op)
   Main *bmain = CTX_data_main(C);
   Scene *scene = CTX_data_scene(C);
   Object *ob_active = CTX_data_active_object(C);
-  Depsgraph *depsgraph = CTX_data_depsgraph(C);
+  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   Mesh *me = (Mesh *)ob_active->data;
   Mesh *selme = NULL;
   Mesh *me_deformed = NULL;
@@ -1109,17 +1140,19 @@ bool ED_mesh_pick_face(bContext *C, Object *ob, const int mval[2], uint dist_px,
     return false;
   }
 
-  ED_view3d_viewcontext_init(C, &vc);
+  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
+  ED_view3d_viewcontext_init(C, &vc, depsgraph);
   ED_view3d_select_id_validate(&vc);
 
   if (dist_px) {
     /* sample rect to increase chances of selecting, so that when clicking
      * on an edge in the backbuf, we can still select a face */
-    *r_index = ED_select_buffer_find_nearest_to_point(mval, 1, me->totpoly + 1, &dist_px);
+    *r_index = DRW_select_buffer_find_nearest_to_point(
+        vc.depsgraph, vc.ar, vc.v3d, mval, 1, me->totpoly + 1, &dist_px);
   }
   else {
     /* sample only on the exact position */
-    *r_index = ED_select_buffer_sample_point(mval);
+    *r_index = DRW_select_buffer_sample_point(vc.depsgraph, vc.ar, vc.v3d, mval);
   }
 
   if ((*r_index) == 0 || (*r_index) > (unsigned int)me->totpoly) {
@@ -1165,7 +1198,7 @@ static void ed_mesh_pick_face_vert__mpoly_find(
 bool ED_mesh_pick_face_vert(
     bContext *C, Object *ob, const int mval[2], uint dist_px, uint *r_index)
 {
-  Depsgraph *depsgraph = CTX_data_depsgraph(C);
+  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   unsigned int poly_index;
   Mesh *me = ob->data;
 
@@ -1289,18 +1322,20 @@ bool ED_mesh_pick_vert(
     return false;
   }
 
-  ED_view3d_viewcontext_init(C, &vc);
+  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
+  ED_view3d_viewcontext_init(C, &vc, depsgraph);
   ED_view3d_select_id_validate(&vc);
 
   if (use_zbuf) {
     if (dist_px > 0) {
       /* sample rect to increase chances of selecting, so that when clicking
        * on an face in the backbuf, we can still select a vert */
-      *r_index = ED_select_buffer_find_nearest_to_point(mval, 1, me->totvert + 1, &dist_px);
+      *r_index = DRW_select_buffer_find_nearest_to_point(
+          vc.depsgraph, vc.ar, vc.v3d, mval, 1, me->totvert + 1, &dist_px);
     }
     else {
       /* sample only on the exact position */
-      *r_index = ED_select_buffer_sample_point(mval);
+      *r_index = DRW_select_buffer_sample_point(vc.depsgraph, vc.ar, vc.v3d, mval);
     }
 
     if ((*r_index) == 0 || (*r_index) > (uint)me->totvert) {

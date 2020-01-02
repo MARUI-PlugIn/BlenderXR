@@ -41,24 +41,27 @@
 
 #include "rna_internal.h" /* own include */
 
-/* confusingm 2 enums mixed up here */
+/* confusing 2 enums mixed up here */
 const EnumPropertyItem rna_enum_window_cursor_items[] = {
-    {CURSOR_STD, "DEFAULT", 0, "Default", ""},
-    {CURSOR_NONE, "NONE", 0, "None", ""},
-    {CURSOR_WAIT, "WAIT", 0, "Wait", ""},
-    {CURSOR_EDIT, "CROSSHAIR", 0, "Crosshair", ""},
-    {CURSOR_X_MOVE, "MOVE_X", 0, "Move-X", ""},
-    {CURSOR_Y_MOVE, "MOVE_Y", 0, "Move-Y", ""},
+    {WM_CURSOR_DEFAULT, "DEFAULT", 0, "Default", ""},
+    {WM_CURSOR_NONE, "NONE", 0, "None", ""},
+    {WM_CURSOR_WAIT, "WAIT", 0, "Wait", ""},
+    {WM_CURSOR_EDIT, "CROSSHAIR", 0, "Crosshair", ""},
+    {WM_CURSOR_X_MOVE, "MOVE_X", 0, "Move-X", ""},
+    {WM_CURSOR_Y_MOVE, "MOVE_Y", 0, "Move-Y", ""},
 
     /* new */
-    {BC_KNIFECURSOR, "KNIFE", 0, "Knife", ""},
-    {BC_TEXTEDITCURSOR, "TEXT", 0, "Text", ""},
-    {BC_PAINTBRUSHCURSOR, "PAINT_BRUSH", 0, "Paint Brush", ""},
-    {BC_HANDCURSOR, "HAND", 0, "Hand", ""},
-    {BC_EW_SCROLLCURSOR, "SCROLL_X", 0, "Scroll-X", ""},
-    {BC_NS_SCROLLCURSOR, "SCROLL_Y", 0, "Scroll-Y", ""},
-    {BC_NSEW_SCROLLCURSOR, "SCROLL_XY", 0, "Scroll-XY", ""},
-    {BC_EYEDROPPER_CURSOR, "EYEDROPPER", 0, "Eyedropper", ""},
+    {WM_CURSOR_KNIFE, "KNIFE", 0, "Knife", ""},
+    {WM_CURSOR_TEXT_EDIT, "TEXT", 0, "Text", ""},
+    {WM_CURSOR_PAINT_BRUSH, "PAINT_BRUSH", 0, "Paint Brush", ""},
+    {WM_CURSOR_PAINT, "PAINT_CROSS", 0, "Paint Cross", ""},
+    {WM_CURSOR_DOT, "DOT", 0, "Dot Cursor", ""},
+    {WM_CURSOR_ERASER, "ERASER", 0, "Eraser", ""},
+    {WM_CURSOR_HAND, "HAND", 0, "Hand", ""},
+    {WM_CURSOR_EW_SCROLL, "SCROLL_X", 0, "Scroll-X", ""},
+    {WM_CURSOR_NS_SCROLL, "SCROLL_Y", 0, "Scroll-Y", ""},
+    {WM_CURSOR_NSEW_SCROLL, "SCROLL_XY", 0, "Scroll-XY", ""},
+    {WM_CURSOR_EYEDROPPER, "EYEDROPPER", 0, "Eyedropper", ""},
     {0, NULL, 0, NULL, NULL},
 };
 
@@ -471,12 +474,12 @@ static void rna_PopMenuEnd(bContext *C, PointerRNA *handle)
 }
 
 /* popover wrapper */
-static PointerRNA rna_PopoverBegin(bContext *C, int ui_units_x)
+static PointerRNA rna_PopoverBegin(bContext *C, int ui_units_x, bool from_active_button)
 {
   PointerRNA r_ptr;
   void *data;
 
-  data = (void *)UI_popover_begin(C, U.widget_unit * ui_units_x);
+  data = (void *)UI_popover_begin(C, U.widget_unit * ui_units_x, from_active_button);
 
   RNA_pointer_create(NULL, &RNA_UIPopover, data, &r_ptr);
 
@@ -821,6 +824,8 @@ void RNA_api_wm(StructRNA *srna)
   parm = RNA_def_pointer(func, "menu", "UIPopover", "", "");
   RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_RNAPTR);
   RNA_def_function_return(func, parm);
+  RNA_def_boolean(
+      func, "from_active_button", 0, "Use Button", "Use the active button for positioning");
 
   /* wrap UI_popover_end */
   func = RNA_def_function(srna, "popover_end__internal", "rna_PopoverEnd");
@@ -955,6 +960,19 @@ void RNA_api_operator(StructRNA *srna)
   RNA_def_function_flag(func, FUNC_REGISTER_OPTIONAL | FUNC_ALLOW_WRITE);
   parm = RNA_def_pointer(func, "context", "Context", "", "");
   RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
+
+  /* description */
+  func = RNA_def_function(srna, "description", NULL);
+  RNA_def_function_ui_description(func, "Compute a description string that depends on parameters");
+  RNA_def_function_flag(func, FUNC_NO_SELF | FUNC_REGISTER_OPTIONAL);
+  parm = RNA_def_string(func, "result", NULL, 4096, "result", "");
+  RNA_def_parameter_clear_flags(parm, PROP_NEVER_NULL, 0);
+  RNA_def_parameter_flags(parm, PROP_THICK_WRAP, 0);
+  RNA_def_function_output(func, parm);
+  parm = RNA_def_pointer(func, "context", "Context", "", "");
+  RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
+  parm = RNA_def_pointer(func, "properties", "OperatorProperties", "", "");
+  RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
 }
 
 void RNA_api_macro(StructRNA *srna)

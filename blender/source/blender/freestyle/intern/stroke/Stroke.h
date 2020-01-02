@@ -194,13 +194,13 @@ class StrokeAttribute {
    */
   Vec3f getAttributeVec3f(const char *iName) const;
 
-  /*! Checks whether the attribute iName is availbale */
+  /*! Checks whether the attribute iName is available */
   bool isAttributeAvailableReal(const char *iName) const;
 
-  /*! Checks whether the attribute iName is availbale */
+  /*! Checks whether the attribute iName is available */
   bool isAttributeAvailableVec2f(const char *iName) const;
 
-  /*! Checks whether the attribute iName is availbale */
+  /*! Checks whether the attribute iName is available */
   bool isAttributeAvailableVec3f(const char *iName) const;
 
   /* modifiers */
@@ -590,7 +590,8 @@ class Stroke : public Interface1D {
   /*! Resampling method.
    *  Resamples the curve so that it eventually has iNPoints. That means it is going to add
    * iNPoints-vertices_size, if vertices_size is the number of points we already have. If
-   * vertices_size >= iNPoints, no resampling is done. \param iNPoints: The number of vertices we
+   * vertices_size >= iNPoints, no resampling is done.
+   * \param iNPoints: The number of vertices we
    * eventually want in our stroke.
    */
   int Resample(int iNPoints);
@@ -653,7 +654,7 @@ class Stroke : public Interface1D {
     return _textureId;
   }
 
-  /*! Returns the spacing of texture coordinates along the stroke lenght */
+  /*! Returns the spacing of texture coordinates along the stroke length */
   inline float getTextureStep()
   {
     return _textureStep;
@@ -766,7 +767,7 @@ class Stroke : public Interface1D {
     _textureId = id;
   }
 
-  /*! sets the spacing of texture coordinates along the stroke lenght. */
+  /*! sets the spacing of texture coordinates along the stroke length. */
   inline void setTextureStep(float step)
   {
     _textureStep = step;
@@ -840,8 +841,10 @@ class Stroke : public Interface1D {
   vertex_iterator vertices_end();
 
   /*! Returns a StrokeVertexIterator pointing on the first StrokeVertex of the Stroke. One can
-   * specify a sampling value to resample the Stroke on the fly if needed. \param t: The resampling
-   * value with which we want our Stroke to be resampled. If 0 is specified, no resampling is done.
+   * specify a sampling value to resample the Stroke on the fly if needed.
+   *
+   * \param t: The resampling value with which we want our Stroke to be resampled.
+   * If 0 is specified, no resampling is done.
    */
   StrokeInternal::StrokeVertexIterator strokeVerticesBegin(float t = 0.0f);
 

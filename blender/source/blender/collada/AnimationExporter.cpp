@@ -336,7 +336,7 @@ void AnimationExporter::export_curve_animation(Object *ob, BCAnimationCurve &cur
 
   /*
    * Some curves can not be exported as is and need some conversion
-   * For more information see implementation oif get_modified_export_curve()
+   * For more information see implementation of get_modified_export_curve()
    * note: if mcurve is not NULL then it must be deleted at end of this method;
    */
 
@@ -594,7 +594,7 @@ std::string AnimationExporter::collada_tangent_from_curve(
   const FCurve *fcu = curve.get_fcurve();
   int tangent = (semantic == COLLADASW::InputSemantic::IN_TANGENT) ? 0 : 2;
 
-  for (int i = 0; i < fcu->totvert; ++i) {
+  for (int i = 0; i < fcu->totvert; i++) {
     BezTriple &bezt = fcu->bezt[i];
 
     float sampled_time = bezt.vec[tangent][0];

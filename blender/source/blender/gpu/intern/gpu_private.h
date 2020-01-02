@@ -21,8 +21,9 @@
 #ifndef __GPU_PRIVATE_H__
 #define __GPU_PRIVATE_H__
 
-struct GPUContext;
-struct GPUFrameBuffer;
+/* call this before running any of the functions below */
+void gpu_platform_init(void);
+void gpu_platform_exit(void);
 
 /* call this before running any of the functions below */
 void gpu_extensions_init(void);
@@ -35,5 +36,9 @@ void gpu_debug_exit(void);
 /* gpu_framebuffer.c */
 void gpu_framebuffer_module_init(void);
 void gpu_framebuffer_module_exit(void);
+
+/* gpu_pbvh.c */
+void gpu_pbvh_init(void);
+void gpu_pbvh_exit(void);
 
 #endif /* __GPU_PRIVATE_H__ */

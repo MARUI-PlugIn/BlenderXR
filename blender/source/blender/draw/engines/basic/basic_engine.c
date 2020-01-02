@@ -25,6 +25,7 @@
 
 #include "DRW_render.h"
 
+#include "BKE_paint.h"
 #include "BKE_particle.h"
 
 #include "DNA_particle_types.h"
@@ -71,7 +72,6 @@ static struct {
 typedef struct BASIC_PrivateData {
   DRWShadingGroup *depth_shgrp;
   DRWShadingGroup *depth_shgrp_cull;
-  DRWShadingGroup *depth_shgrp_hair;
 } BASIC_PrivateData; /* Transient data */
 
 /* Functions */
@@ -161,13 +161,20 @@ static void basic_cache_populate(void *vedata, Object *ob)
     }
   }
 
-  struct GPUBatch *geom = DRW_cache_object_surface_get(ob);
-  if (geom) {
-    const bool do_cull = (draw_ctx->v3d &&
-                          (draw_ctx->v3d->shading.flag & V3D_SHADING_BACKFACE_CULLING));
-    /* Depth Prepass */
-    DRW_shgroup_call(
-        (do_cull) ? stl->g_data->depth_shgrp_cull : stl->g_data->depth_shgrp, geom, ob);
+  const bool use_sculpt_pbvh = BKE_sculptsession_use_pbvh_draw(ob, draw_ctx->v3d) &&
+                               !DRW_state_is_image_render();
+  const bool do_cull = (draw_ctx->v3d &&
+                        (draw_ctx->v3d->shading.flag & V3D_SHADING_BACKFACE_CULLING));
+  DRWShadingGroup *shgrp = (do_cull) ? stl->g_data->depth_shgrp_cull : stl->g_data->depth_shgrp;
+
+  if (use_sculpt_pbvh) {
+    DRW_shgroup_call_sculpt(shgrp, ob, false, false, false);
+  }
+  else {
+    struct GPUBatch *geom = DRW_cache_object_surface_get(ob);
+    if (geom) {
+      DRW_shgroup_call(shgrp, geom, ob);
+    }
   }
 }
 

@@ -71,6 +71,8 @@ def menu_func_eroder(self, context):
 
 
 def menu_func_landscape(self, context):
+    layout = self.layout
+    layout.separator()
     self.layout.operator('mesh.landscape_add', text="Landscape", icon="RNDCURVE")
 
 
@@ -82,6 +84,7 @@ class AntLandscapeAddPanel(bpy.types.Panel):
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_context = "objectmode"
+    bl_options = {'DEFAULT_CLOSED'}
 
     def draw(self, context):
         col = self.layout.column()

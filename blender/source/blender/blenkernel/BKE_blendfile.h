@@ -32,12 +32,6 @@ struct ReportList;
 struct UserDef;
 struct bContext;
 
-enum {
-  BKE_BLENDFILE_READ_FAIL = 0,         /* no load */
-  BKE_BLENDFILE_READ_OK = 1,           /* OK */
-  BKE_BLENDFILE_READ_OK_USERPREFS = 2, /* OK, and with new user settings */
-};
-
 int BKE_blendfile_read(struct bContext *C,
                        const char *filepath,
                        const struct BlendFileReadParams *params,
@@ -58,6 +52,7 @@ struct UserDef *BKE_blendfile_userdef_read(const char *filepath, struct ReportLi
 struct UserDef *BKE_blendfile_userdef_read_from_memory(const void *filebuf,
                                                        int filelength,
                                                        struct ReportList *reports);
+struct UserDef *BKE_blendfile_userdef_from_defaults(void);
 
 bool BKE_blendfile_userdef_write(const char *filepath, struct ReportList *reports);
 bool BKE_blendfile_userdef_write_app_template(const char *filepath, struct ReportList *reports);

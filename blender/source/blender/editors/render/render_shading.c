@@ -103,15 +103,17 @@ static Object **object_array_for_shading(bContext *C, uint *r_objects_len)
   ScrArea *sa = CTX_wm_area(C);
   SpaceProperties *sbuts = NULL;
   View3D *v3d = NULL;
-  if (sa->spacetype == SPACE_PROPERTIES) {
-    sbuts = sa->spacedata.first;
-  }
-  else if (sa->spacetype == SPACE_VIEW3D) {
-    v3d = sa->spacedata.first;
+  if (sa != NULL) {
+    if (sa->spacetype == SPACE_PROPERTIES) {
+      sbuts = sa->spacedata.first;
+    }
+    else if (sa->spacetype == SPACE_VIEW3D) {
+      v3d = sa->spacedata.first;
+    }
   }
 
   Object **objects;
-  if (sbuts && sbuts->pinid && GS(sbuts->pinid->name) == ID_OB) {
+  if (sbuts != NULL && sbuts->pinid && GS(sbuts->pinid->name) == ID_OB) {
     objects = MEM_mallocN(sizeof(*objects), __func__);
     objects[0] = (Object *)sbuts->pinid;
     *r_objects_len = 1;
@@ -310,7 +312,7 @@ static int material_slot_de_select(bContext *C, bool select)
     }
     else {
       /* Find the first matching material.
-       * Note: there may be multiple but thats not a common use case. */
+       * Note: there may be multiple but that's not a common use case. */
       for (short i = 0; i < ob->totcol; i++) {
         const Material *mat = give_current_material(ob, i + 1);
         if (mat_active == mat) {
@@ -547,6 +549,73 @@ void OBJECT_OT_material_slot_move(wmOperatorType *ot)
                0,
                "Direction",
                "Direction to move the active material towards");
+}
+
+static int material_slot_remove_unused_exec(bContext *C, wmOperator *op)
+{
+  Object *ob = CTX_data_active_object(C);
+
+  if (!ob) {
+    return OPERATOR_CANCELLED;
+  }
+
+  /* Removing material slots in edit mode screws things up, see bug #21822.*/
+  if (ob == CTX_data_edit_object(C)) {
+    BKE_report(op->reports, RPT_ERROR, "Unable to remove material slot in edit mode");
+    return OPERATOR_CANCELLED;
+  }
+
+  int actcol = ob->actcol;
+
+  int removed = 0;
+  for (int slot = 1; slot <= ob->totcol; slot++) {
+    while (slot <= ob->totcol && !BKE_object_material_slot_used(ob->data, slot)) {
+      ob->actcol = slot;
+      BKE_object_material_slot_remove(CTX_data_main(C), ob);
+
+      if (actcol >= slot) {
+        actcol--;
+      }
+
+      removed++;
+    }
+  }
+
+  ob->actcol = actcol;
+
+  if (!removed) {
+    return OPERATOR_CANCELLED;
+  }
+
+  BKE_reportf(op->reports, RPT_INFO, "Removed %d slots", removed);
+
+  if (ob->mode & OB_MODE_TEXTURE_PAINT) {
+    Scene *scene = CTX_data_scene(C);
+    BKE_paint_proj_mesh_data_check(scene, ob, NULL, NULL, NULL, NULL);
+    WM_event_add_notifier(C, NC_SCENE | ND_TOOLSETTINGS, NULL);
+  }
+
+  DEG_id_tag_update(&ob->id, ID_RECALC_GEOMETRY);
+  WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, ob);
+  WM_event_add_notifier(C, NC_OBJECT | ND_OB_SHADING, ob);
+  WM_event_add_notifier(C, NC_MATERIAL | ND_SHADING_PREVIEW, ob);
+
+  return OPERATOR_FINISHED;
+}
+
+void OBJECT_OT_material_slot_remove_unused(wmOperatorType *ot)
+{
+  /* identifiers */
+  ot->name = "Remove Unused Slots";
+  ot->idname = "OBJECT_OT_material_slot_remove_unused";
+  ot->description = "Remove unused material slots";
+
+  /* api callbacks */
+  ot->exec = material_slot_remove_unused_exec;
+  ot->poll = ED_operator_object_active_editable;
+
+  /* flags */
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
 /********************** new material operator *********************/
@@ -859,7 +928,7 @@ static int light_cache_bake_exec(bContext *C, wmOperator *op)
   EEVEE_lightbake_job_data_free(rj);
 
   // no redraw needed, we leave state as we entered it
-  ED_update_for_newframe(bmain, CTX_data_depsgraph(C));
+  ED_update_for_newframe(bmain, CTX_data_depsgraph_pointer(C));
 
   WM_event_add_notifier(C, NC_SCENE | NA_EDITED, scene);
 
@@ -1769,7 +1838,7 @@ void SCENE_OT_freestyle_stroke_material_create(wmOperatorType *ot)
 
 static int texture_slot_move_exec(bContext *C, wmOperator *op)
 {
-  ID *id = CTX_data_pointer_get_type(C, "texture_slot", &RNA_TextureSlot).id.data;
+  ID *id = CTX_data_pointer_get_type(C, "texture_slot", &RNA_TextureSlot).owner_id;
 
   if (id) {
     MTex **mtex_ar, *mtexswap;
@@ -1964,7 +2033,7 @@ static void paste_mtex_copybuf(ID *id)
 
 static int copy_mtex_exec(bContext *C, wmOperator *UNUSED(op))
 {
-  ID *id = CTX_data_pointer_get_type(C, "texture_slot", &RNA_TextureSlot).id.data;
+  ID *id = CTX_data_pointer_get_type(C, "texture_slot", &RNA_TextureSlot).owner_id;
 
   if (id == NULL) {
     /* copying empty slot */
@@ -1979,7 +2048,7 @@ static int copy_mtex_exec(bContext *C, wmOperator *UNUSED(op))
 
 static bool copy_mtex_poll(bContext *C)
 {
-  ID *id = CTX_data_pointer_get_type(C, "texture_slot", &RNA_TextureSlot).id.data;
+  ID *id = CTX_data_pointer_get_type(C, "texture_slot", &RNA_TextureSlot).owner_id;
 
   return (id != NULL);
 }
@@ -2002,7 +2071,7 @@ void TEXTURE_OT_slot_copy(wmOperatorType *ot)
 
 static int paste_mtex_exec(bContext *C, wmOperator *UNUSED(op))
 {
-  ID *id = CTX_data_pointer_get_type(C, "texture_slot", &RNA_TextureSlot).id.data;
+  ID *id = CTX_data_pointer_get_type(C, "texture_slot", &RNA_TextureSlot).owner_id;
 
   if (id == NULL) {
     Material *ma = CTX_data_pointer_get_type(C, "material", &RNA_Material).data;

@@ -113,6 +113,8 @@ class IMAGE_MT_view(Menu):
         layout.operator("image.view_all", text="Frame All")
         layout.operator("image.view_all", text="Frame All Fit").fit_view = True
 
+        layout.operator("image.view_center_cursor", text="Center View to Cursor")
+
         layout.separator()
 
         if show_render:
@@ -142,7 +144,7 @@ class IMAGE_MT_view_zoom(Menu):
 
             layout.operator(
                 "image.view_zoom_ratio",
-                text=iface_(f"Zoom {a:d}:{b:d}"),
+                text=iface_("Zoom %d:%d") % (a, b),
                 translate=False,
             ).ratio = a / b
 
@@ -176,6 +178,7 @@ class IMAGE_MT_select(Menu):
         layout.separator()
 
         layout.operator("uv.select_split")
+        layout.operator("uv.select_overlap")
 
 
 class IMAGE_MT_brush(Menu):
@@ -237,6 +240,7 @@ class IMAGE_MT_image(Menu):
             layout.separator()
 
             layout.menu("IMAGE_MT_image_invert")
+            layout.operator("image.resize", text="Resize")
 
         if ima and not show_render:
             if ima.packed_file:
@@ -663,7 +667,13 @@ class IMAGE_HT_header(Header):
             row.prop(tool_settings, "use_proportional_edit", icon_only=True)
             sub = row.row(align=True)
             sub.active = tool_settings.use_proportional_edit
-            sub.prop(tool_settings, "proportional_edit_falloff", icon_only=True)
+            sub.prop_with_popover(
+                tool_settings,
+                "proportional_edit_falloff",
+                text="",
+                icon_only=True,
+                panel="IMAGE_PT_proportional_edit",
+            )
 
     def draw(self, context):
         layout = self.layout
@@ -885,6 +895,23 @@ class IMAGE_PT_snapping(Panel):
         row.prop(tool_settings, "use_snap_scale", text="Scale", toggle=True)
 
 
+class IMAGE_PT_proportional_edit(Panel):
+    bl_space_type = 'IMAGE_EDITOR'
+    bl_region_type = 'HEADER'
+    bl_label = "Proportional Editing"
+    bl_ui_units_x = 8
+
+    def draw(self, context):
+        layout = self.layout
+        tool_settings = context.tool_settings
+        col = layout.column()
+
+        col.prop(tool_settings, "use_proportional_connected")
+        col.separator()
+
+        col.prop(tool_settings, "proportional_edit_falloff", expand=True)
+
+
 class IMAGE_PT_image_properties(Panel):
     bl_space_type = 'IMAGE_EDITOR'
     bl_region_type = 'UI'
@@ -960,7 +987,6 @@ class IMAGE_PT_view_display_uv_edit_overlays(Panel):
         col = layout.column()
 
         col.prop(uvedit, "edge_display_type", text="Display As")
-        col.prop(uvedit, "show_edges", text="Edges")
         col.prop(uvedit, "show_faces", text="Faces")
 
         col = layout.column()
@@ -1077,9 +1103,12 @@ class IMAGE_PT_paint_color(Panel, ImagePaintPanel):
         settings = context.tool_settings.image_paint
         brush = settings.brush
 
-        layout.active = not brush.use_gradient
+        layout.prop(brush, "color_type", expand=True)
 
-        brush_texpaint_common_color(self, context, layout, brush, settings, True)
+        if brush.color_type == 'COLOR':
+            brush_texpaint_common_color(self, context, layout, brush, settings)
+        elif brush.color_type == 'GRADIENT':
+            brush_texpaint_common_gradient(self, context, layout, brush, settings)
 
 
 class IMAGE_PT_paint_swatches(Panel, ImagePaintPanel):
@@ -1104,38 +1133,6 @@ class IMAGE_PT_paint_swatches(Panel, ImagePaintPanel):
         layout.template_ID(settings, "palette", new="palette.new")
         if settings.palette:
             layout.template_palette(settings, "palette", color=True)
-
-
-class IMAGE_PT_paint_gradient(Panel, ImagePaintPanel):
-    bl_category = "Tool"
-    bl_context = ".paint_common_2d"
-    bl_parent_id = "IMAGE_PT_paint"
-    bl_label = "Gradient"
-    bl_options = {'DEFAULT_CLOSED'}
-
-    @classmethod
-    def poll(cls, context):
-        settings = context.tool_settings.image_paint
-        brush = settings.brush
-        capabilities = brush.image_paint_capabilities
-
-        return capabilities.has_color
-
-    def draw_header(self, context):
-        settings = context.tool_settings.image_paint
-        brush = settings.brush
-        self.layout.prop(brush, "use_gradient", text="")
-
-    def draw(self, context):
-        layout = self.layout
-        layout.use_property_split = False
-        layout.use_property_decorate = False  # No animation.
-        settings = context.tool_settings.image_paint
-        brush = settings.brush
-
-        layout.active = brush.use_gradient
-
-        brush_texpaint_common_gradient(self, context, layout, brush, settings, True)
 
 
 class IMAGE_PT_paint_clone(Panel, ImagePaintPanel):
@@ -1163,7 +1160,7 @@ class IMAGE_PT_paint_clone(Panel, ImagePaintPanel):
 
         layout.active = settings.use_clone_layer
 
-        brush_texpaint_common_clone(self, context, layout, brush, settings, True)
+        brush_texpaint_common_clone(self, context, layout, brush, settings)
 
 
 class IMAGE_PT_paint_options(Panel, ImagePaintPanel):
@@ -1189,7 +1186,7 @@ class IMAGE_PT_paint_options(Panel, ImagePaintPanel):
         layout.use_property_split = True
         layout.use_property_decorate = False  # No animation.
 
-        brush_texpaint_common_options(self, context, layout, brush, settings, True)
+        brush_texpaint_common_options(self, context, layout, brush, settings)
 
 
 class IMAGE_PT_tools_brush_display(BrushButtonsPanel, Panel):
@@ -1438,16 +1435,21 @@ class IMAGE_PT_paint_curve(BrushButtonsPanel, Panel):
         tool_settings = context.tool_settings.image_paint
         brush = tool_settings.brush
 
-        layout.template_curve_mapping(brush, "curve")
-
         col = layout.column(align=True)
         row = col.row(align=True)
-        row.operator("brush.curve_preset", icon='SMOOTHCURVE', text="").shape = 'SMOOTH'
-        row.operator("brush.curve_preset", icon='SPHERECURVE', text="").shape = 'ROUND'
-        row.operator("brush.curve_preset", icon='ROOTCURVE', text="").shape = 'ROOT'
-        row.operator("brush.curve_preset", icon='SHARPCURVE', text="").shape = 'SHARP'
-        row.operator("brush.curve_preset", icon='LINCURVE', text="").shape = 'LINE'
-        row.operator("brush.curve_preset", icon='NOCURVE', text="").shape = 'MAX'
+        row.prop(brush, "curve_preset", text="")
+
+        if brush.curve_preset == 'CUSTOM':
+            layout.template_curve_mapping(brush, "curve")
+
+            col = layout.column(align=True)
+            row = col.row(align=True)
+            row.operator("brush.curve_preset", icon='SMOOTHCURVE', text="").shape = 'SMOOTH'
+            row.operator("brush.curve_preset", icon='SPHERECURVE', text="").shape = 'ROUND'
+            row.operator("brush.curve_preset", icon='ROOTCURVE', text="").shape = 'ROOT'
+            row.operator("brush.curve_preset", icon='SHARPCURVE', text="").shape = 'SHARP'
+            row.operator("brush.curve_preset", icon='LINCURVE', text="").shape = 'LINE'
+            row.operator("brush.curve_preset", icon='NOCURVE', text="").shape = 'MAX'
 
 
 class IMAGE_PT_tools_imagepaint_symmetry(BrushButtonsPanel, Panel):
@@ -1538,15 +1540,20 @@ class IMAGE_PT_uv_sculpt_curve(Panel):
         brush = uvsculpt.brush
 
         if brush is not None:
-            layout.template_curve_mapping(brush, "curve")
+            col = layout.column(align=True)
+            row = col.row(align=True)
+            row.prop(brush, "curve_preset", text="")
 
-            row = layout.row(align=True)
-            row.operator("brush.curve_preset", icon='SMOOTHCURVE', text="").shape = 'SMOOTH'
-            row.operator("brush.curve_preset", icon='SPHERECURVE', text="").shape = 'ROUND'
-            row.operator("brush.curve_preset", icon='ROOTCURVE', text="").shape = 'ROOT'
-            row.operator("brush.curve_preset", icon='SHARPCURVE', text="").shape = 'SHARP'
-            row.operator("brush.curve_preset", icon='LINCURVE', text="").shape = 'LINE'
-            row.operator("brush.curve_preset", icon='NOCURVE', text="").shape = 'MAX'
+            if brush.curve_preset == 'CUSTOM':
+                layout.template_curve_mapping(brush, "curve")
+
+                row = layout.row(align=True)
+                row.operator("brush.curve_preset", icon='SMOOTHCURVE', text="").shape = 'SMOOTH'
+                row.operator("brush.curve_preset", icon='SPHERECURVE', text="").shape = 'ROUND'
+                row.operator("brush.curve_preset", icon='ROOTCURVE', text="").shape = 'ROOT'
+                row.operator("brush.curve_preset", icon='SHARPCURVE', text="").shape = 'SHARP'
+                row.operator("brush.curve_preset", icon='LINCURVE', text="").shape = 'LINE'
+                row.operator("brush.curve_preset", icon='NOCURVE', text="").shape = 'MAX'
 
 
 class ImageScopesPanel:
@@ -1684,7 +1691,7 @@ class IMAGE_PT_uv_cursor(Panel):
 
 
 # Grease Pencil properties
-class IMAGE_PT_grease_pencil(AnnotationDataPanel, Panel):
+class IMAGE_PT_annotation(AnnotationDataPanel, Panel):
     bl_space_type = 'IMAGE_EDITOR'
     bl_region_type = 'UI'
     bl_category = "View"
@@ -1721,6 +1728,7 @@ classes = (
     IMAGE_PT_active_mask_spline,
     IMAGE_PT_active_mask_point,
     IMAGE_PT_snapping,
+    IMAGE_PT_proportional_edit,
     IMAGE_PT_image_properties,
     IMAGE_UL_render_slots,
     IMAGE_PT_render_slots,
@@ -1730,7 +1738,6 @@ classes = (
     IMAGE_PT_paint,
     IMAGE_PT_paint_color,
     IMAGE_PT_paint_swatches,
-    IMAGE_PT_paint_gradient,
     IMAGE_PT_paint_clone,
     IMAGE_PT_paint_options,
     IMAGE_PT_tools_brush_texture,
@@ -1750,7 +1757,7 @@ classes = (
     IMAGE_PT_sample_line,
     IMAGE_PT_scope_sample,
     IMAGE_PT_uv_cursor,
-    IMAGE_PT_grease_pencil,
+    IMAGE_PT_annotation,
 )
 
 

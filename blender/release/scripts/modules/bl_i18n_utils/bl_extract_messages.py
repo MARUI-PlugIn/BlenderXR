@@ -174,8 +174,9 @@ def print_info(reports, pot):
                 _print("\tThe following operators are undocumented!")
             else:
                 _print("\t“{}”|“{}”:".format(*key))
-                if multi_lines and key in multi_lines:
-                    _print("\t\t-> newline in this message!")
+                # We support multi-lines tooltips now...
+                # ~ if multi_lines and key in multi_lines:
+                    # ~ _print("\t\t-> newline in this message!")
                 if not_capitalized and key in not_capitalized:
                     _print("\t\t-> message not capitalized!")
                 if end_point and key in end_point:
@@ -231,59 +232,6 @@ def dump_rna_messages(msgs, reports, settings, verbose=False):
 
         # More builtin classes we don't need to parse.
         blacklist_rna_class |= {cls for cls in bpy.types.Property.__subclasses__()}
-
-        # None of this seems needed anymore, and it's broken anyway with current master (blender 2.79.1)...
-        """
-        _rna = {getattr(bpy.types, cls) for cls in dir(bpy.types)}
-
-        # Classes which are attached to collections can be skipped too, these are api access only.
-        # XXX This is not true, some of those show in UI, see e.g. tooltip of KeyingSets.active...
-        #~ for cls in _rna:
-            #~ for prop in cls.bl_rna.properties:
-                #~ if prop.type == 'COLLECTION':
-                    #~ prop_cls = prop.srna
-                    #~ if prop_cls is not None:
-                        #~ blacklist_rna_class.add(prop_cls.__class__)
-
-        # Now here is the *ugly* hack!
-        # Unfortunately, all classes we want to access are not available from bpy.types (OperatorProperties subclasses
-        # are not here, as they have the same name as matching Operator ones :( ). So we use __subclasses__() calls
-        # to walk through all rna hierarchy.
-        # But unregistered classes remain listed by relevant __subclasses__() calls (be it a Py or BPY/RNA bug),
-        # and obviously the matching RNA struct exists no more, so trying to access their data (even the identifier)
-        # quickly leads to segfault!
-        # To address this, we have to blacklist classes which __name__ does not match any __name__ from bpy.types
-        # (we can't use only RNA identifiers, as some py-defined classes has a different name that rna id,
-        # and we can't use class object themselves, because OperatorProperties subclasses are not in bpy.types!)...
-
-        _rna_clss_ids = {cls.__name__ for cls in _rna} | {cls.bl_rna.identifier for cls in _rna}
-
-        # All registrable types.
-        blacklist_rna_class |= {cls for cls in bpy.types.OperatorProperties.__subclasses__() +
-                                               bpy.types.Operator.__subclasses__() +
-                                               bpy.types.OperatorMacro.__subclasses__() +
-                                               bpy.types.Header.__subclasses__() +
-                                               bpy.types.Panel.__subclasses__() +
-                                               bpy.types.Menu.__subclasses__() +
-                                               bpy.types.UIList.__subclasses__()
-                                    if cls.__name__ not in _rna_clss_ids}
-
-        # Collect internal operators
-        # extend with all internal operators
-        # note that this uses internal api introspection functions
-        # XXX Do not skip INTERNAL's anymore, some of those ops show up in UI now!
-        # all possible operator names
-        #op_ids = (set(cls.bl_rna.identifier for cls in bpy.types.OperatorProperties.__subclasses__()) |
-        #          set(cls.bl_rna.identifier for cls in bpy.types.Operator.__subclasses__()) |
-        #          set(cls.bl_rna.identifier for cls in bpy.types.OperatorMacro.__subclasses__()))
-
-        #get_instance = __import__("_bpy").ops.get_instance
-        #path_resolve = type(bpy.context).__base__.path_resolve
-        #for idname in op_ids:
-            #op = get_instance(idname)
-            #if 'INTERNAL' in path_resolve(op, "bl_options"):
-                #blacklist_rna_class.add(idname)
-        """
 
         return blacklist_rna_class
 
@@ -890,7 +838,12 @@ def dump_messages(do_messages, do_checks, settings):
     # For now, enable all official addons, before extracting msgids.
     addons = utils.enable_addons(support={"OFFICIAL"})
     # Note this is not needed if we have been started with factory settings, but just in case...
-    utils.enable_addons(support={"COMMUNITY", "TESTING"}, disable=True)
+    # XXX This is not working well, spent a whole day trying to understand *why* we still have references of
+    #     those removed calsses in things like `bpy.types.OperatorProperties.__subclasses__()`
+    #     (could not even reproduce it from regular py console in Blender with UI...).
+    #     For some reasons, cleanup does not happen properly, *and* we have no way to tell which class is valid
+    #     and which has been unregistered. So for now, just go for the dirty, easy way: do not disable add-ons. :(
+    # ~ utils.enable_addons(support={"COMMUNITY", "TESTING"}, disable=True)
 
     reports = _gen_reports(_gen_check_ctxt(settings) if do_checks else None)
 

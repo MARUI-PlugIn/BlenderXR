@@ -139,7 +139,12 @@ static bool isDisabled(const struct Scene *UNUSED(scene),
 {
   MeshDeformModifierData *mmd = (MeshDeformModifierData *)md;
 
-  return !mmd->object;
+  /* The object type check is only needed here in case we have a placeholder
+   * object assigned (because the library containing the mesh is missing).
+   *
+   * In other cases it should be impossible to have a type mismatch.
+   */
+  return !mmd->object || mmd->object->type != OB_MESH;
 }
 
 static void foreachObjectLink(ModifierData *md, Object *ob, ObjectWalkFunc walk, void *userData)
@@ -259,7 +264,7 @@ typedef struct MeshdeformUserdata {
 
 static void meshdeform_vert_task(void *__restrict userdata,
                                  const int iter,
-                                 const ParallelRangeTLS *__restrict UNUSED(tls))
+                                 const TaskParallelTLS *__restrict UNUSED(tls))
 {
   MeshdeformUserdata *data = userdata;
   /*const*/ MeshDeformModifierData *mmd = data->mmd;
@@ -401,7 +406,7 @@ static void meshdeformModifier_do(ModifierData *md,
   }
 
   /* setup deformation data */
-  cagecos = BKE_mesh_vertexCos_get(cagemesh, NULL);
+  cagecos = BKE_mesh_vert_coords_alloc(cagemesh, NULL);
   bindcagecos = (float(*)[3])mmd->bindcagecos;
 
   /* We allocate 1 element extra to make it possible to
@@ -435,7 +440,7 @@ static void meshdeformModifier_do(ModifierData *md,
   data.icagemat = icagemat;
 
   /* Do deformation. */
-  ParallelRangeSettings settings;
+  TaskParallelSettings settings;
   BLI_parallel_range_settings_defaults(&settings);
   settings.min_iter_per_thread = 16;
   BLI_task_parallel_range(0, totvert, &data, meshdeform_vert_task, &settings);

@@ -32,14 +32,13 @@
 /* Needed for the instance iterator. */
 #include "DNA_object_types.h"
 
-struct ID;
-
 struct BLI_Iterator;
-struct Base;
 struct CustomData_MeshMasks;
 struct Depsgraph;
 struct DupliObject;
+struct ID;
 struct ListBase;
+struct PointerRNA;
 struct Scene;
 struct ViewLayer;
 
@@ -237,9 +236,21 @@ void DEG_foreach_dependent_ID(const Depsgraph *depsgraph,
 
 /* Starts traversal from given component of the given ID, invokes callback for every other
  * component  which is directly on indirectly dependent on the source one. */
+enum {
+  /* Ignore transform solvers which depends on multiple inputs and affects final transform.
+   * Is used for cases like snapping objects which are part of a rigid body simulation:
+   * without this there will be "false-positive" dependencies between transform components of
+   * objects:
+   *
+   *     object 1 transform before solver ---> solver ------> object 1 final transform
+   *     object 2 transform before solver -----^     \------> object 2 final transform
+   */
+  DEG_FOREACH_COMPONENT_IGNORE_TRANSFORM_SOLVERS,
+};
 void DEG_foreach_dependent_ID_component(const Depsgraph *depsgraph,
                                         const ID *id,
                                         eDepsObjectComponentType source_component_type,
+                                        int flags,
                                         DEGForeachIDComponentCallback callback,
                                         void *user_data);
 

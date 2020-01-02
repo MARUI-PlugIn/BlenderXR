@@ -312,7 +312,7 @@ static void listbase_double_from_single(Link *iter, ListBase *listbase)
 #include "list_sort_impl.h"
 #undef SORT_IMPL_FUNC
 
-/* reentrant call */
+/* re-entrant call */
 #define SORT_IMPL_USE_THUNK
 #define SORT_IMPL_FUNC listbase_sort_fn_r
 #include "list_sort_impl.h"
@@ -501,6 +501,27 @@ bool BLI_listbase_link_move(ListBase *listbase, void *vlink, int step)
     BLI_insertlinkafter(listbase, hook, vlink);
   }
   return true;
+}
+
+/**
+ * Move the link at the index \a from to the position at index \a to.
+ *
+ * \return If the move was successful.
+ */
+bool BLI_listbase_move_index(ListBase *listbase, int from, int to)
+{
+  if (from == to) {
+    return false;
+  }
+
+  /* Find the link to move. */
+  void *link = BLI_findlink(listbase, from);
+
+  if (!link) {
+    return false;
+  }
+
+  return BLI_listbase_link_move(listbase, link, to - from);
 }
 
 /**

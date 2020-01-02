@@ -23,7 +23,7 @@
 /** \file
  * \ingroup bke
  */
-
+ 
 #include "../vr/vr_build.h"
 #if WITH_VR
 #ifdef __cplusplus
@@ -40,7 +40,6 @@ struct Depsgraph;
 struct EnumPropertyItem;
 struct GridPaintMask;
 struct ImagePool;
-struct MFace;
 struct MLoop;
 struct MLoopTri;
 struct MVert;
@@ -55,7 +54,6 @@ struct Palette;
 struct PaletteColor;
 struct ReportList;
 struct Scene;
-struct Sculpt;
 struct StrokeCache;
 struct SubdivCCG;
 struct SubdivCCG;
@@ -230,7 +228,7 @@ typedef struct SculptSession {
   struct MPoly *mpoly;
   struct MLoop *mloop;
   int totvert, totpoly;
-  struct KeyBlock *kb;
+  struct KeyBlock *shapekey_active;
   float *vmask;
 
   /* Mesh connectivity */
@@ -250,14 +248,13 @@ typedef struct SculptSession {
 
   /* PBVH acceleration structure */
   struct PBVH *pbvh;
-  bool show_diffuse_color;
   bool show_mask;
 
   /* Painting on deformed mesh */
-  bool modifiers_active;       /* object is deformed with some modifiers */
-  float (*orig_cos)[3];        /* coords of undeformed mesh */
-  float (*deform_cos)[3];      /* coords of deformed mesh but without stroke displacement */
-  float (*deform_imats)[3][3]; /* crazyspace deformation matrices */
+  bool deform_modifiers_active; /* object is deformed with some modifiers */
+  float (*orig_cos)[3];         /* coords of undeformed mesh */
+  float (*deform_cos)[3];       /* coords of deformed mesh but without stroke displacement */
+  float (*deform_imats)[3][3];  /* crazyspace deformation matrices */
 
   /* Used to cache the render of the active texture */
   unsigned int texcache_side, *texcache, texcache_actual;
@@ -267,6 +264,30 @@ typedef struct SculptSession {
   float (*layer_co)[3]; /* Copy of the mesh vertices' locations */
 
   struct StrokeCache *cache;
+  struct FilterCache *filter_cache;
+
+  /* Cursor data and active vertex for tools */
+  int active_vertex_index;
+
+  float cursor_radius;
+  float cursor_location[3];
+  float cursor_normal[3];
+  float cursor_view_normal[3];
+  struct RegionView3D *rv3d;
+
+  /* Dynamic mesh preview */
+  int *preview_vert_index_list;
+  int preview_vert_index_count;
+  float pose_origin[3];
+
+  /* Transform operator */
+  float pivot_pos[3];
+  float pivot_rot[4];
+  float pivot_scale[3];
+
+  float init_pivot_pos[3];
+  float init_pivot_rot[4];
+  float init_pivot_scale[3];
 
   union {
     struct {
@@ -293,6 +314,13 @@ typedef struct SculptSession {
 
   /* This flag prevents PBVH from being freed when creating the vp_handle for texture paint. */
   bool building_vp_handle;
+
+  /**
+   * ID data is older than sculpt-mode data.
+   * Set #Main.is_memfile_undo_flush_needed when enabling.
+   */
+  char needs_flush_to_id;
+
 } SculptSession;
 
 void BKE_sculptsession_free(struct Object *ob);

@@ -55,7 +55,6 @@
 #include "BKE_library_remap.h"
 #include "BKE_main.h"
 #include "BKE_report.h"
-#include "BKE_scene.h"
 
 #include "BKE_idcode.h"
 
@@ -561,7 +560,7 @@ static void wm_link_append_properties_common(wmOperatorType *ot, bool is_link)
 
 void WM_OT_link(wmOperatorType *ot)
 {
-  ot->name = "Link from Library";
+  ot->name = "Link";
   ot->idname = "WM_OT_link";
   ot->description = "Link from a Library .blend file";
 
@@ -576,7 +575,7 @@ void WM_OT_link(wmOperatorType *ot)
                                  FILE_LOADLIB,
                                  FILE_OPENFILE,
                                  WM_FILESEL_FILEPATH | WM_FILESEL_DIRECTORY | WM_FILESEL_FILENAME |
-                                     WM_FILESEL_RELPATH | WM_FILESEL_FILES,
+                                     WM_FILESEL_RELPATH | WM_FILESEL_FILES | WM_FILESEL_SHOW_PROPS,
                                  FILE_DEFAULTDISPLAY,
                                  FILE_SORT_ALPHA);
 
@@ -585,7 +584,7 @@ void WM_OT_link(wmOperatorType *ot)
 
 void WM_OT_append(wmOperatorType *ot)
 {
-  ot->name = "Append from Library";
+  ot->name = "Append";
   ot->idname = "WM_OT_append";
   ot->description = "Append from a Library .blend file";
 
@@ -600,7 +599,7 @@ void WM_OT_append(wmOperatorType *ot)
                                  FILE_LOADLIB,
                                  FILE_OPENFILE,
                                  WM_FILESEL_FILEPATH | WM_FILESEL_DIRECTORY | WM_FILESEL_FILENAME |
-                                     WM_FILESEL_FILES,
+                                     WM_FILESEL_FILES | WM_FILESEL_SHOW_PROPS,
                                  FILE_DEFAULTDISPLAY,
                                  FILE_SORT_ALPHA);
 

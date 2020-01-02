@@ -18,8 +18,14 @@
 
 # <pep8 compliant>
 
+import bpy
 import math
+import collections
+
+from itertools import tee, chain, islice, repeat
 from mathutils import Vector, Matrix, Color
+from rna_prop_ui import rna_idprop_value_to_python
+
 
 #=============================================
 # Math
@@ -52,6 +58,28 @@ def angle_on_plane(plane, vec1, vec2):
 
     return angle * sign
 
+
+# Convert between a matrix and axis+roll representations.
+# Re-export the C implementation internally used by bones.
+matrix_from_axis_roll = bpy.types.Bone.MatrixFromAxisRoll
+axis_roll_from_matrix = bpy.types.Bone.AxisRollFromMatrix
+
+
+def matrix_from_axis_pair(y_axis, other_axis, axis_name):
+    assert axis_name in 'xz'
+
+    y_axis = Vector(y_axis).normalized()
+
+    if axis_name == 'x':
+        z_axis = Vector(other_axis).cross(y_axis).normalized()
+        x_axis = y_axis.cross(z_axis)
+    else:
+        x_axis = y_axis.cross(other_axis).normalized()
+        z_axis = x_axis.cross(y_axis)
+
+    return Matrix((x_axis, y_axis, z_axis)).transposed()
+
+
 #=============================================
 # Color correction functions
 #=============================================
@@ -82,6 +110,49 @@ def gamma_correct(color):
 
 
 #=============================================
+# Iterators
+#=============================================
+
+
+def padnone(iterable, pad=None):
+    return chain(iterable, repeat(pad))
+
+
+def pairwise_nozip(iterable):
+    "s -> (s0,s1), (s1,s2), (s2,s3), ..."
+    a, b = tee(iterable)
+    next(b, None)
+    return a, b
+
+
+def pairwise(iterable):
+    "s -> (s0,s1), (s1,s2), (s2,s3), ..."
+    a, b = tee(iterable)
+    next(b, None)
+    return zip(a, b)
+
+
+def map_list(func, *inputs):
+    "[func(a0,b0...), func(a1,b1...), ...]"
+    return list(map(func, *inputs))
+
+
+def skip(n, iterable):
+    "Returns an iterator skipping first n elements of an iterable."
+    iterator = iter(iterable)
+    if n == 1:
+        next(iterator, None)
+    else:
+        next(islice(iterator, n, n), None)
+    return iterator
+
+
+def map_apply(func, *inputs):
+    "Apply the function to inputs like map for side effects, discarding results."
+    collections.deque(map(func, *inputs), maxlen=0)
+
+
+#=============================================
 # Misc
 #=============================================
 
@@ -98,3 +169,45 @@ def copy_attributes(a, b):
                 setattr(b, key, getattr(a, key))
             except AttributeError:
                 pass
+
+
+def property_to_python(value):
+    value = rna_idprop_value_to_python(value)
+
+    if isinstance(value, dict):
+        return { k: property_to_python(v) for k, v in value.items() }
+    elif isinstance(value, list):
+        return map_list(property_to_python, value)
+    else:
+        return value
+
+
+def clone_parameters(target):
+    return property_to_python(dict(target))
+
+
+def assign_parameters(target, val_dict=None, **params):
+    if val_dict is not None:
+        for key in list(target.keys()):
+            del target[key]
+
+        data = { **val_dict, **params }
+    else:
+        data = params
+
+    for key, value in data.items():
+        try:
+            target[key] = value
+        except Exception as e:
+            raise Exception("Couldn't set {} to {}: {}".format(key,value,e))
+
+
+def select_object(context, object, deselect_all=False):
+    view_layer = context.view_layer
+
+    if deselect_all:
+        for objt in view_layer.objects:
+            objt.select_set(False)  # deselect all objects
+
+    object.select_set(True)
+    view_layer.objects.active = object

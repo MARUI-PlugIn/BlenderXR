@@ -81,9 +81,17 @@ static bool gp_stroke_paintmode_poll_with_tool(bContext *C, const char gpencil_t
 {
   /* TODO: limit this to mode, but review 2D editors */
   bGPdata *gpd = CTX_data_gpencil_data(C);
+  if (!gpd) {
+    return false;
+  }
+
   ToolSettings *ts = CTX_data_tool_settings(C);
+  if (!ts || !ts->gp_paint) {
+    return false;
+  }
+
   Brush *brush = BKE_paint_brush(&ts->gp_paint->paint);
-  return ((gpd) && (gpd->flag & GP_DATA_STROKE_PAINTMODE) && (brush && brush->gpencil_settings) &&
+  return ((gpd->flag & GP_DATA_STROKE_PAINTMODE) && (brush && brush->gpencil_settings) &&
           WM_toolsystem_active_tool_is_brush(C) && (brush->gpencil_tool == gpencil_tool));
 }
 
@@ -256,6 +264,8 @@ void ED_operatortypes_gpencil(void)
   WM_operatortype_append(GPENCIL_OT_move_to_layer);
   WM_operatortype_append(GPENCIL_OT_layer_change);
 
+  WM_operatortype_append(GPENCIL_OT_set_active_material);
+
   WM_operatortype_append(GPENCIL_OT_snap_to_grid);
   WM_operatortype_append(GPENCIL_OT_snap_to_cursor);
   WM_operatortype_append(GPENCIL_OT_snap_cursor_to_selected);
@@ -306,9 +316,11 @@ void ED_operatortypes_gpencil(void)
   WM_operatortype_append(GPENCIL_OT_stroke_separate);
   WM_operatortype_append(GPENCIL_OT_stroke_split);
   WM_operatortype_append(GPENCIL_OT_stroke_smooth);
+  WM_operatortype_append(GPENCIL_OT_stroke_sample);
   WM_operatortype_append(GPENCIL_OT_stroke_merge);
   WM_operatortype_append(GPENCIL_OT_stroke_cutter);
   WM_operatortype_append(GPENCIL_OT_stroke_trim);
+  WM_operatortype_append(GPENCIL_OT_stroke_merge_by_distance);
 
   WM_operatortype_append(GPENCIL_OT_brush_presets_create);
 

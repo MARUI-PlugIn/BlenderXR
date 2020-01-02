@@ -38,7 +38,6 @@
 
 #include "BKE_context.h"
 
-#include "GPU_draw.h"
 #include "GPU_immediate.h"
 #include "GPU_immediate_util.h"
 #include "GPU_matrix.h"
@@ -363,8 +362,8 @@ static void gizmo_arrow_exit(bContext *C, wmGizmo *gz, const bool cancel)
   const bool is_prop_valid = WM_gizmo_target_property_is_valid(gz_prop);
 
   if (!cancel) {
-    /* Assign incase applying the operation needs an updated offset
-     * editmesh bisect needs this. */
+    /* Assign in case applying the operation needs an updated offset
+     * edit-mesh bisect needs this. */
     if (is_prop_valid) {
       const int transform_flag = RNA_enum_get(arrow->gizmo.ptr, "transform");
       const bool constrained = (transform_flag & ED_GIZMO_ARROW_XFORM_FLAG_CONSTRAINED) != 0;

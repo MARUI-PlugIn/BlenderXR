@@ -535,6 +535,50 @@ void rotation_between_quats_to_quat(float q[4], const float q1[4], const float q
   mul_qt_qtqt(q, tquat, q2);
 }
 
+/**
+ * Decompose a quaternion into a swing rotation (quaternion with the selected
+ * axis component locked at zero), followed by a twist rotation around the axis.
+ *
+ * \param q: input quaternion.
+ * \param axis: twist axis in [0,1,2]
+ * \param r_swing[out]: if not NULL, receives the swing quaternion.
+ * \param r_twist[out]: if not NULL, receives the twist quaternion.
+ * \returns twist angle.
+ */
+float quat_split_swing_and_twist(const float q[4], int axis, float r_swing[4], float r_twist[4])
+{
+  BLI_assert(axis >= 0 && axis <= 2);
+
+  /* Half-twist angle can be computed directly. */
+  float t = atan2f(q[axis + 1], q[0]);
+
+  if (r_swing || r_twist) {
+    float sin_t = sinf(t), cos_t = cosf(t);
+
+    /* Compute swing by multiplying the original quaternion by inverted twist. */
+    if (r_swing) {
+      float twist_inv[4];
+
+      twist_inv[0] = cos_t;
+      zero_v3(twist_inv + 1);
+      twist_inv[axis + 1] = -sin_t;
+
+      mul_qt_qtqt(r_swing, q, twist_inv);
+
+      BLI_assert(fabsf(r_swing[axis + 1]) < BLI_ASSERT_UNIT_EPSILON);
+    }
+
+    /* Output twist last just in case q ovelaps r_twist. */
+    if (r_twist) {
+      r_twist[0] = cos_t;
+      zero_v3(r_twist + 1);
+      r_twist[axis + 1] = sin_t;
+    }
+  }
+
+  return 2.0f * t;
+}
+
 /* -------------------------------------------------------------------- */
 /** \name Quaternion Angle
  *
@@ -644,8 +688,8 @@ void vec_to_quat(float q[4], const float vec[3], short axis, const short upflag)
   float nor[3], tvec[3];
   float angle, si, co, len;
 
-  assert(axis >= 0 && axis <= 5);
-  assert(upflag >= 0 && upflag <= 2);
+  BLI_assert(axis >= 0 && axis <= 5);
+  BLI_assert(upflag >= 0 && upflag <= 2);
 
   /* first set the quat to unit */
   unit_qt(q);
@@ -1194,7 +1238,7 @@ void axis_angle_to_quat_single(float q[4], const char axis, const float angle)
   const float angle_sin = sinf(angle_half);
   const int axis_index = (axis - 'X');
 
-  assert(axis >= 'X' && axis <= 'Z');
+  BLI_assert(axis >= 'X' && axis <= 'Z');
 
   q[0] = angle_cos;
   zero_v3(q + 1);
@@ -1398,7 +1442,7 @@ void rotate_eul(float beul[3], const char axis, const float ang)
 {
   float eul[3], mat1[3][3], mat2[3][3], totmat[3][3];
 
-  assert(axis >= 'X' && axis <= 'Z');
+  BLI_assert(axis >= 'X' && axis <= 'Z');
 
   eul[0] = eul[1] = eul[2] = 0.0f;
   if (axis == 'X') {
@@ -1544,7 +1588,7 @@ static const RotOrderInfo rotOrders[] = {
  */
 static const RotOrderInfo *get_rotation_order_info(const short order)
 {
-  assert(order >= 0 && order <= 6);
+  BLI_assert(order >= 0 && order <= 6);
   if (order < 1) {
     return &rotOrders[0];
   }
@@ -1813,7 +1857,7 @@ void rotate_eulO(float beul[3], const short order, char axis, float ang)
 {
   float eul[3], mat1[3][3], mat2[3][3], totmat[3][3];
 
-  assert(axis >= 'X' && axis <= 'Z');
+  BLI_assert(axis >= 'X' && axis <= 'Z');
 
   zero_v3(eul);
 
@@ -2119,8 +2163,8 @@ void quat_apply_track(float quat[4], short axis, short upflag)
       {0.0, sqrt_1_2, sqrt_1_2, 0.0},
   };
 
-  assert(axis >= 0 && axis <= 5);
-  assert(upflag >= 0 && upflag <= 2);
+  BLI_assert(axis >= 0 && axis <= 5);
+  BLI_assert(upflag >= 0 && upflag <= 2);
 
   mul_qt_qtqt(quat, quat, quat_track[axis]);
 
@@ -2142,7 +2186,7 @@ void vec_apply_track(float vec[3], short axis)
 {
   float tvec[3];
 
-  assert(axis >= 0 && axis <= 5);
+  BLI_assert(axis >= 0 && axis <= 5);
 
   copy_v3_v3(tvec, vec);
 

@@ -152,7 +152,7 @@ static void deformVerts(ModifierData *md,
 
   /* make new mesh */
   psmd->mesh_final = BKE_mesh_copy_for_eval(mesh_src, false);
-  BKE_mesh_apply_vert_coords(psmd->mesh_final, vertexCos);
+  BKE_mesh_vert_coords_apply(psmd->mesh_final, vertexCos);
   BKE_mesh_calc_normals(psmd->mesh_final);
 
   BKE_mesh_tessface_ensure(psmd->mesh_final);
@@ -168,7 +168,7 @@ static void deformVerts(ModifierData *md,
 
       if (em) {
         /* In edit mode get directly from the edit mesh. */
-        psmd->mesh_original = BKE_mesh_from_bmesh_for_eval_nomain(em->bm, NULL);
+        psmd->mesh_original = BKE_mesh_from_bmesh_for_eval_nomain(em->bm, NULL, mesh);
       }
       else {
         /* Otherwise get regular mesh. */

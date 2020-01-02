@@ -34,6 +34,7 @@
 #include "BKE_context.h"
 #include "BKE_key.h"
 #include "BKE_layer.h"
+#include "BKE_main.h"
 #include "BKE_mesh.h"
 #include "BKE_editmesh.h"
 #include "BKE_undo_system.h"
@@ -699,7 +700,6 @@ typedef struct MeshUndoStep_Elem {
 
 typedef struct MeshUndoStep {
   UndoStep step;
-  struct UndoIDPtrMap *id_map;
   MeshUndoStep_Elem *elems;
   uint elems_len;
 } MeshUndoStep;
@@ -709,9 +709,7 @@ static bool mesh_undosys_poll(bContext *C)
   return editmesh_object_from_context(C) != NULL;
 }
 
-static bool mesh_undosys_step_encode(struct bContext *C,
-                                     struct Main *UNUSED(bmain),
-                                     UndoStep *us_p)
+static bool mesh_undosys_step_encode(struct bContext *C, struct Main *bmain, UndoStep *us_p)
 {
   MeshUndoStep *us = (MeshUndoStep *)us_p;
 
@@ -731,18 +729,20 @@ static bool mesh_undosys_step_encode(struct bContext *C,
 
     elem->obedit_ref.ptr = ob;
     Mesh *me = elem->obedit_ref.ptr->data;
+    BMEditMesh *em = me->edit_mesh;
     undomesh_from_editmesh(&elem->data, me->edit_mesh, me->key);
+    em->needs_flush_to_id = 1;
     us->step.data_size += elem->data.undo_size;
   }
   MEM_freeN(objects);
+
+  bmain->is_memfile_undo_flush_needed = true;
+
   return true;
 }
 
-static void mesh_undosys_step_decode(struct bContext *C,
-                                     struct Main *UNUSED(bmain),
-                                     UndoStep *us_p,
-                                     int UNUSED(dir),
-                                     bool UNUSED(is_final))
+static void mesh_undosys_step_decode(
+    struct bContext *C, struct Main *bmain, UndoStep *us_p, int UNUSED(dir), bool UNUSED(is_final))
 {
   MeshUndoStep *us = (MeshUndoStep *)us_p;
 
@@ -766,6 +766,7 @@ static void mesh_undosys_step_decode(struct bContext *C,
     }
     BMEditMesh *em = me->edit_mesh;
     undomesh_to_editmesh(&elem->data, em, obedit->data);
+    em->needs_flush_to_id = 1;
     DEG_id_tag_update(&obedit->id, ID_RECALC_GEOMETRY);
   }
 
@@ -775,6 +776,8 @@ static void mesh_undosys_step_decode(struct bContext *C,
 
   Scene *scene = CTX_data_scene(C);
   scene->toolsettings->selectmode = us->elems[0].data.selectmode;
+
+  bmain->is_memfile_undo_flush_needed = true;
 
   WM_event_add_notifier(C, NC_GEOM | ND_DATA, NULL);
 }
@@ -788,10 +791,6 @@ static void mesh_undosys_step_free(UndoStep *us_p)
     undomesh_free_data(&elem->data);
   }
   MEM_freeN(us->elems);
-
-  if (us->id_map != NULL) {
-    BKE_undosys_ID_map_destroy(us->id_map);
-  }
 }
 
 static void mesh_undosys_foreach_ID_ref(UndoStep *us_p,
@@ -803,10 +802,6 @@ static void mesh_undosys_foreach_ID_ref(UndoStep *us_p,
   for (uint i = 0; i < us->elems_len; i++) {
     MeshUndoStep_Elem *elem = &us->elems[i];
     foreach_ID_ref_fn(user_data, ((UndoRefID *)&elem->obedit_ref));
-  }
-
-  if (us->id_map != NULL) {
-    BKE_undosys_ID_map_foreach_ID_ref(us->id_map, foreach_ID_ref_fn, user_data);
   }
 }
 

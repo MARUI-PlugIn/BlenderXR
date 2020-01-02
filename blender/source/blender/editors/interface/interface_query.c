@@ -100,7 +100,7 @@ bool ui_but_is_interactive(const uiBut *but, const bool labeledit)
 }
 
 /* file selectors are exempt from utf-8 checks */
-bool ui_but_is_utf8(const uiBut *but)
+bool UI_but_is_utf8(const uiBut *but)
 {
   if (but->rnaprop) {
     const int subtype = RNA_property_subtype(but->rnaprop);
@@ -137,15 +137,15 @@ bool ui_but_has_array_value(const uiBut *but)
                PROP_COORDS));
 }
 
+static wmOperatorType *g_ot_tool_set_by_id = NULL;
 bool UI_but_is_tool(const uiBut *but)
 {
   /* very evil! */
   if (but->optype != NULL) {
-    static wmOperatorType *ot = NULL;
-    if (ot == NULL) {
-      ot = WM_operatortype_find("WM_OT_tool_set_by_id", false);
+    if (g_ot_tool_set_by_id == NULL) {
+      g_ot_tool_set_by_id = WM_operatortype_find("WM_OT_tool_set_by_id", false);
     }
-    if (but->optype == ot) {
+    if (but->optype == g_ot_tool_set_by_id) {
       return true;
     }
   }
@@ -463,14 +463,33 @@ bool ui_block_is_popup_any(const uiBlock *block)
   return (ui_block_is_menu(block) || ui_block_is_popover(block) || ui_block_is_pie_menu(block));
 }
 
-bool UI_block_is_empty(const uiBlock *block)
+static const uiBut *ui_but_next_non_separator(const uiBut *but)
 {
-  for (const uiBut *but = block->buttons.first; but; but = but->next) {
+  for (; but; but = but->next) {
     if (!ELEM(but->type, UI_BTYPE_SEPR, UI_BTYPE_SEPR_LINE)) {
-      return false;
+      return but;
     }
   }
-  return true;
+  return NULL;
+}
+
+bool UI_block_is_empty_ex(const uiBlock *block, const bool skip_title)
+{
+  const uiBut *but = block->buttons.first;
+  if (skip_title) {
+    /* Skip the first label, since popups often have a title,
+     * we may want to consider the block empty in this case. */
+    but = ui_but_next_non_separator(but);
+    if (but && but->type == UI_BTYPE_LABEL) {
+      but = but->next;
+    }
+  }
+  return (ui_but_next_non_separator(but) == NULL);
+}
+
+bool UI_block_is_empty(const uiBlock *block)
+{
+  return UI_block_is_empty_ex(block, false);
 }
 
 bool UI_block_can_add_separator(const uiBlock *block)
@@ -567,6 +586,43 @@ bool ui_region_contains_rect_px(const ARegion *ar, const rcti *rect_px)
   }
 
   return true;
+}
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Screen (#bScreen) Spatial
+ * \{ */
+
+/** Check if the cursor is over any popups. */
+ARegion *ui_screen_region_find_mouse_over_ex(bScreen *screen, int x, int y)
+{
+  for (ARegion *ar = screen->regionbase.first; ar; ar = ar->next) {
+    rcti winrct;
+
+    ui_region_winrct_get_no_margin(ar, &winrct);
+
+    if (BLI_rcti_isect_pt(&winrct, x, y)) {
+      return ar;
+    }
+  }
+  return NULL;
+}
+
+ARegion *ui_screen_region_find_mouse_over(bScreen *screen, const wmEvent *event)
+{
+  return ui_screen_region_find_mouse_over_ex(screen, event->x, event->y);
+}
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Manage Internal State
+ * \{ */
+
+void ui_interface_tag_script_reload_queries(void)
+{
+  g_ot_tool_set_by_id = NULL;
 }
 
 /** \} */

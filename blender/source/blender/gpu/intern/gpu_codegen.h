@@ -33,8 +33,8 @@ struct GPUNode;
 struct GPUOutput;
 struct GPUShader;
 struct GPUVertAttrLayers;
+struct GSet;
 struct ListBase;
-struct PreviewImage;
 
 /* Pass Generation
  * - Takes a list of nodes and a desired output, and makes a pass. This
@@ -207,5 +207,7 @@ struct GPUTexture **gpu_material_ramp_texture_row_set(GPUMaterial *mat,
                                                       int size,
                                                       float *pixels,
                                                       float *row);
+
+struct GSet *gpu_material_used_libraries(struct GPUMaterial *material);
 
 #endif

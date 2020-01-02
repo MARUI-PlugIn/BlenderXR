@@ -252,7 +252,7 @@ static void rna_Gizmo_update_redraw(Main *UNUSED(bmain), Scene *UNUSED(scene), P
 static wmGizmo *rna_GizmoProperties_find_operator(PointerRNA *ptr)
 {
 #  if 0
-  wmWindowManager *wm = ptr->id.data;
+  wmWindowManager *wm = (wmWindowManager *)ptr->owner_id;
 #  endif
 
   /* We could try workaruond this lookup, but not trivial. */
@@ -870,9 +870,10 @@ static StructRNA *rna_GizmoGroup_register(Main *bmain,
 
   /* create a new gizmogroup type */
   dummywgt.ext.srna = RNA_def_struct_ptr(&BLENDER_RNA, dummywgt.idname, &RNA_GizmoGroup);
-  RNA_def_struct_flag(
-      dummywgt.ext.srna,
-      STRUCT_NO_IDPROPERTIES); /* gizmogroup properties are registered separately */
+
+  /* Gizmo group properties are registered separately. */
+  RNA_def_struct_flag(dummywgt.ext.srna, STRUCT_NO_IDPROPERTIES);
+
   dummywgt.ext.data = data;
   dummywgt.ext.call = call;
   dummywgt.ext.free = free;

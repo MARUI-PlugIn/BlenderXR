@@ -83,6 +83,7 @@ void DRW_globals_update(void)
   UI_GetThemeColor4fv(TH_VNORMAL, gb->colorVNormal);
   UI_GetThemeColor4fv(TH_LNORMAL, gb->colorLNormal);
   UI_GetThemeColor4fv(TH_FACE_DOT, gb->colorFaceDot);
+  UI_GetThemeColor4fv(TH_SKIN_ROOT, gb->colorSkinRoot);
   UI_GetThemeColor4fv(TH_BACK, gb->colorBackground);
 
   /* Custom median color to slightly affect the edit mesh colors. */
@@ -243,6 +244,7 @@ extern char datatoc_gpu_shader_point_varying_color_frag_glsl[];
 
 extern char datatoc_object_mball_handles_vert_glsl[];
 extern char datatoc_object_empty_axes_vert_glsl[];
+extern char datatoc_object_color_axes_vert_glsl[];
 
 typedef struct COMMON_Shaders {
   struct GPUShader *shape_outline;
@@ -262,6 +264,7 @@ typedef struct COMMON_Shaders {
   struct GPUShader *volume_velocity_needle_sh;
   struct GPUShader *volume_velocity_sh;
   struct GPUShader *empty_axes_sh;
+  struct GPUShader *color_axes_sh;
 
   struct GPUShader *mball_handles;
 } COMMON_Shaders;
@@ -275,7 +278,6 @@ static struct {
   struct GPUVertFormat *instance_scaled;
   struct GPUVertFormat *instance_sized;
   struct GPUVertFormat *instance_outline;
-  struct GPUVertFormat *instance;
   struct GPUVertFormat *instance_camera;
   struct GPUVertFormat *instance_distance_lines;
   struct GPUVertFormat *instance_spot;
@@ -294,13 +296,13 @@ static struct {
 void DRW_globals_free(void)
 {
   struct GPUVertFormat **format = &g_formats.instance_screenspace;
-  for (int i = 0; i < sizeof(g_formats) / sizeof(void *); ++i, ++format) {
+  for (int i = 0; i < sizeof(g_formats) / sizeof(void *); i++, format++) {
     MEM_SAFE_FREE(*format);
   }
 
   for (int j = 0; j < GPU_SHADER_CFG_LEN; j++) {
     struct GPUShader **shader = &g_shaders[j].shape_outline;
-    for (int i = 0; i < sizeof(g_shaders[j]) / sizeof(void *); ++i, ++shader) {
+    for (int i = 0; i < sizeof(g_shaders[j]) / sizeof(void *); i++, shader++) {
       DRW_SHADER_FREE_SAFE(*shader);
     }
   }
@@ -546,6 +548,37 @@ struct DRWCallBuffer *buffer_instance_empty_axes(DRWPass *pass,
   if (sh_cfg == GPU_SHADER_CFG_CLIPPED) {
     DRW_shgroup_state_enable(grp, DRW_STATE_CLIP_PLANES);
   }
+  return DRW_shgroup_call_buffer_instance(grp, g_formats.instance_sized, geom);
+}
+
+struct DRWCallBuffer *buffer_instance_color_axes(DRWPass *pass,
+                                                 struct GPUBatch *geom,
+                                                 DRWShadingGroup **r_grp,
+                                                 eGPUShaderConfig sh_cfg)
+{
+  COMMON_Shaders *sh_data = &g_shaders[sh_cfg];
+  if (sh_data->color_axes_sh == NULL) {
+    const GPUShaderConfigData *sh_cfg_data = &GPU_shader_cfg_data[sh_cfg];
+    sh_data->color_axes_sh = GPU_shader_create_from_arrays({
+        .vert = (const char *[]){sh_cfg_data->lib, datatoc_object_color_axes_vert_glsl, NULL},
+        .frag = (const char *[]){datatoc_gpu_shader_flat_color_frag_glsl, NULL},
+        .defs = (const char *[]){sh_cfg_data->def, NULL},
+    });
+  }
+
+  DRW_shgroup_instance_format(g_formats.instance_sized,
+                              {
+                                  {"color", DRW_ATTR_FLOAT, 3},
+                                  {"size", DRW_ATTR_FLOAT, 1},
+                                  {"InstanceModelMatrix", DRW_ATTR_FLOAT, 16},
+                              });
+
+  DRWShadingGroup *grp = DRW_shgroup_create(sh_data->color_axes_sh, pass);
+  DRW_shgroup_uniform_vec3(grp, "screenVecs[0]", DRW_viewport_screenvecs_get(), 2);
+  if (sh_cfg == GPU_SHADER_CFG_CLIPPED) {
+    DRW_shgroup_state_enable(grp, DRW_STATE_CLIP_PLANES);
+  }
+  *r_grp = grp;
   return DRW_shgroup_call_buffer_instance(grp, g_formats.instance_sized, geom);
 }
 
@@ -939,7 +972,7 @@ struct DRWCallBuffer *buffer_instance_bone_stick(DRWPass *pass, eGPUShaderConfig
       {
           {"boneStart", DRW_ATTR_FLOAT, 3},
           {"boneEnd", DRW_ATTR_FLOAT, 3},
-          {"wireColor", DRW_ATTR_FLOAT, 4}, /* TODO port theses to uchar color */
+          {"wireColor", DRW_ATTR_FLOAT, 4}, /* TODO port these to uchar color */
           {"boneColor", DRW_ATTR_FLOAT, 4},
           {"headColor", DRW_ATTR_FLOAT, 4},
           {"tailColor", DRW_ATTR_FLOAT, 4},
@@ -1062,7 +1095,7 @@ struct GPUShader *volume_velocity_shader_get(bool use_needle)
           NULL,
           datatoc_gpu_shader_flat_color_frag_glsl,
           datatoc_common_view_lib_glsl,
-          "#define USE_NEEDLE");
+          "#define USE_NEEDLE\n");
     }
     return sh_data->volume_velocity_needle_sh;
   }

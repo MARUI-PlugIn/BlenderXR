@@ -190,8 +190,8 @@ def copy_bone(obj, bone_name, assign_name=''):
         edit_bone_2.roll = edit_bone_1.roll
 
         edit_bone_2.use_inherit_rotation = edit_bone_1.use_inherit_rotation
-        edit_bone_2.use_inherit_scale = edit_bone_1.use_inherit_scale
         edit_bone_2.use_local_location = edit_bone_1.use_local_location
+        edit_bone_2.inherit_scale = edit_bone_1.inherit_scale
 
         edit_bone_2.use_deform = edit_bone_1.use_deform
         edit_bone_2.bbone_segments = edit_bone_1.bbone_segments
@@ -354,7 +354,7 @@ def obj_to_bone(obj, rig, bone_name):
 
 def create_circle_polygon(number_verts, axis, radius=1.0, head_tail=0.0):
     """ Creates a basic circle around of an axis selected.
-        number_verts: number of vertices of the poligon
+        number_verts: number of vertices of the polygon
         axis: axis normal to the circle
         radius: the radius of the circle
         head_tail: where along the length of the bone the circle is (0.0=head, 1.0=tail)
@@ -395,7 +395,7 @@ def create_widget(rig, bone_name, bone_transform_name=None):
 
     obj_name = WGT_PREFIX + bone_name
     scene = bpy.context.scene
-    collection = bpy.context.collection
+    collection = ensure_widget_collection(bpy.context)
 
     # Check if it already exists in the scene
     if obj_name in scene.objects:

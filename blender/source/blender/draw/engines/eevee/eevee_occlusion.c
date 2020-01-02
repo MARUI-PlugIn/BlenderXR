@@ -33,6 +33,7 @@
 #include "eevee_private.h"
 
 #include "GPU_extensions.h"
+#include "GPU_platform.h"
 #include "GPU_state.h"
 
 static struct {
@@ -40,7 +41,6 @@ static struct {
   struct GPUShader *gtao_sh;
   struct GPUShader *gtao_layer_sh;
   struct GPUShader *gtao_debug_sh;
-  struct GPUTexture *src_depth;
 
   struct GPUTexture *dummy_horizon_tx;
 } e_data = {NULL}; /* Engine data */
@@ -146,8 +146,8 @@ void EEVEE_occlusion_output_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata
     DefaultTextureList *dtxl = DRW_viewport_texture_list_get();
     float clear[4] = {0.0f, 0.0f, 0.0f, 0.0f};
 
-    DRW_texture_ensure_fullscreen_2d(
-        &txl->ao_accum, GPU_R32F, 0); /* Should be enough precision for many samples. */
+    /* Should be enough precision for many samples. */
+    DRW_texture_ensure_fullscreen_2d(&txl->ao_accum, GPU_R32F, 0);
 
     GPU_framebuffer_ensure_config(&fbl->ao_accum_fb,
                                   {GPU_ATTACHMENT_NONE, GPU_ATTACHMENT_TEXTURE(txl->ao_accum)});

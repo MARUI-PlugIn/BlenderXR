@@ -1705,7 +1705,7 @@ static void ANIM_OT_channels_ungroup(wmOperatorType *ot)
 
 /* ******************** Delete Channel Operator *********************** */
 
-static void update_dependencies_on_delete(bAnimListElem *ale)
+static void tag_update_animation_element(bAnimListElem *ale)
 {
   ID *id = ale->id;
   AnimData *adt = BKE_animdata_from_id(id);
@@ -1801,7 +1801,7 @@ static int animchannels_delete_exec(bContext *C, wmOperator *UNUSED(op))
 
         /* try to free F-Curve */
         ANIM_fcurve_delete_from_animdata(&ac, adt, fcu);
-        update_dependencies_on_delete(ale);
+        tag_update_animation_element(ale);
         break;
       }
       case ANIMTYPE_NLACURVE: {
@@ -1823,7 +1823,7 @@ static int animchannels_delete_exec(bContext *C, wmOperator *UNUSED(op))
         /* unlink and free the F-Curve */
         BLI_remlink(&strip->fcurves, fcu);
         free_fcurve(fcu);
-        update_dependencies_on_delete(ale);
+        tag_update_animation_element(ale);
         break;
       }
       case ANIMTYPE_GPLAYER: {
@@ -1967,6 +1967,7 @@ static void setflag_anim_channels(bAnimContext *ac,
 
     /* set the setting in the appropriate way */
     ANIM_channel_setting_set(ac, ale, setting, mode);
+    tag_update_animation_element(ale);
 
     /* if flush status... */
     if (flush) {
@@ -3113,6 +3114,7 @@ static int mouse_anim_channels(bContext *C, bAnimContext *ac, int channel_index,
         ANIM_set_active_channel(ac, ac->data, ac->datatype, filter, gpl, ANIMTYPE_GPLAYER);
         /* update other layer status */
         BKE_gpencil_layer_setactive(gpd, gpl);
+        BKE_gpencil_layer_autolock_set(gpd, false);
       }
 
       /* Grease Pencil updates */
@@ -3337,7 +3339,7 @@ static void ANIM_OT_channel_select_keys(wmOperatorType *ot)
   PropertyRNA *prop;
 
   /* identifiers */
-  ot->name = "Select Channel keyframes";
+  ot->name = "Select Channel Keyframes";
   ot->idname = "ANIM_OT_channel_select_keys";
   ot->description = "Select all keyframes of channel under mouse";
 

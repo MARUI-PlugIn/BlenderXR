@@ -31,6 +31,7 @@
 #include "BLI_blenlib.h"
 #include "BLI_utildefines.h"
 #include "BLI_math_base.h"
+#include "BLI_math_vector.h"
 
 #include "BKE_context.h"
 
@@ -255,13 +256,13 @@ static int view_pan_invoke(bContext *C, wmOperator *op, const wmEvent *event)
   RNA_int_set(op->ptr, "deltay", 0);
 
   if (v2d->keepofs & V2D_LOCKOFS_X) {
-    WM_cursor_modal_set(window, BC_NS_SCROLLCURSOR);
+    WM_cursor_modal_set(window, WM_CURSOR_NS_SCROLL);
   }
   else if (v2d->keepofs & V2D_LOCKOFS_Y) {
-    WM_cursor_modal_set(window, BC_EW_SCROLLCURSOR);
+    WM_cursor_modal_set(window, WM_CURSOR_EW_SCROLL);
   }
   else {
-    WM_cursor_modal_set(window, BC_NSEW_SCROLLCURSOR);
+    WM_cursor_modal_set(window, WM_CURSOR_NSEW_SCROLL);
   }
 
   /* add temp handler */
@@ -939,8 +940,8 @@ static void view_zoomdrag_apply(bContext *C, wmOperator *op)
   const bool zoom_to_pos = use_cursor_init && (U.uiflag & USER_ZOOM_TO_MOUSEPOS);
 
   /* get amount to move view by */
-  dx = RNA_float_get(op->ptr, "deltax");
-  dy = RNA_float_get(op->ptr, "deltay");
+  dx = RNA_float_get(op->ptr, "deltax") / U.pixelsize;
+  dy = RNA_float_get(op->ptr, "deltay") / U.pixelsize;
 
   if (U.uiflag & USER_ZOOM_INVERT) {
     dx *= -1;
@@ -1112,13 +1113,13 @@ static int view_zoomdrag_invoke(bContext *C, wmOperator *op, const wmEvent *even
   }
 
   if (v2d->keepofs & V2D_LOCKOFS_X) {
-    WM_cursor_modal_set(window, BC_NS_SCROLLCURSOR);
+    WM_cursor_modal_set(window, WM_CURSOR_NS_SCROLL);
   }
   else if (v2d->keepofs & V2D_LOCKOFS_Y) {
-    WM_cursor_modal_set(window, BC_EW_SCROLLCURSOR);
+    WM_cursor_modal_set(window, WM_CURSOR_EW_SCROLL);
   }
   else {
-    WM_cursor_modal_set(window, BC_NSEW_SCROLLCURSOR);
+    WM_cursor_modal_set(window, WM_CURSOR_NSEW_SCROLL);
   }
 
   /* add temp handler */
@@ -1146,33 +1147,49 @@ static int view_zoomdrag_modal(bContext *C, wmOperator *op, const wmEvent *event
   }
   else if (event->type == MOUSEMOVE) {
     float dx, dy;
+    float zoomfac = 0.01f;
+
+    /* some view2d's (graph) don't have min/max zoom, or extreme ones */
+    if (v2d->maxzoom > 0.0f) {
+      zoomfac = clamp_f(0.001f * v2d->maxzoom, 0.001f, 0.01f);
+    }
 
     /* calculate new delta transform, based on zooming mode */
     if (U.viewzoom == USER_ZOOM_SCALE) {
       /* 'scale' zooming */
       float dist;
+      float len_old[2];
+      float len_new[2];
 
       /* x-axis transform */
       dist = BLI_rcti_size_x(&v2d->mask) / 2.0f;
-      dx = 1.0f - (fabsf(vzd->lastx - vzd->ar->winrct.xmin - dist) + 2.0f) /
-                      (fabsf(event->mval[0] - dist) + 2.0f);
-      dx *= 0.5f * BLI_rctf_size_x(&v2d->cur);
+      len_old[0] = fabsf(vzd->lastx - vzd->ar->winrct.xmin - dist);
+      len_new[0] = fabsf(event->x - vzd->ar->winrct.xmin - dist);
+
+      len_old[0] *= zoomfac * BLI_rctf_size_x(&v2d->cur);
+      len_new[0] *= zoomfac * BLI_rctf_size_x(&v2d->cur);
 
       /* y-axis transform */
       dist = BLI_rcti_size_y(&v2d->mask) / 2.0f;
-      dy = 1.0f - (fabsf(vzd->lasty - vzd->ar->winrct.ymin - dist) + 2.0f) /
-                      (fabsf(event->mval[1] - dist) + 2.0f);
-      dy *= 0.5f * BLI_rctf_size_y(&v2d->cur);
+      len_old[1] = fabsf(vzd->lasty - vzd->ar->winrct.ymin - dist);
+      len_new[1] = fabsf(event->y - vzd->ar->winrct.ymin - dist);
+
+      len_old[1] *= zoomfac * BLI_rctf_size_y(&v2d->cur);
+      len_new[1] *= zoomfac * BLI_rctf_size_y(&v2d->cur);
+
+      /* Calculate distance */
+      if (v2d->keepzoom & V2D_KEEPASPECT) {
+        dist = len_v2(len_new) - len_v2(len_old);
+        dx = dy = dist;
+      }
+      else {
+        dx = len_new[0] - len_old[0];
+        dy = len_new[1] - len_old[1];
+      }
     }
     else {
       /* 'continuous' or 'dolly' */
-      float fac, zoomfac = 0.01f;
-
-      /* some view2d's (graph) don't have min/max zoom, or extreme ones */
-      if (v2d->maxzoom > 0.0f) {
-        zoomfac = clamp_f(0.001f * v2d->maxzoom, 0.001f, 0.01f);
-      }
-
+      float fac;
       /* x-axis transform */
       fac = zoomfac * (event->x - vzd->lastx);
       dx = fac * BLI_rctf_size_x(&v2d->cur);
@@ -1180,6 +1197,18 @@ static int view_zoomdrag_modal(bContext *C, wmOperator *op, const wmEvent *event
       /* y-axis transform */
       fac = zoomfac * (event->y - vzd->lasty);
       dy = fac * BLI_rctf_size_y(&v2d->cur);
+
+      /* Only respect user setting zoom axis if the view does not have any zoom restrictions
+       * any will be scaled uniformly */
+      if ((v2d->keepzoom & V2D_LOCKZOOM_X) == 0 && (v2d->keepzoom & V2D_LOCKZOOM_Y) == 0 &&
+          (v2d->keepzoom & V2D_KEEPASPECT)) {
+        if (U.uiflag & USER_ZOOM_HORIZ) {
+          dy = 0;
+        }
+        else {
+          dx = 0;
+        }
+      }
     }
 
     /* support zoom to always zoom entirely - the v2d code uses portrait or
@@ -1815,7 +1844,7 @@ static void scroller_activate_init(bContext *C,
    */
   scrollers = UI_view2d_scrollers_calc(v2d, NULL);
 
-  /* use a union of 'cur' & 'tot' incase the current view is far outside 'tot'. In this cases
+  /* Use a union of 'cur' & 'tot' in case the current view is far outside 'tot'. In this cases
    * moving the scroll bars has far too little effect and the view can get stuck T31476. */
   tot_cur_union = v2d->tot;
   BLI_rctf_union(&tot_cur_union, &v2d->cur);

@@ -258,7 +258,7 @@ static float _final_mass(Object *ob, BodyPoint *bp)
 /* just an ID here to reduce the prob for killing objects
  * ob->sumohandle points to we should not kill :)
  */
-static const int CCD_SAVETY = 190561;
+static const int CCD_SAFETY = 190561;
 
 typedef struct ccdf_minmax {
   float minx, miny, minz, maxx, maxy, maxz;
@@ -269,7 +269,7 @@ typedef struct ccd_Mesh {
   const MVert *mvert;
   const MVert *mprevvert;
   const MVertTri *tri;
-  int savety;
+  int safety;
   ccdf_minmax *mima;
   /* Axis Aligned Bounding Box AABB */
   float bbmin[3];
@@ -298,7 +298,7 @@ static ccd_Mesh *ccd_mesh_make(Object *ob)
   pccd_M = MEM_mallocN(sizeof(ccd_Mesh), "ccd_Mesh");
   pccd_M->mvert_num = cmd->mvert_num;
   pccd_M->tri_num = cmd->tri_num;
-  pccd_M->savety = CCD_SAVETY;
+  pccd_M->safety = CCD_SAFETY;
   pccd_M->bbmin[0] = pccd_M->bbmin[1] = pccd_M->bbmin[2] = 1e30f;
   pccd_M->bbmax[0] = pccd_M->bbmax[1] = pccd_M->bbmax[2] = -1e30f;
   pccd_M->mprevvert = NULL;
@@ -486,7 +486,8 @@ static void ccd_mesh_update(Object *ob, ccd_Mesh *pccd_M)
 
 static void ccd_mesh_free(ccd_Mesh *ccdm)
 {
-  if (ccdm && (ccdm->savety == CCD_SAVETY)) { /*make sure we're not nuking objects we don't know*/
+  /* Make sure we're not nuking objects we don't know. */
+  if (ccdm && (ccdm->safety == CCD_SAFETY)) {
     MEM_freeN((void *)ccdm->mvert);
     MEM_freeN((void *)ccdm->tri);
     if (ccdm->mprevvert) {
@@ -751,7 +752,7 @@ static void build_bps_springlist(Object *ob)
   int a, b;
 
   if (sb == NULL) {
-    return; /* paranoya check */
+    return; /* paranoia check */
   }
 
   for (a = sb->totpoint, bp = sb->bpoint; a > 0; a--, bp++) {
@@ -781,7 +782,7 @@ static void calculate_collision_balls(Object *ob)
   float min, max, akku;
 
   if (sb == NULL) {
-    return; /* paranoya check */
+    return; /* paranoia check */
   }
 
   for (a = sb->totpoint, bp = sb->bpoint; a > 0; a--, bp++) {
@@ -1048,8 +1049,8 @@ static int sb_detect_aabb_collisionCached(float UNUSED(force[3]),
 
 /* +++ the face external section*/
 static int sb_detect_face_pointCached(float face_v1[3],
-                                      float face_v2[3],
-                                      float face_v3[3],
+                                      const float face_v2[3],
+                                      const float face_v3[3],
                                       float *damp,
                                       float force[3],
                                       struct Object *vertexowner,
@@ -1146,8 +1147,8 @@ static int sb_detect_face_pointCached(float face_v1[3],
 }
 
 static int sb_detect_face_collisionCached(float face_v1[3],
-                                          float face_v2[3],
-                                          float face_v3[3],
+                                          const float face_v2[3],
+                                          const float face_v3[3],
                                           float *damp,
                                           float force[3],
                                           struct Object *vertexowner,
@@ -1325,7 +1326,7 @@ static void scan_for_ext_face_forces(Object *ob, float timenow)
 /* +++ the spring external section*/
 
 static int sb_detect_edge_collisionCached(float edge_v1[3],
-                                          float edge_v2[3],
+                                          const float edge_v2[3],
                                           float *damp,
                                           float force[3],
                                           struct Object *vertexowner,
@@ -1730,8 +1731,8 @@ static int sb_detect_vertex_collisionCached(float opco[3],
           /* switch origin to be nv2*/
           sub_v3_v3v3(edge1, nv1, nv2);
           sub_v3_v3v3(edge2, nv3, nv2);
-          sub_v3_v3v3(
-              dv1, opco, nv2); /* abuse dv1 to have vertex in question at *origin* of triangle */
+          /* Abuse dv1 to have vertex in question at *origin* of triangle. */
+          sub_v3_v3v3(dv1, opco, nv2);
 
           cross_v3_v3v3(d_nvect, edge2, edge1);
           /* n_mag = */ /* UNUSED */ normalize_v3(d_nvect);
@@ -2086,9 +2087,12 @@ static int _softbody_calc_forces_slice_in_a_thread(Scene *scene,
       if (scene->physics_settings.flag & PHYS_GLOBAL_GRAVITY) {
         float gravity[3];
         copy_v3_v3(gravity, scene->physics_settings.gravity);
+
+        /* Individual mass of node here. */
         mul_v3_fl(gravity,
                   sb_grav_force_scale(ob) * _final_mass(ob, bp) *
-                      sb->effector_weights->global_gravity); /* individual mass of node here */
+                      sb->effector_weights->global_gravity);
+
         add_v3_v3(bp->force, gravity);
       }
 
@@ -2098,8 +2102,10 @@ static int _softbody_calc_forces_slice_in_a_thread(Scene *scene,
         float kd;
         float force[3] = {0.0f, 0.0f, 0.0f};
         float speed[3] = {0.0f, 0.0f, 0.0f};
-        float eval_sb_fric_force_scale = sb_fric_force_scale(
-            ob); /* just for calling function once */
+
+        /* just for calling function once */
+        float eval_sb_fric_force_scale = sb_fric_force_scale(ob);
+
         pd_point_from_soft(scene, bp->pos, bp->vec, sb->bpoint - bp, &epoint);
         BKE_effectors_apply(effectors, NULL, sb->effector_weights, &epoint, force, speed);
 
@@ -2699,7 +2705,7 @@ static void mesh_to_softbody(Scene *scene, Object *ob)
 
   for (a = 0; a < me->totvert; a++, bp++) {
     /* get scalar values needed  *per vertex* from vertex group functions,
-     * so we can *paint* them nicly ..
+     * so we can *paint* them nicely ..
      * they are normalized [0.0..1.0] so may be we need amplitude for scale
      * which can be done by caller but still .. i'd like it to go this way
      */
@@ -2742,9 +2748,10 @@ static void mesh_to_softbody(Scene *scene, Object *ob)
       build_bps_springlist(ob); /* scan for springs attached to bodypoints ONCE */
       /* insert *other second order* springs if desired */
       if (sb->secondspring > 0.0000001f) {
-        add_2nd_order_springs(
-            ob, sb->secondspring); /* exploits the first run of build_bps_springlist(ob);*/
-        build_bps_springlist(ob);  /* yes we need to do it again*/
+        /* exploits the first run of build_bps_springlist(ob); */
+        add_2nd_order_springs(ob, sb->secondspring);
+        /* yes we need to do it again. */
+        build_bps_springlist(ob);
       }
       springs_from_mesh(ob); /* write the 'rest'-length of the springs */
       if (ob->softflag & OB_SB_SELF) {
@@ -3322,7 +3329,7 @@ static void softbody_reset(Object *ob, SoftBody *sb, float (*vertexCos)[3], int 
     copy_v3_v3(bp->prevdv, bp->vec);
   }
 
-  /* make a nice clean scratch struc */
+  /* make a nice clean scratch struct */
   free_scratch(sb);   /* clear if any */
   sb_new_scratch(sb); /* make a new */
   sb->scratch->needstobuildcollider = 1;

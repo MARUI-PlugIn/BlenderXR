@@ -33,7 +33,6 @@ extern "C" {
 
 struct ARegion;
 struct Base;
-struct Brush;
 struct CacheFile;
 struct Collection;
 struct Depsgraph;
@@ -59,7 +58,6 @@ struct Text;
 struct ToolSettings;
 struct View3D;
 struct ViewLayer;
-struct ViewRender;
 struct bGPDframe;
 struct bGPDlayer;
 struct bGPdata;
@@ -98,7 +96,7 @@ typedef struct bContextStore {
 
 /* for the context's rna mode enum
  * keep aligned with data_mode_strings in context.c */
-enum eContextObjectMode {
+typedef enum eContextObjectMode {
   CTX_MODE_EDIT_MESH = 0,
   CTX_MODE_EDIT_CURVE,
   CTX_MODE_EDIT_SURFACE,
@@ -117,7 +115,7 @@ enum eContextObjectMode {
   CTX_MODE_EDIT_GPENCIL,
   CTX_MODE_SCULPT_GPENCIL,
   CTX_MODE_WEIGHT_GPENCIL,
-};
+} eContextObjectMode;
 #define CTX_MODE_NUM (CTX_MODE_WEIGHT_GPENCIL + 1)
 
 /* Context */
@@ -137,8 +135,8 @@ void CTX_store_free(bContextStore *store);
 void CTX_store_free_list(ListBase *contexts);
 
 /* need to store if python is initialized or not */
-int CTX_py_init_get(bContext *C);
-void CTX_py_init_set(bContext *C, int value);
+bool CTX_py_init_get(bContext *C);
+void CTX_py_init_set(bContext *C, bool value);
 
 void *CTX_py_dict_get(const bContext *C);
 void CTX_py_dict_set(bContext *C, void *value);
@@ -239,7 +237,7 @@ bool CTX_data_dir(const char *member);
 
 #define CTX_DATA_BEGIN_WITH_ID(C, Type, instance, member, Type_id, instance_id) \
   CTX_DATA_BEGIN (C, Type, instance, member) \
-    Type_id instance_id = ctx_link->ptr.id.data;
+    Type_id instance_id = (Type_id)ctx_link->ptr.owner_id;
 
 int ctx_data_list_count(const bContext *C, int (*func)(const bContext *, ListBase *));
 
@@ -318,7 +316,14 @@ int CTX_data_editable_gpencil_strokes(const bContext *C, ListBase *list);
  * evaluated data points of view.
  *
  * NOTE: Can not be used if access to a fully evaluated datablock is needed. */
-struct Depsgraph *CTX_data_depsgraph(const bContext *C);
+struct Depsgraph *CTX_data_depsgraph_pointer(const bContext *C);
+
+/* Get dependency graph which is expected to be fully evaluated.
+ *
+ * In the release builds it is the same as CTX_data_depsgraph_pointer(). In the debug builds extra
+ * sanity checks are done. Additionally, this provides more semantic meaning to what is exactly
+ * expected to happen. */
+struct Depsgraph *CTX_data_expect_evaluated_depsgraph(const bContext *C);
 
 /* Gets fully updated and evaluated dependency graph.
  *
@@ -326,7 +331,7 @@ struct Depsgraph *CTX_data_depsgraph(const bContext *C);
  *
  * NOTE: Will be expensive if there are relations or objects tagged for update.
  * NOTE: If there are pending updates depsgraph hooks will be invoked. */
-struct Depsgraph *CTX_data_evaluated_depsgraph(const bContext *C);
+struct Depsgraph *CTX_data_ensure_evaluated_depsgraph(const bContext *C);
 
 /* Will Return NULL if depsgraph is not allocated yet.
  * Only used by handful of operators which are run on file load.

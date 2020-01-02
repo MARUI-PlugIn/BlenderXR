@@ -162,6 +162,100 @@ void GPU_indexbuf_add_line_adj_verts(
   GPU_indexbuf_add_generic_vert(builder, v4);
 }
 
+void GPU_indexbuf_set_point_vert(GPUIndexBufBuilder *builder, uint elem, uint v1)
+{
+  BLI_assert(builder->prim_type == GPU_PRIM_POINTS);
+  BLI_assert(elem < builder->max_index_len);
+  builder->data[elem++] = v1;
+  if (builder->index_len < elem) {
+    builder->index_len = elem;
+  }
+}
+
+void GPU_indexbuf_set_line_verts(GPUIndexBufBuilder *builder, uint elem, uint v1, uint v2)
+{
+  BLI_assert(builder->prim_type == GPU_PRIM_LINES);
+  BLI_assert(v1 != v2);
+  BLI_assert(v1 <= builder->max_allowed_index);
+  BLI_assert(v2 <= builder->max_allowed_index);
+  BLI_assert((elem + 1) * 2 <= builder->max_index_len);
+  uint idx = elem * 2;
+  builder->data[idx++] = v1;
+  builder->data[idx++] = v2;
+  if (builder->index_len < idx) {
+    builder->index_len = idx;
+  }
+}
+
+void GPU_indexbuf_set_tri_verts(GPUIndexBufBuilder *builder, uint elem, uint v1, uint v2, uint v3)
+{
+  BLI_assert(builder->prim_type == GPU_PRIM_TRIS);
+  BLI_assert(v1 != v2 && v2 != v3 && v3 != v1);
+  BLI_assert(v1 <= builder->max_allowed_index);
+  BLI_assert(v2 <= builder->max_allowed_index);
+  BLI_assert(v3 <= builder->max_allowed_index);
+  BLI_assert((elem + 1) * 3 <= builder->max_index_len);
+  uint idx = elem * 3;
+  builder->data[idx++] = v1;
+  builder->data[idx++] = v2;
+  builder->data[idx++] = v3;
+  if (builder->index_len < idx) {
+    builder->index_len = idx;
+  }
+}
+
+void GPU_indexbuf_set_point_restart(GPUIndexBufBuilder *builder, uint elem)
+{
+  BLI_assert(builder->prim_type == GPU_PRIM_POINTS);
+  BLI_assert(elem < builder->max_index_len);
+  builder->data[elem++] = RESTART_INDEX;
+  if (builder->index_len < elem) {
+    builder->index_len = elem;
+  }
+}
+
+void GPU_indexbuf_set_line_restart(GPUIndexBufBuilder *builder, uint elem)
+{
+  BLI_assert(builder->prim_type == GPU_PRIM_LINES);
+  BLI_assert((elem + 1) * 2 <= builder->max_index_len);
+  uint idx = elem * 2;
+  builder->data[idx++] = RESTART_INDEX;
+  builder->data[idx++] = RESTART_INDEX;
+  if (builder->index_len < idx) {
+    builder->index_len = idx;
+  }
+}
+
+void GPU_indexbuf_set_tri_restart(GPUIndexBufBuilder *builder, uint elem)
+{
+  BLI_assert(builder->prim_type == GPU_PRIM_TRIS);
+  BLI_assert((elem + 1) * 3 <= builder->max_index_len);
+  uint idx = elem * 3;
+  builder->data[idx++] = RESTART_INDEX;
+  builder->data[idx++] = RESTART_INDEX;
+  builder->data[idx++] = RESTART_INDEX;
+  if (builder->index_len < idx) {
+    builder->index_len = idx;
+  }
+}
+
+GPUIndexBuf *GPU_indexbuf_create_subrange(GPUIndexBuf *elem_src, uint start, uint length)
+{
+  GPUIndexBuf *elem = MEM_callocN(sizeof(GPUIndexBuf), "GPUIndexBuf");
+  BLI_assert(elem_src && !elem_src->is_subrange);
+  BLI_assert((length == 0) || (start + length <= elem_src->index_len));
+#if GPU_TRACK_INDEX_RANGE
+  elem->index_type = elem_src->index_type;
+  elem->gl_index_type = elem_src->gl_index_type;
+  elem->base_index = elem_src->base_index;
+#endif
+  elem->is_subrange = true;
+  elem->src = elem_src;
+  elem->index_start = start;
+  elem->index_len = length;
+  return elem;
+}
+
 #if GPU_TRACK_INDEX_RANGE
 /* Everything remains 32 bit while building to keep things simple.
  * Find min/max after, then convert to smallest index type possible. */
@@ -173,9 +267,9 @@ static uint index_range(const uint values[], uint value_len, uint *min_out, uint
     *max_out = 0;
     return 0;
   }
-  uint min_value = values[0];
-  uint max_value = values[0];
-  for (uint i = 1; i < value_len; ++i) {
+  uint min_value = RESTART_INDEX;
+  uint max_value = 0;
+  for (uint i = 0; i < value_len; i++) {
     const uint value = values[i];
     if (value == RESTART_INDEX) {
       continue;
@@ -187,9 +281,16 @@ static uint index_range(const uint values[], uint value_len, uint *min_out, uint
       max_value = value;
     }
   }
-  *min_out = min_value;
-  *max_out = max_value;
-  return max_value - min_value;
+  if (min_value == RESTART_INDEX) {
+    *min_out = 0;
+    *max_out = 0;
+    return 0;
+  }
+  else {
+    *min_out = min_value;
+    *max_out = max_value;
+    return max_value - min_value;
+  }
 }
 
 static void squeeze_indices_short(GPUIndexBufBuilder *builder,
@@ -206,13 +307,13 @@ static void squeeze_indices_short(GPUIndexBufBuilder *builder,
 
   if (max_index >= 0xFFFF) {
     elem->base_index = min_index;
-    for (uint i = 0; i < index_len; ++i) {
+    for (uint i = 0; i < index_len; i++) {
       data[i] = (values[i] == RESTART_INDEX) ? 0xFFFF : (GLushort)(values[i] - min_index);
     }
   }
   else {
     elem->base_index = 0;
-    for (uint i = 0; i < index_len; ++i) {
+    for (uint i = 0; i < index_len; i++) {
       data[i] = (GLushort)(values[i]);
     }
   }
@@ -271,6 +372,10 @@ static void indexbuf_upload_data(GPUIndexBuf *elem)
 
 void GPU_indexbuf_use(GPUIndexBuf *elem)
 {
+  if (elem->is_subrange) {
+    GPU_indexbuf_use(elem->src);
+    return;
+  }
   if (elem->ibo_id == 0) {
     elem->ibo_id = GPU_buf_alloc();
   }
@@ -285,7 +390,7 @@ void GPU_indexbuf_discard(GPUIndexBuf *elem)
   if (elem->ibo_id) {
     GPU_buf_free(elem->ibo_id);
   }
-  if (elem->data) {
+  if (!elem->is_subrange && elem->data) {
     MEM_freeN(elem->data);
   }
   MEM_freeN(elem);

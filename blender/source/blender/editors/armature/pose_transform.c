@@ -71,7 +71,15 @@
  * that are bone-parented to armature */
 static void applyarmature_fix_boneparents(const bContext *C, Scene *scene, Object *armob)
 {
-  Depsgraph *depsgraph = CTX_data_depsgraph(C);
+  /* Depsgraph has been ensured to be evaluated at the beginning of the operator.
+   *
+   * Must not evaluate depsgraph here yet, since this will ruin object matrix which we want to
+   * preserve after other changes has been done in the operator.
+   *
+   * TODO(sergey): This seems very similar to `ignore_parent_tx()`, which was now ensured to work
+   * quite reliably. Can we de-duplicate the code? Or at least verify we don't need an extra logic
+   * in this function. */
+  Depsgraph *depsgraph = CTX_data_depsgraph_pointer(C);
   Main *bmain = CTX_data_main(C);
   Object workob, *ob;
 
@@ -233,13 +241,21 @@ static void applyarmature_process_selected_rec(bArmature *arm,
 
       /* Parent effects on the bone transform that have to be removed. */
       BKE_bone_offset_matrix_get(bone, offs_bone);
-      BKE_bone_parent_transform_calc_from_matrices(
-          bone->flag, offs_bone, bone->parent->arm_mat, pchan_eval->parent->pose_mat, &old_bpt);
+      BKE_bone_parent_transform_calc_from_matrices(bone->flag,
+                                                   bone->inherit_scale_mode,
+                                                   offs_bone,
+                                                   bone->parent->arm_mat,
+                                                   pchan_eval->parent->pose_mat,
+                                                   &old_bpt);
 
       /* Applied parent effects that have to be kept, if any. */
       float(*new_parent_pose)[4] = pstate ? pstate->new_rest_mat : bone->parent->arm_mat;
-      BKE_bone_parent_transform_calc_from_matrices(
-          bone->flag, offs_bone, bone->parent->arm_mat, new_parent_pose, &new_bpt);
+      BKE_bone_parent_transform_calc_from_matrices(bone->flag,
+                                                   bone->inherit_scale_mode,
+                                                   offs_bone,
+                                                   bone->parent->arm_mat,
+                                                   new_parent_pose,
+                                                   &new_bpt);
 
       BKE_bone_parent_transform_invert(&old_bpt);
       BKE_bone_parent_transform_combine(&new_bpt, &old_bpt, &invparent);
@@ -275,8 +291,12 @@ static void applyarmature_process_selected_rec(bArmature *arm,
 
     /* Include applied parent effects. */
     BKE_bone_offset_matrix_get(bone, offs_bone);
-    BKE_bone_parent_transform_calc_from_matrices(
-        bone->flag, offs_bone, pstate->bone->arm_mat, pstate->new_rest_mat, &bpt);
+    BKE_bone_parent_transform_calc_from_matrices(bone->flag,
+                                                 bone->inherit_scale_mode,
+                                                 offs_bone,
+                                                 pstate->bone->arm_mat,
+                                                 pstate->new_rest_mat,
+                                                 &bpt);
 
     unit_m4(new_pstate.new_rest_mat);
     BKE_bone_parent_transform_apply(&bpt, new_pstate.new_rest_mat, new_pstate.new_rest_mat);
@@ -298,8 +318,12 @@ static void applyarmature_process_selected_rec(bArmature *arm,
       /* Compute the channel coordinate space matrices for the new rest state. */
       invert_m4_m4(inv_parent_arm, pstate->new_arm_mat);
       mul_m4_m4m4(offs_bone, inv_parent_arm, new_pstate.new_arm_mat);
-      BKE_bone_parent_transform_calc_from_matrices(
-          bone->flag, offs_bone, pstate->new_arm_mat, pstate->new_arm_mat, &bpt);
+      BKE_bone_parent_transform_calc_from_matrices(bone->flag,
+                                                   bone->inherit_scale_mode,
+                                                   offs_bone,
+                                                   pstate->new_arm_mat,
+                                                   pstate->new_arm_mat,
+                                                   &bpt);
 
       /* Re-apply the location to keep the final effect. */
       invert_m4(bpt.loc_mat);
@@ -318,7 +342,7 @@ static void applyarmature_process_selected_rec(bArmature *arm,
 static int apply_armature_pose2bones_exec(bContext *C, wmOperator *op)
 {
   Main *bmain = CTX_data_main(C);
-  Depsgraph *depsgraph = CTX_data_depsgraph(C);
+  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   Scene *scene = CTX_data_scene(C);
   // must be active object, not edit-object
   Object *ob = BKE_object_pose_armature_get(CTX_data_active_object(C));
@@ -422,7 +446,7 @@ void POSE_OT_armature_apply(wmOperatorType *ot)
   ot->ui = apply_armature_pose2bones_ui;
 
   /* flags */
-  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_USE_EVAL_DATA;
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
   RNA_def_boolean(ot->srna,
                   "selected",
@@ -436,7 +460,7 @@ static int pose_visual_transform_apply_exec(bContext *C, wmOperator *UNUSED(op))
 {
   ViewLayer *view_layer = CTX_data_view_layer(C);
   View3D *v3d = CTX_wm_view3d(C);
-  Depsgraph *depsgraph = CTX_data_depsgraph(C);
+  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
 
   FOREACH_OBJECT_IN_MODE_BEGIN (view_layer, v3d, OB_ARMATURE, OB_MODE_POSE, ob) {
     /* loop over all selected pchans
@@ -519,16 +543,14 @@ static void set_pose_keys(Object *ob)
  * \param chan: Bone that pose to paste comes from
  * \param selOnly: Only paste on selected bones
  * \param flip: Flip on x-axis
- * \return Whether the bone that we pasted to if we succeeded
+ * \return The channel of the bone that was pasted to, or NULL if no paste was performed.
  */
 static bPoseChannel *pose_bone_do_paste(Object *ob,
                                         bPoseChannel *chan,
                                         const bool selOnly,
                                         const bool flip)
 {
-  bPoseChannel *pchan;
   char name[MAXBONENAME];
-  short paste_ok;
 
   /* get the name - if flipping, we must flip this first */
   if (flip) {
@@ -543,131 +565,126 @@ static bPoseChannel *pose_bone_do_paste(Object *ob,
    *  2) if selection-masking is on, channel is selected -
    *     only selected bones get pasted on, allowing making both sides symmetrical.
    */
-  pchan = BKE_pose_channel_find_name(ob->pose, name);
-
-  if (selOnly) {
-    paste_ok = ((pchan) && (pchan->bone->flag & BONE_SELECTED));
+  bPoseChannel *pchan = BKE_pose_channel_find_name(ob->pose, name);
+  if (pchan == NULL) {
+    return NULL;
   }
-  else {
-    paste_ok = (pchan != NULL);
+  if (selOnly && (pchan->bone->flag & BONE_SELECTED) == 0) {
+    return NULL;
   }
 
-  /* continue? */
-  if (paste_ok) {
-    /* only loc rot size
-     * - only copies transform info for the pose
-     */
-    copy_v3_v3(pchan->loc, chan->loc);
-    copy_v3_v3(pchan->size, chan->size);
-    pchan->flag = chan->flag;
+  /* only loc rot size
+   * - only copies transform info for the pose
+   */
+  copy_v3_v3(pchan->loc, chan->loc);
+  copy_v3_v3(pchan->size, chan->size);
+  pchan->flag = chan->flag;
 
-    /* check if rotation modes are compatible (i.e. do they need any conversions) */
-    if (pchan->rotmode == chan->rotmode) {
-      /* copy the type of rotation in use */
-      if (pchan->rotmode > 0) {
-        copy_v3_v3(pchan->eul, chan->eul);
-      }
-      else if (pchan->rotmode == ROT_MODE_AXISANGLE) {
-        copy_v3_v3(pchan->rotAxis, chan->rotAxis);
-        pchan->rotAngle = chan->rotAngle;
-      }
-      else {
-        copy_qt_qt(pchan->quat, chan->quat);
-      }
-    }
-    else if (pchan->rotmode > 0) {
-      /* quat/axis-angle to euler */
-      if (chan->rotmode == ROT_MODE_AXISANGLE) {
-        axis_angle_to_eulO(pchan->eul, pchan->rotmode, chan->rotAxis, chan->rotAngle);
-      }
-      else {
-        quat_to_eulO(pchan->eul, pchan->rotmode, chan->quat);
-      }
+  /* check if rotation modes are compatible (i.e. do they need any conversions) */
+  if (pchan->rotmode == chan->rotmode) {
+    /* copy the type of rotation in use */
+    if (pchan->rotmode > 0) {
+      copy_v3_v3(pchan->eul, chan->eul);
     }
     else if (pchan->rotmode == ROT_MODE_AXISANGLE) {
-      /* quat/euler to axis angle */
-      if (chan->rotmode > 0) {
-        eulO_to_axis_angle(pchan->rotAxis, &pchan->rotAngle, chan->eul, chan->rotmode);
-      }
-      else {
-        quat_to_axis_angle(pchan->rotAxis, &pchan->rotAngle, chan->quat);
-      }
+      copy_v3_v3(pchan->rotAxis, chan->rotAxis);
+      pchan->rotAngle = chan->rotAngle;
     }
     else {
-      /* euler/axis-angle to quat */
-      if (chan->rotmode > 0) {
-        eulO_to_quat(pchan->quat, chan->eul, chan->rotmode);
-      }
-      else {
-        axis_angle_to_quat(pchan->quat, chan->rotAxis, pchan->rotAngle);
-      }
+      copy_qt_qt(pchan->quat, chan->quat);
     }
-
-    /* B-Bone posing options should also be included... */
-    pchan->curve_in_x = chan->curve_in_x;
-    pchan->curve_in_y = chan->curve_in_y;
-    pchan->curve_out_x = chan->curve_out_x;
-    pchan->curve_out_y = chan->curve_out_y;
-
-    pchan->roll1 = chan->roll1;
-    pchan->roll2 = chan->roll2;
-    pchan->ease1 = chan->ease1;
-    pchan->ease2 = chan->ease2;
-    pchan->scale_in_x = chan->scale_in_x;
-    pchan->scale_in_y = chan->scale_in_y;
-    pchan->scale_out_x = chan->scale_out_x;
-    pchan->scale_out_y = chan->scale_out_y;
-
-    /* paste flipped pose? */
-    if (flip) {
-      pchan->loc[0] *= -1;
-
-      pchan->curve_in_x *= -1;
-      pchan->curve_out_x *= -1;
-      pchan->roll1 *= -1;  // XXX?
-      pchan->roll2 *= -1;  // XXX?
-
-      /* has to be done as eulers... */
-      if (pchan->rotmode > 0) {
-        pchan->eul[1] *= -1;
-        pchan->eul[2] *= -1;
-      }
-      else if (pchan->rotmode == ROT_MODE_AXISANGLE) {
-        float eul[3];
-
-        axis_angle_to_eulO(eul, EULER_ORDER_DEFAULT, pchan->rotAxis, pchan->rotAngle);
-        eul[1] *= -1;
-        eul[2] *= -1;
-        eulO_to_axis_angle(pchan->rotAxis, &pchan->rotAngle, eul, EULER_ORDER_DEFAULT);
-      }
-      else {
-        float eul[3];
-
-        normalize_qt(pchan->quat);
-        quat_to_eul(eul, pchan->quat);
-        eul[1] *= -1;
-        eul[2] *= -1;
-        eul_to_quat(pchan->quat, eul);
-      }
+  }
+  else if (pchan->rotmode > 0) {
+    /* quat/axis-angle to euler */
+    if (chan->rotmode == ROT_MODE_AXISANGLE) {
+      axis_angle_to_eulO(pchan->eul, pchan->rotmode, chan->rotAxis, chan->rotAngle);
     }
-
-    /* ID properties */
-    if (chan->prop) {
-      if (pchan->prop) {
-        /* if we have existing properties on a bone, just copy over the values of
-         * matching properties (i.e. ones which will have some impact) on to the
-         * target instead of just blinding replacing all [
-         */
-        IDP_SyncGroupValues(pchan->prop, chan->prop);
-      }
-      else {
-        /* no existing properties, so assume that we want copies too? */
-        pchan->prop = IDP_CopyProperty(chan->prop);
-      }
+    else {
+      quat_to_eulO(pchan->eul, pchan->rotmode, chan->quat);
+    }
+  }
+  else if (pchan->rotmode == ROT_MODE_AXISANGLE) {
+    /* quat/euler to axis angle */
+    if (chan->rotmode > 0) {
+      eulO_to_axis_angle(pchan->rotAxis, &pchan->rotAngle, chan->eul, chan->rotmode);
+    }
+    else {
+      quat_to_axis_angle(pchan->rotAxis, &pchan->rotAngle, chan->quat);
+    }
+  }
+  else {
+    /* euler/axis-angle to quat */
+    if (chan->rotmode > 0) {
+      eulO_to_quat(pchan->quat, chan->eul, chan->rotmode);
+    }
+    else {
+      axis_angle_to_quat(pchan->quat, chan->rotAxis, pchan->rotAngle);
     }
   }
 
-  /* return whether paste went ahead */
+  /* B-Bone posing options should also be included... */
+  pchan->curve_in_x = chan->curve_in_x;
+  pchan->curve_in_y = chan->curve_in_y;
+  pchan->curve_out_x = chan->curve_out_x;
+  pchan->curve_out_y = chan->curve_out_y;
+
+  pchan->roll1 = chan->roll1;
+  pchan->roll2 = chan->roll2;
+  pchan->ease1 = chan->ease1;
+  pchan->ease2 = chan->ease2;
+  pchan->scale_in_x = chan->scale_in_x;
+  pchan->scale_in_y = chan->scale_in_y;
+  pchan->scale_out_x = chan->scale_out_x;
+  pchan->scale_out_y = chan->scale_out_y;
+
+  /* paste flipped pose? */
+  if (flip) {
+    pchan->loc[0] *= -1;
+
+    pchan->curve_in_x *= -1;
+    pchan->curve_out_x *= -1;
+    pchan->roll1 *= -1;  // XXX?
+    pchan->roll2 *= -1;  // XXX?
+
+    /* has to be done as eulers... */
+    if (pchan->rotmode > 0) {
+      pchan->eul[1] *= -1;
+      pchan->eul[2] *= -1;
+    }
+    else if (pchan->rotmode == ROT_MODE_AXISANGLE) {
+      float eul[3];
+
+      axis_angle_to_eulO(eul, EULER_ORDER_DEFAULT, pchan->rotAxis, pchan->rotAngle);
+      eul[1] *= -1;
+      eul[2] *= -1;
+      eulO_to_axis_angle(pchan->rotAxis, &pchan->rotAngle, eul, EULER_ORDER_DEFAULT);
+    }
+    else {
+      float eul[3];
+
+      normalize_qt(pchan->quat);
+      quat_to_eul(eul, pchan->quat);
+      eul[1] *= -1;
+      eul[2] *= -1;
+      eul_to_quat(pchan->quat, eul);
+    }
+  }
+
+  /* ID properties */
+  if (chan->prop) {
+    if (pchan->prop) {
+      /* if we have existing properties on a bone, just copy over the values of
+       * matching properties (i.e. ones which will have some impact) on to the
+       * target instead of just blinding replacing all [
+       */
+      IDP_SyncGroupValues(pchan->prop, chan->prop);
+    }
+    else {
+      /* no existing properties, so assume that we want copies too? */
+      pchan->prop = IDP_CopyProperty(chan->prop);
+    }
+  }
+
   return pchan;
 }
 
@@ -807,7 +824,7 @@ static int pose_paste_exec(bContext *C, wmOperator *op)
 
   /* Recalculate paths if any of the bones have paths... */
   if ((ob->pose->avs.path_bakeflag & MOTIONPATH_BAKE_HAS_PATHS)) {
-    ED_pose_recalculate_paths(C, scene, ob, false);
+    ED_pose_recalculate_paths(C, scene, ob, POSE_PATH_CALC_RANGE_FULL);
   }
 
   /* Notifiers for updates, */
@@ -1026,6 +1043,7 @@ static int pose_clear_transform_generic_exec(bContext *C,
                                              void (*clear_func)(bPoseChannel *),
                                              const char default_ksName[])
 {
+  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   Scene *scene = CTX_data_scene(C);
   bool changed_multi = false;
 
@@ -1041,8 +1059,8 @@ static int pose_clear_transform_generic_exec(bContext *C,
   ViewLayer *view_layer = CTX_data_view_layer(C);
   View3D *v3d = CTX_wm_view3d(C);
   FOREACH_OBJECT_IN_MODE_BEGIN (view_layer, v3d, OB_ARMATURE, OB_MODE_POSE, ob_iter) {
-    Object *ob_eval = DEG_get_evaluated_object(
-        CTX_data_depsgraph(C), ob_iter);  // XXX: UGLY HACK (for autokey + clear transforms)
+    // XXX: UGLY HACK (for autokey + clear transforms)
+    Object *ob_eval = DEG_get_evaluated_object(depsgraph, ob_iter);
     ListBase dsources = {NULL, NULL};
     bool changed = false;
 
@@ -1087,7 +1105,7 @@ static int pose_clear_transform_generic_exec(bContext *C,
 
         /* now recalculate paths */
         if ((ob_iter->pose->avs.path_bakeflag & MOTIONPATH_BAKE_HAS_PATHS)) {
-          ED_pose_recalculate_paths(C, scene, ob_iter, false);
+          ED_pose_recalculate_paths(C, scene, ob_iter, POSE_PATH_CALC_RANGE_FULL);
         }
 
         BLI_freelistN(&dsources);
@@ -1217,7 +1235,7 @@ static int pose_clear_user_transforms_exec(bContext *C, wmOperator *op)
       workob.adt = ob->adt;
       workob.pose = dummyPose;
 
-      BKE_animsys_evaluate_animdata(NULL, scene, &workob.id, workob.adt, cframe, ADT_RECALC_ANIM);
+      BKE_animsys_evaluate_animdata(scene, &workob.id, workob.adt, cframe, ADT_RECALC_ANIM, false);
 
       /* copy back values, but on selected bones only  */
       for (pchan = dummyPose->chanbase.first; pchan; pchan = pchan->next) {

@@ -77,22 +77,21 @@ void EEVEE_lookdev_cache_init(EEVEE_Data *vedata,
 
   if (LOOK_DEV_OVERLAY_ENABLED(v3d)) {
     /* Viewport / Spheres size. */
-    rcti rect;
-    ED_region_visible_rect(draw_ctx->ar, &rect);
+    const rcti *rect = ED_region_visible_rect(draw_ctx->ar);
 
     /* Make the viewport width scale the lookdev spheres a bit.
      * Scale between 1000px and 2000px. */
     const float viewport_scale = clamp_f(
-        BLI_rcti_size_x(&rect) / (2000.0f * U.dpi_fac), 0.5f, 1.0f);
+        BLI_rcti_size_x(rect) / (2000.0f * U.dpi_fac), 0.5f, 1.0f);
     const int sphere_size = U.lookdev_sphere_size * U.dpi_fac * viewport_scale;
 
-    if (sphere_size != effects->sphere_size || rect.xmax != effects->anchor[0] ||
-        rect.ymin != effects->anchor[1]) {
+    if (sphere_size != effects->sphere_size || rect->xmax != effects->anchor[0] ||
+        rect->ymin != effects->anchor[1]) {
       /* If sphere size or anchor point moves, reset TAA to avoid ghosting issue.
        * This needs to happen early because we are changing taa_current_sample. */
       effects->sphere_size = sphere_size;
-      effects->anchor[0] = rect.xmax;
-      effects->anchor[1] = rect.ymin;
+      effects->anchor[0] = rect->xmax;
+      effects->anchor[1] = rect->ymin;
       EEVEE_temporal_sampling_reset(vedata);
     }
   }
@@ -154,6 +153,9 @@ void EEVEE_lookdev_cache_init(EEVEE_Data *vedata,
           stl->g_data->studiolight_matrix, 'Z', v3d->shading.studiolight_rot_z);
       DRW_shgroup_uniform_mat3(*grp, "StudioLightMatrix", stl->g_data->studiolight_matrix);
       DRW_shgroup_uniform_float_copy(*grp, "backgroundAlpha", background_alpha);
+      DRW_shgroup_uniform_float(
+          *grp, "studioLightIntensity", &v3d->shading.studiolight_intensity, 1);
+
       DRW_shgroup_uniform_vec3(*grp, "color", background_color, 1);
       DRW_shgroup_call(*grp, geom, NULL);
       if (!pinfo) {
@@ -192,12 +194,14 @@ void EEVEE_lookdev_cache_init(EEVEE_Data *vedata,
       /* Do we need to recalc the lightprobes? */
       if (g_data->studiolight_index != sl->index ||
           g_data->studiolight_rot_z != v3d->shading.studiolight_rot_z ||
+          g_data->studiolight_intensity != v3d->shading.studiolight_intensity ||
           g_data->studiolight_cubemap_res != scene->eevee.gi_cubemap_resolution ||
           g_data->studiolight_glossy_clamp != scene->eevee.gi_glossy_clamp ||
           g_data->studiolight_filter_quality != scene->eevee.gi_filter_quality) {
         stl->lookdev_lightcache->flag |= LIGHTCACHE_UPDATE_WORLD;
         g_data->studiolight_index = sl->index;
         g_data->studiolight_rot_z = v3d->shading.studiolight_rot_z;
+        g_data->studiolight_intensity = v3d->shading.studiolight_intensity;
         g_data->studiolight_cubemap_res = scene->eevee.gi_cubemap_resolution;
         g_data->studiolight_glossy_clamp = scene->eevee.gi_glossy_clamp;
         g_data->studiolight_filter_quality = scene->eevee.gi_filter_quality;

@@ -786,6 +786,8 @@ static bool ui_but_update_from_old_block(const bContext *C,
     oldbut->flag = (oldbut->flag & ~flag_copy) | (but->flag & flag_copy);
     oldbut->drawflag = (oldbut->drawflag & ~drawflag_copy) | (but->drawflag & drawflag_copy);
 
+    SWAP(ListBase, but->extra_op_icons, oldbut->extra_op_icons);
+
     /* copy hardmin for list rows to prevent 'sticking' highlight to mouse position
      * when scrolling without moving mouse (see [#28432]) */
     if (ELEM(oldbut->type, UI_BTYPE_ROW, UI_BTYPE_LISTROW)) {
@@ -908,12 +910,12 @@ void UI_but_execute(const bContext *C, ARegion *ar, uiBut *but)
  * returns false if undo needs to be disabled. */
 static bool ui_but_is_rna_undo(const uiBut *but)
 {
-  if (but->rnapoin.id.data) {
+  if (but->rnapoin.owner_id) {
     /* avoid undo push for buttons who's ID are screen or wm level
      * we could disable undo for buttons with no ID too but may have
      * unforeseen consequences, so best check for ID's we _know_ are not
      * handled by undo - campbell */
-    ID *id = but->rnapoin.id.data;
+    ID *id = but->rnapoin.owner_id;
     if (ID_CHECK_UNDO(id) == false) {
       return false;
     }
@@ -932,12 +934,7 @@ static bool ui_but_is_rna_undo(const uiBut *but)
  * (underline key in menu) */
 static void ui_menu_block_set_keyaccels(uiBlock *block)
 {
-  uiBut *but;
-
   uint menu_key_mask = 0;
-  uchar menu_key;
-  const char *str_pt;
-  int pass;
   int tot_missing = 0;
 
   /* only do it before bounding */
@@ -945,11 +942,11 @@ static void ui_menu_block_set_keyaccels(uiBlock *block)
     return;
   }
 
-  for (pass = 0; pass < 2; pass++) {
+  for (int pass = 0; pass < 2; pass++) {
     /* 2 Passes, on for first letter only, second for any letter if first fails
      * fun first pass on all buttons so first word chars always get first priority */
 
-    for (but = block->buttons.first; but; but = but->next) {
+    for (uiBut *but = block->buttons.first; but; but = but->next) {
       if (!ELEM(but->type,
                 UI_BTYPE_BUT,
                 UI_BTYPE_BUT_MENU,
@@ -960,8 +957,10 @@ static void ui_menu_block_set_keyaccels(uiBlock *block)
         /* pass */
       }
       else if (but->menu_key == '\0') {
-        if (but->str) {
-          for (str_pt = but->str; *str_pt;) {
+        if (but->str && but->str[0]) {
+          const char *str_pt = but->str;
+          uchar menu_key;
+          do {
             menu_key = tolower(*str_pt);
             if ((menu_key >= 'a' && menu_key <= 'z') && !(menu_key_mask & 1 << (menu_key - 'a'))) {
               menu_key_mask |= 1 << (menu_key - 'a');
@@ -982,7 +981,7 @@ static void ui_menu_block_set_keyaccels(uiBlock *block)
               /* just step over every char second pass and find first usable key */
               str_pt++;
             }
-          }
+          } while (*str_pt);
 
           if (*str_pt) {
             but->menu_key = menu_key;
@@ -1229,8 +1228,8 @@ static bool ui_but_event_property_operator_string(const bContext *C,
      */
     char *data_path = NULL;
 
-    if (ptr->id.data) {
-      ID *id = ptr->id.data;
+    if (ptr->owner_id) {
+      ID *id = ptr->owner_id;
 
       if (GS(id->name) == ID_SCR) {
         /* screen/editor property
@@ -1472,6 +1471,187 @@ void ui_but_override_flag(uiBut *but)
   }
 }
 
+/** \name Button Extra Operator Icons
+ *
+ * Extra icons are shown on the right hand side of buttons. They can be clicked to invoke custom
+ * operators.
+ * There are some predefined here, which get added to buttons automatically based on button data
+ * (type, flags, state, etc).
+ * \{ */
+
+/**
+ * Predefined types for generic extra operator icons (uiButExtraOpIcon).
+ */
+typedef enum PredefinedExtraOpIconType {
+  PREDEFINED_EXTRA_OP_ICON_NONE = 1,
+  PREDEFINED_EXTRA_OP_ICON_CLEAR,
+  PREDEFINED_EXTRA_OP_ICON_EYEDROPPER,
+} PredefinedExtraOpIconType;
+
+static PointerRNA *ui_but_extra_operator_icon_add_ptr(uiBut *but,
+                                                      wmOperatorType *optype,
+                                                      short opcontext,
+                                                      int icon)
+{
+  uiButExtraOpIcon *extra_op_icon = MEM_mallocN(sizeof(*extra_op_icon), __func__);
+
+  extra_op_icon->icon = (BIFIconID)icon;
+  extra_op_icon->optype_params = MEM_callocN(sizeof(*extra_op_icon->optype_params),
+                                             "uiButExtraOpIcon.optype_hook");
+  extra_op_icon->optype_params->optype = optype;
+  extra_op_icon->optype_params->opptr = MEM_callocN(sizeof(*extra_op_icon->optype_params->opptr),
+                                                    "uiButExtraOpIcon.optype_hook.opptr");
+  WM_operator_properties_create_ptr(extra_op_icon->optype_params->opptr,
+                                    extra_op_icon->optype_params->optype);
+  extra_op_icon->optype_params->opcontext = opcontext;
+
+  BLI_addtail(&but->extra_op_icons, extra_op_icon);
+
+  return extra_op_icon->optype_params->opptr;
+}
+
+static void ui_but_extra_operator_icon_free(uiButExtraOpIcon *extra_icon)
+{
+  WM_operator_properties_free(extra_icon->optype_params->opptr);
+  MEM_freeN(extra_icon->optype_params->opptr);
+  MEM_freeN(extra_icon->optype_params);
+  MEM_freeN(extra_icon);
+}
+
+void ui_but_extra_operator_icons_free(uiBut *but)
+{
+
+  for (uiButExtraOpIcon *op_icon = but->extra_op_icons.first, *op_icon_next; op_icon;
+       op_icon = op_icon_next) {
+    op_icon_next = op_icon->next;
+    ui_but_extra_operator_icon_free(op_icon);
+  }
+  BLI_listbase_clear(&but->extra_op_icons);
+}
+
+PointerRNA *UI_but_extra_operator_icon_add(uiBut *but,
+                                           const char *opname,
+                                           short opcontext,
+                                           int icon)
+{
+  wmOperatorType *optype = WM_operatortype_find(opname, false);
+
+  if (optype) {
+    return ui_but_extra_operator_icon_add_ptr(but, optype, opcontext, icon);
+  }
+
+  return NULL;
+}
+
+static bool ui_but_icon_extra_is_visible_text_clear(const uiBut *but)
+{
+  BLI_assert(but->type == UI_BTYPE_TEXT);
+  return ((but->flag & UI_BUT_VALUE_CLEAR) && but->drawstr[0]);
+}
+
+static bool ui_but_icon_extra_is_visible_search_unlink(const uiBut *but)
+{
+  BLI_assert(ELEM(but->type, UI_BTYPE_SEARCH_MENU));
+  return ((but->editstr == NULL) && (but->drawstr[0] != '\0') && (but->flag & UI_BUT_VALUE_CLEAR));
+}
+
+static bool ui_but_icon_extra_is_visible_search_eyedropper(uiBut *but)
+{
+  StructRNA *type;
+  short idcode;
+
+  BLI_assert(but->type == UI_BTYPE_SEARCH_MENU && (but->flag & UI_BUT_VALUE_CLEAR));
+
+  if (but->rnaprop == NULL) {
+    return false;
+  }
+
+  type = RNA_property_pointer_type(&but->rnapoin, but->rnaprop);
+  idcode = RNA_type_to_ID_code(type);
+
+  return ((but->editstr == NULL) && (idcode == ID_OB || OB_DATA_SUPPORT_ID(idcode)));
+}
+
+static PredefinedExtraOpIconType ui_but_icon_extra_get(uiBut *but)
+{
+  switch (but->type) {
+    case UI_BTYPE_TEXT:
+      if (ui_but_icon_extra_is_visible_text_clear(but)) {
+        return PREDEFINED_EXTRA_OP_ICON_CLEAR;
+      }
+      break;
+    case UI_BTYPE_SEARCH_MENU:
+      if ((but->flag & UI_BUT_VALUE_CLEAR) == 0) {
+        /* pass */
+      }
+      else if (ui_but_icon_extra_is_visible_search_unlink(but)) {
+        return PREDEFINED_EXTRA_OP_ICON_CLEAR;
+      }
+      else if (ui_but_icon_extra_is_visible_search_eyedropper(but)) {
+        return PREDEFINED_EXTRA_OP_ICON_EYEDROPPER;
+      }
+      break;
+    default:
+      break;
+  }
+
+  return PREDEFINED_EXTRA_OP_ICON_NONE;
+}
+
+/**
+ * While some extra operator icons have to be set explicitly upon button creating, this code adds
+ * some generic ones based on button data. Currently these are mutually exclusive, so there's only
+ * ever one predefined extra icon.
+ */
+static void ui_but_predefined_extra_operator_icons_add(uiBut *but)
+{
+  PredefinedExtraOpIconType extra_icon = ui_but_icon_extra_get(but);
+  wmOperatorType *optype = NULL;
+  BIFIconID icon = ICON_NONE;
+
+  switch (extra_icon) {
+    case PREDEFINED_EXTRA_OP_ICON_EYEDROPPER: {
+      static wmOperatorType *id_eyedropper_ot = NULL;
+      if (!id_eyedropper_ot) {
+        id_eyedropper_ot = WM_operatortype_find("UI_OT_eyedropper_id", false);
+      }
+      BLI_assert(id_eyedropper_ot);
+
+      optype = id_eyedropper_ot;
+      icon = ICON_EYEDROPPER;
+
+      break;
+    }
+    case PREDEFINED_EXTRA_OP_ICON_CLEAR: {
+      static wmOperatorType *clear_ot = NULL;
+      if (!clear_ot) {
+        clear_ot = WM_operatortype_find("UI_OT_button_string_clear", false);
+      }
+      BLI_assert(clear_ot);
+
+      optype = clear_ot;
+      icon = ICON_PANEL_CLOSE;
+
+      break;
+    }
+    default:
+      break;
+  }
+
+  if (optype) {
+    for (uiButExtraOpIcon *op_icon = but->extra_op_icons.first; op_icon; op_icon = op_icon->next) {
+      if ((op_icon->optype_params->optype == optype) && (op_icon->icon == icon)) {
+        /* Don't add the same operator icon twice (happens if button is kept alive while active).
+         */
+        return;
+      }
+    }
+    ui_but_extra_operator_icon_add_ptr(but, optype, WM_OP_INVOKE_DEFAULT, (int)icon);
+  }
+}
+
+/** \} */
+
 void UI_block_update_from_old(const bContext *C, uiBlock *block)
 {
   uiBut *but_old;
@@ -1544,6 +1724,7 @@ void UI_block_end_ex(const bContext *C, uiBlock *block, const int xy[2], int r_x
     if (UI_but_is_decorator(but)) {
       ui_but_anim_decorate_update_from_flag(but);
     }
+    ui_but_predefined_extra_operator_icons_add(but);
   }
 
   /* handle pending stuff */
@@ -1734,7 +1915,7 @@ static void ui_block_message_subscribe(ARegion *ar, struct wmMsgBus *mbus, uiBlo
       if ((but_prev && (but_prev->rnaprop == but->rnaprop) &&
            (but_prev->rnapoin.type == but->rnapoin.type) &&
            (but_prev->rnapoin.data == but->rnapoin.data) &&
-           (but_prev->rnapoin.id.data == but->rnapoin.id.data)) == false) {
+           (but_prev->rnapoin.owner_id == but->rnapoin.owner_id)) == false) {
         /* TODO: could make this into utility function. */
         WM_msg_subscribe_rna(mbus,
                              &but->rnapoin,
@@ -2058,7 +2239,7 @@ bool ui_but_is_compatible(const uiBut *but_a, const uiBut *but_b)
   }
 
   if (but_a->rnaprop) {
-    /* skip 'rnapoin.data', 'rnapoin.id.data'
+    /* skip 'rnapoin.data', 'rnapoin.owner_id'
      * allow different data to have the same props edited at once */
     if (but_a->rnapoin.type != but_b->rnapoin.type) {
       return false;
@@ -2284,69 +2465,6 @@ uiBut *ui_but_drag_multi_edit_get(uiBut *but)
   return but_iter;
 }
 
-/** \name Check to show extra icons
- *
- * Extra icons are shown on the right hand side of buttons.
- * This could (should!) definitely become more generic, but for now this is good enough.
- * \{ */
-
-static bool ui_but_icon_extra_is_visible_text_clear(const uiBut *but)
-{
-  BLI_assert(but->type == UI_BTYPE_TEXT);
-  return ((but->flag & UI_BUT_VALUE_CLEAR) && but->drawstr[0]);
-}
-
-static bool ui_but_icon_extra_is_visible_search_unlink(const uiBut *but)
-{
-  BLI_assert(ELEM(but->type, UI_BTYPE_SEARCH_MENU));
-  return ((but->editstr == NULL) && (but->drawstr[0] != '\0') && (but->flag & UI_BUT_VALUE_CLEAR));
-}
-
-static bool ui_but_icon_extra_is_visible_search_eyedropper(uiBut *but)
-{
-  StructRNA *type;
-  short idcode;
-
-  BLI_assert(but->type == UI_BTYPE_SEARCH_MENU && (but->flag & UI_BUT_VALUE_CLEAR));
-
-  if (but->rnaprop == NULL) {
-    return false;
-  }
-
-  type = RNA_property_pointer_type(&but->rnapoin, but->rnaprop);
-  idcode = RNA_type_to_ID_code(type);
-
-  return ((but->editstr == NULL) && (idcode == ID_OB || OB_DATA_SUPPORT_ID(idcode)));
-}
-
-uiButExtraIconType ui_but_icon_extra_get(uiBut *but)
-{
-  switch (but->type) {
-    case UI_BTYPE_TEXT:
-      if (ui_but_icon_extra_is_visible_text_clear(but)) {
-        return UI_BUT_ICONEXTRA_CLEAR;
-      }
-      break;
-    case UI_BTYPE_SEARCH_MENU:
-      if ((but->flag & UI_BUT_VALUE_CLEAR) == 0) {
-        /* pass */
-      }
-      else if (ui_but_icon_extra_is_visible_search_unlink(but)) {
-        return UI_BUT_ICONEXTRA_CLEAR;
-      }
-      else if (ui_but_icon_extra_is_visible_search_eyedropper(but)) {
-        return UI_BUT_ICONEXTRA_EYEDROPPER;
-      }
-      break;
-    default:
-      break;
-  }
-
-  return UI_BUT_ICONEXTRA_NONE;
-}
-
-/** \} */
-
 static double ui_get_but_scale_unit(uiBut *but, double value)
 {
   UnitSettings *unit = but->block->unit;
@@ -2482,7 +2600,7 @@ void ui_but_string_get_ex(uiBut *but,
 
       /* uiBut.custom_data points to data this tab represents (e.g. workspace).
        * uiBut.rnapoin/prop store an active value (e.g. active workspace). */
-      RNA_pointer_create(but->rnapoin.id.data, ptr_type, but->custom_data, &ptr);
+      RNA_pointer_create(but->rnapoin.owner_id, ptr_type, but->custom_data, &ptr);
       buf = RNA_struct_name_get_alloc(&ptr, str, maxlen, &buf_len);
     }
     else if (type == PROP_STRING) {
@@ -2506,13 +2624,13 @@ void ui_but_string_get_ex(uiBut *but,
       BLI_assert(0);
     }
 
-    if (!buf) {
+    if (buf == NULL) {
       str[0] = '\0';
     }
-    else if (buf && buf != str) {
+    else if (buf != str) {
       BLI_assert(maxlen <= buf_len + 1);
       /* string was too long, we have to truncate */
-      if (ui_but_is_utf8(but)) {
+      if (UI_but_is_utf8(but)) {
         BLI_strncpy_utf8(str, buf, maxlen);
       }
       else {
@@ -2556,8 +2674,8 @@ void ui_but_string_get_ex(uiBut *but,
         }
       }
       else {
+        const int int_digits_num = integer_digits_f(value);
         if (use_exp_float) {
-          const int int_digits_num = integer_digits_f(value);
           if (int_digits_num < -6 || int_digits_num > 12) {
             BLI_snprintf(str, maxlen, "%.*g", prec, value);
             if (r_use_exp_float) {
@@ -2571,10 +2689,8 @@ void ui_but_string_get_ex(uiBut *but,
           }
         }
         else {
-#if 0 /* TODO, but will likely break some stuff, so better after 2.79 release. */
           prec -= int_digits_num;
           CLAMP(prec, 0, UI_PRECISION_FLOAT_MAX);
-#endif
           BLI_snprintf(str, maxlen, "%.*f", prec, value);
         }
       }
@@ -2827,7 +2943,7 @@ bool ui_but_string_set(bContext *C, uiBut *but, const char *str)
 
       /* uiBut.custom_data points to data this tab represents (e.g. workspace).
        * uiBut.rnapoin/prop store an active value (e.g. active workspace). */
-      RNA_pointer_create(but->rnapoin.id.data, ptr_type, but->custom_data, &ptr);
+      RNA_pointer_create(but->rnapoin.owner_id, ptr_type, but->custom_data, &ptr);
       prop = RNA_struct_name_property(ptr_type);
       if (RNA_property_editable(&ptr, prop)) {
         RNA_property_string_set(&ptr, prop, str);
@@ -2839,7 +2955,7 @@ bool ui_but_string_set(bContext *C, uiBut *but, const char *str)
     if (!but->poin) {
       str = "";
     }
-    else if (ui_but_is_utf8(but)) {
+    else if (UI_but_is_utf8(but)) {
       BLI_strncpy_utf8(but->poin, str, but->hardmax);
     }
     else {
@@ -3092,6 +3208,7 @@ static void ui_but_free(const bContext *C, uiBut *but)
   if (but->dragpoin && (but->dragflag & UI_BUT_DRAGPOIN_FREE)) {
     MEM_freeN(but->dragpoin);
   }
+  ui_but_extra_operator_icons_free(but);
 
   BLI_assert(UI_butstore_is_registered(but->block, but) == false);
 
@@ -3274,7 +3391,7 @@ static void ui_but_build_drawstr_float(uiBut *but, double value)
   if (value == (double)FLT_MAX) {
     STR_CONCAT(but->drawstr, slen, "inf");
   }
-  else if (value == (double)-FLT_MIN) {
+  else if (value == (double)-FLT_MAX) {
     STR_CONCAT(but->drawstr, slen, "-inf");
   }
   else if (subtype == PROP_PERCENTAGE) {
@@ -3589,6 +3706,14 @@ static uiBut *ui_def_but(uiBlock *block,
   if ((type & BUTTYPE) == UI_BTYPE_LABEL) {
     BLI_assert((poin != NULL || min != 0.0f || max != 0.0f || (a1 == 0.0f && a2 != 0.0f) ||
                 (a1 != 0.0f && a1 != 1.0f)) == false);
+  }
+
+  /* Number buttons must have a click-step,
+   * assert instead of correcting the value to ensure the caller knows what they're doing.  */
+  if ((type & BUTTYPE) == UI_BTYPE_NUM) {
+    if (ELEM((type & UI_BUT_POIN_TYPES), UI_BUT_POIN_CHAR, UI_BUT_POIN_SHORT, UI_BUT_POIN_INT)) {
+      BLI_assert((int)a1 > 0);
+    }
   }
 
   if (type & UI_BUT_POIN_TYPES) { /* a pointer is required */
@@ -4247,7 +4372,7 @@ static uiBut *ui_def_but_operator_ptr(uiBlock *block,
     }
   }
 
-  if ((!tip || tip[0] == '\0') && ot && ot->srna) {
+  if ((!tip || tip[0] == '\0') && ot && ot->srna && !ot->get_description) {
     tip = RNA_struct_ui_description(ot->srna);
   }
 
@@ -6347,6 +6472,9 @@ void UI_but_string_info_get(bContext *C, uiBut *but, ...)
       else if (but->tip && but->tip[0]) {
         tmp = BLI_strdup(but->tip);
       }
+      else if (but->optype && but->optype->get_description) {
+        tmp = WM_operatortype_description(C, but->optype, but->opptr);
+      }
       else {
         type = BUT_GET_RNA_TIP; /* Fail-safe solution... */
       }
@@ -6562,4 +6690,9 @@ void UI_exit(void)
 {
   ui_resources_free();
   ui_but_clipboard_free();
+}
+
+void UI_interface_tag_script_reload(void)
+{
+  ui_interface_tag_script_reload_queries();
 }

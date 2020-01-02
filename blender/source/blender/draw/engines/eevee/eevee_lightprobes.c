@@ -51,7 +51,6 @@ static struct {
   struct GPUTexture *planar_pool_placeholder;
   struct GPUTexture *depth_placeholder;
   struct GPUTexture *depth_array_placeholder;
-  struct GPUTexture *cube_face_minmaxz;
 
   struct GPUVertFormat *format_probe_display_cube;
   struct GPUVertFormat *format_probe_display_planar;
@@ -410,7 +409,7 @@ void EEVEE_lightprobes_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedat
     /* Grid Display */
     if (scene_eval->eevee.flag & SCE_EEVEE_SHOW_IRRADIANCE) {
       EEVEE_LightGrid *egrid = lcache->grid_data + 1;
-      for (int p = 1; p < lcache->grid_len; ++p, egrid++) {
+      for (int p = 1; p < lcache->grid_len; p++, egrid++) {
         DRWShadingGroup *shgrp = DRW_shgroup_create(EEVEE_shaders_probe_grid_display_sh_get(),
                                                     psl->probe_display);
 
@@ -471,7 +470,7 @@ static bool eevee_lightprobes_culling_test(Object *ob)
       normalize_v3(tmp[2]);
       mul_v3_fl(tmp[2], probe->distinf);
 
-      for (int v = 0; v < 8; ++v) {
+      for (int v = 0; v < 8; v++) {
         mul_m4_v3(tmp, bbox.vec[v]);
       }
       const DRWView *default_view = DRW_view_default_get();
@@ -845,7 +844,7 @@ static void render_cubemap(void (*callback)(int face, EEVEE_BakeRenderData *user
     }
   }
 
-  for (int i = 0; i < 6; ++i) {
+  for (int i = 0; i < 6; i++) {
     DRW_view_set_active(views[i]);
     callback(i, user_data);
   }
@@ -860,11 +859,11 @@ static void render_reflections(void (*callback)(int face, EEVEE_BakeRenderData *
   DRWView *main_view = stl->effects->taa_view;
   DRWView **views = stl->g_data->planar_views;
   /* Prepare views at the same time for faster culling. */
-  for (int i = 0; i < ref_count; ++i) {
+  for (int i = 0; i < ref_count; i++) {
     lightbake_planar_ensure_view(&planar_data[i], main_view, &views[i]);
   }
 
-  for (int i = 0; i < ref_count; ++i) {
+  for (int i = 0; i < ref_count; i++) {
     DRW_view_set_active(views[i]);
     callback(i, user_data);
   }
@@ -904,7 +903,7 @@ static void lightbake_render_scene_face(int face, EEVEE_BakeRenderData *user_dat
   struct GPUFrameBuffer **face_fb = user_data->face_fb;
 
   /* Be sure that cascaded shadow maps are updated. */
-  EEVEE_draw_shadows(sldata, user_data->vedata, views[face]);
+  EEVEE_shadows_draw(sldata, user_data->vedata, views[face]);
 
   GPU_framebuffer_bind(face_fb[face]);
   GPU_framebuffer_clear_depth(face_fb[face], 1.0f);
@@ -912,11 +911,9 @@ static void lightbake_render_scene_face(int face, EEVEE_BakeRenderData *user_dat
   DRW_draw_pass(psl->depth_pass);
   DRW_draw_pass(psl->depth_pass_cull);
   DRW_draw_pass(psl->probe_background);
-  DRW_draw_pass(psl->material_pass);
-  DRW_draw_pass(psl->material_pass_cull);
+  EEVEE_materials_draw_opaque(sldata, psl);
   DRW_draw_pass(psl->sss_pass); /* Only output standard pass */
   DRW_draw_pass(psl->sss_pass_cull);
-  EEVEE_draw_default_passes(psl);
   DRW_draw_pass(psl->transparent_pass);
 }
 
@@ -964,7 +961,7 @@ static void lightbake_render_scene_reflected(int layer, EEVEE_BakeRenderData *us
   DRW_stats_group_start("Planar Reflection");
 
   /* Be sure that cascaded shadow maps are updated. */
-  EEVEE_draw_shadows(sldata, vedata, stl->g_data->planar_views[layer]);
+  EEVEE_shadows_draw(sldata, vedata, stl->g_data->planar_views[layer]);
 
   GPU_framebuffer_bind(fbl->planarref_fb);
   GPU_framebuffer_clear_depth(fbl->planarref_fb, 1.0);
@@ -987,9 +984,7 @@ static void lightbake_render_scene_reflected(int layer, EEVEE_BakeRenderData *us
   GPU_framebuffer_bind(fbl->planarref_fb);
 
   /* Shading pass */
-  EEVEE_draw_default_passes(psl);
-  DRW_draw_pass(psl->material_pass);
-  DRW_draw_pass(psl->material_pass_cull);
+  EEVEE_materials_draw_opaque(sldata, psl);
   DRW_draw_pass(psl->sss_pass); /* Only output standard pass */
   DRW_draw_pass(psl->sss_pass_cull);
   DRW_draw_pass(psl->refract_pass);
@@ -1213,7 +1208,7 @@ void EEVEE_lightbake_filter_visibility(EEVEE_ViewLayerData *sldata,
   DRW_draw_pass(psl->probe_visibility_compute);
 }
 
-/* Actually a simple downsampling */
+/* Actually a simple down-sampling. */
 static void downsample_planar(void *vedata, int level)
 {
   EEVEE_PassList *psl = ((EEVEE_Data *)vedata)->psl;
@@ -1221,7 +1216,7 @@ static void downsample_planar(void *vedata, int level)
 
   const float *size = DRW_viewport_size_get();
   copy_v2_v2(stl->g_data->planar_texel_size, size);
-  for (int i = 0; i < level - 1; ++i) {
+  for (int i = 0; i < level - 1; i++) {
     stl->g_data->planar_texel_size[0] /= 2.0f;
     stl->g_data->planar_texel_size[1] /= 2.0f;
     min_ff(floorf(stl->g_data->planar_texel_size[0]), 1.0f);
@@ -1275,7 +1270,7 @@ void EEVEE_lightprobes_refresh_planar(EEVEE_ViewLayerData *sldata, EEVEE_Data *v
   /* Rendering happens here! */
   eevee_lightbake_render_scene_to_planars(sldata, vedata);
 
-  /* Make sure no aditionnal visibility check runs after this. */
+  /* Make sure no additional visibility check runs after this. */
   pinfo->vis_data.collection = NULL;
 
   DRW_uniformbuffer_update(sldata->planar_ubo, &sldata->probes->planar_data);

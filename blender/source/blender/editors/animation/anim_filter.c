@@ -412,7 +412,6 @@ bool ANIM_animdata_get_context(const bContext *C, bAnimContext *ac)
   if (scene) {
     ac->markers = ED_context_get_markers(C);
   }
-  ac->depsgraph = CTX_data_depsgraph(C);
   ac->view_layer = CTX_data_view_layer(C);
   ac->obact = (ac->view_layer->basact) ? ac->view_layer->basact->object : NULL;
   ac->sa = sa;
@@ -631,9 +630,8 @@ static bAnimListElem *make_new_animlistelem(void *data,
     /* do specifics */
     switch (datatype) {
       case ANIMTYPE_SUMMARY: {
-        /* nothing to include for now... this is just a dummy wrappy around all the other channels
-         * in the DopeSheet, and gets included at the start of the list
-         */
+        /* Nothing to include for now... this is just a dummy wrapper around
+         * all the other channels in the DopeSheet, and gets included at the start of the list. */
         ale->key_data = NULL;
         ale->datatype = ALE_ALL;
         break;
@@ -1820,7 +1818,7 @@ static size_t animdata_filter_gpencil(bAnimContext *ac,
             !(ads->filterflag & ADS_FILTER_INCL_HIDDEN)) {
           /* Layer visibility - we check both object and base,
            * since these may not be in sync yet. */
-          if ((base->flag & BASE_VISIBLE) == 0) {
+          if ((base->flag & BASE_VISIBLE_DEPSGRAPH) == 0) {
             continue;
           }
 
@@ -1830,13 +1828,13 @@ static size_t animdata_filter_gpencil(bAnimContext *ac,
           }
         }
 
-        /* check selection and object type filters */
-        if ((ads->filterflag & ADS_FILTER_ONLYSEL) &&
-            !((base->flag & BASE_SELECTED) /*|| (base == scene->basact)*/)) {
-          /* only selected should be shown */
-          continue;
+        /* check selection and object type filters only for Object mode */
+        if (ob->mode == OB_MODE_OBJECT) {
+          if ((ads->filterflag & ADS_FILTER_ONLYSEL) && !((base->flag & BASE_SELECTED))) {
+            /* only selected should be shown */
+            continue;
+          }
         }
-
         /* check if object belongs to the filtering group if option to filter
          * objects by the grouped status is on
          * - used to ease the process of doing multiple-character choreographies
@@ -3019,7 +3017,7 @@ static bool animdata_filter_base_is_ok(bDopeSheet *ads, Base *base, int filter_m
    */
   if ((filter_mode & ANIMFILTER_DATA_VISIBLE) && !(ads->filterflag & ADS_FILTER_INCL_HIDDEN)) {
     /* layer visibility - we check both object and base, since these may not be in sync yet */
-    if ((base->flag & BASE_VISIBLE) == 0) {
+    if ((base->flag & BASE_VISIBLE_DEPSGRAPH) == 0) {
       return false;
     }
 

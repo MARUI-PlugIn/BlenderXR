@@ -25,9 +25,6 @@
 #include <string.h>
 
 #ifdef WIN32
-#  if defined(_MSC_VER) && defined(_M_X64)
-#    include <math.h> /* needed for _set_FMA3_enable */
-#  endif
 #  include <windows.h>
 #  include "utfconv.h"
 #endif
@@ -41,7 +38,6 @@
 #include "BLI_args.h"
 #include "BLI_threads.h"
 #include "BLI_utildefines.h"
-#include "BLI_callbacks.h"
 #include "BLI_string.h"
 #include "BLI_system.h"
 
@@ -50,6 +46,7 @@
 #include "BKE_blender.h"
 #include "BKE_brush.h"
 #include "BKE_cachefile.h"
+#include "BKE_callbacks.h"
 #include "BKE_context.h"
 #include "BKE_font.h"
 #include "BKE_global.h"
@@ -237,12 +234,6 @@ int main(int argc,
   _putenv_s("OMP_WAIT_POLICY", "PASSIVE");
 #  endif
 
-  /* FMA3 support in the 2013 CRT is broken on Vista and Windows 7 RTM
-   * (fixed in SP1). Just disable it. */
-#  if defined(_MSC_VER) && defined(_M_X64)
-  _set_FMA3_enable(0);
-#  endif
-
   /* Win32 Unicode Args */
   /* NOTE: cannot use guardedalloc malloc here, as it's not yet initialized
    *       (it depends on the args passed in, which is what we're getting here!)
@@ -366,7 +357,7 @@ int main(int argc,
   BKE_brush_system_init();
   RE_texture_rng_init();
 
-  BLI_callback_global_init();
+  BKE_callback_global_init();
 
   /* first test for background */
 #ifndef WITH_PYTHON_MODULE
@@ -409,8 +400,8 @@ int main(int argc,
   /* background render uses this font too */
   BKE_vfont_builtin_register(datatoc_bfont_pfb, datatoc_bfont_pfb_size);
 
-  /* Initialize ffmpeg if built in, also needed for bg mode if videos are
-   * rendered via ffmpeg */
+  /* Initialize ffmpeg if built in, also needed for background-mode if videos are
+   * rendered via ffmpeg. */
   BKE_sound_init_once();
 
   init_def_material();
@@ -451,7 +442,7 @@ int main(int argc,
       "this is not intended for typical usage\n\n");
 #endif
 
-  CTX_py_init_set(C, 1);
+  CTX_py_init_set(C, true);
   WM_keyconfig_init(C);
 
 #ifdef WITH_FREESTYLE
@@ -505,7 +496,7 @@ int main(int argc,
 #ifdef WITH_PYTHON_MODULE
 void main_python_exit(void)
 {
-  WM_exit_ext((bContext *)evil_C, true);
+  WM_exit_ex((bContext *)evil_C, true);
   evil_C = NULL;
 }
 #endif

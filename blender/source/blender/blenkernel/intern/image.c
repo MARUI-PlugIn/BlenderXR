@@ -55,6 +55,9 @@
 #include "DNA_brush_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
+#include "DNA_light_types.h"
+#include "DNA_world_types.h"
+#include "DNA_defaults.h"
 
 #include "BLI_blenlib.h"
 #include "BLI_math_vector.h"
@@ -294,12 +297,9 @@ static void image_init(Image *ima, short source, short type)
 {
   BLI_assert(MEMCMP_STRUCT_AFTER_IS_ZERO(ima, id));
 
-  ima->ok = IMA_OK;
+  MEMCPY_STRUCT_AFTER(ima, DNA_struct_default_get(Image), id);
 
-  ima->aspx = ima->aspy = 1.0;
-  ima->gen_x = 1024;
-  ima->gen_y = 1024;
-  ima->gen_type = IMA_GENTYPE_GRID;
+  ima->ok = IMA_OK;
 
   ima->source = source;
   ima->type = type;
@@ -316,8 +316,6 @@ static void image_init(Image *ima, short source, short type)
 
   BKE_color_managed_colorspace_settings_init(&ima->colorspace_settings);
   ima->stereo3d_format = MEM_callocN(sizeof(Stereo3dFormat), "Image Stereo Format");
-
-  ima->gpuframenr = INT_MAX;
 }
 
 void BKE_image_init(struct Image *image)
@@ -571,7 +569,7 @@ Image *BKE_image_load_exists_ex(Main *bmain, const char *filepath, bool *r_exist
   char str[FILE_MAX], strtest[FILE_MAX];
 
   STRNCPY(str, filepath);
-  BLI_path_abs(str, BKE_main_blendfile_path_from_global());
+  BLI_path_abs(str, bmain->name);
 
   /* first search an identical filepath */
   for (ima = bmain->images.first; ima; ima = ima->id.next) {
@@ -1863,13 +1861,13 @@ static void stampdata(
   }
 }
 
-/* Will always add prefix. */
 static void stampdata_from_template(StampData *stamp_data,
                                     const Scene *scene,
-                                    const StampData *stamp_data_template)
+                                    const StampData *stamp_data_template,
+                                    bool do_prefix)
 {
   if (scene->r.stamp & R_STAMP_FILENAME) {
-    SNPRINTF(stamp_data->file, "File %s", stamp_data_template->file);
+    SNPRINTF(stamp_data->file, do_prefix ? "File %s" : "%s", stamp_data_template->file);
   }
   else {
     stamp_data->file[0] = '\0';
@@ -1881,67 +1879,71 @@ static void stampdata_from_template(StampData *stamp_data,
     stamp_data->note[0] = '\0';
   }
   if (scene->r.stamp & R_STAMP_DATE) {
-    SNPRINTF(stamp_data->date, "Date %s", stamp_data_template->date);
+    SNPRINTF(stamp_data->date, do_prefix ? "Date %s" : "%s", stamp_data_template->date);
   }
   else {
     stamp_data->date[0] = '\0';
   }
   if (scene->r.stamp & R_STAMP_MARKER) {
-    SNPRINTF(stamp_data->marker, "Marker %s", stamp_data_template->marker);
+    SNPRINTF(stamp_data->marker, do_prefix ? "Marker %s" : "%s", stamp_data_template->marker);
   }
   else {
     stamp_data->marker[0] = '\0';
   }
   if (scene->r.stamp & R_STAMP_TIME) {
-    SNPRINTF(stamp_data->time, "Timecode %s", stamp_data_template->time);
+    SNPRINTF(stamp_data->time, do_prefix ? "Timecode %s" : "%s", stamp_data_template->time);
   }
   else {
     stamp_data->time[0] = '\0';
   }
   if (scene->r.stamp & R_STAMP_FRAME) {
-    SNPRINTF(stamp_data->frame, "Frame %s", stamp_data_template->frame);
+    SNPRINTF(stamp_data->frame, do_prefix ? "Frame %s" : "%s", stamp_data_template->frame);
   }
   else {
     stamp_data->frame[0] = '\0';
   }
   if (scene->r.stamp & R_STAMP_CAMERA) {
-    SNPRINTF(stamp_data->camera, "Camera %s", stamp_data_template->camera);
+    SNPRINTF(stamp_data->camera, do_prefix ? "Camera %s" : "%s", stamp_data_template->camera);
   }
   else {
     stamp_data->camera[0] = '\0';
   }
   if (scene->r.stamp & R_STAMP_CAMERALENS) {
-    SNPRINTF(stamp_data->cameralens, "Lens %s", stamp_data_template->cameralens);
+    SNPRINTF(
+        stamp_data->cameralens, do_prefix ? "Lens %s" : "%s", stamp_data_template->cameralens);
   }
   else {
     stamp_data->cameralens[0] = '\0';
   }
   if (scene->r.stamp & R_STAMP_SCENE) {
-    SNPRINTF(stamp_data->scene, "Scene %s", stamp_data_template->scene);
+    SNPRINTF(stamp_data->scene, do_prefix ? "Scene %s" : "%s", stamp_data_template->scene);
   }
   else {
     stamp_data->scene[0] = '\0';
   }
   if (scene->r.stamp & R_STAMP_SEQSTRIP) {
-    SNPRINTF(stamp_data->strip, "Strip %s", stamp_data_template->strip);
+    SNPRINTF(stamp_data->strip, do_prefix ? "Strip %s" : "%s", stamp_data_template->strip);
   }
   else {
     stamp_data->strip[0] = '\0';
   }
   if (scene->r.stamp & R_STAMP_RENDERTIME) {
-    SNPRINTF(stamp_data->rendertime, "RenderTime %s", stamp_data_template->rendertime);
+    SNPRINTF(stamp_data->rendertime,
+             do_prefix ? "RenderTime %s" : "%s",
+             stamp_data_template->rendertime);
   }
   else {
     stamp_data->rendertime[0] = '\0';
   }
   if (scene->r.stamp & R_STAMP_MEMORY) {
-    SNPRINTF(stamp_data->memory, "Peak Memory %s", stamp_data_template->memory);
+    SNPRINTF(stamp_data->memory, do_prefix ? "Peak Memory %s" : "%s", stamp_data_template->memory);
   }
   else {
     stamp_data->memory[0] = '\0';
   }
   if (scene->r.stamp & R_STAMP_HOSTNAME) {
-    SNPRINTF(stamp_data->hostname, "Hostname %s", stamp_data_template->hostname);
+    SNPRINTF(
+        stamp_data->hostname, do_prefix ? "Hostname %s" : "%s", stamp_data_template->hostname);
   }
   else {
     stamp_data->hostname[0] = '\0';
@@ -1993,11 +1995,12 @@ void BKE_image_stamp_buf(Scene *scene,
   display_device = scene->display_settings.display_device;
   display = IMB_colormanagement_display_get_named(display_device);
 
+  bool do_prefix = (scene->r.stamp & R_STAMP_HIDE_LABELS) == 0;
   if (stamp_data_template == NULL) {
-    stampdata(scene, camera, &stamp_data, (scene->r.stamp & R_STAMP_HIDE_LABELS) == 0, true);
+    stampdata(scene, camera, &stamp_data, do_prefix, true);
   }
   else {
-    stampdata_from_template(&stamp_data, scene, stamp_data_template);
+    stampdata_from_template(&stamp_data, scene, stamp_data_template, do_prefix);
   }
 
   /* TODO, do_versions */
@@ -2766,8 +2769,8 @@ static void do_makepicstring(char *string,
                              int frame,
                              const char imtype,
                              const ImageFormatData *im_format,
-                             const short use_ext,
-                             const short use_frames,
+                             const bool use_ext,
+                             const bool use_frames,
                              const char *suffix)
 {
   if (string == NULL) {
@@ -5307,7 +5310,7 @@ static void image_update_views_format(Image *ima, ImageUser *iuser)
       char str[FILE_MAX];
 
       STRNCPY(str, iv->filepath);
-      BLI_path_abs(str, BKE_main_blendfile_path_from_global());
+      BLI_path_abs(str, ID_BLEND_PATH_FROM_GLOBAL(&ima->id));
 
       /* exists? */
       file = BLI_open(str, O_BINARY | O_RDONLY, 0);

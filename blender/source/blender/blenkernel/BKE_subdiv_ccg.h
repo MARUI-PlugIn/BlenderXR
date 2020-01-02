@@ -100,6 +100,14 @@ typedef struct SubdivToCCGSettings {
   bool need_mask;
 } SubdivToCCGSettings;
 
+typedef struct SubdivCCGCoord {
+  /* Index of the grid within SubdivCCG::grids array. */
+  int grid_index;
+
+  /* Coordinate within the grid. */
+  short x, y;
+} SubdivCCGCoord;
+
 /* This is actually a coarse face, which consists of multiple CCG grids. */
 typedef struct SubdivCCGFace {
   /* Total number of grids in this face.
@@ -114,20 +122,16 @@ typedef struct SubdivCCGFace {
 /* Definition of an edge which is adjacent to at least one of the faces. */
 typedef struct SubdivCCGAdjacentEdge {
   int num_adjacent_faces;
-  /* Indexed by adjacent face index. */
-  SubdivCCGFace **faces;
   /* Indexed by adjacent face index, then by point index on the edge.
-   * points to a grid element. */
-  struct CCGElem ***boundary_elements;
+   * points to a coordinate into the grids. */
+  struct SubdivCCGCoord **boundary_coords;
 } SubdivCCGAdjacentEdge;
 
 /* Definition of a vertex which is adjacent to at least one of the faces. */
 typedef struct SubdivCCGAdjacentVertex {
   int num_adjacent_faces;
-  /* Indexed by adjacent face index. */
-  SubdivCCGFace **faces;
-  /* Indexed by adjacent face index, points to a grid element. */
-  struct CCGElem **corner_elements;
+  /* Indexed by adjacent face index, points to a coordinate in the grids. */
+  struct SubdivCCGCoord *corner_coords;
 } SubdivCCGAdjacentVertex;
 
 /* Representation of subdivision surface which uses CCG grids. */
@@ -143,6 +147,9 @@ typedef struct SubdivCCG {
   /* Resolution of grid. All grids have matching resolution, and resolution
    * is same as ptex created for non-quad polygons. */
   int grid_size;
+  /* Size of a single element of a grid (including coordinate and all the other layers).
+   * Measured in bytes. */
+  int grid_element_size;
   /* Grids represent limit surface, with displacement applied. Grids are
    * corresponding to face-corners of coarse mesh, each grid has
    * grid_size^2 elements.
@@ -158,7 +165,7 @@ typedef struct SubdivCCG {
   struct CCGElem **edges;
   int num_edges;
   /* Loose vertices. Every element corresponds to a loose vertex from a coarse
-   * mesh, every coarse loose vertex corresponds to a single sundivided
+   * mesh, every coarse loose vertex corresponds to a single subdivided
    * element. */
   struct CCGElem *vertices;
   int num_vertices;
@@ -262,6 +269,42 @@ void BKE_subdiv_ccg_topology_counters(const SubdivCCG *subdiv_ccg,
                                       int *r_num_edges,
                                       int *r_num_faces,
                                       int *r_num_loops);
+
+typedef struct SubdivCCGNeighbors {
+  SubdivCCGCoord *coords;
+  int size;
+  int num_duplicates;
+
+  SubdivCCGCoord coords_fixed[256];
+} SubdivCCGNeighbors;
+
+void BKE_subdiv_ccg_print_coord(const char *message, const SubdivCCGCoord *coord);
+bool BKE_subdiv_ccg_check_coord_valid(const SubdivCCG *subdiv_ccg, const SubdivCCGCoord *coord);
+
+/* CCG element neighbors.
+ *
+ * Neighbors are considered:
+ *
+ * - For an inner elements of a grid other elements which are sharing same row or column (4
+ *   neighbor elements in total).
+ *
+ * - For the corner element a single neighboring element on every adjacent edge, single from
+ *   every gird.
+ *
+ * - For the boundary element two neighbor elements on the boundary (from same grid) and one
+ *   element inside of every neighboring grid. */
+
+/* Get actual neighbors of the given coordinate.
+ *
+ * SubdivCCGNeighbors.neighbors must be freed if it is not equal to
+ * SubdivCCGNeighbors.fixed_neighbors.
+ *
+ * If include_duplicates is true, vertices in other grids that match
+ * the current vertex are added at the end of the coords array. */
+void BKE_subdiv_ccg_neighbor_coords_get(const SubdivCCG *subdiv_ccg,
+                                        const SubdivCCGCoord *coord,
+                                        const bool include_duplicates,
+                                        SubdivCCGNeighbors *r_neighbors);
 
 #if WITH_VR
 #ifdef __cplusplus

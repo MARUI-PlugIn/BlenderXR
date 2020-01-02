@@ -31,7 +31,6 @@
 #include "BKE_curve.h"
 #include "BKE_fcurve.h"
 #include "BKE_report.h"
-#include "BKE_layer.h"
 
 #include "DEG_depsgraph.h"
 
@@ -89,8 +88,6 @@ struct StrokeElem {
 };
 
 struct CurveDrawData {
-  Depsgraph *depsgraph;
-
   short init_event_type;
   short curve_type;
 
@@ -122,7 +119,7 @@ struct CurveDrawData {
 
   struct {
     float mouse[2];
-    /* used incase we can't calculate the depth */
+    /* Used in case we can't calculate the depth. */
     float location_world[3];
 
     float location_world_valid[3];
@@ -577,11 +574,10 @@ static bool curve_draw_init(bContext *C, wmOperator *op, bool is_invoke)
   BLI_assert(op->customdata == NULL);
 
   struct CurveDrawData *cdd = MEM_callocN(sizeof(*cdd), __func__);
-
-  cdd->depsgraph = CTX_data_depsgraph(C);
+  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
 
   if (is_invoke) {
-    ED_view3d_viewcontext_init(C, &cdd->vc);
+    ED_view3d_viewcontext_init(C, &cdd->vc, depsgraph);
     if (ELEM(NULL, cdd->vc.ar, cdd->vc.rv3d, cdd->vc.v3d, cdd->vc.win, cdd->vc.scene)) {
       MEM_freeN(cdd);
       BKE_report(op->reports, RPT_ERROR, "Unable to access 3D viewport");
@@ -590,7 +586,7 @@ static bool curve_draw_init(bContext *C, wmOperator *op, bool is_invoke)
   }
   else {
     cdd->vc.bmain = CTX_data_main(C);
-    cdd->vc.depsgraph = CTX_data_depsgraph(C);
+    cdd->vc.depsgraph = depsgraph;
     cdd->vc.scene = CTX_data_scene(C);
     cdd->vc.view_layer = CTX_data_view_layer(C);
     cdd->vc.obedit = CTX_data_edit_object(C);
@@ -1057,7 +1053,7 @@ static int curve_draw_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 
   const bool is_modal = RNA_boolean_get(op->ptr, "wait_for_input");
 
-  /* fallback (incase we can't find the depth on first test) */
+  /* Fallback (in case we can't find the depth on first test). */
   {
     const float mval_fl[2] = {UNPACK2(event->mval)};
     float center[3];
@@ -1068,7 +1064,7 @@ static int curve_draw_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 
   cdd->draw_handle_view = ED_region_draw_cb_activate(
       cdd->vc.ar->type, curve_draw_stroke_3d, op, REGION_DRAW_POST_VIEW);
-  WM_cursor_modal_set(cdd->vc.win, BC_PAINTBRUSHCURSOR);
+  WM_cursor_modal_set(cdd->vc.win, WM_CURSOR_PAINT_BRUSH);
 
   {
     View3D *v3d = cdd->vc.v3d;

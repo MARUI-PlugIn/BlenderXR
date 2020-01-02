@@ -113,7 +113,8 @@ typedef struct BrushGpencilSettings {
   float gradient_f;
   /** factor xy of shape for dots gradients */
   float gradient_s[2];
-  char _pad_2[4];
+  /** Simplify adaptive factor */
+  float simplify_f;
 
   struct CurveMapping *curve_sensitivity;
   struct CurveMapping *curve_strength;
@@ -184,7 +185,33 @@ typedef enum eGP_BrushIcons {
   GP_BRUSH_ICON_ERASE_SOFT = 8,
   GP_BRUSH_ICON_ERASE_HARD = 9,
   GP_BRUSH_ICON_ERASE_STROKE = 10,
+  GP_BRUSH_ICON_AIRBRUSH = 11,
+  GP_BRUSH_ICON_CHISEL = 12,
 } eGP_BrushIcons;
+
+typedef enum eBrushCurvePreset {
+  BRUSH_CURVE_CUSTOM = 0,
+  BRUSH_CURVE_SMOOTH = 1,
+  BRUSH_CURVE_SPHERE = 2,
+  BRUSH_CURVE_ROOT = 3,
+  BRUSH_CURVE_SHARP = 4,
+  BRUSH_CURVE_LIN = 5,
+  BRUSH_CURVE_POW4 = 6,
+  BRUSH_CURVE_INVSQUARE = 7,
+  BRUSH_CURVE_CONSTANT = 8,
+} eBrushCurvePreset;
+
+typedef enum eBrushElasticDeformType {
+  BRUSH_ELASTIC_DEFORM_GRAB = 0,
+  BRUSH_ELASTIC_DEFORM_GRAB_BISCALE = 1,
+  BRUSH_ELASTIC_DEFORM_GRAB_TRISCALE = 2,
+  BRUSH_ELASTIC_DEFORM_SCALE = 3,
+  BRUSH_ELASTIC_DEFORM_TWIST = 4,
+} eBrushElasticDeformType;
+
+typedef enum eAutomasking_flag {
+  BRUSH_AUTOMASKING_TOPOLOGY = (1 << 0),
+} eAutomasking_flag;
 
 typedef struct Brush {
   ID id;
@@ -218,8 +245,9 @@ typedef struct Brush {
   float weight;
   /** Brush diameter. */
   int size;
-  /** General purpose flag. */
+  /** General purpose flags. */
   int flag;
+  int sampling_flag;
   /** Pressure influence for mask. */
   int mask_pressure;
   /** Jitter the position of the brush. */
@@ -256,7 +284,7 @@ typedef struct Brush {
   /** Source for fill tool color gradient application. */
   char gradient_fill_mode;
 
-  char _pad;
+  char _pad[5];
   /** Projection shape (sphere, circle). */
   char falloff_shape;
   float falloff_angle;
@@ -283,11 +311,22 @@ typedef struct Brush {
 
   float crease_pinch_factor;
 
+  float normal_radius_factor;
+
   float plane_trim;
   /** Affectable height of brush (layer height for layer tool, i.e.). */
   float height;
 
   float texture_sample_bias;
+
+  int curve_preset;
+  int automasking_flags;
+
+  int elastic_deform_type;
+  float elastic_deform_volume_preservation;
+
+  /* pose */
+  float pose_offset;
 
   /* overlay */
   int texture_overlay_alpha;
@@ -369,8 +408,8 @@ typedef enum eBrushFlags {
   BRUSH_SIZE_PRESSURE = (1 << 3),
   BRUSH_JITTER_PRESSURE = (1 << 4),
   BRUSH_SPACING_PRESSURE = (1 << 5),
-  BRUSH_FLAG_UNUSED_6 = (1 << 6), /* cleared */
-  BRUSH_FLAG_UNUSED_7 = (1 << 7), /* cleared */
+  BRUSH_ORIGINAL_PLANE = (1 << 6),
+  BRUSH_GRAB_ACTIVE_VERTEX = (1 << 7),
   BRUSH_ANCHORED = (1 << 8),
   BRUSH_DIR_IN = (1 << 9),
   BRUSH_SPACE = (1 << 10),
@@ -380,7 +419,7 @@ typedef enum eBrushFlags {
   BRUSH_LOCK_ALPHA = (1 << 14),
   BRUSH_ORIGINAL_NORMAL = (1 << 15),
   BRUSH_OFFSET_PRESSURE = (1 << 16),
-  BRUSH_FLAG_UNUSED_17 = (1 << 17), /* cleared */
+  BRUSH_SCENE_SPACING = (1 << 17),
   BRUSH_SPACE_ATTEN = (1 << 18),
   BRUSH_ADAPTIVE_SPACE = (1 << 19),
   BRUSH_LOCK_SIZE = (1 << 20),
@@ -396,6 +435,11 @@ typedef enum eBrushFlags {
   BRUSH_ABSOLUTE_JITTER = (1 << 30),
   BRUSH_CURVE = (1u << 31),
 } eBrushFlags;
+
+/* Brush.sampling_flag */
+typedef enum eBrushSamplingFlags {
+  BRUSH_PAINT_ANTIALIASING = (1 << 0),
+} eBrushSamplingFlags;
 
 typedef enum {
   BRUSH_MASK_PRESSURE_RAMP = (1 << 1),
@@ -437,6 +481,9 @@ typedef enum eBrushSculptTool {
   SCULPT_TOOL_BLOB = 17,
   SCULPT_TOOL_CLAY_STRIPS = 18,
   SCULPT_TOOL_MASK = 19,
+  SCULPT_TOOL_DRAW_SHARP = 20,
+  SCULPT_TOOL_ELASTIC_DEFORM = 21,
+  SCULPT_TOOL_POSE = 22,
 } eBrushSculptTool;
 
 /* Brush.uv_sculpt_tool */
@@ -450,6 +497,7 @@ typedef enum eBrushUVSculptTool {
 #define SCULPT_TOOL_HAS_ACCUMULATE(t) \
   ELEM(t, \
        SCULPT_TOOL_DRAW, \
+       SCULPT_TOOL_DRAW_SHARP, \
        SCULPT_TOOL_CREASE, \
        SCULPT_TOOL_BLOB, \
        SCULPT_TOOL_LAYER, \
@@ -457,9 +505,11 @@ typedef enum eBrushUVSculptTool {
        SCULPT_TOOL_CLAY, \
        SCULPT_TOOL_CLAY_STRIPS, \
        SCULPT_TOOL_ROTATE, \
+       SCULPT_TOOL_SCRAPE, \
        SCULPT_TOOL_FLATTEN)
 
-#define SCULPT_TOOL_HAS_NORMAL_WEIGHT(t) ELEM(t, SCULPT_TOOL_GRAB, SCULPT_TOOL_SNAKE_HOOK)
+#define SCULPT_TOOL_HAS_NORMAL_WEIGHT(t) \
+  ELEM(t, SCULPT_TOOL_GRAB, SCULPT_TOOL_SNAKE_HOOK, SCULPT_TOOL_ELASTIC_DEFORM)
 
 #define SCULPT_TOOL_HAS_RAKE(t) ELEM(t, SCULPT_TOOL_SNAKE_HOOK)
 
@@ -469,8 +519,11 @@ typedef enum eBrushUVSculptTool {
         SCULPT_TOOL_ROTATE, \
         SCULPT_TOOL_THUMB, \
         SCULPT_TOOL_LAYER, \
+        SCULPT_TOOL_DRAW_SHARP, \
+        SCULPT_TOOL_ELASTIC_DEFORM, \
+        SCULPT_TOOL_POSE, \
 \
-        /* These brushes could handle dynamic topology, \
+        /* These brushes could handle dynamic topology, \ \
          * but user feedback indicates it's better not to */ \
         SCULPT_TOOL_SMOOTH, \
         SCULPT_TOOL_MASK) == 0)
@@ -480,6 +533,7 @@ typedef enum eBrushUVSculptTool {
         SCULPT_TOOL_GRAB, \
         SCULPT_TOOL_ROTATE, \
         SCULPT_TOOL_THUMB, \
+        SCULPT_TOOL_DRAW_SHARP, \
         SCULPT_TOOL_MASK) == 0)
 
 /* ImagePaintSettings.tool */

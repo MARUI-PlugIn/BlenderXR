@@ -405,7 +405,7 @@ void ui_rna_collection_search_cb(const struct bContext *C,
   RNA_PROP_BEGIN (&data->search_ptr, itemptr, data->search_prop) {
 
     if (flag & PROP_ID_SELF_CHECK) {
-      if (itemptr.data == data->target_ptr.id.data) {
+      if (itemptr.data == data->target_ptr.owner_id) {
         continue;
       }
     }
@@ -417,8 +417,9 @@ void ui_rna_collection_search_cb(const struct bContext *C,
       }
     }
 
-    name = RNA_struct_name_get_alloc(
-        &itemptr, NULL, 0, NULL); /* could use the string length here */
+    /* Could use the string length here. */
+    name = RNA_struct_name_get_alloc(&itemptr, NULL, 0, NULL);
+
     iconid = 0;
     if (itemptr.type && RNA_struct_is_ID(itemptr.type)) {
       iconid = ui_id_icon_get(C, itemptr.data, false);
@@ -565,7 +566,7 @@ int UI_calc_float_precision(int prec, double value)
 
 bool UI_but_online_manual_id(const uiBut *but, char *r_str, size_t maxlength)
 {
-  if (but->rnapoin.id.data && but->rnapoin.data && but->rnaprop) {
+  if (but->rnapoin.owner_id && but->rnapoin.data && but->rnaprop) {
     BLI_snprintf(r_str,
                  maxlength,
                  "%s.%s",

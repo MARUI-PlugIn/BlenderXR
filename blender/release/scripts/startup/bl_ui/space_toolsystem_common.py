@@ -22,6 +22,8 @@ from bpy.types import (
     Menu,
 )
 
+from bpy.app.translations import pgettext_tip as tip_
+
 __all__ = (
     "ToolDef",
     "ToolSelectPanelHelper",
@@ -84,7 +86,7 @@ ToolDef = namedtuple(
         # so internally we can swap the keymap function for the keymap it's self.
         # This isn't very nice and may change, tool definitions shouldn't care about this.
         "keymap",
-        # Optional data-block assosiated with this tool.
+        # Optional data-block associated with this tool.
         # (Typically brush name, usage depends on mode, we could use for non-brush ID's in other modes).
         "data_block",
         # Optional primary operator (for introspection only).
@@ -195,11 +197,8 @@ class ToolSelectPanelHelper:
             assert(type(icon_name) is str)
             icon_value = _icon_cache.get(icon_name)
             if icon_value is None:
-                dirname = bpy.utils.resource_path('LOCAL')
-                if not os.path.exists(dirname):
-                    # TODO(campbell): use a better way of finding datafiles.
-                    dirname = bpy.utils.resource_path('SYSTEM')
-                filename = os.path.join(dirname, "datafiles", "icons", icon_name + ".dat")
+                dirname = bpy.utils.system_resource('DATAFILES', "icons")
+                filename = os.path.join(dirname, icon_name + ".dat")
                 try:
                     icon_value = bpy.app.icons.new_triangles_from_file(filename)
                 except Exception as ex:
@@ -437,7 +436,7 @@ class ToolSelectPanelHelper:
     # -------------------------------------------------------------------------
     # Layout Generators
     #
-    # Meaning of recieved values:
+    # Meaning of received values:
     # - Bool: True for a separator, otherwise False for regular tools.
     # - None: Signal to finish (complete any final operations, e.g. add padding).
 
@@ -718,7 +717,7 @@ def _activate_by_item(context, space_type, item, index):
 
     handle_map = _activate_by_item._cursor_draw_handle
     handle = handle_map.pop(space_type, None)
-    if (handle is not None):
+    if handle is not None:
         WindowManager.draw_cursor_remove(handle)
     if item.draw_cursor is not None:
         def handle_fn(context, item, tool, xy):
@@ -785,7 +784,7 @@ def description_from_id(context, space_type, idname, *, use_operator=True):
         if callable(description):
             km = _keymap_from_item(context, item)
             return description(context, item, km)
-        return description
+        return tip_(description)
 
     # Extract from the operator.
     if use_operator:
@@ -801,7 +800,7 @@ def description_from_id(context, space_type, idname, *, use_operator=True):
 
         if operator is not None:
             import _bpy
-            return _bpy.ops.get_rna_type(operator).description
+            return tip_(_bpy.ops.get_rna_type(operator).description)
     return ""
 
 

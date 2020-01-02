@@ -29,6 +29,7 @@
 #include "eevee_private.h"
 #include "GPU_texture.h"
 #include "GPU_extensions.h"
+#include "GPU_platform.h"
 #include "GPU_state.h"
 
 static struct {
@@ -47,7 +48,7 @@ static struct {
   struct GPUShader *downsample_sh;
   struct GPUShader *downsample_cube_sh;
 
-  /* Theses are just references, not actually allocated */
+  /* These are just references, not actually allocated */
   struct GPUTexture *depth_src;
   struct GPUTexture *color_src;
 
@@ -206,7 +207,7 @@ void EEVEE_effects_init(EEVEE_ViewLayerData *sldata,
   /**
    * Compute Mipmap texel alignment.
    */
-  for (int i = 0; i < 10; ++i) {
+  for (int i = 0; i < 10; i++) {
     int mip_size[2];
     GPU_texture_get_mipmap_size(txl->color, i, mip_size);
     common_data->mip_ratio[i][0] = viewport_size[0] / (mip_size[0] * powf(2.0f, i));
@@ -509,7 +510,7 @@ void EEVEE_downsample_buffer(EEVEE_Data *vedata, GPUTexture *texture_src, int le
 }
 
 /**
- * Simple downsampling algorithm for cubemap. Reconstruct mip chain up to mip level.
+ * Simple down-sampling algorithm for cubemap. Reconstruct mip chain up to mip level.
  */
 void EEVEE_downsample_cube_buffer(EEVEE_Data *vedata, GPUTexture *texture_src, int level)
 {
@@ -580,7 +581,7 @@ void EEVEE_draw_effects(EEVEE_ViewLayerData *UNUSED(sldata), EEVEE_Data *vedata)
   /* NOTE: Lookdev drawing happens before TAA but after
    * motion blur and dof to avoid distortions.
    * Velocity resolve use a hack to exclude lookdev
-   * spheres from creating shimering reprojection vectors. */
+   * spheres from creating shimmering re-projection vectors. */
   EEVEE_lookdev_draw(vedata);
   EEVEE_velocity_resolve(vedata);
 

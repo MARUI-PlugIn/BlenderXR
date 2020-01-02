@@ -249,15 +249,15 @@ static void rna_Action_active_pose_marker_index_range(
 static void rna_Action_frame_range_get(PointerRNA *ptr, float *values)
 { /* don't include modifiers because they too easily can have very large
    * ranges: MINAFRAMEF to MAXFRAMEF. */
-  calc_action_range(ptr->id.data, values, values + 1, false);
+  calc_action_range((bAction *)ptr->owner_id, values, values + 1, false);
 }
 
 /* Used to check if an action (value pointer)
  * is suitable to be assigned to the ID-block that is ptr. */
 bool rna_Action_id_poll(PointerRNA *ptr, PointerRNA value)
 {
-  ID *srcId = (ID *)ptr->id.data;
-  bAction *act = (bAction *)value.id.data;
+  ID *srcId = ptr->owner_id;
+  bAction *act = (bAction *)value.owner_id;
 
   if (act) {
     /* there can still be actions that will have undefined id-root
@@ -280,7 +280,7 @@ bool rna_Action_id_poll(PointerRNA *ptr, PointerRNA value)
 bool rna_Action_actedit_assign_poll(PointerRNA *ptr, PointerRNA value)
 {
   SpaceAction *saction = (SpaceAction *)ptr->data;
-  bAction *act = (bAction *)value.id.data;
+  bAction *act = (bAction *)value.owner_id;
 
   if (act) {
     /* there can still be actions that will have undefined id-root
@@ -306,6 +306,11 @@ bool rna_Action_actedit_assign_poll(PointerRNA *ptr, PointerRNA value)
   return 0;
 }
 
+static char *rna_DopeSheet_path(PointerRNA *UNUSED(ptr))
+{
+  return BLI_strdup("dopesheet");
+}
+
 #else
 
 static void rna_def_dopesheet(BlenderRNA *brna)
@@ -315,6 +320,7 @@ static void rna_def_dopesheet(BlenderRNA *brna)
 
   srna = RNA_def_struct(brna, "DopeSheet", NULL);
   RNA_def_struct_sdna(srna, "bDopeSheet");
+  RNA_def_struct_path_func(srna, "rna_DopeSheet_path");
   RNA_def_struct_ui_text(
       srna, "Dope Sheet", "Settings for filtering the channels shown in animation editors");
 

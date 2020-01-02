@@ -48,6 +48,7 @@
 #include "BKE_context.h"
 #include "BKE_screen.h"
 #include "BKE_paint.h"
+#include "BKE_report.h"
 
 #include "ED_gpencil.h"
 #include "ED_screen.h"
@@ -61,7 +62,6 @@
 #include "IMB_imbuf_types.h"
 
 #include "GPU_immediate.h"
-#include "GPU_draw.h"
 #include "GPU_matrix.h"
 #include "GPU_framebuffer.h"
 #include "GPU_state.h"
@@ -135,7 +135,7 @@ typedef struct tGPDfill {
   short fill_factor;
 
   /** number of elements currently in cache */
-  short sbuffer_size;
+  short sbuffer_used;
   /** temporary points */
   void *sbuffer;
   /** depth array for reproject */
@@ -918,7 +918,7 @@ static void gpencil_get_depth_array(tGPDfill *tgpf)
 {
   tGPspoint *ptc;
   ToolSettings *ts = tgpf->scene->toolsettings;
-  int totpoints = tgpf->sbuffer_size;
+  int totpoints = tgpf->sbuffer_used;
   int i = 0;
 
   if (totpoints == 0) {
@@ -984,7 +984,7 @@ static void gpencil_points_from_stack(tGPDfill *tgpf)
     return;
   }
 
-  tgpf->sbuffer_size = (short)totpoints;
+  tgpf->sbuffer_used = (short)totpoints;
   tgpf->sbuffer = MEM_callocN(sizeof(tGPspoint) * totpoints, __func__);
 
   point2D = tgpf->sbuffer;
@@ -1020,7 +1020,7 @@ static void gpencil_stroke_from_buffer(tGPDfill *tgpf)
   MDeformVert *dvert = NULL;
   tGPspoint *point2D;
 
-  if (tgpf->sbuffer_size == 0) {
+  if (tgpf->sbuffer_used == 0) {
     return;
   }
 
@@ -1038,11 +1038,19 @@ static void gpencil_stroke_from_buffer(tGPDfill *tgpf)
   gps->flag |= GP_STROKE_CYCLIC;
   gps->flag |= GP_STROKE_3DSPACE;
 
-  gps->mat_nr = BKE_gpencil_object_material_ensure(tgpf->bmain, tgpf->ob, tgpf->mat);
+  gps->mat_nr = BKE_gpencil_object_material_get_index_from_brush(tgpf->ob, brush);
+  if (gps->mat_nr < 0) {
+    if (tgpf->ob->actcol - 1 < 0) {
+      gps->mat_nr = 0;
+    }
+    else {
+      gps->mat_nr = tgpf->ob->actcol - 1;
+    }
+  }
 
   /* allocate memory for storage points */
-  gps->totpoints = tgpf->sbuffer_size;
-  gps->points = MEM_callocN(sizeof(bGPDspoint) * tgpf->sbuffer_size, "gp_stroke_points");
+  gps->totpoints = tgpf->sbuffer_used;
+  gps->points = MEM_callocN(sizeof(bGPDspoint) * tgpf->sbuffer_used, "gp_stroke_points");
 
   /* initialize triangle memory to dummy data */
   gps->tot_triangles = 0;
@@ -1069,7 +1077,7 @@ static void gpencil_stroke_from_buffer(tGPDfill *tgpf)
     dvert = gps->dvert;
   }
 
-  for (int i = 0; i < tgpf->sbuffer_size && point2D; i++, point2D++, pt++) {
+  for (int i = 0; i < tgpf->sbuffer_used && point2D; i++, point2D++, pt++) {
     /* convert screen-coordinates to 3D coordinates */
     gp_stroke_convertcoords_tpoint(tgpf->scene,
                                    tgpf->ar,
@@ -1120,7 +1128,7 @@ static void gpencil_stroke_from_buffer(tGPDfill *tgpf)
   }
 
   /* if parented change position relative to parent object */
-  for (int a = 0; a < tgpf->sbuffer_size; a++) {
+  for (int a = 0; a < tgpf->sbuffer_used; a++) {
     pt = &gps->points[a];
     gp_apply_parent_point(tgpf->depsgraph, tgpf->ob, tgpf->gpd, tgpf->gpl, pt);
   }
@@ -1213,7 +1221,7 @@ static tGPDfill *gp_session_init_fill(bContext *C, wmOperator *UNUSED(op))
   tgpf->ar = CTX_wm_region(C);
   tgpf->rv3d = tgpf->ar->regiondata;
   tgpf->v3d = tgpf->sa->spacedata.first;
-  tgpf->depsgraph = CTX_data_depsgraph(C);
+  tgpf->depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   tgpf->win = CTX_wm_window(C);
 
   /* set GP datablock */
@@ -1225,7 +1233,7 @@ static tGPDfill *gp_session_init_fill(bContext *C, wmOperator *UNUSED(op))
   tgpf->lock_axis = ts->gp_sculpt.lock_axis;
 
   tgpf->oldkey = -1;
-  tgpf->sbuffer_size = 0;
+  tgpf->sbuffer_used = 0;
   tgpf->sbuffer = NULL;
   tgpf->depth_arr = NULL;
 
@@ -1346,7 +1354,27 @@ static int gpencil_fill_init(bContext *C, wmOperator *op)
 /* start of interactive part of operator */
 static int gpencil_fill_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
 {
+  Object *ob = CTX_data_active_object(C);
+  ToolSettings *ts = CTX_data_tool_settings(C);
+  Brush *brush = BKE_paint_brush(&ts->gp_paint->paint);
   tGPDfill *tgpf = NULL;
+
+  /* Fill tool needs a material (cannot use default material) */
+  bool valid = true;
+  if ((brush) && (brush->gpencil_settings->flag & GP_BRUSH_MATERIAL_PINNED)) {
+    if (brush->gpencil_settings->material == NULL) {
+      valid = false;
+    }
+  }
+  else {
+    if (give_current_material(ob, ob->actcol) == NULL) {
+      valid = false;
+    }
+  }
+  if (!valid) {
+    BKE_report(op->reports, RPT_ERROR, "Fill tool needs active material.");
+    return OPERATOR_CANCELLED;
+  }
 
   /* try to initialize context data needed */
   if (!gpencil_fill_init(C, op)) {
@@ -1366,7 +1394,7 @@ static int gpencil_fill_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSE
         tgpf->ar->type, gpencil_fill_draw_3d, tgpf, REGION_DRAW_POST_VIEW);
   }
 
-  WM_cursor_modal_set(CTX_wm_window(C), BC_PAINTBRUSHCURSOR);
+  WM_cursor_modal_set(CTX_wm_window(C), WM_CURSOR_PAINT_BRUSH);
 
   gpencil_fill_status_indicators(C, tgpf);
 

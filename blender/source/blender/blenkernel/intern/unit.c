@@ -112,6 +112,8 @@ enum {
   B_UNIT_DEF_TENTH = 2,
   /** Short unit name is case sensitive, for example to distinguish mW and MW */
   B_UNIT_DEF_CASE_SENSITIVE = 4,
+  /** Short unit name does not have space between it and preceding number */
+  B_UNIT_DEF_NO_SPACE = 8,
 };
 
 /* define a single unit */
@@ -161,8 +163,8 @@ static struct bUnitDef buImperialLenDef[] = {
   {"furlong", "furlongs", "fur",  NULL, "Furlongs", "FURLONGS", UN_SC_FUR, 0.0, B_UNIT_DEF_SUPPRESS},
   {"chain",   "chains",   "ch",   NULL, "Chains",   "CHAINS",   UN_SC_CH,  0.0, B_UNIT_DEF_SUPPRESS},
   {"yard",    "yards",    "yd",   NULL, "Yards",    "YARDS",    UN_SC_YD,  0.0, B_UNIT_DEF_SUPPRESS},
-  {"foot",    "feet",     "'",    "ft", "Feet",     "FEET",     UN_SC_FT,  0.0, B_UNIT_DEF_NONE}, /* base unit */
-  {"inch",    "inches",   "\"",   "in", "Inches",   "INCHES",   UN_SC_IN,  0.0, B_UNIT_DEF_NONE},
+  {"foot",    "feet",     "'",    "ft", "Feet",     "FEET",     UN_SC_FT,  0.0, B_UNIT_DEF_NONE | B_UNIT_DEF_NO_SPACE}, /* base unit */
+  {"inch",    "inches",   "\"",   "in", "Inches",   "INCHES",   UN_SC_IN,  0.0, B_UNIT_DEF_NONE | B_UNIT_DEF_NO_SPACE},
   {"thou",    "thou",     "thou", "mil", "Thou",    "THOU",     UN_SC_MIL, 0.0, B_UNIT_DEF_NONE}, /* plural for thou has no 's' */
   NULL_UNIT,
 };
@@ -289,10 +291,10 @@ static struct bUnitCollection buNaturalTimeCollection = {buNaturalTimeDef, 3, 0,
 
 
 static struct bUnitDef buNaturalRotDef[] = {
-  {"degree",    "degrees",     "°",  "d",   "Degrees",    "DEGREES",    M_PI / 180.0,             0.0,  B_UNIT_DEF_NONE},
+  {"degree",    "degrees",     "°",  "d",   "Degrees",    "DEGREES",    M_PI / 180.0,             0.0,  B_UNIT_DEF_NONE | B_UNIT_DEF_NO_SPACE},
   /* arcminutes/arcseconds are used in Astronomy/Navigation areas... */
-  {"arcminute", "arcminutes",  "'",  NULL,  "Arcminutes", "ARCMINUTES", (M_PI / 180.0) / 60.0,    0.0,  B_UNIT_DEF_SUPPRESS},
-  {"arcsecond", "arcseconds",  "\"", NULL,  "Arcseconds", "ARCSECONDS", (M_PI / 180.0) / 3600.0,  0.0,  B_UNIT_DEF_SUPPRESS},
+  {"arcminute", "arcminutes",  "'",  NULL,  "Arcminutes", "ARCMINUTES", (M_PI / 180.0) / 60.0,    0.0,  B_UNIT_DEF_SUPPRESS | B_UNIT_DEF_NO_SPACE},
+  {"arcsecond", "arcseconds",  "\"", NULL,  "Arcseconds", "ARCSECONDS", (M_PI / 180.0) / 3600.0,  0.0,  B_UNIT_DEF_SUPPRESS | B_UNIT_DEF_NO_SPACE},
   {"radian",    "radians",     "r",  NULL,  "Radians",    "RADIANS",    1.0,                      0.0,  B_UNIT_DEF_NONE},
 //  {"turn",      "turns",       "t",  NULL,  "Turns",      NULL, 1.0 / (M_PI * 2.0),       0.0,  B_UNIT_DEF_NONE},
   NULL_UNIT,
@@ -451,6 +453,11 @@ static size_t unit_as_string(char *str,
     }
   }
 
+  /* Now add a space for all units except foot, inch, degree, arcminute, arcsecond */
+  if (!(unit->flag & B_UNIT_DEF_NO_SPACE)) {
+    str[++i] = ' ';
+  }
+
   /* Now add the suffix */
   if (i < len_max) {
     int j = 0;
@@ -494,12 +501,12 @@ static PreferredUnits preferred_units_from_UnitSettings(const UnitSettings *sett
   return units;
 }
 
-static size_t unit_as_string_splitted(char *str,
-                                      int len_max,
-                                      double value,
-                                      int prec,
-                                      const bUnitCollection *usys,
-                                      const bUnitDef *main_unit)
+static size_t unit_as_string_split_pair(char *str,
+                                        int len_max,
+                                        double value,
+                                        int prec,
+                                        const bUnitCollection *usys,
+                                        const bUnitDef *main_unit)
 {
   const bUnitDef *unit_a, *unit_b;
   double value_a, value_b;
@@ -595,7 +602,7 @@ static size_t unit_as_string_main(char *str,
   }
 
   if (split && unit_should_be_split(type)) {
-    int length = unit_as_string_splitted(str, len_max, value, prec, usys, main_unit);
+    int length = unit_as_string_split_pair(str, len_max, value, prec, usys, main_unit);
     /* failed when length is negative, fallback to no split */
     if (length >= 0) {
       return length;
@@ -727,8 +734,9 @@ static int unit_scale_str(char *str,
 
     len_name = strlen(replace_str);
     len_move = (len - (found_ofs + len_name)) + 1; /* 1+ to copy the string terminator */
-    len_num = BLI_snprintf(
-        str_tmp, TEMP_STR_SIZE, "*%.9g" SEP_STR, unit->scalar / scale_pref); /* # removed later */
+
+    /* # removed later */
+    len_num = BLI_snprintf(str_tmp, TEMP_STR_SIZE, "*%.9g" SEP_STR, unit->scalar / scale_pref);
 
     if (len_num > len_max) {
       len_num = len_max;
@@ -741,8 +749,9 @@ static int unit_scale_str(char *str,
 
     if (len_move > 0) {
       /* resize the last part of the string */
-      memmove(
-          str_found + len_num, str_found + len_name, len_move); /* may grow or shrink the string */
+
+      /* May grow or shrink the string. */
+      memmove(str_found + len_num, str_found + len_name, len_move);
     }
 
     if (found_ofs + len_num > len_max) {

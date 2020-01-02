@@ -576,7 +576,7 @@ static int get_sequence_len(char *filename, int *ofs)
     (*ofs) = frame_curr;
 
     while (cache_frame && (cache_frame->framenr == frame_curr)) {
-      ++frame_curr;
+      frame_curr++;
       cache_frame = cache_frame->next;
     }
 
@@ -602,6 +602,9 @@ static void ui_alembic_import_settings(uiLayout *layout, PointerRNA *imfptr)
   box = uiLayoutBox(layout);
   row = uiLayoutRow(box, false);
   uiItemL(row, IFACE_("Options:"), ICON_NONE);
+
+  row = uiLayoutRow(box, false);
+  uiItemR(row, imfptr, "relative_path", 0, NULL, ICON_NONE);
 
   row = uiLayoutRow(box, false);
   uiItemR(row, imfptr, "set_frame_range", 0, NULL, ICON_NONE);
@@ -691,7 +694,7 @@ void WM_OT_alembic_import(wmOperatorType *ot)
                                  FILE_TYPE_FOLDER | FILE_TYPE_ALEMBIC,
                                  FILE_BLENDER,
                                  FILE_SAVE,
-                                 WM_FILESEL_FILEPATH,
+                                 WM_FILESEL_FILEPATH | WM_FILESEL_RELPATH,
                                  FILE_DEFAULTDISPLAY,
                                  FILE_SORT_ALPHA);
 

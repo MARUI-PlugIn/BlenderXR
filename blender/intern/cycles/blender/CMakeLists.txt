@@ -29,13 +29,16 @@ set(SRC
   blender_shader.cpp
   blender_sync.cpp
   blender_texture.cpp
+  blender_viewport.cpp
 
   CCL_api.h
+  blender_device.h
   blender_object_cull.h
   blender_sync.h
   blender_session.h
   blender_texture.h
   blender_util.h
+  blender_viewport.h
 )
 
 set(LIB
@@ -68,7 +71,7 @@ set(ADDON_FILES
 add_definitions(${GL_DEFINITIONS})
 
 if(WITH_CYCLES_DEVICE_OPENCL)
-    add_definitions(-DWITH_OPENCL)
+  add_definitions(-DWITH_OPENCL)
 endif()
 
 if(WITH_CYCLES_NETWORK)

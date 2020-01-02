@@ -1,8 +1,9 @@
+
 msgid ""
 msgstr ""
-"Project-Id-Version: Blender 2.80 (sub 75) (b'8e1516b7bcca')\n"
+"Project-Id-Version: Blender 2.81 (sub 16) (b'99640d062234')\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2019-07-29 00:00:00\n"
+"POT-Creation-Date: 2019-11-20 13:23:12\n"
 "PO-Revision-Date: 2015-03-03 16:21+0530\n"
 "Last-Translator: Roshan Lal Gumasta <roshan@anisecrets.com>\n"
 "Language-Team: Hindi <www.anisecrets.com>\n"
@@ -546,6 +547,10 @@ msgid "Selectable"
 msgstr "चयनयोग्य"
 
 
+msgid "Full"
+msgstr "पूर्ण"
+
+
 msgid "Layers"
 msgstr "परतें"
 
@@ -889,6 +894,14 @@ msgstr "Y"
 
 msgid "Z"
 msgstr "Z"
+
+
+msgid "ZXY Euler"
+msgstr "ZXY यूलर"
+
+
+msgid "ZYX Euler"
+msgstr "ZYX यूलर"
 
 
 msgid "Power"
@@ -1235,7 +1248,7 @@ msgid "Paint"
 msgstr "रंगलेप"
 
 
-msgid "Anti-aliasing"
+msgid "Anti-Aliasing"
 msgstr "प्रित-उपघटन"
 
 
@@ -1432,14 +1445,6 @@ msgid "Display Mode"
 msgstr "प्रदर्शित रूप"
 
 
-msgid "Short List"
-msgstr "संक्षिप्त सूची"
-
-
-msgid "Long List"
-msgstr "लंबी सूची"
-
-
 msgid "File Name"
 msgstr "संचिका का नाम"
 
@@ -1558,10 +1563,6 @@ msgstr "दृश्यता"
 
 msgid "Line Sets"
 msgstr "रेखा खंड"
-
-
-msgid "Attenuation"
-msgstr "क्षीणन"
 
 
 msgid "Grease Pencil Frame"
@@ -1725,6 +1726,10 @@ msgid "Fixed"
 msgstr "निर्धारित"
 
 
+msgid "Merge"
+msgstr "विलय करें"
+
+
 msgid "Grid Scale"
 msgstr "जालक प्रंमाण"
 
@@ -1801,6 +1806,14 @@ msgid "Add Color"
 msgstr "रंग जोड़ें"
 
 
+msgid "Root"
+msgstr "मूल"
+
+
+msgid "Sharp"
+msgstr "पैना"
+
+
 msgid "Draw"
 msgstr "चित्रण"
 
@@ -1867,6 +1880,10 @@ msgstr "समतल"
 
 msgid "Thumb"
 msgstr "अंगूठा"
+
+
+msgid "Pose"
+msgstr "मुद्रा"
 
 
 msgid "Rotate"
@@ -1963,10 +1980,6 @@ msgstr "आयाम"
 
 msgid "Extrude"
 msgstr "बिहर्वेधन"
-
-
-msgid "Full"
-msgstr "पूर्ण"
 
 
 msgid "Half"
@@ -2261,24 +2274,12 @@ msgid "UV loop layer to be used as cloning source"
 msgstr "यूवी कुण्डली परत  प्रतिरूपी स्रोत के रूप में इस्तेमाल किया जाए"
 
 
-msgid "Clone UV loop layer Index"
-msgstr "प्रतिरूप यूवी कुण्डली परत सूचकांक"
-
-
 msgid "Clone UV loop layer index"
 msgstr "प्रतिरूप यूवी कुण्डली परत सूचकांक"
 
 
-msgid "Mask UV loop layer"
-msgstr "आवरण यूवी कुण्डली परत"
-
-
 msgid "UV loop layer to mask the painted area"
 msgstr "यूवी कुण्डली परत चित्रित क्षेत्र आवरण करने के लिए"
-
-
-msgid "Mask UV loop layer Index"
-msgstr "आवरण यूवी कुण्डली परत सूचकांक"
 
 
 msgid "Mask UV loop layer index"
@@ -2385,24 +2386,12 @@ msgid "Motion Path"
 msgstr "गति पथ"
 
 
-msgid "Pose"
-msgstr "मुद्रा"
-
-
 msgid "Proxy"
 msgstr "प्रॉक्सी"
 
 
 msgid "Rigid Body Constraint"
 msgstr "कठोर-पदार्थ प्रतिबंधी"
-
-
-msgid "ZXY Euler"
-msgstr "ZXY यूलर"
-
-
-msgid "ZYX Euler"
-msgstr "ZYX यूलर"
 
 
 msgid "Pixel"
@@ -2483,10 +2472,6 @@ msgstr "टक्कर"
 
 msgid "Halo"
 msgstr "तेजोमंडल"
-
-
-msgid "Root"
-msgstr "मूल"
 
 
 msgid "Velocity / Hair"
@@ -2579,6 +2564,10 @@ msgstr "जगत"
 
 msgid "Areas"
 msgstr "क्षेत्रों"
+
+
+msgid "Attenuation"
+msgstr "क्षीणन"
 
 
 msgid "Inner Cone Angle"
@@ -2678,10 +2667,6 @@ msgid "Calculate Alpha"
 msgstr "पारदर्शिता गणना"
 
 
-msgid "Sharp"
-msgstr "पैना"
-
-
 msgid "Sin"
 msgstr "ज्या"
 
@@ -2760,6 +2745,14 @@ msgstr "धुंध"
 
 msgid "Animation"
 msgstr "अनुप्राणन"
+
+
+msgid "Max Step"
+msgstr "अधिकतम कदम"
+
+
+msgid "Min Step"
+msgstr "न्यूनतम कदम"
 
 
 msgid "B"
@@ -2866,34 +2859,6 @@ msgid "Insert a keyframe on each of the rotation and scale channels"
 msgstr "घूर्णन और प्रंमाण पर सरणिों में से प्रत्येक पर एक keyframe सम्मिलित करें"
 
 
-msgid "Insert a keyframe on each of the location channels, taking into account effects of constraints "
-msgstr "स्थान सरणि, ले जा खाते में कमी के प्रभाव से प्रत्येक पर एक keyframe सम्मिलित करें "
-
-
-msgid "Insert a keyframe on each of the location and rotation channels, taking into account effects of constraints "
-msgstr "स्थान और घूर्णन सरणि, ले जा खाते में कमी के प्रभाव से प्रत्येक पर एक keyframe सम्मिलित करें "
-
-
-msgid "Insert a keyframe on each of the location, rotation and scaling channels, taking into account effects "
-msgstr "प्रत्येक स्थान, घूर्णन और प्रमाण सरणि, खाते के प्रभाव में लेने पर एक keyframe सम्मिलित करें "
-
-
-msgid "Insert a keyframe on each of the location and scaling channels, taking into account effects of constraints "
-msgstr "प्रत्येक स्थान पर एक keyframe डालें और सरणि लेने के खाते में कमी के प्रभाव, प्रमाण "
-
-
-msgid "Insert a keyframe on each of the rotation channels, taking into account effects of constraints "
-msgstr "घूर्णन सरणि, ले जा खाते में कमी के प्रभाव से प्रत्येक पर एक keyframe सम्मिलित करें "
-
-
-msgid "Insert a keyframe on each of the rotation and scaling channels, taking into account effects of constraints "
-msgstr "घूर्णन में से प्रत्येक पर एक keyframe डालें और सरणि लेने के खाते में कमी के प्रभाव, प्रमाण "
-
-
-msgid "Insert a keyframe on each of the scale channels, taking into account effects of constraints "
-msgstr "प्रंमाण पर सरणि, ले जा खाते में कमी के प्रभाव से प्रत्येक पर एक keyframe सम्मिलित करें "
-
-
 msgid "Insert a keyframe on each of the location, rotation, and scale channels"
 msgstr "स्थान, घूर्णन, और प्रंमाण पर सरणिों में से प्रत्येक पर एक keyframe सम्मिलित करें"
 
@@ -2910,10 +2875,6 @@ msgid "Insert a keyframe on each of the scale channels"
 msgstr "प्रंमाण पर सरणिों में से प्रत्येक पर एक keyframe सम्मिलित करें"
 
 
-msgid "Insert a keyframe for all properties that are likely to get animated in a character rig "
-msgstr "सभी गुण है कि एक चरित्र रिग में एनिमेटेड हो जाने की संभावना है के लिए एक keyframe सम्मिलित करें "
-
-
 msgid "Point selected"
 msgstr "बिंदु चयनित"
 
@@ -2924,10 +2885,6 @@ msgstr "न्यूनतम् कोण"
 
 msgid "Change alpha transparency based on a material attribute"
 msgstr "पदार्थ"
-
-
-msgid "Burn"
-msgstr "जलाएँ"
 
 
 msgid "Circles"
@@ -3090,14 +3047,6 @@ msgstr "किनारा"
 
 msgid "Face"
 msgstr "फलक"
-
-
-msgid "Merge"
-msgstr "विलय करें"
-
-
-msgid "Hide/Mask"
-msgstr "छुपाएँ/आवरण"
 
 
 msgid "Hooks"
@@ -3449,10 +3398,6 @@ msgid "Shadow"
 msgstr "छाया"
 
 
-msgid "Anti-Aliasing"
-msgstr "प्रित-उपघटन"
-
-
 msgid "Straight Alpha Output"
 msgstr "सीधे पारदर्शिता उत्पादित"
 
@@ -3547,10 +3492,6 @@ msgstr "Z अक्ष"
 
 msgid "Projection"
 msgstr "प्रक्षेपण"
-
-
-msgid "Cells"
-msgstr "कक्ष"
 
 
 msgid "At"
@@ -3756,6 +3697,14 @@ msgid "Round"
 msgstr "दौर"
 
 
+msgid "Short List"
+msgstr "संक्षिप्त सूची"
+
+
+msgid "Long List"
+msgstr "लंबी सूची"
+
+
 msgid "File Browser Mode"
 msgstr "संचिका विचरक रूप"
 
@@ -3815,11 +3764,6 @@ msgstr "दीवार समतल स्थापित करें"
 msgctxt "Operator"
 msgid "Copy Color"
 msgstr "रंग की प्रतिलिपि बनाएँ"
-
-
-msgctxt "Operator"
-msgid "Clear"
-msgstr "स्पष्ट"
 
 
 msgctxt "Operator"
@@ -3968,15 +3912,6 @@ msgstr "अन्य"
 
 msgid "Match"
 msgstr "मिलान"
-
-
-msgctxt "Operator"
-msgid "Toggle Bookmarks"
-msgstr "बंद/बुझ स्मृति"
-
-
-msgid "Toggle bookmarks display"
-msgstr "बंद/बुझ स्मृति प्रदर्शित करें"
 
 
 msgctxt "Operator"
@@ -4302,11 +4237,6 @@ msgid "Modifier"
 msgstr "संशोधक"
 
 
-msgctxt "Operator"
-msgid "Add Empty Image/Drop Image To Empty"
-msgstr "खाली करने के लिए रिक्त छवि/ड्रॉप छवि जोड़ें"
-
-
 msgid "Add an empty image type to scene with data"
 msgstr "डेटा के साथ दृश्य के लिए एक रिक्त छवि प्रकार जोड़ें"
 
@@ -4391,10 +4321,6 @@ msgid "Mark"
 msgstr "चिन्ह"
 
 
-msgid "Select Objects and their children"
-msgstr "वस्तुओं और उनके बच्चों का चयन करें"
-
-
 msgid "Show"
 msgstr "दिखाएँ"
 
@@ -4437,11 +4363,6 @@ msgstr "सभी भौतिकी भर्जन"
 msgctxt "Operator"
 msgid "Render"
 msgstr " प्रतिपादन"
-
-
-msgctxt "Operator"
-msgid "Bake To Keyframes"
-msgstr "अनुबोधक चिन्हों को भर्जन"
 
 
 msgid "Hinge"
@@ -4498,22 +4419,6 @@ msgstr "देरी"
 
 msgid "Sync"
 msgstr "संकालन"
-
-
-msgid "X 2"
-msgstr "२ एक्स"
-
-
-msgid "Y 2"
-msgstr "Y २"
-
-
-msgid "X 1"
-msgstr "एक्स १"
-
-
-msgid "Y 1"
-msgstr "Y १"
 
 
 msgctxt "Operator"
@@ -4842,11 +4747,6 @@ msgid "View Documentation"
 msgstr "देखें प्रलेखन"
 
 
-msgctxt "Operator"
-msgid "Open Blender File"
-msgstr "ब्लेंडर संचिका खोलें"
-
-
 msgid "Open a Blender file"
 msgstr "एक ब्लेंडर संचिका खोलें"
 
@@ -4926,11 +4826,6 @@ msgstr "अनुप्राणन चलाएँ"
 
 msgid "Undo/Redo"
 msgstr "पूर्ववत करें/फिर से करें"
-
-
-msgctxt "Operator"
-msgid "Save As Blender File"
-msgstr "ब्लेंडर संचिका के रूप में सहेजें"
 
 
 msgid "Save the current file in the desired location"
@@ -5066,10 +4961,6 @@ msgid "Note"
 msgstr "टिप्पणी"
 
 
-msgid "Find"
-msgstr "खोजें"
-
-
 msgid "Playback"
 msgstr "प्रतिदृश्य"
 
@@ -5080,6 +4971,10 @@ msgstr "समय रेखा"
 
 msgid "Bone Color Sets"
 msgstr "हड्डी रंग समूह"
+
+
+msgid "Shaded"
+msgstr "छायांकित"
 
 
 msgid "Video Sequence Editor"
@@ -5189,6 +5084,14 @@ msgid "16x"
 msgstr "१६ x"
 
 
+msgid "New Window"
+msgstr "नई खिडकी"
+
+
+msgid "Glossy Color"
+msgstr "चमकदार रंग"
+
+
 msgid "Manual"
 msgstr "नियम पुस्तिका"
 
@@ -5241,10 +5144,6 @@ msgid "All Z"
 msgstr "सभी z"
 
 
-msgid "Glossy Color"
-msgstr "चमकदार रंग"
-
-
 msgid "Sky"
 msgstr "आकाश"
 
@@ -5259,10 +5158,6 @@ msgstr "पूर्वाग्रह"
 
 msgid "Bake displacement"
 msgstr "विस्थापन भर्जन"
-
-
-msgid "New Window"
-msgstr "नई खिडकी"
 
 
 msgid "FPS"
@@ -5335,10 +5230,6 @@ msgstr "कारक शेष लंबाई"
 
 msgid "Blend Opacity"
 msgstr "मिश्रण अपारदर्शिता"
-
-
-msgid "Speed factor"
-msgstr "गति कारक"
 
 
 msgctxt "Sequence"
@@ -5423,16 +5314,16 @@ msgid "Active Strip"
 msgstr "सक्रिय पट्टी"
 
 
-msgid "Draw Axes"
-msgstr "अक्ष चित्रण"
-
-
 msgid "Curve Mapping"
 msgstr "वक्र प्रतिचित्रण"
 
 
 msgid "Energy"
 msgstr "ऊर्जा"
+
+
+msgid "Collision Type"
+msgstr "टक्कर प्रकार"
 
 
 msgid "Rigid"
@@ -5467,10 +5358,6 @@ msgid "Choke"
 msgstr "रोधन"
 
 
-msgid "Collision Type"
-msgstr "टक्कर प्रकार"
-
-
 msgid "Choose Collision Type"
 msgstr "टक्कर प्रकार चुनें"
 
@@ -5489,14 +5376,6 @@ msgstr "त्रुटि सीमा"
 
 msgid "Pull"
 msgstr "खिंचाव"
-
-
-msgid "Max Step"
-msgstr "अधिकतम कदम"
-
-
-msgid "Min Step"
-msgstr "न्यूनतम कदम"
 
 
 msgid "Spring Vertex Group"
@@ -5660,10 +5539,6 @@ msgstr "तार"
 
 msgid "Inner"
 msgstr "भीतरी"
-
-
-msgid "Shaded"
-msgstr "छायांकित"
 
 
 msgid "Mask Non-Group Vertices"
@@ -6310,6 +6185,11 @@ msgstr "कारण"
 
 
 msgctxt "Operator"
+msgid "Clear"
+msgstr "स्पष्ट"
+
+
+msgctxt "Operator"
 msgid "All"
 msgstr "सभी"
 
@@ -6445,6 +6325,11 @@ msgstr "विस्तृत करें"
 msgctxt "Operator"
 msgid "Slide"
 msgstr "सरकाएँ"
+
+
+msgctxt "Operator"
+msgid "Back"
+msgstr "पार्श्व"
 
 
 msgctxt "Operator"
@@ -6598,6 +6483,11 @@ msgstr "खोल देना"
 
 
 msgctxt "Operator"
+msgid "Top"
+msgstr "शीर्ष"
+
+
+msgctxt "Operator"
 msgid "One Object"
 msgstr "एक वस्तु"
 
@@ -6625,6 +6515,10 @@ msgstr "नियम पुस्तिका"
 msgctxt "Operator"
 msgid "Python API Reference"
 msgstr "पाइथन एपीआई संदर्भ"
+
+
+msgid "Anti-aliasing"
+msgstr "प्रित-उपघटन"
 
 
 msgid "Description:"
@@ -6674,18 +6568,8 @@ msgstr "प्रतिबिंबक"
 
 
 msgctxt "Operator"
-msgid "Top"
-msgstr "शीर्ष"
-
-
-msgctxt "Operator"
 msgid "Front"
 msgstr "सामने"
-
-
-msgctxt "Operator"
-msgid "Back"
-msgstr "पार्श्व"
 
 
 msgctxt "Operator"
@@ -6895,11 +6779,6 @@ msgstr "DOF दूरी"
 
 
 msgctxt "Operator"
-msgid "Energy"
-msgstr "ऊर्जा"
-
-
-msgctxt "Operator"
 msgid "Quick Edit"
 msgstr "त्वरित संपादन"
 
@@ -7040,10 +6919,6 @@ msgstr "स्ट्रिप्स आदानों की समान स�
 
 msgid "Error writing frame"
 msgstr "गठन लेखन में त्रुटि"
-
-
-msgid "Could not allocate temporary frame"
-msgstr "अस्थायी गठन आवंटित नहीं कर सका"
 
 
 msgid "No valid formats found"
@@ -7249,6 +7124,11 @@ msgstr "सतह"
 
 
 msgctxt "Operator"
+msgid "Change Shortcut"
+msgstr "परिवर्तन शॉर्टकट"
+
+
+msgctxt "Operator"
 msgid "Delete Single Keyframe"
 msgstr "एक अनुबोधक चिन्ह मिटाएँ"
 
@@ -7304,11 +7184,6 @@ msgstr "मूलभूत मान के लिए एकल पूर्व�
 
 
 msgctxt "Operator"
-msgid "Change Shortcut"
-msgstr "परिवर्तन शॉर्टकट"
-
-
-msgctxt "Operator"
 msgid "Remove Shortcut"
 msgstr "शॉर्टकट हटाएँ"
 
@@ -7327,10 +7202,6 @@ msgstr "अज्ञात"
 
 msgid "Pos"
 msgstr "पीओएस"
-
-
-msgid "Min X "
-msgstr "न्यूनतम् x "
 
 
 msgid "Reset"
@@ -7686,6 +7557,10 @@ msgid "Scene has no camera"
 msgstr "दृश्य में कोई प्रतिबिंबक नहीं"
 
 
+msgid "Blender Render"
+msgstr "ब्लेंडर  प्रतिपादन"
+
+
 msgid "No active camera set"
 msgstr "कोई सक्रिय प्रतिबिंबक नहीं"
 
@@ -7714,12 +7589,12 @@ msgid "Cannot read '%s': %s"
 msgstr "पढ़ा नहीं कर सकता: '%s': %s"
 
 
-msgid "Cancel"
-msgstr "रद्द करें"
-
-
 msgid "File path"
 msgstr "संचिका पथ"
+
+
+msgid "Cancel"
+msgstr "रद्द करें"
 
 
 msgid "File name"
@@ -7985,6 +7860,10 @@ msgid "Paste name"
 msgstr "नाम चिपकाएँ"
 
 
+msgid "Blender File View"
+msgstr "ब्लेंडर संचिका दृश्य"
+
+
 msgid "ON"
 msgstr "ऑन"
 
@@ -7996,14 +7875,6 @@ msgstr "बंद"
 msgctxt "Operator"
 msgid "Toggle System Console"
 msgstr "बंद/बुझ प्रणाली कंसोल"
-
-
-msgid "Blender Render"
-msgstr "ब्लेंडर  प्रतिपादन"
-
-
-msgid "Blender File View"
-msgstr "ब्लेंडर संचिका दृश्य"
 
 
 msgid "Add Mesh"
@@ -8188,3 +8059,4 @@ msgstr "प्रगति में"
 
 msgid "Starting"
 msgstr "प्रारम्भ"
+

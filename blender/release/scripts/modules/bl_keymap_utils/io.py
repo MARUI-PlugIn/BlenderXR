@@ -80,7 +80,7 @@ def _kmi_properties_to_lines_recursive(level, properties, lines):
     from bpy.types import OperatorProperties
 
     def string_value(value):
-        if isinstance(value, (str, bool, int)):
+        if isinstance(value, (str, bool, int, set)):
             return repr(value)
         elif isinstance(value, float):
             return repr_f32(value)
@@ -129,7 +129,7 @@ def _kmi_attrs_or_none(level, kmi):
 
 
 def keyconfig_export_as_data(wm, kc, filepath, *, all_keymaps=False):
-    # Alternate foramt
+    # Alternate format
 
     # Generate a list of keymaps to export:
     #

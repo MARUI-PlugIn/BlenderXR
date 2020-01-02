@@ -46,7 +46,6 @@
 #include "BKE_image.h"
 #include "BKE_material.h"
 #include "BKE_mesh_runtime.h"
-#include "BKE_object.h"
 #include "BKE_paint.h"
 #include "BKE_report.h"
 
@@ -71,7 +70,8 @@
 
 #include "BLI_sys_types.h"
 #include "ED_mesh.h" /* for face mask functions */
-#include "ED_select_buffer_utils.h"
+
+#include "DRW_select_buffer.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -100,9 +100,9 @@ bool paint_convert_bb_to_rect(rcti *rect,
 
   ED_view3d_ob_project_mat_get(rv3d, ob, projection_mat);
 
-  for (i = 0; i < 2; ++i) {
-    for (j = 0; j < 2; ++j) {
-      for (k = 0; k < 2; ++k) {
+  for (i = 0; i < 2; i++) {
+    for (j = 0; j < 2; j++) {
+      for (k = 0; k < 2; k++) {
         float vec[3], proj[2];
         int proj_i[2];
         vec[0] = i ? bb_min[0] : bb_max[0];
@@ -144,7 +144,6 @@ void paint_calc_redraw_planes(float planes[4][4],
   rect.ymax += 2;
 
   ED_view3d_clipping_calc(&bb, planes, ar, ob, &rect);
-  negate_m4(planes);
 }
 
 float paint_calc_object_space_radius(ViewContext *vc, const float center[3], float pixel_radius)
@@ -250,7 +249,7 @@ static void imapaint_project(float matrix[4][4], const float co[3], float pco[4]
 }
 
 static void imapaint_tri_weights(float matrix[4][4],
-                                 GLint view[4],
+                                 const GLint view[4],
                                  const float v1[3],
                                  const float v2[3],
                                  const float v3[3],
@@ -391,7 +390,7 @@ static int imapaint_pick_face(ViewContext *vc,
 
   /* sample only on the exact position */
   ED_view3d_select_id_validate(vc);
-  *r_index = ED_select_buffer_sample_point(mval);
+  *r_index = DRW_select_buffer_sample_point(vc->depsgraph, vc->ar, vc->v3d, mval);
 
   if ((*r_index) == 0 || (*r_index) > (unsigned int)totpoly) {
     return 0;
@@ -463,7 +462,7 @@ void paint_sample_color(
     bContext *C, ARegion *ar, int x, int y, bool texpaint_proj, bool use_palette)
 {
   Scene *scene = CTX_data_scene(C);
-  Depsgraph *depsgraph = CTX_data_depsgraph(C);
+  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   Paint *paint = BKE_paint_get_active_from_context(C);
   Palette *palette = BKE_paint_palette(paint);
   PaletteColor *color = NULL;
@@ -505,7 +504,7 @@ void paint_sample_color(
       unsigned int totpoly = me->totpoly;
 
       if (CustomData_has_layer(&me_eval->ldata, CD_MLOOPUV)) {
-        ED_view3d_viewcontext_init(C, &vc);
+        ED_view3d_viewcontext_init(C, &vc, depsgraph);
 
         view3d_operator_needs_opengl(C);
 

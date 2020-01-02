@@ -1357,7 +1357,7 @@ static void set_profile_params(BevelParams *bp, BevVert *bv, BoundVert *bndv)
     copy_v3_v3(pro->plane_co, co1);
   }
   else if (bndv->is_arc_start) {
-    /* assume pro->midco was alredy set */
+    /* assume pro->midco was already set */
     copy_v3_v3(pro->coa, co1);
     copy_v3_v3(pro->cob, co2);
     pro->super_r = PRO_CIRCLE_R;
@@ -2295,7 +2295,7 @@ static void build_boundary_terminal_edge(BevelParams *bp,
     else {
       adjust_bound_vert(e->rightv, co);
     }
-    /* make artifical extra point along unbeveled edge, and form triangle */
+    /* make artificial extra point along unbeveled edge, and form triangle */
     slide_dist(e->next, bv->v, e->offset_l, co);
     if (construct) {
       v = add_new_bound_vert(mem_arena, vm, co);
@@ -3122,6 +3122,7 @@ static void adjust_offsets(BevelParams *bp, BMesh *bm)
       }
       if (!iscycle) {
         /* right->left direction, changing vchainstart at each step */
+        v->adjchain = NULL;
         v = vchainstart;
         bvcur = bv;
         do {
@@ -3837,7 +3838,7 @@ static VMesh *make_cube_corner_adj_vmesh(BevelParams *bp)
 /* Is this a good candidate for using tri_corner_adj_vmesh? */
 static int tri_corner_test(BevelParams *bp, BevVert *bv)
 {
-  float ang, totang, angdiff;
+  float ang, absang, totang, angdiff;
   EdgeHalf *e;
   int i;
   int in_plane_e = 0;
@@ -3852,10 +3853,11 @@ static int tri_corner_test(BevelParams *bp, BevVert *bv)
   for (i = 0; i < bv->edgecount; i++) {
     e = &bv->edges[i];
     ang = BM_edge_calc_face_angle_signed_ex(e->e, 0.0f);
-    if (ang <= M_PI_4) {
+    absang = fabsf(ang);
+    if (absang <= M_PI_4) {
       in_plane_e++;
     }
-    else if (ang >= 3.0f * (float)M_PI_4) {
+    else if (absang >= 3.0f * (float)M_PI_4) {
       return -1;
     }
     totang += ang;
@@ -3863,7 +3865,7 @@ static int tri_corner_test(BevelParams *bp, BevVert *bv)
   if (in_plane_e != bv->edgecount - 3) {
     return -1;
   }
-  angdiff = fabsf(totang - 3.0f * (float)M_PI_2);
+  angdiff = fabsf(fabsf(totang) - 3.0f * (float)M_PI_2);
   if ((bp->pro_super_r == PRO_SQUARE_R && angdiff > (float)M_PI / 16.0f) ||
       (angdiff > (float)M_PI_4)) {
     return -1;

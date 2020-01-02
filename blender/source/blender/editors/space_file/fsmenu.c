@@ -404,7 +404,7 @@ void fsmenu_write_file(struct FSMenu *fsmenu, const char *filename)
   fprintf(fp, "[Recent]\n");
   for (fsm_iter = ED_fsmenu_get_category(fsmenu, FS_CATEGORY_RECENT);
        fsm_iter && (nwritten < FSMENU_RECENT_MAX);
-       fsm_iter = fsm_iter->next, ++nwritten) {
+       fsm_iter = fsm_iter->next, nwritten++) {
     if (fsm_iter->path && fsm_iter->save) {
       fsmenu_entry_generate_name(fsm_iter, fsm_name, sizeof(fsm_name));
       if (fsm_iter->name[0] && !STREQ(fsm_iter->name, fsm_name)) {
@@ -492,19 +492,16 @@ void fsmenu_read_system(struct FSMenu *fsmenu, int read_bookmarks)
 
         /* Flee from horrible win querying hover floppy drives! */
         if (i > 1) {
-          /* Try to get volume label as well... */
+          /* Try to get a friendly drive description. */
+          SHFILEINFOW shFile = {0};
           BLI_strncpy_wchar_from_utf8(wline, tmps, 4);
-          if (GetVolumeInformationW(
-                  wline, wline + 4, FILE_MAXDIR - 4, NULL, NULL, NULL, NULL, 0)) {
-            size_t label_len;
-
-            BLI_strncpy_wchar_as_utf8(line, wline + 4, FILE_MAXDIR - 4);
-
-            label_len = MIN2(strlen(line), FILE_MAXDIR - 6);
-            BLI_snprintf(line + label_len, 6, " (%.2s)", tmps);
-
+          if (SHGetFileInfoW(wline, 0, &shFile, sizeof(SHFILEINFOW), SHGFI_DISPLAYNAME)) {
+            BLI_strncpy_wchar_as_utf8(line, shFile.szDisplayName, FILE_MAXDIR);
             name = line;
           }
+        }
+        if (name == NULL) {
+          name = tmps;
         }
 
         fsmenu_insert_entry(fsmenu, FS_CATEGORY_SYSTEM, tmps, name, FS_INSERT_SORTED);

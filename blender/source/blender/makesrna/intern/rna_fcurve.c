@@ -76,6 +76,22 @@ const EnumPropertyItem rna_enum_fmodifier_type_items[] = {
     {0, NULL, 0, NULL, NULL},
 };
 
+const EnumPropertyItem rna_enum_fcurve_auto_smoothing_items[] = {
+    {FCURVE_SMOOTH_NONE,
+     "NONE",
+     0,
+     "None",
+     "Automatic handles only take immediately adjacent keys into account"},
+    {FCURVE_SMOOTH_CONT_ACCEL,
+     "CONT_ACCEL",
+     0,
+     "Continuous Acceleration",
+     "Automatic handles are adjusted to avoid jumps in acceleration, resulting "
+     "in smoother curves. However, key changes may affect interpolation over a "
+     "larger stretch of the curve"},
+    {0, NULL, 0, NULL, NULL},
+};
+
 const EnumPropertyItem rna_enum_beztriple_keyframe_type_items[] = {
     {BEZT_KEYTYPE_KEYFRAME,
      "KEYFRAME",
@@ -132,6 +148,33 @@ const EnumPropertyItem rna_enum_beztriple_interpolation_easing_items[] = {
     {0, NULL, 0, NULL, NULL},
 };
 
+const EnumPropertyItem rna_enum_driver_target_rotation_mode_items[] = {
+    {DTAR_ROTMODE_AUTO, "AUTO", 0, "Auto Euler", "Euler using the rotation order of the target"},
+    {DTAR_ROTMODE_EULER_XYZ, "XYZ", 0, "XYZ Euler", "Euler using the XYZ rotation order"},
+    {DTAR_ROTMODE_EULER_XZY, "XZY", 0, "XZY Euler", "Euler using the XZY rotation order"},
+    {DTAR_ROTMODE_EULER_YXZ, "YXZ", 0, "YXZ Euler", "Euler using the YXZ rotation order"},
+    {DTAR_ROTMODE_EULER_YZX, "YZX", 0, "YZX Euler", "Euler using the YZX rotation order"},
+    {DTAR_ROTMODE_EULER_ZXY, "ZXY", 0, "ZXY Euler", "Euler using the ZXY rotation order"},
+    {DTAR_ROTMODE_EULER_ZYX, "ZYX", 0, "ZYX Euler", "Euler using the ZYX rotation order"},
+    {DTAR_ROTMODE_QUATERNION, "QUATERNION", 0, "Quaternion", "Quaternion rotation"},
+    {DTAR_ROTMODE_SWING_TWIST_X,
+     "SWING_TWIST_X",
+     0,
+     "Swing and X Twist",
+     "Decompose into a swing rotation to aim the X axis, followed by twist around it"},
+    {DTAR_ROTMODE_SWING_TWIST_Y,
+     "SWING_TWIST_Y",
+     0,
+     "Swing and Y Twist",
+     "Decompose into a swing rotation to aim the Y axis, followed by twist around it"},
+    {DTAR_ROTMODE_SWING_TWIST_Z,
+     "SWING_TWIST_Z",
+     0,
+     "Swing and Z Twist",
+     "Decompose into a swing rotation to aim the Z axis, followed by twist around it"},
+    {0, NULL, 0, NULL, NULL},
+};
+
 #ifdef RNA_RUNTIME
 
 #  include "WM_api.h"
@@ -183,7 +226,7 @@ static bool rna_ChannelDriver_is_simple_expression_get(PointerRNA *ptr)
 
 static void rna_ChannelDriver_update_data(Main *bmain, Scene *scene, PointerRNA *ptr)
 {
-  ID *id = ptr->id.data;
+  ID *id = ptr->owner_id;
   ChannelDriver *driver = ptr->data;
 
   driver->flag &= ~DRIVER_FLAG_INVALID;
@@ -211,7 +254,7 @@ static void rna_DriverTarget_update_data(Main *bmain, Scene *scene, PointerRNA *
   PointerRNA driverptr;
   ChannelDriver *driver;
   FCurve *fcu;
-  AnimData *adt = BKE_animdata_from_id(ptr->id.data);
+  AnimData *adt = BKE_animdata_from_id(ptr->owner_id);
 
   /* find the driver this belongs to and update it */
   for (fcu = adt->drivers.first; fcu; fcu = fcu->next) {
@@ -221,7 +264,7 @@ static void rna_DriverTarget_update_data(Main *bmain, Scene *scene, PointerRNA *
     if (driver) {
       /* FIXME: need to be able to search targets for required one... */
       /*BLI_findindex(&driver->targets, ptr->data) != -1)  */
-      RNA_pointer_create(ptr->id.data, &RNA_Driver, driver, &driverptr);
+      RNA_pointer_create(ptr->owner_id, &RNA_Driver, driver, &driverptr);
       rna_ChannelDriver_update_data(bmain, scene, &driverptr);
       return;
     }
@@ -466,8 +509,8 @@ static void rna_FCurve_group_set(PointerRNA *ptr,
                                  PointerRNA value,
                                  struct ReportList *UNUSED(reports))
 {
-  ID *pid = (ID *)ptr->id.data;
-  ID *vid = (ID *)value.id.data;
+  ID *pid = ptr->owner_id;
+  ID *vid = value.owner_id;
   FCurve *fcu = ptr->data;
   bAction *act = NULL;
 
@@ -491,7 +534,7 @@ static void rna_FCurve_group_set(PointerRNA *ptr,
   }
   else {
     /* the ID given is the owner of the F-Curve (for drivers) */
-    AnimData *adt = BKE_animdata_from_id(ptr->id.data);
+    AnimData *adt = BKE_animdata_from_id(ptr->owner_id);
     act = (adt) ? adt->action : NULL;
   }
 
@@ -572,7 +615,7 @@ static void rna_FCurve_update_data_ex(ID *id, FCurve *fcu, Main *bmain)
 static void rna_FCurve_update_data(Main *bmain, Scene *UNUSED(scene), PointerRNA *ptr)
 {
   BLI_assert(ptr->type == &RNA_FCurve);
-  rna_FCurve_update_data_ex((ID *)ptr->id.data, (FCurve *)ptr->data, bmain);
+  rna_FCurve_update_data_ex(ptr->owner_id, (FCurve *)ptr->data, bmain);
 }
 
 static void rna_FCurve_update_data_relations(Main *bmain,
@@ -587,7 +630,7 @@ static void rna_FCurve_update_data_relations(Main *bmain,
  */
 static void rna_FCurve_update_eval(Main *bmain, Scene *UNUSED(scene), PointerRNA *ptr)
 {
-  rna_tag_animation_update(bmain, (ID *)ptr->id.data, true);
+  rna_tag_animation_update(bmain, ptr->owner_id, true);
 }
 
 static PointerRNA rna_FCurve_active_modifier_get(PointerRNA *ptr)
@@ -700,7 +743,7 @@ static void rna_FModifier_blending_range(
 
 static void rna_FModifier_update(Main *bmain, Scene *UNUSED(scene), PointerRNA *ptr)
 {
-  ID *id = ptr->id.data;
+  ID *id = ptr->owner_id;
   FModifier *fcm = (FModifier *)ptr->data;
 
   if (fcm->curve && fcm->type == FMODIFIER_TYPE_CYCLES) {
@@ -1065,7 +1108,7 @@ static void rna_FModifierEnvelope_points_remove(
 
 static void rna_Keyframe_update(Main *bmain, Scene *UNUSED(scene), PointerRNA *ptr)
 {
-  rna_tag_animation_update(bmain, (ID *)ptr->id.data, true);
+  rna_tag_animation_update(bmain, ptr->owner_id, true);
 }
 
 #else
@@ -1671,9 +1714,12 @@ static void rna_def_drivertarget(BlenderRNA *brna)
       {DTAR_TRANSCHAN_LOCX, "LOC_X", 0, "X Location", ""},
       {DTAR_TRANSCHAN_LOCY, "LOC_Y", 0, "Y Location", ""},
       {DTAR_TRANSCHAN_LOCZ, "LOC_Z", 0, "Z Location", ""},
+      {0, "", 0, NULL, NULL},
       {DTAR_TRANSCHAN_ROTX, "ROT_X", 0, "X Rotation", ""},
       {DTAR_TRANSCHAN_ROTY, "ROT_Y", 0, "Y Rotation", ""},
       {DTAR_TRANSCHAN_ROTZ, "ROT_Z", 0, "Z Rotation", ""},
+      {DTAR_TRANSCHAN_ROTW, "ROT_W", 0, "W Rotation", ""},
+      {0, "", 0, NULL, NULL},
       {DTAR_TRANSCHAN_SCALEX, "SCALE_X", 0, "X Scale", ""},
       {DTAR_TRANSCHAN_SCALEY, "SCALE_Y", 0, "Y Scale", ""},
       {DTAR_TRANSCHAN_SCALEZ, "SCALE_Z", 0, "Z Scale", ""},
@@ -1747,6 +1793,12 @@ static void rna_def_drivertarget(BlenderRNA *brna)
   RNA_def_property_enum_sdna(prop, NULL, "transChan");
   RNA_def_property_enum_items(prop, prop_trans_chan_items);
   RNA_def_property_ui_text(prop, "Type", "Driver variable type");
+  RNA_def_property_update(prop, 0, "rna_DriverTarget_update_data");
+
+  prop = RNA_def_property(srna, "rotation_mode", PROP_ENUM, PROP_NONE);
+  RNA_def_property_enum_sdna(prop, NULL, "rotation_mode");
+  RNA_def_property_enum_items(prop, rna_enum_driver_target_rotation_mode_items);
+  RNA_def_property_ui_text(prop, "Rotation Mode", "Mode for calculating rotation channel values");
   RNA_def_property_update(prop, 0, "rna_DriverTarget_update_data");
 
   prop = RNA_def_property(srna, "transform_space", PROP_ENUM, PROP_NONE);
@@ -2222,19 +2274,6 @@ static void rna_def_fcurve(BlenderRNA *brna)
        "Use custom hand-picked color for F-Curve"},
       {0, NULL, 0, NULL, NULL},
   };
-  static EnumPropertyItem prop_mode_smoothing_items[] = {
-      {FCURVE_SMOOTH_NONE,
-       "NONE",
-       0,
-       "None",
-       "Auto handles only take adjacent keys into account (legacy mode)"},
-      {FCURVE_SMOOTH_CONT_ACCEL,
-       "CONT_ACCEL",
-       0,
-       "Continuous Acceleration",
-       "Auto handles are placed to avoid jumps in acceleration"},
-      {0, NULL, 0, NULL, NULL},
-  };
 
   srna = RNA_def_struct(brna, "FCurve", NULL);
   RNA_def_struct_ui_text(srna, "F-Curve", "F-Curve defining values of a period of time");
@@ -2314,7 +2353,7 @@ static void rna_def_fcurve(BlenderRNA *brna)
   RNA_def_property_update(prop, NC_SPACE | ND_SPACE_GRAPH, NULL);
 
   prop = RNA_def_property(srna, "auto_smoothing", PROP_ENUM, PROP_NONE);
-  RNA_def_property_enum_items(prop, prop_mode_smoothing_items);
+  RNA_def_property_enum_items(prop, rna_enum_fcurve_auto_smoothing_items);
   RNA_def_property_ui_text(
       prop, "Auto Handle Smoothing", "Algorithm used to compute automatic handles");
   RNA_def_property_update(prop, NC_ANIMATION | ND_KEYFRAME | NA_EDITED, "rna_FCurve_update_data");

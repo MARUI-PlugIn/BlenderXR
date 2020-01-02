@@ -491,13 +491,22 @@ static ID *rna_ID_copy(ID *id, Main *bmain)
   return NULL;
 }
 
-static ID *rna_ID_override_create(ID *id, Main *bmain)
+static ID *rna_ID_override_create(ID *id, Main *bmain, bool remap_local_usages)
 {
-  if (!BKE_override_library_is_enabled() || id->lib == NULL) {
+  if (!BKE_override_library_is_enabled() || !ID_IS_OVERRIDABLE_LIBRARY(id)) {
     return NULL;
   }
 
-  return BKE_override_library_create_from_id(bmain, id);
+  if (remap_local_usages) {
+    BKE_main_id_tag_all(bmain, LIB_TAG_DOIT, true);
+  }
+
+  ID *local_id = BKE_override_library_create_from_id(bmain, id, remap_local_usages);
+
+  if (remap_local_usages) {
+    BKE_main_id_tag_all(bmain, LIB_TAG_DOIT, false);
+  }
+  return local_id;
 }
 
 static void rna_ID_update_tag(ID *id, Main *bmain, ReportList *reports, int flag)
@@ -620,9 +629,9 @@ static int rna_IDPArray_length(PointerRNA *ptr)
 
 int rna_IDMaterials_assign_int(PointerRNA *ptr, int key, const PointerRNA *assign_ptr)
 {
-  ID *id = ptr->id.data;
+  ID *id = ptr->owner_id;
   short *totcol = give_totcolp_id(id);
-  Material *mat_id = assign_ptr->id.data;
+  Material *mat_id = (Material *)assign_ptr->owner_id;
   if (totcol && (key >= 0 && key < *totcol)) {
     BLI_assert(BKE_id_is_in_global_main(id));
     BLI_assert(BKE_id_is_in_global_main(&mat_id->id));
@@ -642,8 +651,7 @@ static void rna_IDMaterials_append_id(ID *id, Main *bmain, Material *ma)
   WM_main_add_notifier(NC_OBJECT | ND_OB_SHADING, id);
 }
 
-static Material *rna_IDMaterials_pop_id(
-    ID *id, Main *bmain, ReportList *reports, int index_i, bool remove_material_slot)
+static Material *rna_IDMaterials_pop_id(ID *id, Main *bmain, ReportList *reports, int index_i)
 {
   Material *ma;
   short *totcol = give_totcolp_id(id);
@@ -657,7 +665,7 @@ static Material *rna_IDMaterials_pop_id(
     return NULL;
   }
 
-  ma = BKE_material_pop_id(bmain, id, index_i, remove_material_slot);
+  ma = BKE_material_pop_id(bmain, id, index_i);
 
   if (*totcol == totcol_orig) {
     BKE_report(reports, RPT_ERROR, "No material to removed");
@@ -671,9 +679,9 @@ static Material *rna_IDMaterials_pop_id(
   return ma;
 }
 
-static void rna_IDMaterials_clear_id(ID *id, Main *bmain, bool remove_material_slot)
+static void rna_IDMaterials_clear_id(ID *id, Main *bmain)
 {
-  BKE_material_clear_id(bmain, id, remove_material_slot);
+  BKE_material_clear_id(bmain, id);
 
   DEG_id_tag_update(id, ID_RECALC_GEOMETRY);
   WM_main_add_notifier(NC_OBJECT | ND_DRAW, id);
@@ -691,7 +699,7 @@ static void rna_Library_filepath_set(PointerRNA *ptr, const char *value)
 
 static void rna_ImagePreview_is_custom_set(PointerRNA *ptr, int value, enum eIconSizes size)
 {
-  ID *id = ptr->id.data;
+  ID *id = ptr->owner_id;
   PreviewImage *prv_img = (PreviewImage *)ptr->data;
 
   if (id != NULL) {
@@ -717,7 +725,7 @@ static void rna_ImagePreview_is_custom_set(PointerRNA *ptr, int value, enum eIco
 
 static void rna_ImagePreview_size_get(PointerRNA *ptr, int *values, enum eIconSizes size)
 {
-  ID *id = (ID *)ptr->id.data;
+  ID *id = ptr->owner_id;
   PreviewImage *prv_img = (PreviewImage *)ptr->data;
 
   if (id != NULL) {
@@ -732,7 +740,7 @@ static void rna_ImagePreview_size_get(PointerRNA *ptr, int *values, enum eIconSi
 
 static void rna_ImagePreview_size_set(PointerRNA *ptr, const int *values, enum eIconSizes size)
 {
-  ID *id = (ID *)ptr->id.data;
+  ID *id = ptr->owner_id;
   PreviewImage *prv_img = (PreviewImage *)ptr->data;
 
   if (id != NULL) {
@@ -755,7 +763,7 @@ static int rna_ImagePreview_pixels_get_length(PointerRNA *ptr,
                                               int length[RNA_MAX_ARRAY_DIMENSION],
                                               enum eIconSizes size)
 {
-  ID *id = ptr->id.data;
+  ID *id = ptr->owner_id;
   PreviewImage *prv_img = (PreviewImage *)ptr->data;
 
   if (id != NULL) {
@@ -771,7 +779,7 @@ static int rna_ImagePreview_pixels_get_length(PointerRNA *ptr,
 
 static void rna_ImagePreview_pixels_get(PointerRNA *ptr, int *values, enum eIconSizes size)
 {
-  ID *id = ptr->id.data;
+  ID *id = ptr->owner_id;
   PreviewImage *prv_img = (PreviewImage *)ptr->data;
 
   if (id != NULL) {
@@ -785,7 +793,7 @@ static void rna_ImagePreview_pixels_get(PointerRNA *ptr, int *values, enum eIcon
 
 static void rna_ImagePreview_pixels_set(PointerRNA *ptr, const int *values, enum eIconSizes size)
 {
-  ID *id = ptr->id.data;
+  ID *id = ptr->owner_id;
   PreviewImage *prv_img = (PreviewImage *)ptr->data;
 
   if (id != NULL) {
@@ -800,7 +808,7 @@ static int rna_ImagePreview_pixels_float_get_length(PointerRNA *ptr,
                                                     int length[RNA_MAX_ARRAY_DIMENSION],
                                                     enum eIconSizes size)
 {
-  ID *id = ptr->id.data;
+  ID *id = ptr->owner_id;
   PreviewImage *prv_img = (PreviewImage *)ptr->data;
 
   BLI_assert(sizeof(unsigned int) == 4);
@@ -818,7 +826,7 @@ static int rna_ImagePreview_pixels_float_get_length(PointerRNA *ptr,
 
 static void rna_ImagePreview_pixels_float_get(PointerRNA *ptr, float *values, enum eIconSizes size)
 {
-  ID *id = ptr->id.data;
+  ID *id = ptr->owner_id;
   PreviewImage *prv_img = (PreviewImage *)ptr->data;
 
   unsigned char *data = (unsigned char *)prv_img->rect[size];
@@ -842,7 +850,7 @@ static void rna_ImagePreview_pixels_float_set(PointerRNA *ptr,
                                               const float *values,
                                               enum eIconSizes size)
 {
-  ID *id = ptr->id.data;
+  ID *id = ptr->owner_id;
   PreviewImage *prv_img = (PreviewImage *)ptr->data;
 
   unsigned char *data = (unsigned char *)prv_img->rect[size];
@@ -959,7 +967,7 @@ static int rna_ImagePreview_icon_id_get(PointerRNA *ptr)
 {
   /* Using a callback here allows us to only generate icon matching
    * that preview when icon_id is requested. */
-  return BKE_icon_preview_ensure(ptr->id.data, (PreviewImage *)(ptr->data));
+  return BKE_icon_preview_ensure(ptr->owner_id, (PreviewImage *)(ptr->data));
 }
 static void rna_ImagePreview_icon_reload(PreviewImage *prv)
 {
@@ -1116,16 +1124,12 @@ static void rna_def_ID_materials(BlenderRNA *brna)
   RNA_def_function_ui_description(func, "Remove a material from the data-block");
   parm = RNA_def_int(
       func, "index", -1, -MAXMAT, MAXMAT, "", "Index of material to remove", 0, MAXMAT);
-  RNA_def_boolean(
-      func, "update_data", 0, "", "Update data by re-adjusting the material slots assigned");
   parm = RNA_def_pointer(func, "material", "Material", "", "Material to remove");
   RNA_def_function_return(func, parm);
 
   func = RNA_def_function(srna, "clear", "rna_IDMaterials_clear_id");
   RNA_def_function_flag(func, FUNC_USE_MAIN);
   RNA_def_function_ui_description(func, "Remove all materials from the data-block");
-  RNA_def_boolean(
-      func, "update_data", 0, "", "Update data by re-adjusting the material slots assigned");
 }
 
 static void rna_def_image_preview(BlenderRNA *brna)
@@ -1455,6 +1459,7 @@ static void rna_def_ID(BlenderRNA *brna)
       "Actual data-block from .blend file (Main database) that generated that evaluated one");
   RNA_def_property_pointer_funcs(prop, "rna_ID_original_get", NULL, NULL, NULL);
   RNA_def_property_clear_flag(prop, PROP_EDITABLE | PROP_PTR_NO_OWNERSHIP);
+  RNA_def_property_override_flag(prop, PROPOVERRIDE_NO_COMPARISON);
 
   prop = RNA_def_property(srna, "users", PROP_INT, PROP_UNSIGNED);
   RNA_def_property_int_sdna(prop, NULL, "us");
@@ -1483,6 +1488,7 @@ static void rna_def_ID(BlenderRNA *brna)
   prop = RNA_def_property(srna, "library", PROP_POINTER, PROP_NONE);
   RNA_def_property_pointer_sdna(prop, NULL, "lib");
   RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+  RNA_def_property_override_flag(prop, PROPOVERRIDE_NO_COMPARISON);
   RNA_def_property_ui_text(prop, "Library", "Library file the data-block is linked from");
 
   prop = RNA_def_pointer(
@@ -1522,6 +1528,12 @@ static void rna_def_ID(BlenderRNA *brna)
   RNA_def_function_flag(func, FUNC_USE_MAIN);
   parm = RNA_def_pointer(func, "id", "ID", "", "New overridden local copy of the ID");
   RNA_def_function_return(func, parm);
+  RNA_def_boolean(func,
+                  "remap_local_usages",
+                  false,
+                  "",
+                  "Whether local usages of the linked ID should be remapped to the new "
+                  "library override of it");
 
   func = RNA_def_function(srna, "user_clear", "rna_ID_user_clear");
   RNA_def_function_ui_description(func,
@@ -1607,6 +1619,7 @@ static void rna_def_library(BlenderRNA *brna)
 
   prop = RNA_def_property(srna, "parent", PROP_POINTER, PROP_NONE);
   RNA_def_property_struct_type(prop, "Library");
+  RNA_def_property_override_flag(prop, PROPOVERRIDE_NO_COMPARISON);
   RNA_def_property_ui_text(prop, "Parent", "");
 
   prop = RNA_def_property(srna, "packed_file", PROP_POINTER, PROP_NONE);

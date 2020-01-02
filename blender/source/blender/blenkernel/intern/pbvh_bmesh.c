@@ -413,7 +413,7 @@ static bool pbvh_bmesh_node_limit_ensure(PBVH *bvh, int node_index)
     /* so we can do direct lookups on 'bbc_array' */
     BM_elem_index_set(f, i); /* set_dirty! */
   }
-  /* likely this is already dirty */
+  /* Likely this is already dirty. */
   bvh->bm->elem_index_dirty |= BM_FACE;
 
   pbvh_bmesh_node_split(bvh, bbc_array, node_index);
@@ -1508,11 +1508,15 @@ static bool pbvh_bmesh_collapse_short_edges(EdgeQueueContext *eq_ctx,
 
 bool pbvh_bmesh_node_raycast(PBVHNode *node,
                              const float ray_start[3],
+                             const float ray_normal[3],
                              struct IsectRayPrecalc *isect_precalc,
                              float *depth,
-                             bool use_original)
+                             bool use_original,
+                             int *r_active_vertex_index,
+                             float *r_face_normal)
 {
   bool hit = false;
+  float nearest_vertex_co[3] = {0.0f};
 
   if (use_original && node->bm_tot_ortri) {
     for (int i = 0; i < node->bm_tot_ortri; i++) {
@@ -1536,8 +1540,27 @@ bool pbvh_bmesh_node_raycast(PBVHNode *node,
         BMVert *v_tri[3];
 
         BM_face_as_array_vert_tri(f, v_tri);
-        hit |= ray_face_intersection_tri(
-            ray_start, isect_precalc, v_tri[0]->co, v_tri[1]->co, v_tri[2]->co, depth);
+
+        if (ray_face_intersection_tri(
+                ray_start, isect_precalc, v_tri[0]->co, v_tri[1]->co, v_tri[2]->co, depth)) {
+          hit = true;
+
+          if (r_face_normal) {
+            normal_tri_v3(r_face_normal, v_tri[0]->co, v_tri[1]->co, v_tri[2]->co);
+          }
+
+          if (r_active_vertex_index) {
+            float location[3] = {0.0f};
+            madd_v3_v3v3fl(location, ray_start, ray_normal, *depth);
+            for (int j = 0; j < 3; j++) {
+              if (len_squared_v3v3(location, v_tri[j]->co) <
+                  len_squared_v3v3(location, nearest_vertex_co)) {
+                copy_v3_v3(nearest_vertex_co, v_tri[j]->co);
+                *r_active_vertex_index = BM_elem_index_get(v_tri[j]);
+              }
+            }
+          }
+        }
       }
     }
   }
@@ -1900,14 +1923,13 @@ void BKE_pbvh_build_bmesh(PBVH *bvh,
     nodeinfo[i] = f;
     BM_ELEM_CD_SET_INT(f, cd_face_node_offset, DYNTOPO_NODE_NONE);
   }
+  /* Likely this is already dirty. */
+  bm->elem_index_dirty |= BM_FACE;
 
   BMVert *v;
   BM_ITER_MESH (v, &iter, bm, BM_VERTS_OF_MESH) {
     BM_ELEM_CD_SET_INT(v, cd_vert_node_offset, DYNTOPO_NODE_NONE);
   }
-
-  /* likely this is already dirty */
-  bm->elem_index_dirty |= BM_FACE;
 
   /* setup root node */
   struct FastNodeBuildInfo rootnode = {0};
@@ -1955,7 +1977,7 @@ bool BKE_pbvh_bmesh_update_topology(PBVH *bvh,
 
   if (mode & PBVH_Collapse) {
     EdgeQueue q;
-    BLI_mempool *queue_pool = BLI_mempool_create(sizeof(BMVert * [2]), 0, 128, BLI_MEMPOOL_NOP);
+    BLI_mempool *queue_pool = BLI_mempool_create(sizeof(BMVert *[2]), 0, 128, BLI_MEMPOOL_NOP);
     EdgeQueueContext eq_ctx = {
         &q,
         queue_pool,
@@ -1974,7 +1996,7 @@ bool BKE_pbvh_bmesh_update_topology(PBVH *bvh,
 
   if (mode & PBVH_Subdivide) {
     EdgeQueue q;
-    BLI_mempool *queue_pool = BLI_mempool_create(sizeof(BMVert * [2]), 0, 128, BLI_MEMPOOL_NOP);
+    BLI_mempool *queue_pool = BLI_mempool_create(sizeof(BMVert *[2]), 0, 128, BLI_MEMPOOL_NOP);
     EdgeQueueContext eq_ctx = {
         &q,
         queue_pool,
@@ -2013,7 +2035,7 @@ bool BKE_pbvh_bmesh_update_topology(PBVH *bvh,
  * (currently just raycast), store the node's triangles and vertices.
  *
  * Skips triangles that are hidden. */
-void BKE_pbvh_bmesh_node_save_orig(PBVHNode *node)
+void BKE_pbvh_bmesh_node_save_orig(BMesh *bm, PBVHNode *node)
 {
   /* Skip if original coords/triangles are already saved */
   if (node->bm_orco) {
@@ -2042,6 +2064,8 @@ void BKE_pbvh_bmesh_node_save_orig(PBVHNode *node)
     BM_elem_index_set(v, i); /* set_dirty! */
     i++;
   }
+  /* Likely this is already dirty. */
+  bm->elem_index_dirty |= BM_VERT;
 
   /* Copy the triangles */
   i = 0;

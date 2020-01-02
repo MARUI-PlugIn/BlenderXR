@@ -273,12 +273,12 @@ static int vertex_sort(const void *p1, const void *p2, void *vs_ctx_p)
 /** \} */
 
 /**
- * Main boxpacking function accessed from other functions
+ * Main box-packing function accessed from other functions
  * This sets boxes x,y to positive values, sorting from 0,0 outwards.
  * There is no limit to the space boxes may take, only that they will be packed
  * tightly into the lower left hand corner (0,0)
  *
- * \param boxarray: a pre allocated array of boxes.
+ * \param boxarray: a pre-allocated array of boxes.
  *      only the 'box->x' and 'box->y' are set, 'box->w' and 'box->h' are used,
  *      'box->index' is not used at all, the only reason its there
  *          is that the box array is sorted by area and programs need to be able
@@ -651,7 +651,7 @@ void BLI_box_pack_2d(BoxPack *boxarray, const uint len, float *r_tot_x, float *r
               }
             }
             /* The Box verts are only used internally
-             * Update the box x and y since thats what external
+             * Update the box x and y since that's what external
              * functions will see */
             box->x = box_xmin_get(box);
             box->y = box_ymin_get(box);

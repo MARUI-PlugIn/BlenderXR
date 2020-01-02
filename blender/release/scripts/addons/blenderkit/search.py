@@ -27,8 +27,9 @@ if "bpy" in locals():
     bkit_oauth = reload(bkit_oauth)
     version_checker = reload(version_checker)
     tasks_queue = reload(tasks_queue)
+    rerequests = reload(rerequests)
 else:
-    from blenderkit import paths, utils, categories, ui, bkit_oauth, version_checker, tasks_queue
+    from blenderkit import paths, utils, categories, ui, bkit_oauth, version_checker, tasks_queue, rerequests
 
 import blenderkit
 from bpy.app.handlers import persistent
@@ -81,22 +82,24 @@ reports = ''
 
 
 def refresh_token_timer():
-    ''' this timer gets run every 20 hours. It refreshes tokens and categories.'''
-    print('refresh timer')
+    ''' this timer gets run every time the token needs refresh. It refreshes tokens and also categories.'''
+    utils.p('refresh timer')
+    user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
     fetch_server_data()
     categories.load_categories()
-    return 72000
+
+    return max(3600, user_preferences.api_key_life - 3600)
 
 
 @persistent
 def scene_load(context):
     wm = bpy.context.window_manager
     fetch_server_data()
-    # following doesn't necessarilly happen if version isn't checked yet or similar, first run.
+    # following doesn't necessarily happen if version isn't checked yet or similar, first run.
     # wm['bkit_update'] = version_checker.compare_versions(blenderkit)
     categories.load_categories()
     if not bpy.app.timers.is_registered(refresh_token_timer):
-        bpy.app.timers.register(refresh_token_timer, persistent=True, first_interval=72000)
+        bpy.app.timers.register(refresh_token_timer, persistent=True, first_interval=36000)
 
 
 def fetch_server_data():
@@ -105,10 +108,13 @@ def fetch_server_data():
         user_preferences = bpy.context.preferences.addons['blenderkit'].preferences
         url = paths.BLENDERKIT_ADDON_URL
         api_key = user_preferences.api_key
-        # version_checker.check_version_thread(url, api_key, blenderkit)
-        if user_preferences.enable_oauth:
+        # Only refresh new type of tokens(by length), and only one hour before the token timeouts.
+        if user_preferences.enable_oauth and \
+                len(user_preferences.api_key)<38 and \
+                user_preferences.api_key_timeout<time.time()+ 3600:
             bkit_oauth.refresh_token_thread()
-        get_profile()
+        if api_key != '':
+            get_profile()
         categories.fetch_categories_thread(api_key)
 
 
@@ -116,12 +122,12 @@ def fetch_server_data():
 def timer_update():  # TODO might get moved to handle all blenderkit stuff.
 
     global search_threads
-    # don't do anything while dragging - this could switch asset type during drag, and make results list lenght different,
+    # don't do anything while dragging - this could switch asset type during drag, and make results list length different,
     # causing a lot of throuble literally.
     if len(search_threads) == 0 or bpy.context.scene.blenderkitUI.dragging:
         return 1
-    for thread in search_threads:  # TODO this doesn't check all processess when removal... mostly 1 process will be running however.
-
+    for thread in search_threads:  # TODO this doesn't check all processes when one gets removed,
+                                   # but most of the time only one is running anyway
         if not thread[0].is_alive():
             search_threads.remove(thread)  #
             icons_dir = thread[1]
@@ -262,7 +268,7 @@ def timer_update():  # TODO might get moved to handle all blenderkit stuff.
 
             # print('finished search thread')
             mt('preview loading finished')
-    return .2
+    return .3
 
 
 def load_previews():
@@ -557,7 +563,7 @@ class ThumbDownloader(threading.Thread):
         return self._stop_event.is_set()
 
     def run(self):
-        r = requests.get(self.url, stream=False)
+        r = rerequests.get(self.url, stream=False)
         if r.status_code == 200:
             with open(self.path, 'wb') as f:
                 f.write(r.content)
@@ -580,7 +586,7 @@ def fetch_author(a_id, api_key):
     try:
         a_url = paths.get_api_url() + 'accounts/' + a_id + '/'
         headers = utils.get_headers(api_key)
-        r = requests.get(a_url, headers=headers)
+        r = rerequests.get(a_url, headers=headers)
         if r.status_code == 200:
             adata = r.json()
             if not hasattr(adata, 'id'):
@@ -590,11 +596,14 @@ def fetch_author(a_id, api_key):
             if adata.get('gravatarHash') is not None:
                 gravatar_path = paths.get_temp_dir(subdir='g/') + adata['gravatarHash'] + '.jpg'
                 url = "https://www.gravatar.com/avatar/" + adata['gravatarHash'] + '?d=404'
-                r = requests.get(url, stream=False)
+                r = rerequests.get(url, stream=False)
                 if r.status_code == 200:
                     with open(gravatar_path, 'wb') as f:
                         f.write(r.content)
                     adata['gravatarImg'] = gravatar_path
+                elif r.status_code == '404':
+                    adata['gravatarHash'] = None
+                    utils.p('gravatar for author not available.')
     except Exception as e:
         utils.p(e)
     utils.p('finish fetch')
@@ -632,7 +641,7 @@ def write_profile(adata):
 def request_profile(api_key):
     a_url = paths.get_api_url() + 'me/'
     headers = utils.get_headers(api_key)
-    r = requests.get(a_url, headers=headers)
+    r = rerequests.get(a_url, headers=headers)
     adata = r.json()
     if adata.get('user') is None:
         utils.p(adata)
@@ -675,8 +684,7 @@ class Searcher(threading.Thread):
         return self._stop_event.is_set()
 
     def run(self):
-        maxthreads = 300
-        maximages = 50
+        maxthreads = 50
         query = self.query
         params = self.params
         global reports
@@ -720,7 +728,6 @@ class Searcher(threading.Thread):
             else:
                 requeststring += '+order:_score'
 
-
             requeststring += '&addon_version=%s' % params['addon_version']
             if params.get('scene_uuid') is not None:
                 requeststring += '&scene_uuid=%s' % params['scene_uuid']
@@ -729,7 +736,7 @@ class Searcher(threading.Thread):
 
         try:
             utils.p(urlquery)
-            r = requests.get(urlquery, headers=headers)
+            r = rerequests.get(urlquery, headers=headers)
             reports = ''
             # utils.p(r.text)
         except requests.exceptions.RequestException as e:
@@ -803,7 +810,7 @@ class Searcher(threading.Thread):
         full_thbs = zip(thumb_full_filepaths, thumb_full_urls)
 
         # we save here because a missing thumbnail check is in the previous loop
-        # we can also prepend previous results. These have allready thumbnails downloaded...
+        # we can also prepend previous results. These have downloaded thumbnails already...
         if params['get_next']:
             rdata['results'][0:0] = origdata['results']
 
@@ -1094,31 +1101,53 @@ class SearchOperator(Operator):
     """Tooltip"""
     bl_idname = "view3d.blenderkit_search"
     bl_label = "BlenderKit asset search"
-
+    bl_description = "Search online for assets"
+    bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
     own: BoolProperty(name="own assets only",
                       description="Find all own assets",
                       default=False)
+
     category: StringProperty(
         name="category",
         description="search only subtree of this category",
-        default="")
+        default="",
+        options = {'SKIP_SAVE'}
+    )
 
     author_id: StringProperty(
         name="Author ID",
         description="Author ID - search only assets by this author",
-        default="")
+        default="",
+        options = {'SKIP_SAVE'}
+    )
 
     get_next: BoolProperty(name="next page",
                            description="get next page from previous search",
-                           default=False)
+                           default=False,
+        options = {'SKIP_SAVE'}
+    )
+
+    keywords: StringProperty(
+        name="Keywords",
+        description="Keywords",
+        default="",
+        options = {'SKIP_SAVE'}
+    )
 
     @classmethod
     def poll(cls, context):
         return True
 
     def execute(self, context):
-        search(own=self.own, category=self.category, get_next=self.get_next, author_id=self.author_id)
-        bpy.ops.view3d.blenderkit_asset_bar()
+        # TODO ; this should all get transferred to properties of the search operator, so sprops don't have to be fetched here at all.
+        sprops = utils.get_search_props()
+        if self.author_id != '':
+            sprops.search_keywords = ''
+        if self.keywords != '':
+            sprops.search_keywords = self.keywords
+
+        search(category=self.category, get_next=self.get_next, author_id=self.author_id)
+        # bpy.ops.view3d.blenderkit_asset_bar()
 
         return {'FINISHED'}
 
@@ -1134,7 +1163,7 @@ def register_search():
     for c in classes:
         bpy.utils.register_class(c)
 
-    # bpy.app.timers.register(timer_update, persistent = True)
+    bpy.app.timers.register(timer_update, persistent = True)
 
     categories.load_categories()
 
@@ -1144,21 +1173,6 @@ def unregister_search():
 
     for c in classes:
         bpy.utils.unregister_class(c)
+    if bpy.app.timers.is_registered(timer_update):
+        bpy.app.timers.unregister(timer_update)
 
-    # bpy.app.timers.unregister(timer_update)
-
-
-'''
-search - 
-build query
-START THREAD
-send query (bg allready)
-get result - metadata, small thumbnails, big thumbnails paths (now genereate this?)
-write metadata, possibly to 
-download small thumbnails first
-start big thumbnails download. these don't have to be there on updates, if they aren't the Image in image editor doesn't get updated.
-parse metadata, save it in json in the temp dir which gets read on each update of the search.
-END THREAD
-when download is triggered, get also this metadata from json. E
-pass this single - item metadata in the download functions, threads.
-'''

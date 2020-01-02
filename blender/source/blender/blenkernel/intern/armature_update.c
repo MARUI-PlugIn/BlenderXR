@@ -643,6 +643,10 @@ void BKE_pose_eval_init(struct Depsgraph *depsgraph, Scene *UNUSED(scene), Objec
   }
 
   BLI_assert(pose->chan_array != NULL || BLI_listbase_is_empty(&pose->chanbase));
+
+  if (object->proxy != NULL) {
+    object->proxy->proxy_from = object;
+  }
 }
 
 void BKE_pose_eval_init_ik(struct Depsgraph *depsgraph, Scene *scene, Object *object)
@@ -724,6 +728,26 @@ void BKE_pose_constraints_evaluate(struct Depsgraph *depsgraph,
   }
 }
 
+static void pose_channel_flush_to_orig_if_needed(struct Depsgraph *depsgraph,
+                                                 struct Object *object,
+                                                 bPoseChannel *pchan)
+{
+  if (!DEG_is_active(depsgraph)) {
+    return;
+  }
+  const bArmature *armature = (bArmature *)object->data;
+  if (armature->edbo != NULL) {
+    return;
+  }
+  bPoseChannel *pchan_orig = pchan->orig_pchan;
+  /* TODO(sergey): Using BKE_pose_copy_pchan_result() introduces T70901, but why? */
+  copy_m4_m4(pchan_orig->pose_mat, pchan->pose_mat);
+  copy_m4_m4(pchan_orig->chan_mat, pchan->chan_mat);
+  copy_v3_v3(pchan_orig->pose_head, pchan->pose_mat[3]);
+  copy_m4_m4(pchan_orig->constinv, pchan->constinv);
+  copy_v3_v3(pchan_orig->pose_tail, pchan->pose_tail);
+}
+
 void BKE_pose_bone_done(struct Depsgraph *depsgraph, struct Object *object, int pchan_index)
 {
   const bArmature *armature = (bArmature *)object->data;
@@ -741,13 +765,9 @@ void BKE_pose_bone_done(struct Depsgraph *depsgraph, struct Object *object, int 
       mat4_to_dquat(&pchan->runtime.deform_dual_quat, pchan->bone->arm_mat, pchan->chan_mat);
     }
   }
-  if (DEG_is_active(depsgraph) && armature->edbo == NULL) {
+  pose_channel_flush_to_orig_if_needed(depsgraph, object, pchan);
+  if (DEG_is_active(depsgraph)) {
     bPoseChannel *pchan_orig = pchan->orig_pchan;
-    copy_m4_m4(pchan_orig->pose_mat, pchan->pose_mat);
-    copy_m4_m4(pchan_orig->chan_mat, pchan->chan_mat);
-    copy_v3_v3(pchan_orig->pose_head, pchan->pose_mat[3]);
-    copy_m4_m4(pchan_orig->constinv, pchan->constinv);
-    BKE_pose_where_is_bone_tail(pchan_orig);
     if (pchan->bone == NULL || pchan->bone->segments <= 1) {
       BKE_pose_channel_free_bbone_cache(&pchan_orig->runtime);
     }
@@ -887,9 +907,10 @@ void BKE_pose_eval_proxy_copy_bone(struct Depsgraph *depsgraph, Object *object, 
   }
   BLI_assert(ID_IS_LINKED(object) && object->proxy_from != NULL);
   bPoseChannel *pchan = pose_pchan_get_indexed(object, pchan_index);
+  BLI_assert(pchan != NULL);
   DEG_debug_print_eval_subdata(
       depsgraph, __func__, object->id.name, object, "pchan", pchan->name, pchan);
-  /* TODO(sergey): Use indexec lookup, once it's guaranteed to be kept
+  /* TODO(sergey): Use indexed lookup, once it's guaranteed to be kept
    * around for the time while proxies are evaluating.
    */
 #if 0
@@ -897,9 +918,16 @@ void BKE_pose_eval_proxy_copy_bone(struct Depsgraph *depsgraph, Object *object, 
 #else
   bPoseChannel *pchan_from = BKE_pose_channel_find_name(object->proxy_from->pose, pchan->name);
 #endif
-  BLI_assert(pchan != NULL);
-  BLI_assert(pchan_from != NULL);
-  BKE_pose_copyesult_pchan_result(pchan, pchan_from);
+  if (pchan_from == NULL) {
+    printf(
+        "WARNING: Could not find bone %s in linked ID anymore... "
+        "You should delete and re-generate your proxy.\n",
+        pchan->name);
+    return;
+  }
+  BKE_pose_copy_pchan_result(pchan, pchan_from);
   copy_dq_dq(&pchan->runtime.deform_dual_quat, &pchan_from->runtime.deform_dual_quat);
   BKE_pchan_bbone_segments_cache_copy(pchan, pchan_from);
+
+  pose_channel_flush_to_orig_if_needed(depsgraph, object, pchan);
 }

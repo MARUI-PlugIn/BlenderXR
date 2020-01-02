@@ -239,7 +239,7 @@ Drop Into a Python Interpreter in Your Script
 =============================================
 
 In the middle of a script you may want to inspect some variables,
-run some function and generally dig about to see whats going on.
+run some function and generally dig about to see what's going on.
 
 .. code-block:: python
 
@@ -301,7 +301,7 @@ Advantages include:
 This is marked advanced because to run Blender as a Python module requires a special build option.
 
 For instructions on building see
-`Building Blender as a Python module <https://wiki.blender.org/index.php/User:Ideasman42/BlenderAsPyModule>`_
+`Building Blender as a Python module <https://wiki.blender.org/wiki/Building_Blender/Other/BlenderAsPyModule>`_
 
 
 Python Safety (Build Option)

@@ -780,10 +780,10 @@ static PyTypeObject BlenderAppTranslationsType = {
     0, /* tp_itemsize */
     /* methods */
     /* No destructor, this is a singleton! */
-    NULL, /* tp_dealloc */
-    NULL, /* printfunc tp_print; */
-    NULL, /* getattrfunc tp_getattr; */
-    NULL, /* setattrfunc tp_setattr; */
+    NULL,            /* tp_dealloc */
+    (printfunc)NULL, /* printfunc tp_print; */
+    NULL,            /* getattrfunc tp_getattr; */
+    NULL,            /* setattrfunc tp_setattr; */
     NULL,
     /* tp_compare */ /* DEPRECATED in python 3.0! */
     NULL,            /* tp_repr */
@@ -890,7 +890,7 @@ PyObject *BPY_app_translations_struct(void)
 
 void BPY_app_translations_end(void)
 {
-  /* Incase the object remains in a module's namespace, see T44127. */
+  /* In case the object remains in a module's name-space, see T44127. */
 #ifdef WITH_INTERNATIONAL
   _clear_translations_cache();
 #endif

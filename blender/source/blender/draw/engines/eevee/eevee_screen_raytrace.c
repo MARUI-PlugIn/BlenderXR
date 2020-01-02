@@ -44,9 +44,8 @@ static struct {
   /* Screen Space Reflection */
   struct GPUShader *ssr_sh[SSR_MAX_SHADER];
 
-  /* Theses are just references, not actually allocated */
+  /* These are just references, not actually allocated */
   struct GPUTexture *depth_src;
-  struct GPUTexture *color_src;
 } e_data = {{NULL}}; /* Engine data */
 
 extern char datatoc_ambient_occlusion_lib_glsl[];
@@ -338,7 +337,7 @@ void EEVEE_reflection_compute(EEVEE_ViewLayerData *UNUSED(sldata), EEVEE_Data *v
 
 void EEVEE_screen_raytrace_free(void)
 {
-  for (int i = 0; i < SSR_MAX_SHADER; ++i) {
+  for (int i = 0; i < SSR_MAX_SHADER; i++) {
     DRW_SHADER_FREE_SAFE(e_data.ssr_sh[i]);
   }
 }

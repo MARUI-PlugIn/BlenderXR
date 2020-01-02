@@ -21,14 +21,16 @@
 #ifndef __RNA_TYPES_H__
 #define __RNA_TYPES_H__
 
-#include "../blenlib/BLI_sys_types.h"
-
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+#include "../blenlib/BLI_sys_types.h"
+
+
 struct BlenderRNA;
 struct FunctionRNA;
+struct ID;
 struct Main;
 struct ParameterList;
 struct PropertyRNA;
@@ -44,10 +46,7 @@ struct bContext;
  * the properties and validate them. */
 
 typedef struct PointerRNA {
-  struct {
-    void *data;
-  } id;
-
+  struct ID *owner_id;
   struct StructRNA *type;
   void *data;
 } PointerRNA;
@@ -105,7 +104,7 @@ typedef enum PropertyUnit {
 #define RNA_STACK_ARRAY 32
 
 /**
- * \note Also update enums in bpy_props.c when adding items here.
+ * \note Also update enums in bpy_props.c and rna_rna.c when adding items here.
  * Watch it: these values are written to files as part of node socket button subtypes!
  */
 typedef enum PropertySubType {
@@ -253,8 +252,13 @@ typedef enum PropertyFlag {
   PROP_REGISTER_OPTIONAL = PROP_REGISTER | (1 << 5),
 
   /**
-   * Use for arrays or for any data that should not have a reference kept
-   * most common case is functions that return arrays where the array.
+   * Use for allocated function return values of arrays or strings
+   * for any data that should not have a reference kept.
+   *
+   * It can be used for properties which are dynamically allocated too.
+   *
+   * \note Currently dynamic sized thick wrapped data isn't supported.
+   * This would be a useful addition and avoid a fixed maximum sized as in done at the moment.
    */
   PROP_THICK_WRAP = (1 << 23),
 
@@ -529,7 +533,7 @@ typedef struct ParameterDynAlloc {
 typedef enum FunctionFlag {
   /**
    * Pass ID owning 'self' data
-   * (i.e. ptr->id.data, might be same as self in case data is an ID...).
+   * (i.e. ptr->owner_id, might be same as self in case data is an ID...).
    */
   FUNC_USE_SELF_ID = (1 << 11),
 

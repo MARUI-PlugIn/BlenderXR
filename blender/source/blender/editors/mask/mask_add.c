@@ -72,7 +72,7 @@ bool ED_mask_find_nearest_diff_point(const bContext *C,
   float u = 0.0f;
   float scalex, scaley;
 
-  Depsgraph *depsgraph = CTX_data_evaluated_depsgraph(C);
+  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   Mask *mask_eval = (Mask *)DEG_get_evaluated_id(depsgraph, &mask_orig->id);
 
   ED_mask_get_size(sa, &width, &height);
@@ -230,7 +230,7 @@ static void setup_vertex_point(Mask *mask,
       int point_index = reference_point - spline->points;
       int delta = new_point == spline->points ? 1 : -1;
       int i = 0;
-      for (i = 0; i < spline->tot_point - 1; ++i) {
+      for (i = 0; i < spline->tot_point - 1; i++) {
         MaskSplinePoint *current_point;
 
         point_index += delta;

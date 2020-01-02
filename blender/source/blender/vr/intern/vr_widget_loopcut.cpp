@@ -69,19 +69,20 @@
 #include "ED_numinput.h"
 #include "ED_undo.h"
 
-#include "GPU_immediate.h"
-#include "GPU_state.h"
-#include "GPU_matrix.h"
-
 #include "MEM_guardedalloc.h"
 #include "mesh_intern.h"
 
 #include "transform.h"
+#include "transform_convert.h"
 
 #include "UI_resources.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
+
+#include "GPU_state.h"
+#include "GPU_matrix.h"
+#include "GPU_immediate.h"
 
 /* Multiplier for one and two-handed scaling transformations. */
 #define WIDGET_TRANSFORM_SCALING_SENSITIVITY 0.5f
@@ -237,7 +238,7 @@ static int ringsel_init(bContext *C, wmOperator *op, bool do_cut)
 
   em_setup_viewcontext(C, &lcd->vc);
 
-  lcd->depsgraph = CTX_data_depsgraph(C);
+  lcd->depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
 
   /* assign the drawing handle for drawing preview line... */
   lcd->ar = CTX_wm_region(C);
@@ -454,7 +455,6 @@ static int loopcut_init(bContext *C, wmOperator *op, const wmEvent *event)
   bool ok = true;
   if (is_interactive == false) {
     if (exec_data.base_index >= bases_len) {
-      return OPERATOR_CANCELLED;
       ok = false;
     }
     else {
@@ -603,6 +603,7 @@ static int ringsel_update(bContext *C, wmOperator *op)
   return OPERATOR_RUNNING_MODAL;
 }
 
+#if 0 /* TODO max-k removed in blender 2.81? */
 /* From transform.c */
 static void slide_origdata_init_flag(TransInfo *t, TransDataContainer *tc, SlideOrigData *sod)
 {
@@ -759,6 +760,7 @@ static void slide_origdata_create_data(TransInfo *t,
     }
   }
 }
+#endif /* ~TODO max-k removed in blender 2.81? */
 
 static void calcEdgeSlideCustomPoints(struct TransInfo *t)
 {
@@ -1184,7 +1186,9 @@ static bool createEdgeSlideVerts_double_side(TransInfo *t, TransDataContainer *t
   View3D *v3d = NULL;
   RegionView3D *rv3d = NULL;
 
+#if 0 /* TODO max-k removed in blender 2.81? */
   slide_origdata_init_flag(t, tc, &sld->orig_data);
+#endif /* ~TODO max-k removed in blender 2.81? */
 
   sld->curr_sv_index = 0;
 
@@ -1512,15 +1516,19 @@ static bool createEdgeSlideVerts_double_side(TransInfo *t, TransDataContainer *t
 
   /* create copies of faces for customdata projection */
   bmesh_edit_begin(bm, BMO_OPTYPE_FLAG_UNTAN_MULTIRES);
+#if 0 /* TODO max-k removed in blender 2.81 */
   slide_origdata_init_data(tc, &sld->orig_data);
   slide_origdata_create_data(
       t, tc, &sld->orig_data, (TransDataGenericSlideVert *)sld->sv, sizeof(*sld->sv), sld->totsv);
+#endif /* TODO max-k removed in blender 2.81 */
 
   if (rv3d) {
     calcEdgeSlide_even(t, tc, sld, mval);
   }
 
+#if 0 /* TODO max-k removed in blender 2.81 */
   sld->em = em;
+#endif /* TODO max-k removed in blender 2.81 */
 
   tc->custom.mode.data = sld;
 
@@ -1554,9 +1562,9 @@ static bool createEdgeSlideVerts_single_side(TransInfo *t, TransDataContainer *t
     v3d = (View3D *)(t->sa ? t->sa->spacedata.first : NULL);
     rv3d = (RegionView3D *)(t->ar ? t->ar->regiondata : NULL);
   }
-
+#if 0 /* TODO max-k removed in blender 2.81 */
   slide_origdata_init_flag(t, tc, &sld->orig_data);
-
+#endif /* TODO max-k removed in blender 2.81 */
   sld->curr_sv_index = 0;
   /* ensure valid selection */
   {
@@ -1708,16 +1716,17 @@ static bool createEdgeSlideVerts_single_side(TransInfo *t, TransDataContainer *t
 
   /* create copies of faces for customdata projection */
   bmesh_edit_begin(bm, BMO_OPTYPE_FLAG_UNTAN_MULTIRES);
+#if 0 /* TODO max-k removed in blender 2.81 */
   slide_origdata_init_data(tc, &sld->orig_data);
   slide_origdata_create_data(
       t, tc, &sld->orig_data, (TransDataGenericSlideVert *)sld->sv, sizeof(*sld->sv), sld->totsv);
-
+#endif /* TODO max-k removed in blender 2.81 */
   if (rv3d) {
     calcEdgeSlide_even(t, tc, sld, mval);
   }
-
+#if 0 /* TODO max-k removed in blender 2.81 */
   sld->em = em;
-
+#endif /* TODO max-k removed in blender 2.81 */
   tc->custom.mode.data = sld;
 
   MEM_freeN(sv_table);

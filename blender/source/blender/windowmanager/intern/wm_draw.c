@@ -46,7 +46,6 @@
 #include "BKE_main.h"
 #include "BKE_screen.h"
 #include "BKE_scene.h"
-#include "BKE_workspace.h"
 
 #include "GHOST_C-api.h"
 
@@ -55,10 +54,8 @@
 #include "ED_screen.h"
 
 #include "GPU_draw.h"
-#include "GPU_extensions.h"
 #include "GPU_framebuffer.h"
 #include "GPU_immediate.h"
-#include "GPU_matrix.h"
 #include "GPU_state.h"
 #include "GPU_texture.h"
 #include "GPU_viewport.h"
@@ -77,12 +74,9 @@
 #  include "BKE_subsurf.h"
 #endif
 
+#if WITH_VR
 #include "../vr/vr_build.h"
-#if WITH_VR
 #include "../vr/vr_main.h"
-#endif
-
-#if WITH_VR
 #define VR_PANCAKE 0	/* VR without HMD blitting... */
 #endif
 
@@ -280,9 +274,14 @@ static void wm_region_test_render_do_draw(const Scene *scene,
   }
 }
 
+static bool wm_region_use_viewport_by_type(short space_type, short region_type)
+{
+  return (ELEM(space_type, SPACE_VIEW3D, SPACE_IMAGE) && region_type == RGN_TYPE_WINDOW);
+}
+
 static bool wm_region_use_viewport(ScrArea *sa, ARegion *ar)
 {
-  return (ELEM(sa->spacetype, SPACE_VIEW3D, SPACE_IMAGE) && ar->regiontype == RGN_TYPE_WINDOW);
+  return wm_region_use_viewport_by_type(sa->spacetype, ar->regiontype);
 }
 
 /********************** draw all **************************/
@@ -344,7 +343,7 @@ static void wm_draw_region_buffer_free(ARegion *ar)
   RegionView3D *rv3d = ar->regiondata;
   /* TODO_XR: The "RV3D_IS_VR" test fails if rv3d->rflag
    * is filled with garbage data when the struct is initialized... */
-  if (rv3d && rv3d->rflag >= RV3D_IS_VR && rv3d->rflag < 64) {
+  if (rv3d && (rv3d->rflag & RV3D_IS_VR)!=0 && (rv3d->rflag & 0xF000)==0) {
     if (vr_get_obj()->initialized) {
       return;
 	}
@@ -486,6 +485,17 @@ static void wm_draw_region_blit(ARegion *ar, int view)
 {
   if (!ar->draw_buffer) {
     return;
+  }
+
+  if (view == -1) {
+    /* Non-stereo drawing. */
+    view = 0;
+  }
+  else if (view > 0) {
+    if (ar->draw_buffer->viewport[view] == NULL && ar->draw_buffer->offscreen[view] == NULL) {
+      /* Region does not need stereo or failed to allocate stereo buffers. */
+      view = 0;
+    }
   }
 
   if (ar->draw_buffer->viewport[view]) {
@@ -794,7 +804,7 @@ static void wm_draw_window_onscreen(bContext *C, wmWindow *win, int view)
         }
         else {
           /* Blit from offscreen buffer. */
-          wm_draw_region_blit(ar, 0);
+          wm_draw_region_blit(ar, view);
         }
       }
     }
@@ -926,11 +936,11 @@ static void wm_draw_window(bContext *C, wmWindow *win)
 /****************** main update call **********************/
 
 /* quick test to prevent changing window drawable */
-static bool wm_draw_update_test_window(wmWindow *win)
+static bool wm_draw_update_test_window(Main *bmain, wmWindow *win)
 {
   Scene *scene = WM_window_get_active_scene(win);
   ViewLayer *view_layer = WM_window_get_active_view_layer(win);
-  struct Depsgraph *depsgraph = BKE_scene_get_depsgraph(scene, view_layer, true);
+  struct Depsgraph *depsgraph = BKE_scene_get_depsgraph(bmain, scene, view_layer, true);
   bScreen *screen = WM_window_get_active_screen(win);
   ARegion *ar;
   bool do_draw = false;
@@ -1034,7 +1044,7 @@ void wm_draw_update(bContext *C)
     /* If VR window, always redraw. */
     if (win && win == vr_get_obj()->window) {
       bScreen *screen = WM_window_get_active_screen(win);
-
+ 
       CTX_wm_window_set(C, win);
 
       /* sets context window+screen */
@@ -1055,7 +1065,7 @@ void wm_draw_update(bContext *C)
       continue;
     }
 #endif
-    if (wm_draw_update_test_window(win)) {
+    if (wm_draw_update_test_window(bmain, win)) {
       bScreen *screen = WM_window_get_active_screen(win);
 
       CTX_wm_window_set(C, win);
@@ -1111,3 +1121,31 @@ void WM_redraw_windows(bContext *C)
   CTX_wm_area_set(C, area_prev);
   CTX_wm_region_set(C, ar_prev);
 }
+
+/* -------------------------------------------------------------------- */
+/** \name Region Viewport Drawing
+ *
+ * This is needed for viewport drawing for operator use
+ * (where the viewport may not have drawn yet).
+ *
+ * Otherwise avoid using these sine they're exposing low level logic externally.
+ *
+ * \{ */
+
+void WM_draw_region_viewport_ensure(ARegion *ar, short space_type)
+{
+  bool use_viewport = wm_region_use_viewport_by_type(space_type, ar->regiontype);
+  wm_draw_region_buffer_create(ar, false, use_viewport);
+}
+
+void WM_draw_region_viewport_bind(ARegion *ar)
+{
+  wm_draw_region_bind(ar, 0);
+}
+
+void WM_draw_region_viewport_unbind(ARegion *ar)
+{
+  wm_draw_region_unbind(ar, 0);
+}
+
+/** \} */

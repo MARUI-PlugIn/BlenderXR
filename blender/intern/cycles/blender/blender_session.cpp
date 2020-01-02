@@ -114,11 +114,6 @@ BlenderSession::~BlenderSession()
   free_session();
 }
 
-void BlenderSession::create()
-{
-  create_session();
-}
-
 void BlenderSession::create_session()
 {
   SessionParams session_params = BlenderSync::get_session_params(
@@ -199,8 +194,12 @@ void BlenderSession::reset_session(BL::BlendData &b_data, BL::Depsgraph &b_depsg
     height = render_resolution_y(b_render);
   }
 
-  if (session == NULL) {
-    create();
+  bool is_new_session = (session == NULL);
+  if (is_new_session) {
+    /* Initialize session and remember it was just created so not to
+     * re-create it below.
+     */
+    create_session();
   }
 
   if (b_v3d) {
@@ -219,8 +218,10 @@ void BlenderSession::reset_session(BL::BlendData &b_data, BL::Depsgraph &b_depsg
     /* if scene or session parameters changed, it's easier to simply re-create
      * them rather than trying to distinguish which settings need to be updated
      */
-    free_session();
-    create_session();
+    if (!is_new_session) {
+      free_session();
+      create_session();
+    }
     return;
   }
 
@@ -527,7 +528,7 @@ void BlenderSession::render(BL::Depsgraph &b_depsgraph_)
     builtin_images_load();
 
     /* Attempt to free all data which is held by Blender side, since at this
-     * point we knwo that we've got everything to render current view layer.
+     * point we know that we've got everything to render current view layer.
      */
     /* At the moment we only free if we are not doing multi-view
      * (or if we are rendering the last view). See T58142/D4239 for discussion.
@@ -539,8 +540,8 @@ void BlenderSession::render(BL::Depsgraph &b_depsgraph_)
     /* Make sure all views have different noise patterns. - hardcoded value just to make it random
      */
     if (view_index != 0) {
-      scene->integrator->seed += hash_int_2d(scene->integrator->seed,
-                                             hash_int(view_index * 0xdeadbeef));
+      scene->integrator->seed += hash_uint2(scene->integrator->seed,
+                                            hash_uint2(view_index * 0xdeadbeef, 0));
       scene->integrator->tag_update(scene);
     }
 
@@ -860,7 +861,7 @@ void BlenderSession::synchronize(BL::Depsgraph &b_depsgraph_)
 
   /* copy recalc flags, outside of mutex so we can decide to do the real
    * synchronization at a later time to not block on running updates */
-  sync->sync_recalc(b_depsgraph_);
+  sync->sync_recalc(b_depsgraph_, b_v3d);
 
   /* don't do synchronization if on pause */
   if (session_pause) {
@@ -1481,8 +1482,8 @@ void BlenderSession::update_resumable_tile_manager(int num_samples)
 
   /* Round after doing the multiplications with num_chunks and num_samples_per_chunk
    * to allow for many small chunks. */
-  int rounded_range_start_sample = (int)floor(range_start_sample + 0.5f);
-  int rounded_range_num_samples = max((int)floor(range_num_samples + 0.5f), 1);
+  int rounded_range_start_sample = (int)floorf(range_start_sample + 0.5f);
+  int rounded_range_num_samples = max((int)floorf(range_num_samples + 0.5f), 1);
 
   /* Make sure we don't overshoot. */
   if (rounded_range_start_sample + rounded_range_num_samples > num_samples) {

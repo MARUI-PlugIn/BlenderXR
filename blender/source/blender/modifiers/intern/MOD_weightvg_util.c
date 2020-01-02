@@ -72,18 +72,18 @@ void weightvg_do_map(int num, float *new_w, short falloff_type, CurveMapping *cm
   }
 
   if (cmap && falloff_type == MOD_WVG_MAPPING_CURVE) {
-    curvemapping_initialize(cmap);
+    BKE_curvemapping_initialize(cmap);
   }
 
   /* Map each weight (vertex) to its new value, accordingly to the chosen mode. */
-  for (i = 0; i < num; ++i) {
+  for (i = 0; i < num; i++) {
     float fac = new_w[i];
 
     /* Code borrowed from the warp modifier. */
     /* Closely matches PROP_SMOOTH and similar. */
     switch (falloff_type) {
       case MOD_WVG_MAPPING_CURVE:
-        fac = curvemapping_evaluateF(cmap, 0, fac);
+        fac = BKE_curvemapping_evaluateF(cmap, 0, fac);
         break;
       case MOD_WVG_MAPPING_SHARP:
         fac = fac * fac;
@@ -164,7 +164,7 @@ void weightvg_do_mask(const ModifierEvalContext *ctx,
     MOD_init_texture(&t_map, ctx);
 
     /* For each weight (vertex), make the mix between org and new weights. */
-    for (i = 0; i < num; ++i) {
+    for (i = 0; i < num; i++) {
       int idx = indices ? indices[i] : i;
       TexResult texres;
       float hsv[3]; /* For HSV color space. */

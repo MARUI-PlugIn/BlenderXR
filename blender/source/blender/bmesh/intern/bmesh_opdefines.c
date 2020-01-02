@@ -336,7 +336,7 @@ static BMOpDefine bmo_find_doubles_def = {
   /* slots_in */
   {{"verts", BMO_OP_SLOT_ELEMENT_BUF, {BM_VERT}}, /* input vertices */
    {"keep_verts", BMO_OP_SLOT_ELEMENT_BUF, {BM_VERT}}, /* list of verts to keep */
-   {"dist",         BMO_OP_SLOT_FLT}, /* minimum distance */
+   {"dist",         BMO_OP_SLOT_FLT}, /* maximum distance */
    {{'\0'}},
   },
   /* slots_out */
@@ -362,28 +362,6 @@ static BMOpDefine bmo_remove_doubles_def = {
   },
   {{{'\0'}}},  /* no output */
   bmo_remove_doubles_exec,
-  (BMO_OPTYPE_FLAG_UNTAN_MULTIRES |
-   BMO_OPTYPE_FLAG_NORMALS_CALC |
-   BMO_OPTYPE_FLAG_SELECT_FLUSH |
-   BMO_OPTYPE_FLAG_SELECT_VALIDATE),
-};
-
-/*
- * Auto Merge.
- *
- * Finds groups of vertices closer then **dist** and merges them together,
- * using the weld verts bmop.  The merges must go from a vert not in
- * **verts** to one in **verts**.
- */
-static BMOpDefine bmo_automerge_def = {
-  "automerge",
-  /* slots_in */
-  {{"verts", BMO_OP_SLOT_ELEMENT_BUF, {BM_VERT}}, /* input verts */
-   {"dist",         BMO_OP_SLOT_FLT}, /* minimum distance */
-   {{'\0'}},
-  },
-  {{{'\0'}}},  /* no output */
-  bmo_automerge_exec,
   (BMO_OPTYPE_FLAG_UNTAN_MULTIRES |
    BMO_OPTYPE_FLAG_NORMALS_CALC |
    BMO_OPTYPE_FLAG_SELECT_FLUSH |
@@ -1173,7 +1151,7 @@ static BMOpDefine bmo_dissolve_limit_def = {
 static BMOpDefine bmo_dissolve_degenerate_def = {
   "dissolve_degenerate",
   /* slots_in */
-  {{"dist", BMO_OP_SLOT_FLT}, /* minimum distance to consider degenerate */
+  {{"dist", BMO_OP_SLOT_FLT}, /* maximum distance to consider degenerate */
    {"edges", BMO_OP_SLOT_ELEMENT_BUF, {BM_EDGE}},
    {{'\0'}},
   },
@@ -1545,7 +1523,7 @@ static BMOpDefine bmo_split_edges_def = {
   "split_edges",
   /* slots_in */
   {{"edges", BMO_OP_SLOT_ELEMENT_BUF, {BM_EDGE}},    /* input edges */
-   /* needed for vertex rip so we can rip only half an edge at a boundary wich would otherwise split off */
+   /* needed for vertex rip so we can rip only half an edge at a boundary which would otherwise split off */
    {"verts", BMO_OP_SLOT_ELEMENT_BUF, {BM_VERT}},    /* optional tag verts, use to have greater control of splits */
    {"use_verts",        BMO_OP_SLOT_BOOL}, /* use 'verts' for splitting, else just find verts to split from edges */
    {{'\0'}},
@@ -2073,7 +2051,6 @@ static BMOpDefine bmo_symmetrize_def = {
 /* clang-format on */
 
 const BMOpDefine *bmo_opdefines[] = {
-    &bmo_automerge_def,
     &bmo_average_vert_facedata_def,
     &bmo_beautify_fill_def,
     &bmo_bevel_def,

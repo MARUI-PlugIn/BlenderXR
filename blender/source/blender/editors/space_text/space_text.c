@@ -29,6 +29,7 @@
 
 #include "BLI_blenlib.h"
 
+#include "BKE_global.h"
 #include "BKE_context.h"
 #include "BKE_library.h"
 #include "BKE_screen.h"
@@ -63,6 +64,8 @@ static SpaceLink *text_new(const ScrArea *UNUSED(area), const Scene *UNUSED(scen
   stext->lheight = 12;
   stext->tabnumber = 4;
   stext->margin_column = 80;
+  stext->showsyntax = true;
+  stext->showlinenrs = true;
 
   /* header */
   ar = MEM_callocN(sizeof(ARegion), "header for text");
@@ -82,7 +85,7 @@ static SpaceLink *text_new(const ScrArea *UNUSED(area), const Scene *UNUSED(scen
 
   BLI_addtail(&stext->regionbase, ar);
   ar->regiontype = RGN_TYPE_UI;
-  ar->alignment = RGN_ALIGN_LEFT;
+  ar->alignment = RGN_ALIGN_RIGHT;
   ar->flag = RGN_FLAG_HIDDEN;
 
   /* main region */
@@ -197,8 +200,7 @@ static void text_operatortypes(void)
   WM_operatortype_append(TEXT_OT_duplicate_line);
 
   WM_operatortype_append(TEXT_OT_convert_whitespace);
-  WM_operatortype_append(TEXT_OT_uncomment);
-  WM_operatortype_append(TEXT_OT_comment);
+  WM_operatortype_append(TEXT_OT_comment_toggle);
   WM_operatortype_append(TEXT_OT_unindent);
   WM_operatortype_append(TEXT_OT_indent);
 
@@ -254,7 +256,9 @@ static int text_context(const bContext *C, const char *member, bContextDataResul
     return 1;
   }
   else if (CTX_data_equals(member, "edit_text")) {
-    CTX_data_id_pointer_set(result, &st->text->id);
+    if (st->text != NULL) {
+      CTX_data_id_pointer_set(result, &st->text->id);
+    }
     return 1;
   }
 
@@ -307,11 +311,11 @@ static void text_main_region_draw(const bContext *C, ARegion *ar)
 static void text_cursor(wmWindow *win, ScrArea *sa, ARegion *ar)
 {
   SpaceText *st = sa->spacedata.first;
-  int wmcursor = BC_TEXTEDITCURSOR;
+  int wmcursor = WM_CURSOR_TEXT_EDIT;
 
   if (st->text &&
       BLI_rcti_isect_pt(&st->txtbar, win->eventstate->x - ar->winrct.xmin, st->txtbar.ymin)) {
-    wmcursor = CURSOR_STD;
+    wmcursor = WM_CURSOR_DEFAULT;
   }
 
   WM_cursor_set(win, wmcursor);
@@ -353,7 +357,7 @@ static void text_drop_paste(wmDrag *drag, wmDropBox *drop)
   ID *id = WM_drag_ID(drag, 0);
 
   /* copy drag path to properties */
-  text = RNA_path_full_ID_py(id);
+  text = RNA_path_full_ID_py(G_MAIN, id);
   RNA_string_set(drop->ptr, "text", text);
   MEM_freeN(text);
 }

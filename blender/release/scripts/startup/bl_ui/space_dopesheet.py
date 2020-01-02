@@ -86,7 +86,7 @@ class DopesheetFilterPopoverBase:
             row = col.row(align=True)
             row.prop(dopesheet, "filter_text", text="")
 
-        if (not generic_filters_only) and (bpy.data.collections):
+        if (not generic_filters_only) and bpy.data.collections:
             col = layout.column(align=True)
             col.prop(dopesheet, "filter_collection", text="")
 
@@ -318,7 +318,6 @@ class DOPESHEET_MT_view(Menu):
         layout.separator()
 
         layout.prop(st, "use_realtime_update")
-        layout.prop(st, "show_frame_indicator")
         layout.prop(st, "show_sliders")
         layout.prop(st, "show_group_colors")
         layout.prop(st, "show_interpolation")
@@ -361,7 +360,7 @@ class DOPESHEET_MT_select(Menu):
 
         layout.separator()
         layout.operator("action.select_box").axis_range = False
-        layout.operator("action.select_box", text="Border Axis Range").axis_range = True
+        layout.operator("action.select_box", text="Box Select (Axis Range)").axis_range = True
 
         layout.operator("action.select_circle")
 

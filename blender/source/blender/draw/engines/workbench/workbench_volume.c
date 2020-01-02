@@ -27,6 +27,7 @@
 
 #include "BLI_rand.h"
 #include "BLI_dynstr.h"
+#include "BLI_string_utils.h"
 
 #include "DNA_modifier_types.h"
 #include "DNA_object_force_types.h"
@@ -45,8 +46,6 @@ enum {
 static struct {
   struct GPUShader *volume_sh[VOLUME_SH_MAX];
   struct GPUShader *volume_coba_sh;
-  struct GPUShader *volume_slice_sh;
-  struct GPUShader *volume_slice_coba_sh;
   struct GPUTexture *dummy_tex;
   struct GPUTexture *dummy_coba_tex;
 } e_data = {{NULL}};
@@ -54,6 +53,7 @@ static struct {
 extern char datatoc_workbench_volume_vert_glsl[];
 extern char datatoc_workbench_volume_frag_glsl[];
 extern char datatoc_common_view_lib_glsl[];
+extern char datatoc_gpu_shader_common_obinfos_lib_glsl[];
 
 static GPUShader *volume_shader_get(bool slice, bool coba, bool cubic)
 {
@@ -78,12 +78,16 @@ static GPUShader *volume_shader_get(bool slice, bool coba, bool cubic)
     char *defines = BLI_dynstr_get_cstring(ds);
     BLI_dynstr_free(ds);
 
+    char *libs = BLI_string_joinN(datatoc_common_view_lib_glsl,
+                                  datatoc_gpu_shader_common_obinfos_lib_glsl);
+
     e_data.volume_sh[id] = DRW_shader_create_with_lib(datatoc_workbench_volume_vert_glsl,
                                                       NULL,
                                                       datatoc_workbench_volume_frag_glsl,
-                                                      datatoc_common_view_lib_glsl,
+                                                      libs,
                                                       defines);
 
+    MEM_freeN(libs);
     MEM_freeN(defines);
   }
 
@@ -101,7 +105,7 @@ void workbench_volume_engine_init(void)
 
 void workbench_volume_engine_free(void)
 {
-  for (int i = 0; i < VOLUME_SH_MAX; ++i) {
+  for (int i = 0; i < VOLUME_SH_MAX; i++) {
     DRW_SHADER_FREE_SAFE(e_data.volume_sh[i]);
   }
   DRW_TEXTURE_FREE_SAFE(e_data.dummy_tex);
@@ -161,7 +165,7 @@ void workbench_volume_cache_populate(WORKBENCH_Data *vedata,
                          sds->slice_axis - 1;
     float dim[3];
     BKE_object_dimensions_get(ob, dim);
-    /* 0.05f to acheive somewhat the same opacity as the full view.  */
+    /* 0.05f to achieve somewhat the same opacity as the full view.  */
     float step_length = max_ff(1e-16f, dim[axis] * 0.05f);
 
     grp = DRW_shgroup_create(sh, vedata->psl->volume_pass);

@@ -26,12 +26,12 @@
 #include <float.h>
 #include <limits.h>
 
-#include "DNA_listBase.h"
-#include "RNA_types.h"
-
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#include "DNA_listBase.h"
+#include "RNA_types.h"
 
 #ifdef UNIT_TEST
 #  define RNA_MAX_ARRAY_LENGTH 64

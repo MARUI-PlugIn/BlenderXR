@@ -50,7 +50,6 @@ struct EditBone;
 struct NumInput;
 struct Object;
 struct RNG;
-struct RenderEngineType;
 struct ReportList;
 struct Scene;
 struct ScrArea;
@@ -60,7 +59,6 @@ struct TransDataContainer;
 struct TransInfo;
 struct TransSnap;
 struct TransformOrientation;
-struct View3D;
 struct ViewLayer;
 struct bConstraint;
 struct bContext;
@@ -93,7 +91,9 @@ typedef struct TransSnap {
   bool snap_self;
   bool peel;
   bool snap_spatial_grid;
-  short status;
+  char status;
+  /* Snapped Element Type (currently for objects only). */
+  char snapElem;
   /** snapping from this point (in global-space). */
   float snapPoint[3];
   /** to this point (in global-space). */
@@ -110,7 +110,7 @@ typedef struct TransSnap {
    * Get the transform distance between two points (used by Closest snap)
    *
    * \note Return value can be anything,
-   * where the smallest absolute value defines whats closest.
+   * where the smallest absolute value defines what's closest.
    */
   float (*distance)(struct TransInfo *t, const float p1[3], const float p2[3]);
 
@@ -275,7 +275,6 @@ typedef struct TransDataNla {
   int handle;
 } TransDataNla;
 
-struct GHash;
 struct LinkNode;
 
 /* header of TransDataEdgeSlideVert, TransDataEdgeSlideEdge */
@@ -302,38 +301,11 @@ typedef struct TransDataEdgeSlideVert {
   int loop_nr;
 } TransDataEdgeSlideVert;
 
-/* store original data so we can correct UV's and similar when sliding */
-typedef struct SlideOrigData {
-  /** Set when #origfaces is initialized. */
-  bool use_origfaces;
-  int cd_loop_mdisp_offset;
-
-  /** map {BMVert: TransDataGenericSlideVert} */
-  struct GHash *origverts;
-  struct GHash *origfaces;
-  struct BMesh *bm_origfaces;
-
-  struct MemArena *arena;
-  /** Number of math BMLoop layers. */
-  int layer_math_map_num;
-  /** Array size of 'layer_math_map_num'
-   * maps TransDataVertSlideVert.cd_group index to absolute CustomData layer index */
-  int *layer_math_map;
-
-  /** Array of slide vert data especially for mirror verts. */
-  TransDataGenericSlideVert *sv_mirror;
-  int totsv_mirror;
-} SlideOrigData;
-
 typedef struct EdgeSlideData {
   TransDataEdgeSlideVert *sv;
   int totsv;
 
   int mval_start[2], mval_end[2];
-  struct BMEditMesh *em;
-
-  SlideOrigData orig_data;
-
   int curr_sv_index;
 
   /** when un-clamped - use this index: #TransDataEdgeSlideVert.dir_side */
@@ -362,11 +334,6 @@ typedef struct TransDataVertSlideVert {
 typedef struct VertSlideData {
   TransDataVertSlideVert *sv;
   int totsv;
-
-  struct BMEditMesh *em;
-
-  SlideOrigData orig_data;
-
   int curr_sv_index;
 
   /* result of ED_view3d_ob_project_mat_get */
@@ -383,6 +350,7 @@ typedef struct VertSlideParams {
 typedef struct BoneInitData {
   struct EditBone *bone;
   float tail[3];
+  float rad_head;
   float rad_tail;
   float roll;
   float head[3];
@@ -455,6 +423,18 @@ typedef struct TransData {
   /** If set, copy of Object or PoseChannel protection. */
   short protectflag;
 } TransData;
+
+typedef struct TransDataMirror {
+  /** location of mirrored reference data. */
+  const float *loc_src;
+  /** Location of the data to transform. */
+  float *loc_dst;
+  void *extra;
+  /* `sign` can be -2, -1, 0 or 1. */
+  int sign_x : 2;
+  int sign_y : 2;
+  int sign_z : 2;
+} TransDataMirror;
 
 typedef struct MouseInput {
   void (*apply)(struct TransInfo *t, struct MouseInput *mi, const double mval[2], float output[3]);
@@ -556,10 +536,18 @@ typedef struct TransDataContainer {
    * Mirror option
    */
   struct {
-    /* Currently for mesh X mirror only. */
-    int axis_flag;
-    /** Set to -1.0f or 1.0 when use_mirror is set. */
-    float sign;
+    union {
+      struct {
+        uint axis_x : 1;
+        uint axis_y : 1;
+        uint axis_z : 1;
+      };
+      /* For easy checking. */
+      char use_mirror_any;
+    };
+    /** Mirror data array. */
+    TransDataMirror *data;
+    int data_len;
   } mirror;
 
   TransCustomDataContainer custom;
@@ -670,10 +658,16 @@ typedef struct TransInfo {
 
   short prop_mode;
 
+  /** Value taken as input, either through mouse coordinates or entered as a parameter. */
   float values[4];
+
   /** Offset applied ontop of modal input. */
   float values_modal_offset[4];
-  float auto_values[4];
+
+  /** Final value of the transformation (displayed in the redo panel).
+   * If the operator is executed directly (not modal), this value is usually the
+   * value of the input parameter, except when a constrain is entered. */
+  float values_final[4];
 
   /* Axis members for modes that use an axis separate from the orientation (rotate & shear). */
 
@@ -772,7 +766,9 @@ enum {
   /** Don't use mirror even if the data-block option is set. */
   T_NO_MIRROR = 1 << 19,
 
-  T_AUTOVALUES = 1 << 20,
+  /** To indicate that the value set in the `value` parameter is the final
+   * value of the transformation, modified only by the constrain. */
+  T_INPUT_IS_VALUES_FINAL = 1 << 20,
 
   /** To specify if we save back settings at the end. */
   T_MODAL = 1 << 21,
@@ -859,16 +855,18 @@ enum {
   /** For Graph Editor - curves that can only have int-values
    * need their keyframes tagged with this. */
   TD_INTVALUES = 1 << 15,
-  /** For editmode mirror, clamp to x = 0 */
-  TD_MIRROR_EDGE = 1 << 16,
+  /** For editmode mirror, clamp axis to 0 */
+  TD_MIRROR_EDGE_X = 1 << 16,
+  TD_MIRROR_EDGE_Y = 1 << 17,
+  TD_MIRROR_EDGE_Z = 1 << 18,
   /** For fcurve handles, move them along with their keyframes */
-  TD_MOVEHANDLE1 = 1 << 17,
-  TD_MOVEHANDLE2 = 1 << 18,
+  TD_MOVEHANDLE1 = 1 << 19,
+  TD_MOVEHANDLE2 = 1 << 20,
   /** Exceptional case with pose bone rotating when a parent bone has 'Local Location'
    * option enabled and rotating also transforms it. */
-  TD_PBONE_LOCAL_MTX_P = 1 << 19,
+  TD_PBONE_LOCAL_MTX_P = 1 << 21,
   /** Same as above but for a child bone. */
-  TD_PBONE_LOCAL_MTX_C = 1 << 20,
+  TD_PBONE_LOCAL_MTX_C = 1 << 22,
 };
 
 /** #TransSnap.status */
@@ -908,23 +906,6 @@ void drawPropCircle(const struct bContext *C, TransInfo *t);
 
 struct wmKeyMap *transform_modal_keymap(struct wmKeyConfig *keyconf);
 
-/*********************** transform_conversions.c ********** */
-
-void flushTransIntFrameActionData(TransInfo *t);
-void flushTransGraphData(TransInfo *t);
-void remake_graph_transdata(TransInfo *t, struct ListBase *anim_data);
-void flushTransUVs(TransInfo *t);
-void flushTransParticles(TransInfo *t);
-bool clipUVTransform(TransInfo *t, float vec[2], const bool resize);
-void clipUVData(TransInfo *t);
-void flushTransNodes(TransInfo *t);
-void flushTransSeq(TransInfo *t);
-void flushTransTracking(TransInfo *t);
-void flushTransMasking(TransInfo *t);
-void flushTransPaintCurve(TransInfo *t);
-void restoreMirrorPoseBones(TransDataContainer *tc);
-void restoreBones(TransDataContainer *tc);
-
 /*********************** transform_gizmo.c ********** */
 
 #define GIZMO_AXIS_LINE_WIDTH 2.0f
@@ -934,31 +915,7 @@ bool gimbal_axis(struct Object *ob, float gmat[3][3]);
 void drawDial3d(const TransInfo *t);
 
 /*********************** TransData Creation and General Handling *********** */
-void createTransData(struct bContext *C, TransInfo *t);
-void sort_trans_data_dist(TransInfo *t);
-void special_aftertrans_update(struct bContext *C, TransInfo *t);
-int special_transform_moving(TransInfo *t);
-
-void transform_autoik_update(TransInfo *t, short mode);
 bool transdata_check_local_islands(TransInfo *t, short around);
-
-int count_set_pose_transflags(struct Object *ob,
-                              const int mode,
-                              const short around,
-                              bool has_translate_rotate[2]);
-
-/* Auto-keyframe applied after transform, returns true if motion paths need to be updated. */
-void autokeyframe_object(struct bContext *C,
-                         struct Scene *scene,
-                         struct ViewLayer *view_layer,
-                         struct Object *ob,
-                         int tmode);
-void autokeyframe_pose(
-    struct bContext *C, struct Scene *scene, struct Object *ob, int tmode, short targetless_ik);
-
-/* Test if we need to update motion paths for a given object. */
-bool motionpath_need_update_object(struct Scene *scene, struct Object *ob);
-bool motionpath_need_update_pose(struct Scene *scene, struct Object *ob);
 
 /*********************** Constraints *****************************/
 
@@ -985,40 +942,6 @@ void selectConstraint(TransInfo *t);
 void postSelectConstraint(TransInfo *t);
 
 void setNearestAxis(TransInfo *t);
-
-/*********************** Snapping ********************************/
-
-typedef enum {
-  NO_GEARS = 0,
-  BIG_GEARS = 1,
-  SMALL_GEARS = 2,
-} GearsType;
-
-bool transformModeUseSnap(const TransInfo *t);
-
-void snapGridIncrement(TransInfo *t, float *val);
-void snapGridIncrementAction(TransInfo *t, float *val, GearsType action);
-
-void snapSequenceBounds(TransInfo *t, const int mval[2]);
-
-bool activeSnap(const TransInfo *t);
-bool validSnap(const TransInfo *t);
-
-void initSnapping(struct TransInfo *t, struct wmOperator *op);
-void freeSnapping(struct TransInfo *t);
-void applyProject(TransInfo *t);
-void applyGridAbsolute(TransInfo *t);
-void applySnapping(TransInfo *t, float *vec);
-void resetSnapping(TransInfo *t);
-eRedrawFlag handleSnapping(TransInfo *t, const struct wmEvent *event);
-void drawSnapping(const struct bContext *C, TransInfo *t);
-bool usingSnappingNormal(const TransInfo *t);
-bool validSnappingNormal(const TransInfo *t);
-
-void getSnapPoint(const TransInfo *t, float vec[3]);
-void addSnapPoint(TransInfo *t);
-eRedrawFlag updateSelectedSnapPoint(TransInfo *t);
-void removeSnapPoint(TransInfo *t);
 
 /********************** Mouse Input ******************************/
 
@@ -1131,11 +1054,9 @@ int getTransformOrientation(const struct bContext *C, float normal[3], float pla
 
 void freeCustomNormalArray(TransInfo *t, TransDataContainer *tc, TransCustomData *custom_data);
 
-void freeEdgeSlideTempFaces(EdgeSlideData *sld);
 void freeEdgeSlideVerts(TransInfo *t, TransDataContainer *tc, TransCustomData *custom_data);
 void projectEdgeSlideData(TransInfo *t, bool is_final);
 
-void freeVertSlideTempFaces(VertSlideData *sld);
 void freeVertSlideVerts(TransInfo *t, TransDataContainer *tc, TransCustomData *custom_data);
 void projectVertSlideData(TransInfo *t, bool is_final);
 

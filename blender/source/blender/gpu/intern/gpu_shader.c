@@ -36,7 +36,7 @@
 #include "DNA_space_types.h"
 
 #include "GPU_extensions.h"
-#include "GPU_context.h"
+#include "GPU_platform.h"
 #include "GPU_matrix.h"
 #include "GPU_shader.h"
 #include "GPU_texture.h"
@@ -138,9 +138,6 @@ extern char datatoc_gpu_shader_2D_edituvs_facedots_vert_glsl[];
 extern char datatoc_gpu_shader_2D_edituvs_edges_vert_glsl[];
 extern char datatoc_gpu_shader_2D_edituvs_faces_vert_glsl[];
 extern char datatoc_gpu_shader_2D_edituvs_stretch_vert_glsl[];
-
-extern char datatoc_gpu_shader_3D_selection_id_vert_glsl[];
-extern char datatoc_gpu_shader_selection_id_frag_glsl[];
 
 extern char datatoc_gpu_shader_2D_line_dashed_uniform_color_vert_glsl[];
 extern char datatoc_gpu_shader_2D_line_dashed_frag_glsl[];
@@ -252,6 +249,9 @@ static void gpu_shader_standard_extensions(char defines[MAX_EXT_DEFINE_LENGTH])
     /* a #version 400 feature, but we use #version 330 maximum so use extension */
     strcat(defines, "#extension GL_ARB_texture_query_lod: enable\n");
   }
+  if (GLEW_ARB_shader_draw_parameters) {
+    strcat(defines, "#extension GL_ARB_shader_draw_parameters : enable\n");
+  }
 }
 
 static void gpu_shader_standard_defines(char defines[MAX_DEFINE_LENGTH])
@@ -259,6 +259,9 @@ static void gpu_shader_standard_defines(char defines[MAX_DEFINE_LENGTH])
   /* some useful defines to detect GPU type */
   if (GPU_type_matches(GPU_DEVICE_ATI, GPU_OS_ANY, GPU_DRIVER_ANY)) {
     strcat(defines, "#define GPU_ATI\n");
+    if (GPU_crappy_amd_driver()) {
+      strcat(defines, "#define GPU_DEPRECATED_AMD_DRIVER\n");
+    }
   }
   else if (GPU_type_matches(GPU_DEVICE_NVIDIA, GPU_OS_ANY, GPU_DRIVER_ANY)) {
     strcat(defines, "#define GPU_NVIDIA\n");
@@ -276,6 +279,22 @@ static void gpu_shader_standard_defines(char defines[MAX_DEFINE_LENGTH])
   }
   else if (GPU_type_matches(GPU_DEVICE_ANY, GPU_OS_UNIX, GPU_DRIVER_ANY)) {
     strcat(defines, "#define OS_UNIX\n");
+  }
+
+  float derivatives_factors[2];
+  GPU_get_dfdy_factors(derivatives_factors);
+  if (derivatives_factors[0] == 1.0f) {
+    strcat(defines, "#define DFDX_SIGN 1.0\n");
+  }
+  else {
+    strcat(defines, "#define DFDX_SIGN -1.0\n");
+  }
+
+  if (derivatives_factors[1] == 1.0f) {
+    strcat(defines, "#define DFDY_SIGN 1.0\n");
+  }
+  else {
+    strcat(defines, "#define DFDY_SIGN -1.0\n");
   }
 
   return;
@@ -1312,18 +1331,6 @@ static const GPUShaderStages builtin_shader_stages[GPU_SHADER_BUILTIN_LEN] = {
             .defs = "#define STRETCH_ANGLE\n",
         },
 
-    [GPU_SHADER_3D_FLAT_SELECT_ID] =
-        {
-            .vert = datatoc_gpu_shader_3D_selection_id_vert_glsl,
-            .frag = datatoc_gpu_shader_selection_id_frag_glsl,
-        },
-    [GPU_SHADER_3D_UNIFORM_SELECT_ID] =
-        {
-            .vert = datatoc_gpu_shader_3D_selection_id_vert_glsl,
-            .frag = datatoc_gpu_shader_selection_id_frag_glsl,
-            .defs = "#define UNIFORM_ID\n",
-        },
-
     [GPU_SHADER_GPENCIL_STROKE] =
         {
             .vert = datatoc_gpu_shader_gpencil_stroke_vert_glsl,
@@ -1370,9 +1377,7 @@ GPUShader *GPU_shader_get_builtin_shader_with_config(eGPUBuiltinShader shader,
                       GPU_SHADER_3D_GROUNDLINE,
                       GPU_SHADER_3D_GROUNDPOINT,
                       GPU_SHADER_DISTANCE_LINES,
-                      GPU_SHADER_INSTANCE_EDGES_VARIYING_COLOR,
-                      GPU_SHADER_3D_FLAT_SELECT_ID,
-                      GPU_SHADER_3D_UNIFORM_SELECT_ID) ||
+                      GPU_SHADER_INSTANCE_EDGES_VARIYING_COLOR) ||
                  ELEM(shader,
                       GPU_SHADER_3D_FLAT_COLOR,
                       GPU_SHADER_3D_LINE_DASHED_UNIFORM_COLOR,

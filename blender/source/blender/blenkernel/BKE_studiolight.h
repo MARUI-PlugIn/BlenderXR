@@ -26,14 +26,13 @@
  * Studio lighting for the 3dview
  */
 
-#include "BKE_context.h"
-
 #include "BLI_sys_types.h"
 
-#include "DNA_space_types.h"
+#include "BLI_path_util.h"
+
 #include "DNA_userdef_types.h"
 
-#include "IMB_imbuf_types.h"
+struct ImBuf;
 
 /*
  * These defines are the indexes in the StudioLight.diffuse_light
@@ -87,6 +86,11 @@ enum StudioLightFlag {
   STUDIOLIGHT_RADIANCE_BUFFERS_CALCULATED = (1 << 11),
   STUDIOLIGHT_USER_DEFINED = (1 << 12),
   STUDIOLIGHT_UI_EXPANDED = (1 << 13),
+
+  STUDIOLIGHT_MATCAP_DIFFUSE_GPUTEXTURE = (1 << 14),
+  STUDIOLIGHT_MATCAP_SPECULAR_GPUTEXTURE = (1 << 15),
+  /* Is set for studio lights and matcaps with specular highlight pass. */
+  STUDIOLIGHT_SPECULAR_HIGHLIGHT_PASS = (1 << 16),
 };
 
 #define STUDIOLIGHT_FLAG_ALL (STUDIOLIGHT_INTERNAL | STUDIOLIGHT_EXTERNAL_FILE)
@@ -96,6 +100,11 @@ enum StudioLightFlag {
 #define STUDIOLIGHT_ORIENTATIONS_SOLID (STUDIOLIGHT_INTERNAL | STUDIOLIGHT_TYPE_STUDIO)
 
 typedef void StudioLightFreeFunction(struct StudioLight *, void *data);
+
+typedef struct StudioLightImage {
+  struct ImBuf *ibuf;
+  struct GPUTexture *gputexture;
+} StudioLightImage;
 
 typedef struct StudioLight {
   struct StudioLight *next, *prev;
@@ -112,9 +121,11 @@ typedef struct StudioLight {
   int icon_id_matcap_flipped;
   float spherical_harmonics_coefs[STUDIOLIGHT_SH_EFFECTIVE_COEFS_LEN][3];
   float light_direction[3];
-  ImBuf *equirect_radiance_buffer;
-  ImBuf *equirect_irradiance_buffer;
-  ImBuf *radiance_cubemap_buffers[6];
+  StudioLightImage matcap_diffuse;
+  StudioLightImage matcap_specular;
+  struct ImBuf *equirect_radiance_buffer;
+  struct ImBuf *equirect_irradiance_buffer;
+  struct ImBuf *radiance_cubemap_buffers[6];
   struct GPUTexture *equirect_radiance_gputexture;
   struct GPUTexture *equirect_irradiance_gputexture;
   SolidLight light[STUDIOLIGHT_MAX_LIGHT];

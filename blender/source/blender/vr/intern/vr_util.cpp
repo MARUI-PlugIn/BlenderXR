@@ -390,7 +390,8 @@ void VR_Util::raycast_select_single_edit(
 	ViewContext vc;
 
 	/* setup view context */
-	ED_view3d_viewcontext_init(C, &vc);
+    Depsgraph *depsgraph = CTX_data_depsgraph_pointer(C);
+	ED_view3d_viewcontext_init(C, &vc, depsgraph);
 	ToolSettings *ts = vc.scene->toolsettings;
 	Object *obedit = vc.obedit;
 	if (obedit && BKE_object_is_in_editmode(obedit)) {
@@ -442,7 +443,8 @@ Base *VR_Util::raycast_select_single(
 	const float mval_fl[2] = { (float)mval[0], (float)mval[1] };
 
 	/* setup view context for argument to callbacks */
-	ED_view3d_viewcontext_init(C, &vc);
+    Depsgraph *depsgraph = CTX_data_depsgraph_pointer(C);
+	ED_view3d_viewcontext_init(C, &vc, depsgraph);
 
 	is_obedit = (vc.obedit != NULL);
 	if (object) {

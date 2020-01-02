@@ -108,15 +108,11 @@ class VIEW3D_MT_tools_projectpaint_clone(Menu):
             props.value = i
 
 
-def brush_texpaint_common(panel, context, layout, brush, _settings, projpaint=False):
-    capabilities = brush.image_paint_capabilities
-
+def brush_texpaint_common(panel, context, layout, brush, _settings, *, projpaint=False):
     col = layout.column()
 
-    if capabilities.has_color:
-        if brush.blend in {'ERASE_ALPHA', 'ADD_ALPHA'}:
-            if brush.image_tool == 'FILL' and not projpaint:
-                col.prop(brush, "fill_threshold")
+    if brush.image_tool == 'FILL' and not projpaint:
+        col.prop(brush, "fill_threshold", text="Gradient Type", slider=True)
 
     elif brush.image_tool == 'SOFTEN':
         col.row().prop(brush, "direction", expand=True)
@@ -136,7 +132,7 @@ def brush_texpaint_common(panel, context, layout, brush, _settings, projpaint=Fa
         brush_basic_texpaint_settings(col, context, brush)
 
 
-def brush_texpaint_common_clone(_panel, context, layout, _brush, settings, projpaint=False):
+def brush_texpaint_common_clone(_panel, context, layout, _brush, settings, *, projpaint=False):
     ob = context.active_object
     col = layout.column()
 
@@ -164,7 +160,7 @@ def brush_texpaint_common_clone(_panel, context, layout, _brush, settings, projp
         col.menu("VIEW3D_MT_tools_projectpaint_clone", text=clone_text, translate=False)
 
 
-def brush_texpaint_common_color(_panel, context, layout, brush, _settings, projpaint=False):
+def brush_texpaint_common_color(_panel, context, layout, brush, _settings, *, projpaint=False):
     UnifiedPaintPanel.prop_unified_color_picker(layout, context, brush, "color", value_slider=True)
 
     row = layout.row(align=True)
@@ -174,7 +170,7 @@ def brush_texpaint_common_color(_panel, context, layout, brush, _settings, projp
     row.operator("paint.brush_colors_flip", icon='FILE_REFRESH', text="", emboss=False)
 
 
-def brush_texpaint_common_gradient(_panel, context, layout, brush, _settings, projpaint=False):
+def brush_texpaint_common_gradient(_panel, context, layout, brush, _settings, *, projpaint=False):
     layout.template_color_ramp(brush, "gradient", expand=True)
 
     layout.use_property_split = True
@@ -183,14 +179,14 @@ def brush_texpaint_common_gradient(_panel, context, layout, brush, _settings, pr
 
     if brush.image_tool == 'DRAW':
         UnifiedPaintPanel.prop_unified_color(col, context, brush, "secondary_color", text="Background Color")
-        col.prop(brush, "gradient_stroke_mode", text="Mode")
+        col.prop(brush, "gradient_stroke_mode", text="Gradient Mapping")
         if brush.gradient_stroke_mode in {'SPACING_REPEAT', 'SPACING_CLAMP'}:
             col.prop(brush, "grad_spacing")
     else:  # if brush.image_tool == 'FILL':
         col.prop(brush, "gradient_fill_mode")
 
 
-def brush_texpaint_common_options(_panel, _context, layout, brush, _settings, projpaint=False):
+def brush_texpaint_common_options(_panel, _context, layout, brush, _settings, *, projpaint=False):
     capabilities = brush.image_paint_capabilities
 
     col = layout.column()
@@ -203,6 +199,8 @@ def brush_texpaint_common_options(_panel, _context, layout, brush, _settings, pr
 
     if projpaint:
         col.prop(brush, "use_alpha")
+    else:
+        col.prop(brush, "use_paint_antialiasing")
 
 
 # Used in both the View3D toolbar and texture properties

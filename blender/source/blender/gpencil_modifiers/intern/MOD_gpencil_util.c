@@ -74,19 +74,22 @@ void gpencil_modifier_type_init(GpencilModifierTypeInfo *types[])
 #undef INIT_GP_TYPE
 }
 
-/* verify if valid layer and pass index */
+/* verify if valid layer, material and pass index */
 bool is_stroke_affected_by_modifier(Object *ob,
                                     char *mlayername,
-                                    int mpassindex,
-                                    int gpl_passindex,
-                                    int minpoints,
+                                    char *mmaterialname,
+                                    const int mpassindex,
+                                    const int gpl_passindex,
+                                    const int minpoints,
                                     bGPDlayer *gpl,
                                     bGPDstroke *gps,
-                                    bool inv1,
-                                    bool inv2,
-                                    bool inv3)
+                                    const bool inv1,
+                                    const bool inv2,
+                                    const bool inv3,
+                                    const bool inv4)
 {
-  MaterialGPencilStyle *gp_style = BKE_material_gpencil_settings_get(ob, gps->mat_nr + 1);
+  Material *ma = BKE_material_gpencil_get(ob, gps->mat_nr + 1);
+  MaterialGPencilStyle *gp_style = ma->gp_style;
 
   /* omit if filter by layer */
   if (mlayername[0] != '\0') {
@@ -97,6 +100,19 @@ bool is_stroke_affected_by_modifier(Object *ob,
     }
     else {
       if (STREQ(mlayername, gpl->info)) {
+        return false;
+      }
+    }
+  }
+  /* omit if filter by material */
+  if (mmaterialname[0] != '\0') {
+    if (inv4 == false) {
+      if (!STREQ(mmaterialname, ma->id.name + 2)) {
+        return false;
+      }
+    }
+    else {
+      if (STREQ(mmaterialname, ma->id.name + 2)) {
         return false;
       }
     }

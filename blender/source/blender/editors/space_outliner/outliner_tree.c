@@ -297,7 +297,7 @@ static void outliner_add_scene_contents(SpaceOutliner *soops,
 
   ViewLayer *view_layer;
   for (view_layer = sce->view_layers.first; view_layer; view_layer = view_layer->next) {
-    TreeElement *tenlay = outliner_add_element(soops, &ten->subtree, sce, te, TSE_R_LAYER, 0);
+    TreeElement *tenlay = outliner_add_element(soops, &ten->subtree, sce, ten, TSE_R_LAYER, 0);
     tenlay->name = view_layer->name;
     tenlay->directdata = view_layer;
   }
@@ -314,7 +314,7 @@ static void outliner_add_scene_contents(SpaceOutliner *soops,
   ten = outliner_add_element(soops, lb, sce, te, TSE_SCENE_OBJECTS_BASE, 0);
   ten->name = IFACE_("Objects");
   FOREACH_SCENE_OBJECT_BEGIN (sce, ob) {
-    outliner_add_element(soops, &ten->subtree, ob, NULL, 0, 0);
+    outliner_add_element(soops, &ten->subtree, ob, ten, 0, 0);
   }
   FOREACH_SCENE_OBJECT_END;
   outliner_make_object_parent_hierarchy(&ten->subtree);
@@ -766,7 +766,7 @@ static TreeElement *outliner_add_element(
   ID *id = idv;
 
   if (ELEM(type, TSE_RNA_STRUCT, TSE_RNA_PROPERTY, TSE_RNA_ARRAY_ELEM)) {
-    id = ((PointerRNA *)idv)->id.data;
+    id = ((PointerRNA *)idv)->owner_id;
     if (!id) {
       id = ((PointerRNA *)idv)->data;
     }
@@ -1365,7 +1365,7 @@ static void outliner_add_layer_collection_objects(
     TreeElement *te_object = outliner_add_element(soops, tree, base->object, ten, 0, 0);
     te_object->directdata = base;
 
-    if (!(base->flag & BASE_VISIBLE)) {
+    if (!(base->flag & BASE_VISIBLE_DEPSGRAPH)) {
       te_object->flag |= TE_DISABLED;
     }
   }
@@ -1398,7 +1398,7 @@ static void outliner_add_layer_collections_recursive(SpaceOutliner *soops,
         tselem->flag &= ~TSE_CLOSED;
       }
 
-      if (exclude || (lc->runtime_flag & LAYER_COLLECTION_VISIBLE) == 0) {
+      if (exclude || (lc->runtime_flag & LAYER_COLLECTION_VISIBLE_VIEW_LAYER) == 0) {
         ten->flag |= TE_DISABLED;
       }
     }
@@ -1601,7 +1601,7 @@ typedef struct tTreeSort {
   short idcode;
 } tTreeSort;
 
-/* alphabetical comparator, tryping to put objects first */
+/* alphabetical comparator, trying to put objects first */
 static int treesort_alpha_ob(const void *v1, const void *v2)
 {
   const tTreeSort *x1 = v1, *x2 = v2;
@@ -1627,7 +1627,7 @@ static int treesort_alpha_ob(const void *v1, const void *v2)
       return (x1->te->flag & TE_CHILD_NOT_IN_COLLECTION) ? 1 : -1;
     }
 
-    comp = strcmp(x1->name, x2->name);
+    comp = BLI_strcasecmp_natural(x1->name, x2->name);
 
     if (comp > 0) {
       return 1;
@@ -1659,7 +1659,7 @@ static int treesort_alpha(const void *v1, const void *v2)
   const tTreeSort *x1 = v1, *x2 = v2;
   int comp;
 
-  comp = strcmp(x1->name, x2->name);
+  comp = BLI_strcasecmp_natural(x1->name, x2->name);
 
   if (comp > 0) {
     return 1;
@@ -1697,7 +1697,7 @@ static int treesort_obtype_alpha(const void *v1, const void *v2)
       }
     }
     else {
-      int comp = strcmp(x1->name, x2->name);
+      int comp = BLI_strcasecmp_natural(x1->name, x2->name);
 
       if (comp > 0) {
         return 1;
@@ -2008,6 +2008,9 @@ static int outliner_exclude_filter_get(SpaceOutliner *soops)
     case SO_FILTER_OB_VISIBLE:
       exclude_filter |= SO_FILTER_OB_STATE_VISIBLE;
       break;
+    case SO_FILTER_OB_HIDDEN:
+      exclude_filter |= SO_FILTER_OB_STATE_HIDDEN;
+      break;
     case SO_FILTER_OB_SELECTED:
       exclude_filter |= SO_FILTER_OB_STATE_SELECTED;
       break;
@@ -2082,7 +2085,12 @@ static bool outliner_element_visible_get(ViewLayer *view_layer,
       }
 
       if (exclude_filter & SO_FILTER_OB_STATE_VISIBLE) {
-        if ((base->flag & BASE_VISIBLE) == 0) {
+        if ((base->flag & BASE_VISIBLE_DEPSGRAPH) == 0) {
+          return false;
+        }
+      }
+      else if (exclude_filter & SO_FILTER_OB_STATE_HIDDEN) {
+        if ((base->flag & BASE_VISIBLE_DEPSGRAPH) != 0) {
           return false;
         }
       }
@@ -2339,7 +2347,8 @@ void outliner_build_tree(
       te = outliner_add_element(soops, &soops->tree, sce, NULL, 0, 0);
       tselem = TREESTORE(te);
 
-      if (sce == scene && show_opened) {
+      /* New scene elements open by default */
+      if ((sce == scene && show_opened) || !tselem->used) {
         tselem->flag &= ~TSE_CLOSED;
       }
 

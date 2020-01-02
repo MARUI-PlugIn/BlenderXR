@@ -265,9 +265,11 @@ int BKE_mesh_nurbs_displist_to_mdata(Object *ob,
   const float *data;
   int a, b, ofs, vertcount, startvert, totvert = 0, totedge = 0, totloop = 0, totpoly = 0;
   int p1, p2, p3, p4, *index;
-  const bool conv_polys = ((CU_DO_2DFILL(cu) ==
-                            false) || /* 2d polys are filled with DL_INDEX3 displists */
-                           (ob->type == OB_SURF)); /* surf polys are never filled */
+  const bool conv_polys = (
+      /* 2d polys are filled with DL_INDEX3 displists */
+      (CU_DO_2DFILL(cu) == false) ||
+      /* surf polys are never filled */
+      (ob->type == OB_SURF));
 
   /* count */
   dl = dispbase->first;
@@ -554,7 +556,7 @@ Mesh *BKE_mesh_new_nomain_from_curve_displist(Object *ob, ListBase *dispbase)
   memcpy(mesh->mpoly, allpoly, totpoly * sizeof(MPoly));
 
   if (alluv) {
-    const char *uvname = "Orco";
+    const char *uvname = "UVMap";
     CustomData_add_layer_named(&mesh->ldata, CD_MLOOPUV, CD_ASSIGN, alluv, totloop, uvname);
   }
 
@@ -633,7 +635,7 @@ void BKE_mesh_from_nurbs_displist(Main *bmain,
     me->mpoly = CustomData_add_layer(&me->pdata, CD_MPOLY, CD_ASSIGN, allpoly, me->totpoly);
 
     if (alluv) {
-      const char *uvname = "Orco";
+      const char *uvname = "UVMap";
       me->mloopuv = CustomData_add_layer_named(
           &me->ldata, CD_MLOOPUV, CD_ASSIGN, alluv, me->totloop, uvname);
     }
@@ -665,7 +667,6 @@ void BKE_mesh_from_nurbs_displist(Main *bmain,
   me->texflag = cu->texflag & ~CU_AUTOSPACE;
   copy_v3_v3(me->loc, cu->loc);
   copy_v3_v3(me->size, cu->size);
-  copy_v3_v3(me->rot, cu->rot);
   BKE_mesh_texspace_calc(me);
 
   cu->mat = NULL;
@@ -978,7 +979,7 @@ static void curve_to_mesh_eval_ensure(Object *object)
    *
    * So we create temporary copy of the object which will use same data as the original bevel, but
    * will have no modifiers. */
-  Object bevel_object = {NULL};
+  Object bevel_object = {{NULL}};
   if (remapped_curve.bevobj != NULL) {
     bevel_object = *remapped_curve.bevobj;
     BLI_listbase_clear(&bevel_object.modifiers);
@@ -986,7 +987,7 @@ static void curve_to_mesh_eval_ensure(Object *object)
   }
 
   /* Same thing for taper. */
-  Object taper_object = {NULL};
+  Object taper_object = {{NULL}};
   if (remapped_curve.taperobj != NULL) {
     taper_object = *remapped_curve.taperobj;
     BLI_listbase_clear(&taper_object.modifiers);
@@ -1078,6 +1079,7 @@ static Mesh *mesh_new_from_mball_object(Object *object)
 
   Mesh *mesh_result = BKE_id_new_nomain(ID_ME, ((ID *)object->data)->name + 2);
   BKE_mesh_from_metaball(&object->runtime.curve_cache->disp, mesh_result);
+  BKE_mesh_texspace_copy_from_object(mesh_result, object);
 
   /* Copy materials. */
   mesh_result->totcol = mball->totcol;
@@ -1216,10 +1218,14 @@ Mesh *BKE_mesh_new_from_object_to_bmain(Main *bmain,
                                         Object *object,
                                         bool preserve_all_data_layers)
 {
+  BLI_assert(ELEM(object->type, OB_FONT, OB_CURVE, OB_SURF, OB_MBALL, OB_MESH));
+
   Mesh *mesh = BKE_mesh_new_from_object(depsgraph, object, preserve_all_data_layers);
   if (mesh == NULL) {
-    /* Unable to convert the object to a mesh. */
-    return NULL;
+    /* Unable to convert the object to a mesh, return an empty one. */
+    Mesh *mesh_in_bmain = BKE_mesh_add(bmain, ((ID *)object->data)->name + 2);
+    id_us_min(&mesh_in_bmain->id);
+    return mesh_in_bmain;
   }
 
   /* Make sure mesh only points original datablocks, also increase users of materials and other
@@ -1233,14 +1239,14 @@ Mesh *BKE_mesh_new_from_object_to_bmain(Main *bmain,
   BKE_library_foreach_ID_link(
       NULL, &mesh->id, foreach_libblock_make_original_callback, NULL, IDWALK_NOP);
 
-  /* Append the mesh to bmain.
-   * We do it a bit longer way since there is no simple and clear way of adding existing datablock
-   * to the bmain. So we allocate new empty mesh in the bmain (which guarantess all the naming and
-   * orders and flags) and move the temporary mesh in place there. */
+  /* Append the mesh to 'bmain'.
+   * We do it a bit longer way since there is no simple and clear way of adding existing data-block
+   * to the 'bmain'. So we allocate new empty mesh in the 'bmain' (which guarantees all the naming
+   * and orders and flags) and move the temporary mesh in place there. */
   Mesh *mesh_in_bmain = BKE_mesh_add(bmain, mesh->id.name + 2);
 
   /* NOTE: BKE_mesh_nomain_to_mesh() does not copy materials and instead it preserves them in the
-   * destinaion mesh. So we "steal" all related fields before calling it.
+   * destination mesh. So we "steal" all related fields before calling it.
    *
    * TODO(sergey): We really better have a function which gets and ID and accepts it for the bmain.
    */
@@ -1337,11 +1343,11 @@ Mesh *BKE_mesh_create_derived_for_modifier(struct Depsgraph *depsgraph,
 
   if (mti->type == eModifierTypeType_OnlyDeform) {
     int numVerts;
-    float(*deformedVerts)[3] = BKE_mesh_vertexCos_get(me, &numVerts);
+    float(*deformedVerts)[3] = BKE_mesh_vert_coords_alloc(me, &numVerts);
 
     BKE_id_copy_ex(NULL, &me->id, (ID **)&result, LIB_ID_COPY_LOCALIZE);
     mti->deformVerts(md_eval, &mectx, result, deformedVerts, numVerts);
-    BKE_mesh_apply_vert_coords(result, deformedVerts);
+    BKE_mesh_vert_coords_apply(result, deformedVerts);
 
     if (build_shapekey_layers) {
       add_shapekey_layers(result, me);
@@ -1430,7 +1436,6 @@ static void shapekey_layers_to_keyblocks(Mesh *mesh_src, Mesh *mesh_dst, int act
   }
 }
 
-/* This is a Mesh-based copy of DM_to_mesh() */
 void BKE_mesh_nomain_to_mesh(Mesh *mesh_src,
                              Mesh *mesh_dst,
                              Object *ob,
@@ -1438,7 +1443,7 @@ void BKE_mesh_nomain_to_mesh(Mesh *mesh_src,
                              bool take_ownership)
 {
   /* mesh_src might depend on mesh_dst, so we need to do everything with a local copy */
-  /* TODO(Sybren): the above claim came from DM_to_mesh();
+  /* TODO(Sybren): the above claim came from 2.7x derived-mesh code (DM_to_mesh);
    * check whether it is still true with Mesh */
   Mesh tmp = *mesh_dst;
   int totvert, totedge /*, totface */ /* UNUSED */, totloop, totpoly;
@@ -1570,11 +1575,7 @@ void BKE_mesh_nomain_to_mesh(Mesh *mesh_src,
   /* Clear selection history */
   MEM_SAFE_FREE(tmp.mselect);
   tmp.totselect = 0;
-  BLI_assert(ELEM(tmp.bb, NULL, mesh_dst->bb));
-  if (mesh_dst->bb) {
-    MEM_freeN(mesh_dst->bb);
-    tmp.bb = NULL;
-  }
+  tmp.texflag &= ~ME_AUTOSPACE_EVALUATED;
 
   /* skip the listbase */
   MEMCPY_STRUCT_AFTER(mesh_dst, &tmp, id.prev);
@@ -1590,7 +1591,6 @@ void BKE_mesh_nomain_to_mesh(Mesh *mesh_src,
   }
 }
 
-/* This is a Mesh-based copy of DM_to_meshkey() */
 void BKE_mesh_nomain_to_meshkey(Mesh *mesh_src, Mesh *mesh_dst, KeyBlock *kb)
 {
   int a, totvert = mesh_src->totvert;

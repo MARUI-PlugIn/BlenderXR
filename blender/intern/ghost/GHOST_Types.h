@@ -58,6 +58,11 @@ typedef enum {
   GHOST_glAlphaBackground = (1 << 2),
 } GHOST_GLFlags;
 
+typedef enum GHOST_DialogOptions {
+  GHOST_DialogWarning = (1 << 0),
+  GHOST_DialogError = (1 << 1),
+} GHOST_DialogOptions;
+
 #ifdef _MSC_VER
 typedef __int64 GHOST_TInt64;
 typedef unsigned __int64 GHOST_TUns64;
@@ -197,11 +202,27 @@ typedef enum {
   GHOST_kStandardCursorInfo,
   GHOST_kStandardCursorDestroy,
   GHOST_kStandardCursorHelp,
-  GHOST_kStandardCursorCycle,
-  GHOST_kStandardCursorSpray,
   GHOST_kStandardCursorWait,
   GHOST_kStandardCursorText,
   GHOST_kStandardCursorCrosshair,
+  GHOST_kStandardCursorCrosshairA,
+  GHOST_kStandardCursorCrosshairB,
+  GHOST_kStandardCursorCrosshairC,
+  GHOST_kStandardCursorPencil,
+  GHOST_kStandardCursorUpArrow,
+  GHOST_kStandardCursorDownArrow,
+  GHOST_kStandardCursorVerticalSplit,
+  GHOST_kStandardCursorHorizontalSplit,
+  GHOST_kStandardCursorEraser,
+  GHOST_kStandardCursorKnife,
+  GHOST_kStandardCursorEyedropper,
+  GHOST_kStandardCursorZoomIn,
+  GHOST_kStandardCursorZoomOut,
+  GHOST_kStandardCursorMove,
+  GHOST_kStandardCursorNSEWScroll,
+  GHOST_kStandardCursorNSScroll,
+  GHOST_kStandardCursorEWScroll,
+  GHOST_kStandardCursorStop,
   GHOST_kStandardCursorUpDown,
   GHOST_kStandardCursorLeftRight,
   GHOST_kStandardCursorTopSide,
@@ -214,7 +235,6 @@ typedef enum {
   GHOST_kStandardCursorBottomLeftCorner,
   GHOST_kStandardCursorCopy,
   GHOST_kStandardCursorCustom,
-  GHOST_kStandardCursorPencil,
 
   GHOST_kStandardCursorNumCursors
 } GHOST_TStandardCursor;

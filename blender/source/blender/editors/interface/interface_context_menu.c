@@ -63,7 +63,14 @@
 static IDProperty *shortcut_property_from_rna(bContext *C, uiBut *but)
 {
   /* Compute data path from context to property. */
+
+  /* If this returns null, we won't be able to bind shortcuts to these RNA properties.
+   * Support can be added at #wm_context_member_from_ptr. */
   const char *member_id = WM_context_member_from_ptr(C, &but->rnapoin);
+  if (member_id == NULL) {
+    return NULL;
+  }
+
   const char *data_path = RNA_path_from_ID_to_struct(&but->rnapoin);
   const char *member_id_data_path = member_id;
 
@@ -90,27 +97,35 @@ static IDProperty *shortcut_property_from_rna(bContext *C, uiBut *but)
   return prop;
 }
 
-static const char *shortcut_get_operator_property(bContext *C, uiBut *but, IDProperty **prop)
+static const char *shortcut_get_operator_property(bContext *C, uiBut *but, IDProperty **r_prop)
 {
   if (but->optype) {
     /* Operator */
-    *prop = (but->opptr && but->opptr->data) ? IDP_CopyProperty(but->opptr->data) : NULL;
+    *r_prop = (but->opptr && but->opptr->data) ? IDP_CopyProperty(but->opptr->data) : NULL;
     return but->optype->idname;
   }
   else if (but->rnaprop) {
-    if (RNA_property_type(but->rnaprop) == PROP_BOOLEAN) {
+    const PropertyType rnaprop_type = RNA_property_type(but->rnaprop);
+
+    if (rnaprop_type == PROP_BOOLEAN) {
       /* Boolean */
-      *prop = shortcut_property_from_rna(C, but);
+      *r_prop = shortcut_property_from_rna(C, but);
+      if (*r_prop == NULL) {
+        return NULL;
+      }
       return "WM_OT_context_toggle";
     }
-    else if (RNA_property_type(but->rnaprop) == PROP_ENUM) {
+    else if (rnaprop_type == PROP_ENUM) {
       /* Enum */
-      *prop = shortcut_property_from_rna(C, but);
+      *r_prop = shortcut_property_from_rna(C, but);
+      if (*r_prop == NULL) {
+        return NULL;
+      }
       return "WM_OT_context_menu_enum";
     }
   }
 
-  *prop = NULL;
+  *r_prop = NULL;
   return NULL;
 }
 
@@ -176,11 +191,21 @@ static uiBlock *menu_change_shortcut(bContext *C, ARegion *ar, void *arg)
   UI_block_flag_enable(block, UI_BLOCK_MOVEMOUSE_QUIT);
   UI_block_direction_set(block, UI_DIR_CENTER_Y);
 
-  layout = UI_block_layout(block, UI_LAYOUT_VERTICAL, UI_LAYOUT_PANEL, 0, 0, 200, 20, 0, style);
+  layout = UI_block_layout(block,
+                           UI_LAYOUT_VERTICAL,
+                           UI_LAYOUT_PANEL,
+                           0,
+                           0,
+                           U.widget_unit * 10,
+                           U.widget_unit * 2,
+                           0,
+                           style);
 
+  uiItemL(layout, CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Change Shortcut"), ICON_HAND);
   uiItemR(layout, &ptr, "type", UI_ITEM_R_FULL_EVENT | UI_ITEM_R_IMMEDIATE, "", ICON_NONE);
 
-  UI_block_bounds_set_popup(block, 6, (const int[2]){-50, 26});
+  UI_block_bounds_set_popup(
+      block, 6 * U.dpi_fac, (const int[2]){-100 * U.dpi_fac, 36 * U.dpi_fac});
 
   shortcut_free_operator_property(prop);
 
@@ -227,11 +252,21 @@ static uiBlock *menu_add_shortcut(bContext *C, ARegion *ar, void *arg)
   UI_block_func_handle_set(block, but_shortcut_name_func, but);
   UI_block_direction_set(block, UI_DIR_CENTER_Y);
 
-  layout = UI_block_layout(block, UI_LAYOUT_VERTICAL, UI_LAYOUT_PANEL, 0, 0, 200, 20, 0, style);
+  layout = UI_block_layout(block,
+                           UI_LAYOUT_VERTICAL,
+                           UI_LAYOUT_PANEL,
+                           0,
+                           0,
+                           U.widget_unit * 10,
+                           U.widget_unit * 2,
+                           0,
+                           style);
 
+  uiItemL(layout, CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Assign Shortcut"), ICON_HAND);
   uiItemR(layout, &ptr, "type", UI_ITEM_R_FULL_EVENT | UI_ITEM_R_IMMEDIATE, "", ICON_NONE);
 
-  UI_block_bounds_set_popup(block, 6, (const int[2]){-50, 26});
+  UI_block_bounds_set_popup(
+      block, 6 * U.dpi_fac, (const int[2]){-100 * U.dpi_fac, 36 * U.dpi_fac});
 
 #ifdef USE_KEYMAP_ADD_HACK
   g_kmi_id_hack = kmi_id;
@@ -470,8 +505,9 @@ static void ui_but_menu_add_path_operators(uiLayout *layout, PointerRNA *ptr, Pr
 
 bool ui_popup_context_menu_for_button(bContext *C, uiBut *but)
 {
-  /* having this menu for some buttons makes no sense */
-  if (but->type == UI_BTYPE_IMAGE) {
+  /* ui_but_is_interactive() may let some buttons through that should not get a context menu - it
+   * doesn't make sense for them. */
+  if (ELEM(but->type, UI_BTYPE_LABEL, UI_BTYPE_IMAGE)) {
     return false;
   }
 
@@ -523,6 +559,7 @@ bool ui_popup_context_menu_for_button(bContext *C, uiBut *but)
     /* determine if we can key a single component of an array */
     const bool is_array = RNA_property_array_length(&but->rnapoin, but->rnaprop) != 0;
     const bool is_array_component = (is_array && but->rnaindex != -1);
+    const bool is_whole_array = (is_array && but->rnaindex == -1);
 
     const int override_status = RNA_property_override_library_status(ptr, prop, -1);
     const bool is_overridable = (override_status & RNA_OVERRIDE_STATUS_OVERRIDABLE) != 0;
@@ -658,21 +695,23 @@ bool ui_popup_context_menu_for_button(bContext *C, uiBut *but)
                        1);
       }
 
-      uiItemO(layout,
-              CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Copy Driver"),
-              ICON_NONE,
-              "ANIM_OT_copy_driver_button");
-      if (ANIM_driver_can_paste()) {
+      if (!is_whole_array) {
         uiItemO(layout,
-                CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Paste Driver"),
+                CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Copy Driver"),
                 ICON_NONE,
-                "ANIM_OT_paste_driver_button");
-      }
+                "ANIM_OT_copy_driver_button");
+        if (ANIM_driver_can_paste()) {
+          uiItemO(layout,
+                  CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Paste Driver"),
+                  ICON_NONE,
+                  "ANIM_OT_paste_driver_button");
+        }
 
-      uiItemO(layout,
-              CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Edit Driver"),
-              ICON_DRIVER,
-              "ANIM_OT_driver_button_edit");
+        uiItemO(layout,
+                CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Edit Driver"),
+                ICON_DRIVER,
+                "ANIM_OT_driver_button_edit");
+      }
 
       uiItemO(layout,
               CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Open Drivers Editor"),
@@ -690,11 +729,13 @@ bool ui_popup_context_menu_for_button(bContext *C, uiBut *but)
               ICON_DRIVER,
               "ANIM_OT_driver_button_add");
 
-      if (ANIM_driver_can_paste()) {
-        uiItemO(layout,
-                CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Paste Driver"),
-                ICON_NONE,
-                "ANIM_OT_paste_driver_button");
+      if (!is_whole_array) {
+        if (ANIM_driver_can_paste()) {
+          uiItemO(layout,
+                  CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Paste Driver"),
+                  ICON_NONE,
+                  "ANIM_OT_paste_driver_button");
+        }
       }
 
       uiItemO(layout,
@@ -862,7 +903,7 @@ bool ui_popup_context_menu_for_button(bContext *C, uiBut *but)
               "UI_OT_unset_property_button");
     }
 
-    if (is_idprop && !is_array_component && ELEM(type, PROP_INT, PROP_FLOAT)) {
+    if (is_idprop && !is_array && ELEM(type, PROP_INT, PROP_FLOAT)) {
       uiItemO(layout,
               CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Assign Value as Default"),
               ICON_NONE,
@@ -873,13 +914,13 @@ bool ui_popup_context_menu_for_button(bContext *C, uiBut *but)
 
     if (is_array_component) {
       uiItemBooleanO(layout,
-                     CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Copy All To Selected"),
+                     CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Copy All to Selected"),
                      ICON_NONE,
                      "UI_OT_copy_to_selected_button",
                      "all",
                      true);
       uiItemBooleanO(layout,
-                     CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Copy Single To Selected"),
+                     CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Copy Single to Selected"),
                      ICON_NONE,
                      "UI_OT_copy_to_selected_button",
                      "all",
@@ -887,7 +928,7 @@ bool ui_popup_context_menu_for_button(bContext *C, uiBut *but)
     }
     else {
       uiItemBooleanO(layout,
-                     CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Copy To Selected"),
+                     CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Copy to Selected"),
                      ICON_NONE,
                      "UI_OT_copy_to_selected_button",
                      "all",
@@ -898,6 +939,14 @@ bool ui_popup_context_menu_for_button(bContext *C, uiBut *but)
             CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Copy Data Path"),
             ICON_NONE,
             "UI_OT_copy_data_path_button");
+
+    if (ptr->owner_id && !is_whole_array &&
+        ELEM(type, PROP_BOOLEAN, PROP_INT, PROP_FLOAT, PROP_ENUM)) {
+      uiItemO(layout,
+              CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Copy as New Driver"),
+              ICON_NONE,
+              "UI_OT_copy_as_driver_button");
+    }
 
     uiItemS(layout);
 
@@ -916,7 +965,7 @@ bool ui_popup_context_menu_for_button(bContext *C, uiBut *but)
           but->search_func == ui_rna_collection_search_cb)) &&
         ui_jump_to_target_button_poll(C)) {
       uiItemO(layout,
-              CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Jump To Target"),
+              CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Jump to Target"),
               ICON_NONE,
               "UI_OT_jump_to_target_button");
       uiItemS(layout);
@@ -1209,7 +1258,7 @@ void ui_popup_context_menu_for_panel(bContext *C, ARegion *ar, Panel *pa)
                  sizeof(tmpstr),
                  "%s" UI_SEP_CHAR_S "%s",
                  IFACE_("Pin"),
-                 IFACE_("Shift+Left Mouse"));
+                 IFACE_("Shift Left Mouse"));
     uiItemR(layout, &ptr, "use_pin", 0, tmpstr, ICON_NONE);
 
     /* evil, force shortcut flag */
@@ -1217,6 +1266,7 @@ void ui_popup_context_menu_for_panel(bContext *C, ARegion *ar, Panel *pa)
       uiBlock *block = uiLayoutGetBlock(layout);
       uiBut *but = block->buttons.last;
       but->flag |= UI_BUT_HAS_SEP_CHAR;
+      but->drawflag |= UI_BUT_HAS_SHORTCUT;
     }
   }
   UI_popup_menu_end(C, pup);

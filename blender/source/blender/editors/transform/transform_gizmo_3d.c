@@ -55,6 +55,7 @@
 #include "BKE_scene.h"
 #include "BKE_workspace.h"
 #include "BKE_object.h"
+#include "BKE_paint.h"
 
 #include "DEG_depsgraph.h"
 
@@ -82,13 +83,12 @@
 
 /* local module include */
 #include "transform.h"
+#include "transform_convert.h"
+#include "transform_snap.h"
 
 #include "MEM_guardedalloc.h"
 
-#include "GPU_select.h"
 #include "GPU_state.h"
-#include "GPU_immediate.h"
-#include "GPU_matrix.h"
 
 #include "DEG_depsgraph_query.h"
 
@@ -517,9 +517,15 @@ static void protectflag_to_drawflags(short protectflag, short *drawflags)
 }
 
 /* for pose mode */
-static void protectflag_to_drawflags_pchan(RegionView3D *rv3d, const bPoseChannel *pchan)
+static void protectflag_to_drawflags_pchan(RegionView3D *rv3d,
+                                           const bPoseChannel *pchan,
+                                           short orientation_type)
 {
-  protectflag_to_drawflags(pchan->protectflag, &rv3d->twdrawflag);
+  /* Protect-flags apply to local space in pose mode, so only let them influence axis
+   * visibility if we show the global orientation, otherwise it's confusing. */
+  if (orientation_type == V3D_ORIENT_LOCAL) {
+    protectflag_to_drawflags(pchan->protectflag, &rv3d->twdrawflag);
+  }
 }
 
 /* for editmode*/
@@ -731,7 +737,9 @@ int ED_transform_calc_gizmo_stats(const bContext *C,
   ScrArea *sa = CTX_wm_area(C);
   ARegion *ar = CTX_wm_region(C);
   Scene *scene = CTX_data_scene(C);
-  Depsgraph *depsgraph = CTX_data_depsgraph(C);
+  /* TODO(sergey): This function is used from operator's modal() and from gizmo's refresh().
+   * Is it fine to possibly evaluate dependency graph here? */
+  Depsgraph *depsgraph = CTX_data_expect_evaluated_depsgraph(C);
   ViewLayer *view_layer = CTX_data_view_layer(C);
   View3D *v3d = sa->spacedata.first;
   Object *obedit = CTX_data_edit_object(C);
@@ -741,7 +749,14 @@ int ED_transform_calc_gizmo_stats(const bContext *C,
   bGPdata *gpd = CTX_data_gpencil_data(C);
   const bool is_gp_edit = GPENCIL_ANY_MODE(gpd);
   int a, totsel = 0;
+
   const int pivot_point = scene->toolsettings->transform_pivot_point;
+  const short orientation_type = params->orientation_type ?
+                                     (params->orientation_type - 1) :
+                                     scene->orientation_slots[SCE_ORIENT_DEFAULT].type;
+  const short orientation_index_custom =
+      params->orientation_type ? params->orientation_index_custom :
+                                 scene->orientation_slots[SCE_ORIENT_DEFAULT].index_custom;
 
   /* transform widget matrix */
   unit_m4(rv3d->twmat);
@@ -755,12 +770,6 @@ int ED_transform_calc_gizmo_stats(const bContext *C,
   /* global, local or normal orientation?
    * if we could check 'totsel' now, this should be skipped with no selection. */
   if (ob) {
-    const short orientation_type = params->orientation_type ?
-                                       (params->orientation_type - 1) :
-                                       scene->orientation_slots[SCE_ORIENT_DEFAULT].type;
-    const short orientation_index_custom =
-        params->orientation_type ? params->orientation_index_custom :
-                                   scene->orientation_slots[SCE_ORIENT_DEFAULT].index_custom;
     float mat[3][3];
     ED_transform_calc_orientation_from_type_ex(
         C, mat, scene, rv3d, ob, obedit, orientation_type, orientation_index_custom, pivot_point);
@@ -887,7 +896,7 @@ int ED_transform_calc_gizmo_stats(const bContext *C,
               calc_tw_center_with_matrix(tbounds, ebo->head, use_mat_local, mat_local);
               totsel++;
             }
-            if (ebo->flag & BONE_SELECTED) {
+            if (ebo->flag & (BONE_SELECTED | BONE_ROOTSEL | BONE_TIPSEL)) {
               protectflag_to_drawflags_ebone(rv3d, ebo);
             }
           }
@@ -1012,9 +1021,10 @@ int ED_transform_calc_gizmo_stats(const bContext *C,
   }
   else if (ob && (ob->mode & OB_MODE_POSE)) {
     invert_m4_m4(ob->imat, ob->obmat);
+
     uint objects_len = 0;
-    Object **objects = BKE_view_layer_array_from_objects_in_mode(
-        view_layer, v3d, &objects_len, {.object_mode = OB_MODE_POSE});
+    Object **objects = BKE_object_pose_array_get(view_layer, v3d, &objects_len);
+
     for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
       Object *ob_iter = objects[ob_index];
       const bool use_mat_local = (ob_iter != ob);
@@ -1037,7 +1047,7 @@ int ED_transform_calc_gizmo_stats(const bContext *C,
           Bone *bone = pchan->bone;
           if (bone && (bone->flag & BONE_TRANSFORM)) {
             calc_tw_center_with_matrix(tbounds, pchan->pose_head, use_mat_local, mat_local);
-            protectflag_to_drawflags_pchan(rv3d, pchan);
+            protectflag_to_drawflags_pchan(rv3d, pchan, orientation_type);
           }
         }
         totsel += totsel_iter;
@@ -1053,10 +1063,16 @@ int ED_transform_calc_gizmo_stats(const bContext *C,
     }
   }
   else if (ob && (ob->mode & OB_MODE_ALL_PAINT)) {
-    /* pass */
+    if (ob->mode & OB_MODE_SCULPT) {
+      totsel = 1;
+      calc_tw_center_with_matrix(tbounds, ob->sculpt->pivot_pos, false, ob->obmat);
+      mul_m4_v3(ob->obmat, tbounds->center);
+      mul_m4_v3(ob->obmat, tbounds->min);
+      mul_m4_v3(ob->obmat, tbounds->max);
+    }
   }
   else if (ob && ob->mode & OB_MODE_PARTICLE_EDIT) {
-    PTCacheEdit *edit = PE_get_current(scene, ob);
+    PTCacheEdit *edit = PE_get_current(depsgraph, scene, ob);
     PTCacheEditPoint *point;
     PTCacheEditKey *ek;
     int k;
@@ -1115,7 +1131,12 @@ int ED_transform_calc_gizmo_stats(const bContext *C,
           calc_tw_center(tbounds, co);
         }
       }
-      protectflag_to_drawflags(base->object->protectflag, &rv3d->twdrawflag);
+
+      /* Protect-flags apply to world space in object mode, so only let them influence axis
+       * visibility if we show the global orientation, otherwise it's confusing. */
+      if (orientation_type == V3D_ORIENT_GLOBAL) {
+        protectflag_to_drawflags(base->object->protectflag, &rv3d->twdrawflag);
+      }
       totsel++;
     }
 
@@ -1161,12 +1182,20 @@ static void gizmo_prepare_mat(const bContext *C,
 
       if (scene->toolsettings->transform_pivot_point == V3D_AROUND_ACTIVE) {
         bGPdata *gpd = CTX_data_gpencil_data(C);
-        Object *ob = OBACT(view_layer);
         if (gpd && (gpd->flag & GP_DATA_STROKE_EDITMODE)) {
           /* pass */
         }
-        else if (ob != NULL) {
-          ED_object_calc_active_center(ob, false, rv3d->twmat[3]);
+        else {
+          Object *ob = OBACT(view_layer);
+          if (ob != NULL) {
+            if ((ob->mode & OB_MODE_ALL_SCULPT) && ob->sculpt) {
+              SculptSession *ss = ob->sculpt;
+              copy_v3_v3(rv3d->twmat[3], ss->pivot_pos);
+            }
+            else {
+              ED_object_calc_active_center(ob, false, rv3d->twmat[3]);
+            }
+          }
         }
       }
       break;
@@ -1282,7 +1311,7 @@ static void gizmo_xform_message_subscribe(wmGizmoGroup *gzgroup,
   PointerRNA toolsettings_ptr;
   RNA_pointer_create(&scene->id, &RNA_ToolSettings, scene->toolsettings, &toolsettings_ptr);
 
-  if (type_fn == VIEW3D_GGT_xform_gizmo) {
+  if (ELEM(type_fn, VIEW3D_GGT_xform_gizmo, VIEW3D_GGT_xform_shear)) {
     extern PropertyRNA rna_ToolSettings_transform_pivot_point;
     const PropertyRNA *props[] = {
         &rna_ToolSettings_transform_pivot_point,
@@ -1323,6 +1352,7 @@ static void gizmo_xform_message_subscribe(wmGizmoGroup *gzgroup,
   }
 
   WM_msg_subscribe_rna_anon_prop(mbus, Window, view_layer, &msg_sub_value_gz_tag_refresh);
+  WM_msg_subscribe_rna_anon_prop(mbus, EditBone, lock, &msg_sub_value_gz_tag_refresh);
 }
 
 void drawDial3d(const TransInfo *t)
@@ -1390,7 +1420,8 @@ void drawDial3d(const TransInfo *t)
     scale *= ED_view3d_pixel_size_no_ui_scale(t->ar->regiondata, mat_final[3]);
     mul_mat3_m4_fl(mat_final, scale);
 
-    if ((t->tsnap.mode & (SCE_SNAP_MODE_INCREMENT | SCE_SNAP_MODE_GRID)) && activeSnap(t)) {
+    if (activeSnap(t) && (!transformModeUseSnap(t) ||
+                          (t->tsnap.mode & (SCE_SNAP_MODE_INCREMENT | SCE_SNAP_MODE_GRID)))) {
       increment = (t->modifiers & MOD_PRECISION) ? t->snap[2] : t->snap[1];
     }
     else {
@@ -2292,7 +2323,6 @@ static void WIDGETGROUP_xform_shear_setup(const bContext *UNUSED(C), wmGizmoGrou
       interp_v3_v3v3(gz->color, axis_color[i_ortho_a], axis_color[i_ortho_b], 0.75f);
       gz->color[3] = 0.5f;
       PointerRNA *ptr = WM_gizmo_operator_set(gz, 0, ot_shear, NULL);
-      RNA_enum_set(ptr, "shear_axis", 0);
       RNA_boolean_set(ptr, "release_confirm", 1);
       xgzgroup->gizmo[i][j] = gz;
     }

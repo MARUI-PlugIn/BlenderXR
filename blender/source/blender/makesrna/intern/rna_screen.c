@@ -149,7 +149,7 @@ static void rna_Area_type_set(PointerRNA *ptr, int value)
 
 static void rna_Area_type_update(bContext *C, PointerRNA *ptr)
 {
-  bScreen *sc = (bScreen *)ptr->id.data;
+  bScreen *sc = (bScreen *)ptr->owner_id;
   ScrArea *sa = (ScrArea *)ptr->data;
 
   /* Running update without having called 'set', see: T64049 */
@@ -225,12 +225,15 @@ static const EnumPropertyItem *rna_Area_ui_type_itemf(bContext *C,
 
 static int rna_Area_ui_type_get(PointerRNA *ptr)
 {
-  int value = rna_Area_type_get(ptr) << 16;
   ScrArea *sa = ptr->data;
+  const int area_type = rna_Area_type_get(ptr);
+  const bool area_changing = sa->butspacetype != SPACE_EMPTY;
+  int value = area_type << 16;
+
   /* sa->type can be NULL (when not yet initialized), try to do it now. */
   /* Copied from `ED_area_initialize()`.*/
-  if (sa->type == NULL) {
-    sa->type = BKE_spacetype_from_id(sa->spacetype);
+  if (sa->type == NULL || area_changing) {
+    sa->type = BKE_spacetype_from_id(area_type);
     if (sa->type == NULL) {
       sa->spacetype = SPACE_VIEW3D;
       sa->type = BKE_spacetype_from_id(sa->spacetype);
@@ -238,7 +241,7 @@ static int rna_Area_ui_type_get(PointerRNA *ptr)
     BLI_assert(sa->type != NULL);
   }
   if (sa->type->space_subtype_item_extend != NULL) {
-    value |= sa->type->space_subtype_get(sa);
+    value |= area_changing ? sa->butspacetype_subtype : sa->type->space_subtype_get(sa);
   }
   return value;
 }
@@ -269,7 +272,7 @@ static void rna_Area_ui_type_update(bContext *C, PointerRNA *ptr)
   sa->butspacetype_subtype = 0;
 }
 
-static void rna_View2D_region_to_view(struct View2D *v2d, int x, int y, float result[2])
+static void rna_View2D_region_to_view(struct View2D *v2d, float x, float y, float result[2])
 {
   UI_view2d_region_to_view(v2d, x, y, &result[0], &result[1]);
 }
@@ -403,9 +406,9 @@ static void rna_def_view2d_api(StructRNA *srna)
 
   func = RNA_def_function(srna, "region_to_view", "rna_View2D_region_to_view");
   RNA_def_function_ui_description(func, "Transform region coordinates to 2D view");
-  parm = RNA_def_int(func, "x", 0, INT_MIN, INT_MAX, "x", "Region x coordinate", -10000, 10000);
+  parm = RNA_def_float(func, "x", 0, -FLT_MAX, FLT_MAX, "x", "Region x coordinate", -10000, 10000);
   RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
-  parm = RNA_def_int(func, "y", 0, INT_MIN, INT_MAX, "y", "Region y coordinate", -10000, 10000);
+  parm = RNA_def_float(func, "y", 0, -FLT_MAX, FLT_MAX, "y", "Region y coordinate", -10000, 10000);
   RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
   parm = RNA_def_float_array(func,
                              "result",

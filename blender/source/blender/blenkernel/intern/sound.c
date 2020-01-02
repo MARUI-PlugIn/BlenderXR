@@ -677,6 +677,9 @@ void BKE_sound_set_cfra(int cfra)
 void BKE_sound_set_scene_volume(Scene *scene, float volume)
 {
   sound_verify_evaluated_id(&scene->id);
+  if (scene->sound_scene == NULL) {
+    return;
+  }
   AUD_Sequence_setAnimationData(scene->sound_scene,
                                 AUD_AP_VOLUME,
                                 CFRA,
@@ -898,7 +901,7 @@ void BKE_sound_read_waveform(Main *bmain, bSound *sound, short *stop)
 {
   bool need_close_audio_handles = false;
   if (sound->playback_handle == NULL) {
-    /* TOOD(sergey): Make it fully independent audio handle. */
+    /* TODO(sergey): Make it fully independent audio handle. */
     sound_load_audio(bmain, sound);
     need_close_audio_handles = true;
   }
@@ -1092,7 +1095,7 @@ bool BKE_sound_info_get(struct Main *main, struct bSound *sound, SoundInfo *soun
   if (sound->playback_handle != NULL) {
     return sound_info_from_playback_handle(sound->playback_handle, sound_info);
   }
-  /* TOOD(sergey): Make it fully independent audio handle. */
+  /* TODO(sergey): Make it fully independent audio handle. */
   sound_load_audio(main, sound);
   const bool result = sound_info_from_playback_handle(sound->playback_handle, sound_info);
   sound_free_audio(sound);

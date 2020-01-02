@@ -19,7 +19,6 @@
  */
 
 #include "../ABC_alembic.h"
-#include <boost/foreach.hpp>
 
 #include <Alembic/AbcMaterial/IMaterial.h>
 
@@ -130,7 +129,7 @@ static bool gather_objects_paths(const IObject &object, ListBase *object_paths)
   size_t children_claiming_this_object = 0;
   size_t num_children = object.getNumChildren();
 
-  for (size_t i = 0; i < num_children; ++i) {
+  for (size_t i = 0; i < num_children; i++) {
     bool child_claims_this_object = gather_objects_paths(object.getChild(i), object_paths);
     children_claiming_this_object += child_claims_this_object ? 1 : 0;
   }
@@ -174,9 +173,11 @@ static bool gather_objects_paths(const IObject &object, ListBase *object_paths)
   return parent_is_part_of_this_object;
 }
 
-AbcArchiveHandle *ABC_create_handle(const char *filename, ListBase *object_paths)
+AbcArchiveHandle *ABC_create_handle(struct Main *bmain,
+                                    const char *filename,
+                                    ListBase *object_paths)
 {
-  ArchiveReader *archive = new ArchiveReader(filename);
+  ArchiveReader *archive = new ArchiveReader(bmain, filename);
 
   if (!archive->valid()) {
     delete archive;
@@ -223,6 +224,7 @@ static void find_iobject(const IObject &object, IObject &ret, const std::string 
 struct ExportJobData {
   ViewLayer *view_layer;
   Main *bmain;
+  wmWindowManager *wm;
 
   char filename[1024];
   ExportSettings settings;
@@ -247,8 +249,7 @@ static void export_startjob(void *customdata, short *stop, short *do_update, flo
    * scene frame in separate threads
    */
   G.is_rendering = true;
-  BKE_spacedata_draw_locks(true);
-
+  WM_set_locked_interface(data->wm, true);
   G.is_break = false;
 
   DEG_graph_build_from_view_layer(
@@ -262,7 +263,7 @@ static void export_startjob(void *customdata, short *stop, short *do_update, flo
     const int orig_frame = CFRA;
 
     data->was_canceled = false;
-    exporter(*data->progress, data->was_canceled);
+    exporter(do_update, progress, &data->was_canceled);
 
     if (CFRA != orig_frame) {
       CFRA = orig_frame;
@@ -297,7 +298,7 @@ static void export_endjob(void *customdata)
   }
 
   G.is_rendering = false;
-  BKE_spacedata_draw_locks(false);
+  WM_set_locked_interface(data->wm, false);
 }
 
 bool ABC_export(Scene *scene,
@@ -311,6 +312,7 @@ bool ABC_export(Scene *scene,
 
   job->view_layer = CTX_data_view_layer(C);
   job->bmain = CTX_data_main(C);
+  job->wm = CTX_wm_manager(C);
   job->export_ok = false;
   BLI_strncpy(job->filename, filepath, 1024);
 
@@ -331,7 +333,7 @@ bool ABC_export(Scene *scene,
    * hardcore refactoring. */
   new (&job->settings) ExportSettings();
   job->settings.scene = scene;
-  job->settings.depsgraph = DEG_graph_new(scene, job->view_layer, DAG_EVAL_RENDER);
+  job->settings.depsgraph = DEG_graph_new(job->bmain, scene, job->view_layer, DAG_EVAL_RENDER);
 
   /* TODO(Sybren): for now we only export the active scene layer.
    * Later in the 2.8 development process this may be replaced by using
@@ -453,7 +455,7 @@ static std::pair<bool, AbcObjectReader *> visit_object(
   AbcObjectReader::ptr_vector claiming_child_readers;
   AbcObjectReader::ptr_vector nonclaiming_child_readers;
   AbcObjectReader::ptr_vector assign_as_parent;
-  for (size_t i = 0; i < num_children; ++i) {
+  for (size_t i = 0; i < num_children; i++) {
     const IObject ichild = object.getChild(i);
 
     /* TODO: When we only support C++11, use std::tie() instead. */
@@ -567,11 +569,10 @@ static std::pair<bool, AbcObjectReader *> visit_object(
 
     /* We can now assign this reader as parent for our children. */
     if (nonclaiming_child_readers.size() + assign_as_parent.size() > 0) {
-      /* TODO: When we only support C++11, use for (a: b) instead. */
-      BOOST_FOREACH (AbcObjectReader *child_reader, nonclaiming_child_readers) {
+      for (AbcObjectReader *child_reader : nonclaiming_child_readers) {
         child_reader->parent_reader = reader;
       }
-      BOOST_FOREACH (AbcObjectReader *child_reader, assign_as_parent) {
+      for (AbcObjectReader *child_reader : assign_as_parent) {
         child_reader->parent_reader = reader;
       }
     }
@@ -582,14 +583,14 @@ static std::pair<bool, AbcObjectReader *> visit_object(
        * our non-claiming children. Since all claiming children share
        * the same XForm, it doesn't really matter which one we pick. */
       AbcObjectReader *claiming_child = claiming_child_readers[0];
-      BOOST_FOREACH (AbcObjectReader *child_reader, nonclaiming_child_readers) {
+      for (AbcObjectReader *child_reader : nonclaiming_child_readers) {
         child_reader->parent_reader = claiming_child;
       }
-      BOOST_FOREACH (AbcObjectReader *child_reader, assign_as_parent) {
+      for (AbcObjectReader *child_reader : assign_as_parent) {
         child_reader->parent_reader = claiming_child;
       }
       /* Claiming children should have our parent set as their parent. */
-      BOOST_FOREACH (AbcObjectReader *child_reader, claiming_child_readers) {
+      for (AbcObjectReader *child_reader : claiming_child_readers) {
         r_assign_as_parent.push_back(child_reader);
       }
     }
@@ -597,13 +598,13 @@ static std::pair<bool, AbcObjectReader *> visit_object(
       /* This object isn't claimed by any child, and didn't produce
        * a reader. Odd situation, could be the top Alembic object, or
        * an unsupported Alembic schema. Delegate to our parent. */
-      BOOST_FOREACH (AbcObjectReader *child_reader, claiming_child_readers) {
+      for (AbcObjectReader *child_reader : claiming_child_readers) {
         r_assign_as_parent.push_back(child_reader);
       }
-      BOOST_FOREACH (AbcObjectReader *child_reader, nonclaiming_child_readers) {
+      for (AbcObjectReader *child_reader : nonclaiming_child_readers) {
         r_assign_as_parent.push_back(child_reader);
       }
-      BOOST_FOREACH (AbcObjectReader *child_reader, assign_as_parent) {
+      for (AbcObjectReader *child_reader : assign_as_parent) {
         r_assign_as_parent.push_back(child_reader);
       }
     }
@@ -651,7 +652,7 @@ static void import_startjob(void *user_data, short *stop, short *do_update, floa
 
   WM_set_locked_interface(data->wm, true);
 
-  ArchiveReader *archive = new ArchiveReader(data->filename);
+  ArchiveReader *archive = new ArchiveReader(data->bmain, data->filename);
 
   if (!archive->valid()) {
 #ifndef WITH_ALEMBIC_HDF5
@@ -782,7 +783,7 @@ static void import_endjob(void *user_data)
 
   std::vector<AbcObjectReader *>::iterator iter;
 
-  /* Delete objects on cancelation. */
+  /* Delete objects on cancellation. */
   if (data->was_cancelled) {
     for (iter = data->readers.begin(); iter != data->readers.end(); ++iter) {
       Object *ob = (*iter)->object();
@@ -939,12 +940,7 @@ void ABC_get_transform(CacheReader *reader, float r_mat[4][4], float time, float
 
 /* ************************************************************************** */
 
-Mesh *ABC_read_mesh(CacheReader *reader,
-                    Object *ob,
-                    Mesh *existing_mesh,
-                    const float time,
-                    const char **err_str,
-                    int read_flag)
+static AbcObjectReader *get_abc_reader(CacheReader *reader, Object *ob, const char **err_str)
 {
   AbcObjectReader *abc_reader = reinterpret_cast<AbcObjectReader *>(reader);
   IObject iobject = abc_reader->iobject();
@@ -960,10 +956,42 @@ Mesh *ABC_read_mesh(CacheReader *reader,
     return NULL;
   }
 
+  return abc_reader;
+}
+
+static ISampleSelector sample_selector_for_time(float time)
+{
   /* kFloorIndex is used to be compatible with non-interpolating
    * properties; they use the floor. */
-  ISampleSelector sample_sel(time, ISampleSelector::kFloorIndex);
+  return ISampleSelector(time, ISampleSelector::kFloorIndex);
+}
+
+Mesh *ABC_read_mesh(CacheReader *reader,
+                    Object *ob,
+                    Mesh *existing_mesh,
+                    const float time,
+                    const char **err_str,
+                    int read_flag)
+{
+  AbcObjectReader *abc_reader = get_abc_reader(reader, ob, err_str);
+  if (abc_reader == NULL) {
+    return NULL;
+  }
+
+  ISampleSelector sample_sel = sample_selector_for_time(time);
   return abc_reader->read_mesh(existing_mesh, sample_sel, read_flag, err_str);
+}
+
+bool ABC_mesh_topology_changed(
+    CacheReader *reader, Object *ob, Mesh *existing_mesh, const float time, const char **err_str)
+{
+  AbcObjectReader *abc_reader = get_abc_reader(reader, ob, err_str);
+  if (abc_reader == NULL) {
+    return false;
+  }
+
+  ISampleSelector sample_sel = sample_selector_for_time(time);
+  return abc_reader->topology_changed(existing_mesh, sample_sel);
 }
 
 /* ************************************************************************** */

@@ -870,9 +870,11 @@ void BM_editselection_normal(BMEditSelection *ese, float r_normal[3])
   }
 }
 
-/* Calculate a plane that is rightangles to the edge/vert/faces normal
+/**
+ * Calculate a plane that is right angles to the edge/vert/faces normal
  * also make the plane run along an axis that is related to the geometry,
- * because this is used for the gizmos Y axis. */
+ * because this is used for the gizmos Y axis.
+ */
 void BM_editselection_plane(BMEditSelection *ese, float r_plane[3])
 {
   if (ese->htype == BM_VERT) {
@@ -884,8 +886,8 @@ void BM_editselection_plane(BMEditSelection *ese, float r_plane[3])
       sub_v3_v3v3(r_plane, vec, eve->co);
     }
     else {
-      /* make a fake  plane thats at rightangles to the normal
-       * we cant make a crossvec from a vec thats the same as the vec
+      /* make a fake plane that's at rightangles to the normal
+       * we can't make a crossvec from a vec that's the same as the vec
        * unlikely but possible, so make sure if the normal is (0, 0, 1)
        * that vec isn't the same or in the same direction even. */
       if (eve->no[0] < 0.5f) {
@@ -1024,8 +1026,8 @@ bool BM_select_history_active_get(BMesh *bm, BMEditSelection *ese)
   ese->next = ese->prev = NULL;
 
   if (ese_last) {
-    if (ese_last->htype ==
-        BM_FACE) { /* if there is an active face, use it over the last selected face */
+    /* If there is an active face, use it over the last selected face. */
+    if (ese_last->htype == BM_FACE) {
       if (efa) {
         ese->ele = (BMElem *)efa;
       }

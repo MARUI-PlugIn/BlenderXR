@@ -62,6 +62,13 @@ bool BM_vert_pair_share_face_check_cb(BMVert *v_a,
                                       bool (*test_fn)(BMFace *f, void *user_data),
                                       void *user_data) ATTR_WARN_UNUSED_RESULT
     ATTR_NONNULL(1, 2, 3);
+BMFace *BM_vert_pair_shared_face_cb(BMVert *v_a,
+                                    BMVert *v_b,
+                                    const bool allow_adjacent,
+                                    bool (*callback)(BMFace *, BMLoop *, BMLoop *, void *userdata),
+                                    void *user_data,
+                                    BMLoop **r_l_a,
+                                    BMLoop **r_l_b) ATTR_NONNULL(1, 2, 4, 6, 7);
 BMFace *BM_vert_pair_share_face_by_len(BMVert *v_a,
                                        BMVert *v_b,
                                        BMLoop **r_l_a,
@@ -241,6 +248,13 @@ int BM_mesh_calc_edge_groups(BMesh *bm,
                              BMVertFilterFunc filter_fn,
                              void *user_data,
                              const char hflag_test) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL(1, 2, 3);
+
+int BM_mesh_calc_edge_groups_as_arrays(BMesh *bm,
+                                       BMVert **verts,
+                                       BMEdge **edges,
+                                       BMFace **faces,
+                                       int (**r_groups)[3]) ATTR_WARN_UNUSED_RESULT
+    ATTR_NONNULL(1, 2, 3, 4, 5);
 
 /* not really any good place  to put this */
 float bmesh_subd_falloff_calc(const int falloff, float val) ATTR_WARN_UNUSED_RESULT;

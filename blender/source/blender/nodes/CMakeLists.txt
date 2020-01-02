@@ -62,6 +62,7 @@ set(SRC
   composite/nodes/node_composite_cryptomatte.c
   composite/nodes/node_composite_curves.c
   composite/nodes/node_composite_defocus.c
+  composite/nodes/node_composite_denoise.c
   composite/nodes/node_composite_despeckle.c
   composite/nodes/node_composite_diffMatte.c
   composite/nodes/node_composite_dilate.c
@@ -147,6 +148,7 @@ set(SRC
   shader/nodes/node_shader_bsdf_velvet.c
   shader/nodes/node_shader_bump.c
   shader/nodes/node_shader_camera.c
+  shader/nodes/node_shader_clamp.c
   shader/nodes/node_shader_common.c
   shader/nodes/node_shader_curves.c
   shader/nodes/node_shader_displacement.c
@@ -163,6 +165,7 @@ set(SRC
   shader/nodes/node_shader_layer_weight.c
   shader/nodes/node_shader_light_falloff.c
   shader/nodes/node_shader_light_path.c
+  shader/nodes/node_shader_map_range.c
   shader/nodes/node_shader_mapping.c
   shader/nodes/node_shader_math.c
   shader/nodes/node_shader_mixRgb.c
@@ -197,14 +200,17 @@ set(SRC
   shader/nodes/node_shader_tex_sky.c
   shader/nodes/node_shader_tex_voronoi.c
   shader/nodes/node_shader_tex_wave.c
+  shader/nodes/node_shader_tex_white_noise.c
   shader/nodes/node_shader_uvAlongStroke.c
   shader/nodes/node_shader_uvmap.c
   shader/nodes/node_shader_valToRgb.c
   shader/nodes/node_shader_value.c
-  shader/nodes/node_shader_vectMath.c
   shader/nodes/node_shader_vectTransform.c
   shader/nodes/node_shader_vector_displacement.c
+  shader/nodes/node_shader_vector_math.c
+  shader/nodes/node_shader_vertex_color.c
   shader/nodes/node_shader_volume_absorption.c
+  shader/nodes/node_shader_volume_info.c
   shader/nodes/node_shader_volume_principled.c
   shader/nodes/node_shader_volume_scatter.c
   shader/nodes/node_shader_wavelength.c

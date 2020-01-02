@@ -83,12 +83,12 @@ void ui_resources_free(void)
 const uchar *UI_ThemeGetColorPtr(bTheme *btheme, int spacetype, int colorid)
 {
   ThemeSpace *ts = NULL;
-  static char error[4] = {240, 0, 240, 255};
-  static char alert[4] = {240, 60, 60, 255};
-  static char headerdesel[4] = {0, 0, 0, 255};
-  static char back[4] = {0, 0, 0, 255};
-  static char setting = 0;
-  const char *cp = error;
+  static uchar error[4] = {240, 0, 240, 255};
+  static uchar alert[4] = {240, 60, 60, 255};
+  static uchar headerdesel[4] = {0, 0, 0, 255};
+  static uchar back[4] = {0, 0, 0, 255};
+  static uchar setting = 0;
+  const uchar *cp = error;
 
   /* ensure we're not getting a color after running BKE_blender_userdef_free */
   BLI_assert(BLI_findindex(&U.themes, theme_active) != -1);
@@ -186,7 +186,7 @@ const uchar *UI_ThemeGetColorPtr(bTheme *btheme, int spacetype, int colorid)
             cp = ts->button;
           }
 
-          copy_v4_v4_char(back, cp);
+          copy_v4_v4_uchar(back, cp);
           if (!ED_region_is_overlap(spacetype, theme_regionid)) {
             back[3] = 255;
           }
@@ -370,7 +370,6 @@ const uchar *UI_ThemeGetColorPtr(bTheme *btheme, int spacetype, int colorid)
           break;
         case TH_OBCENTER_DIA:
           cp = &ts->obcenter_dia;
-          break;
           break;
         case TH_EDGE:
           cp = ts->edge;
@@ -779,6 +778,12 @@ const uchar *UI_ThemeGetColorPtr(bTheme *btheme, int spacetype, int colorid)
         case TH_PATH_AFTER:
           cp = ts->path_after;
           break;
+        case TH_PATH_KEYFRAME_BEFORE:
+          cp = ts->path_keyframe_before;
+          break;
+        case TH_PATH_KEYFRAME_AFTER:
+          cp = ts->path_keyframe_after;
+          break;
         case TH_CAMERA_PATH:
           cp = ts->camera_path;
           break;
@@ -792,6 +797,10 @@ const uchar *UI_ThemeGetColorPtr(bTheme *btheme, int spacetype, int colorid)
 
         case TH_SELECT_HIGHLIGHT:
           cp = ts->selected_highlight;
+          break;
+
+        case TH_SELECT_ACTIVE:
+          cp = ts->active;
           break;
 
         case TH_SELECTED_OBJECT:
@@ -831,6 +840,9 @@ const uchar *UI_ThemeGetColorPtr(bTheme *btheme, int spacetype, int colorid)
           cp = ts->nla_tweakdupli;
           break;
 
+        case TH_NLA_TRACK:
+          cp = ts->nla_track;
+          break;
         case TH_NLA_TRANSITION:
           cp = ts->nla_transition;
           break;
@@ -901,9 +913,12 @@ const uchar *UI_ThemeGetColorPtr(bTheme *btheme, int spacetype, int colorid)
         case TH_ICON_SHADING:
           cp = btheme->tui.icon_shading;
           break;
+        case TH_ICON_FOLDER:
+          cp = btheme->tui.icon_folder;
+          break;
         case TH_ICON_FUND: {
           /* Development fund icon color is not part of theme. */
-          static const char red[4] = {204, 48, 72, 255};
+          static const uchar red[4] = {204, 48, 72, 255};
           cp = red;
           break;
         }
@@ -1387,8 +1402,9 @@ bool UI_GetIconThemeColor4ubv(int colorid, uchar col[4])
     /* Always color development fund icon. */
   }
   else if (!((theme_spacetype == SPACE_OUTLINER && theme_regionid == RGN_TYPE_WINDOW) ||
-             (theme_spacetype == SPACE_PROPERTIES && theme_regionid == RGN_TYPE_NAV_BAR))) {
-    /* Only colored icons in outliner and popups, overall UI is intended
+             (theme_spacetype == SPACE_PROPERTIES && theme_regionid == RGN_TYPE_NAV_BAR) ||
+             (theme_spacetype == SPACE_FILE && theme_regionid == RGN_TYPE_WINDOW))) {
+    /* Only colored icons in specific places, overall UI is intended
      * to stay monochrome and out of the way except a few places where it
      * is important to communicate different data types. */
     return false;

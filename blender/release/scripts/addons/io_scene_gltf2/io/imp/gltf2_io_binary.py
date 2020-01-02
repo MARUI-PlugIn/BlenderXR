@@ -15,6 +15,7 @@
 import struct
 import base64
 from os.path import dirname, join, isfile, basename
+from urllib.parse import unquote
 
 
 class BinaryData():
@@ -45,8 +46,11 @@ class BinaryData():
         return buffer[accessor_offset + bufferview_offset:accessor_offset + bufferview_offset + bufferView.byte_length]
 
     @staticmethod
-    def get_data_from_accessor(gltf, accessor_idx):
+    def get_data_from_accessor(gltf, accessor_idx, cache=False):
         """Get data from accessor."""
+        if accessor_idx in gltf.accessor_cache:
+            return gltf.accessor_cache[accessor_idx]
+
         accessor = gltf.data.accessors[accessor_idx]
 
         bufferView = gltf.data.buffer_views[accessor.buffer_view]  # TODO initialize with 0 when not present!
@@ -63,12 +67,11 @@ class BinaryData():
         else:
             stride = stride_
 
-        data = []
-        offset = 0
-        while len(data) < accessor.count:
-            element = struct.unpack_from(fmt, buffer_data, offset)
-            data.append(element)
-            offset += stride
+        unpack_from = struct.Struct(fmt).unpack_from
+        data = [
+            unpack_from(buffer_data, offset)
+            for offset in range(0, accessor.count*stride, stride)
+        ]
 
         if accessor.sparse:
             sparse_indices_data = BinaryData.get_data_from_sparse(gltf, accessor.sparse, "indices")
@@ -100,6 +103,9 @@ class BinaryData():
                     else:
                         new_tuple += (float(i),)
                 data[idx] = new_tuple
+
+        if cache:
+            gltf.accessor_cache[accessor_idx] = data
 
         return data
 
@@ -135,12 +141,11 @@ class BinaryData():
         else:
             stride = stride_
 
-        data = []
-        offset = 0
-        while len(data) < sparse.count:
-            element = struct.unpack_from(fmt, bin_data, offset)
-            data.append(element)
-            offset += stride
+        unpack_from = struct.Struct(fmt).unpack_from
+        data = [
+            unpack_from(bin_data, offset)
+            for offset in range(0, sparse.count*stride, stride)
+        ]
 
         return data
 
@@ -159,9 +164,9 @@ class BinaryData():
                     data = pyimage.uri[idx + len(sep):]
                     return base64.b64decode(data), image_name
 
-            if isfile(join(dirname(gltf.filename), pyimage.uri)):
-                with open(join(dirname(gltf.filename), pyimage.uri), 'rb') as f_:
-                    return f_.read(), basename(join(dirname(gltf.filename), pyimage.uri))
+            if isfile(join(dirname(gltf.filename), unquote(pyimage.uri))):
+                with open(join(dirname(gltf.filename), unquote(pyimage.uri)), 'rb') as f_:
+                    return f_.read(), basename(join(dirname(gltf.filename), unquote(pyimage.uri)))
             else:
                 gltf.log.error("Missing file (index " + str(img_idx) + "): " + pyimage.uri)
                 return None, None

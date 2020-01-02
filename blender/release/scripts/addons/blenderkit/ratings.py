@@ -21,8 +21,9 @@ if "bpy" in locals():
 
     paths = reload(paths)
     utils = reload(utils)
+    rerequests = reload(rerequests)
 else:
-    from blenderkit import paths, utils
+    from blenderkit import paths, utils, rerequests
 
 import bpy
 import requests, threading
@@ -67,14 +68,14 @@ def uplaod_rating_thread(url, ratings, headers):
             }
 
             try:
-                r = requests.put(rating_url, data=data, verify=True, headers=headers)
+                r = rerequests.put(rating_url, data=data, verify=True, headers=headers)
 
             except requests.exceptions.RequestException as e:
                 print('ratings upload failed: %s' % str(e))
 
 
 def uplaod_review_thread(url, reviews, headers):
-    r = requests.put(url, data=reviews, verify=True, headers=headers)
+    r = rerequests.put(url, data=reviews, verify=True, headers=headers)
 
     # except requests.exceptions.RequestException as e:
     #     print('reviews upload failed: %s' % str(e))
@@ -123,6 +124,7 @@ class StarRatingOperator(bpy.types.Operator):
     """Tooltip"""
     bl_idname = "object.blenderkit_rating"
     bl_label = "Rate the Asset"
+    bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
     property_name: StringProperty(
         name="Rating Property",
@@ -153,6 +155,7 @@ class UploadRatingOperator(bpy.types.Operator):
     """Upload rating to the web db"""
     bl_idname = "object.blenderkit_rating_upload"
     bl_label = "Upload the Rating"
+    bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
 
     # type of upload - model, material, textures, e.t.c.
     asset_type: EnumProperty(

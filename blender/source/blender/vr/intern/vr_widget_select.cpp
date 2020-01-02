@@ -45,6 +45,7 @@
 #include "BKE_context.h"
 #include "BKE_editmesh.h"
 #include "BKE_object.h"
+#include "BKE_layer.h"
 
 #include "DEG_depsgraph.h"
 
@@ -424,7 +425,8 @@ static void raycast_select_multiple(
 	center_y = (float)vr->tex_height * (1.0f - center_y) / 2.0f;
 
 	/* setup view context for argument to callbacks */
-	ED_view3d_viewcontext_init(C, &vc);
+    Depsgraph *depsgraph = CTX_data_depsgraph_pointer(C);
+	ED_view3d_viewcontext_init(C, &vc, depsgraph);
 
 	is_obedit = (vc.obedit != NULL);
 	if (object) {
@@ -944,7 +946,8 @@ static void raycast_select_multiple_edit(
 	ViewContext vc;
 
 	/* setup view context */
-	ED_view3d_viewcontext_init(C, &vc);
+    Depsgraph *depsgraph = CTX_data_depsgraph_pointer(C);
+	ED_view3d_viewcontext_init(C, &vc, depsgraph);
 	ToolSettings *ts = vc.scene->toolsettings;
 
 	if (vc.obedit) {
@@ -1097,7 +1100,8 @@ static void proximity_select_multiple(
 	Coord3Df center = p0 + (p1 - p0) / 2.0f;
 
 	/* setup view context for argument to callbacks */
-	ED_view3d_viewcontext_init(C, &vc);
+    Depsgraph *depsgraph = CTX_data_depsgraph_pointer(C);
+	ED_view3d_viewcontext_init(C, &vc, depsgraph);
 
 	is_obedit = (vc.obedit != NULL);
 	if (object) {
@@ -1576,7 +1580,8 @@ static void proximity_select_multiple_edit(
 	ViewContext vc;
 
 	/* setup view context */
-	ED_view3d_viewcontext_init(C, &vc);
+    Depsgraph *depsgraph = CTX_data_depsgraph_pointer(C);
+	ED_view3d_viewcontext_init(C, &vc, depsgraph);
 	ToolSettings *ts = vc.scene->toolsettings;
 
 	if (vc.obedit) {

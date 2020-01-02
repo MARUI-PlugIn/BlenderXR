@@ -269,7 +269,7 @@ static PyObject *bpy_msgbus_subscribe_rna(PyObject *UNUSED(self), PyObject *args
   /* Note: we may want to have a way to pass this in. */
   bContext *C = (bContext *)BPy_GetContext();
   struct wmMsgBus *mbus = CTX_wm_message_bus(C);
-  wmMsgParams_RNA msg_key_params = {{{0}}};
+  wmMsgParams_RNA msg_key_params = {{0}};
 
   wmMsgSubscribeValue msg_val_params = {0};
 
@@ -307,7 +307,9 @@ static PyObject *bpy_msgbus_subscribe_rna(PyObject *UNUSED(self), PyObject *args
 
   WM_msg_subscribe_rna_params(mbus, &msg_key_params, &msg_val_params, __func__);
 
-  WM_msg_dump(mbus, __func__);
+  if (0) { /* For debugging. */
+    WM_msg_dump(mbus, __func__);
+  }
 
   Py_RETURN_NONE;
 }
@@ -342,7 +344,7 @@ static PyObject *bpy_msgbus_publish_rna(PyObject *UNUSED(self), PyObject *args, 
   /* Note: we may want to have a way to pass this in. */
   bContext *C = (bContext *)BPy_GetContext();
   struct wmMsgBus *mbus = CTX_wm_message_bus(C);
-  wmMsgParams_RNA msg_key_params = {{{0}}};
+  wmMsgParams_RNA msg_key_params = {{0}};
 
   if (py_msgbus_rna_key_from_py(py_sub, &msg_key_params, error_prefix) == -1) {
     return NULL;

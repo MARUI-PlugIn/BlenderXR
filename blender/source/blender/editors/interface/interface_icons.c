@@ -27,7 +27,6 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "GPU_draw.h"
 #include "GPU_matrix.h"
 #include "GPU_batch.h"
 #include "GPU_immediate.h"
@@ -154,8 +153,8 @@ typedef struct IconType {
 } IconType;
 
 /* ******************* STATIC LOCAL VARS ******************* */
-/* static here to cache results of icon directory scan, so it's not
- * scanning the filesystem each time the menu is drawn */
+/* Static here to cache results of icon directory scan, so it's not
+ * scanning the file-system each time the menu is drawn. */
 static struct ListBase iconfilelist = {NULL, NULL};
 static IconTexture icongltex = {{0, 0}, 0, 0, 0, 0.0f, 0.0f};
 
@@ -169,6 +168,7 @@ static const IconType icontypes[] = {
 #  define DEF_ICON_OBJECT_DATA(name) {ICON_TYPE_MONO_TEXTURE, TH_ICON_OBJECT_DATA},
 #  define DEF_ICON_MODIFIER(name) {ICON_TYPE_MONO_TEXTURE, TH_ICON_MODIFIER},
 #  define DEF_ICON_SHADING(name) {ICON_TYPE_MONO_TEXTURE, TH_ICON_SHADING},
+#  define DEF_ICON_FOLDER(name) {ICON_TYPE_MONO_TEXTURE, TH_ICON_FOLDER},
 #  define DEF_ICON_FUND(name) {ICON_TYPE_MONO_TEXTURE, TH_ICON_FUND},
 #  define DEF_ICON_VECTOR(name) {ICON_TYPE_VECTOR, 0},
 #  define DEF_ICON_COLOR(name) {ICON_TYPE_COLOR_TEXTURE, 0},
@@ -317,8 +317,9 @@ static void vicon_keytype_draw_wrapper(
       format, "outlineColor", GPU_COMP_U8, 4, GPU_FETCH_INT_TO_FLOAT_UNIT);
   uint flags_id = GPU_vertformat_attr_add(format, "flags", GPU_COMP_U32, 1, GPU_FETCH_INT);
 
-  immBindBuiltinProgram(GPU_SHADER_KEYFRAME_DIAMOND);
   GPU_program_point_size(true);
+  immBindBuiltinProgram(GPU_SHADER_KEYFRAME_DIAMOND);
+  immUniform1f("outline_scale", 1.0f);
   immUniform2f("ViewportSize", -1.0f, -1.0f);
   immBegin(GPU_PRIM_POINTS, 1);
 
@@ -403,7 +404,7 @@ static void vicon_handletype_auto_clamp_draw(int x, int y, int w, int h, float a
 static void vicon_colorset_draw(int index, int x, int y, int w, int h, float UNUSED(alpha))
 {
   bTheme *btheme = UI_GetTheme();
-  ThemeWireColor *cs = &btheme->tarm[index];
+  const ThemeWireColor *cs = &btheme->tarm[index];
 
   /* Draw three bands of color: One per color
    *    x-----a-----b-----c
@@ -420,15 +421,15 @@ static void vicon_colorset_draw(int index, int x, int y, int w, int h, float UNU
 
   /* XXX: Include alpha into this... */
   /* normal */
-  immUniformColor3ubv((uchar *)cs->solid);
+  immUniformColor3ubv(cs->solid);
   immRecti(pos, x, y, a, y + h);
 
   /* selected */
-  immUniformColor3ubv((uchar *)cs->select);
+  immUniformColor3ubv(cs->select);
   immRecti(pos, a, y, b, y + h);
 
   /* active */
-  immUniformColor3ubv((uchar *)cs->active);
+  immUniformColor3ubv(cs->active);
   immRecti(pos, b, y, c, y + h);
 
   immUnbindProgram();
@@ -464,7 +465,7 @@ DEF_ICON_VECTOR_COLORSET_DRAW_NTH(20, 19)
 #  undef DEF_ICON_VECTOR_COLORSET_DRAW_NTH
 
 /* Dynamically render icon instead of rendering a plain color to a texture/buffer
- * This is mot strictly a "vicon", as it needs access to icon->obj to get the color info,
+ * This is not strictly a "vicon", as it needs access to icon->obj to get the color info,
  * but it works in a very similar way.
  */
 static void vicon_gplayer_color_draw(Icon *icon, int x, int y, int w, int h)
@@ -552,6 +553,8 @@ static void init_brush_icons(void)
   INIT_BRUSH_ICON(ICON_GPBRUSH_BLOCK, gp_brush_block);
   INIT_BRUSH_ICON(ICON_GPBRUSH_MARKER, gp_brush_marker);
   INIT_BRUSH_ICON(ICON_GPBRUSH_FILL, gp_brush_fill);
+  INIT_BRUSH_ICON(ICON_GPBRUSH_AIRBRUSH, gp_brush_airbrush);
+  INIT_BRUSH_ICON(ICON_GPBRUSH_CHISEL, gp_brush_chisel);
   INIT_BRUSH_ICON(ICON_GPBRUSH_ERASE_SOFT, gp_brush_erase_soft);
   INIT_BRUSH_ICON(ICON_GPBRUSH_ERASE_HARD, gp_brush_erase_hard);
   INIT_BRUSH_ICON(ICON_GPBRUSH_ERASE_STROKE, gp_brush_erase_stroke);
@@ -691,6 +694,7 @@ static void init_event_icons(void)
   INIT_EVENT_ICON(ICON_EVENT_PAGEUP, PAGEUPKEY, KM_ANY);
   INIT_EVENT_ICON(ICON_EVENT_PAGEDOWN, PAGEDOWNKEY, KM_ANY);
   INIT_EVENT_ICON(ICON_EVENT_RETURN, RETKEY, KM_ANY);
+  INIT_EVENT_ICON(ICON_EVENT_SPACEKEY, SPACEKEY, KM_ANY);
 
   g_di_event_list = di_next;
 
@@ -774,7 +778,7 @@ static ImBuf *create_mono_icon_with_border(ImBuf *buf,
           const int blurred_alpha_offset = by * (ICON_GRID_W + 2 * ICON_MONO_BORDER_OUTSET) + bx;
           const int offset_write = (sy + by) * buf->x + (sx + bx);
           const float blurred_alpha = blurred_alpha_buffer[blurred_alpha_offset];
-          float border_srgb[4] = {
+          const float border_srgb[4] = {
               0, 0, 0, MIN2(1.0, blurred_alpha * border_sharpness) * border_intensity};
 
           const unsigned int color_read = buf->rect[offset_write];
@@ -1580,7 +1584,6 @@ static struct {
   IconTextureDrawCall normal;
   IconTextureDrawCall border;
   bool enabled;
-  float mat[4][4];
 } g_icon_draw_cache = {{{{{0}}}}};
 
 void UI_icon_draw_cache_begin(void)
@@ -1782,7 +1785,7 @@ static void icon_draw_size(float x,
                            enum eIconSizes size,
                            int draw_size,
                            const float desaturate,
-                           const char mono_rgba[4],
+                           const uchar mono_rgba[4],
                            const bool mono_border)
 {
   bTheme *btheme = UI_GetTheme();
@@ -2058,6 +2061,12 @@ static int ui_id_brush_get_icon(const bContext *C, ID *id)
         case GP_BRUSH_ICON_FILL:
           br->id.icon_id = ICON_GPBRUSH_FILL;
           break;
+        case GP_BRUSH_ICON_AIRBRUSH:
+          br->id.icon_id = ICON_GPBRUSH_AIRBRUSH;
+          break;
+        case GP_BRUSH_ICON_CHISEL:
+          br->id.icon_id = ICON_GPBRUSH_CHISEL;
+          break;
         case GP_BRUSH_ICON_ERASE_SOFT:
           br->id.icon_id = ICON_GPBRUSH_ERASE_SOFT;
           break;
@@ -2136,7 +2145,7 @@ int UI_rnaptr_icon_get(bContext *C, PointerRNA *ptr, int rnaicon, const bool big
 
   /* try ID, material, texture or dynapaint slot */
   if (RNA_struct_is_ID(ptr->type)) {
-    id = ptr->id.data;
+    id = ptr->owner_id;
   }
   else if (RNA_struct_is_a(ptr->type, &RNA_MaterialSlot)) {
     id = RNA_pointer_get(ptr, "material").data;
@@ -2243,6 +2252,8 @@ int UI_idcode_icon_get(const int idcode)
       return ICON_FONT_DATA;
     case ID_WO:
       return ICON_WORLD_DATA;
+    case ID_WS:
+      return ICON_WORKSPACE;
     default:
       return ICON_NONE;
   }
@@ -2270,7 +2281,7 @@ void UI_icon_draw_ex(float x,
                      float aspect,
                      float alpha,
                      float desaturate,
-                     const char mono_color[4],
+                     const uchar mono_color[4],
                      const bool mono_border)
 {
   int draw_size = get_draw_size(ICON_SIZE_ICON);

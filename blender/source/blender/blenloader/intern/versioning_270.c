@@ -48,14 +48,13 @@
 #include "DNA_view3d_types.h"
 #include "DNA_smoke_types.h"
 #include "DNA_rigidbody_types.h"
+#include "DNA_light_types.h"
 
 #include "DNA_genfile.h"
 
 #include "BKE_animsys.h"
-#include "BKE_brush.h"
 #include "BKE_colortools.h"
 #include "BKE_fcurve.h"
-#include "BKE_gpencil.h"
 #include "BKE_main.h"
 #include "BKE_mask.h"
 #include "BKE_modifier.h"
@@ -888,7 +887,7 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *bmain)
       }
     }
 
-    /* hysteresis setted to 10% but not actived */
+    /* hysteresis set to 10% but not activated */
     if (!DNA_struct_elem_find(fd->filesdna, "LodLevel", "int", "obhysteresis")) {
       Object *ob;
       for (ob = bmain->objects.first; ob; ob = ob->id.next) {
@@ -1103,9 +1102,9 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *bmain)
       Scene *scene;
       for (scene = bmain->scenes.first; scene != NULL; scene = scene->id.next) {
         CurveMapping *curve_mapping = &scene->r.mblur_shutter_curve;
-        curvemapping_set_defaults(curve_mapping, 1, 0.0f, 0.0f, 1.0f, 1.0f);
-        curvemapping_initialize(curve_mapping);
-        curvemap_reset(
+        BKE_curvemapping_set_defaults(curve_mapping, 1, 0.0f, 0.0f, 1.0f, 1.0f);
+        BKE_curvemapping_initialize(curve_mapping);
+        BKE_curvemap_reset(
             curve_mapping->cm, &curve_mapping->clipr, CURVE_PRESET_MAX, CURVEMAP_SLOPE_POS_NEG);
       }
     }
@@ -1747,8 +1746,9 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *bmain)
     if (!DNA_struct_elem_find(fd->filesdna, "Brush", "float", "falloff_angle")) {
       for (Brush *br = bmain->brushes.first; br; br = br->id.next) {
         br->falloff_angle = DEG2RADF(80);
-        br->flag &= ~(BRUSH_FLAG_UNUSED_1 | BRUSH_FLAG_UNUSED_6 | BRUSH_FLAG_UNUSED_7 |
-                      BRUSH_FLAG_UNUSED_17 | BRUSH_FRONTFACE_FALLOFF);
+        /* These flags are used for new feautres. They are not related to falloff_angle */
+        br->flag &= ~(BRUSH_FLAG_UNUSED_1 | BRUSH_ORIGINAL_PLANE | BRUSH_GRAB_ACTIVE_VERTEX |
+                      BRUSH_SCENE_SPACING | BRUSH_FRONTFACE_FALLOFF);
       }
 
       for (Scene *scene = bmain->scenes.first; scene; scene = scene->id.next) {

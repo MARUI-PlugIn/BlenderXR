@@ -125,12 +125,12 @@ static void deformVerts(ModifierData *md,
   }
 
   if (surmd->mesh) {
-    unsigned int numverts = 0, i = 0;
+    uint numverts = 0, i = 0;
     int init = 0;
     float *vec;
     MVert *x, *v;
 
-    BKE_mesh_apply_vert_coords(surmd->mesh, vertexCos);
+    BKE_mesh_vert_coords_apply(surmd->mesh, vertexCos);
     BKE_mesh_calc_normals(surmd->mesh);
 
     numverts = surmd->mesh->totvert;

@@ -174,10 +174,10 @@ static void ui_tooltip_region_draw_cb(const bContext *UNUSED(C), ARegion *ar)
   ui_draw_tooltip_background(UI_style_get(), NULL, &bbox);
 
   /* set background_color */
-  rgb_uchar_to_float(background_color, (const uchar *)theme->inner);
+  rgb_uchar_to_float(background_color, theme->inner);
 
   /* calculate normal_color */
-  rgb_uchar_to_float(main_color, (const uchar *)theme->text);
+  rgb_uchar_to_float(main_color, theme->text);
   copy_v3_v3(active_color, main_color);
   copy_v3_v3(normal_color, main_color);
   copy_v3_v3(python_color, main_color);
@@ -396,11 +396,23 @@ static uiTooltipData *ui_tooltip_data_from_tool(bContext *C, uiBut *but, bool is
     else {
       /* Note, this is an exceptional case, we could even remove it
        * however there have been reports of tooltips failing, so keep it for now. */
-      expr_result = BLI_strdup("Internal error!");
+      expr_result = BLI_strdup(IFACE_("Internal error!"));
       is_error = true;
     }
 
     if (expr_result != NULL) {
+      /* NOTE: This is a very weak hack to get a valid translation most of the time...
+       * Proper way to do would be to get i18n context from the item, somehow. */
+      const char *label_str = CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, expr_result);
+      if (label_str == expr_result) {
+        label_str = IFACE_(expr_result);
+      }
+
+      if (label_str != expr_result) {
+        MEM_freeN(expr_result);
+        expr_result = BLI_strdup(label_str);
+      }
+
       uiTooltipField *field = text_field_add(data,
                                              &(uiTooltipFormat){
                                                  .style = UI_TIP_STYLE_NORMAL,
@@ -437,7 +449,7 @@ static uiTooltipData *ui_tooltip_data_from_tool(bContext *C, uiBut *but, bool is
     else {
       /* Note, this is an exceptional case, we could even remove it
        * however there have been reports of tooltips failing, so keep it for now. */
-      expr_result = BLI_strdup("Internal error!");
+      expr_result = BLI_strdup(TIP_("Internal error!"));
       is_error = true;
     }
 
@@ -753,8 +765,8 @@ static uiTooltipData *ui_tooltip_data_from_button(bContext *C, uiBut *but)
       }
     }
 
-    if (but->rnapoin.id.data) {
-      const ID *id = but->rnapoin.id.data;
+    if (but->rnapoin.owner_id) {
+      const ID *id = but->rnapoin.owner_id;
       if (ID_IS_LINKED(id)) {
         uiTooltipField *field = text_field_add(data,
                                                &(uiTooltipFormat){
@@ -835,7 +847,7 @@ static uiTooltipData *ui_tooltip_data_from_button(bContext *C, uiBut *but)
       }
     }
 
-    if (but->rnapoin.id.data) {
+    if (but->rnapoin.owner_id) {
       uiTooltipField *field = text_field_add(data,
                                              &(uiTooltipFormat){
                                                  .style = UI_TIP_STYLE_MONO,
@@ -848,10 +860,10 @@ static uiTooltipData *ui_tooltip_data_from_button(bContext *C, uiBut *but)
       /* move ownership (no need for re-alloc) */
       if (but->rnaprop) {
         field->text = RNA_path_full_property_py_ex(
-            &but->rnapoin, but->rnaprop, but->rnaindex, true);
+            CTX_data_main(C), &but->rnapoin, but->rnaprop, but->rnaindex, true);
       }
       else {
-        field->text = RNA_path_full_struct_py(&but->rnapoin);
+        field->text = RNA_path_full_struct_py(CTX_data_main(C), &but->rnapoin);
       }
     }
   }
@@ -920,18 +932,14 @@ static uiTooltipData *ui_tooltip_data_from_gizmo(bContext *C, wmGizmo *gz)
                                 NULL;
       if (gzop != NULL) {
         /* Description */
-        const char *info = RNA_struct_ui_description(gzop->type->srna);
-        if (!(info && info[0])) {
-          info = RNA_struct_ui_name(gzop->type->srna);
-        }
+        char *info = WM_operatortype_description(C, gzop->type, &gzop->ptr);
 
-        if (info && info[0]) {
-          char *text = NULL;
+        if (info != NULL) {
+          char *text = info;
+
           if (gzop_actions[i].prefix != NULL) {
             text = BLI_sprintfN("%s: %s", gzop_actions[i].prefix, info);
-          }
-          else {
-            text = BLI_strdup(info);
+            MEM_freeN(info);
           }
 
           if (text != NULL) {

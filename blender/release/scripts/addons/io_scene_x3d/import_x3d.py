@@ -83,7 +83,7 @@ def vrml_split_fields(value):
                 if (field_context_len > 2) and (field_context[-2] in {'DEF', 'USE'}):
                     field_context.append(v)
                 elif (not iskey(field_context[-1])) or ((field_context_len == 3 and field_context[1] == 'IS')):
-                    # this IS a key but the previous value was not a key, ot it was a defined field.
+                    # this IS a key but the previous value was not a key, or it was a defined field.
                     field_list.append(field_context)
                     field_context = [v]
                 else:
@@ -1053,7 +1053,7 @@ class vrmlNode(object):
 
                             # if self.getExternprotoName():
                             if self.getExternprotoName():
-                                if not extern_key:  # if none is spesified - use the name
+                                if not extern_key:  # if none is specified - use the name
                                     extern_key = self.getSpec()
 
                                 if extern_key:
@@ -2341,7 +2341,7 @@ def importMesh_Extrusion(geom, ancestry):
                   in scaledLoopVertex(mloops[lb + i].vertex_index % nc)]
     importMesh_ApplyTextureToLoops(bpymesh, loops)
 
-    bpymesh.validate(True)
+    bpymesh.validate()
     bpymesh.update()
     return bpymesh
 
@@ -2375,7 +2375,7 @@ def importMesh_LineSet(geom, ancestry):
     return bpycurve
 
 
-def importMesh_IndexedLineSet(geom, ancestry, _):
+def importMesh_IndexedLineSet(geom, ancestry):
     # VRML not x3d
     # coord = geom.getChildByName('coord') # 'Coordinate'
     coord = geom.getChildBySpec('Coordinate')  # works for x3d and vrml
@@ -2419,7 +2419,7 @@ def importMesh_IndexedLineSet(geom, ancestry, _):
     return bpycurve
 
 
-def importMesh_PointSet(geom, ancestry, _):
+def importMesh_PointSet(geom, ancestry):
     # VRML not x3d
     coord = geom.getChildBySpec('Coordinate')  # works for x3d and vrml
     if coord:
@@ -2463,7 +2463,7 @@ def importMesh_Sphere(geom, ancestry):
     else:
         nr = ns = GLOBALS['CIRCLE_DETAIL']
         # used as both ring count and segment count
-    lau = pi / nr  # Unit angle of latitude (rings) for the given tesselation
+    lau = pi / nr  # Unit angle of latitude (rings) for the given tessellation
     lou = 2 * pi / ns  # Unit angle of longitude (segments)
 
     bpymesh = bpy.data.meshes.new(name="Sphere")
@@ -2478,8 +2478,19 @@ def importMesh_Sphere(geom, ancestry):
                        -cos(lou * seg) * sin(lau * ring))]
     bpymesh.vertices.foreach_set('co', co)
 
+    num_poly = ns * nr
+    num_tri = ns * 2
+    num_quad = num_poly - num_tri
+    num_loop = num_quad * 4 + num_tri * 3
     tf = bpymesh.polygons
-    tf.add(ns * nr)
+    tf.add(num_poly)
+    bpymesh.loops.add(num_loop)
+    bpymesh.polygons.foreach_set("loop_start",
+                                 tuple(range(0, ns * 3, 3)) +
+                                 tuple(range(ns * 3, num_loop - ns * 3, 4)) +
+                                 tuple(range(num_loop - ns * 3, num_loop, 3)))
+    bpymesh.polygons.foreach_set("loop_total", (3,) * ns + (4,) * num_quad + (3,) * ns)
+
     vb = 2 + (nr - 2) * ns  # First vertex index for the bottom cap
     fb = (nr - 1) * ns  # First face index for the bottom cap
 
@@ -2499,12 +2510,12 @@ def importMesh_Sphere(geom, ancestry):
     for seg in range(ns):
         tf[seg].vertices = (0, seg + 2, (seg + 1) % ns + 2)
         tf[fb + seg].vertices = (1, vb + (seg + 1) % ns, vb + seg)
-        for lidx, uv in zip(tf[seg].loops,
+        for lidx, uv in zip(tf[seg].loop_indices,
                             (((seg + 0.5) / ns, 1),
                              (seg / ns, 1 - 1 / nr),
                              ((seg + 1) / ns, 1 - 1 / nr))):
             tex[lidx].uv = uv
-        for lidx, uv in zip(tf[fb + seg].loops,
+        for lidx, uv in zip(tf[fb + seg].loop_indices,
                             (((seg + 0.5) / ns, 0),
                              ((seg + 1) / ns, 1 / nr),
                              (seg / ns, 1 / nr))):
@@ -2521,15 +2532,15 @@ def importMesh_Sphere(geom, ancestry):
         # First face index for the ring
         for seg in range(ns):
             nseg = (seg + 1) % ns
-            tf[rfb + seg].vertices_raw = (tvb + seg, bvb + seg, bvb + nseg, tvb + nseg)
-            for lidx, uv in zip(tf[rfb + seg].loops,
+            tf[rfb + seg].vertices = (tvb + seg, bvb + seg, bvb + nseg, tvb + nseg)
+            for lidx, uv in zip(tf[rfb + seg].loop_indices,
                                 ((seg / ns, 1 - (ring + 1) / nr),
                                  (seg / ns, 1 - (ring + 2) / nr),
                                  ((seg + 1) / ns, 1 - (ring + 2) / nr),
                                  ((seg + 1) / ns, 1 - (ring + 1) / nr))):
                 tex[lidx].uv = uv
 
-    bpymesh.validate(False)
+    bpymesh.validate()
     bpymesh.update()
     return bpymesh
 
@@ -2570,7 +2581,7 @@ def importMesh_Cylinder(geom, ancestry):
     # Tried constructing the mesh manually from polygons/loops/edges,
     # the difference in performance on Blender 2.74 (Win64) is negligible.
 
-    bpymesh.validate(False)
+    bpymesh.validate()
 
     # The structure of the loop array goes: cap, side, cap.
     loops = []
@@ -2619,7 +2630,7 @@ def importMesh_Cone(geom, ancestry):
     bpymesh = bpy.data.meshes.new(name="Cone")
     bpymesh.from_pydata(verts, [], faces)
 
-    bpymesh.validate(False)
+    bpymesh.validate()
     loops = []
     if side:
         loops += [co for i in range(n)
@@ -2662,7 +2673,7 @@ def importMesh_Box(geom, ancestry):
         5, 1, 0, 4,   # +z
         7, 6, 5, 4))  # -y
 
-    bpymesh.validate(False)
+    bpymesh.validate()
     d = bpymesh.uv_layers.new().data
     d.foreach_set('uv', (
         1, 0, 0, 0, 0, 1, 1, 1,
@@ -2706,7 +2717,7 @@ def appearance_CreateMaterial(vrmlname, mat, ancestry, is_vcol):
     bpymat.alpha = 1.0 - mat.getFieldAsFloat('transparency', 0.0, ancestry)
     if bpymat.alpha < 0.999:
         bpymat.use_transparency = True
-    if is_vcol:
+    if False and is_vcol:
         bpymat.use_vertex_color_paint = True
     return bpymat
 
@@ -2858,10 +2869,10 @@ def appearance_Create(vrmlname, material, tex_node, ancestry, node, is_vcol):
     if tex_node:  # Texture caching inside there
         bpyima = appearance_LoadTexture(tex_node, ancestry, node)
 
-    if 0 & is_vcol:
+    if False and is_vcol:
         bpymat.use_vertex_color_paint = True
 
-    if 0 and bpyima:
+    if False and bpyima:
         tex_has_alpha = bpyima.alpha_mode not in {'NONE', 'CHANNEL_PACKED'}
 
         texture = bpy.data.textures.new(bpyima.name, 'IMAGE')
@@ -2896,7 +2907,7 @@ def importShape_LoadAppearance(vrmlname, appr, ancestry, node, is_vcol):
     USE on an Appearance node and USE on a Material node
     call for different approaches.
 
-    Tools generate repeating, idential material definitions.
+    Tools generate repeating, identical material definitions.
     Can't rely on USE alone. Repeating texture definitions
     are entirely possible, too.
 
@@ -2986,7 +2997,7 @@ def appearance_LoadPixelTexture(pixelTexture, ancestry):
     elif plane_count == 1:  # Intensity - does Blender even support that?
         bpyima.pixels = [(cco & 0xff) / 255 for pixel in pixels
                          for cco in (pixel, pixel, pixel, 255)]
-    elif plane_count == 2:  # Intensity/aplha
+    elif plane_count == 2:  # Intensity/alpha
         bpyima.pixels = [(cco & 0xff) / 255 for pixel in pixels
                          for cco
                          in (pixel >> 8, pixel >> 8, pixel >> 8, pixel)]
@@ -3420,7 +3431,7 @@ def importRoute(node, ancestry):
     # for getting definitions
     defDict = node.getDefDict()
     """
-    Handles routing nodes to eachother
+    Handles routing nodes to each other
 
 ROUTE vpPI.value_changed TO champFly001.set_position
 ROUTE vpOI.value_changed TO champFly001.set_orientation

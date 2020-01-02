@@ -690,9 +690,11 @@ uiBlock *ui_popup_block_refresh(bContext *C,
     /* Avoid menu moving down and losing cursor focus by keeping it at
      * the same height. */
     if (handle->refresh && handle->prev_block_rect.ymax > block->rect.ymax) {
-      float offset = handle->prev_block_rect.ymax - block->rect.ymax;
-      UI_block_translate(block, 0, offset);
-      block->rect.ymin = handle->prev_block_rect.ymin;
+      if (block->bounds_type != UI_BLOCK_BOUNDS_POPUP_CENTER) {
+        float offset = handle->prev_block_rect.ymax - block->rect.ymax;
+        UI_block_translate(block, 0, offset);
+        block->rect.ymin = handle->prev_block_rect.ymin;
+      }
     }
 
     handle->prev_block_rect = block->rect;
@@ -763,7 +765,7 @@ uiPopupBlockHandle *ui_popup_block_create(bContext *C,
     UI_but_tooltip_timer_remove(C, activebut);
   }
   /* standard cursor by default */
-  WM_cursor_set(window, CURSOR_STD);
+  WM_cursor_set(window, WM_CURSOR_DEFAULT);
 
   /* create handle */
   handle = MEM_callocN(sizeof(uiPopupBlockHandle), "uiPopupBlockHandle");

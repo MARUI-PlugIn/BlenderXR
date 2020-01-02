@@ -35,10 +35,12 @@ bool BKE_override_library_is_enabled(void);
 
 struct IDOverrideLibrary *BKE_override_library_init(struct ID *local_id, struct ID *reference_id);
 void BKE_override_library_copy(struct ID *dst_id, const struct ID *src_id);
-void BKE_override_library_clear(struct IDOverrideLibrary *override);
-void BKE_override_library_free(struct IDOverrideLibrary **override);
+void BKE_override_library_clear(struct IDOverrideLibrary *override, const bool do_id_user);
+void BKE_override_library_free(struct IDOverrideLibrary **override, const bool do_id_user);
 
-struct ID *BKE_override_library_create_from_id(struct Main *bmain, struct ID *reference_id);
+struct ID *BKE_override_library_create_from_id(struct Main *bmain,
+                                               struct ID *reference_id,
+                                               const bool do_tagged_remap);
 bool BKE_override_library_create_from_tag(struct Main *bmain);
 
 struct IDOverrideLibraryProperty *BKE_override_library_property_find(

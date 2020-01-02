@@ -374,25 +374,70 @@ static void brush_painter_mask_imbuf_partial_update(BrushPainter *painter,
 /* create a mask with the falloff strength */
 static unsigned short *brush_painter_curve_mask_new(BrushPainter *painter,
                                                     int diameter,
-                                                    float radius)
+                                                    float radius,
+                                                    const float pos[2])
 {
   Brush *brush = painter->brush;
 
-  int xoff = -radius;
-  int yoff = -radius;
+  int offset = (int)floorf(diameter / 2.0f);
 
   unsigned short *mask, *m;
-  int x, y;
 
   mask = MEM_mallocN(sizeof(unsigned short) * diameter * diameter, "brush_painter_mask");
   m = mask;
 
-  for (y = 0; y < diameter; y++) {
-    for (x = 0; x < diameter; x++, m++) {
-      float xy[2] = {x + xoff, y + yoff};
-      float len = len_v2(xy);
+  int aa_samples = 1.0f / (radius * 0.20f);
+  if (brush->sampling_flag & BRUSH_PAINT_ANTIALIASING) {
+    aa_samples = clamp_i(aa_samples, 3, 16);
+  }
+  else {
+    aa_samples = 1;
+  }
 
-      *m = (unsigned short)(65535.0f * BKE_brush_curve_strength_clamped(brush, len, radius));
+  /* Temporal until we have the brush properties */
+  const float hardness = 1.0f;
+  const float rotation = 0.0f;
+
+  float aa_offset = 1.0f / (2.0f * (float)aa_samples);
+  float aa_step = 1.0f / (float)aa_samples;
+
+  float bpos[2];
+  bpos[0] = pos[0] - floorf(pos[0]) + offset - aa_offset;
+  bpos[1] = pos[1] - floorf(pos[1]) + offset - aa_offset;
+
+  const float co = cosf(DEG2RADF(rotation));
+  const float si = sinf(DEG2RADF(rotation));
+
+  float norm_factor = 65535.0f / (float)(aa_samples * aa_samples);
+
+  for (int y = 0; y < diameter; y++) {
+    for (int x = 0; x < diameter; x++, m++) {
+      float total_samples = 0;
+      for (int i = 0; i < aa_samples; i++) {
+        for (int j = 0; j < aa_samples; j++) {
+          float pixel_xy[2] = {x + (aa_step * i), y + (aa_step * j)};
+          float xy_rot[2];
+          sub_v2_v2(pixel_xy, bpos);
+
+          xy_rot[0] = co * pixel_xy[0] - si * pixel_xy[1];
+          xy_rot[1] = si * pixel_xy[0] + co * pixel_xy[1];
+
+          float len = len_v2(xy_rot);
+          float p = len / radius;
+          if (hardness < 1.0f) {
+            p = (p - hardness) / (1 - hardness);
+            p = 1.0f - p;
+            CLAMP(p, 0, 1);
+          }
+          else {
+            p = 1.0;
+          }
+          float hardness_factor = 3.0f * p * p - 2.0f * p * p * p;
+          float curve = BKE_brush_curve_strength_clamped(brush, len, radius);
+          total_samples += curve * hardness_factor;
+        }
+      }
+      *m = (unsigned short)(total_samples * norm_factor);
     }
   }
 
@@ -721,7 +766,8 @@ static void brush_painter_2d_refresh_cache(ImagePaintState *s,
   UnifiedPaintSettings *ups = &scene->toolsettings->unified_paint_settings;
   Brush *brush = painter->brush;
   BrushPainterCache *cache = &painter->cache;
-  const int diameter = 2 * size;
+  /* Adding 4 pixels of padding for brush antialiasing */
+  const int diameter = MAX2(1, size * 2) + 4;
 
   bool do_random = false;
   bool do_partial_update = false;
@@ -802,14 +848,12 @@ static void brush_painter_2d_refresh_cache(ImagePaintState *s,
   }
 
   /* curve mask can only change if the size changes */
-  if (diameter != cache->lastdiameter) {
-    if (cache->curve_mask) {
-      MEM_freeN(cache->curve_mask);
-      cache->curve_mask = NULL;
-    }
-
-    cache->curve_mask = brush_painter_curve_mask_new(painter, diameter, size);
+  if (cache->curve_mask) {
+    MEM_freeN(cache->curve_mask);
+    cache->curve_mask = NULL;
   }
+
+  cache->curve_mask = brush_painter_curve_mask_new(painter, diameter, size, pos);
 
   /* detect if we need to recreate image brush buffer */
   if ((diameter != cache->lastdiameter) || (tex_rotation != cache->last_tex_rotation) ||
@@ -1197,23 +1241,24 @@ static void paint_2d_do_making_brush(ImagePaintState *s,
                                      int tileh)
 {
   ImBuf tmpbuf;
-  IMB_initImBuf(&tmpbuf, IMAPAINT_TILE_SIZE, IMAPAINT_TILE_SIZE, 32, 0);
+  IMB_initImBuf(&tmpbuf, ED_IMAGE_UNDO_TILE_SIZE, ED_IMAGE_UNDO_TILE_SIZE, 32, 0);
 
-  ListBase *undo_tiles = ED_image_undo_get_tiles();
+  ListBase *undo_tiles = ED_image_paint_tile_list_get();
 
   for (int ty = tiley; ty <= tileh; ty++) {
     for (int tx = tilex; tx <= tilew; tx++) {
       /* retrieve original pixels + mask from undo buffer */
       unsigned short *mask;
-      int origx = region->destx - tx * IMAPAINT_TILE_SIZE;
-      int origy = region->desty - ty * IMAPAINT_TILE_SIZE;
+      int origx = region->destx - tx * ED_IMAGE_UNDO_TILE_SIZE;
+      int origy = region->desty - ty * ED_IMAGE_UNDO_TILE_SIZE;
 
       if (s->canvas->rect_float) {
-        tmpbuf.rect_float = image_undo_find_tile(
+        tmpbuf.rect_float = ED_image_paint_tile_find(
             undo_tiles, s->image, s->canvas, tx, ty, &mask, false);
       }
       else {
-        tmpbuf.rect = image_undo_find_tile(undo_tiles, s->image, s->canvas, tx, ty, &mask, false);
+        tmpbuf.rect = ED_image_paint_tile_find(
+            undo_tiles, s->image, s->canvas, tx, ty, &mask, false);
       }
 
       IMB_rectblend(s->canvas,
@@ -1251,7 +1296,7 @@ typedef struct Paint2DForeachData {
 
 static void paint_2d_op_foreach_do(void *__restrict data_v,
                                    const int iter,
-                                   const ParallelRangeTLS *__restrict UNUSED(tls))
+                                   const TaskParallelTLS *__restrict UNUSED(tls))
 {
   Paint2DForeachData *data = (Paint2DForeachData *)data_v;
   paint_2d_do_making_brush(data->s,
@@ -1360,7 +1405,7 @@ static int paint_2d_op(void *state,
         data.tilex = tilex;
         data.tilew = tilew;
 
-        ParallelRangeSettings settings;
+        TaskParallelSettings settings;
         BLI_parallel_range_settings_defaults(&settings);
         BLI_task_parallel_range(tiley, tileh + 1, &data, paint_2d_op_foreach_do, &settings);
       }
@@ -1454,8 +1499,6 @@ static void paint_2d_canvas_free(ImagePaintState *s)
     paint_delete_blur_kernel(s->blurkernel);
     MEM_freeN(s->blurkernel);
   }
-
-  image_undo_remove_masks();
 }
 
 void paint_2d_stroke(void *ps,

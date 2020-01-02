@@ -91,7 +91,7 @@ bool DEG_debug_graph_relations_validate(Depsgraph *graph,
                                         Scene *scene,
                                         ViewLayer *view_layer)
 {
-  Depsgraph *temp_depsgraph = DEG_graph_new(scene, view_layer, DEG_get_mode(graph));
+  Depsgraph *temp_depsgraph = DEG_graph_new(bmain, scene, view_layer, DEG_get_mode(graph));
   bool valid = true;
   DEG_graph_build_from_view_layer(temp_depsgraph, bmain, scene, view_layer);
   if (!DEG_debug_compare(temp_depsgraph, graph)) {
@@ -112,13 +112,13 @@ bool DEG_debug_consistency_check(Depsgraph *graph)
       int counter1 = 0;
       for (DEG::Relation *tmp_rel : node->outlinks) {
         if (tmp_rel == rel) {
-          ++counter1;
+          counter1++;
         }
       }
       int counter2 = 0;
       for (DEG::Relation *tmp_rel : rel->to->inlinks) {
         if (tmp_rel == rel) {
-          ++counter2;
+          counter2++;
         }
       }
       if (counter1 != counter2) {
@@ -137,13 +137,13 @@ bool DEG_debug_consistency_check(Depsgraph *graph)
       int counter1 = 0;
       for (DEG::Relation *tmp_rel : node->inlinks) {
         if (tmp_rel == rel) {
-          ++counter1;
+          counter1++;
         }
       }
       int counter2 = 0;
       for (DEG::Relation *tmp_rel : rel->from->outlinks) {
         if (tmp_rel == rel) {
-          ++counter2;
+          counter2++;
         }
       }
       if (counter1 != counter2) {
@@ -179,7 +179,7 @@ bool DEG_debug_consistency_check(Depsgraph *graph)
     int num_links_pending = 0;
     for (DEG::Relation *rel : node->inlinks) {
       if (rel->from->type == DEG::NodeType::OPERATION) {
-        ++num_links_pending;
+        num_links_pending++;
       }
     }
     if (node->num_links_pending != num_links_pending) {
@@ -244,12 +244,6 @@ void DEG_stats_simple(const Depsgraph *graph,
       *r_outer = tot_outer;
     }
   }
-}
-
-bool DEG_debug_is_evaluating(struct Depsgraph *depsgraph)
-{
-  DEG::Depsgraph *deg_graph = reinterpret_cast<DEG::Depsgraph *>(depsgraph);
-  return deg_graph->debug_is_evaluating;
 }
 
 static DEG::string depsgraph_name_for_logging(struct Depsgraph *depsgraph)

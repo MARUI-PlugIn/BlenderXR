@@ -53,6 +53,7 @@
 #include "ED_mesh.h"
 
 #include "transform.h"
+#include "transform_convert.h"
 
 typedef struct TransformModeItem {
   const char *idname;
@@ -139,22 +140,22 @@ const EnumPropertyItem rna_enum_transform_mode_types[] = {
     {TFM_CREASE, "CREASE", 0, "Crease", ""},
     {TFM_MIRROR, "MIRROR", 0, "Mirror", ""},
     {TFM_BONESIZE, "BONE_SIZE", 0, "Bonesize", ""},
-    {TFM_BONE_ENVELOPE, "BONE_ENVELOPE", 0, "Bone_Envelope", ""},
-    {TFM_BONE_ENVELOPE_DIST, "BONE_ENVELOPE_DIST", 0, "Bone_Envelope_Distance", ""},
-    {TFM_CURVE_SHRINKFATTEN, "CURVE_SHRINKFATTEN", 0, "Curve_Shrinkfatten", ""},
-    {TFM_MASK_SHRINKFATTEN, "MASK_SHRINKFATTEN", 0, "Mask_Shrinkfatten", ""},
-    {TFM_GPENCIL_SHRINKFATTEN, "GPENCIL_SHRINKFATTEN", 0, "GPencil_Shrinkfatten", ""},
-    {TFM_BONE_ROLL, "BONE_ROLL", 0, "Bone_Roll", ""},
-    {TFM_TIME_TRANSLATE, "TIME_TRANSLATE", 0, "Time_Translate", ""},
-    {TFM_TIME_SLIDE, "TIME_SLIDE", 0, "Time_Slide", ""},
-    {TFM_TIME_SCALE, "TIME_SCALE", 0, "Time_Scale", ""},
-    {TFM_TIME_EXTEND, "TIME_EXTEND", 0, "Time_Extend", ""},
-    {TFM_BAKE_TIME, "BAKE_TIME", 0, "Bake_Time", ""},
+    {TFM_BONE_ENVELOPE, "BONE_ENVELOPE", 0, "Bone Envelope", ""},
+    {TFM_BONE_ENVELOPE_DIST, "BONE_ENVELOPE_DIST", 0, "Bone Envelope Distance", ""},
+    {TFM_CURVE_SHRINKFATTEN, "CURVE_SHRINKFATTEN", 0, "Curve Shrinkfatten", ""},
+    {TFM_MASK_SHRINKFATTEN, "MASK_SHRINKFATTEN", 0, "Mask Shrinkfatten", ""},
+    {TFM_GPENCIL_SHRINKFATTEN, "GPENCIL_SHRINKFATTEN", 0, "GPencil Shrinkfatten", ""},
+    {TFM_BONE_ROLL, "BONE_ROLL", 0, "Bone Roll", ""},
+    {TFM_TIME_TRANSLATE, "TIME_TRANSLATE", 0, "Time Translate", ""},
+    {TFM_TIME_SLIDE, "TIME_SLIDE", 0, "Time Slide", ""},
+    {TFM_TIME_SCALE, "TIME_SCALE", 0, "Time Scale", ""},
+    {TFM_TIME_EXTEND, "TIME_EXTEND", 0, "Time Extend", ""},
+    {TFM_BAKE_TIME, "BAKE_TIME", 0, "Bake Time", ""},
     {TFM_BWEIGHT, "BWEIGHT", 0, "Bweight", ""},
     {TFM_ALIGN, "ALIGN", 0, "Align", ""},
     {TFM_EDGE_SLIDE, "EDGESLIDE", 0, "Edge Slide", ""},
     {TFM_SEQ_SLIDE, "SEQSLIDE", 0, "Sequence Slide", ""},
-    {TFM_GPENCIL_OPACITY, "GPENCIL_OPACITY", 0, "GPencil_Opacity", ""},
+    {TFM_GPENCIL_OPACITY, "GPENCIL_OPACITY", 0, "GPencil Opacity", ""},
     {0, NULL, 0, NULL, NULL},
 };
 
@@ -301,11 +302,11 @@ static void TRANSFORM_OT_create_orientation(struct wmOperatorType *ot)
   WM_operatortype_props_advanced_begin(ot);
 
   RNA_def_boolean(
-      ot->srna, "use", false, "Use after creation", "Select orientation after its creation");
+      ot->srna, "use", false, "Use After Creation", "Select orientation after its creation");
   RNA_def_boolean(ot->srna,
                   "overwrite",
                   false,
-                  "Overwrite previous",
+                  "Overwrite Previous",
                   "Overwrite previously created orientation with same name");
 }
 
@@ -573,7 +574,7 @@ void Transform_Properties(struct wmOperatorType *ot, int flags)
   if (flags & P_ORIENT_AXIS_ORTHO) {
     prop = RNA_def_property(ot->srna, "orient_axis_ortho", PROP_ENUM, PROP_NONE);
     RNA_def_property_ui_text(prop, "Axis Ortho", "");
-    RNA_def_property_enum_default(prop, 1);
+    RNA_def_property_enum_default(prop, 0);
     RNA_def_property_enum_items(prop, rna_enum_axis_xyz_items);
     RNA_def_property_flag(prop, PROP_SKIP_SAVE);
   }
@@ -883,6 +884,16 @@ static void TRANSFORM_OT_bend(struct wmOperatorType *ot)
   Transform_Properties(ot, P_PROPORTIONAL | P_MIRROR | P_SNAP | P_GPENCIL_EDIT | P_CENTER);
 }
 
+static bool transform_shear_poll(bContext *C)
+{
+  if (!ED_operator_screenactive(C)) {
+    return false;
+  }
+
+  ScrArea *sa = CTX_wm_area(C);
+  return sa && !ELEM(sa->spacetype, SPACE_ACTION);
+}
+
 static void TRANSFORM_OT_shear(struct wmOperatorType *ot)
 {
   /* identifiers */
@@ -896,11 +907,10 @@ static void TRANSFORM_OT_shear(struct wmOperatorType *ot)
   ot->exec = transform_exec;
   ot->modal = transform_modal;
   ot->cancel = transform_cancel;
-  ot->poll = ED_operator_screenactive;
+  ot->poll = transform_shear_poll;
   ot->poll_property = transform_poll_property;
 
   RNA_def_float(ot->srna, "value", 0, -FLT_MAX, FLT_MAX, "Offset", "", -FLT_MAX, FLT_MAX);
-  RNA_def_enum(ot->srna, "shear_axis", rna_enum_axis_xy_items, 0, "Shear Axis", "");
 
   WM_operatortype_props_advanced_begin(ot);
 
@@ -1140,8 +1150,12 @@ static void TRANSFORM_OT_seq_slide(struct wmOperatorType *ot)
   ot->cancel = transform_cancel;
   ot->poll = ED_operator_sequencer_active;
 
-  RNA_def_float_vector_xyz(
+  /* properties */
+  PropertyRNA *prop;
+
+  prop = RNA_def_float_vector(
       ot->srna, "value", 2, NULL, -FLT_MAX, FLT_MAX, "Offset", "", -FLT_MAX, FLT_MAX);
+  RNA_def_property_ui_range(prop, -FLT_MAX, FLT_MAX, 1, 0);
 
   WM_operatortype_props_advanced_begin(ot);
 

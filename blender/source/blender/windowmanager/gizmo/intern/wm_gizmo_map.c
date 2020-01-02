@@ -540,6 +540,7 @@ static int gizmo_find_intersected_3d_intern(wmGizmo **visible_gizmos,
   ScrArea *sa = CTX_wm_area(C);
   ARegion *ar = CTX_wm_region(C);
   View3D *v3d = sa->spacedata.first;
+  Depsgraph *depsgraph = CTX_data_depsgraph_pointer(C);
   rcti rect;
   /* Almost certainly overkill, but allow for many custom gizmos. */
   GLuint buffer[MAXPICKBUF];
@@ -548,7 +549,7 @@ static int gizmo_find_intersected_3d_intern(wmGizmo **visible_gizmos,
   BLI_rcti_init_pt_radius(&rect, co, hotspot);
 
   ED_view3d_draw_setup_view(
-      CTX_wm_window(C), CTX_data_depsgraph(C), CTX_data_scene(C), ar, v3d, NULL, NULL, &rect);
+      CTX_wm_window(C), depsgraph, CTX_data_scene(C), ar, v3d, NULL, NULL, &rect);
 
   bool use_select_bias = false;
 
@@ -568,7 +569,7 @@ static int gizmo_find_intersected_3d_intern(wmGizmo **visible_gizmos,
   }
 
   ED_view3d_draw_setup_view(
-      CTX_wm_window(C), CTX_data_depsgraph(C), CTX_data_scene(C), ar, v3d, NULL, NULL, NULL);
+      CTX_wm_window(C), depsgraph, CTX_data_scene(C), ar, v3d, NULL, NULL, NULL);
 
   if (use_select_bias && (hits > 1)) {
     float co_direction[3];
@@ -973,7 +974,8 @@ bool WM_gizmomap_cursor_set(const wmGizmoMap *gzmap, wmWindow *win)
 bool wm_gizmomap_highlight_set(wmGizmoMap *gzmap, const bContext *C, wmGizmo *gz, int part)
 {
   if ((gz != gzmap->gzmap_context.highlight) || (gz && part != gz->highlight_part)) {
-    const bool init_last_cursor = (gzmap->gzmap_context.highlight == NULL);
+    const bool init_last_cursor = !(gzmap->gzmap_context.highlight &&
+                                    gzmap->gzmap_context.last_cursor != -1);
     if (gzmap->gzmap_context.highlight) {
       gzmap->gzmap_context.highlight->state &= ~WM_GIZMO_STATE_HIGHLIGHT;
       gzmap->gzmap_context.highlight->highlight_part = -1;

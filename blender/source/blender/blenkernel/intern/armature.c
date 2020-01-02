@@ -239,6 +239,119 @@ bArmature *BKE_armature_copy(Main *bmain, const bArmature *arm)
   return arm_copy;
 }
 
+static void copy_bone_transform(Bone *bone_dst, const Bone *bone_src)
+{
+  bone_dst->roll = bone_src->roll;
+
+  copy_v3_v3(bone_dst->head, bone_src->head);
+  copy_v3_v3(bone_dst->tail, bone_src->tail);
+
+  copy_m3_m3(bone_dst->bone_mat, bone_src->bone_mat);
+
+  copy_v3_v3(bone_dst->arm_head, bone_src->arm_head);
+  copy_v3_v3(bone_dst->arm_tail, bone_src->arm_tail);
+
+  copy_m4_m4(bone_dst->arm_mat, bone_src->arm_mat);
+
+  bone_dst->arm_roll = bone_src->arm_roll;
+}
+
+void BKE_armature_copy_bone_transforms(bArmature *armature_dst, const bArmature *armature_src)
+{
+  Bone *bone_dst = armature_dst->bonebase.first;
+  const Bone *bone_src = armature_src->bonebase.first;
+  while (bone_dst != NULL) {
+    BLI_assert(bone_src != NULL);
+    copy_bone_transform(bone_dst, bone_src);
+    bone_dst = bone_dst->next;
+    bone_src = bone_src->next;
+  }
+}
+
+/** Helper for #ED_armature_transform */
+static void armature_transform_recurse(ListBase *bonebase,
+                                       const float mat[4][4],
+                                       const bool do_props,
+                                       /* Cached from 'mat'. */
+                                       const float mat3[3][3],
+                                       const float scale,
+                                       /* Child bones. */
+                                       const Bone *bone_parent,
+                                       const float arm_mat_parent_inv[4][4])
+{
+  for (Bone *bone = bonebase->first; bone; bone = bone->next) {
+
+    /* Transform the bone's roll. */
+    if (bone_parent == NULL) {
+
+      float roll_mat[3][3];
+      {
+        float delta[3];
+        sub_v3_v3v3(delta, bone->tail, bone->head);
+        vec_roll_to_mat3(delta, bone->roll, roll_mat);
+      }
+
+      /* Transform the roll matrix. */
+      mul_m3_m3m3(roll_mat, mat3, roll_mat);
+
+      /* Apply the transformed roll back. */
+      mat3_to_vec_roll(roll_mat, NULL, &bone->roll);
+    }
+
+    mul_m4_v3(mat, bone->arm_head);
+    mul_m4_v3(mat, bone->arm_tail);
+
+    /* Get the new head and tail */
+    if (bone_parent) {
+      sub_v3_v3v3(bone->head, bone->arm_head, bone_parent->arm_tail);
+      sub_v3_v3v3(bone->tail, bone->arm_tail, bone_parent->arm_tail);
+
+      mul_mat3_m4_v3(arm_mat_parent_inv, bone->head);
+      mul_mat3_m4_v3(arm_mat_parent_inv, bone->tail);
+    }
+    else {
+      copy_v3_v3(bone->head, bone->arm_head);
+      copy_v3_v3(bone->tail, bone->arm_tail);
+    }
+
+    BKE_armature_where_is_bone(bone, bone_parent, false);
+
+    {
+      float arm_mat3[3][3];
+      copy_m3_m4(arm_mat3, bone->arm_mat);
+      mat3_to_vec_roll(arm_mat3, NULL, &bone->arm_roll);
+    }
+
+    if (do_props) {
+      bone->rad_head *= scale;
+      bone->rad_tail *= scale;
+      bone->dist *= scale;
+
+      /* we could be smarter and scale by the matrix along the x & z axis */
+      bone->xwidth *= scale;
+      bone->zwidth *= scale;
+    }
+
+    if (!BLI_listbase_is_empty(&bone->childbase)) {
+      float arm_mat_inv[4][4];
+      invert_m4_m4(arm_mat_inv, bone->arm_mat);
+      armature_transform_recurse(&bone->childbase, mat, do_props, mat3, scale, bone, arm_mat_inv);
+    }
+  }
+}
+
+void BKE_armature_transform(bArmature *arm, const float mat[4][4], const bool do_props)
+{
+  /* Store the scale of the matrix here to use on envelopes. */
+  float scale = mat4_to_scale(mat);
+  float mat3[3][3];
+
+  copy_m3_m4(mat3, mat);
+  normalize_m3(mat3);
+
+  armature_transform_recurse(&arm->bonebase, mat, do_props, mat3, scale, NULL, NULL);
+}
+
 static Bone *get_named_bone_bonechildren(ListBase *lb, const char *name)
 {
   Bone *curBone, *rbone;
@@ -892,9 +1005,9 @@ void BKE_pchan_bbone_handles_compute(const BBoneSplineParameters *param,
 }
 
 static void make_bbone_spline_matrix(BBoneSplineParameters *param,
-                                     float scalemats[2][4][4],
-                                     float pos[3],
-                                     float axis[3],
+                                     const float scalemats[2][4][4],
+                                     const float pos[3],
+                                     const float axis[3],
                                      float roll,
                                      float scalex,
                                      float scaley,
@@ -1144,9 +1257,9 @@ void BKE_pchan_bbone_deform_segment_index(const bPoseChannel *pchan,
   float pre_blend = pos * (float)segments;
 
   int index = (int)floorf(pre_blend);
-  float blend = pre_blend - index;
+  CLAMP(index, 0, segments - 1);
 
-  CLAMP(index, 0, segments);
+  float blend = pre_blend - index;
   CLAMP(blend, 0.0f, 1.0f);
 
   *r_index = index;
@@ -1350,7 +1463,7 @@ typedef struct ArmatureUserdata {
 
 static void armature_vert_task(void *__restrict userdata,
                                const int i,
-                               const ParallelRangeTLS *__restrict UNUSED(tls))
+                               const TaskParallelTLS *__restrict UNUSED(tls))
 {
   const ArmatureUserdata *data = userdata;
   float(*const vertexCos)[3] = data->vertexCos;
@@ -1648,7 +1761,7 @@ void armature_deform_verts(Object *armOb,
   mul_m4_m4m4(data.postmat, obinv, armOb->obmat);
   invert_m4_m4(data.premat, data.postmat);
 
-  ParallelRangeSettings settings;
+  TaskParallelSettings settings;
   BLI_parallel_range_settings_defaults(&settings);
   settings.min_iter_per_thread = 32;
   BLI_task_parallel_range(0, numVerts, &data, armature_vert_task, &settings);
@@ -1754,11 +1867,16 @@ void BKE_bone_parent_transform_calc_from_pchan(const bPoseChannel *pchan,
     /* yoffs(b-1) + root(b) + bonemat(b). */
     BKE_bone_offset_matrix_get(bone, offs_bone);
 
-    BKE_bone_parent_transform_calc_from_matrices(
-        bone->flag, offs_bone, parbone->arm_mat, parchan->pose_mat, r_bpt);
+    BKE_bone_parent_transform_calc_from_matrices(bone->flag,
+                                                 bone->inherit_scale_mode,
+                                                 offs_bone,
+                                                 parbone->arm_mat,
+                                                 parchan->pose_mat,
+                                                 r_bpt);
   }
   else {
-    BKE_bone_parent_transform_calc_from_matrices(bone->flag, bone->arm_mat, NULL, NULL, r_bpt);
+    BKE_bone_parent_transform_calc_from_matrices(
+        bone->flag, bone->inherit_scale_mode, bone->arm_mat, NULL, NULL, r_bpt);
   }
 }
 
@@ -1769,39 +1887,90 @@ void BKE_bone_parent_transform_calc_from_pchan(const bPoseChannel *pchan,
  * parent_arm_mat, parent_pose_mat: arm_mat and pose_mat of parent, or NULL
  * r_bpt: OUTPUT parent transform */
 void BKE_bone_parent_transform_calc_from_matrices(int bone_flag,
+                                                  int inherit_scale_mode,
                                                   const float offs_bone[4][4],
                                                   const float parent_arm_mat[4][4],
                                                   const float parent_pose_mat[4][4],
                                                   BoneParentTransform *r_bpt)
 {
   if (parent_pose_mat) {
+    const bool use_rotation = (bone_flag & BONE_HINGE) == 0;
+    const bool full_transform = use_rotation && inherit_scale_mode == BONE_INHERIT_SCALE_FULL;
+
     /* Compose the rotscale matrix for this bone. */
-    if ((bone_flag & BONE_HINGE) && (bone_flag & BONE_NO_SCALE)) {
-      /* Parent rest rotation and scale. */
-      mul_m4_m4m4(r_bpt->rotscale_mat, parent_arm_mat, offs_bone);
-    }
-    else if (bone_flag & BONE_HINGE) {
-      /* Parent rest rotation and pose scale. */
-      float tmat[4][4], tscale[3];
-
-      /* Extract the scale of the parent pose matrix. */
-      mat4_to_size(tscale, parent_pose_mat);
-      size_to_mat4(tmat, tscale);
-
-      /* Applies the parent pose scale to the rest matrix. */
-      mul_m4_m4m4(tmat, tmat, parent_arm_mat);
-
-      mul_m4_m4m4(r_bpt->rotscale_mat, tmat, offs_bone);
-    }
-    else if (bone_flag & BONE_NO_SCALE) {
-      /* Parent pose rotation and rest scale (i.e. no scaling). */
-      float tmat[4][4];
-      copy_m4_m4(tmat, parent_pose_mat);
-      normalize_m4(tmat);
-      mul_m4_m4m4(r_bpt->rotscale_mat, tmat, offs_bone);
+    if (full_transform) {
+      /* Parent pose rotation and scale. */
+      mul_m4_m4m4(r_bpt->rotscale_mat, parent_pose_mat, offs_bone);
     }
     else {
-      mul_m4_m4m4(r_bpt->rotscale_mat, parent_pose_mat, offs_bone);
+      float tmat[4][4], tscale[3];
+
+      /* If using parent pose rotation: */
+      if (use_rotation) {
+        copy_m4_m4(tmat, parent_pose_mat);
+
+        /* Normalize the matrix when needed. */
+        switch (inherit_scale_mode) {
+          case BONE_INHERIT_SCALE_FULL:
+          case BONE_INHERIT_SCALE_FIX_SHEAR:
+            /* Keep scale and shear. */
+            break;
+
+          case BONE_INHERIT_SCALE_NONE:
+          case BONE_INHERIT_SCALE_AVERAGE:
+            /* Remove scale and shear from parent. */
+            orthogonalize_m4_stable(tmat, 1, true);
+            break;
+
+          case BONE_INHERIT_SCALE_NONE_LEGACY:
+            /* Remove only scale - bad legacy way. */
+            normalize_m4(tmat);
+            break;
+
+          default:
+            BLI_assert(false);
+        }
+      }
+      /* If removing parent pose rotation: */
+      else {
+        copy_m4_m4(tmat, parent_arm_mat);
+
+        /* Copy the parent scale when needed. */
+        switch (inherit_scale_mode) {
+          case BONE_INHERIT_SCALE_FULL:
+            /* Ignore effects of shear. */
+            mat4_to_size(tscale, parent_pose_mat);
+            rescale_m4(tmat, tscale);
+            break;
+
+          case BONE_INHERIT_SCALE_FIX_SHEAR:
+            /* Take the effects of parent shear into account to get exact volume. */
+            mat4_to_size_fix_shear(tscale, parent_pose_mat);
+            rescale_m4(tmat, tscale);
+            break;
+
+          case BONE_INHERIT_SCALE_NONE:
+          case BONE_INHERIT_SCALE_AVERAGE:
+          case BONE_INHERIT_SCALE_NONE_LEGACY:
+            /* Keep unscaled. */
+            break;
+
+          default:
+            BLI_assert(false);
+        }
+      }
+
+      /* Apply the average parent scale when needed. */
+      if (inherit_scale_mode == BONE_INHERIT_SCALE_AVERAGE) {
+        mul_mat3_m4_fl(tmat, cbrtf(fabsf(mat4_to_volume_scale(parent_pose_mat))));
+      }
+
+      mul_m4_m4m4(r_bpt->rotscale_mat, tmat, offs_bone);
+
+      /* Remove remaining shear when needed, preserving volume. */
+      if (inherit_scale_mode == BONE_INHERIT_SCALE_FIX_SHEAR) {
+        orthogonalize_m4_stable(r_bpt->rotscale_mat, 1, false);
+      }
     }
 
     /* Compose the loc matrix for this bone. */
@@ -1825,7 +1994,7 @@ void BKE_bone_parent_transform_calc_from_matrices(int bone_flag,
       mul_m4_m4m4(r_bpt->loc_mat, bone_loc, tmat4);
     }
     /* Those flags do not affect position, use plain parent transform space! */
-    else if (bone_flag & (BONE_HINGE | BONE_NO_SCALE)) {
+    else if (!full_transform) {
       mul_m4_m4m4(r_bpt->loc_mat, parent_pose_mat, offs_bone);
     }
     /* Else (i.e. default, usual case),
@@ -2256,7 +2425,7 @@ void vec_roll_to_mat3(const float vec[3], const float roll, float mat[3][3])
 
 /* recursive part, calculates restposition of entire tree of children */
 /* used by exiting editmode too */
-void BKE_armature_where_is_bone(Bone *bone, Bone *prevbone, const bool use_recursion)
+void BKE_armature_where_is_bone(Bone *bone, const Bone *bone_parent, const bool use_recursion)
 {
   float vec[3];
 
@@ -2272,13 +2441,13 @@ void BKE_armature_where_is_bone(Bone *bone, Bone *prevbone, const bool use_recur
     bone->segments = 1;
   }
 
-  if (prevbone) {
+  if (bone_parent) {
     float offs_bone[4][4];
     /* yoffs(b-1) + root(b) + bonemat(b) */
     BKE_bone_offset_matrix_get(bone, offs_bone);
 
     /* Compose the matrix for this bone  */
-    mul_m4_m4m4(bone->arm_mat, prevbone->arm_mat, offs_bone);
+    mul_m4_m4m4(bone->arm_mat, bone_parent->arm_mat, offs_bone);
   }
   else {
     copy_m4_m3(bone->arm_mat, bone->bone_mat);
@@ -2287,9 +2456,9 @@ void BKE_armature_where_is_bone(Bone *bone, Bone *prevbone, const bool use_recur
 
   /* and the kiddies */
   if (use_recursion) {
-    prevbone = bone;
+    bone_parent = bone;
     for (bone = bone->childbase.first; bone; bone = bone->next) {
-      BKE_armature_where_is_bone(bone, prevbone, use_recursion);
+      BKE_armature_where_is_bone(bone, bone_parent, use_recursion);
     }
   }
 }
@@ -2678,8 +2847,9 @@ void BKE_pose_where_is_bone(struct Depsgraph *depsgraph,
       cob = BKE_constraints_make_evalob(depsgraph, scene, ob, pchan, CONSTRAINT_OBTYPE_BONE);
 
       /* Solve PoseChannel's Constraints */
-      BKE_constraints_solve(
-          depsgraph, &pchan->constraints, cob, ctime); /* ctime doesn't alter objects */
+
+      /* ctime doesn't alter objects. */
+      BKE_constraints_solve(depsgraph, &pchan->constraints, cob, ctime);
 
       /* cleanup after Constraint Solving
        * - applies matrix back to pchan, and frees temporary struct used

@@ -130,10 +130,10 @@ static void rna_Boids_reset(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRN
 
     psys->recalc = ID_RECALC_PSYS_RESET;
 
-    DEG_id_tag_update(ptr->id.data, ID_RECALC_GEOMETRY);
+    DEG_id_tag_update(ptr->owner_id, ID_RECALC_GEOMETRY);
   }
   else {
-    DEG_id_tag_update(ptr->id.data, ID_RECALC_GEOMETRY | ID_RECALC_PSYS_RESET);
+    DEG_id_tag_update(ptr->owner_id, ID_RECALC_GEOMETRY | ID_RECALC_PSYS_RESET);
   }
 
   WM_main_add_notifier(NC_OBJECT | ND_PARTICLE | NA_EDITED, NULL);
@@ -145,10 +145,10 @@ static void rna_Boids_reset_deps(Main *bmain, Scene *UNUSED(scene), PointerRNA *
 
     psys->recalc = ID_RECALC_PSYS_RESET;
 
-    DEG_id_tag_update(ptr->id.data, ID_RECALC_GEOMETRY);
+    DEG_id_tag_update(ptr->owner_id, ID_RECALC_GEOMETRY);
   }
   else {
-    DEG_id_tag_update(ptr->id.data, ID_RECALC_GEOMETRY | ID_RECALC_PSYS_RESET);
+    DEG_id_tag_update(ptr->owner_id, ID_RECALC_GEOMETRY | ID_RECALC_PSYS_RESET);
   }
 
   DEG_relations_tag_update(bmain);
@@ -240,7 +240,7 @@ static void rna_BoidState_active_boid_rule_index_set(struct PointerRNA *ptr, int
 
 static int particle_id_check(PointerRNA *ptr)
 {
-  ID *id = ptr->id.data;
+  ID *id = ptr->owner_id;
 
   return (GS(id->name) == ID_PA);
 }
@@ -250,7 +250,7 @@ static char *rna_BoidSettings_path(PointerRNA *ptr)
   BoidSettings *boids = (BoidSettings *)ptr->data;
 
   if (particle_id_check(ptr)) {
-    ParticleSettings *part = (ParticleSettings *)ptr->id.data;
+    ParticleSettings *part = (ParticleSettings *)ptr->owner_id;
 
     if (part->boids == boids) {
       return BLI_strdup("boids");
@@ -355,7 +355,7 @@ static void rna_def_boidrule_avoid(BlenderRNA *brna)
   prop = RNA_def_property(srna, "fear_factor", PROP_FLOAT, PROP_NONE);
   RNA_def_property_range(prop, 0.0f, 100.0f);
   RNA_def_property_ui_text(
-      prop, "Fear factor", "Avoid object if danger from it is above this threshold");
+      prop, "Fear Factor", "Avoid object if danger from it is above this threshold");
   RNA_def_property_update(prop, 0, "rna_Boids_reset");
 }
 
@@ -379,7 +379,7 @@ static void rna_def_boidrule_avoid_collision(BlenderRNA *brna)
 
   prop = RNA_def_property(srna, "look_ahead", PROP_FLOAT, PROP_NONE);
   RNA_def_property_range(prop, 0.0f, 100.0f);
-  RNA_def_property_ui_text(prop, "Look ahead", "Time to look ahead in seconds");
+  RNA_def_property_ui_text(prop, "Look Ahead", "Time to look ahead in seconds");
   RNA_def_property_update(prop, 0, "rna_Boids_reset");
 }
 

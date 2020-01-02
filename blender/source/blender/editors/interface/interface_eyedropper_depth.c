@@ -168,7 +168,7 @@ static void depthdropper_depth_sample_pt(
     if (sa->spacetype == SPACE_VIEW3D) {
       ARegion *ar = BKE_area_find_region_xy(sa, RGN_TYPE_WINDOW, mx, my);
       if (ar) {
-        struct Depsgraph *depsgraph = CTX_data_depsgraph(C);
+        struct Depsgraph *depsgraph = CTX_data_depsgraph_pointer(C);
         View3D *v3d = sa->spacedata.first;
         RegionView3D *rv3d = ar->regiondata;
         /* weak, we could pass in some reference point */
@@ -311,7 +311,7 @@ static int depthdropper_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSE
 {
   /* init */
   if (depthdropper_init(C, op)) {
-    WM_cursor_modal_set(CTX_wm_window(C), BC_EYEDROPPER_CURSOR);
+    WM_cursor_modal_set(CTX_wm_window(C), WM_CURSOR_EYEDROPPER);
 
     /* add temp handler */
     WM_event_add_modal_handler(C, op);

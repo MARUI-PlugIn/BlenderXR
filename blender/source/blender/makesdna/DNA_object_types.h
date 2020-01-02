@@ -47,7 +47,6 @@ struct Material;
 struct Mesh;
 struct Object;
 struct PartDeflect;
-struct ParticleSystem;
 struct Path;
 struct RigidBodyOb;
 struct SculptSession;
@@ -163,12 +162,14 @@ typedef struct Object_Runtime {
   struct Mesh *mesh_eval;
   /**
    * Mesh structure created during object evaluation.
-   * It has deforemation only modifiers applied on it.
+   * It has deformation only modifiers applied on it.
    */
   struct Mesh *mesh_deform_eval;
 
-  /* This is a mesh representation of corresponding object.
-   * It created when Python calls `object.to_mesh()`. */
+  /**
+   * This is a mesh representation of corresponding object.
+   * It created when Python calls `object.to_mesh()`.
+   */
   struct Mesh *object_as_temp_mesh;
 
   /** Runtime evaluated curve-specific data, not stored in the file. */
@@ -176,8 +177,14 @@ typedef struct Object_Runtime {
 
   /** Runtime grease pencil drawing data */
   struct GpencilBatchCache *gpencil_cache;
+  /** Runtime grease pencil total layers used for evaluated data created by modifiers */
+  int gpencil_tot_layers;
+  char _pad4[4];
+  /** Runtime grease pencil evaluated data created by modifiers */
+  struct bGPDframe *gpencil_evaluated_frames;
 
-  void *_pad2; /* Padding is here for win32s unconventional stuct alignment rules. */
+  unsigned short local_collections_bits;
+  short _pad2[3];
 } Object_Runtime;
 
 typedef struct Object {
@@ -497,7 +504,7 @@ enum {
   OB_DUPLIROT = 1 << 5,
   OB_TRANSFLAG_UNUSED_6 = 1 << 6, /* cleared */
   /* runtime, calculate derivedmesh for dupli before it's used */
-  OB_DUPLICALCDERIVED = 1 << 7,
+  OB_TRANSFLAG_UNUSED_7 = 1 << 7, /* dirty */
   OB_DUPLICOLLECTION = 1 << 8,
   OB_DUPLIFACES = 1 << 9,
   OB_DUPLIFACES_SCALE = 1 << 10,
@@ -601,7 +608,11 @@ enum {
 /* NOTE: this was used as a proper setting in past, so nullify before using */
 #define BA_TEMP_TAG (1 << 5)
 
-/* #define BA_FROMSET          (1 << 7) */ /*UNUSED*/
+/**
+ * Even if this is is tagged for transform, this flag means it's being locked in place.
+ * Use for #SCE_XFORM_SKIP_CHILDREN.
+ */
+#define BA_TRANSFORM_LOCKED_IN_PLACE (1 << 7)
 
 #define BA_TRANSFORM_CHILD (1 << 8)   /* child of a transformed object */
 #define BA_TRANSFORM_PARENT (1 << 13) /* parent of a transformed object */
@@ -680,6 +691,7 @@ enum {
   OB_EMPTY_IMAGE_HIDE_ORTHOGRAPHIC = 1 << 1,
   OB_EMPTY_IMAGE_HIDE_BACK = 1 << 2,
   OB_EMPTY_IMAGE_HIDE_FRONT = 1 << 3,
+  OB_EMPTY_IMAGE_HIDE_NON_AXIS_ALIGNED = 1 << 4,
 };
 
 /** #Object.empty_image_flag */

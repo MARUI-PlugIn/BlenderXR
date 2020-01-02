@@ -645,7 +645,8 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         split = layout.split()
         col = split.column()
         col.prop(md, "levels", text="Preview")
-        col.prop(md, "sculpt_levels", text="Sculpt")
+        # TODO(sergey): Expose it again after T58473 is solved.
+        # col.prop(md, "sculpt_levels", text="Sculpt")
         col.prop(md, "render_levels", text="Render")
         col.prop(md, "quality")
 
@@ -1685,6 +1686,9 @@ class DATA_PT_gpencil_modifiers(ModifierButtonsPanel, Panel):
         row = col.row()
         row.enabled = md.random
         row.prop(md, "step")
+        row = col.row()
+        row.enabled = md.random
+        row.prop(md, "seed")
         col.prop(md, "full_stroke")
         col.prop(md, "move_extreme")
 
@@ -1703,10 +1707,19 @@ class DATA_PT_gpencil_modifiers(ModifierButtonsPanel, Panel):
         row.prop_search(md, "vertex_group", ob, "vertex_groups", text="")
         row.prop(md, "invert_vertex", text="", icon='ARROW_LEFTRIGHT')
 
+        col = layout.column()
+        col.separator()
+
         col.label(text="Material:")
         row = col.row(align=True)
+        row.prop_search(md, "material", gpd, "materials", text="", icon='SHADING_TEXTURE')
+        row.prop(md, "invert_materials", text="", icon='ARROW_LEFTRIGHT')
+        row = layout.row(align=True)
         row.prop(md, "pass_index", text="Pass")
         row.prop(md, "invert_material_pass", text="", icon='ARROW_LEFTRIGHT')
+
+        col = layout.column()
+        col.separator()
 
         col.label(text="Layer:")
         row = col.row(align=True)
@@ -1735,10 +1748,19 @@ class DATA_PT_gpencil_modifiers(ModifierButtonsPanel, Panel):
         row.prop_search(md, "vertex_group", ob, "vertex_groups", text="")
         row.prop(md, "invert_vertex", text="", icon='ARROW_LEFTRIGHT')
 
+        col = layout.column()
+        col.separator()
+
         col.label(text="Material:")
         row = col.row(align=True)
+        row.prop_search(md, "material", gpd, "materials", text="", icon='SHADING_TEXTURE')
+        row.prop(md, "invert_materials", text="", icon='ARROW_LEFTRIGHT')
+        row = layout.row(align=True)
         row.prop(md, "pass_index", text="Pass")
         row.prop(md, "invert_material_pass", text="", icon='ARROW_LEFTRIGHT')
+
+        col = layout.column()
+        col.separator()
 
         col.label(text="Layer:")
         row = col.row(align=True)
@@ -1759,10 +1781,18 @@ class DATA_PT_gpencil_modifiers(ModifierButtonsPanel, Panel):
 
         col = layout.column()
         col.separator()
+
         col.label(text="Material:")
         row = col.row(align=True)
+
+        row.prop_search(md, "material", gpd, "materials", text="", icon='SHADING_TEXTURE')
+        row.prop(md, "invert_materials", text="", icon='ARROW_LEFTRIGHT')
+        row = layout.row(align=True)
         row.prop(md, "pass_index", text="Pass")
         row.prop(md, "invert_material_pass", text="", icon='ARROW_LEFTRIGHT')
+
+        col = layout.column()
+        col.separator()
 
         col.label(text="Layer:")
         row = col.row(align=True)
@@ -1782,20 +1812,29 @@ class DATA_PT_gpencil_modifiers(ModifierButtonsPanel, Panel):
 
         col = split.column()
         col.label(text="Settings:")
-        row = col.row(align=True)
-        row.enabled = md.mode == 'FIXED'
-        row.prop(md, "step")
 
-        row = col.row(align=True)
-        row.enabled = not md.mode == 'FIXED'
-        row.prop(md, "factor")
+        if md.mode == 'FIXED':
+            col.prop(md, "step")
+        elif md.mode == 'ADAPTIVE':
+            col.prop(md, "factor")
+        elif md.mode == 'SAMPLE':
+            col.prop(md, "length")
+        elif md.mode == 'MERGE':
+            col.prop(md, "distance")
 
         col = layout.column()
         col.separator()
+
         col.label(text="Material:")
         row = col.row(align=True)
+        row.prop_search(md, "material", gpd, "materials", text="", icon='SHADING_TEXTURE')
+        row.prop(md, "invert_materials", text="", icon='ARROW_LEFTRIGHT')
+        row = layout.row(align=True)
         row.prop(md, "pass_index", text="Pass")
         row.prop(md, "invert_material_pass", text="", icon='ARROW_LEFTRIGHT')
+
+        col = layout.column()
+        col.separator()
 
         col.label(text="Layer:")
         row = col.row(align=True)
@@ -1830,10 +1869,19 @@ class DATA_PT_gpencil_modifiers(ModifierButtonsPanel, Panel):
         row.prop_search(md, "vertex_group", ob, "vertex_groups", text="")
         row.prop(md, "invert_vertex", text="", icon='ARROW_LEFTRIGHT')
 
+        col = layout.column()
+        col.separator()
+
         col.label(text="Material:")
         row = col.row(align=True)
+        row.prop_search(md, "material", gpd, "materials", text="", icon='SHADING_TEXTURE')
+        row.prop(md, "invert_materials", text="", icon='ARROW_LEFTRIGHT')
+        row = layout.row(align=True)
         row.prop(md, "pass_index", text="Pass")
         row.prop(md, "invert_material_pass", text="", icon='ARROW_LEFTRIGHT')
+
+        col = layout.column()
+        col.separator()
 
         col.label(text="Layer:")
         row = col.row(align=True)
@@ -1857,10 +1905,17 @@ class DATA_PT_gpencil_modifiers(ModifierButtonsPanel, Panel):
 
         col = layout.column()
         col.separator()
+
         col.label(text="Material:")
         row = col.row(align=True)
+        row.prop_search(md, "material", gpd, "materials", text="", icon='SHADING_TEXTURE')
+        row.prop(md, "invert_materials", text="", icon='ARROW_LEFTRIGHT')
+        row = layout.row(align=True)
         row.prop(md, "pass_index", text="Pass")
         row.prop(md, "invert_material_pass", text="", icon='ARROW_LEFTRIGHT')
+
+        col = layout.column()
+        col.separator()
 
         col.label(text="Layer:")
         row = col.row(align=True)
@@ -1929,10 +1984,17 @@ class DATA_PT_gpencil_modifiers(ModifierButtonsPanel, Panel):
 
         col = layout.column()
         col.separator()
+
         col.label(text="Material:")
         row = col.row(align=True)
+        row.prop_search(md, "material", gpd, "materials", text="", icon='SHADING_TEXTURE')
+        row.prop(md, "invert_materials", text="", icon='ARROW_LEFTRIGHT')
+        row = layout.row(align=True)
         row.prop(md, "pass_index", text="Pass")
         row.prop(md, "invert_material_pass", text="", icon='ARROW_LEFTRIGHT')
+
+        col = layout.column()
+        col.separator()
 
         col.label(text="Layer:")
         row = col.row(align=True)
@@ -1951,20 +2013,33 @@ class DATA_PT_gpencil_modifiers(ModifierButtonsPanel, Panel):
         col.prop(md, "factor")
 
         row = layout.row()
-        row.prop(md, "create_materials")
-        row.prop(md, "modify_color")
+        row.prop(md, "opacity_mode", text="Mode")
+
+        if md.opacity_mode == 'MATERIAL':
+            row = layout.row()
+            row.prop(md, "create_materials")
+            row.prop(md, "modify_color", text="Change")
+        else:
+            col = layout.column()
+            col.separator()
+            col.label(text="Vertex Group:")
+            row = col.row(align=True)
+            row.prop_search(md, "vertex_group", ob, "vertex_groups", text="")
+            row.prop(md, "invert_vertex", text="", icon='ARROW_LEFTRIGHT')
 
         col = layout.column()
         col.separator()
-        col.label(text="Vertex Group:")
-        row = col.row(align=True)
-        row.prop_search(md, "vertex_group", ob, "vertex_groups", text="")
-        row.prop(md, "invert_vertex", text="", icon='ARROW_LEFTRIGHT')
 
         col.label(text="Material:")
         row = col.row(align=True)
+        row.prop_search(md, "material", gpd, "materials", text="", icon='SHADING_TEXTURE')
+        row.prop(md, "invert_materials", text="", icon='ARROW_LEFTRIGHT')
+        row = layout.row(align=True)
         row.prop(md, "pass_index", text="Pass")
         row.prop(md, "invert_material_pass", text="", icon='ARROW_LEFTRIGHT')
+
+        col = layout.column()
+        col.separator()
 
         col.label(text="Layer:")
         row = col.row(align=True)
@@ -2013,10 +2088,17 @@ class DATA_PT_gpencil_modifiers(ModifierButtonsPanel, Panel):
 
         col = layout.column()
         col.separator()
+
         col.label(text="Material:")
         row = col.row(align=True)
+        row.prop_search(md, "material", gpd, "materials", text="", icon='SHADING_TEXTURE')
+        row.prop(md, "invert_materials", text="", icon='ARROW_LEFTRIGHT')
+        row = layout.row(align=True)
         row.prop(md, "pass_index", text="Pass")
         row.prop(md, "invert_material_pass", text="", icon='ARROW_LEFTRIGHT')
+
+        col = layout.column()
+        col.separator()
 
         col.label(text="Layer:")
         row = col.row(align=True)
@@ -2078,10 +2160,19 @@ class DATA_PT_gpencil_modifiers(ModifierButtonsPanel, Panel):
         row.prop_search(md, "vertex_group", ob, "vertex_groups", text="")
         row.prop(md, "invert_vertex", text="", icon='ARROW_LEFTRIGHT')
 
+        col = layout.column()
+        col.separator()
+
         col.label(text="Material:")
         row = col.row(align=True)
+        row.prop_search(md, "material", gpd, "materials", text="", icon='SHADING_TEXTURE')
+        row.prop(md, "invert_materials", text="", icon='ARROW_LEFTRIGHT')
+        row = layout.row(align=True)
         row.prop(md, "pass_index", text="Pass")
         row.prop(md, "invert_material_pass", text="", icon='ARROW_LEFTRIGHT')
+
+        col = layout.column()
+        col.separator()
 
         col.label(text="Layer:")
         row = col.row(align=True)
@@ -2104,10 +2195,17 @@ class DATA_PT_gpencil_modifiers(ModifierButtonsPanel, Panel):
 
         col = layout.column()
         col.separator()
+
         col.label(text="Material:")
         row = col.row(align=True)
+        row.prop_search(md, "material", gpd, "materials", text="", icon='SHADING_TEXTURE')
+        row.prop(md, "invert_materials", text="", icon='ARROW_LEFTRIGHT')
+        row = layout.row(align=True)
         row.prop(md, "pass_index", text="Pass")
         row.prop(md, "invert_material_pass", text="", icon='ARROW_LEFTRIGHT')
+
+        col = layout.column()
+        col.separator()
 
         col.label(text="Layer:")
         row = col.row(align=True)
@@ -2155,10 +2253,19 @@ class DATA_PT_gpencil_modifiers(ModifierButtonsPanel, Panel):
         row.prop_search(md, "vertex_group", ob, "vertex_groups", text="")
         row.prop(md, "invert_vertex", text="", icon='ARROW_LEFTRIGHT')
 
+        col = layout.column()
+        col.separator()
+
         col.label(text="Material:")
         row = col.row(align=True)
+        row.prop_search(md, "material", gpd, "materials", text="", icon='SHADING_TEXTURE')
+        row.prop(md, "invert_materials", text="", icon='ARROW_LEFTRIGHT')
+        row = layout.row(align=True)
         row.prop(md, "pass_index", text="Pass")
         row.prop(md, "invert_material_pass", text="", icon='ARROW_LEFTRIGHT')
+
+        col = layout.column()
+        col.separator()
 
         col.label(text="Layer:")
         row = col.row(align=True)
@@ -2183,10 +2290,19 @@ class DATA_PT_gpencil_modifiers(ModifierButtonsPanel, Panel):
         row.prop_search(md, "vertex_group", ob, "vertex_groups", text="")
         row.prop(md, "invert_vertex", text="", icon='ARROW_LEFTRIGHT')
 
+        col = layout.column()
+        col.separator()
+
         col.label(text="Material:")
         row = col.row(align=True)
+        row.prop_search(md, "material", gpd, "materials", text="", icon='SHADING_TEXTURE')
+        row.prop(md, "invert_materials", text="", icon='ARROW_LEFTRIGHT')
+        row = layout.row(align=True)
         row.prop(md, "pass_index", text="Pass")
         row.prop(md, "invert_material_pass", text="", icon='ARROW_LEFTRIGHT')
+
+        col = layout.column()
+        col.separator()
 
         col.label(text="Layer:")
         row = col.row(align=True)

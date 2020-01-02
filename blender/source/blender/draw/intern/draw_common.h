@@ -30,7 +30,6 @@ struct GPUBatch;
 struct GPUMaterial;
 struct ModifierData;
 struct Object;
-struct PTCacheEdit;
 struct ParticleSystem;
 struct ViewLayer;
 
@@ -74,6 +73,7 @@ typedef struct GlobalsUboStorage {
   float colorVNormal[4];
   float colorLNormal[4];
   float colorFaceDot[4];
+  float colorSkinRoot[4];
 
   float colorDeselect[4];
   float colorOutline[4];
@@ -113,7 +113,6 @@ typedef struct GlobalsUboStorage {
   /* Pack individual float at the end of the buffer to avoid alignment errors */
   float sizeLightCenter, sizeLightCircle, sizeLightCircleShadow;
   float sizeVertex, sizeEdge, sizeEdgeFix, sizeFaceDot;
-  float gridDistance, gridResolution, gridSubdivisions, gridScale;
 
   float pad_globalsBlock;
 } GlobalsUboStorage;
@@ -161,6 +160,10 @@ struct DRWCallBuffer *buffer_instance_screen_aligned(struct DRWPass *pass,
                                                      eGPUShaderConfig sh_cfg);
 struct DRWCallBuffer *buffer_instance_empty_axes(struct DRWPass *pass,
                                                  struct GPUBatch *geom,
+                                                 eGPUShaderConfig sh_cfg);
+struct DRWCallBuffer *buffer_instance_color_axes(struct DRWPass *pass,
+                                                 struct GPUBatch *geom,
+                                                 struct DRWShadingGroup **r_grp,
                                                  eGPUShaderConfig sh_cfg);
 struct DRWCallBuffer *buffer_instance_scaled(struct DRWPass *pass,
                                              struct GPUBatch *geom,

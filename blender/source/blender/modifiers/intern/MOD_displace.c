@@ -169,7 +169,7 @@ typedef struct DisplaceUserdata {
 
 static void displaceModifier_do_task(void *__restrict userdata,
                                      const int iter,
-                                     const ParallelRangeTLS *__restrict UNUSED(tls))
+                                     const TaskParallelTLS *__restrict UNUSED(tls))
 {
   DisplaceUserdata *data = (DisplaceUserdata *)userdata;
   DisplaceModifierData *dmd = data->dmd;
@@ -294,6 +294,11 @@ static void displaceModifier_do(DisplaceModifierData *dmd,
   mvert = mesh->mvert;
   MOD_get_vgroup(ob, mesh, dmd->defgrp_name, &dvert, &defgrp_index);
 
+  if (defgrp_index >= 0 && dvert == NULL) {
+    /* There is a vertex group, but it has no vertices. */
+    return;
+  }
+
   Tex *tex_target = dmd->texture;
   if (tex_target != NULL) {
     tex_co = MEM_calloc_arrayN((size_t)numVerts, sizeof(*tex_co), "displaceModifier_do tex_co");
@@ -348,7 +353,7 @@ static void displaceModifier_do(DisplaceModifierData *dmd,
     data.pool = BKE_image_pool_new();
     BKE_texture_fetch_images_for_pool(tex_target, data.pool);
   }
-  ParallelRangeSettings settings;
+  TaskParallelSettings settings;
   BLI_parallel_range_settings_defaults(&settings);
   settings.use_threading = (numVerts > 512);
   BLI_task_parallel_range(0, numVerts, &data, displaceModifier_do_task, &settings);

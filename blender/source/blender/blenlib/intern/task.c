@@ -149,7 +149,7 @@ typedef struct TaskThreadLocalStorage {
    * without "interrupting" for task execution.
    *
    * We try to accumulate as much tasks as possible in a local queue without
-   * any locks first, and then we push all of them into a scheduler's queue
+   * any locks first, and then we push all of them into a schedulers queue
    * from within a single mutex lock.
    */
   bool do_delayed_push;
@@ -266,7 +266,7 @@ BLI_INLINE TaskThreadLocalStorage *get_task_tls(TaskPool *pool, const int thread
 BLI_INLINE void free_task_tls(TaskThreadLocalStorage *tls)
 {
   TaskMemPool *task_mempool = &tls->task_mempool;
-  for (int i = 0; i < task_mempool->num_tasks; ++i) {
+  for (int i = 0; i < task_mempool->num_tasks; i++) {
     MEM_freeN(task_mempool->tasks[i]);
   }
 }
@@ -561,7 +561,7 @@ void BLI_task_scheduler_free(TaskScheduler *scheduler)
 
   /* Delete task thread data */
   if (scheduler->task_threads) {
-    for (int i = 0; i < scheduler->num_threads + 1; ++i) {
+    for (int i = 0; i < scheduler->num_threads + 1; i++) {
       TaskThreadLocalStorage *tls = &scheduler->task_threads[i].tls;
       free_task_tls(tls);
     }
@@ -732,9 +732,7 @@ static TaskPool *task_pool_create_ex(TaskScheduler *scheduler,
 }
 
 /**
- * Create a normal task pool.
- * This means that in single-threaded context, it will not be executed at all until you call
- * \a BLI_task_pool_work_and_wait() on it.
+ * Create a normal task pool. Tasks will be executed as soon as they are added.
  */
 TaskPool *BLI_task_pool_create(TaskScheduler *scheduler, void *userdata)
 {
@@ -779,7 +777,7 @@ void BLI_task_pool_free(TaskPool *pool)
 
 #ifdef DEBUG_STATS
   printf("Thread ID    Allocated   Reused   Discarded\n");
-  for (int i = 0; i < pool->scheduler->num_threads + 1; ++i) {
+  for (int i = 0; i < pool->scheduler->num_threads + 1; i++) {
     printf("%02d           %05d       %05d    %05d\n",
            i,
            pool->mempool_stats[i].num_alloc,
@@ -1054,6 +1052,55 @@ typedef struct ParallelRangeState {
   int chunk_size;
 } ParallelRangeState;
 
+BLI_INLINE void task_parallel_range_calc_chunk_size(const TaskParallelSettings *settings,
+                                                    const int num_tasks,
+                                                    ParallelRangeState *state)
+{
+  const int tot_items = state->stop - state->start;
+  int chunk_size = 0;
+
+  if (settings->min_iter_per_thread > 0) {
+    /* Already set by user, no need to do anything here. */
+    chunk_size = settings->min_iter_per_thread;
+  }
+  else {
+    /* Multiplier used in heuristics below to define "optimal" chunk size.
+     * The idea here is to increase the chunk size to compensate for a rather measurable threading
+     * overhead caused by fetching tasks. With too many CPU threads we are starting
+     * to spend too much time in those overheads.
+     * First values are: 1 if num_tasks < 16;
+     *              else 2 if num_tasks < 32;
+     *              else 3 if num_tasks < 48;
+     *              else 4 if num_tasks < 64;
+     *                   etc.
+     * Note: If we wanted to keep the 'power of two' multiplier, we'd need something like:
+     *     1 << max_ii(0, (int)(sizeof(int) * 8) - 1 - bitscan_reverse_i(num_tasks) - 3)
+     */
+    const int num_tasks_factor = max_ii(1, num_tasks >> 3);
+
+    /* We could make that 'base' 32 number configurable in TaskParallelSettings too, or maybe just
+     * always use that heuristic using TaskParallelSettings.min_iter_per_thread as basis? */
+    chunk_size = 32 * num_tasks_factor;
+
+    /* Basic heuristic to avoid threading on low amount of items.
+     * We could make that limit configurable in settings too. */
+    if (tot_items > 0 && tot_items < max_ii(256, chunk_size * 2)) {
+      chunk_size = tot_items;
+    }
+  }
+
+  BLI_assert(chunk_size > 0);
+
+  switch (settings->scheduling_mode) {
+    case TASK_SCHEDULING_STATIC:
+      state->chunk_size = max_ii(chunk_size, tot_items / (num_tasks));
+      break;
+    case TASK_SCHEDULING_DYNAMIC:
+      state->chunk_size = chunk_size;
+      break;
+  }
+}
+
 BLI_INLINE bool parallel_range_next_iter_get(ParallelRangeState *__restrict state,
                                              int *__restrict iter,
                                              int *__restrict count)
@@ -1069,13 +1116,13 @@ BLI_INLINE bool parallel_range_next_iter_get(ParallelRangeState *__restrict stat
 static void parallel_range_func(TaskPool *__restrict pool, void *userdata_chunk, int thread_id)
 {
   ParallelRangeState *__restrict state = BLI_task_pool_userdata(pool);
-  ParallelRangeTLS tls = {
+  TaskParallelTLS tls = {
       .thread_id = thread_id,
       .userdata_chunk = userdata_chunk,
   };
   int iter, count;
   while (parallel_range_next_iter_get(state, &iter, &count)) {
-    for (int i = 0; i < count; ++i) {
+    for (int i = 0; i < count; i++) {
       state->func(state->userdata, iter + i, &tls);
     }
   }
@@ -1085,7 +1132,7 @@ static void parallel_range_single_thread(const int start,
                                          int const stop,
                                          void *userdata,
                                          TaskParallelRangeFunc func,
-                                         const ParallelRangeSettings *settings)
+                                         const TaskParallelSettings *settings)
 {
   void *userdata_chunk = settings->userdata_chunk;
   const size_t userdata_chunk_size = settings->userdata_chunk_size;
@@ -1095,11 +1142,11 @@ static void parallel_range_single_thread(const int start,
     userdata_chunk_local = MALLOCA(userdata_chunk_size);
     memcpy(userdata_chunk_local, userdata_chunk, userdata_chunk_size);
   }
-  ParallelRangeTLS tls = {
+  TaskParallelTLS tls = {
       .thread_id = 0,
       .userdata_chunk = userdata_chunk_local,
   };
-  for (int i = start; i < stop; ++i) {
+  for (int i = start; i < stop; i++) {
     func(userdata, i, &tls);
   }
   if (settings->func_finalize != NULL) {
@@ -1118,7 +1165,7 @@ void BLI_task_parallel_range(const int start,
                              const int stop,
                              void *userdata,
                              TaskParallelRangeFunc func,
-                             const ParallelRangeSettings *settings)
+                             const TaskParallelSettings *settings)
 {
   TaskScheduler *task_scheduler;
   TaskPool *task_pool;
@@ -1162,16 +1209,8 @@ void BLI_task_parallel_range(const int start,
   state.userdata = userdata;
   state.func = func;
   state.iter = start;
-  switch (settings->scheduling_mode) {
-    case TASK_SCHEDULING_STATIC:
-      state.chunk_size = max_ii(settings->min_iter_per_thread, (stop - start) / (num_tasks));
-      break;
-    case TASK_SCHEDULING_DYNAMIC:
-      /* TODO(sergey): Make it configurable from min_iter_per_thread. */
-      state.chunk_size = 32;
-      break;
-  }
 
+  task_parallel_range_calc_chunk_size(settings, num_tasks, &state);
   num_tasks = min_ii(num_tasks, max_ii(1, (stop - start) / state.chunk_size));
 
   if (num_tasks == 1) {
@@ -1240,7 +1279,7 @@ BLI_INLINE Link *parallel_listbase_next_iter_get(ParallelListState *__restrict s
   if (LIKELY(result != NULL)) {
     *index = state->index;
     while (state->link != NULL && task_count < state->chunk_size) {
-      ++task_count;
+      task_count++;
       state->link = state->link->next;
     }
     state->index += task_count;
@@ -1259,7 +1298,7 @@ static void parallel_listbase_func(TaskPool *__restrict pool,
   int index, count;
 
   while ((link = parallel_listbase_next_iter_get(state, &index, &count)) != NULL) {
-    for (int i = 0; i < count; ++i) {
+    for (int i = 0; i < count; i++) {
       state->func(state->userdata, link, index + i);
       link = link->next;
     }
@@ -1271,7 +1310,7 @@ static void task_parallel_listbase_no_threads(struct ListBase *listbase,
                                               TaskParallelListbaseFunc func)
 {
   int i = 0;
-  for (Link *link = listbase->first; link != NULL; link = link->next, ++i) {
+  for (Link *link = listbase->first; link != NULL; link = link->next, i++) {
     func(userdata, link, i);
   }
 }

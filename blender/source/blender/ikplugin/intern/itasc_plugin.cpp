@@ -303,7 +303,7 @@ static int initialize_chain(Object *ob, bPoseChannel *pchan_tip, bConstraint *co
   /* create a target */
   target = (PoseTarget *)MEM_callocN(sizeof(PoseTarget), "posetarget");
   target->con = con;
-  // by contruction there can be only one tree per channel
+  // by construction there can be only one tree per channel
   // and each channel can be part of at most one tree.
   tree = (PoseTree *)pchan_root->iktree.first;
 
@@ -795,7 +795,7 @@ static void copypose_error(const iTaSC::ConstraintValues *values,
 
   if (iktarget->controlType & iTaSC::CopyPose::CTL_POSITION) {
     // update error
-    for (i = 0, error = 0.0, value = values->values; i < values->number; ++i, ++value) {
+    for (i = 0, error = 0.0, value = values->values; i < values->number; i++, value++) {
       error += KDL::sqr(value->y - value->yd);
     }
     iktarget->blenderConstraint->lin_error = (float)KDL::sqrt(error);
@@ -803,7 +803,7 @@ static void copypose_error(const iTaSC::ConstraintValues *values,
   }
   if (iktarget->controlType & iTaSC::CopyPose::CTL_ROTATION) {
     // update error
-    for (i = 0, error = 0.0, value = values->values; i < values->number; ++i, ++value) {
+    for (i = 0, error = 0.0, value = values->values; i < values->number; i++, value++) {
       error += KDL::sqr(value->y - value->yd);
     }
     iktarget->blenderConstraint->rot_error = (float)KDL::sqrt(error);
@@ -879,7 +879,7 @@ static bool joint_callback(const iTaSC::Timestamp &timestamp,
   bPoseChannel *chan = ikchan->pchan;
   int dof;
 
-  // a channel can be splitted into multiple joints, so we get called multiple
+  // a channel can be split into multiple joints, so we get called multiple
   // times for one channel (this callback is only for 1 joint in the armature)
   // the IK_JointTarget structure is shared between multiple joint constraint
   // and the target joint values is computed only once, remember this in jointValid
@@ -966,7 +966,7 @@ static int convert_channels(struct Depsgraph *depsgraph,
   int a, flag, njoint;
 
   njoint = 0;
-  for (a = 0, ikchan = ikscene->channels; a < ikscene->numchan; ++a, ++ikchan) {
+  for (a = 0, ikchan = ikscene->channels; a < ikscene->numchan; a++, ikchan++) {
     pchan = tree->pchan[a];
     ikchan->pchan = pchan;
     ikchan->parent = (a > 0) ? tree->parent[a] : -1;
@@ -1106,7 +1106,7 @@ static void convert_pose(IK_Scene *ikscene)
   rot = ikscene->jointArray(0);
   for (joint = a = 0, ikchan = ikscene->channels;
        a < ikscene->numchan && joint < ikscene->numjoint;
-       ++a, ++ikchan) {
+       a++, ikchan++) {
     pchan = ikchan->pchan;
     bone = pchan->bone;
 
@@ -1149,7 +1149,7 @@ static void BKE_pose_rest(IK_Scene *ikscene)
   rot = ikscene->jointArray(0);
   for (joint = a = 0, ikchan = ikscene->channels;
        a < ikscene->numchan && joint < ikscene->numjoint;
-       ++a, ++ikchan) {
+       a++, ikchan++) {
     pchan = ikchan->pchan;
     bone = pchan->bone;
 
@@ -1234,7 +1234,7 @@ static IK_Scene *convert_tree(
   BKE_pose_rest(ikscene);
   rot = ikscene->jointArray(0);
 
-  for (a = 0, ikchan = ikscene->channels; a < tree->totchannel; ++a, ++ikchan) {
+  for (a = 0, ikchan = ikscene->channels; a < tree->totchannel; a++, ikchan++) {
     pchan = ikchan->pchan;
     bone = pchan->bone;
 
@@ -1728,17 +1728,17 @@ static void execute_scene(struct Depsgraph *depsgraph,
   int i;
   IK_Channel *ikchan;
   if (ikparam->flag & ITASC_SIMULATION) {
-    for (i = 0, ikchan = ikscene->channels; i < ikscene->numchan; i++, ++ikchan) {
-      // In simulation mode we don't allow external contraint to change our bones, mark the channel
-      // done also tell Blender that this channel is part of IK tree
-      // (cleared on each BKE_pose_where_is()
+    for (i = 0, ikchan = ikscene->channels; i < ikscene->numchan; i++, ikchan++) {
+      // In simulation mode we don't allow external constraint to change our bones,
+      // mark the channel done also tell Blender that this channel is part of IK tree.
+      // Cleared on each BKE_pose_where_is()
       ikchan->pchan->flag |= (POSE_DONE | POSE_CHAIN);
       ikchan->jointValid = 0;
     }
   }
   else {
     // in animation mode, we must get the bone position from action and constraints
-    for (i = 0, ikchan = ikscene->channels; i < ikscene->numchan; i++, ++ikchan) {
+    for (i = 0, ikchan = ikscene->channels; i < ikscene->numchan; i++, ikchan++) {
       if (!(ikchan->pchan->flag & POSE_DONE)) {
         BKE_pose_where_is_bone(depsgraph, blscene, ikscene->blArmature, ikchan->pchan, ctime, 1);
       }
@@ -1749,7 +1749,7 @@ static void execute_scene(struct Depsgraph *depsgraph,
     }
   }
   // only run execute the scene if at least one of our target is enabled
-  for (i = ikscene->targets.size(); i > 0; --i) {
+  for (i = ikscene->targets.size(); i > 0; i--) {
     IK_Target *iktarget = ikscene->targets[i - 1];
     if (!(iktarget->blenderConstraint->flag & CONSTRAINT_OFF)) {
       break;
@@ -1816,7 +1816,7 @@ static void execute_scene(struct Depsgraph *depsgraph,
     }
   }
   // compute constraint error
-  for (i = ikscene->targets.size(); i > 0; --i) {
+  for (i = ikscene->targets.size(); i > 0; i--) {
     IK_Target *iktarget = ikscene->targets[i - 1];
     if (!(iktarget->blenderConstraint->flag & CONSTRAINT_OFF) && iktarget->constraint) {
       unsigned int nvalues;
@@ -1840,7 +1840,7 @@ static void execute_scene(struct Depsgraph *depsgraph,
   float scale;
   float length;
   float yaxis[3];
-  for (i = 0, ikchan = ikscene->channels; i < ikscene->numchan; ++i, ++ikchan) {
+  for (i = 0, ikchan = ikscene->channels; i < ikscene->numchan; i++, ikchan++) {
     if (i == 0) {
       if (!arm->getRelativeFrame(frame, ikchan->tail)) {
         break;

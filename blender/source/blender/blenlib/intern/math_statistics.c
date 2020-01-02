@@ -42,7 +42,7 @@ typedef struct CovarianceData {
 
 static void covariance_m_vn_ex_task_cb(void *__restrict userdata,
                                        const int a,
-                                       const ParallelRangeTLS *__restrict UNUSED(tls))
+                                       const TaskParallelTLS *__restrict UNUSED(tls))
 {
   CovarianceData *data = userdata;
   const float *cos_vn = data->cos_vn;
@@ -96,7 +96,7 @@ static void covariance_m_vn_ex_task_cb(void *__restrict userdata,
  * \param center: the center (or mean point) of cos_vn. If NULL,
  * it is assumed cos_vn is already centered.
  * \param use_sample_correction: whether to apply sample correction
- *                              (i.e. get 'sample varince' instead of 'population variance').
+ *                              (i.e. get 'sample variance' instead of 'population variance').
  * \return r_covmat the computed covariance matrix.
  */
 void BLI_covariance_m_vn_ex(const int n,
@@ -122,7 +122,7 @@ void BLI_covariance_m_vn_ex(const int n,
       .nbr_cos_vn = nbr_cos_vn,
   };
 
-  ParallelRangeSettings settings;
+  TaskParallelSettings settings;
   BLI_parallel_range_settings_defaults(&settings);
   settings.use_threading = ((nbr_cos_vn * n * n) >= 10000);
   BLI_task_parallel_range(0, n * n, &data, covariance_m_vn_ex_task_cb, &settings);

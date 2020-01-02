@@ -37,17 +37,12 @@ extern "C" {
 struct Base;
 struct Collection;
 struct Depsgraph;
-struct ID;
-struct IDProperty;
 struct LayerCollection;
-struct ListBase;
 struct Main;
 struct Object;
-struct RenderEngine;
 struct Scene;
 struct View3D;
 struct ViewLayer;
-struct WorkSpace;
 
 struct ViewLayer *BKE_view_layer_default_view(const struct Scene *scene);
 struct ViewLayer *BKE_view_layer_default_render(const struct Scene *scene);
@@ -95,6 +90,7 @@ int BKE_layer_collection_findindex(struct ViewLayer *view_layer, const struct La
 void BKE_main_collection_sync(const struct Main *bmain);
 void BKE_scene_collection_sync(const struct Scene *scene);
 void BKE_layer_collection_sync(const struct Scene *scene, struct ViewLayer *view_layer);
+void BKE_layer_collection_local_sync(struct ViewLayer *view_layer, struct View3D *v3d);
 
 void BKE_main_collection_sync_remap(const struct Main *bmain);
 
@@ -118,10 +114,16 @@ void BKE_base_set_visible(struct Scene *scene,
                           struct ViewLayer *view_layer,
                           struct Base *base,
                           bool extend);
-void BKE_layer_collection_isolate(struct Scene *scene,
-                                  struct ViewLayer *view_layer,
-                                  struct LayerCollection *lc,
-                                  bool extend);
+bool BKE_base_is_visible(const struct View3D *v3d, const struct Base *base);
+bool BKE_object_is_visible_in_viewport(const struct View3D *v3d, const struct Object *ob);
+void BKE_layer_collection_isolate_global(struct Scene *scene,
+                                         struct ViewLayer *view_layer,
+                                         struct LayerCollection *lc,
+                                         bool extend);
+void BKE_layer_collection_isolate_local(struct ViewLayer *view_layer,
+                                        struct View3D *v3d,
+                                        struct LayerCollection *lc,
+                                        bool extend);
 void BKE_layer_collection_set_visible(struct ViewLayer *view_layer,
                                       struct LayerCollection *lc,
                                       const bool visible,

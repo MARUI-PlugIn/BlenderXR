@@ -103,7 +103,7 @@ typedef struct Frame {
     int corner;
     /* checked to avoid chaining.
      * (merging when we're already been referenced), see T39775 */
-    unsigned int is_target : 1;
+    uint is_target : 1;
   } merge[4];
 
   /* For hull frames, whether each vertex is detached or not */
@@ -864,7 +864,7 @@ static Mesh *subdivide_base(Mesh *orig)
   }
 
   /* Per edge, store how many subdivisions are needed */
-  edge_subd = MEM_calloc_arrayN(totorigedge, sizeof(int), "edge_subd");
+  edge_subd = MEM_calloc_arrayN((uint)totorigedge, sizeof(int), "edge_subd");
   for (i = 0, totsubd = 0; i < totorigedge; i++) {
     edge_subd[i] += calc_edge_subdivisions(origvert, orignode, &origedge[i], degree);
     BLI_assert(edge_subd[i] >= 0);
@@ -1518,7 +1518,7 @@ static void skin_update_merged_vertices(SkinNode *skin_nodes, int totvert)
 {
   int v;
 
-  for (v = 0; v < totvert; ++v) {
+  for (v = 0; v < totvert; v++) {
     SkinNode *sn = &skin_nodes[v];
     int i, j;
 
@@ -1566,7 +1566,7 @@ static void skin_output_end_nodes(SkinOutput *so, SkinNode *skin_nodes, int totv
 {
   int v;
 
-  for (v = 0; v < totvert; ++v) {
+  for (v = 0; v < totvert; v++) {
     SkinNode *sn = &skin_nodes[v];
     /* Assuming here just two frames */
     if (sn->flag & SEAM_FRAME) {
@@ -1769,7 +1769,7 @@ static BMesh *build_skin(SkinNode *skin_nodes,
   skin_merge_close_frame_verts(skin_nodes, totvert, emap, medge);
 
   /* Write out all frame vertices to the mesh */
-  for (v = 0; v < totvert; ++v) {
+  for (v = 0; v < totvert; v++) {
     if (skin_nodes[v].totframe) {
       output_frames(so.bm, &skin_nodes[v], input_dvert ? &input_dvert[v] : NULL);
     }
@@ -1871,7 +1871,7 @@ static Mesh *base_skin(Mesh *origmesh, SkinModifierData *smd)
     return NULL;
   }
 
-  result = BKE_mesh_from_bmesh_for_eval_nomain(bm, NULL);
+  result = BKE_mesh_from_bmesh_for_eval_nomain(bm, NULL, origmesh);
   BM_mesh_free(bm);
 
   result->runtime.cd_dirty_vert |= CD_MASK_NORMAL;

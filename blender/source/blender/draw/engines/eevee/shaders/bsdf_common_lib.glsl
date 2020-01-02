@@ -56,12 +56,12 @@ struct LightData {
 #endif
 
 struct ShadowData {
-  vec4 near_far_bias_exp;
-  vec4 shadow_data_start_end;
+  vec4 near_far_bias_id;
   vec4 contact_shadow_data;
 };
 
 struct ShadowCubeData {
+  mat4 shadowmat;
   vec4 position;
 };
 
@@ -69,22 +69,20 @@ struct ShadowCascadeData {
   mat4 shadowmat[MAX_CASCADE_NUM];
   vec4 split_start_distances;
   vec4 split_end_distances;
+  vec4 shadow_vec_id;
 };
 
 /* convenience aliases */
-#define sh_near near_far_bias_exp.x
-#define sh_far near_far_bias_exp.y
-#define sh_bias near_far_bias_exp.z
-#define sh_exp near_far_bias_exp.w
-#define sh_bleed near_far_bias_exp.w
-#define sh_tex_start shadow_data_start_end.x
-#define sh_data_start shadow_data_start_end.y
-#define sh_multi_nbr shadow_data_start_end.z
-#define sh_blur shadow_data_start_end.w
+#define sh_near near_far_bias_id.x
+#define sh_far near_far_bias_id.y
+#define sh_bias near_far_bias_id.z
+#define sh_data_index near_far_bias_id.w
 #define sh_contact_dist contact_shadow_data.x
 #define sh_contact_offset contact_shadow_data.y
 #define sh_contact_spread contact_shadow_data.z
 #define sh_contact_thickness contact_shadow_data.w
+#define sh_shadow_vec shadow_vec_id.xyz
+#define sh_tex_index shadow_vec_id.w
 
 /* ------- Convenience functions --------- */
 
@@ -142,6 +140,10 @@ float min_v3(vec3 v)
 {
   return min(v.x, min(v.y, v.z));
 }
+float min_v4(vec4 v)
+{
+  return min(min(v.x, v.y), min(v.z, v.w));
+}
 float max_v2(vec2 v)
 {
   return max(v.x, v.y);
@@ -149,6 +151,10 @@ float max_v2(vec2 v)
 float max_v3(vec3 v)
 {
   return max(v.x, max(v.y, v.z));
+}
+float max_v4(vec4 v)
+{
+  return max(max(v.x, v.y), max(v.z, v.w));
 }
 
 float sum(vec2 v)
@@ -162,6 +168,19 @@ float sum(vec3 v)
 float sum(vec4 v)
 {
   return dot(vec4(1.0), v);
+}
+
+float avg(vec2 v)
+{
+  return dot(vec2(1.0 / 2.0), v);
+}
+float avg(vec3 v)
+{
+  return dot(vec3(1.0 / 3.0), v);
+}
+float avg(vec4 v)
+{
+  return dot(vec4(1.0 / 4.0), v);
 }
 
 float saturate(float a)
@@ -716,6 +735,7 @@ float cone_cosine(float r)
 }
 
 /* --------- Closure ---------- */
+
 #ifdef VOLUMETRICS
 
 struct Closure {
@@ -724,6 +744,8 @@ struct Closure {
   vec3 emission;
   float anisotropy;
 };
+
+Closure nodetree_exec(void); /* Prototype */
 
 #  define CLOSURE_DEFAULT Closure(vec3(0.0), vec3(0.0), vec3(0.0), 0.0)
 
@@ -758,119 +780,109 @@ Closure closure_emission(vec3 rgb)
 
 struct Closure {
   vec3 radiance;
-  float opacity;
+  vec3 transmittance;
+  float holdout;
 #  ifdef USE_SSS
-  vec4 sss_data;
-#    ifdef USE_SSS_ALBEDO
+  vec3 sss_irradiance;
   vec3 sss_albedo;
-#    endif
+  float sss_radius;
 #  endif
   vec4 ssr_data;
   vec2 ssr_normal;
-  int ssr_id;
+  int flag;
 };
 
-/* This is hacking ssr_id to tag transparent bsdf */
-#  define TRANSPARENT_CLOSURE_FLAG -2
-#  define REFRACT_CLOSURE_FLAG -3
-#  define NO_SSR -999
+Closure nodetree_exec(void); /* Prototype */
+
+#  define FLAG_TEST(flag, val) (((flag) & (val)) != 0)
+
+#  define CLOSURE_SSR_FLAG 1
+#  define CLOSURE_SSS_FLAG 2
+#  define CLOSURE_HOLDOUT_FLAG 4
 
 #  ifdef USE_SSS
-#    ifdef USE_SSS_ALBEDO
-#      define CLOSURE_DEFAULT \
-        Closure(vec3(0.0), 1.0, vec4(0.0), vec3(0.0), vec4(0.0), vec2(0.0), -1)
-#    else
-#      define CLOSURE_DEFAULT Closure(vec3(0.0), 1.0, vec4(0.0), vec4(0.0), vec2(0.0), -1)
-#    endif
+#    define CLOSURE_DEFAULT \
+      Closure(vec3(0.0), vec3(0.0), 0.0, vec3(0.0), vec3(0.0), 0.0, vec4(0.0), vec2(0.0), 0)
 #  else
-#    define CLOSURE_DEFAULT Closure(vec3(0.0), 1.0, vec4(0.0), vec2(0.0), -1)
+#    define CLOSURE_DEFAULT Closure(vec3(0.0), vec3(0.0), 0.0, vec4(0.0), vec2(0.0), 0)
 #  endif
 
-uniform int outputSsrId;
+uniform int outputSsrId = 1;
+uniform int outputSssId = 1;
+
+void closure_load_ssr_data(
+    vec3 ssr_spec, float roughness, vec3 N, vec3 viewVec, int ssr_id, inout Closure cl)
+{
+  /* Still encode to avoid artifacts in the SSR pass. */
+  vec3 vN = normalize(mat3(ViewMatrix) * N);
+  cl.ssr_normal = normal_encode(vN, viewVec);
+
+  if (ssr_id == outputSsrId) {
+    cl.ssr_data = vec4(ssr_spec, roughness);
+    cl.flag |= CLOSURE_SSR_FLAG;
+  }
+}
+
+void closure_load_sss_data(
+    float radius, vec3 sss_irradiance, vec3 sss_albedo, int sss_id, inout Closure cl)
+{
+#  ifdef USE_SSS
+  if (sss_id == outputSssId) {
+    cl.sss_irradiance = sss_irradiance;
+    cl.sss_radius = radius;
+    cl.sss_albedo = sss_albedo;
+    cl.flag |= CLOSURE_SSS_FLAG;
+  }
+  else
+#  endif
+  {
+    cl.radiance += sss_irradiance * sss_albedo;
+  }
+}
 
 Closure closure_mix(Closure cl1, Closure cl2, float fac)
 {
   Closure cl;
-
-  if (cl1.ssr_id == TRANSPARENT_CLOSURE_FLAG) {
-    cl.ssr_normal = cl2.ssr_normal;
-    cl.ssr_data = cl2.ssr_data;
-    cl.ssr_id = cl2.ssr_id;
-#  ifdef USE_SSS
-    cl1.sss_data = cl2.sss_data;
-#    ifdef USE_SSS_ALBEDO
-    cl1.sss_albedo = cl2.sss_albedo;
-#    endif
-#  endif
-  }
-  else if (cl2.ssr_id == TRANSPARENT_CLOSURE_FLAG) {
-    cl.ssr_normal = cl1.ssr_normal;
-    cl.ssr_data = cl1.ssr_data;
-    cl.ssr_id = cl1.ssr_id;
-#  ifdef USE_SSS
-    cl2.sss_data = cl1.sss_data;
-#    ifdef USE_SSS_ALBEDO
-    cl2.sss_albedo = cl1.sss_albedo;
-#    endif
-#  endif
-  }
-  else if (cl1.ssr_id == outputSsrId) {
-    /* When mixing SSR don't blend roughness.
-     *
-     * It makes no sense to mix them really, so we take either one of them and
-     * tone down its specularity (ssr_data.xyz) while keeping its roughness (ssr_data.w).
-     */
-    cl.ssr_data = mix(cl1.ssr_data.xyzw, vec4(vec3(0.0), cl1.ssr_data.w), fac);
-    cl.ssr_normal = cl1.ssr_normal;
-    cl.ssr_id = cl1.ssr_id;
-  }
-  else {
-    cl.ssr_data = mix(vec4(vec3(0.0), cl2.ssr_data.w), cl2.ssr_data.xyzw, fac);
-    cl.ssr_normal = cl2.ssr_normal;
-    cl.ssr_id = cl2.ssr_id;
-  }
-
-  cl.opacity = mix(cl1.opacity, cl2.opacity, fac);
-  cl.radiance = mix(cl1.radiance * cl1.opacity, cl2.radiance * cl2.opacity, fac);
-  cl.radiance /= max(1e-8, cl.opacity);
+  cl.holdout = mix(cl1.holdout, cl2.holdout, fac);
+  cl.transmittance = mix(cl1.transmittance, cl2.transmittance, fac);
+  cl.radiance = mix(cl1.radiance, cl2.radiance, fac);
+  cl.flag = cl1.flag | cl2.flag;
+  cl.ssr_data = mix(cl1.ssr_data, cl2.ssr_data, fac);
+  bool use_cl1_ssr = FLAG_TEST(cl1.flag, CLOSURE_SSR_FLAG);
+  /* When mixing SSR don't blend roughness and normals but only specular (ssr_data.xyz).*/
+  cl.ssr_data.w = (use_cl1_ssr) ? cl1.ssr_data.w : cl2.ssr_data.w;
+  cl.ssr_normal = (use_cl1_ssr) ? cl1.ssr_normal : cl2.ssr_normal;
 
 #  ifdef USE_SSS
-  /* Apply Mix on input */
-  cl1.sss_data.rgb *= 1.0 - fac;
-  cl2.sss_data.rgb *= fac;
-
-  /* Select biggest radius. */
-  bool use_cl1 = (cl1.sss_data.a > cl2.sss_data.a);
-  cl.sss_data = (use_cl1) ? cl1.sss_data : cl2.sss_data;
-
-#    ifdef USE_SSS_ALBEDO
-  /* TODO Find a solution to this. Dither? */
-  cl.sss_albedo = (use_cl1) ? cl1.sss_albedo : cl2.sss_albedo;
-  /* Add radiance that was supposed to be filtered but was rejected. */
-  cl.radiance += (use_cl1) ? cl2.sss_data.rgb * cl2.sss_albedo : cl1.sss_data.rgb * cl1.sss_albedo;
-#    else
-  /* Add radiance that was supposed to be filtered but was rejected. */
-  cl.radiance += (use_cl1) ? cl2.sss_data.rgb : cl1.sss_data.rgb;
-#    endif
+  cl.sss_albedo = mix(cl1.sss_albedo, cl2.sss_albedo, fac);
+  bool use_cl1_sss = FLAG_TEST(cl1.flag, CLOSURE_SSS_FLAG);
+  /* It also does not make sense to mix SSS radius or irradiance. */
+  cl.sss_radius = (use_cl1_sss) ? cl1.sss_radius : cl2.sss_radius;
+  cl.sss_irradiance = (use_cl1_sss) ? cl1.sss_irradiance : cl2.sss_irradiance;
 #  endif
-
   return cl;
 }
 
 Closure closure_add(Closure cl1, Closure cl2)
 {
-  Closure cl = (cl1.ssr_id == outputSsrId) ? cl1 : cl2;
+  Closure cl;
+  cl.transmittance = cl1.transmittance + cl2.transmittance;
   cl.radiance = cl1.radiance + cl2.radiance;
+  cl.holdout = cl1.holdout + cl2.holdout;
+  cl.flag = cl1.flag | cl2.flag;
+  cl.ssr_data = cl1.ssr_data + cl2.ssr_data;
+  bool use_cl1_ssr = FLAG_TEST(cl1.flag, CLOSURE_SSR_FLAG);
+  /* When mixing SSR don't blend roughness and normals.*/
+  cl.ssr_data.w = (use_cl1_ssr) ? cl1.ssr_data.w : cl2.ssr_data.w;
+  cl.ssr_normal = (use_cl1_ssr) ? cl1.ssr_normal : cl2.ssr_normal;
+
 #  ifdef USE_SSS
-  cl.sss_data = (cl1.sss_data.a > 0.0) ? cl1.sss_data : cl2.sss_data;
-  /* Add radiance that was supposed to be filtered but was rejected. */
-  cl.radiance += (cl1.sss_data.a > 0.0) ? cl2.sss_data.rgb : cl1.sss_data.rgb;
-#    ifdef USE_SSS_ALBEDO
-  /* TODO Find a solution to this. Dither? */
-  cl.sss_albedo = (cl1.sss_data.a > 0.0) ? cl1.sss_albedo : cl2.sss_albedo;
-#    endif
+  cl.sss_albedo = cl1.sss_albedo + cl2.sss_albedo;
+  bool use_cl1_sss = FLAG_TEST(cl1.flag, CLOSURE_SSS_FLAG);
+  /* It also does not make sense to mix SSS radius or irradiance. */
+  cl.sss_radius = (use_cl1_sss) ? cl1.sss_radius : cl2.sss_radius;
+  cl.sss_irradiance = (use_cl1_sss) ? cl1.sss_irradiance : cl2.sss_irradiance;
 #  endif
-  cl.opacity = saturate(cl1.opacity + cl2.opacity);
   return cl;
 }
 
@@ -883,19 +895,22 @@ Closure closure_emission(vec3 rgb)
 
 /* Breaking this across multiple lines causes issues for some older GLSL compilers. */
 /* clang-format off */
-#  if defined(MESH_SHADER) && !defined(USE_ALPHA_HASH) && !defined(USE_ALPHA_CLIP) && !defined(SHADOW_SHADER) && !defined(USE_MULTIPLY)
+#  if defined(MESH_SHADER) && !defined(USE_ALPHA_HASH) && !defined(USE_ALPHA_CLIP) && !defined(SHADOW_SHADER)
 /* clang-format on */
-layout(location = 0) out vec4 fragColor;
-layout(location = 1) out vec4 ssrNormals;
+#    ifndef USE_ALPHA_BLEND
+layout(location = 0) out vec4 outRadiance;
+layout(location = 1) out vec2 ssrNormals;
 layout(location = 2) out vec4 ssrData;
-#    ifdef USE_SSS
-layout(location = 3) out vec4 sssData;
-#      ifdef USE_SSS_ALBEDO
-layout(location = 4) out vec4 sssAlbedo;
-#      endif /* USE_SSS_ALBEDO */
-#    endif   /* USE_SSS */
-
-Closure nodetree_exec(void); /* Prototype */
+#      ifdef USE_SSS
+layout(location = 3) out vec3 sssIrradiance;
+layout(location = 4) out float sssRadius;
+layout(location = 5) out vec3 sssAlbedo;
+#      endif
+#    else  /* USE_ALPHA_BLEND */
+/* Use dual source blending to be able to make a whole range of effects. */
+layout(location = 0, index = 0) out vec4 outRadiance;
+layout(location = 0, index = 1) out vec4 outTransmittance;
+#    endif /* USE_ALPHA_BLEND */
 
 #    if defined(USE_ALPHA_BLEND)
 /* Prototype because this file is included before volumetric_lib.glsl */
@@ -909,27 +924,26 @@ void volumetric_resolve(vec2 frag_uvs,
 void main()
 {
   Closure cl = nodetree_exec();
-#    ifndef USE_ALPHA_BLEND
-  /* Prevent alpha hash material writing into alpha channel. */
-  cl.opacity = 1.0;
-#    endif
 
-#    if defined(USE_ALPHA_BLEND)
+  float holdout = 1.0 - saturate(cl.holdout);
+  float transmit = saturate(avg(cl.transmittance));
+  float alpha = 1.0 - transmit;
+
+#    ifdef USE_ALPHA_BLEND
   vec2 uvs = gl_FragCoord.xy * volCoordScale.zw;
-  vec3 transmittance, scattering;
-  volumetric_resolve(uvs, gl_FragCoord.z, transmittance, scattering);
-  fragColor.rgb = cl.radiance * transmittance + scattering;
-  fragColor.a = cl.opacity;
-#    else
-  fragColor = vec4(cl.radiance, cl.opacity);
-#    endif
+  vec3 vol_transmit, vol_scatter;
+  volumetric_resolve(uvs, gl_FragCoord.z, vol_transmit, vol_scatter);
 
-  ssrNormals = cl.ssr_normal.xyyy;
+  outRadiance = vec4(cl.radiance * vol_transmit + vol_scatter, alpha * holdout);
+  outTransmittance = vec4(cl.transmittance, transmit * holdout);
+#    else
+  outRadiance = vec4(cl.radiance, holdout);
+  ssrNormals = cl.ssr_normal;
   ssrData = cl.ssr_data;
-#    ifdef USE_SSS
-  sssData = cl.sss_data;
-#      ifdef USE_SSS_ALBEDO
-  sssAlbedo = cl.sss_albedo.rgbb;
+#      ifdef USE_SSS
+  sssIrradiance = cl.sss_irradiance;
+  sssRadius = cl.sss_radius;
+  sssAlbedo = cl.sss_albedo;
 #      endif
 #    endif
 
@@ -937,6 +951,8 @@ void main()
 #    ifdef USE_SSS
   float fac = float(!sssToggle);
 
+  /* TODO(fclem) we shouldn't need this.
+   * Just disable USE_SSS when USE_REFRACTION is enabled. */
 #      ifdef USE_REFRACTION
   /* SSRefraction pass is done after the SSS pass.
    * In order to not loose the diffuse light totally we
@@ -944,10 +960,15 @@ void main()
   fac = 1.0;
 #      endif
 
-#      ifdef USE_SSS_ALBEDO
-  fragColor.rgb += cl.sss_data.rgb * cl.sss_albedo.rgb * fac;
-#      else
-  fragColor.rgb += cl.sss_data.rgb * fac;
+  outRadiance.rgb += cl.sss_irradiance.rgb * cl.sss_albedo.rgb * fac;
+#    endif
+
+#    ifndef USE_ALPHA_BLEND
+  float alpha_div = 1.0 / max(1e-8, alpha);
+  outRadiance.rgb *= alpha_div;
+  ssrData.rgb *= alpha_div;
+#      ifdef USE_SSS
+  sssAlbedo.rgb *= alpha_div;
 #      endif
 #    endif
 }
@@ -955,18 +976,3 @@ void main()
 #  endif /* MESH_SHADER && !SHADOW_SHADER */
 
 #endif /* VOLUMETRICS */
-
-Closure nodetree_exec(void); /* Prototype */
-
-/* TODO find a better place */
-#ifdef USE_MULTIPLY
-
-out vec4 fragColor;
-
-#  define NODETREE_EXEC
-void main()
-{
-  Closure cl = nodetree_exec();
-  fragColor = vec4(mix(vec3(1.0), cl.radiance, cl.opacity), 1.0);
-}
-#endif

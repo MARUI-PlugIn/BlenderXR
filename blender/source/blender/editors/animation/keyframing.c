@@ -202,7 +202,7 @@ FCurve *verify_fcurve(Main *bmain,
     fcu = MEM_callocN(sizeof(FCurve), "FCurve");
 
     fcu->flag = (FCURVE_VISIBLE | FCURVE_SELECTED);
-    fcu->auto_smoothing = FCURVE_SMOOTH_CONT_ACCEL;
+    fcu->auto_smoothing = U.auto_smoothing_new;
     if (BLI_listbase_is_empty(&act->curves)) {
       fcu->flag |= FCURVE_ACTIVE; /* first one added active */
     }
@@ -222,7 +222,7 @@ FCurve *verify_fcurve(Main *bmain,
 
         /* sync bone group colors if applicable */
         if (ptr && (ptr->type == &RNA_PoseBone)) {
-          Object *ob = (Object *)ptr->id.data;
+          Object *ob = (Object *)ptr->owner_id;
           bPoseChannel *pchan = (bPoseChannel *)ptr->data;
           bPose *pose = ob->pose;
           bActionGroup *grp;
@@ -286,7 +286,7 @@ void update_autoflags_fcurve(FCurve *fcu, bContext *C, ReportList *reports, Poin
   PropertyRNA *prop;
   int old_flag = fcu->flag;
 
-  if ((ptr->id.data == NULL) && (ptr->data == NULL)) {
+  if ((ptr->owner_id == NULL) && (ptr->data == NULL)) {
     BKE_report(reports, RPT_ERROR, "No RNA pointer available to retrieve values for this fcurve");
     return;
   }
@@ -294,7 +294,7 @@ void update_autoflags_fcurve(FCurve *fcu, bContext *C, ReportList *reports, Poin
   /* try to get property we should be affecting */
   if (RNA_path_resolve_property(ptr, fcu->rna_path, &tmp_ptr, &prop) == false) {
     /* property not found... */
-    const char *idname = (ptr->id.data) ? ((ID *)ptr->id.data)->name : TIP_("<No ID pointer>");
+    const char *idname = (ptr->owner_id) ? ptr->owner_id->name : TIP_("<No ID pointer>");
 
     BKE_reportf(reports,
                 RPT_ERROR,
@@ -721,23 +721,12 @@ static short new_key_needed(FCurve *fcu, float cFrame, float nValue)
 /* ------------------ RNA Data-Access Functions ------------------ */
 
 /* Try to read value using RNA-properties obtained already */
-static float *setting_get_rna_values(Depsgraph *depsgraph,
-                                     PointerRNA *ptr,
-                                     PropertyRNA *prop,
-                                     const bool get_evaluated,
-                                     float *buffer,
-                                     int buffer_size,
-                                     int *r_count)
+static float *setting_get_rna_values(
+    PointerRNA *ptr, PropertyRNA *prop, float *buffer, int buffer_size, int *r_count)
 {
   BLI_assert(buffer_size >= 1);
 
   float *values = buffer;
-  PointerRNA ptr_eval;
-
-  if (get_evaluated) {
-    DEG_get_evaluated_rna_pointer(depsgraph, ptr, &ptr_eval);
-    ptr = &ptr_eval;
-  }
 
   if (RNA_property_array_check(prop)) {
     int length = *r_count = RNA_property_array_length(ptr, prop);
@@ -977,12 +966,8 @@ static bool visualkey_can_use(PointerRNA *ptr, PropertyRNA *prop)
  * In the event that it is not possible to perform visual keying, try to fall-back
  * to using the default method. Assumes that all data it has been passed is valid.
  */
-static float *visualkey_get_values(Depsgraph *depsgraph,
-                                   PointerRNA *ptr,
-                                   PropertyRNA *prop,
-                                   float *buffer,
-                                   int buffer_size,
-                                   int *r_count)
+static float *visualkey_get_values(
+    PointerRNA *ptr, PropertyRNA *prop, float *buffer, int buffer_size, int *r_count)
 {
   BLI_assert(buffer_size >= 4);
 
@@ -999,27 +984,21 @@ static float *visualkey_get_values(Depsgraph *depsgraph,
    */
   if (ptr->type == &RNA_Object) {
     Object *ob = (Object *)ptr->data;
-    const Object *ob_eval = DEG_get_evaluated_object(depsgraph, ob);
-
     /* Loc code is specific... */
     if (strstr(identifier, "location")) {
-      copy_v3_v3(buffer, ob_eval->obmat[3]);
+      copy_v3_v3(buffer, ob->obmat[3]);
       *r_count = 3;
       return buffer;
     }
 
-    copy_m4_m4(tmat, ob_eval->obmat);
-    rotmode = ob_eval->rotmode;
+    copy_m4_m4(tmat, ob->obmat);
+    rotmode = ob->rotmode;
   }
   else if (ptr->type == &RNA_PoseBone) {
-    Object *ob = (Object *)ptr->id.data;
     bPoseChannel *pchan = (bPoseChannel *)ptr->data;
 
-    const Object *ob_eval = DEG_get_evaluated_object(depsgraph, ob);
-    bPoseChannel *pchan_eval = BKE_pose_channel_find_name(ob_eval->pose, pchan->name);
-
-    BKE_armature_mat_pose_to_bone(pchan_eval, pchan_eval->pose_mat, tmat);
-    rotmode = pchan_eval->rotmode;
+    BKE_armature_mat_pose_to_bone(pchan, pchan->pose_mat, tmat);
+    rotmode = pchan->rotmode;
 
     /* Loc code is specific... */
     if (strstr(identifier, "location")) {
@@ -1032,7 +1011,7 @@ static float *visualkey_get_values(Depsgraph *depsgraph,
     }
   }
   else {
-    return setting_get_rna_values(depsgraph, ptr, prop, true, buffer, buffer_size, r_count);
+    return setting_get_rna_values(ptr, prop, buffer, buffer_size, r_count);
   }
 
   /* Rot/Scale code are common! */
@@ -1066,7 +1045,7 @@ static float *visualkey_get_values(Depsgraph *depsgraph,
   }
 
   /* as the function hasn't returned yet, read value from system in the default way */
-  return setting_get_rna_values(depsgraph, ptr, prop, true, buffer, buffer_size, r_count);
+  return setting_get_rna_values(ptr, prop, buffer, buffer_size, r_count);
 }
 
 /* ------------------------- Insert Key API ------------------------- */
@@ -1075,8 +1054,7 @@ static float *visualkey_get_values(Depsgraph *depsgraph,
  * Retrieve current property values to keyframe,
  * possibly applying NLA correction when necessary.
  */
-static float *get_keyframe_values(Depsgraph *depsgraph,
-                                  ReportList *reports,
+static float *get_keyframe_values(ReportList *reports,
                                   PointerRNA ptr,
                                   PropertyRNA *prop,
                                   int index,
@@ -1094,11 +1072,11 @@ static float *get_keyframe_values(Depsgraph *depsgraph,
      * it works by keyframing using a value extracted from the final matrix
      * instead of using the kt system to extract a value.
      */
-    values = visualkey_get_values(depsgraph, &ptr, prop, buffer, buffer_size, r_count);
+    values = visualkey_get_values(&ptr, prop, buffer, buffer_size, r_count);
   }
   else {
     /* read value from system */
-    values = setting_get_rna_values(depsgraph, &ptr, prop, false, buffer, buffer_size, r_count);
+    values = setting_get_rna_values(&ptr, prop, buffer, buffer_size, r_count);
   }
 
   /* adjust the value for NLA factors */
@@ -1207,8 +1185,7 @@ static bool insert_keyframe_value(ReportList *reports,
  * the keyframe insertion. These include the 'visual' keyframing modes, quick refresh,
  * and extra keyframe filtering.
  */
-bool insert_keyframe_direct(Depsgraph *depsgraph,
-                            ReportList *reports,
+bool insert_keyframe_direct(ReportList *reports,
                             PointerRNA ptr,
                             PropertyRNA *prop,
                             FCurve *fcu,
@@ -1226,7 +1203,7 @@ bool insert_keyframe_direct(Depsgraph *depsgraph,
   }
 
   /* if no property given yet, try to validate from F-Curve info */
-  if ((ptr.id.data == NULL) && (ptr.data == NULL)) {
+  if ((ptr.owner_id == NULL) && (ptr.data == NULL)) {
     BKE_report(
         reports, RPT_ERROR, "No RNA pointer available to retrieve values for keyframing from");
     return false;
@@ -1237,7 +1214,7 @@ bool insert_keyframe_direct(Depsgraph *depsgraph,
     /* try to get property we should be affecting */
     if (RNA_path_resolve_property(&ptr, fcu->rna_path, &tmp_ptr, &prop) == false) {
       /* property not found... */
-      const char *idname = (ptr.id.data) ? ((ID *)ptr.id.data)->name : TIP_("<No ID pointer>");
+      const char *idname = (ptr.owner_id) ? ptr.owner_id->name : TIP_("<No ID pointer>");
 
       BKE_reportf(reports,
                   RPT_ERROR,
@@ -1261,8 +1238,7 @@ bool insert_keyframe_direct(Depsgraph *depsgraph,
   int value_count;
   int index = fcu->array_index;
 
-  float *values = get_keyframe_values(depsgraph,
-                                      reports,
+  float *values = get_keyframe_values(reports,
                                       ptr,
                                       prop,
                                       index,
@@ -1347,7 +1323,6 @@ static bool insert_keyframe_fcurve_value(Main *bmain,
  * index of -1 keys all array indices
  */
 short insert_keyframe(Main *bmain,
-                      Depsgraph *depsgraph,
                       ReportList *reports,
                       ID *id,
                       bAction *act,
@@ -1405,7 +1380,7 @@ short insert_keyframe(Main *bmain,
   if (adt && adt->action == act) {
     /* Get NLA context for value remapping. */
     nla_context = BKE_animsys_get_nla_keyframing_context(
-        nla_cache ? nla_cache : &tmp_nla_cache, depsgraph, &id_ptr, adt, cfra);
+        nla_cache ? nla_cache : &tmp_nla_cache, &id_ptr, adt, cfra, false);
 
     /* Apply NLA-mapping to frame. */
     cfra = BKE_nla_tweakedit_remap(adt, cfra, NLATIME_CONVERT_UNMAP);
@@ -1416,8 +1391,7 @@ short insert_keyframe(Main *bmain,
   int value_count;
   bool force_all;
 
-  float *values = get_keyframe_values(depsgraph,
-                                      reports,
+  float *values = get_keyframe_values(reports,
                                       ptr,
                                       prop,
                                       array_index,
@@ -1510,10 +1484,10 @@ short insert_keyframe(Main *bmain,
                                             flag);
       }
     }
-  }
 
-  if (values != value_buffer) {
-    MEM_freeN(values);
+    if (values != value_buffer) {
+      MEM_freeN(values);
+    }
   }
 
   BKE_animsys_free_nla_keyframing_context_cache(&tmp_nla_cache);
@@ -1570,9 +1544,9 @@ static bool delete_keyframe_fcurve(AnimData *adt, FCurve *fcu, float cfra)
 static void deg_tag_after_keyframe_delete(Main *bmain, ID *id, AnimData *adt)
 {
   if (adt->action == NULL) {
-    /* In the case last f-curve wes removed need to inform dependency graph
+    /* In the case last f-curve was removed need to inform dependency graph
      * about relations update, since it needs to get rid of animation operation
-     * for this datablock. */
+     * for this data-block. */
     DEG_id_tag_update_ex(bmain, id, ID_RECALC_ANIMATION_NO_FLUSH);
     DEG_relations_tag_update(bmain);
   }
@@ -2249,9 +2223,15 @@ static int delete_key_v3d_exec(bContext *C, wmOperator *op)
   Scene *scene = CTX_data_scene(C);
   float cfra = (float)CFRA;
 
+  int selected_objects_len = 0;
+  int selected_objects_success_len = 0;
+  int success_multi = 0;
+
   CTX_DATA_BEGIN (C, Object *, ob, selected_objects) {
     ID *id = &ob->id;
     int success = 0;
+
+    selected_objects_len += 1;
 
     /* just those in active action... */
     if ((ob->adt) && (ob->adt->action)) {
@@ -2317,21 +2297,28 @@ static int delete_key_v3d_exec(bContext *C, wmOperator *op)
       DEG_id_tag_update(&ob->adt->action->id, ID_RECALC_ANIMATION_NO_FLUSH);
     }
 
-    /* report success (or failure) */
+    /* Only for reporting. */
     if (success) {
-      BKE_reportf(op->reports,
-                  RPT_INFO,
-                  "Object '%s' successfully had %d keyframes removed",
-                  id->name + 2,
-                  success);
-    }
-    else {
-      BKE_reportf(op->reports, RPT_ERROR, "No keyframes removed from Object '%s'", id->name + 2);
+      selected_objects_success_len += 1;
+      success_multi += success;
     }
 
     DEG_id_tag_update(&ob->id, ID_RECALC_TRANSFORM);
   }
   CTX_DATA_END;
+
+  /* report success (or failure) */
+  if (selected_objects_success_len) {
+    BKE_reportf(op->reports,
+                RPT_INFO,
+                "%d object(s) successfully had %d keyframes removed",
+                selected_objects_success_len,
+                success_multi);
+  }
+  else {
+    BKE_reportf(
+        op->reports, RPT_ERROR, "No keyframes removed from %d object(s)", selected_objects_len);
+  }
 
   /* send updates */
   WM_event_add_notifier(C, NC_OBJECT | ND_KEYS, NULL);
@@ -2360,11 +2347,10 @@ void ANIM_OT_keyframe_delete_v3d(wmOperatorType *ot)
 
 static int insert_key_button_exec(bContext *C, wmOperator *op)
 {
-  Depsgraph *depsgraph = CTX_data_depsgraph(C);
   Main *bmain = CTX_data_main(C);
   Scene *scene = CTX_data_scene(C);
   ToolSettings *ts = scene->toolsettings;
-  PointerRNA ptr = {{NULL}};
+  PointerRNA ptr = {NULL};
   PropertyRNA *prop = NULL;
   char *path;
   uiBut *but;
@@ -2383,7 +2369,7 @@ static int insert_key_button_exec(bContext *C, wmOperator *op)
     return (OPERATOR_CANCELLED | OPERATOR_PASS_THROUGH);
   }
 
-  if ((ptr.id.data && ptr.data && prop) && RNA_property_animateable(&ptr, prop)) {
+  if ((ptr.owner_id && ptr.data && prop) && RNA_property_animateable(&ptr, prop)) {
     if (ptr.type == &RNA_NlaStrip) {
       /* Handle special properties for NLA Strips, whose F-Curves are stored on the
        * strips themselves. These are stored separately or else the properties will
@@ -2394,7 +2380,7 @@ static int insert_key_button_exec(bContext *C, wmOperator *op)
 
       if (fcu) {
         success = insert_keyframe_direct(
-            depsgraph, op->reports, ptr, prop, fcu, cfra, ts->keyframe_type, NULL, 0);
+            op->reports, ptr, prop, fcu, cfra, ts->keyframe_type, NULL, 0);
       }
       else {
         BKE_report(op->reports,
@@ -2410,15 +2396,8 @@ static int insert_key_button_exec(bContext *C, wmOperator *op)
       fcu = rna_get_fcurve_context_ui(C, &ptr, prop, index, NULL, NULL, &driven, &special);
 
       if (fcu && driven) {
-        success = insert_keyframe_direct(depsgraph,
-                                         op->reports,
-                                         ptr,
-                                         prop,
-                                         fcu,
-                                         cfra,
-                                         ts->keyframe_type,
-                                         NULL,
-                                         INSERTKEY_DRIVER);
+        success = insert_keyframe_direct(
+            op->reports, ptr, prop, fcu, cfra, ts->keyframe_type, NULL, INSERTKEY_DRIVER);
       }
     }
     else {
@@ -2455,9 +2434,8 @@ static int insert_key_button_exec(bContext *C, wmOperator *op)
         }
 
         success = insert_keyframe(bmain,
-                                  depsgraph,
                                   op->reports,
-                                  ptr.id.data,
+                                  ptr.owner_id,
                                   NULL,
                                   group,
                                   path,
@@ -2495,7 +2473,7 @@ static int insert_key_button_exec(bContext *C, wmOperator *op)
   }
 
   if (success) {
-    ID *id = ptr.id.data;
+    ID *id = ptr.owner_id;
     AnimData *adt = BKE_animdata_from_id(id);
     if (adt->action != NULL) {
       DEG_id_tag_update(&adt->action->id, ID_RECALC_ANIMATION_NO_FLUSH);
@@ -2535,7 +2513,7 @@ void ANIM_OT_keyframe_insert_button(wmOperatorType *ot)
 static int delete_key_button_exec(bContext *C, wmOperator *op)
 {
   Scene *scene = CTX_data_scene(C);
-  PointerRNA ptr = {{NULL}};
+  PointerRNA ptr = {NULL};
   PropertyRNA *prop = NULL;
   Main *bmain = CTX_data_main(C);
   char *path;
@@ -2550,13 +2528,13 @@ static int delete_key_button_exec(bContext *C, wmOperator *op)
     return (OPERATOR_CANCELLED | OPERATOR_PASS_THROUGH);
   }
 
-  if (ptr.id.data && ptr.data && prop) {
+  if (ptr.owner_id && ptr.data && prop) {
     if (BKE_nlastrip_has_curves_for_property(&ptr, prop)) {
       /* Handle special properties for NLA Strips, whose F-Curves are stored on the
        * strips themselves. These are stored separately or else the properties will
        * not have any effect.
        */
-      ID *id = ptr.id.data;
+      ID *id = ptr.owner_id;
       NlaStrip *strip = (NlaStrip *)ptr.data;
       FCurve *fcu = list_find_fcurve(&strip->fcurves, RNA_property_identifier(prop), 0);
 
@@ -2599,7 +2577,7 @@ static int delete_key_button_exec(bContext *C, wmOperator *op)
         }
 
         success = delete_keyframe(
-            bmain, op->reports, ptr.id.data, NULL, NULL, path, index, cfra, 0);
+            bmain, op->reports, ptr.owner_id, NULL, NULL, path, index, cfra, 0);
         MEM_freeN(path);
       }
       else if (G.debug & G_DEBUG) {
@@ -2644,7 +2622,7 @@ void ANIM_OT_keyframe_delete_button(wmOperatorType *ot)
 
 static int clear_key_button_exec(bContext *C, wmOperator *op)
 {
-  PointerRNA ptr = {{NULL}};
+  PointerRNA ptr = {NULL};
   PropertyRNA *prop = NULL;
   Main *bmain = CTX_data_main(C);
   char *path;
@@ -2658,7 +2636,7 @@ static int clear_key_button_exec(bContext *C, wmOperator *op)
     return (OPERATOR_CANCELLED | OPERATOR_PASS_THROUGH);
   }
 
-  if (ptr.id.data && ptr.data && prop) {
+  if (ptr.owner_id && ptr.data && prop) {
     path = RNA_path_from_ID_to_property(&ptr, prop);
 
     if (path) {
@@ -2667,7 +2645,7 @@ static int clear_key_button_exec(bContext *C, wmOperator *op)
         index = -1;
       }
 
-      success += clear_keyframe(bmain, op->reports, ptr.id.data, NULL, NULL, path, index, 0);
+      success += clear_keyframe(bmain, op->reports, ptr.owner_id, NULL, NULL, path, index, 0);
       MEM_freeN(path);
     }
     else if (G.debug & G_DEBUG) {
@@ -2781,8 +2759,7 @@ bool fcurve_is_changed(PointerRNA ptr, PropertyRNA *prop, FCurve *fcu, float fra
 
   float buffer[RNA_MAX_ARRAY_LENGTH];
   int count, index = fcu->array_index;
-  float *values = setting_get_rna_values(
-      NULL, &ptr, prop, false, buffer, RNA_MAX_ARRAY_LENGTH, &count);
+  float *values = setting_get_rna_values(&ptr, prop, buffer, RNA_MAX_ARRAY_LENGTH, &count);
 
   float fcurve_val = calculate_fcurve(&anim_rna, fcu, frame);
   float cur_val = (index >= 0 && index < count) ? values[index] : 0.0f;

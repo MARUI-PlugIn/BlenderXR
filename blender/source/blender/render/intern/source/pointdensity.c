@@ -355,11 +355,11 @@ static void pointdensity_cache_vertex_weight(PointDensity *pd,
     return;
   }
 
-  for (i = 0, dv = mdef; i < totvert; ++i, ++dv, data_color += 3) {
+  for (i = 0, dv = mdef; i < totvert; i++, dv++, data_color += 3) {
     MDeformWeight *dw;
     int j;
 
-    for (j = 0, dw = dv->dw; j < dv->totweight; ++j, ++dw) {
+    for (j = 0, dw = dv->dw; j < dv->totweight; j++, dw++) {
       if (dw->def_nr == mdef_index) {
         copy_v3_fl(data_color, dw->weight);
         break;
@@ -557,8 +557,8 @@ static float density_falloff(PointDensityRangeData *pdr, int index, float square
   }
 
   if (pdr->density_curve && dist != 0.0f) {
-    curvemapping_initialize(pdr->density_curve);
-    density = curvemapping_evaluateF(pdr->density_curve, 0, density / dist) * dist;
+    BKE_curvemapping_initialize(pdr->density_curve);
+    density = BKE_curvemapping_evaluateF(pdr->density_curve, 0, density / dist) * dist;
   }
 
   return density;
@@ -792,7 +792,7 @@ static void particle_system_minmax(Depsgraph *depsgraph,
 
   INIT_MINMAX(min, max);
   if (part->type == PART_HAIR) {
-    /* TOOD(sergey): Not supported currently. */
+    /* TODO(sergey): Not supported currently. */
     return;
   }
 
@@ -832,7 +832,7 @@ void RE_point_density_cache(struct Depsgraph *depsgraph, PointDensity *pd)
 {
   Scene *scene = DEG_get_evaluated_scene(depsgraph);
 
-  /* Same matricies/resolution as dupli_render_particle_set(). */
+  /* Same matrices/resolution as dupli_render_particle_set(). */
   BLI_mutex_lock(&sample_mutex);
   cache_pointdensity(depsgraph, scene, pd);
   BLI_mutex_unlock(&sample_mutex);
@@ -895,7 +895,7 @@ typedef struct SampleCallbackData {
 
 static void point_density_sample_func(void *__restrict data_v,
                                       const int iter,
-                                      const ParallelRangeTLS *__restrict UNUSED(tls))
+                                      const TaskParallelTLS *__restrict UNUSED(tls))
 {
   SampleCallbackData *data = (SampleCallbackData *)data_v;
 
@@ -910,8 +910,8 @@ static void point_density_sample_func(void *__restrict data_v,
   }
 
   size_t z = (size_t)iter;
-  for (size_t y = 0; y < resolution; ++y) {
-    for (size_t x = 0; x < resolution; ++x) {
+  for (size_t y = 0; y < resolution; y++) {
+    for (size_t x = 0; x < resolution; x++) {
       size_t index = z * resolution2 + y * resolution + x;
       float texvec[3];
       float age, vec[3], col[3];
@@ -966,7 +966,7 @@ void RE_point_density_sample(Depsgraph *depsgraph,
   data.min = min;
   data.dim = dim;
   data.values = values;
-  ParallelRangeSettings settings;
+  TaskParallelSettings settings;
   BLI_parallel_range_settings_defaults(&settings);
   settings.use_threading = (resolution > 32);
   BLI_task_parallel_range(0, resolution, &data, point_density_sample_func, &settings);

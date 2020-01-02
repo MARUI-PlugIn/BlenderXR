@@ -38,7 +38,6 @@
 #include "BKE_context.h"
 #include "BKE_customdata.h"
 #include "BKE_editmesh.h"
-#include "BKE_main.h"
 #include "BKE_mesh_mapping.h"
 #include "BKE_paint.h"
 
@@ -47,10 +46,6 @@
 #include "ED_screen.h"
 #include "ED_image.h"
 #include "ED_mesh.h"
-
-#include "GPU_immediate.h"
-#include "GPU_immediate_util.h"
-#include "GPU_state.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -151,7 +146,7 @@ typedef struct Temp_UvData {
 
 static void HC_relaxation_iteration_uv(BMEditMesh *em,
                                        UvSculptData *sculptdata,
-                                       float mouse_coord[2],
+                                       const float mouse_coord[2],
                                        float alpha,
                                        float radius,
                                        float aspectRatio)
@@ -239,7 +234,7 @@ static void HC_relaxation_iteration_uv(BMEditMesh *em,
 
 static void laplacian_relaxation_iteration_uv(BMEditMesh *em,
                                               UvSculptData *sculptdata,
-                                              float mouse_coord[2],
+                                              const float mouse_coord[2],
                                               float alpha,
                                               float radius,
                                               float aspectRatio)
@@ -497,7 +492,7 @@ static UvSculptData *uv_sculpt_stroke_init(bContext *C, wmOperator *op, const wm
 
   op->customdata = data;
 
-  curvemapping_initialize(ts->uvsculpt->paint.brush->curve);
+  BKE_curvemapping_initialize(ts->uvsculpt->paint.brush->curve);
 
   if (data) {
     int counter = 0, i;

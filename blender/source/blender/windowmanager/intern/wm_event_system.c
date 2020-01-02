@@ -50,7 +50,6 @@
 #include "BKE_customdata.h"
 #include "BKE_idprop.h"
 #include "BKE_global.h"
-#include "BKE_layer.h"
 #include "BKE_main.h"
 #include "BKE_report.h"
 #include "BKE_scene.h"
@@ -58,6 +57,8 @@
 #include "BKE_workspace.h"
 
 #include "BKE_sound.h"
+
+#include "BLT_translation.h"
 
 #include "ED_fileselect.h"
 #include "ED_info.h"
@@ -360,7 +361,7 @@ void wm_event_do_depsgraph(bContext *C, bool is_after_open_file)
      * and for until then we have to accept ambiguities when object is shared
      * across visible view layers and has overrides on it.
      */
-    Depsgraph *depsgraph = BKE_scene_get_depsgraph(scene, view_layer, true);
+    Depsgraph *depsgraph = BKE_scene_get_depsgraph(bmain, scene, view_layer, true);
     if (is_after_open_file) {
       DEG_graph_relations_update(depsgraph, bmain, scene, view_layer);
       DEG_graph_on_visible_update(bmain, depsgraph, true);
@@ -495,7 +496,7 @@ void wm_event_do_notifiers(bContext *C)
        * twice which can depgraph update the same object at once */
       if (G.is_rendering == false) {
         /* depsgraph gets called, might send more notifiers */
-        Depsgraph *depsgraph = CTX_data_depsgraph(C);
+        Depsgraph *depsgraph = CTX_data_depsgraph_pointer(C);
         ED_update_for_newframe(CTX_data_main(C), depsgraph);
       }
     }
@@ -1406,8 +1407,10 @@ static int wm_operator_invoke(bContext *C,
 
   if (WM_operator_poll(C, ot)) {
     wmWindowManager *wm = CTX_wm_manager(C);
-    wmOperator *op = wm_operator_create(
-        wm, ot, properties, reports); /* if reports == NULL, they'll be initialized */
+
+    /* if reports == NULL, they'll be initialized */
+    wmOperator *op = wm_operator_create(wm, ot, properties, reports);
+
     const bool is_nested_call = (wm->op_undo_depth != 0);
 
     if (event != NULL) {
@@ -1802,8 +1805,11 @@ void wm_event_free_handler(wmEventHandler *handler)
 /* only set context when area/region is part of screen */
 static void wm_handler_op_context(bContext *C, wmEventHandler_Op *handler, const wmEvent *event)
 {
-  wmWindow *win = CTX_wm_window(C);
-  bScreen *screen = CTX_wm_screen(C);
+  wmWindow *win = handler->context.win ? handler->context.win : CTX_wm_window(C);
+  /* It's probably fine to always use WM_window_get_active_screen() to get the screen. But this
+   * code has been getting it through context since forever, so play safe and stick to that when
+   * possible. */
+  bScreen *screen = handler->context.win ? WM_window_get_active_screen(win) : CTX_wm_screen(C);
 
   if (screen && handler->op) {
     if (handler->context.area == NULL) {
@@ -2257,7 +2263,7 @@ static int wm_handler_operator_call(bContext *C,
 
     if (ot && wm_operator_check_locked_interface(C, ot)) {
       bool use_last_properties = true;
-      PointerRNA tool_properties = {{0}};
+      PointerRNA tool_properties = {0};
 
       bToolRef *keymap_tool = ((handler_base->type == WM_HANDLER_TYPE_KEYMAP) ?
                                    ((wmEventHandler_Keymap *)handler_base)->keymap_tool :
@@ -2332,50 +2338,40 @@ static int wm_handler_fileselect_do(bContext *C,
                                     int val)
 {
   wmWindowManager *wm = CTX_wm_manager(C);
-  SpaceFile *sfile;
   int action = WM_HANDLER_CONTINUE;
 
   switch (val) {
     case EVT_FILESELECT_FULL_OPEN: {
-      ScrArea *sa;
+      wmWindow *win = CTX_wm_window(C);
+      ScrArea *area;
 
-      /* sa can be null when window A is active, but mouse is over window B
-       * in this case, open file select in original window A. Also don't
-       * use global areas. */
-      if (handler->context.area == NULL || ED_area_is_global(handler->context.area)) {
-        bScreen *screen = CTX_wm_screen(C);
-        sa = (ScrArea *)screen->areabase.first;
+      if ((area = ED_screen_temp_space_open(C,
+                                            IFACE_("Blender File View"),
+                                            WM_window_pixels_x(win) / 2,
+                                            WM_window_pixels_y(win) / 2,
+                                            U.file_space_data.temp_win_sizex * UI_DPI_FAC,
+                                            U.file_space_data.temp_win_sizey * UI_DPI_FAC,
+                                            SPACE_FILE,
+                                            U.filebrowser_display_type,
+                                            true))) {
+        ARegion *region_header = BKE_area_find_region_type(area, RGN_TYPE_HEADER);
+
+        BLI_assert(area->spacetype == SPACE_FILE);
+
+        region_header->flag |= RGN_FLAG_HIDDEN;
+        /* Header on bottom, AZone triangle to toggle header looks misplaced at the top */
+        region_header->alignment = RGN_ALIGN_BOTTOM;
+
+        /* settings for filebrowser, sfile is not operator owner but sends events */
+        SpaceFile *sfile = (SpaceFile *)area->spacedata.first;
+        sfile->op = handler->op;
+
+        ED_fileselect_set_params_from_userdef(sfile);
       }
       else {
-        sa = handler->context.area;
+        BKE_report(&wm->reports, RPT_ERROR, "Failed to open window!");
+        return OPERATOR_CANCELLED;
       }
-
-      if (sa->full) {
-        /* ensure the first area becomes the file browser, because the second one is the small
-         * top (info-)area which might be too small (in fullscreens we have max two areas) */
-        if (sa->prev) {
-          sa = sa->prev;
-        }
-        ED_area_newspace(C, sa, SPACE_FILE, true); /* 'sa' is modified in-place */
-        /* we already had a fullscreen here -> mark new space as a stacked fullscreen */
-        sa->flag |= (AREA_FLAG_STACKED_FULLSCREEN | AREA_FLAG_TEMP_TYPE);
-      }
-      else if (sa->spacetype == SPACE_FILE) {
-        sa = ED_screen_state_toggle(C, CTX_wm_window(C), sa, SCREENMAXIMIZED);
-      }
-      else {
-        sa = ED_screen_full_newspace(C, sa, SPACE_FILE); /* sets context */
-      }
-
-      /* note, getting the 'sa' back from the context causes a nasty bug where the newly created
-       * 'sa' != CTX_wm_area(C). removed the line below and set 'sa' in the 'if' above */
-      /* sa = CTX_wm_area(C); */
-
-      /* settings for filebrowser, sfile is not operator owner but sends events */
-      sfile = (SpaceFile *)sa->spacedata.first;
-      sfile->op = handler->op;
-
-      ED_fileselect_set_params(sfile);
 
       action = WM_HANDLER_BREAK;
       break;
@@ -2384,22 +2380,65 @@ static int wm_handler_fileselect_do(bContext *C,
     case EVT_FILESELECT_EXEC:
     case EVT_FILESELECT_CANCEL:
     case EVT_FILESELECT_EXTERNAL_CANCEL: {
+      wmWindow *ctx_win = CTX_wm_window(C);
+
       /* remlink now, for load file case before removing*/
       BLI_remlink(handlers, handler);
 
-      if (val != EVT_FILESELECT_EXTERNAL_CANCEL) {
-        ScrArea *sa = CTX_wm_area(C);
-
-        if (sa->full) {
-          ED_screen_full_prevspace(C, sa);
+      if (val == EVT_FILESELECT_EXTERNAL_CANCEL) {
+        /* The window might have been freed already. */
+        if (BLI_findindex(&wm->windows, handler->context.win) == -1) {
+          handler->context.win = NULL;
         }
-        /* user may have left fullscreen */
-        else {
-          ED_area_prevspace(C, sa);
+      }
+      else {
+        wmWindow *temp_win;
+        ScrArea *ctx_sa = CTX_wm_area(C);
+
+        for (temp_win = wm->windows.first; temp_win; temp_win = temp_win->next) {
+          bScreen *screen = WM_window_get_active_screen(temp_win);
+          ScrArea *file_sa = screen->areabase.first;
+
+          if (screen->temp && (file_sa->spacetype == SPACE_FILE)) {
+            int win_size[2];
+            bool is_maximized;
+            ED_fileselect_window_params_get(temp_win, win_size, &is_maximized);
+            ED_fileselect_params_to_userdef(file_sa->spacedata.first, win_size, is_maximized);
+
+            if (BLI_listbase_is_single(&file_sa->spacedata)) {
+              BLI_assert(ctx_win != temp_win);
+
+              wm_window_close(C, wm, temp_win);
+
+              CTX_wm_window_set(C, ctx_win);  // wm_window_close() NULLs.
+              /* Some operators expect a drawable context (for EVT_FILESELECT_EXEC) */
+              wm_window_make_drawable(wm, ctx_win);
+              /* Ensure correct cursor position, otherwise, popups may close immediately after
+               * opening (UI_BLOCK_MOVEMOUSE_QUIT) */
+              wm_get_cursor_position(ctx_win, &ctx_win->eventstate->x, &ctx_win->eventstate->y);
+              wm->winactive = ctx_win; /* Reports use this... */
+              if (handler->context.win == temp_win) {
+                handler->context.win = NULL;
+              }
+            }
+            else if (file_sa->full) {
+              ED_screen_full_prevspace(C, file_sa);
+            }
+            else {
+              ED_area_prevspace(C, file_sa);
+            }
+
+            break;
+          }
+        }
+
+        if (!temp_win && ctx_sa->full) {
+          ED_fileselect_params_to_userdef(ctx_sa->spacedata.first, NULL, false);
+          ED_screen_full_prevspace(C, ctx_sa);
         }
       }
 
-      wm_handler_op_context(C, handler, CTX_wm_window(C)->eventstate);
+      wm_handler_op_context(C, handler, ctx_win->eventstate);
 
       /* needed for UI_popup_menu_reports */
 
@@ -2691,6 +2730,15 @@ static int wm_handlers_do_intern(bContext *C, wmEvent *event, ListBase *handlers
         wmKeyMap *keymap = WM_event_get_keymap_from_handler(wm, handler);
         action |= wm_handlers_do_keymap_with_keymap_handler(
             C, event, handlers, handler, keymap, do_debug_handler);
+
+        /* Clear the tool-tip whenever a key binding is handled, without this tool-tips
+         * are kept when a modal operators starts (annoying but otherwise harmless). */
+        if (action & WM_HANDLER_BREAK) {
+          /* Window may be gone after file read. */
+          if (CTX_wm_window(C) != NULL) {
+            WM_tooltip_clear(C, CTX_wm_window(C));
+          }
+        }
       }
       else if (handler_base->type == WM_HANDLER_TYPE_UI) {
         wmEventHandler_UI *handler = (wmEventHandler_UI *)handler_base;
@@ -3227,9 +3275,10 @@ void wm_event_do_handlers(bContext *C)
       wm_event_free_all(win);
     }
     else {
+      Main *bmain = CTX_data_main(C);
       Scene *scene = WM_window_get_active_scene(win);
       ViewLayer *view_layer = WM_window_get_active_view_layer(win);
-      Depsgraph *depsgraph = BKE_scene_get_depsgraph(scene, view_layer, false);
+      Depsgraph *depsgraph = BKE_scene_get_depsgraph(bmain, scene, view_layer, false);
       Scene *scene_eval = (depsgraph != NULL) ? DEG_get_evaluated_scene(depsgraph) : NULL;
 
       if (scene_eval != NULL) {
@@ -3503,38 +3552,48 @@ void WM_event_add_fileselect(bContext *C, wmOperator *op)
 {
   wmWindowManager *wm = CTX_wm_manager(C);
   wmWindow *win = CTX_wm_window(C);
+  const bool is_temp_screen = WM_window_is_temp_screen(win);
+  const bool opens_window = (U.filebrowser_display_type == USER_TEMP_SPACE_DISPLAY_WINDOW);
+  /* Don't add the file handler to the temporary window if one is opened, or else it owns the
+   * handlers for itself, causing dangling pointers once it's destructed through a handler. It has
+   * a parent which should hold the handlers itself. */
+  ListBase *modalhandlers = (is_temp_screen && opens_window) ? &win->parent->modalhandlers :
+                                                               &win->modalhandlers;
 
   /* Close any popups, like when opening a file browser from the splash. */
-  UI_popup_handlers_remove_all(C, &win->modalhandlers);
+  UI_popup_handlers_remove_all(C, modalhandlers);
 
-  /* only allow 1 file selector open per window */
-  LISTBASE_FOREACH_MUTABLE (wmEventHandler *, handler_base, &win->modalhandlers) {
-    if (handler_base->type == WM_HANDLER_TYPE_OP) {
-      wmEventHandler_Op *handler = (wmEventHandler_Op *)handler_base;
-      if (handler->is_fileselect == false) {
-        continue;
-      }
-      bScreen *screen = CTX_wm_screen(C);
-      bool cancel_handler = true;
+  if (!is_temp_screen) {
+    /* only allow 1 file selector open per window */
+    LISTBASE_FOREACH_MUTABLE (wmEventHandler *, handler_base, modalhandlers) {
+      if (handler_base->type == WM_HANDLER_TYPE_OP) {
+        wmEventHandler_Op *handler = (wmEventHandler_Op *)handler_base;
+        if (handler->is_fileselect == false) {
+          continue;
+        }
+        bScreen *screen = CTX_wm_screen(C);
+        bool cancel_handler = true;
 
-      /* find the area with the file selector for this handler */
-      ED_screen_areas_iter(win, screen, sa)
-      {
-        if (sa->spacetype == SPACE_FILE) {
-          SpaceFile *sfile = sa->spacedata.first;
+        /* find the area with the file selector for this handler */
+        ED_screen_areas_iter(win, screen, sa)
+        {
+          if (sa->spacetype == SPACE_FILE) {
+            SpaceFile *sfile = sa->spacedata.first;
 
-          if (sfile->op == handler->op) {
-            CTX_wm_area_set(C, sa);
-            wm_handler_fileselect_do(C, &win->modalhandlers, handler, EVT_FILESELECT_CANCEL);
-            cancel_handler = false;
-            break;
+            if (sfile->op == handler->op) {
+              CTX_wm_area_set(C, sa);
+              wm_handler_fileselect_do(C, &win->modalhandlers, handler, EVT_FILESELECT_CANCEL);
+              cancel_handler = false;
+              break;
+            }
           }
         }
-      }
 
-      /* if not found we stop the handler without changing the screen */
-      if (cancel_handler) {
-        wm_handler_fileselect_do(C, &win->modalhandlers, handler, EVT_FILESELECT_EXTERNAL_CANCEL);
+        /* if not found we stop the handler without changing the screen */
+        if (cancel_handler) {
+          wm_handler_fileselect_do(
+              C, &win->modalhandlers, handler, EVT_FILESELECT_EXTERNAL_CANCEL);
+        }
       }
     }
   }
@@ -3544,10 +3603,11 @@ void WM_event_add_fileselect(bContext *C, wmOperator *op)
 
   handler->is_fileselect = true;
   handler->op = op;
+  handler->context.win = CTX_wm_window(C);
   handler->context.area = CTX_wm_area(C);
   handler->context.region = CTX_wm_region(C);
 
-  BLI_addhead(&win->modalhandlers, handler);
+  BLI_addhead(modalhandlers, handler);
 
   /* check props once before invoking if check is available
    * ensures initial properties are valid */
@@ -3661,7 +3721,7 @@ wmEventHandler_Keymap *WM_event_add_keymap_handler(ListBase *handlers, wmKeyMap 
   return handler;
 }
 
-/** Follow #wmEventHandler_KeymapDynamicFn signiture. */
+/** Follow #wmEventHandler_KeymapDynamicFn signature. */
 wmKeyMap *WM_event_get_keymap_from_toolsystem(wmWindowManager *wm, wmEventHandler_Keymap *handler)
 {
   ScrArea *sa = handler->dynamic.user_data;
@@ -4150,19 +4210,31 @@ static void wm_eventemulation(wmEvent *event, bool test_only)
   if (U.flag & USER_TWOBUTTONMOUSE) {
 
     if (event->type == LEFTMOUSE) {
-      if (event->val == KM_PRESS && event->alt) {
-        event->type = MIDDLEMOUSE;
-        event->alt = 0;
+      short *mod = (
+#if !defined(WIN32)
+          (U.mouse_emulate_3_button_modifier == USER_EMU_MMB_MOD_OSKEY) ? &event->oskey :
+                                                                          &event->alt
+#else
+          /* Disable for WIN32 for now because it accesses the start menu. */
+          &event->alt
+#endif
+      );
 
-        if (!test_only) {
-          emulating_event = MIDDLEMOUSE;
+      if (event->val == KM_PRESS) {
+        if (*mod) {
+          *mod = 0;
+          event->type = MIDDLEMOUSE;
+
+          if (!test_only) {
+            emulating_event = MIDDLEMOUSE;
+          }
         }
       }
       else if (event->val == KM_RELEASE) {
         /* only send middle-mouse release if emulated */
         if (emulating_event == MIDDLEMOUSE) {
           event->type = MIDDLEMOUSE;
-          event->alt = 0;
+          *mod = 0;
         }
 
         if (!test_only) {

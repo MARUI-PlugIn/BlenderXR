@@ -56,7 +56,7 @@ using namespace Geometry;
 /*! Class to represent a point of a curve.
  *  A CurvePoint can be any point of a 1D curve (it doesn't have to be a vertex of the curve).
  *  Any Interface1D is built upon ViewEdges, themselves built upon FEdges. Therefore, a curve is
- * basically a polyline made of a list SVertex. Thus, a CurvePoint is built by lineraly
+ * basically a polyline made of a list SVertex. Thus, a CurvePoint is built by linearly
  * interpolating two SVertex. CurvePoint can be used as virtual points while querying 0D
  * information along a curve at a given resolution.
  */
@@ -205,7 +205,7 @@ class CurvePoint : public Interface0D {
   Vec3r _Point3d;
 
  public:
-  /*! Defult Constructor. */
+  /*! Default Constructor. */
   CurvePoint();
 
   /*! Builds a CurvePoint from two SVertex and an interpolation parameter.

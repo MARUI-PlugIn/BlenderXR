@@ -44,6 +44,7 @@ typedef enum eGPUFrameBufferBits {
 } eGPUFrameBufferBits;
 
 #if WITH_VR
+
 typedef enum {
   GPU_FB_DEPTH_ATTACHMENT = 0,
   GPU_FB_DEPTH_STENCIL_ATTACHMENT,
@@ -52,8 +53,9 @@ typedef enum {
   GPU_FB_COLOR_ATTACHMENT2,
   GPU_FB_COLOR_ATTACHMENT3,
   GPU_FB_COLOR_ATTACHMENT4,
+  GPU_FB_COLOR_ATTACHMENT5,
   /* Number of maximum output slots.
-   * We support 5 outputs for now (usually we wouldn't need more to preserve fill rate). */
+   * We support 6 outputs for now (usually we wouldn't need more to preserve fill rate). */
   /* Keep in mind that GL max is GL_MAX_DRAW_BUFFERS and is at least 8, corresponding to
    * the maximum number of COLOR attachments specified by glDrawBuffers. */
   GPU_FB_MAX_ATTACHEMENT,
@@ -102,7 +104,7 @@ GPUFrameBuffer *GPU_framebuffer_active_get(void);
     } \
   } while (0)
 
-/* Framebuffer setup : You need to call GPU_framebuffer_bind for theses
+/* Framebuffer setup : You need to call GPU_framebuffer_bind for these
  * to be effective. */
 
 void GPU_framebuffer_texture_attach(GPUFrameBuffer *fb, struct GPUTexture *tex, int slot, int mip);

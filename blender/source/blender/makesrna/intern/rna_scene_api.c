@@ -80,7 +80,7 @@ static void rna_Scene_frame_set(Scene *scene, Main *bmain, int frame, float subf
 
   for (ViewLayer *view_layer = scene->view_layers.first; view_layer != NULL;
        view_layer = view_layer->next) {
-    Depsgraph *depsgraph = BKE_scene_get_depsgraph(scene, view_layer, true);
+    Depsgraph *depsgraph = BKE_scene_get_depsgraph(bmain, scene, view_layer, true);
     BKE_scene_graph_update_for_newframe(depsgraph, bmain);
   }
 
@@ -88,7 +88,11 @@ static void rna_Scene_frame_set(Scene *scene, Main *bmain, int frame, float subf
   BPy_END_ALLOW_THREADS;
 #  endif
 
-  BKE_scene_camera_switch_update(scene);
+  if (BKE_scene_camera_switch_update(scene)) {
+    for (bScreen *sc = bmain->screens.first; sc; sc = sc->id.next) {
+      BKE_screen_view3d_scene_sync(sc, scene);
+    }
+  }
 
   /* don't do notifier when we're rendering, avoid some viewport crashes
    * redrawing while the data is being modified for render */
@@ -156,7 +160,7 @@ static void rna_Scene_ray_cast(Scene *scene,
 {
   normalize_v3(direction);
 
-  Depsgraph *depsgraph = BKE_scene_get_depsgraph(scene, view_layer, true);
+  Depsgraph *depsgraph = BKE_scene_get_depsgraph(bmain, scene, view_layer, true);
   SnapObjectContext *sctx = ED_transform_snap_object_context_create(bmain, scene, depsgraph, 0);
 
   bool ret = ED_transform_snap_object_project_ray_ex(sctx,

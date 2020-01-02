@@ -24,18 +24,14 @@
 #ifndef __WM_WINDOW_H__
 #define __WM_WINDOW_H__
 
-#include "../vr/vr_build.h"
 #if WITH_VR
+#include "../vr/vr_build.h"
 #ifdef __cplusplus
 extern "C"
 {
 #endif
 #endif
 
-struct EnumPropertyItem;
-struct PointerRNA;
-struct PropertyRNA;
-struct wmEvent;
 struct wmOperator;
 
 /* *************** internal api ************** */
@@ -90,7 +86,7 @@ void wm_quit_with_optional_confirmation_prompt(bContext *C, wmWindow *win) ATTR_
 
 int wm_window_new_exec(bContext *C, struct wmOperator *op);
 int wm_window_new_main_exec(bContext *C, struct wmOperator *op);
-int	wm_window_new_vr_exec(bContext *C, struct wmOperator *op);
+int wm_window_new_vr_exec(bContext *C, struct wmOperator *op);
 
 void wm_test_autorun_warning(bContext *C);
 

@@ -202,6 +202,14 @@ static void rna_Mesh_count_selected_items(Mesh *mesh, int r_count[3])
   BKE_mesh_count_selected_items(mesh, r_count);
 }
 
+static void rna_Mesh_clear_geometry(Mesh *mesh)
+{
+  BKE_mesh_clear_geometry(mesh);
+
+  DEG_id_tag_update(&mesh->id, ID_RECALC_GEOMETRY);
+  WM_main_add_notifier(NC_GEOM | ND_DATA, mesh);
+}
+
 #else
 
 void RNA_api_mesh(StructRNA *srna)
@@ -303,11 +311,6 @@ void RNA_api_mesh(StructRNA *srna)
                   0,
                   "Calculate Loose Edges",
                   "Calculate the loose state of each edge");
-  RNA_def_boolean(func,
-                  "calc_loop_triangles",
-                  0,
-                  "Calculate Triangules",
-                  "Force recalculation of triangle tessellation");
   RNA_def_function_flag(func, FUNC_USE_CONTEXT);
 
   RNA_def_function(srna, "update_gpu_tag", "rna_Mesh_update_gpu_tag");
@@ -318,6 +321,11 @@ void RNA_api_mesh(StructRNA *srna)
   parm = RNA_def_string(
       func, "result", "nothing", 64, "Return value", "String description of result of comparison");
   RNA_def_function_return(func, parm);
+
+  func = RNA_def_function(srna, "clear_geometry", "rna_Mesh_clear_geometry");
+  RNA_def_function_ui_description(
+      func,
+      "Remove all geometry from the mesh. Note that this does not free shape keys or materials");
 
   func = RNA_def_function(srna, "validate", "BKE_mesh_validate");
   RNA_def_function_ui_description(func,

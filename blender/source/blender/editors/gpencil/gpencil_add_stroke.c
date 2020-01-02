@@ -53,7 +53,7 @@ static int gp_stroke_material(Main *bmain, Object *ob, const ColorTemplate *pct,
   short *totcol = give_totcolp(ob);
   Material *ma = NULL;
   for (short i = 0; i < *totcol; i++) {
-    ma = give_current_material(ob, i + 1);
+    ma = BKE_material_gpencil_get(ob, i + 1);
     if (STREQ(ma->id.name, pct->name)) {
       return i;
     }
@@ -215,8 +215,7 @@ static const ColorTemplate gp_stroke_material_grey = {
 void ED_gpencil_create_stroke(bContext *C, Object *ob, float mat[4][4])
 {
   Main *bmain = CTX_data_main(C);
-  Depsgraph *depsgraph = CTX_data_depsgraph(C);
-  int cfra_eval = (int)DEG_get_ctime(depsgraph);
+  Scene *scene = CTX_data_scene(C);
   bGPdata *gpd = (bGPdata *)ob->data;
   bGPDstroke *gps;
 
@@ -236,8 +235,8 @@ void ED_gpencil_create_stroke(bContext *C, Object *ob, float mat[4][4])
   bGPDlayer *lines = BKE_gpencil_layer_addnew(gpd, "Lines", true);
 
   /* frames */
-  bGPDframe *frame_color = BKE_gpencil_frame_addnew(colors, cfra_eval);
-  bGPDframe *frame_lines = BKE_gpencil_frame_addnew(lines, cfra_eval);
+  bGPDframe *frame_color = BKE_gpencil_frame_addnew(colors, CFRA);
+  bGPDframe *frame_lines = BKE_gpencil_frame_addnew(lines, CFRA);
   UNUSED_VARS(frame_color);
 
   /* generate stroke */

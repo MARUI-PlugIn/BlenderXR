@@ -390,7 +390,7 @@ void OBJECT_OT_gpencil_modifier_add(wmOperatorType *ot)
 static int gpencil_edit_modifier_poll_generic(bContext *C, StructRNA *rna_type, int obtype_flag)
 {
   PointerRNA ptr = CTX_data_pointer_get_type(C, "modifier", rna_type);
-  Object *ob = (ptr.id.data) ? ptr.id.data : ED_object_active_context(C);
+  Object *ob = (ptr.owner_id) ? (Object *)ptr.owner_id : ED_object_active_context(C);
 
   if (!ob || ID_IS_LINKED(ob)) {
     return 0;
@@ -398,7 +398,7 @@ static int gpencil_edit_modifier_poll_generic(bContext *C, StructRNA *rna_type, 
   if (obtype_flag && ((1 << ob->type) & obtype_flag) == 0) {
     return 0;
   }
-  if (ptr.id.data && ID_IS_LINKED(ptr.id.data)) {
+  if (ptr.owner_id && ID_IS_LINKED(ptr.owner_id)) {
     return 0;
   }
 
@@ -596,7 +596,7 @@ void OBJECT_OT_gpencil_modifier_move_down(wmOperatorType *ot)
 static int gpencil_modifier_apply_exec(bContext *C, wmOperator *op)
 {
   Main *bmain = CTX_data_main(C);
-  Depsgraph *depsgraph = CTX_data_depsgraph(C);
+  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   Object *ob = ED_object_active_context(C);
   GpencilModifierData *md = gpencil_edit_modifier_property_get(op, ob, 0);
   int apply_as = RNA_enum_get(op->ptr, "apply_as");

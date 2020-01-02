@@ -46,8 +46,7 @@
  *
  * IMB needs:
  * - \ref DNA module
- *     The listbase types are used for handling the memory
- *     management.
+ *     The #ListBase types are used for handling the memory management.
  * - \ref blenlib module
  *     blenlib handles guarded memory management in blender-style.
  *     BLI_winstuff.h makes a few windows specific behaviors
@@ -146,7 +145,8 @@ bool IMB_initImBuf(
 struct ImBuf *IMB_allocFromBuffer(const unsigned int *rect,
                                   const float *rectf,
                                   unsigned int w,
-                                  unsigned int h);
+                                  unsigned int h,
+                                  unsigned int channels);
 
 /**
  *
@@ -218,15 +218,20 @@ typedef enum IMB_BlendMode {
 } IMB_BlendMode;
 
 void IMB_blend_color_byte(unsigned char dst[4],
-                          unsigned char src1[4],
-                          unsigned char src2[4],
+                          const unsigned char src1[4],
+                          const unsigned char src2[4],
                           IMB_BlendMode mode);
-void IMB_blend_color_float(float dst[4], float src1[4], float src2[4], IMB_BlendMode mode);
+void IMB_blend_color_float(float dst[4],
+                           const float src1[4],
+                           const float src2[4],
+                           IMB_BlendMode mode);
 
 void IMB_rect_crop(struct ImBuf *ibuf, const struct rcti *crop);
 
+void IMB_rect_size_set(struct ImBuf *ibuf, const uint size[2]);
+
 void IMB_rectclip(struct ImBuf *dbuf,
-                  struct ImBuf *sbuf,
+                  const struct ImBuf *sbuf,
                   int *destx,
                   int *desty,
                   int *srcx,
@@ -234,7 +239,7 @@ void IMB_rectclip(struct ImBuf *dbuf,
                   int *width,
                   int *height);
 void IMB_rectcpy(struct ImBuf *drect,
-                 struct ImBuf *srect,
+                 const struct ImBuf *srect,
                  int destx,
                  int desty,
                  int srcx,
@@ -242,11 +247,11 @@ void IMB_rectcpy(struct ImBuf *drect,
                  int width,
                  int height);
 void IMB_rectblend(struct ImBuf *dbuf,
-                   struct ImBuf *obuf,
-                   struct ImBuf *sbuf,
+                   const struct ImBuf *obuf,
+                   const struct ImBuf *sbuf,
                    unsigned short *dmask,
-                   unsigned short *curvemask,
-                   unsigned short *mmask,
+                   const unsigned short *curvemask,
+                   const unsigned short *mmask,
                    float mask_max,
                    int destx,
                    int desty,
@@ -259,11 +264,11 @@ void IMB_rectblend(struct ImBuf *dbuf,
                    IMB_BlendMode mode,
                    bool accumulate);
 void IMB_rectblend_threaded(struct ImBuf *dbuf,
-                            struct ImBuf *obuf,
-                            struct ImBuf *sbuf,
+                            const struct ImBuf *obuf,
+                            const struct ImBuf *sbuf,
                             unsigned short *dmask,
-                            unsigned short *curvemask,
-                            unsigned short *mmask,
+                            const unsigned short *curvemask,
+                            const unsigned short *mmask,
                             float mask_max,
                             int destx,
                             int desty,
@@ -324,7 +329,7 @@ struct IndexBuildContext *IMB_anim_index_rebuild_context(struct anim *anim,
                                                          IMB_Timecode_Type tcs_in_use,
                                                          IMB_Proxy_Size proxy_sizes_in_use,
                                                          int quality,
-                                                         const bool overwite,
+                                                         const bool overwrite,
                                                          struct GSet *file_list);
 
 /* will rebuild all used indices and proxies at once */
@@ -477,7 +482,7 @@ int imb_get_anim_type(const char *name);
  *
  * \attention Defined in util.c
  */
-bool IMB_isfloat(struct ImBuf *ibuf);
+bool IMB_isfloat(const struct ImBuf *ibuf);
 
 /* Do byte/float and colorspace conversions need to take alpha into account? */
 bool IMB_alpha_affects_rgb(const struct ImBuf *ibuf);
@@ -694,6 +699,8 @@ void imb_freemipmapImBuf(struct ImBuf *ibuf);
 
 bool imb_addtilesImBuf(struct ImBuf *ibuf);
 void imb_freetilesImBuf(struct ImBuf *ibuf);
+
+void imb_freerectImbuf_all(struct ImBuf *ibuf);
 
 /* threaded processors */
 void IMB_processor_apply_threaded(

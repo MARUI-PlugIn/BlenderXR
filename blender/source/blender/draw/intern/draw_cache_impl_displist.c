@@ -66,7 +66,7 @@ static int dl_tri_len(const DispList *dl)
   return 0;
 }
 
-/* see: displist_get_allverts */
+/* see: displist_vert_coords_alloc */
 static int curve_render_surface_vert_len_get(const ListBase *lb)
 {
   int vert_len = 0;
@@ -693,7 +693,7 @@ void DRW_displist_indexbuf_create_edges_adjacency_lines(struct ListBase *lb,
     v_idx += dl_vert_len(dl);
   }
 
-  /* Create edges for remaning non manifold edges. */
+  /* Create edges for remaining non manifold edges. */
   EdgeHashIterator *ehi;
   for (ehi = BLI_edgehashIterator_new(eh); BLI_edgehashIterator_isDone(ehi) == false;
        BLI_edgehashIterator_step(ehi)) {

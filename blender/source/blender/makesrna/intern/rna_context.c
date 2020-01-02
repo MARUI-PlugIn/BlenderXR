@@ -178,14 +178,14 @@ static PointerRNA rna_Context_collection_get(PointerRNA *ptr)
 static PointerRNA rna_Context_layer_collection_get(PointerRNA *ptr)
 {
   bContext *C = (bContext *)ptr->data;
-  ptr->id.data = CTX_data_scene(C);
+  ptr->owner_id = &CTX_data_scene(C)->id;
   return rna_pointer_inherit_refine(ptr, &RNA_LayerCollection, CTX_data_layer_collection(C));
 }
 
 static PointerRNA rna_Context_tool_settings_get(PointerRNA *ptr)
 {
   bContext *C = (bContext *)ptr->data;
-  ptr->id.data = CTX_data_scene(C);
+  ptr->owner_id = &CTX_data_scene(C)->id;
   return rna_pointer_inherit_refine(ptr, &RNA_ToolSettings, CTX_data_tool_settings(C));
 }
 
@@ -211,7 +211,7 @@ static struct Depsgraph *rna_Context_evaluated_depsgraph_get(bContext *C)
   BPy_BEGIN_ALLOW_THREADS;
 #  endif
 
-  depsgraph = CTX_data_evaluated_depsgraph(C);
+  depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
 
 #  ifdef WITH_PYTHON
   BPy_END_ALLOW_THREADS;

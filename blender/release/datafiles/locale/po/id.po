@@ -1,8 +1,9 @@
+
 msgid ""
 msgstr ""
-"Project-Id-Version: Blender 2.80 (sub 75) (b'8e1516b7bcca')\n"
+"Project-Id-Version: Blender 2.81 (sub 16) (b'99640d062234')\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2019-07-29 00:00:00\n"
+"POT-Creation-Date: 2019-11-20 13:23:12\n"
 "PO-Revision-Date: 2013-09-26 14:51+0700\n"
 "Last-Translator: Daffi A. Prabowo <daffi.ap@gmail.com>\n"
 "Language-Team: Indonesian <>\n"
@@ -562,6 +563,10 @@ msgid "Copy Z"
 msgstr "Salin"
 
 
+msgid "Mix Mode"
+msgstr "Modus Sunting"
+
+
 msgid "Copy Transforms Constraint"
 msgstr "Orientasi Transformasi"
 
@@ -810,10 +815,6 @@ msgid "Fonts"
 msgstr "Huruf:"
 
 
-msgid "Filter BlenderBackup files"
-msgstr "Situs Blender"
-
-
 msgid "Cache Offset"
 msgstr "Kamera"
 
@@ -840,10 +841,6 @@ msgstr "Rangkaian Simulasi"
 
 msgid "Tracer Particles"
 msgstr "Partikel"
-
-
-msgid "Remove air bubbles"
-msgstr "Induk"
 
 
 msgid "Particle Influence"
@@ -876,10 +873,6 @@ msgstr "Setelan Garis"
 
 msgid "Sphere Radius"
 msgstr "Radius Bola"
-
-
-msgid "Attenuation"
-msgstr "lokasi"
 
 
 msgid "Parent Object"
@@ -1024,10 +1017,6 @@ msgstr "Modus Pahat"
 
 msgid "Show cursor in viewport"
 msgstr "Tampilkan kursor di viewport"
-
-
-msgid "Use Gradient"
-msgstr "Kamera"
 
 
 msgid "Use Texture"
@@ -1234,23 +1223,7 @@ msgid "Store Edge Bevel Weight"
 msgstr "Objek"
 
 
-msgid "Clone UV loop layer"
-msgstr "Tekstur"
-
-
-msgid "Clone UV loop layer Index"
-msgstr "Tekstur"
-
-
 msgid "Clone UV loop layer index"
-msgstr "Tekstur"
-
-
-msgid "Mask UV loop layer"
-msgstr "Tekstur"
-
-
-msgid "Mask UV loop layer Index"
 msgstr "Tekstur"
 
 
@@ -1538,6 +1511,10 @@ msgid "Top-Left 3D Editor"
 msgstr "Penyunting Teks"
 
 
+msgid "Attenuation"
+msgstr "lokasi"
+
+
 msgid "Sound"
 msgstr "Suara"
 
@@ -1664,14 +1641,6 @@ msgstr "lokasi"
 
 msgid "Solver"
 msgstr "Kamera"
-
-
-msgid "Min step"
-msgstr "Ukurang"
-
-
-msgid "Auto step"
-msgstr "Penyimpanan Otomatis"
 
 
 msgid "Color Depth"
@@ -1856,10 +1825,6 @@ msgid "Node Color Specials"
 msgstr "Warna"
 
 
-msgid "Transitions"
-msgstr "Orientasi Transformasi"
-
-
 msgid "Select Linked"
 msgstr "Seleksi"
 
@@ -1874,10 +1839,6 @@ msgstr "Dokumen"
 
 msgid "Enabled Modes"
 msgstr "Modus Sunting"
-
-
-msgid "Hide/Mask"
-msgstr "Sembunyikan"
 
 
 msgid "Apply"
@@ -1952,8 +1913,8 @@ msgid "Cast Type"
 msgstr "Tipe"
 
 
-msgid "Mix Mode"
-msgstr "Modus Sunting"
+msgid "Use Transform"
+msgstr "Orientasi Transformasi"
 
 
 msgid "Use edge collapsing"
@@ -2241,10 +2202,6 @@ msgid "Correlation"
 msgstr "lokasi"
 
 
-msgid "Motion model"
-msgstr "Gerakan"
-
-
 msgid "Default motion model to use for tracking"
 msgstr "lokasi"
 
@@ -2335,10 +2292,6 @@ msgstr "Suara"
 
 msgid "Box Mask"
 msgstr "Hapus"
-
-
-msgid "Mask type"
-msgstr "Grup"
 
 
 msgid "Bright/Contrast"
@@ -3325,16 +3278,6 @@ msgstr "Hapus"
 
 
 msgctxt "Operator"
-msgid "Delete keyframe"
-msgstr "Hapus keyframe"
-
-
-msgctxt "Operator"
-msgid "Insert keyframe"
-msgstr "Sisipkan keyframe"
-
-
-msgctxt "Operator"
 msgid "Lock Tracks"
 msgstr "Hapus"
 
@@ -3642,10 +3585,6 @@ msgid "Checker Deselect"
 msgstr "Tekstur"
 
 
-msgid "Deselect every other vertex"
-msgstr "Warna Standar"
-
-
 msgctxt "Operator"
 msgid "Select Previous"
 msgstr "Seleksi"
@@ -3720,10 +3659,6 @@ msgstr "Batal"
 msgctxt "Operator"
 msgid "Delete Selected Files"
 msgstr "Hapus Berkas Terpilih"
-
-
-msgid "Delete selected files"
-msgstr "Hapus berkas terpilih"
 
 
 msgid "Open"
@@ -4768,10 +4703,6 @@ msgid "Node type"
 msgstr "Tekstur"
 
 
-msgid "Use Transform"
-msgstr "Orientasi Transformasi"
-
-
 msgctxt "Operator"
 msgid "Add File Node"
 msgstr "Tambah Baru"
@@ -5335,10 +5266,6 @@ msgid "Drop to Set Parent"
 msgstr "Induk"
 
 
-msgid "Child Object"
-msgstr "Sunting Objek"
-
-
 msgctxt "Operator"
 msgid "Drop Object to Scene"
 msgstr "Data Objek"
@@ -5699,11 +5626,6 @@ msgid "Cancel Render View"
 msgstr "Partikel"
 
 
-msgctxt "Operator"
-msgid "Bake To Keyframes"
-msgstr "Tekstur"
-
-
 msgid "Material Preset"
 msgstr "Kamera"
 
@@ -5997,11 +5919,6 @@ msgstr "Tekstur"
 msgctxt "Operator"
 msgid "Text Auto Complete"
 msgstr "Tipe"
-
-
-msgctxt "Operator"
-msgid "Comment"
-msgstr "Komunitas Pengguna"
 
 
 msgctxt "Operator"
@@ -6471,11 +6388,6 @@ msgid "View Manual"
 msgstr "Bahan"
 
 
-msgctxt "Operator"
-msgid "Open Blender File"
-msgstr "Situs Blender"
-
-
 msgid "Property"
 msgstr "Properti"
 
@@ -6568,10 +6480,6 @@ msgstr "Kunci"
 
 msgid "Lock Z"
 msgstr "Kunci"
-
-
-msgid "Show Diffuse Color"
-msgstr "Warna"
 
 
 msgid "Restrict"
@@ -6813,6 +6721,10 @@ msgid "Progressive Refine"
 msgstr "Proses"
 
 
+msgid "Glossy Color"
+msgstr "Warna"
+
+
 msgid "Map Resolution"
 msgstr "Gerakan"
 
@@ -6835,10 +6747,6 @@ msgstr "Kamera"
 
 msgid "Camera Zoom"
 msgstr "Kamera"
-
-
-msgid "Glossy Color"
-msgstr "Warna"
 
 
 msgid "Deliver transmission color pass"
@@ -7117,6 +7025,10 @@ msgid "Gradient High/Off"
 msgstr "Tipe"
 
 
+msgid "Use Gradient"
+msgstr "Kamera"
+
+
 msgid "Active Action"
 msgstr "lokasi"
 
@@ -7143,6 +7055,10 @@ msgstr "Hapus"
 
 msgid "Action-Clip Strip - Selected"
 msgstr "Hapus"
+
+
+msgid "Transitions"
+msgstr "Orientasi Transformasi"
 
 
 msgid "Transitions Selected"
@@ -7526,6 +7442,11 @@ msgstr "Internet:"
 
 
 msgctxt "Operator"
+msgid "Back"
+msgstr "Belakang"
+
+
+msgctxt "Operator"
 msgid "More"
 msgstr "Modus"
 
@@ -7638,18 +7559,18 @@ msgstr "Saluran"
 
 
 msgctxt "Operator"
+msgid "Top"
+msgstr "Atas"
+
+
+msgctxt "Operator"
+msgid "Bottom"
+msgstr "Bawah"
+
+
+msgctxt "Operator"
 msgid "One Object"
 msgstr "Sunting Objek"
-
-
-msgctxt "Operator"
-msgid "Move line(s) up"
-msgstr "Grup"
-
-
-msgctxt "Operator"
-msgid "Move line(s) down"
-msgstr "Grup"
 
 
 msgctxt "Operator"
@@ -7733,23 +7654,8 @@ msgstr "Kamera"
 
 
 msgctxt "Operator"
-msgid "Top"
-msgstr "Atas"
-
-
-msgctxt "Operator"
-msgid "Bottom"
-msgstr "Bawah"
-
-
-msgctxt "Operator"
 msgid "Front"
 msgstr "Depan"
-
-
-msgctxt "Operator"
-msgid "Back"
-msgstr "Belakang"
 
 
 msgctxt "Operator"
@@ -7853,12 +7759,12 @@ msgstr "Saluran"
 
 
 msgctxt "Operator"
-msgid "Hide Bounding Box"
+msgid "Show Bounding Box"
 msgstr "Suara"
 
 
 msgctxt "Operator"
-msgid "Show Bounding Box"
+msgid "Hide Bounding Box"
 msgstr "Suara"
 
 
@@ -7903,11 +7809,6 @@ msgstr "Buat"
 
 
 msgctxt "Operator"
-msgid "Move to Layer"
-msgstr "Warna Standar"
-
-
-msgctxt "Operator"
 msgid "Move Texture Space"
 msgstr "Tekstur"
 
@@ -7930,11 +7831,6 @@ msgstr "Seleksi"
 msgctxt "Operator"
 msgid "Objects to Scene..."
 msgstr "Data Objek"
-
-
-msgctxt "Operator"
-msgid "Curve Preset"
-msgstr "Kamera"
 
 
 msgctxt "Operator"
@@ -8400,11 +8296,7 @@ msgid "Nothing selected"
 msgstr "Hapus"
 
 
-msgid "Cannot add geometry in edit mode"
-msgstr "Penyunting Teks"
-
-
-msgid "Cannot add tessfaces in edit mode"
+msgid "Cannot add vertices in edit mode"
 msgstr "Penyunting Teks"
 
 
@@ -8412,15 +8304,11 @@ msgid "Cannot add edges in edit mode"
 msgstr "Penyunting Teks"
 
 
-msgid "Cannot add vertices in edit mode"
+msgid "Cannot add loops in edit mode"
 msgstr "Penyunting Teks"
 
 
-msgid "Cannot remove faces in edit mode"
-msgstr "Penyunting Teks"
-
-
-msgid "Cannot remove edges in edit mode"
+msgid "Cannot add polygons in edit mode"
 msgstr "Penyunting Teks"
 
 
@@ -8432,11 +8320,7 @@ msgid "Cannot remove more vertices than the mesh contains"
 msgstr "Penyunting Teks"
 
 
-msgid "Cannot add loops in edit mode"
-msgstr "Penyunting Teks"
-
-
-msgid "Cannot add polygons in edit mode"
+msgid "Cannot remove edges in edit mode"
 msgstr "Penyunting Teks"
 
 
@@ -8588,6 +8472,10 @@ msgid "No active track to join to"
 msgstr "lokasi"
 
 
+msgid "Could not create new folder name"
+msgstr "Tambah Gambar"
+
+
 msgid "Cancel"
 msgstr "Batal"
 
@@ -8598,10 +8486,6 @@ msgstr "Nama file, tindih yang ada"
 
 msgid "File name"
 msgstr "Nama file"
-
-
-msgid "Could not create new folder name"
-msgstr "Tambah Gambar"
 
 
 msgid "Cursor from Selection"
@@ -9032,6 +8916,10 @@ msgid "Paste name"
 msgstr "Tekstur"
 
 
+msgid "Blender File View"
+msgstr "Menampilkan Berkas Blender"
+
+
 msgid "unable to open the file"
 msgstr "Tidak dapat membuka dokumen"
 
@@ -9055,10 +8943,6 @@ msgstr "Kamera"
 msgctxt "Operator"
 msgid "Toggle System Console"
 msgstr "Kamera"
-
-
-msgid "Blender File View"
-msgstr "Menampilkan Berkas Blender"
 
 
 msgid "Add Mesh"
@@ -9243,3 +9127,4 @@ msgstr "Sedang Proses..."
 
 msgid "Starting"
 msgstr "Memulai"
+

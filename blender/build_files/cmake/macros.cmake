@@ -147,9 +147,9 @@ function(blender_include_dirs
     get_filename_component(_ABS_INC ${_INC} ABSOLUTE)
     list(APPEND _ALL_INCS ${_ABS_INC})
     # for checking for invalid includes, disable for regular use
-    ##if(NOT EXISTS "${_ABS_INC}/")
-    ##  message(FATAL_ERROR "Include not found: ${_ABS_INC}/")
-    ##endif()
+    # if(NOT EXISTS "${_ABS_INC}/")
+    #   message(FATAL_ERROR "Include not found: ${_ABS_INC}/")
+    # endif()
   endforeach()
   include_directories(${_ALL_INCS})
 endfunction()
@@ -162,9 +162,9 @@ function(blender_include_dirs_sys
   foreach(_INC ${ARGV})
     get_filename_component(_ABS_INC ${_INC} ABSOLUTE)
     list(APPEND _ALL_INCS ${_ABS_INC})
-    ##if(NOT EXISTS "${_ABS_INC}/")
-    ##  message(FATAL_ERROR "Include not found: ${_ABS_INC}/")
-    ##endif()
+    # if(NOT EXISTS "${_ABS_INC}/")
+    #   message(FATAL_ERROR "Include not found: ${_ABS_INC}/")
+    # endif()
   endforeach()
   include_directories(SYSTEM ${_ALL_INCS})
 endfunction()
@@ -173,7 +173,7 @@ function(blender_source_group
   sources
   )
 
-  #if enabled, use the sources directories as filters.
+  # if enabled, use the sources directories as filters.
   if(WINDOWS_USE_VISUAL_STUDIO_SOURCE_FOLDERS)
     foreach(_SRC ${sources})
       # remove ../'s
@@ -259,7 +259,7 @@ function(blender_add_lib__impl
   # listed is helpful for IDE's (QtCreator/MSVC)
   blender_source_group("${sources}")
 
-  #if enabled, set the FOLDER property for visual studio projects
+  # if enabled, set the FOLDER property for visual studio projects
   if(WINDOWS_USE_VISUAL_STUDIO_PROJECT_FOLDERS)
     get_filename_component(FolderDir ${CMAKE_CURRENT_SOURCE_DIR} DIRECTORY)
     string(REPLACE ${CMAKE_SOURCE_DIR} "" FolderDir ${FolderDir})
@@ -352,6 +352,9 @@ function(SETUP_LIBDIRS)
     if(WITH_OPENIMAGEIO)
       link_directories(${OPENIMAGEIO_LIBPATH})
     endif()
+    if(WITH_OPENIMAGEDENOISE)
+      link_directories(${OPENIMAGEDENOISE_LIBPATH})
+    endif()
     if(WITH_OPENCOLORIO)
       link_directories(${OPENCOLORIO_LIBPATH})
     endif()
@@ -372,7 +375,7 @@ function(SETUP_LIBDIRS)
     endif()
     if(WITH_OPENCOLLADA)
       link_directories(${OPENCOLLADA_LIBPATH})
-      ## Never set
+      # # Never set
       # link_directories(${PCRE_LIBPATH})
       # link_directories(${EXPAT_LIBPATH})
     endif()
@@ -457,10 +460,16 @@ function(setup_liblinks
     target_link_libraries(${target} ${OSL_LIBRARIES})
   endif()
   if(WITH_OPENVDB)
-    target_link_libraries(${target} ${OPENVDB_LIBRARIES} ${TBB_LIBRARIES} ${BLOSC_LIBRARIES})
+    target_link_libraries(${target} ${OPENVDB_LIBRARIES} ${BLOSC_LIBRARIES})
   endif()
   if(WITH_OPENIMAGEIO)
     target_link_libraries(${target} ${OPENIMAGEIO_LIBRARIES})
+  endif()
+  if(WITH_OPENIMAGEDENOISE)
+    target_link_libraries(${target} ${OPENIMAGEDENOISE_LIBRARIES})
+  endif()
+  if(WITH_TBB)
+    target_link_libraries(${target} ${TBB_LIBRARIES})
   endif()
   if(WITH_OPENCOLORIO)
     target_link_libraries(${target} ${OPENCOLORIO_LIBRARIES})
@@ -560,11 +569,11 @@ function(setup_liblinks
     ${ZLIB_LIBRARIES}
   )
 
-  #system libraries with no dependencies such as platform link libs or opengl should go last
+  # System libraries with no dependencies such as platform link libs or opengl should go last.
   target_link_libraries(${target}
       ${BLENDER_GL_LIBRARIES})
 
-  #target_link_libraries(${target} ${PLATFORM_LINKLIBS} ${CMAKE_DL_LIBS})
+  # target_link_libraries(${target} ${PLATFORM_LINKLIBS} ${CMAKE_DL_LIBS})
   target_link_libraries(${target} ${PLATFORM_LINKLIBS})
 endfunction()
 
@@ -713,7 +722,7 @@ macro(remove_strict_flags)
   endif()
 
   if(MSVC)
-    remove_cc_flag(/w34189) # Restore warn C4189 (unused variable) back to w4 
+    remove_cc_flag(/w34189) # Restore warn C4189 (unused variable) back to w4
   endif()
 
 endmacro()
@@ -1058,7 +1067,7 @@ function(data_to_c_simple_icons
   add_custom_command(
     OUTPUT  ${_file_from} ${_file_to}
     COMMAND ${CMAKE_COMMAND} -E make_directory ${_file_to_path}
-    #COMMAND python3 ${CMAKE_SOURCE_DIR}/source/blender/datatoc/datatoc_icon.py ${_path_from_abs} ${_file_from}
+    # COMMAND python3 ${CMAKE_SOURCE_DIR}/source/blender/datatoc/datatoc_icon.py ${_path_from_abs} ${_file_from}
     COMMAND "$<TARGET_FILE:datatoc_icon>" ${_path_from_abs} ${_file_from}
     COMMAND "$<TARGET_FILE:datatoc>" ${_file_from} ${_file_to}
     DEPENDS
@@ -1203,7 +1212,9 @@ macro(openmp_delayload
   )
     if(MSVC)
       if(WITH_OPENMP)
-        if(MSVC_VERSION EQUAL 1800)
+        if(MSVC_CLANG)
+          set(OPENMP_DLL_NAME "libomp")
+        elseif(MSVC_VERSION EQUAL 1800)
           set(OPENMP_DLL_NAME "vcomp120")
         else()
           set(OPENMP_DLL_NAME "vcomp140")

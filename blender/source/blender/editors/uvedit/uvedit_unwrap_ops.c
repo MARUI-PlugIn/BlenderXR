@@ -524,7 +524,7 @@ static ParamHandle *construct_param_handle_subsurfed(Scene *scene,
   smd.levels = smd_real->levels;
   smd.subdivType = smd_real->subdivType;
 
-  initialDerived = CDDM_from_editbmesh(em, false, false);
+  initialDerived = CDDM_from_editbmesh(em, false);
   derivedMesh = subsurf_make_derived_from_derived(
       initialDerived, &smd, scene, NULL, SUBSURF_IN_EDIT_MODE);
 
@@ -1258,7 +1258,7 @@ static void uv_map_rotation_matrix_ex(float result[4][4],
                                       float upangledeg,
                                       float sideangledeg,
                                       float radius,
-                                      float offset[4])
+                                      const float offset[4])
 {
   float rotup[4][4], rotside[4][4], viewmatrix[4][4], rotobj[4][4];
   float sideangle = 0.0f, upangle = 0.0f;
@@ -2035,9 +2035,9 @@ void UV_OT_reset(wmOperatorType *ot)
 /****************** Sphere Project operator ***************/
 
 static void uv_sphere_project(float target[2],
-                              float source[3],
-                              float center[3],
-                              float rotmat[4][4])
+                              const float source[3],
+                              const float center[3],
+                              const float rotmat[4][4])
 {
   float pv[3];
 
@@ -2162,9 +2162,9 @@ void UV_OT_sphere_project(wmOperatorType *ot)
 /***************** Cylinder Project operator **************/
 
 static void uv_cylinder_project(float target[2],
-                                float source[3],
-                                float center[3],
-                                float rotmat[4][4])
+                                const float source[3],
+                                const float center[3],
+                                const float rotmat[4][4])
 {
   float pv[3];
 

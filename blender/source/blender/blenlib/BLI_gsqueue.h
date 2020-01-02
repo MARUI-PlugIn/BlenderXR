@@ -24,15 +24,21 @@
  * \ingroup bli
  */
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct _GSQueue GSQueue;
 
-GSQueue *BLI_gsqueue_new(size_t elem_size);
-bool BLI_gsqueue_is_empty(GSQueue *gq);
-int BLI_gsqueue_len(GSQueue *gq);
-void BLI_gsqueue_peek(GSQueue *gq, void *r_item);
+GSQueue *BLI_gsqueue_new(const size_t elem_size);
+bool BLI_gsqueue_is_empty(const GSQueue *gq);
+size_t BLI_gsqueue_len(const GSQueue *gq);
 void BLI_gsqueue_pop(GSQueue *gq, void *r_item);
 void BLI_gsqueue_push(GSQueue *gq, const void *item);
-void BLI_gsqueue_push_back(GSQueue *gq, const void *item);
 void BLI_gsqueue_free(GSQueue *gq);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __BLI_GSQUEUE_H__ */

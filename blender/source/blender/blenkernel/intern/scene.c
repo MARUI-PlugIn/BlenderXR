@@ -43,11 +43,13 @@
 #include "DNA_windowmanager_types.h"
 #include "DNA_workspace_types.h"
 #include "DNA_gpencil_types.h"
+#include "DNA_world_types.h"
+#include "DNA_defaults.h"
 
 #include "BLI_math.h"
 #include "BLI_blenlib.h"
 #include "BLI_utildefines.h"
-#include "BLI_callbacks.h"
+#include "BKE_callbacks.h"
 #include "BLI_string.h"
 #include "BLI_string_utils.h"
 #include "BLI_threads.h"
@@ -176,10 +178,10 @@ ToolSettings *BKE_toolsettings_copy(ToolSettings *toolsettings, const int flag)
   ts->particle.object = NULL;
 
   /* duplicate Grease Pencil interpolation curve */
-  ts->gp_interpolate.custom_ipo = curvemapping_copy(ts->gp_interpolate.custom_ipo);
+  ts->gp_interpolate.custom_ipo = BKE_curvemapping_copy(ts->gp_interpolate.custom_ipo);
   /* duplicate Grease Pencil multiframe fallof */
-  ts->gp_sculpt.cur_falloff = curvemapping_copy(ts->gp_sculpt.cur_falloff);
-  ts->gp_sculpt.cur_primitive = curvemapping_copy(ts->gp_sculpt.cur_primitive);
+  ts->gp_sculpt.cur_falloff = BKE_curvemapping_copy(ts->gp_sculpt.cur_falloff);
+  ts->gp_sculpt.cur_primitive = BKE_curvemapping_copy(ts->gp_sculpt.cur_primitive);
   return ts;
 }
 
@@ -212,14 +214,14 @@ void BKE_toolsettings_free(ToolSettings *toolsettings)
 
   /* free Grease Pencil interpolation curve */
   if (toolsettings->gp_interpolate.custom_ipo) {
-    curvemapping_free(toolsettings->gp_interpolate.custom_ipo);
+    BKE_curvemapping_free(toolsettings->gp_interpolate.custom_ipo);
   }
   /* free Grease Pencil multiframe falloff curve */
   if (toolsettings->gp_sculpt.cur_falloff) {
-    curvemapping_free(toolsettings->gp_sculpt.cur_falloff);
+    BKE_curvemapping_free(toolsettings->gp_sculpt.cur_falloff);
   }
   if (toolsettings->gp_sculpt.cur_primitive) {
-    curvemapping_free(toolsettings->gp_sculpt.cur_primitive);
+    BKE_curvemapping_free(toolsettings->gp_sculpt.cur_primitive);
   }
 
   MEM_freeN(toolsettings);
@@ -239,6 +241,8 @@ void BKE_scene_copy_data(Main *bmain, Scene *sce_dst, const Scene *sce_src, cons
 {
   /* We never handle usercount here for own data. */
   const int flag_subdata = flag | LIB_ID_CREATE_NO_USER_REFCOUNT;
+  /* We always need allocation of our private ID data. */
+  const int flag_private_id_data = flag & ~LIB_ID_CREATE_NO_ALLOCATE;
 
   sce_dst->ed = NULL;
   sce_dst->depsgraph_hash = NULL;
@@ -246,8 +250,10 @@ void BKE_scene_copy_data(Main *bmain, Scene *sce_dst, const Scene *sce_src, cons
 
   /* Master Collection */
   if (sce_src->master_collection) {
-    sce_dst->master_collection = BKE_collection_copy_master(
-        bmain, sce_src->master_collection, flag);
+    BKE_id_copy_ex(bmain,
+                   (ID *)sce_src->master_collection,
+                   (ID **)&sce_dst->master_collection,
+                   flag_private_id_data);
   }
 
   /* View Layers */
@@ -265,10 +271,13 @@ void BKE_scene_copy_data(Main *bmain, Scene *sce_dst, const Scene *sce_src, cons
   BKE_keyingsets_copy(&(sce_dst->keyingsets), &(sce_src->keyingsets));
 
   if (sce_src->nodetree) {
-    /* Note: nodetree is *not* in bmain, however this specific case is handled at lower level
-     *       (see BKE_libblock_copy_ex()). */
-    BKE_id_copy_ex(bmain, (ID *)sce_src->nodetree, (ID **)&sce_dst->nodetree, flag);
-    BKE_libblock_relink_ex(bmain, sce_dst->nodetree, (void *)(&sce_src->id), &sce_dst->id, false);
+    BKE_id_copy_ex(
+        bmain, (ID *)sce_src->nodetree, (ID **)&sce_dst->nodetree, flag_private_id_data);
+    BKE_libblock_relink_ex(bmain,
+                           sce_dst->nodetree,
+                           (void *)(&sce_src->id),
+                           &sce_dst->id,
+                           ID_REMAP_SKIP_NEVER_NULL_USAGE);
   }
 
   if (sce_src->rigidbody_world) {
@@ -291,7 +300,7 @@ void BKE_scene_copy_data(Main *bmain, Scene *sce_dst, const Scene *sce_src, cons
   BKE_color_managed_view_settings_copy(&sce_dst->r.bake.im_format.view_settings,
                                        &sce_src->r.bake.im_format.view_settings);
 
-  curvemapping_copy_data(&sce_dst->r.mblur_shutter_curve, &sce_src->r.mblur_shutter_curve);
+  BKE_curvemapping_copy_data(&sce_dst->r.mblur_shutter_curve, &sce_src->r.mblur_shutter_curve);
 
   /* tool settings */
   sce_dst->toolsettings = BKE_toolsettings_copy(sce_dst->toolsettings, flag_subdata);
@@ -307,6 +316,10 @@ void BKE_scene_copy_data(Main *bmain, Scene *sce_dst, const Scene *sce_src, cons
     /* intentionally check sce_dst not sce_src. */ /* XXX ??? comment outdated... */
     sce_dst->r.ffcodecdata.properties = IDP_CopyProperty_ex(sce_src->r.ffcodecdata.properties,
                                                             flag_subdata);
+  }
+
+  if (sce_src->display.shading.prop) {
+    sce_dst->display.shading.prop = IDP_CopyProperty(sce_src->display.shading.prop);
   }
 
   BKE_sound_reset_scene_runtime(sce_dst);
@@ -347,7 +360,7 @@ Scene *BKE_scene_copy(Main *bmain, Scene *sce, int type)
     sce_copy = BKE_scene_add(bmain, sce->id.name + 2);
 
     rv = sce_copy->r.views;
-    curvemapping_free_data(&sce_copy->r.mblur_shutter_curve);
+    BKE_curvemapping_free_data(&sce_copy->r.mblur_shutter_curve);
     sce_copy->r = sce->r;
     sce_copy->r.views = rv;
     sce_copy->unit = sce->unit;
@@ -380,7 +393,7 @@ Scene *BKE_scene_copy(Main *bmain, Scene *sce, int type)
     BKE_color_managed_view_settings_copy(&sce_copy->r.bake.im_format.view_settings,
                                          &sce->r.bake.im_format.view_settings);
 
-    curvemapping_copy_data(&sce_copy->r.mblur_shutter_curve, &sce->r.mblur_shutter_curve);
+    BKE_curvemapping_copy_data(&sce_copy->r.mblur_shutter_curve, &sce->r.mblur_shutter_curve);
 
     /* viewport display settings */
     sce_copy->display = sce->display;
@@ -515,7 +528,7 @@ void BKE_scene_free_ex(Scene *sce, const bool do_id_user)
   BKE_color_managed_view_settings_free(&sce->view_settings);
 
   BKE_previewimg_free(&sce->preview);
-  curvemapping_free_data(&sce->r.mblur_shutter_curve);
+  BKE_curvemapping_free_data(&sce->r.mblur_shutter_curve);
 
   for (ViewLayer *view_layer = sce->view_layers.first, *view_layer_next; view_layer;
        view_layer = view_layer_next) {
@@ -541,6 +554,11 @@ void BKE_scene_free_ex(Scene *sce, const bool do_id_user)
     sce->eevee.light_cache = NULL;
   }
 
+  if (sce->display.shading.prop) {
+    IDP_FreeProperty(sce->display.shading.prop);
+    sce->display.shading.prop = NULL;
+  }
+
   /* These are freed on doversion. */
   BLI_assert(sce->layer_properties == NULL);
 }
@@ -550,180 +568,47 @@ void BKE_scene_free(Scene *sce)
   BKE_scene_free_ex(sce, true);
 }
 
+/**
+ * \note Use DNA_scene_defaults.h where possible.
+ */
 void BKE_scene_init(Scene *sce)
 {
-  ParticleEditSettings *pset;
-  int a;
   const char *colorspace_name;
   SceneRenderView *srv;
   CurveMapping *mblur_shutter_curve;
 
   BLI_assert(MEMCMP_STRUCT_AFTER_IS_ZERO(sce, id));
 
-  sce->cursor.rotation_mode = ROT_MODE_XYZ;
-  sce->cursor.rotation_quaternion[0] = 1.0f;
-  sce->cursor.rotation_axis[1] = 1.0f;
+  MEMCPY_STRUCT_AFTER(sce, DNA_struct_default_get(Scene), id);
 
-  sce->r.mode = 0;
-  sce->r.cfra = 1;
-  sce->r.sfra = 1;
-  sce->r.efra = 250;
-  sce->r.frame_step = 1;
-  sce->r.xsch = 1920;
-  sce->r.ysch = 1080;
-  sce->r.xasp = 1;
-  sce->r.yasp = 1;
-  sce->r.tilex = 256;
-  sce->r.tiley = 256;
-  sce->r.size = 100;
-
-  sce->r.im_format.planes = R_IMF_PLANES_RGBA;
-  sce->r.im_format.imtype = R_IMF_IMTYPE_PNG;
-  sce->r.im_format.depth = R_IMF_CHAN_DEPTH_8;
-  sce->r.im_format.quality = 90;
-  sce->r.im_format.compress = 15;
-
-  sce->r.displaymode = R_OUTPUT_WINDOW;
-  sce->r.framapto = 100;
-  sce->r.images = 100;
-  sce->r.framelen = 1.0;
-  sce->r.blurfac = 0.5;
-  sce->r.frs_sec = 24;
-  sce->r.frs_sec_base = 1;
-
-  /* OCIO_TODO: for forwards compatibility only, so if no tonecurve are used,
-   *            images would look in the same way as in current blender
-   *
-   *            perhaps at some point should be completely deprecated?
-   */
-  sce->r.color_mgt_flag |= R_COLOR_MANAGEMENT;
-
-  sce->r.gauss = 1.5;
-  sce->r.dither_intensity = 1.0f;
-
-  sce->r.bake_mode = 0;
-  sce->r.bake_filter = 16;
-  sce->r.bake_flag = R_BAKE_CLEAR;
-  sce->r.bake_samples = 256;
-  sce->r.bake_biasdist = 0.001;
-
-  sce->r.bake.flag = R_BAKE_CLEAR;
-  sce->r.bake.pass_filter = R_BAKE_PASS_FILTER_ALL;
-  sce->r.bake.width = 512;
-  sce->r.bake.height = 512;
-  sce->r.bake.margin = 16;
-  sce->r.bake.normal_space = R_BAKE_SPACE_TANGENT;
-  sce->r.bake.normal_swizzle[0] = R_BAKE_POSX;
-  sce->r.bake.normal_swizzle[1] = R_BAKE_POSY;
-  sce->r.bake.normal_swizzle[2] = R_BAKE_POSZ;
   BLI_strncpy(sce->r.bake.filepath, U.renderdir, sizeof(sce->r.bake.filepath));
 
-  sce->r.bake.im_format.planes = R_IMF_PLANES_RGBA;
-  sce->r.bake.im_format.imtype = R_IMF_IMTYPE_PNG;
-  sce->r.bake.im_format.depth = R_IMF_CHAN_DEPTH_8;
-  sce->r.bake.im_format.quality = 90;
-  sce->r.bake.im_format.compress = 15;
-
-  sce->r.scemode = R_DOCOMP | R_DOSEQ | R_EXTENSION;
-  sce->r.stamp = R_STAMP_TIME | R_STAMP_FRAME | R_STAMP_DATE | R_STAMP_CAMERA | R_STAMP_SCENE |
-                 R_STAMP_FILENAME | R_STAMP_RENDERTIME | R_STAMP_MEMORY;
-  sce->r.stamp_font_id = 12;
-  sce->r.fg_stamp[0] = sce->r.fg_stamp[1] = sce->r.fg_stamp[2] = 0.8f;
-  sce->r.fg_stamp[3] = 1.0f;
-  sce->r.bg_stamp[0] = sce->r.bg_stamp[1] = sce->r.bg_stamp[2] = 0.0f;
-  sce->r.bg_stamp[3] = 0.25f;
-
-  sce->r.seq_prev_type = OB_SOLID;
-  sce->r.seq_rend_type = OB_SOLID;
-  sce->r.seq_flag = 0;
-
-  sce->r.threads = 1;
-
-  sce->r.simplify_subsurf = 6;
-  sce->r.simplify_particles = 1.0f;
-
-  sce->r.border.xmin = 0.0f;
-  sce->r.border.ymin = 0.0f;
-  sce->r.border.xmax = 1.0f;
-  sce->r.border.ymax = 1.0f;
-
-  sce->r.preview_start_resolution = 64;
-
-  sce->r.line_thickness_mode = R_LINE_THICKNESS_ABSOLUTE;
-  sce->r.unit_line_thickness = 1.0f;
-
   mblur_shutter_curve = &sce->r.mblur_shutter_curve;
-  curvemapping_set_defaults(mblur_shutter_curve, 1, 0.0f, 0.0f, 1.0f, 1.0f);
-  curvemapping_initialize(mblur_shutter_curve);
-  curvemap_reset(mblur_shutter_curve->cm,
-                 &mblur_shutter_curve->clipr,
-                 CURVE_PRESET_MAX,
-                 CURVEMAP_SLOPE_POS_NEG);
+  BKE_curvemapping_set_defaults(mblur_shutter_curve, 1, 0.0f, 0.0f, 1.0f, 1.0f);
+  BKE_curvemapping_initialize(mblur_shutter_curve);
+  BKE_curvemap_reset(mblur_shutter_curve->cm,
+                     &mblur_shutter_curve->clipr,
+                     CURVE_PRESET_MAX,
+                     CURVEMAP_SLOPE_POS_NEG);
 
-  sce->toolsettings = MEM_callocN(sizeof(struct ToolSettings), "Tool Settings Struct");
+  sce->toolsettings = DNA_struct_default_alloc(ToolSettings);
 
-  sce->toolsettings->object_flag |= SCE_OBJECT_MODE_LOCK;
-  sce->toolsettings->doublimit = 0.001;
-  sce->toolsettings->vgroup_weight = 1.0f;
-  sce->toolsettings->uvcalc_margin = 0.001f;
-  sce->toolsettings->uvcalc_flag = UVCALC_TRANSFORM_CORRECT;
-  sce->toolsettings->unwrapper = 1;
-  sce->toolsettings->select_thresh = 0.01f;
-
-  sce->toolsettings->selectmode = SCE_SELECT_VERTEX;
-  sce->toolsettings->uv_selectmode = UV_SELECT_VERTEX;
   sce->toolsettings->autokey_mode = U.autokey_mode;
 
-  sce->toolsettings->transform_pivot_point = V3D_AROUND_CENTER_MEDIAN;
-  sce->toolsettings->snap_mode = SCE_SNAP_MODE_INCREMENT;
-  sce->toolsettings->snap_node_mode = SCE_SNAP_MODE_GRID;
-  sce->toolsettings->snap_uv_mode = SCE_SNAP_MODE_INCREMENT;
-  sce->toolsettings->snap_transform_mode_flag = SCE_SNAP_TRANSFORM_MODE_TRANSLATE;
-
-  sce->toolsettings->curve_paint_settings.curve_type = CU_BEZIER;
-  sce->toolsettings->curve_paint_settings.flag |= CURVE_PAINT_FLAG_CORNERS_DETECT;
-  sce->toolsettings->curve_paint_settings.error_threshold = 8;
-  sce->toolsettings->curve_paint_settings.radius_max = 1.0f;
-  sce->toolsettings->curve_paint_settings.corner_angle = DEG2RADF(70.0f);
-
-  sce->toolsettings->statvis.overhang_axis = OB_NEGZ;
-  sce->toolsettings->statvis.overhang_min = 0;
-  sce->toolsettings->statvis.overhang_max = DEG2RADF(45.0f);
-  sce->toolsettings->statvis.thickness_max = 0.1f;
-  sce->toolsettings->statvis.thickness_samples = 1;
-  sce->toolsettings->statvis.distort_min = DEG2RADF(5.0f);
-  sce->toolsettings->statvis.distort_max = DEG2RADF(45.0f);
-
-  sce->toolsettings->statvis.sharp_min = DEG2RADF(90.0f);
-  sce->toolsettings->statvis.sharp_max = DEG2RADF(180.0f);
-
-  sce->toolsettings->proportional_size = 1.0f;
-
-  sce->toolsettings->imapaint.paint.flags |= PAINT_SHOW_BRUSH;
-  sce->toolsettings->imapaint.normal_angle = 80;
-  sce->toolsettings->imapaint.seam_bleed = 2;
-
   /* grease pencil multiframe falloff curve */
-  sce->toolsettings->gp_sculpt.cur_falloff = curvemapping_add(1, 0.0f, 0.0f, 1.0f, 1.0f);
+  sce->toolsettings->gp_sculpt.cur_falloff = BKE_curvemapping_add(1, 0.0f, 0.0f, 1.0f, 1.0f);
   CurveMapping *gp_falloff_curve = sce->toolsettings->gp_sculpt.cur_falloff;
-  curvemapping_initialize(gp_falloff_curve);
-  curvemap_reset(
+  BKE_curvemapping_initialize(gp_falloff_curve);
+  BKE_curvemap_reset(
       gp_falloff_curve->cm, &gp_falloff_curve->clipr, CURVE_PRESET_GAUSS, CURVEMAP_SLOPE_POSITIVE);
 
-  sce->toolsettings->gp_sculpt.cur_primitive = curvemapping_add(1, 0.0f, 0.0f, 1.0f, 1.0f);
+  sce->toolsettings->gp_sculpt.cur_primitive = BKE_curvemapping_add(1, 0.0f, 0.0f, 1.0f, 1.0f);
   CurveMapping *gp_primitive_curve = sce->toolsettings->gp_sculpt.cur_primitive;
-  curvemapping_initialize(gp_primitive_curve);
-  curvemap_reset(gp_primitive_curve->cm,
-                 &gp_primitive_curve->clipr,
-                 CURVE_PRESET_BELL,
-                 CURVEMAP_SLOPE_POSITIVE);
-
-  sce->toolsettings->gp_sculpt.guide.spacing = 20.0f;
-
-  sce->physics_settings.gravity[0] = 0.0f;
-  sce->physics_settings.gravity[1] = 0.0f;
-  sce->physics_settings.gravity[2] = -9.81f;
-  sce->physics_settings.flag = PHYS_GLOBAL_GRAVITY;
+  BKE_curvemapping_initialize(gp_primitive_curve);
+  BKE_curvemap_reset(gp_primitive_curve->cm,
+                     &gp_primitive_curve->clipr,
+                     CURVE_PRESET_BELL,
+                     CURVEMAP_SLOPE_POSITIVE);
 
   sce->unit.system = USER_UNIT_METRIC;
   sce->unit.scale_length = 1.0f;
@@ -731,40 +616,18 @@ void BKE_scene_init(Scene *sce)
   sce->unit.mass_unit = bUnit_GetBaseUnitOfType(USER_UNIT_METRIC, B_UNIT_MASS);
   sce->unit.time_unit = bUnit_GetBaseUnitOfType(USER_UNIT_METRIC, B_UNIT_TIME);
 
-  pset = &sce->toolsettings->particle;
-  pset->flag = PE_KEEP_LENGTHS | PE_LOCK_FIRST | PE_DEFLECT_EMITTER | PE_AUTO_VELOCITY;
-  pset->emitterdist = 0.25f;
-  pset->totrekey = 5;
-  pset->totaddkey = 5;
-  pset->brushtype = PE_BRUSH_COMB;
-  pset->draw_step = 2;
-  pset->fade_frames = 2;
-  pset->selectmode = SCE_SELECT_PATH;
-
-  for (a = 0; a < ARRAY_SIZE(pset->brush); a++) {
-    pset->brush[a].strength = 0.5f;
-    pset->brush[a].size = 50;
-    pset->brush[a].step = 10;
-    pset->brush[a].count = 10;
+  {
+    ParticleEditSettings *pset;
+    pset = &sce->toolsettings->particle;
+    for (int i = 1; i < ARRAY_SIZE(pset->brush); i++) {
+      pset->brush[i] = pset->brush[0];
+    }
+    pset->brush[PE_BRUSH_CUT].strength = 1.0f;
   }
-  pset->brush[PE_BRUSH_CUT].strength = 1.0f;
-
-  sce->r.ffcodecdata.audio_mixrate = 48000;
-  sce->r.ffcodecdata.audio_volume = 1.0f;
-  sce->r.ffcodecdata.audio_bitrate = 192;
-  sce->r.ffcodecdata.audio_channels = 2;
 
   BLI_strncpy(sce->r.engine, RE_engine_id_BLENDER_EEVEE, sizeof(sce->r.engine));
 
-  sce->audio.distance_model = 2.0f;
-  sce->audio.doppler_factor = 1.0f;
-  sce->audio.speed_of_sound = 343.3f;
-  sce->audio.volume = 1.0f;
-  sce->audio.flag = AUDIO_SYNC;
-
   BLI_strncpy(sce->r.pic, U.renderdir, sizeof(sce->r.pic));
-
-  BLI_rctf_init(&sce->r.safety, 0.1f, 0.9f, 0.1f, 0.9f);
 
   /* Note; in header_info.c the scene copy happens...,
    * if you add more to renderdata it has to be checked there. */
@@ -799,14 +662,6 @@ void BKE_scene_init(Scene *sce)
   BKE_color_managed_display_settings_init(&sce->r.bake.im_format.display_settings);
   BKE_color_managed_view_settings_init_render(
       &sce->r.bake.im_format.view_settings, &sce->r.bake.im_format.display_settings, "Filmic");
-
-  /* Safe Areas */
-  copy_v2_fl2(sce->safe_areas.title, 10.0f / 100.0f, 5.0f / 100.0f);
-  copy_v2_fl2(sce->safe_areas.action, 3.5f / 100.0f, 3.5f / 100.0f);
-  copy_v2_fl2(sce->safe_areas.title_center, 17.5f / 100.0f, 5.0f / 100.0f);
-  copy_v2_fl2(sce->safe_areas.action_center, 15.0f / 100.0f, 5.0f / 100.0f);
-
-  sce->preview = NULL;
 
   /* GP Sculpt brushes */
   {
@@ -874,16 +729,6 @@ void BKE_scene_init(Scene *sce)
     copy_v3_v3(gp_brush->curcolor_sub, curcolor_sub);
   }
 
-  /* GP Stroke Placement */
-  sce->toolsettings->gpencil_v3d_align = GP_PROJECT_VIEWSPACE;
-  sce->toolsettings->gpencil_v2d_align = GP_PROJECT_VIEWSPACE;
-  sce->toolsettings->gpencil_seq_align = GP_PROJECT_VIEWSPACE;
-  sce->toolsettings->gpencil_ima_align = GP_PROJECT_VIEWSPACE;
-
-  /* Annotations */
-  sce->toolsettings->annotate_v3d_align = GP_PROJECT_VIEWSPACE | GP_PROJECT_CURSOR;
-  sce->toolsettings->annotate_thickness = 3;
-
   for (int i = 0; i < ARRAY_SIZE(sce->orientation_slots); i++) {
     sce->orientation_slots[i].index_custom = -1;
   }
@@ -892,80 +737,6 @@ void BKE_scene_init(Scene *sce)
   sce->master_collection = BKE_collection_master_add();
 
   BKE_view_layer_add(sce, "View Layer");
-
-  /* SceneDisplay */
-  copy_v3_v3(sce->display.light_direction, (float[3]){M_SQRT1_3, M_SQRT1_3, M_SQRT1_3});
-  sce->display.shadow_shift = 0.1f;
-  sce->display.shadow_focus = 0.0f;
-
-  sce->display.matcap_ssao_distance = 0.2f;
-  sce->display.matcap_ssao_attenuation = 1.0f;
-  sce->display.matcap_ssao_samples = 16;
-
-  sce->display.render_aa = SCE_DISPLAY_AA_SAMPLES_8;
-  sce->display.viewport_aa = SCE_DISPLAY_AA_FXAA;
-
-  /* OpenGL Render. */
-  BKE_screen_view3d_shading_init(&sce->display.shading);
-
-  /* SceneEEVEE */
-  sce->eevee.gi_diffuse_bounces = 3;
-  sce->eevee.gi_cubemap_resolution = 512;
-  sce->eevee.gi_visibility_resolution = 32;
-  sce->eevee.gi_cubemap_draw_size = 0.3f;
-  sce->eevee.gi_irradiance_draw_size = 0.1f;
-  sce->eevee.gi_irradiance_smoothing = 0.1f;
-  sce->eevee.gi_filter_quality = 3.0f;
-
-  sce->eevee.taa_samples = 16;
-  sce->eevee.taa_render_samples = 64;
-
-  sce->eevee.sss_samples = 7;
-  sce->eevee.sss_jitter_threshold = 0.3f;
-
-  sce->eevee.ssr_quality = 0.25f;
-  sce->eevee.ssr_max_roughness = 0.5f;
-  sce->eevee.ssr_thickness = 0.2f;
-  sce->eevee.ssr_border_fade = 0.075f;
-  sce->eevee.ssr_firefly_fac = 10.0f;
-
-  sce->eevee.volumetric_start = 0.1f;
-  sce->eevee.volumetric_end = 100.0f;
-  sce->eevee.volumetric_tile_size = 8;
-  sce->eevee.volumetric_samples = 64;
-  sce->eevee.volumetric_sample_distribution = 0.8f;
-  sce->eevee.volumetric_light_clamp = 0.0f;
-  sce->eevee.volumetric_shadow_samples = 16;
-
-  sce->eevee.gtao_distance = 0.2f;
-  sce->eevee.gtao_factor = 1.0f;
-  sce->eevee.gtao_quality = 0.25f;
-
-  sce->eevee.bokeh_max_size = 100.0f;
-  sce->eevee.bokeh_threshold = 1.0f;
-
-  copy_v3_fl(sce->eevee.bloom_color, 1.0f);
-  sce->eevee.bloom_threshold = 0.8f;
-  sce->eevee.bloom_knee = 0.5f;
-  sce->eevee.bloom_intensity = 0.05f;
-  sce->eevee.bloom_radius = 6.5f;
-  sce->eevee.bloom_clamp = 0.0f;
-
-  sce->eevee.motion_blur_samples = 8;
-  sce->eevee.motion_blur_shutter = 0.5f;
-
-  sce->eevee.shadow_method = SHADOW_ESM;
-  sce->eevee.shadow_cube_size = 512;
-  sce->eevee.shadow_cascade_size = 1024;
-
-  sce->eevee.light_cache = NULL;
-  sce->eevee.light_threshold = 0.01f;
-
-  sce->eevee.overscan = 3.0f;
-
-  sce->eevee.flag = SCE_EEVEE_VOLUMETRIC_LIGHTS | SCE_EEVEE_GTAO_BENT_NORMALS |
-                    SCE_EEVEE_GTAO_BOUNCE | SCE_EEVEE_TAA_REPROJECTION |
-                    SCE_EEVEE_SSR_HALF_RESOLUTION;
 }
 
 Scene *BKE_scene_add(Main *bmain, const char *name)
@@ -1237,19 +1008,19 @@ Object *BKE_scene_camera_switch_find(Scene *scene)
 }
 #endif
 
-int BKE_scene_camera_switch_update(Scene *scene)
+bool BKE_scene_camera_switch_update(Scene *scene)
 {
 #ifdef DURIAN_CAMERA_SWITCH
   Object *camera = BKE_scene_camera_switch_find(scene);
-  if (camera) {
+  if (camera && (camera != scene->camera)) {
     scene->camera = camera;
     DEG_id_tag_update(&scene->id, ID_RECALC_COPY_ON_WRITE);
-    return 1;
+    return true;
   }
 #else
   (void)scene;
 #endif
-  return 0;
+  return false;
 }
 
 char *BKE_scene_find_marker_name(Scene *scene, int frame)
@@ -1305,15 +1076,18 @@ int BKE_scene_frame_snap_by_seconds(Scene *scene, double interval_in_seconds, in
   return (delta_prev < delta_next) ? second_prev : second_next;
 }
 
-void BKE_scene_remove_rigidbody_object(struct Main *bmain, Scene *scene, Object *ob)
+void BKE_scene_remove_rigidbody_object(struct Main *bmain,
+                                       Scene *scene,
+                                       Object *ob,
+                                       const bool free_us)
 {
   /* remove rigid body constraint from world before removing object */
   if (ob->rigidbody_constraint) {
-    BKE_rigidbody_remove_constraint(scene, ob);
+    BKE_rigidbody_remove_constraint(bmain, scene, ob, free_us);
   }
   /* remove rigid body object from world before removing object */
   if (ob->rigidbody_object) {
-    BKE_rigidbody_remove_object(bmain, scene, ob);
+    BKE_rigidbody_remove_object(bmain, scene, ob, free_us);
   }
 }
 
@@ -1347,11 +1121,11 @@ bool BKE_scene_validate_setscene(Main *bmain, Scene *sce)
  */
 float BKE_scene_frame_get(const Scene *scene)
 {
-  return BKE_scene_frame_get_from_ctime(scene, scene->r.cfra);
+  return BKE_scene_frame_to_ctime(scene, scene->r.cfra);
 }
 
 /* This function is used to obtain arbitrary fractional frames */
-float BKE_scene_frame_get_from_ctime(const Scene *scene, const float frame)
+float BKE_scene_frame_to_ctime(const Scene *scene, const float frame)
 {
   float ctime = frame;
   ctime += scene->r.subframe;
@@ -1547,34 +1321,41 @@ static void scene_graph_update_tagged(Depsgraph *depsgraph, Main *bmain, bool on
 
   bool run_callbacks = DEG_id_type_any_updated(depsgraph);
   if (run_callbacks) {
-    BLI_callback_exec(bmain, &scene->id, BLI_CB_EVT_DEPSGRAPH_UPDATE_PRE);
+    BKE_callback_exec_id(bmain, &scene->id, BKE_CB_EVT_DEPSGRAPH_UPDATE_PRE);
   }
 
-  /* TODO(sergey): Some functions here are changing global state,
-   * for example, clearing update tags from bmain.
-   */
-  /* (Re-)build dependency graph if needed. */
-  DEG_graph_relations_update(depsgraph, bmain, scene, view_layer);
-  /* Uncomment this to check if graph was properly tagged for update. */
-  // DEG_debug_graph_relations_validate(depsgraph, bmain, scene);
-  /* Flush editing data if needed. */
-  prepare_mesh_for_viewport_render(bmain, view_layer);
-  /* Flush recalc flags to dependencies. */
-  DEG_graph_flush_update(bmain, depsgraph);
-  /* Update all objects: drivers, matrices, displists, etc. flags set
-   * by depgraph or manual, no layer check here, gets correct flushed.
-   */
-  DEG_evaluate_on_refresh(depsgraph);
-  /* Update sound system. */
-  BKE_scene_update_sound(depsgraph, bmain);
-  /* Notify python about depsgraph update. */
-  if (run_callbacks) {
-    BLI_callback_exec(bmain, &scene->id, BLI_CB_EVT_DEPSGRAPH_UPDATE_POST);
+  for (int pass = 0; pass < 2; pass++) {
+    /* (Re-)build dependency graph if needed. */
+    DEG_graph_relations_update(depsgraph, bmain, scene, view_layer);
+    /* Uncomment this to check if graph was properly tagged for update. */
+    // DEG_debug_graph_relations_validate(depsgraph, bmain, scene);
+    /* Flush editing data if needed. */
+    prepare_mesh_for_viewport_render(bmain, view_layer);
+    /* Update all objects: drivers, matrices, displists, etc. flags set
+     * by depgraph or manual, no layer check here, gets correct flushed.
+     */
+    DEG_evaluate_on_refresh(bmain, depsgraph);
+    /* Update sound system. */
+    BKE_scene_update_sound(depsgraph, bmain);
+    /* Notify python about depsgraph update. */
+    if (run_callbacks) {
+      BKE_callback_exec_id_depsgraph(
+          bmain, &scene->id, depsgraph, BKE_CB_EVT_DEPSGRAPH_UPDATE_POST);
+    }
+    /* Inform editors about possible changes. */
+    DEG_ids_check_recalc(bmain, depsgraph, scene, view_layer, false);
+    /* Clear recalc flags. */
+    DEG_ids_clear_recalc(bmain, depsgraph);
+
+    /* If user callback did not tag anything for update we can skip second iteration.
+     * Otherwise we update scene once again, but without running callbacks to bring
+     * scene to a fully evaluated state with user modifications taken into account. */
+    if (DEG_is_fully_evaluated(depsgraph)) {
+      break;
+    }
+
+    run_callbacks = false;
   }
-  /* Inform editors about possible changes. */
-  DEG_ids_check_recalc(bmain, depsgraph, scene, view_layer, false);
-  /* Clear recalc flags. */
-  DEG_ids_clear_recalc(bmain, depsgraph);
 }
 
 void BKE_scene_graph_update_tagged(Depsgraph *depsgraph, Main *bmain)
@@ -1593,33 +1374,52 @@ void BKE_scene_graph_update_for_newframe(Depsgraph *depsgraph, Main *bmain)
   Scene *scene = DEG_get_input_scene(depsgraph);
   ViewLayer *view_layer = DEG_get_input_view_layer(depsgraph);
 
-  /* TODO(sergey): Some functions here are changing global state,
-   * for example, clearing update tags from bmain.
-   */
-  const float ctime = BKE_scene_frame_get(scene);
   /* Keep this first. */
-  BLI_callback_exec(bmain, &scene->id, BLI_CB_EVT_FRAME_CHANGE_PRE);
-  /* Update animated image textures for particles, modifiers, gpu, etc,
-   * call this at the start so modifiers with textures don't lag 1 frame.
-   */
-  BKE_image_editors_update_frame(bmain, scene->r.cfra);
-  BKE_sound_set_cfra(scene->r.cfra);
-  DEG_graph_relations_update(depsgraph, bmain, scene, view_layer);
+  BKE_callback_exec_id(bmain, &scene->id, BKE_CB_EVT_FRAME_CHANGE_PRE);
+
+  for (int pass = 0; pass < 2; pass++) {
+    /* Update animated image textures for particles, modifiers, gpu, etc,
+     * call this at the start so modifiers with textures don't lag 1 frame.
+     */
+    BKE_image_editors_update_frame(bmain, scene->r.cfra);
+    BKE_sound_set_cfra(scene->r.cfra);
+    DEG_graph_relations_update(depsgraph, bmain, scene, view_layer);
 #ifdef POSE_ANIMATION_WORKAROUND
-  scene_armature_depsgraph_workaround(bmain, depsgraph);
+    scene_armature_depsgraph_workaround(bmain, depsgraph);
 #endif
-  /* Update all objects: drivers, matrices, displists, etc. flags set
-   * by depgraph or manual, no layer check here, gets correct flushed.
-   */
-  DEG_evaluate_on_framechange(bmain, depsgraph, ctime);
-  /* Update sound system animation. */
-  BKE_scene_update_sound(depsgraph, bmain);
-  /* Notify editors and python about recalc. */
-  BLI_callback_exec(bmain, &scene->id, BLI_CB_EVT_FRAME_CHANGE_POST);
-  /* Inform editors about possible changes. */
-  DEG_ids_check_recalc(bmain, depsgraph, scene, view_layer, true);
-  /* clear recalc flags */
-  DEG_ids_clear_recalc(bmain, depsgraph);
+    /* Update all objects: drivers, matrices, displists, etc. flags set
+     * by depgraph or manual, no layer check here, gets correct flushed.
+     *
+     * NOTE: Only update for new frame on first iteration. Second iteration is for ensuring user
+     * edits from callback are properly taken into account. Doing a time update on those would
+     * loose any possible unkeyed changes made by the handler. */
+    if (pass == 0) {
+      const float ctime = BKE_scene_frame_get(scene);
+      DEG_evaluate_on_framechange(bmain, depsgraph, ctime);
+    }
+    else {
+      DEG_evaluate_on_refresh(bmain, depsgraph);
+    }
+    /* Update sound system animation. */
+    BKE_scene_update_sound(depsgraph, bmain);
+
+    /* Notify editors and python about recalc. */
+    if (pass == 0) {
+      BKE_callback_exec_id_depsgraph(bmain, &scene->id, depsgraph, BKE_CB_EVT_FRAME_CHANGE_POST);
+    }
+
+    /* Inform editors about possible changes. */
+    DEG_ids_check_recalc(bmain, depsgraph, scene, view_layer, true);
+    /* clear recalc flags */
+    DEG_ids_clear_recalc(bmain, depsgraph);
+
+    /* If user callback did not tag anything for update we can skip second iteration.
+     * Otherwise we update scene once again, but without running callbacks to bring
+     * scene to a fully evaluated state with user modifications taken into account. */
+    if (DEG_is_fully_evaluated(depsgraph)) {
+      break;
+    }
+  }
 }
 
 /** Ensures given scene/view_layer pair has a valid, up-to-date depsgraph.
@@ -1629,7 +1429,7 @@ void BKE_scene_graph_update_for_newframe(Depsgraph *depsgraph, Main *bmain)
  */
 void BKE_scene_view_layer_graph_evaluated_ensure(Main *bmain, Scene *scene, ViewLayer *view_layer)
 {
-  Depsgraph *depsgraph = BKE_scene_get_depsgraph(scene, view_layer, true);
+  Depsgraph *depsgraph = BKE_scene_get_depsgraph(bmain, scene, view_layer, true);
   DEG_make_active(depsgraph);
   BKE_scene_graph_update_tagged(depsgraph, bmain);
 }
@@ -1877,6 +1677,8 @@ double BKE_scene_unit_scale(const UnitSettings *unit, const int unit_type, doubl
 
   switch (unit_type) {
     case B_UNIT_LENGTH:
+    case B_UNIT_VELOCITY:
+    case B_UNIT_ACCELERATION:
       return value * (double)unit->scale_length;
     case B_UNIT_AREA:
     case B_UNIT_POWER:
@@ -2261,7 +2063,7 @@ void BKE_scene_free_depsgraph_hash(Scene *scene)
 
 /* Query depsgraph for a specific contexts. */
 
-Depsgraph *BKE_scene_get_depsgraph(Scene *scene, ViewLayer *view_layer, bool allocate)
+Depsgraph *BKE_scene_get_depsgraph(Main *bmain, Scene *scene, ViewLayer *view_layer, bool allocate)
 {
   BLI_assert(scene != NULL);
   BLI_assert(view_layer != NULL);
@@ -2285,7 +2087,7 @@ Depsgraph *BKE_scene_get_depsgraph(Scene *scene, ViewLayer *view_layer, bool all
             scene->depsgraph_hash, &key, (void ***)&key_ptr, (void ***)&depsgraph_ptr)) {
       *key_ptr = MEM_mallocN(sizeof(DepsgraphKey), __func__);
       **key_ptr = key;
-      *depsgraph_ptr = DEG_graph_new(scene, view_layer, DAG_EVAL_VIEWPORT);
+      *depsgraph_ptr = DEG_graph_new(bmain, scene, view_layer, DAG_EVAL_VIEWPORT);
       /* TODO(sergey): Would be cool to avoid string format print,
        * but is a bit tricky because we can't know in advance  whether
        * we will ever enable debug messages for this depsgraph.

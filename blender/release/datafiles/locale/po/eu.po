@@ -1,8 +1,9 @@
+
 msgid ""
 msgstr ""
-"Project-Id-Version: Blender 2.80 (sub 75) (b'8e1516b7bcca')\n"
+"Project-Id-Version: Blender 2.81 (sub 16) (b'99640d062234')\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2019-07-29 00:00:00\n"
+"POT-Creation-Date: 2019-11-20 13:23:12\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: Ainhize & Miriam <agoenaga006@ikasle.ehu.eus>\n"
 "Language-Team: Euskara <agoenaga006@ikasle.ehu.eus>\n"
@@ -384,10 +385,6 @@ msgid "Environment"
 msgstr "Ingurunea"
 
 
-msgid "Sort alphabetically"
-msgstr "Alfabetikoki ordenatu"
-
-
 msgid "Onion Skinning"
 msgstr "Tipula-azapa"
 
@@ -686,11 +683,6 @@ msgid "Set Origin"
 msgstr "Jatorria Ezarri"
 
 
-msgctxt "Operator"
-msgid "Clear"
-msgstr "Garbitu"
-
-
 msgid "Clear text by type"
 msgstr "Testua mota arabera garbitu"
 
@@ -958,10 +950,6 @@ msgid "Delete Selected Files"
 msgstr "Hautatutako Fitxategiak Ezabatu"
 
 
-msgid "Delete selected files"
-msgstr "Hautatutako fitxategiak ezabatu"
-
-
 msgctxt "Operator"
 msgid "Create New Directory"
 msgstr "Direktorio berria sortu"
@@ -1075,10 +1063,6 @@ msgstr "Fitxategia edo Direktorioa berrizendatu"
 
 msgid "Rename file or file directory"
 msgstr "Fitxategia edo fitxategi direktorioa berrizendatu"
-
-
-msgid "Activate/select file"
-msgstr "Aktibatu/hautatu fitxategia"
 
 
 msgid "Open a directory when selecting it"
@@ -1697,22 +1681,6 @@ msgid "Duplicate Area into New Window"
 msgstr "Lehio Berri Batean Ingurunea Bikoiztu"
 
 
-msgid "X 2"
-msgstr "X 2"
-
-
-msgid "Y 2"
-msgstr "Y 2"
-
-
-msgid "X 1"
-msgstr "X 1"
-
-
-msgid "Y 1"
-msgstr "Y 1"
-
-
 msgctxt "Operator"
 msgid "Toggle Maximize Area"
 msgstr "Ingurune Mazimizatua Txandakatu"
@@ -1847,6 +1815,10 @@ msgid "Continue"
 msgstr "Jarraitu"
 
 
+msgid "Speed Factor"
+msgstr "Azelerazio-faktorea"
+
+
 msgctxt "Sequence"
 msgid "Type"
 msgstr "Mota"
@@ -1929,10 +1901,6 @@ msgstr "Bozgorailua"
 
 msgid "3D"
 msgstr "3D"
-
-
-msgid "Speed Factor"
-msgstr "Azelerazio-faktorea"
 
 
 msgctxt "WindowManager"
@@ -2018,6 +1986,11 @@ msgid "Delete..."
 msgstr "Ezabatu..."
 
 
+msgctxt "Operator"
+msgid "Clear"
+msgstr "Garbitu"
+
+
 msgid "Refraction"
 msgstr "Errefrakzioa"
 
@@ -2063,21 +2036,6 @@ msgstr "Testua"
 
 
 msgctxt "Operator"
-msgid "Find..."
-msgstr "Bilatu..."
-
-
-msgctxt "Operator"
-msgid "Top of File"
-msgstr "Fitxategiaren Goialdea"
-
-
-msgctxt "Operator"
-msgid "Bottom of File"
-msgstr "Fitxategiaren Behealdea"
-
-
-msgctxt "Operator"
 msgid "One Object"
 msgstr "Objektu bat"
 
@@ -2085,16 +2043,6 @@ msgstr "Objektu bat"
 msgctxt "Operator"
 msgid "One Object Per Line"
 msgstr "Objektu bat lerroko"
-
-
-msgctxt "Operator"
-msgid "Move line(s) up"
-msgstr "Lerroa(k) gora mugitu"
-
-
-msgctxt "Operator"
-msgid "Move line(s) down"
-msgstr "Lerroa(k) behera mugitu"
 
 
 msgid "Text: External"
@@ -2342,6 +2290,16 @@ msgstr "Sarea"
 msgctxt "Mesh"
 msgid "Sphere"
 msgstr "Esfera"
+
+
+msgctxt "Operator"
+msgid "Top of File"
+msgstr "Fitxategiaren Goialdea"
+
+
+msgctxt "Operator"
+msgid "Bottom of File"
+msgstr "Fitxategiaren Behealdea"
 
 
 msgctxt "Operator"
@@ -2623,6 +2581,10 @@ msgid "Paste name"
 msgstr "Izena itsatsi"
 
 
+msgid "Blender File View"
+msgstr "Blender Fitxategi Bista"
+
+
 msgid "unable to open the file"
 msgstr "Ezin izan da fitxategia ireki"
 
@@ -2673,10 +2635,6 @@ msgstr "Euskarri gabeko formatua"
 
 msgid "Cannot read %s '%s': %s"
 msgstr "Ezin da irakurri %s '%s': %s"
-
-
-msgid "Blender File View"
-msgstr "Blender Fitxategi Bista"
 
 
 msgid "Add Curve"
@@ -2861,3 +2819,4 @@ msgstr "Abian"
 
 msgid "Starting"
 msgstr "Hasten"
+

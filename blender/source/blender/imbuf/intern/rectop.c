@@ -39,8 +39,8 @@
 #include "MEM_guardedalloc.h"
 
 void IMB_blend_color_byte(unsigned char dst[4],
-                          unsigned char src1[4],
-                          unsigned char src2[4],
+                          const unsigned char src1[4],
+                          const unsigned char src2[4],
                           IMB_BlendMode mode)
 {
   switch (mode) {
@@ -126,7 +126,10 @@ void IMB_blend_color_byte(unsigned char dst[4],
   }
 }
 
-void IMB_blend_color_float(float dst[4], float src1[4], float src2[4], IMB_BlendMode mode)
+void IMB_blend_color_float(float dst[4],
+                           const float src1[4],
+                           const float src2[4],
+                           IMB_BlendMode mode)
 {
   switch (mode) {
     case IMB_BLEND_MIX:
@@ -259,7 +262,7 @@ void IMB_rect_crop(ImBuf *ibuf, const rcti *crop)
       BLI_rcti_size_x(crop) + 1,
       BLI_rcti_size_y(crop) + 1,
   };
-  BLI_assert(size_dst[0] > 0 && size_dst[0] > 0);
+  BLI_assert(size_dst[0] > 0 && size_dst[1] > 0);
   BLI_assert(crop->xmin >= 0 && crop->ymin >= 0);
   BLI_assert(crop->xmax < ibuf->x && crop->ymax < ibuf->y);
 
@@ -276,10 +279,49 @@ void IMB_rect_crop(ImBuf *ibuf, const rcti *crop)
   ibuf->y = size_dst[1];
 }
 
+/** Re-alloc buffers at a new size */
+
+static void rect_realloc_4bytes(void **buf_p, const uint size[2])
+{
+  if (*buf_p == NULL) {
+    return;
+  }
+  MEM_freeN(*buf_p);
+  *buf_p = MEM_mallocN(sizeof(uint) * size[0] * size[1], __func__);
+}
+
+static void rect_realloc_16bytes(void **buf_p, const uint size[2])
+{
+  if (*buf_p == NULL) {
+    return;
+  }
+  MEM_freeN(*buf_p);
+  *buf_p = MEM_mallocN(sizeof(uint[4]) * size[0] * size[1], __func__);
+}
+
+/**
+ * In-place size setting (caller must fill in buffer contents).
+ */
+void IMB_rect_size_set(ImBuf *ibuf, const uint size[2])
+{
+  BLI_assert(size[0] > 0 && size[1] > 0);
+  if ((size[0] == ibuf->x) && (size[1] == ibuf->y)) {
+    return;
+  }
+
+  rect_realloc_4bytes((void **)&ibuf->rect, size);
+  rect_realloc_4bytes((void **)&ibuf->zbuf, size);
+  rect_realloc_4bytes((void **)&ibuf->zbuf_float, size);
+  rect_realloc_16bytes((void **)&ibuf->rect_float, size);
+
+  ibuf->x = size[0];
+  ibuf->y = size[1];
+}
+
 /* clipping */
 
 void IMB_rectclip(ImBuf *dbuf,
-                  ImBuf *sbuf,
+                  const ImBuf *sbuf,
                   int *destx,
                   int *desty,
                   int *srcx,
@@ -341,8 +383,8 @@ void IMB_rectclip(ImBuf *dbuf,
 }
 
 static void imb_rectclip3(ImBuf *dbuf,
-                          ImBuf *obuf,
-                          ImBuf *sbuf,
+                          const ImBuf *obuf,
+                          const ImBuf *sbuf,
                           int *destx,
                           int *desty,
                           int *origx,
@@ -435,8 +477,14 @@ static void imb_rectclip3(ImBuf *dbuf,
 
 /* copy and blend */
 
-void IMB_rectcpy(
-    ImBuf *dbuf, ImBuf *sbuf, int destx, int desty, int srcx, int srcy, int width, int height)
+void IMB_rectcpy(ImBuf *dbuf,
+                 const ImBuf *sbuf,
+                 int destx,
+                 int desty,
+                 int srcx,
+                 int srcy,
+                 int width,
+                 int height)
 {
   IMB_rectblend(dbuf,
                 dbuf,
@@ -463,11 +511,11 @@ typedef void (*IMB_blend_func)(unsigned char *dst,
 typedef void (*IMB_blend_func_float)(float *dst, const float *src1, const float *src2);
 
 void IMB_rectblend(ImBuf *dbuf,
-                   ImBuf *obuf,
-                   ImBuf *sbuf,
+                   const ImBuf *obuf,
+                   const ImBuf *sbuf,
                    unsigned short *dmask,
-                   unsigned short *curvemask,
-                   unsigned short *texmask,
+                   const unsigned short *curvemask,
+                   const unsigned short *texmask,
                    float mask_max,
                    int destx,
                    int desty,
@@ -482,9 +530,9 @@ void IMB_rectblend(ImBuf *dbuf,
 {
   unsigned int *drect = NULL, *orect = NULL, *srect = NULL, *dr, * or, *sr;
   float *drectf = NULL, *orectf = NULL, *srectf = NULL, *drf, *orf, *srf;
-  unsigned short *cmaskrect = curvemask, *cmr;
+  const unsigned short *cmaskrect = curvemask, *cmr;
   unsigned short *dmaskrect = dmask, *dmr;
-  unsigned short *texmaskrect = texmask, *tmr;
+  const unsigned short *texmaskrect = texmask, *tmr;
   int do_float, do_char, srcskip, destskip, origskip, x;
   IMB_blend_func func = NULL;
   IMB_blend_func_float func_float = NULL;
@@ -924,8 +972,10 @@ void IMB_rectblend(ImBuf *dbuf,
 }
 
 typedef struct RectBlendThreadData {
-  ImBuf *dbuf, *obuf, *sbuf;
-  unsigned short *dmask, *curvemask, *texmask;
+  ImBuf *dbuf;
+  const ImBuf *obuf, *sbuf;
+  unsigned short *dmask;
+  const unsigned short *curvemask, *texmask;
   float mask_max;
   int destx, desty, origx, origy;
   int srcx, srcy, width;
@@ -956,11 +1006,11 @@ static void rectblend_thread_do(void *data_v, int start_scanline, int num_scanli
 }
 
 void IMB_rectblend_threaded(ImBuf *dbuf,
-                            ImBuf *obuf,
-                            ImBuf *sbuf,
+                            const ImBuf *obuf,
+                            const ImBuf *sbuf,
                             unsigned short *dmask,
-                            unsigned short *curvemask,
-                            unsigned short *texmask,
+                            const unsigned short *curvemask,
+                            const unsigned short *texmask,
                             float mask_max,
                             int destx,
                             int desty,

@@ -27,6 +27,7 @@ extern "C" {
 
 struct CacheReader;
 struct ListBase;
+struct Main;
 struct Mesh;
 struct Object;
 struct Scene;
@@ -103,7 +104,9 @@ bool ABC_import(struct bContext *C,
                 bool validate_meshes,
                 bool as_background_job);
 
-AbcArchiveHandle *ABC_create_handle(const char *filename, struct ListBase *object_paths);
+AbcArchiveHandle *ABC_create_handle(struct Main *bmain,
+                                    const char *filename,
+                                    struct ListBase *object_paths);
 
 void ABC_free_handle(AbcArchiveHandle *handle);
 
@@ -116,6 +119,12 @@ struct Mesh *ABC_read_mesh(struct CacheReader *reader,
                            const float time,
                            const char **err_str,
                            int flags);
+
+bool ABC_mesh_topology_changed(struct CacheReader *reader,
+                               struct Object *ob,
+                               struct Mesh *existing_mesh,
+                               const float time,
+                               const char **err_str);
 
 void CacheReader_incref(struct CacheReader *reader);
 void CacheReader_free(struct CacheReader *reader);

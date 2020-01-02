@@ -355,11 +355,8 @@ typedef enum eGPUBuiltinShader {
   GPU_SHADER_2D_UV_FACES,
   GPU_SHADER_2D_UV_FACES_STRETCH_AREA,
   GPU_SHADER_2D_UV_FACES_STRETCH_ANGLE,
-  /* Selection */
-  GPU_SHADER_3D_FLAT_SELECT_ID,
-  GPU_SHADER_3D_UNIFORM_SELECT_ID,
 } eGPUBuiltinShader;
-#define GPU_SHADER_BUILTIN_LEN (GPU_SHADER_3D_UNIFORM_SELECT_ID + 1)
+#define GPU_SHADER_BUILTIN_LEN (GPU_SHADER_2D_UV_FACES_STRETCH_ANGLE + 1)
 
 /** Support multiple configurations. */
 typedef enum eGPUShaderConfig {
@@ -399,7 +396,9 @@ void GPU_shader_free_builtin_shaders(void);
 
 /* Vertex attributes for shaders */
 
-#define GPU_MAX_ATTR 32
+/* Hardware limit is 16. Position attribute is always needed so we reduce to 15.
+ * This makes sure the GPUVertexFormat name buffer does not overflow. */
+#define GPU_MAX_ATTR 15
 
 typedef struct GPUVertAttrLayers {
   struct {

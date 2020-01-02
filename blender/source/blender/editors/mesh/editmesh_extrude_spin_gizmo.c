@@ -522,7 +522,6 @@ typedef struct GizmoGroupData_SpinRedo {
     PropertyRNA *prop_axis_no;
     PropertyRNA *prop_angle;
 
-    float rotate_axis[3];
 #ifdef USE_ANGLE_Z_ORIENT
     /* Apply 'orient_mat' for the final value. */
     float orient_axis_relative[3];
@@ -1008,8 +1007,17 @@ static void gizmo_mesh_spin_redo_setup(const bContext *C, wmGizmoGroup *gzgroup)
                                       });
   }
 
-  /* Become modal as soon as it's started. */
-  gizmo_mesh_spin_redo_modal_from_setup(C, gzgroup);
+  wmWindow *win = CTX_wm_window(C);
+  if (win && win->active) {
+    bScreen *screen = WM_window_get_active_screen(win);
+    if (screen->active_region) {
+      ARegion *ar = CTX_wm_region(C);
+      if (screen->active_region == ar) {
+        /* Become modal as soon as it's started. */
+        gizmo_mesh_spin_redo_modal_from_setup(C, gzgroup);
+      }
+    }
+  }
 }
 
 static void gizmo_mesh_spin_redo_draw_prepare(const bContext *UNUSED(C), wmGizmoGroup *gzgroup)

@@ -25,8 +25,17 @@
  * BLI_string_utf8() for unicode conversion.
  */
 
+/* Future-proof, See https://docs.python.org/3/c-api/arg.html#strings-and-buffers */
+#define PY_SSIZE_T_CLEAN
+
 #include <Python.h>
 #include <frameobject.h>
+
+/* Needed for 'PyInterpreterState', we should remove this dependency. */
+#if PY_VERSION_HEX >= 0x03080000
+#  define Py_BUILD_CORE
+#  include <internal/pycore_pystate.h>
+#endif
 
 #include "BLI_utildefines.h" /* for bool */
 
@@ -34,9 +43,11 @@
 
 #include "python_utildefines.h"
 
-#include "BLI_string.h"
-
 #ifndef MATH_STANDALONE
+#  include "MEM_guardedalloc.h"
+
+#  include "BLI_string.h"
+
 /* Only for BLI_strncpy_wchar_from_utf8,
  * should replace with py funcs but too late in release now. */
 #  include "BLI_string_utf8.h"
@@ -229,6 +240,37 @@ int PyC_ParseBool(PyObject *o, void *p)
 
   *bool_p = value ? true : false;
   return 1;
+}
+
+/**
+ * Use with PyArg_ParseTuple's "O&" formatting.
+ */
+int PyC_ParseStringEnum(PyObject *o, void *p)
+{
+  struct PyC_StringEnum *e = p;
+  const char *value = _PyUnicode_AsString(o);
+  if (value == NULL) {
+    PyErr_Format(PyExc_ValueError, "expected a string, got %s", Py_TYPE(o)->tp_name);
+    return 0;
+  }
+  int i;
+  for (i = 0; e->items[i].id; i++) {
+    if (STREQ(e->items[i].id, value)) {
+      e->value_found = e->items[i].value;
+      return 1;
+    }
+  }
+
+  /* Set as a precaution. */
+  e->value_found = -1;
+
+  PyObject *enum_items = PyTuple_New(i);
+  for (i = 0; e->items[i].id; i++) {
+    PyTuple_SET_ITEM(enum_items, i, PyUnicode_FromString(e->items[i].id));
+  }
+  PyErr_Format(PyExc_ValueError, "expected a string in %S, got '%s'", enum_items, value);
+  Py_DECREF(enum_items);
+  return 0;
 }
 
 /* silly function, we dont use arg. just check its compatible with __deepcopy__ */
@@ -836,7 +878,7 @@ void PyC_RunQuicky(const char *filepath, int n, ...)
 
     va_list vargs;
 
-    int *sizes = PyMem_MALLOC(sizeof(int) * (n / 2));
+    Py_ssize_t *sizes = PyMem_MALLOC(sizeof(*sizes) * (n / 2));
     int i;
 
     PyObject *py_dict = PyC_DefaultNameSpace(filepath);
@@ -1009,23 +1051,15 @@ void *PyC_RNA_AsPointer(PyObject *value, const char *type_name)
   }
 }
 
-/* PyC_FlagSet_* functions - so flags/sets can be interchanged in a generic way */
-#  include "BLI_dynstr.h"
-#  include "MEM_guardedalloc.h"
-
-char *PyC_FlagSet_AsString(PyC_FlagSet *item)
+PyObject *PyC_FlagSet_AsString(PyC_FlagSet *item)
 {
-  DynStr *dynstr = BLI_dynstr_new();
-  PyC_FlagSet *e;
-  char *cstring;
-
-  for (e = item; item->identifier; item++) {
-    BLI_dynstr_appendf(dynstr, (e == item) ? "'%s'" : ", '%s'", item->identifier);
+  PyObject *py_items = PyList_New(0);
+  for (; item->identifier; item++) {
+    PyList_APPEND(py_items, PyUnicode_FromString(item->identifier));
   }
-
-  cstring = BLI_dynstr_get_cstring(dynstr);
-  BLI_dynstr_free(dynstr);
-  return cstring;
+  PyObject *py_string = PyObject_Repr(py_items);
+  Py_DECREF(py_items);
+  return py_string;
 }
 
 int PyC_FlagSet_ValueFromID_int(PyC_FlagSet *item, const char *identifier, int *r_value)
@@ -1046,10 +1080,10 @@ int PyC_FlagSet_ValueFromID(PyC_FlagSet *item,
                             const char *error_prefix)
 {
   if (PyC_FlagSet_ValueFromID_int(item, identifier, r_value) == 0) {
-    const char *enum_str = PyC_FlagSet_AsString(item);
+    PyObject *enum_str = PyC_FlagSet_AsString(item);
     PyErr_Format(
-        PyExc_ValueError, "%s: '%.200s' not found in (%s)", error_prefix, identifier, enum_str);
-    MEM_freeN((void *)enum_str);
+        PyExc_ValueError, "%s: '%.200s' not found in (%U)", error_prefix, identifier, enum_str);
+    Py_DECREF(enum_str);
     return -1;
   }
 

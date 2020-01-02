@@ -24,8 +24,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "MEM_guardedalloc.h"
-
 #include "DNA_userdef_types.h"
 #include "DNA_vec_types.h"
 
@@ -41,7 +39,10 @@
 
 #include "GPU_immediate.h"
 #include "GPU_matrix.h"
-#include "GPU_state.h"
+
+#ifdef __APPLE__
+#  include "GPU_state.h"
+#endif
 
 #include "UI_interface.h"
 

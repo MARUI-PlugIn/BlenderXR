@@ -1,8 +1,9 @@
+
 msgid ""
 msgstr ""
-"Project-Id-Version: Blender 2.80 (sub 75) (b'8e1516b7bcca')\n"
+"Project-Id-Version: Blender 2.81 (sub 16) (b'99640d062234')\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2019-07-29 00:00:00\n"
+"POT-Creation-Date: 2019-11-20 13:23:12\n"
 "PO-Revision-Date: \n"
 "Last-Translator: Arvid Rudling <arvid.r@gmail.com>\n"
 "Language-Team: \n"
@@ -596,10 +597,6 @@ msgid "Wander"
 msgstr "Rendera"
 
 
-msgid "Fear factor"
-msgstr "Beräkna Normaler"
-
-
 msgid "Object to avoid"
 msgstr "Packa Data"
 
@@ -796,12 +793,20 @@ msgid "Bone is able to be selected"
 msgstr "Ingen materialnod markerad"
 
 
+msgid "Inherit Scale"
+msgstr "Ärva skalning"
+
+
 msgid "Layers"
 msgstr "Lager"
 
 
 msgid "Layers bone exists in"
 msgstr "Duplicera"
+
+
+msgid "Length"
+msgstr "Längd"
 
 
 msgid "Bone Matrix"
@@ -850,10 +855,6 @@ msgstr "Multiplicera vertexgrupp med omslutning"
 
 msgid "Inherit Rotation"
 msgstr "Ärv rotation"
-
-
-msgid "Inherit Scale"
-msgstr "Ärva skalning"
 
 
 msgid "Local Location"
@@ -970,6 +971,10 @@ msgstr "Tröskel"
 
 msgid "Marker"
 msgstr "Markör"
+
+
+msgid "Airbrush"
+msgstr "Flytta Till Lager"
 
 
 msgid "Fill"
@@ -1965,6 +1970,10 @@ msgid "Invert the Z rotation"
 msgstr "Ärv rotation"
 
 
+msgid "Mix Mode"
+msgstr "Läge:"
+
+
 msgid "Copy the target's X rotation"
 msgstr "Duplicera"
 
@@ -2593,6 +2602,10 @@ msgid "From Minimum Z"
 msgstr "Beskärningsminumum"
 
 
+msgid "Quaternion"
+msgstr "Kvaternion"
+
+
 msgid "Map From"
 msgstr "Starta Spel"
 
@@ -2919,6 +2932,10 @@ msgstr "Filnamn"
 
 msgid "Data Path"
 msgstr "Bana"
+
+
+msgid "Rotation Mode"
+msgstr "Rensa Rotation"
 
 
 msgid "Transform Space"
@@ -3291,6 +3308,10 @@ msgstr "Markera Rad"
 
 msgid "Paint"
 msgstr "Radera Stripp"
+
+
+msgid "Anti-Aliasing"
+msgstr "Antialias"
 
 
 msgid "Dissolve"
@@ -3958,8 +3979,8 @@ msgid "Shading"
 msgstr "Skuggning:"
 
 
-msgid "Filter BlenderBackup files"
-msgstr "Rendera"
+msgid "Extension"
+msgstr "Markera Länkad"
 
 
 msgid "Show .blend1, .blend2, etc. files"
@@ -4206,10 +4227,6 @@ msgid "Generate Speed Vectors"
 msgstr "Hämta systeminformation"
 
 
-msgid "Remove air bubbles"
-msgstr "Markera Rad"
-
-
 msgid "Override Time"
 msgstr "Tid"
 
@@ -4352,14 +4369,6 @@ msgstr "Osynlig"
 
 msgid "Use"
 msgstr "Använd"
-
-
-msgid "Attenuation"
-msgstr "Rensa Rotation"
-
-
-msgid "Samples"
-msgstr "Samplar"
 
 
 msgid "Grease Pencil Frame"
@@ -4690,10 +4699,6 @@ msgid "Build Modifier"
 msgstr "Radera Allt"
 
 
-msgid "Length"
-msgstr "Längd"
-
-
 msgid "Transition"
 msgstr "Markera Länkad"
 
@@ -4898,10 +4903,6 @@ msgid "Autosmooth"
 msgstr "Autostart"
 
 
-msgid "Blending mode"
-msgstr "Packa Data"
-
-
 msgid "Brush blending mode"
 msgstr "Packa Data"
 
@@ -4948,6 +4949,14 @@ msgstr "Ange färg for banden"
 
 msgid "Editable falloff curve"
 msgstr "Avtagandekurva"
+
+
+msgid "Root"
+msgstr "Rot"
+
+
+msgid "Sharper"
+msgstr "Hårdhet"
 
 
 msgid "Draw"
@@ -5034,6 +5043,10 @@ msgid "Sculpt Tool"
 msgstr "Redigerings Läge"
 
 
+msgid "Draw Sharp"
+msgstr "Rensa Förälder"
+
+
 msgid "Clay Strips"
 msgstr "Lägg till Stripp"
 
@@ -5068,10 +5081,6 @@ msgstr "Packa Data"
 
 msgid "Space"
 msgstr "Markera Rad"
-
-
-msgid "Airbrush"
-msgstr "Flytta Till Lager"
 
 
 msgid "Texture Overlay Alpha"
@@ -5112,10 +5121,6 @@ msgstr "Redigerings Läge"
 
 msgid "Use Front-Face"
 msgstr "Visa inställningar för kant"
-
-
-msgid "Use Gradient"
-msgstr "Vektor Måla"
 
 
 msgid "Plane Offset Pressure"
@@ -5982,8 +5987,8 @@ msgid "Shadow Buffer Bias"
 msgstr "Z-Buffer"
 
 
-msgid "Shadow Buffer Bleed Bias"
-msgstr "Z-Buffer"
+msgid "Samples"
+msgstr "Samplar"
 
 
 msgid "Number of shadow buffer samples"
@@ -5992,10 +5997,6 @@ msgstr "Antal klyvningar"
 
 msgid "Shadow Buffer Size"
 msgstr "Markera Rad"
-
-
-msgid "Shadow Buffer Soft"
-msgstr "Spel"
 
 
 msgid "Shadow Color"
@@ -6238,28 +6239,12 @@ msgid "Vertex Selection"
 msgstr "Vektor Måla"
 
 
-msgid "Clone UV loop layer"
-msgstr "Flytta Till Lager"
-
-
 msgid "UV loop layer to be used as cloning source"
 msgstr "Text"
 
 
-msgid "Clone UV loop layer Index"
-msgstr "Markera Rad"
-
-
 msgid "Clone UV loop layer index"
 msgstr "Rendera"
-
-
-msgid "Mask UV loop layer"
-msgstr "Maskera lager:"
-
-
-msgid "Mask UV loop layer Index"
-msgstr "Text"
 
 
 msgid "Mask UV loop layer index"
@@ -6718,10 +6703,6 @@ msgid "Rotation in Eulers"
 msgstr "Rotation med Euler"
 
 
-msgid "Rotation Mode"
-msgstr "Rensa Rotation"
-
-
 msgid "Axis Angle"
 msgstr "Redigerings Läge"
 
@@ -7054,10 +7035,6 @@ msgid "Particles were created by a fluid simulation"
 msgstr "Markera Länkad"
 
 
-msgid "Loop count"
-msgstr "Markera Rad"
-
-
 msgid "Number of times the keys are looped"
 msgstr "Bild Displist"
 
@@ -7168,10 +7145,6 @@ msgstr "Dotterförskjutning"
 
 msgid "Number of children/parent for rendering"
 msgstr "Markera Länkad"
-
-
-msgid "Root"
-msgstr "Rot"
 
 
 msgid "Random Orientation"
@@ -7296,10 +7269,6 @@ msgstr "Sidantal"
 
 msgid "Pick Random"
 msgstr "Slumpmässig"
-
-
-msgid "Die on hit"
-msgstr "Markera Rad"
 
 
 msgid "Even Distribution"
@@ -7650,6 +7619,10 @@ msgid "Caching"
 msgstr "Cache"
 
 
+msgid "Attenuation"
+msgstr "Rensa Rotation"
+
+
 msgid "Inner Cone Angle"
 msgstr "Kamerans linsskala"
 
@@ -7960,10 +7933,6 @@ msgid "Minimum Y value to crop the image"
 msgstr "Frövärde för slumpgeneratorn"
 
 
-msgid "Extension"
-msgstr "Markera Länkad"
-
-
 msgid "Clip Cube"
 msgstr "Beskärningsstart"
 
@@ -8062,10 +8031,6 @@ msgstr "Markera Rad"
 
 msgid "Use soft marble"
 msgstr "Materialets halo-inställningar"
-
-
-msgid "Sharper"
-msgstr "Hårdhet"
 
 
 msgid "Noise Basis 2"
@@ -8368,20 +8333,12 @@ msgid "Selective Damped Least Square"
 msgstr "Markera Rad"
 
 
-msgid "Num steps"
-msgstr "Mellansteg"
-
-
-msgid "Max step"
+msgid "Max Step"
 msgstr "Spel"
 
 
-msgid "Min step"
+msgid "Min Step"
 msgstr "Rotera"
-
-
-msgid "Auto step"
-msgstr "Automatiska steg"
 
 
 msgid "Settings for image formats"
@@ -8950,10 +8907,6 @@ msgid "Effect Strip"
 msgstr "Lägg till Stripp"
 
 
-msgid "Transitions"
-msgstr "Markera Länkad"
-
-
 msgid "Navigation"
 msgstr "Renderings Fönster"
 
@@ -9084,10 +9037,6 @@ msgstr "Metaball"
 
 msgid "Special Characters"
 msgstr "Tecken:"
-
-
-msgid "Hide/Mask"
-msgstr "Göm"
 
 
 msgid "Light"
@@ -9402,10 +9351,6 @@ msgid "Smoke"
 msgstr "Rök"
 
 
-msgid "Apply on spline"
-msgstr "Applicera Storlek/Rotation"
-
-
 msgid "Armature deformation modifier"
 msgstr "Bana"
 
@@ -9558,7 +9503,7 @@ msgid "From Radius"
 msgstr "Zooma Ut"
 
 
-msgid "Use transform"
+msgid "Use Transform"
 msgstr "Transformera"
 
 
@@ -9604,10 +9549,6 @@ msgstr "Flytta Till Lager"
 
 msgid "Mix Factor"
 msgstr "Faktor"
-
-
-msgid "Mix Mode"
-msgstr "Läge:"
 
 
 msgid "Nearest vertex"
@@ -11026,10 +10967,6 @@ msgid "Frames Limit"
 msgstr "Rutor"
 
 
-msgid "Motion model"
-msgstr "Rensa Rotation"
-
-
 msgid "Default motion model to use for tracking"
 msgstr "Renderingsmotor"
 
@@ -11132,10 +11069,6 @@ msgstr "Inflytande"
 
 msgid "Maximal Scale"
 msgstr "Skala"
-
-
-msgid "Use 2D stabilization"
-msgstr "Fysikvisualisering"
 
 
 msgid "Autoscale"
@@ -11382,10 +11315,6 @@ msgid "Rounding"
 msgstr "Ljud"
 
 
-msgid "Lens shift"
-msgstr "Rendera"
-
-
 msgid "Shift of the lens components"
 msgstr "Duplicera"
 
@@ -11396,10 +11325,6 @@ msgstr "Radie"
 
 msgid "Height of the box"
 msgstr "Göm Markerad"
-
-
-msgid "Mask type"
-msgstr "Maskera lager:"
 
 
 msgid "Not"
@@ -11914,10 +11839,6 @@ msgid "Pass index number to convert to alpha"
 msgstr "Markera Rad"
 
 
-msgid "Anti-Aliasing"
-msgstr "Antialias"
-
-
 msgid "Placeholder"
 msgstr "Visa inställningar för kant"
 
@@ -12354,14 +12275,6 @@ msgid "Light Path"
 msgstr "Flytta Till Lager"
 
 
-msgid "Has Maximum"
-msgstr "Använd maximum"
-
-
-msgid "Has Minimum"
-msgstr "Använd minimum"
-
-
 msgid "Mix Shader"
 msgstr "Avmarkera Länkad"
 
@@ -12570,10 +12483,6 @@ msgid "Voronoi Texture"
 msgstr "UVsfär"
 
 
-msgid "Cells"
-msgstr "Brus:"
-
-
 msgid "Wave Texture"
 msgstr "Text"
 
@@ -12709,6 +12618,14 @@ msgstr "Markera Rad"
 
 msgid "Extend Select"
 msgstr "Markera Rad"
+
+
+msgid "Mouse X"
+msgstr "Packa Data"
+
+
+msgid "Mouse Y"
+msgstr "Packa Data"
 
 
 msgctxt "Operator"
@@ -12851,20 +12768,12 @@ msgid "Flip selected keyframes over the selected mirror line"
 msgstr "Markera Länkad"
 
 
-msgid "By Times over Current frame"
-msgstr "Starta Spel"
-
-
 msgid "Flip times of selected keyframes using the current frame as the mirror line"
 msgstr "Markera Länkad"
 
 
 msgid "Flip values of selected keyframes (i.e. negative values become positive, and vice versa)"
 msgstr "Markera Länkad"
-
-
-msgid "By Times over First Selected Marker"
-msgstr "Raderings Meny"
 
 
 msgid "Flip times of selected keyframes using the first selected marker as the reference point"
@@ -13073,10 +12982,6 @@ msgstr "Markera Rad"
 
 msgid "Snap selected keyframes to the times specified"
 msgstr "Markera Länkad"
-
-
-msgid "Current frame"
-msgstr "Starta Spel"
 
 
 msgid "Snap selected keyframes to the current frame"
@@ -14540,6 +14445,11 @@ msgstr "Markera Länkad"
 
 
 msgctxt "Operator"
+msgid "Center View to Cursor"
+msgstr "Markerade till markör"
+
+
+msgctxt "Operator"
 msgid "NDOF Pan/Zoom"
 msgstr "Zooma In"
 
@@ -14610,11 +14520,6 @@ msgstr "Autostart"
 msgctxt "Operator"
 msgid "Console Banner"
 msgstr "Text"
-
-
-msgctxt "Operator"
-msgid "Clear"
-msgstr "Nollställ"
 
 
 msgid "Clear text by type"
@@ -14919,36 +14824,8 @@ msgid "Bonesize"
 msgstr "Bengrupper"
 
 
-msgid "Bone_Envelope"
-msgstr "Benomslutning"
-
-
-msgid "Curve_Shrinkfatten"
-msgstr "Krympa/Förtjocka"
-
-
-msgid "Mask_Shrinkfatten"
-msgstr "Krympa/Förtjocka"
-
-
-msgid "Bone_Roll"
-msgstr "Massiv"
-
-
-msgid "Time_Slide"
+msgid "Time Scale"
 msgstr "Skala"
-
-
-msgid "Time_Scale"
-msgstr "Skala"
-
-
-msgid "Time_Extend"
-msgstr "Utvidga"
-
-
-msgid "Bake_Time"
-msgstr "Zooma Ut"
 
 
 msgid "Bweight"
@@ -15102,10 +14979,6 @@ msgstr "Markera Rad"
 msgctxt "Operator"
 msgid "Checker Deselect"
 msgstr "Visa inställningar för kant"
-
-
-msgid "Deselect every other vertex"
-msgstr "Markera Rad"
 
 
 msgctxt "Operator"
@@ -15608,15 +15481,6 @@ msgstr "Markera Länkad"
 
 
 msgctxt "Operator"
-msgid "Toggle Bookmarks"
-msgstr "Visa/göm bokmärken"
-
-
-msgid "Toggle bookmarks display"
-msgstr "Visa/göm bokmärken"
-
-
-msgctxt "Operator"
 msgid "Cancel File Load"
 msgstr "Arkiv"
 
@@ -15770,10 +15634,6 @@ msgstr "Versionshistorik"
 
 msgid "Reset Recent files"
 msgstr "Markera Länkad"
-
-
-msgid "Activate/select file"
-msgstr "Göm Markerad"
 
 
 msgid "Select everything beginning with the last selection"
@@ -16324,20 +16184,8 @@ msgid "Create Ghost Curves"
 msgstr "Lägg till Stripp"
 
 
-msgid "By Times over Current Frame"
-msgstr "Starta Spel"
-
-
-msgid "By Values over Cursor Value"
-msgstr "Starta Spel"
-
-
 msgid "Flip values of selected keyframes using the cursor value (Y/Horizontal component) as the mirror line"
 msgstr "Markera Länkad"
-
-
-msgid "By Times over Time=0"
-msgstr "Starta Spel"
 
 
 msgid "Flip times of selected keyframes, effectively reversing the order they appear in"
@@ -16614,10 +16462,6 @@ msgstr "Sökväg att skriva till"
 
 msgid "Starting frame for the animation"
 msgstr "Starta rendering av sekvens"
-
-
-msgid "Quaternion"
-msgstr "Kvaternion"
 
 
 msgid "Convert rotations to quaternions"
@@ -17238,10 +17082,6 @@ msgid "Delete Edge Loop"
 msgstr "Radera kant-slinga"
 
 
-msgid "Minimum distance between elements to merge"
-msgstr "Radera"
-
-
 msgid "Dissolve Verts"
 msgstr "Lös upp"
 
@@ -17249,10 +17089,6 @@ msgstr "Lös upp"
 msgctxt "Operator"
 msgid "Limited Dissolve"
 msgstr "Lös upp"
-
-
-msgid "Dissolve all vertices inbetween face boundaries"
-msgstr "Antal uppdelningar mellan rutnätets linjer"
 
 
 msgid "Duplicate and extrude selected vertices, edges or faces towards the mouse cursor"
@@ -17779,6 +17615,10 @@ msgid "Construct a UV sphere mesh"
 msgstr "&gt;Bezier Kurva"
 
 
+msgid "Minimum distance between elements to merge"
+msgstr "Radera"
+
+
 msgctxt "Operator"
 msgid "Triangulate Faces"
 msgstr "Triangelnät"
@@ -17897,6 +17737,18 @@ msgstr "Markera Rad"
 
 msgid "Change selection mode"
 msgstr "Ram Markering"
+
+
+msgid "Vertex selection mode"
+msgstr "Markeringsläge för vertex:ar"
+
+
+msgid "Edge selection mode"
+msgstr "Ram Markering"
+
+
+msgid "Face selection mode"
+msgstr "Markera Länkad"
 
 
 msgid "Expand"
@@ -18037,10 +17889,6 @@ msgstr "Markera Länkad"
 
 msgid "Extrude selected vertices in a circle around the cursor in indicated viewport"
 msgstr "Markera Länkad"
-
-
-msgid "Make Duplicates"
-msgstr "Duplicera"
 
 
 msgid "Split off selected geometry from connected unselected geometry"
@@ -18440,10 +18288,6 @@ msgid "Node type"
 msgstr "Bild Displist"
 
 
-msgid "Use Transform"
-msgstr "Transformera"
-
-
 msgid "Start transform operator after inserting the node"
 msgstr "Starta rendering av sekvens"
 
@@ -18776,14 +18620,6 @@ msgstr "Buffertstorlek"
 
 msgid "Select the node under the cursor"
 msgstr "Rendera"
-
-
-msgid "Mouse X"
-msgstr "Packa Data"
-
-
-msgid "Mouse Y"
-msgstr "Packa Data"
 
 
 msgid "(De)select all nodes"
@@ -19585,6 +19421,10 @@ msgid "Proxy Object"
 msgstr "Packa Data"
 
 
+msgid "Edge Length"
+msgstr "Markera Rad"
+
+
 msgctxt "Operator"
 msgid "Quick Explode"
 msgstr "Spräng"
@@ -20295,10 +20135,6 @@ msgid "Toggle whether item under cursor is enabled or closed"
 msgstr "Växla om objektet under musen är aktiverat eller stängt"
 
 
-msgid "Rename item under cursor"
-msgstr "Rendera"
-
-
 msgctxt "Operator"
 msgid "Keying Set Add Selected"
 msgstr "Göm Markerad"
@@ -20359,10 +20195,6 @@ msgstr "Markera Rad"
 
 msgid "Drag to parent in Outliner"
 msgstr "Genomskinlighet"
-
-
-msgid "Child Object"
-msgstr "Packa Data"
 
 
 msgctxt "Operator"
@@ -21456,11 +21288,6 @@ msgid "Toggle show render view"
 msgstr "Visa renderingsvy på/av"
 
 
-msgctxt "Operator"
-msgid "Bake To Keyframes"
-msgstr "Starta Spel"
-
-
 msgid "Type of generated constraint"
 msgstr "Lägg till Stripp"
 
@@ -22535,15 +22362,6 @@ msgstr "Autostart"
 
 
 msgctxt "Operator"
-msgid "Comment"
-msgstr "Användargemenskap"
-
-
-msgid "Convert selected text to comment"
-msgstr "Göm Markerad"
-
-
-msgctxt "Operator"
 msgid "Convert Whitespace"
 msgstr "Bild Displist"
 
@@ -22764,15 +22582,6 @@ msgid "Split Lines"
 msgstr "Dela"
 
 
-msgctxt "Operator"
-msgid "Uncomment"
-msgstr "Visa inställningar för kant"
-
-
-msgid "Convert selected comment to text"
-msgstr "Göm Markerad"
-
-
 msgid "Unindent selected text"
 msgstr "Göm Markerad"
 
@@ -22795,14 +22604,6 @@ msgstr "Rensa Rotation"
 
 
 msgid "Create transformation orientation from selection"
-msgstr "Rensa Rotation"
-
-
-msgid "Overwrite previous"
-msgstr "Markera Rad"
-
-
-msgid "Use after creation"
 msgstr "Rensa Rotation"
 
 
@@ -22969,11 +22770,6 @@ msgid "Copy Data Path"
 msgstr "Bana"
 
 
-msgctxt "Operator"
-msgid "Copy To Selected"
-msgstr "Göm Markerad"
-
-
 msgid "Copy property from this object to selected objects or bones"
 msgstr "Markera Länkad"
 
@@ -23048,11 +22844,6 @@ msgstr "Lägg till Stripp"
 msgctxt "Operator"
 msgid "Reload Translation"
 msgstr "Lägg till Stripp"
-
-
-msgctxt "Operator"
-msgid "Reports to Text Block"
-msgstr "Rensa Rotation"
 
 
 msgctxt "Operator"
@@ -23575,11 +23366,6 @@ msgstr "Visa fart på nyckelbilder och profil"
 
 
 msgctxt "Operator"
-msgid "Align Camera To View"
-msgstr "Kamera"
-
-
-msgctxt "Operator"
 msgid "Camera Fit Frame to Selected"
 msgstr "Markör till markerade"
 
@@ -23759,11 +23545,6 @@ msgstr "Mitten"
 
 msgid "Center the camera view"
 msgstr "Göm Markerad"
-
-
-msgctxt "Operator"
-msgid "Center View to Cursor"
-msgstr "Markerade till markör"
 
 
 msgctxt "Operator"
@@ -24112,11 +23893,6 @@ msgid "Print memory statistics to the console"
 msgstr "Materialets volym-inställningar"
 
 
-msgctxt "Operator"
-msgid "Open Blender File"
-msgstr "Öppna ett Blenderdokument"
-
-
 msgid "Open a Blender file"
 msgstr "Öppna ett Blenderdokument"
 
@@ -24306,11 +24082,6 @@ msgid "Undo/Redo"
 msgstr "Ångra/gör om"
 
 
-msgctxt "Operator"
-msgid "Save As Blender File"
-msgstr "Öppna ett Blenderdokument"
-
-
 msgid "Write compressed .blend file"
 msgstr "Packa in i .blend-filen"
 
@@ -24456,10 +24227,6 @@ msgid "Number of times to copy strokes across the surface"
 msgstr "Bild Displist"
 
 
-msgid "Show Diffuse Color"
-msgstr "Diffus färg"
-
-
 msgid "Use Deform Only"
 msgstr "Bana"
 
@@ -24586,6 +24353,10 @@ msgstr "Arkiv"
 
 msgid "Subdivision"
 msgstr "Uppdelning"
+
+
+msgid "Render Pass"
+msgstr "Renderingsförinställningar"
 
 
 msgid "Area Shape"
@@ -24752,10 +24523,6 @@ msgstr "FFMPEG-förinställningar"
 
 msgid "Render Presets"
 msgstr "Lägg till renderingsförinställning"
-
-
-msgid "Find"
-msgstr "Sök"
 
 
 msgid "Playback"
@@ -25173,10 +24940,6 @@ msgid "Target particle systems"
 msgstr "Partikelsystem"
 
 
-msgid "Keyed timing"
-msgstr "Använd tidtagning"
-
-
 msgid "Use key times"
 msgstr "Text"
 
@@ -25533,10 +25296,6 @@ msgid "Duplicate Armature"
 msgstr "Duplicera"
 
 
-msgid "Duplicate F-Curve"
-msgstr "Duplicera"
-
-
 msgid "Duplicate Material"
 msgstr "Duplicera"
 
@@ -25558,10 +25317,6 @@ msgstr "Duplicera"
 
 
 msgid "Duplicate Text"
-msgstr "Duplicera"
-
-
-msgid "Duplicate Texture"
 msgstr "Duplicera"
 
 
@@ -25743,6 +25498,10 @@ msgstr "Zooma Ut"
 
 msgid "Region Overlap"
 msgstr "Redigerings Läge"
+
+
+msgid "New Window"
+msgstr "Nytt fönster"
 
 
 msgid "Language used for translation"
@@ -26085,6 +25844,10 @@ msgid "Progressive Refine"
 msgstr "Rendera"
 
 
+msgid "Glossy Color"
+msgstr "Packa Data"
+
+
 msgid "Map Resolution"
 msgstr "Upplösning"
 
@@ -26233,10 +25996,6 @@ msgid "Deliver diffuse indirect pass"
 msgstr "Byta Stripp"
 
 
-msgid "Glossy Color"
-msgstr "Packa Data"
-
-
 msgid "Deliver glossy direct pass"
 msgstr "Ram Markering"
 
@@ -26277,10 +26036,6 @@ msgid "ZTransp"
 msgstr "Markera Länkad"
 
 
-msgid "Render Pass"
-msgstr "Renderingsförinställningar"
-
-
 msgid "Bias"
 msgstr "Justering"
 
@@ -26291,10 +26046,6 @@ msgstr "Skapa Meta"
 
 msgid "Bake displacement"
 msgstr "Skapa Förälder"
-
-
-msgid "New Window"
-msgstr "Nytt fönster"
 
 
 msgid "Engine"
@@ -26569,10 +26320,6 @@ msgid "Steps Per Second"
 msgstr "Bana"
 
 
-msgid "Time Scale"
-msgstr "Skala"
-
-
 msgid "Settings for particle fluids physics"
 msgstr "Fysikinställningar för partikelvätskor"
 
@@ -26625,10 +26372,6 @@ msgid "Spring Frames"
 msgstr "Arkiv"
 
 
-msgid "Stiff viscosity"
-msgstr "Viskositet"
-
-
 msgid "Factor Density"
 msgstr "Markera Rad"
 
@@ -26673,10 +26416,6 @@ msgid "Y position of the sequence strip"
 msgstr "Starta rendering av sekvens"
 
 
-msgid "Effect fader position"
-msgstr "Effekt-toning"
-
-
 msgid "End Offset"
 msgstr "Spel"
 
@@ -26699,10 +26438,6 @@ msgstr "Göm Markerad"
 
 msgid "Right Handle Selected"
 msgstr "Höger handtag"
-
-
-msgid "Speed factor"
-msgstr "Special"
 
 
 msgid "Use Default Fade"
@@ -26867,14 +26602,6 @@ msgstr "Starta rendering av sekvens"
 
 msgid "Multiply Speed"
 msgstr "Multiplicera"
-
-
-msgid "Use as speed"
-msgstr "Spridning"
-
-
-msgid "Scale to length"
-msgstr "Ljudhastighet"
 
 
 msgid "Subtract Sequence"
@@ -27081,14 +26808,6 @@ msgid "Show Cache"
 msgstr "Flytta Till Lager"
 
 
-msgid "Draw Axes"
-msgstr "Visa Alla"
-
-
-msgid "Partial overlay on top of the sequencer"
-msgstr "Starta rendering av sekvens"
-
-
 msgid "Sequence Element"
 msgstr "Rendera"
 
@@ -27235,6 +26954,10 @@ msgstr "Starta Spel"
 
 msgid "Smoke collision settings"
 msgstr "Verktyg"
+
+
+msgid "Collision Type"
+msgstr "Krocktyp"
 
 
 msgid "Collision type"
@@ -27457,10 +27180,6 @@ msgid "Bending"
 msgstr "Böjning"
 
 
-msgid "Collision Type"
-msgstr "Krocktyp"
-
-
 msgid "Choose Collision Type"
 msgstr "Välj krocktyp"
 
@@ -27489,14 +27208,6 @@ msgid "Gravitation"
 msgstr "Renderings Fönster"
 
 
-msgid "Center of mass"
-msgstr "Mitten"
-
-
-msgid "Location of Center of mass"
-msgstr "Markera Länkad"
-
-
 msgid "Permanent deform"
 msgstr "Armatur"
 
@@ -27517,14 +27228,6 @@ msgid "Estimated scale matrix"
 msgstr "Aktivera beräkning av Skugga"
 
 
-msgid "Max Step"
-msgstr "Spel"
-
-
-msgid "Min Step"
-msgstr "Rotera"
-
-
 msgid "Edge Collision"
 msgstr "Kantkrock"
 
@@ -27535,10 +27238,6 @@ msgstr "Konturfärg"
 
 msgid "Use Edges"
 msgstr "Använd kanter"
-
-
-msgid "Estimate matrix"
-msgstr "Rensa Rotation"
 
 
 msgid "Face Collision"
@@ -27859,10 +27558,6 @@ msgstr "Rotera kring 3D-markören"
 
 msgid "Pivot around active object"
 msgstr "Rotera runt aktivt objekt"
-
-
-msgid "Line sample"
-msgstr "Rensa Rotation"
 
 
 msgid "Scopes to visualize image statistics"
@@ -28283,6 +27978,14 @@ msgstr "Mappning"
 
 msgid "Z Mapping"
 msgstr "Mappning"
+
+
+msgid "Has Maximum"
+msgstr "Använd maximum"
+
+
+msgid "Has Minimum"
+msgstr "Använd minimum"
 
 
 msgid "Text Box"
@@ -28741,6 +28444,10 @@ msgid "Gradient High/Off"
 msgstr "Arkiv"
 
 
+msgid "Use Gradient"
+msgstr "Vektor Måla"
+
+
 msgid "Theme Graph Editor"
 msgstr "Bild Displist"
 
@@ -28851,6 +28558,10 @@ msgstr "Markera Rad"
 
 msgid "Action-Clip Strip - Selected"
 msgstr "Markera Rad"
+
+
+msgid "Transitions"
+msgstr "Markera Länkad"
 
 
 msgid "Transition Strip - Unselected"
@@ -29449,18 +29160,6 @@ msgid "UV selection and display mode"
 msgstr "Markera Länkad"
 
 
-msgid "Vertex selection mode"
-msgstr "Markeringsläge för vertex:ar"
-
-
-msgid "Edge selection mode"
-msgstr "Ram Markering"
-
-
-msgid "Face selection mode"
-msgstr "Markera Länkad"
-
-
 msgid "Island"
 msgstr "Ö"
 
@@ -29601,20 +29300,12 @@ msgid "Display UV unwrapping seams"
 msgstr "Visa inställningar för kant"
 
 
-msgid "Draw Sharp"
-msgstr "Rensa Förälder"
-
-
 msgid "Draw Edges"
 msgstr "Vektor Måla"
 
 
 msgid "Edge Angle"
 msgstr "Kantvinkel"
-
-
-msgid "Edge Length"
-msgstr "Markera Rad"
 
 
 msgid "Indices"
@@ -29717,10 +29408,6 @@ msgstr "Avmarkera"
 
 msgid "Position:"
 msgstr "Position"
-
-
-msgid "Output:"
-msgstr "Rendera"
 
 
 msgid "Demo Mode:"
@@ -30422,6 +30109,11 @@ msgstr "Förälder"
 
 
 msgctxt "Operator"
+msgid "Clear"
+msgstr "Nollställ"
+
+
+msgctxt "Operator"
 msgid "Scale Feather"
 msgstr "Raderings Meny"
 
@@ -30439,10 +30131,6 @@ msgstr "Alla"
 msgctxt "Operator"
 msgid "Invert"
 msgstr "Invertera"
-
-
-msgid "Not for Axis-Angle"
-msgstr "Inte för axelvinkeln"
 
 
 msgid "Old"
@@ -30778,11 +30466,6 @@ msgstr "Interpoleringsmetod"
 
 
 msgctxt "Operator"
-msgid "Border Axis Range"
-msgstr "Ram Markering"
-
-
-msgctxt "Operator"
 msgid "Columns on Selected Keys"
 msgstr "Göm Markerad"
 
@@ -30813,8 +30496,8 @@ msgstr "Massiv"
 
 
 msgctxt "Operator"
-msgid "Border (Include Handles)"
-msgstr "Ram (med handtag)"
+msgid "Back"
+msgstr "Svart"
 
 
 msgctxt "Operator"
@@ -31099,17 +30782,12 @@ msgstr "Sträck ut till ingående remsans längd"
 
 
 msgctxt "Operator"
-msgid "Find..."
-msgstr "Sök…"
+msgid "Top"
+msgstr "Ovan"
 
 
 msgctxt "Operator"
-msgid "Top of File"
-msgstr "Början på filen"
-
-
-msgctxt "Operator"
-msgid "Bottom of File"
+msgid "Bottom"
 msgstr "Slutet av filen"
 
 
@@ -31121,16 +30799,6 @@ msgstr "Packa Data"
 msgctxt "Operator"
 msgid "One Object Per Line"
 msgstr "Ett objekt per rad"
-
-
-msgctxt "Operator"
-msgid "Move line(s) up"
-msgstr "Markera Rad"
-
-
-msgctxt "Operator"
-msgid "Move line(s) down"
-msgstr "Lägg till Stripp"
 
 
 msgid "Text: External"
@@ -31227,10 +30895,6 @@ msgstr "Visa inställningar för kant"
 
 msgid "Eraser Radius"
 msgstr "Zooma Ut"
-
-
-msgid "Simplify Stroke"
-msgstr "Samplar"
 
 
 msgid "Sculpt Overlay Color"
@@ -31344,23 +31008,8 @@ msgstr "Kamera"
 
 
 msgctxt "Operator"
-msgid "Top"
-msgstr "Ovan"
-
-
-msgctxt "Operator"
-msgid "Bottom"
-msgstr "Slutet av filen"
-
-
-msgctxt "Operator"
 msgid "Front"
 msgstr "Fram"
-
-
-msgctxt "Operator"
-msgid "Back"
-msgstr "Svart"
 
 
 msgctxt "Operator"
@@ -31614,12 +31263,12 @@ msgstr "Fyll deformerad"
 
 
 msgctxt "Operator"
-msgid "Hide Bounding Box"
+msgid "Show Bounding Box"
 msgstr "Auto Handtag"
 
 
 msgctxt "Operator"
-msgid "Show Bounding Box"
+msgid "Hide Bounding Box"
 msgstr "Auto Handtag"
 
 
@@ -31702,11 +31351,6 @@ msgid "Make"
 msgstr "Skapa kant/yta"
 
 
-msgctxt "Operator"
-msgid "Move to Layer"
-msgstr "Flytta Till Lager"
-
-
 msgid "Creases"
 msgstr "Vecka:"
 
@@ -31762,11 +31406,6 @@ msgstr "Rendera"
 msgctxt "Operator"
 msgid "Objects to Scene..."
 msgstr "Duplicera"
-
-
-msgctxt "Operator"
-msgid "Curve Preset"
-msgstr "Tygförinställningar"
 
 
 msgctxt "Operator"
@@ -32005,10 +31644,6 @@ msgstr "Markera Länkad"
 
 msgid "Error writing frame"
 msgstr "Miljöbild"
-
-
-msgid "Could not allocate temporary frame"
-msgstr "Bild Displist"
 
 
 msgid "No valid formats found"
@@ -32268,6 +31903,11 @@ msgstr "Markera Länkad"
 
 
 msgctxt "Operator"
+msgid "Change Shortcut"
+msgstr "Rendera"
+
+
+msgctxt "Operator"
 msgid "Replace Keyframes"
 msgstr "Radera"
 
@@ -32335,11 +31975,6 @@ msgstr "Förvalt övertoning"
 msgctxt "Operator"
 msgid "Reset Single to Default Value"
 msgstr "Förvalt övertoning"
-
-
-msgctxt "Operator"
-msgid "Change Shortcut"
-msgstr "Rendera"
 
 
 msgctxt "Operator"
@@ -32596,36 +32231,20 @@ msgid "Selection not supported in object mode"
 msgstr "Antal uppdelningar mellan rutnätets linjer"
 
 
-msgid "Cannot add geometry in edit mode"
+msgid "Cannot add vertices in edit mode"
 msgstr "Markera Länkad"
-
-
-msgid "Cannot add tessfaces in edit mode"
-msgstr "Markering till omarkerade grannar"
 
 
 msgid "Cannot add edges in edit mode"
 msgstr "Markera Länkad"
 
 
-msgid "Cannot add vertices in edit mode"
+msgid "Cannot add loops in edit mode"
 msgstr "Markera Länkad"
 
 
-msgid "Cannot remove faces in edit mode"
-msgstr "Visa ytors normaler som linjer"
-
-
-msgid "Cannot remove more faces than the mesh contains"
-msgstr "Visa ytors normaler som linjer"
-
-
-msgid "Cannot remove edges in edit mode"
-msgstr "Visa ytors normaler som linjer"
-
-
-msgid "Cannot remove more edges than the mesh contains"
-msgstr "Visa ytors normaler som linjer"
+msgid "Cannot add polygons in edit mode"
+msgstr "Markera Länkad"
 
 
 msgid "Cannot remove vertices in edit mode"
@@ -32636,12 +32255,12 @@ msgid "Cannot remove more vertices than the mesh contains"
 msgstr "Bild Displist"
 
 
-msgid "Cannot add loops in edit mode"
-msgstr "Markera Länkad"
+msgid "Cannot remove edges in edit mode"
+msgstr "Visa ytors normaler som linjer"
 
 
-msgid "Cannot add polygons in edit mode"
-msgstr "Markera Länkad"
+msgid "Cannot remove more edges than the mesh contains"
+msgstr "Visa ytors normaler som linjer"
 
 
 msgid "Cannot join while in edit mode"
@@ -32816,6 +32435,10 @@ msgid "Unable to remove material slot in edit mode"
 msgstr "Markera Länkad"
 
 
+msgid "Blender Render"
+msgstr "Rendera"
+
+
 msgid "Flip to Bottom"
 msgstr "Arkiv"
 
@@ -32900,20 +32523,20 @@ msgid "File path"
 msgstr "Arkiv"
 
 
-msgid "File name, overwrite existing"
-msgstr "Överskrivning av/på"
-
-
-msgid "File name"
-msgstr "Arkiv"
-
-
 msgid "No parent directory given"
 msgstr "Bild Displist"
 
 
 msgid "Could not create new folder name"
 msgstr "Bild Displist"
+
+
+msgid "File name, overwrite existing"
+msgstr "Överskrivning av/på"
+
+
+msgid "File name"
+msgstr "Arkiv"
 
 
 msgid "Cursor from Selection"
@@ -33198,6 +32821,16 @@ msgstr "Markera Länkad"
 
 msgid "No active sequence!"
 msgstr "Starta rendering av sekvens"
+
+
+msgctxt "Operator"
+msgid "Top of File"
+msgstr "Början på filen"
+
+
+msgctxt "Operator"
+msgid "Bottom of File"
+msgstr "Slutet av filen"
 
 
 msgid "unknown error writing file"
@@ -33741,10 +33374,6 @@ msgid "No operator in context"
 msgstr "Byta Stripp"
 
 
-msgid "Blender Render"
-msgstr "Rendera"
-
-
 msgid "English (English)"
 msgstr "Engelska (English)"
 
@@ -33855,3 +33484,4 @@ msgstr "Rendera"
 
 msgid "Starting"
 msgstr "Partikel-UV"
+

@@ -51,9 +51,6 @@ if(BUILD_MODE STREQUAL Release)
         # tiff
         ${CMAKE_COMMAND} -E copy ${LIBDIR}/tiff/lib/tiff.lib ${HARVEST_TARGET}/tiff/lib/libtiff.lib &&
         ${CMAKE_COMMAND} -E copy_directory ${LIBDIR}/tiff/include/ ${HARVEST_TARGET}/tiff/include/ &&
-        # BlendThumb
-        ${CMAKE_COMMAND} -E copy ${LIBDIR}/BlendThumb64/bin/blendthumb.dll ${HARVEST_TARGET}/ThumbHandler/lib/BlendThumb64.dll &&
-        ${CMAKE_COMMAND} -E copy ${LIBDIR}/BlendThumb32/bin/blendthumb.dll ${HARVEST_TARGET}/ThumbHandler/lib/BlendThumb.dll &&
         # hidapi
         ${CMAKE_COMMAND} -E copy_directory ${LIBDIR}/hidapi/ ${HARVEST_TARGET}/hidapi/ &&
         # webp, straight up copy
@@ -166,6 +163,8 @@ harvest(openimageio/bin openimageio/bin "maketx")
 harvest(openimageio/bin openimageio/bin "oiiotool")
 harvest(openimageio/include openimageio/include "*")
 harvest(openimageio/lib openimageio/lib "*.a")
+harvest(openimagedenoise/include openimagedenoise/include "*")
+harvest(openimagedenoise/lib openimagedenoise/lib "*.a")
 harvest(openjpeg/include/openjpeg-2.3 openjpeg/include "*.h")
 harvest(openjpeg/lib openjpeg/lib "*.a")
 harvest(opensubdiv/include opensubdiv/include "*.h")
@@ -193,11 +192,17 @@ harvest(theora/lib ffmpeg/lib "*.a")
 harvest(tiff/include tiff/include "*.h")
 harvest(tiff/lib tiff/lib "*.a")
 harvest(vorbis/lib ffmpeg/lib "*.a")
+harvest(opus/lib ffmpeg/lib "*.a")
 harvest(vpx/lib ffmpeg/lib "*.a")
 harvest(webp/lib ffmpeg/lib "*.a")
 harvest(x264/lib ffmpeg/lib "*.a")
 harvest(xvidcore/lib ffmpeg/lib "*.a")
 harvest(embree/include embree/include "*.h")
 harvest(embree/lib embree/lib "*.a")
+
+if(UNIX AND NOT APPLE)
+  harvest(libglu/lib mesa/lib "*.so*")
+  harvest(mesa/lib mesa/lib "*.so*")
+endif()
 
 endif()

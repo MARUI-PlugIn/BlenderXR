@@ -60,10 +60,10 @@ class GHOST_WindowSDL : public GHOST_Window {
                   GHOST_TUns32 width,
                   GHOST_TUns32 height,
                   GHOST_TWindowState state,
-                  const GHOST_TEmbedderWindowID parentWindow,
                   GHOST_TDrawingContextType type = GHOST_kDrawingContextTypeNone,
                   const bool stereoVisual = false,
-                  const bool exclusive = false);
+                  const bool exclusive = false,
+                  const GHOST_IWindow *parentWindow = NULL);
 
   ~GHOST_WindowSDL();
 
@@ -100,6 +100,7 @@ class GHOST_WindowSDL : public GHOST_Window {
   GHOST_TSuccess setWindowCursorGrab(GHOST_TGrabCursorMode mode);
 
   GHOST_TSuccess setWindowCursorShape(GHOST_TStandardCursor shape);
+  GHOST_TSuccess hasCursorShape(GHOST_TStandardCursor shape);
 
   GHOST_TSuccess setWindowCustomCursorShape(GHOST_TUns8 *bitmap,
                                             GHOST_TUns8 *mask,

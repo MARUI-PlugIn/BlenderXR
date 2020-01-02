@@ -71,14 +71,12 @@
 #include "BKE_constraint.h"
 #include "BKE_deform.h"
 #include "BKE_fcurve.h"
-#include "BKE_image.h"
 #include "BKE_lattice.h"
 #include "BKE_main.h"  // for Main
 #include "BKE_mesh.h"  // for ME_ defines (patching)
 #include "BKE_modifier.h"
 #include "BKE_particle.h"
 #include "BKE_pointcache.h"
-#include "BKE_scene.h"
 #include "BKE_sequencer.h"
 
 #include "NOD_socket.h"
@@ -1181,7 +1179,7 @@ void blo_do_versions_pre250(FileData *fd, Library *lib, Main *bmain)
     }
 
     /* new variable blockscale, for panels in any area, do again because new
-     * areas didnt initialize it to 0.7 yet
+     * areas didn't initialize it to 0.7 yet
      */
     for (sc = bmain->screens.first; sc; sc = sc->id.next) {
       ScrArea *sa;
@@ -1707,19 +1705,17 @@ void blo_do_versions_pre250(FileData *fd, Library *lib, Main *bmain)
     /* add default radius values to old curve points */
     for (cu = bmain->curves.first; cu; cu = cu->id.next) {
       for (nu = cu->nurb.first; nu; nu = nu->next) {
-        if (nu) {
-          if (nu->bezt) {
-            for (bezt = nu->bezt, a = 0; a < nu->pntsu; a++, bezt++) {
-              if (!bezt->radius) {
-                bezt->radius = 1.0;
-              }
+        if (nu->bezt) {
+          for (bezt = nu->bezt, a = 0; a < nu->pntsu; a++, bezt++) {
+            if (!bezt->radius) {
+              bezt->radius = 1.0;
             }
           }
-          else if (nu->bp) {
-            for (bp = nu->bp, a = 0; a < nu->pntsu * nu->pntsv; a++, bp++) {
-              if (!bp->radius) {
-                bp->radius = 1.0;
-              }
+        }
+        else if (nu->bp) {
+          for (bp = nu->bp, a = 0; a < nu->pntsu * nu->pntsv; a++, bp++) {
+            if (!bp->radius) {
+              bp->radius = 1.0;
             }
           }
         }
@@ -1782,7 +1778,7 @@ void blo_do_versions_pre250(FileData *fd, Library *lib, Main *bmain)
         }
       }
 
-      /* copy old object level track settings to curve modifers */
+      /* copy old object level track settings to curve modifiers */
       for (md = ob->modifiers.first; md; md = md->next) {
         if (md->type == eModifierType_Curve) {
           CurveModifierData *cmd = (CurveModifierData *)md;
@@ -2094,8 +2090,8 @@ void blo_do_versions_pre250(FileData *fd, Library *lib, Main *bmain)
         la->falloff_type = LA_FALLOFF_INVLINEAR;
 
         if (la->curfalloff == NULL) {
-          la->curfalloff = curvemapping_add(1, 0.0f, 1.0f, 1.0f, 0.0f);
-          curvemapping_initialize(la->curfalloff);
+          la->curfalloff = BKE_curvemapping_add(1, 0.0f, 1.0f, 1.0f, 0.0f);
+          BKE_curvemapping_initialize(la->curfalloff);
         }
       }
     }
@@ -2517,17 +2513,15 @@ void blo_do_versions_pre250(FileData *fd, Library *lib, Main *bmain)
 
     for (cu = bmain->curves.first; cu; cu = cu->id.next) {
       for (nu = cu->nurb.first; nu; nu = nu->next) {
-        if (nu) {
-          nu->radius_interp = 3;
+        nu->radius_interp = 3;
 
-          /* resolu and resolv are now used differently for surfaces
-           * rather than using the resolution to define the entire number of divisions,
-           * use it for the number of divisions per segment
-           */
-          if (nu->pntsv > 1) {
-            nu->resolu = MAX2(1, (int)(((float)nu->resolu / (float)nu->pntsu) + 0.5f));
-            nu->resolv = MAX2(1, (int)(((float)nu->resolv / (float)nu->pntsv) + 0.5f));
-          }
+        /* resolu and resolv are now used differently for surfaces
+         * rather than using the resolution to define the entire number of divisions,
+         * use it for the number of divisions per segment
+         */
+        if (nu->pntsv > 1) {
+          nu->resolu = MAX2(1, (int)(((float)nu->resolu / (float)nu->pntsu) + 0.5f));
+          nu->resolv = MAX2(1, (int)(((float)nu->resolv / (float)nu->pntsv) + 0.5f));
         }
       }
     }

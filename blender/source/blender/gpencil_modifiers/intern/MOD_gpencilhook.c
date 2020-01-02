@@ -63,8 +63,8 @@ struct GPHookData_cb {
   float falloff_sq;
   float fac_orig;
 
-  unsigned int use_falloff : 1;
-  unsigned int use_uniform : 1;
+  uint use_falloff : 1;
+  uint use_uniform : 1;
 
   float cent[3];
 
@@ -77,13 +77,14 @@ static void initData(GpencilModifierData *md)
   HookGpencilModifierData *gpmd = (HookGpencilModifierData *)md;
   gpmd->pass_index = 0;
   gpmd->layername[0] = '\0';
+  gpmd->materialname[0] = '\0';
   gpmd->vgname[0] = '\0';
   gpmd->object = NULL;
   gpmd->force = 0.5f;
   gpmd->falloff_type = eGPHook_Falloff_Smooth;
-  gpmd->curfalloff = curvemapping_add(1, 0.0f, 0.0f, 1.0f, 1.0f);
+  gpmd->curfalloff = BKE_curvemapping_add(1, 0.0f, 0.0f, 1.0f, 1.0f);
   if (gpmd->curfalloff) {
-    curvemapping_initialize(gpmd->curfalloff);
+    BKE_curvemapping_initialize(gpmd->curfalloff);
   }
 }
 
@@ -93,13 +94,13 @@ static void copyData(const GpencilModifierData *md, GpencilModifierData *target)
   HookGpencilModifierData *tgmd = (HookGpencilModifierData *)target;
 
   if (tgmd->curfalloff != NULL) {
-    curvemapping_free(tgmd->curfalloff);
+    BKE_curvemapping_free(tgmd->curfalloff);
     tgmd->curfalloff = NULL;
   }
 
   BKE_gpencil_modifier_copyData_generic(md, target);
 
-  tgmd->curfalloff = curvemapping_copy(gmd->curfalloff);
+  tgmd->curfalloff = BKE_curvemapping_copy(gmd->curfalloff);
 }
 
 /* calculate factor of fallof */
@@ -126,7 +127,7 @@ static float gp_hook_falloff(const struct GPHookData_cb *tData, const float len_
 
     switch (tData->falloff_type) {
       case eGPHook_Falloff_Curve:
-        fac = curvemapping_evaluateF(tData->curfalloff, 0, fac);
+        fac = BKE_curvemapping_evaluateF(tData->curfalloff, 0, fac);
         break;
       case eGPHook_Falloff_Sharp:
         fac = fac * fac;
@@ -190,6 +191,7 @@ static void deformStroke(GpencilModifierData *md,
                          Depsgraph *UNUSED(depsgraph),
                          Object *ob,
                          bGPDlayer *gpl,
+                         bGPDframe *UNUSED(gpf),
                          bGPDstroke *gps)
 {
   HookGpencilModifierData *mmd = (HookGpencilModifierData *)md;
@@ -205,6 +207,7 @@ static void deformStroke(GpencilModifierData *md,
 
   if (!is_stroke_affected_by_modifier(ob,
                                       mmd->layername,
+                                      mmd->materialname,
                                       mmd->pass_index,
                                       mmd->layer_pass,
                                       1,
@@ -212,7 +215,8 @@ static void deformStroke(GpencilModifierData *md,
                                       gps,
                                       mmd->flag & GP_HOOK_INVERT_LAYER,
                                       mmd->flag & GP_HOOK_INVERT_PASS,
-                                      mmd->flag & GP_HOOK_INVERT_LAYERPASS)) {
+                                      mmd->flag & GP_HOOK_INVERT_LAYERPASS,
+                                      mmd->flag & GP_HOOK_INVERT_MATERIAL)) {
     return;
   }
 
@@ -285,7 +289,7 @@ static void bakeModifier(Main *bmain, Depsgraph *depsgraph, GpencilModifierData 
 
       /* compute hook effects on this frame */
       for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
-        deformStroke(md, depsgraph, ob, gpl, gps);
+        deformStroke(md, depsgraph, ob, gpl, gpf, gps);
       }
     }
   }
@@ -300,7 +304,7 @@ static void freeData(GpencilModifierData *md)
   HookGpencilModifierData *mmd = (HookGpencilModifierData *)md;
 
   if (mmd->curfalloff) {
-    curvemapping_free(mmd->curfalloff);
+    BKE_curvemapping_free(mmd->curfalloff);
   }
 }
 
@@ -353,5 +357,4 @@ GpencilModifierTypeInfo modifierType_Gpencil_Hook = {
     /* foreachObjectLink */ foreachObjectLink,
     /* foreachIDLink */ NULL,
     /* foreachTexLink */ NULL,
-    /* getDuplicationFactor */ NULL,
 };

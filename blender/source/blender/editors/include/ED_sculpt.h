@@ -25,10 +25,7 @@
 #define __ED_SCULPT_H__
 
 struct ARegion;
-struct ListBase;
 struct Object;
-struct RegionView3D;
-struct UndoStep;
 struct UndoType;
 struct ViewContext;
 struct bContext;
@@ -42,7 +39,15 @@ bool ED_sculpt_mask_box_select(struct bContext *C,
                                const struct rcti *rect,
                                bool select);
 
+/* transform */
+void ED_sculpt_update_modal_transform(struct bContext *C);
+void ED_sculpt_init_transform(struct bContext *C);
+void ED_sculpt_end_transform(struct bContext *C);
+
 /* sculpt_undo.c */
 void ED_sculpt_undosys_type(struct UndoType *ut);
+
+void ED_sculpt_undo_geometry_begin(struct Object *ob);
+void ED_sculpt_undo_geometry_end(struct Object *ob);
 
 #endif /* __ED_SCULPT_H__ */

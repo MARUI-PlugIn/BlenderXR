@@ -105,7 +105,7 @@ static bool gp_data_add_poll(bContext *C)
 /* add new datablock - wrapper around API */
 static int gp_data_add_exec(bContext *C, wmOperator *op)
 {
-  PointerRNA gpd_owner = {{NULL}};
+  PointerRNA gpd_owner = {NULL};
   bGPdata **gpd_ptr = ED_gpencil_data_get_pointers(C, &gpd_owner);
   bool is_annotation = ED_gpencil_data_owner_is_annotation(&gpd_owner);
 
@@ -231,7 +231,7 @@ void GPENCIL_OT_data_unlink(wmOperatorType *ot)
 /* add new layer - wrapper around API */
 static int gp_layer_add_exec(bContext *C, wmOperator *op)
 {
-  PointerRNA gpd_owner = {{NULL}};
+  PointerRNA gpd_owner = {NULL};
   bGPdata **gpd_ptr = ED_gpencil_data_get_pointers(C, &gpd_owner);
   bool is_annotation = ED_gpencil_data_owner_is_annotation(&gpd_owner);
 
@@ -492,58 +492,53 @@ static int gp_layer_duplicate_object_exec(bContext *C, wmOperator *op)
   bGPdata *gpd_src = (bGPdata *)ob_src->data;
   bGPDlayer *gpl_src = BKE_gpencil_layer_getactive(gpd_src);
 
-  /* sanity checks */
+  /* Sanity checks. */
   if (ELEM(NULL, gpd_src, gpl_src, ob_dst)) {
     return OPERATOR_CANCELLED;
   }
-  /* cannot copy itself and check destination type */
+  /* Cannot copy itself and check destination type. */
   if ((ob_src == ob_dst) || (ob_dst->type != OB_GPENCIL)) {
     return OPERATOR_CANCELLED;
   }
 
   bGPdata *gpd_dst = (bGPdata *)ob_dst->data;
 
-  /* make copy of layer */
-  bGPDlayer *gpl_dst = MEM_dupallocN(gpl_src);
-  gpl_dst->prev = gpl_dst->next = NULL;
-  BLI_addtail(&gpd_dst->layers, gpl_dst);
-  BLI_uniquename(&gpd_dst->layers,
-                 gpl_dst,
-                 DATA_("GP_Layer"),
-                 '.',
-                 offsetof(bGPDlayer, info),
-                 sizeof(gpl_dst->info));
+  /* Create new layer. */
+  bGPDlayer *gpl_dst = BKE_gpencil_layer_addnew(gpd_dst, gpl_src->info, true);
+  /* Need to copy some variables (not all). */
+  gpl_dst->onion_flag = gpl_src->onion_flag;
+  gpl_dst->thickness = gpl_src->thickness;
+  gpl_dst->line_change = gpl_src->line_change;
+  copy_v4_v4(gpl_dst->tintcolor, gpl_src->tintcolor);
+  gpl_dst->opacity = gpl_src->opacity;
 
-  /* copy frames */
-  BLI_listbase_clear(&gpl_dst->frames);
+  /* Create all frames. */
   for (bGPDframe *gpf_src = gpl_src->frames.first; gpf_src; gpf_src = gpf_src->next) {
 
     if ((mode == GP_LAYER_COPY_OBJECT_ACT_FRAME) && (gpf_src != gpl_src->actframe)) {
       continue;
     }
 
-    /* make a copy of source frame */
-    bGPDframe *gpf_dst = MEM_dupallocN(gpf_src);
-    gpf_dst->prev = gpf_dst->next = NULL;
-    BLI_addtail(&gpl_dst->frames, gpf_dst);
+    /* Create new frame. */
+    bGPDframe *gpf_dst = BKE_gpencil_frame_addnew(gpl_dst, gpf_src->framenum);
 
-    /* copy strokes */
-    BLI_listbase_clear(&gpf_dst->strokes);
+    /* Copy strokes. */
     for (bGPDstroke *gps_src = gpf_src->strokes.first; gps_src; gps_src = gps_src->next) {
 
-      /* make copy of source stroke */
+      /* Make copy of source stroke. */
       bGPDstroke *gps_dst = BKE_gpencil_stroke_duplicate(gps_src);
 
-      /* check if material is in destination object,
-       * otherwise add the slot with the material
-       */
+      /* Check if material is in destination object,
+       * otherwise add the slot with the material. */
       Material *ma_src = give_current_material(ob_src, gps_src->mat_nr + 1);
-      int idx = BKE_gpencil_object_material_ensure(bmain, ob_dst, ma_src);
+      if (ma_src != NULL) {
+        int idx = BKE_gpencil_object_material_ensure(bmain, ob_dst, ma_src);
 
-      /* Reassign the stroke material to the right slot in destination object. */
-      gps_dst->mat_nr = idx;
+        /* Reassign the stroke material to the right slot in destination object. */
+        gps_dst->mat_nr = idx;
+      }
 
-      /* add new stroke to frame */
+      /* Add new stroke to frame. */
       BLI_addtail(&gpf_dst->strokes, gps_dst);
     }
   }
@@ -566,7 +561,7 @@ void GPENCIL_OT_layer_duplicate_object(wmOperatorType *ot)
   };
 
   /* identifiers */
-  ot->name = "Duplicate Layer to new Object";
+  ot->name = "Duplicate Layer to New Object";
   ot->idname = "GPENCIL_OT_layer_duplicate_object";
   ot->description = "Make a copy of the active Grease Pencil layer to new object";
 
@@ -594,8 +589,7 @@ static int gp_frame_duplicate_exec(bContext *C, wmOperator *op)
 {
   bGPdata *gpd = ED_gpencil_data_get_active(C);
   bGPDlayer *gpl = BKE_gpencil_layer_getactive(gpd);
-  Depsgraph *depsgraph = CTX_data_depsgraph(C);
-  int cfra_eval = (int)DEG_get_ctime(depsgraph);
+  Scene *scene = CTX_data_scene(C);
 
   int mode = RNA_enum_get(op->ptr, "mode");
 
@@ -605,12 +599,12 @@ static int gp_frame_duplicate_exec(bContext *C, wmOperator *op)
   }
 
   if (mode == 0) {
-    BKE_gpencil_frame_addcopy(gpl, cfra_eval);
+    BKE_gpencil_frame_addcopy(gpl, CFRA);
   }
   else {
     for (gpl = gpd->layers.first; gpl; gpl = gpl->next) {
       if ((gpl->flag & GP_LAYER_LOCKED) == 0) {
-        BKE_gpencil_frame_addcopy(gpl, cfra_eval);
+        BKE_gpencil_frame_addcopy(gpl, CFRA);
       }
     }
   }
@@ -798,7 +792,7 @@ static int gp_frame_clean_loose_exec(bContext *C, wmOperator *op)
 void GPENCIL_OT_frame_clean_loose(wmOperatorType *ot)
 {
   /* identifiers */
-  ot->name = "Clean Loose points";
+  ot->name = "Clean Loose Points";
   ot->idname = "GPENCIL_OT_frame_clean_loose";
   ot->description = "Remove loose points";
 
@@ -840,6 +834,10 @@ static int gp_hide_exec(bContext *C, wmOperator *op)
     for (gpl = gpd->layers.first; gpl; gpl = gpl->next) {
       if (gpl != layer) {
         gpl->flag |= GP_LAYER_HIDE;
+      }
+      else {
+        /* Be sure the active layer is unhidden. */
+        gpl->flag &= ~GP_LAYER_HIDE;
       }
     }
   }
@@ -1386,9 +1384,9 @@ static int gp_stroke_arrange_exec(bContext *C, wmOperator *op)
 void GPENCIL_OT_stroke_arrange(wmOperatorType *ot)
 {
   static const EnumPropertyItem slot_move[] = {
+      {GP_STROKE_MOVE_TOP, "TOP", 0, "Bring to Front", ""},
       {GP_STROKE_MOVE_UP, "UP", 0, "Bring Forward", ""},
       {GP_STROKE_MOVE_DOWN, "DOWN", 0, "Send Backward", ""},
-      {GP_STROKE_MOVE_TOP, "TOP", 0, "Bring to Front", ""},
       {GP_STROKE_MOVE_BOTTOM, "BOTTOM", 0, "Send to Back", ""},
       {0, NULL, 0, NULL, NULL}};
 
@@ -1420,7 +1418,7 @@ static int gp_stroke_change_color_exec(bContext *C, wmOperator *op)
   bGPdata *gpd = ED_gpencil_data_get_active(C);
   Object *ob = CTX_data_active_object(C);
   if (name[0] == '\0') {
-    ma = give_current_material(ob, ob->actcol);
+    ma = BKE_material_gpencil_get(ob, ob->actcol);
   }
   else {
     ma = (Material *)BKE_libblock_find_name(bmain, ID_MA, name);
@@ -1540,9 +1538,10 @@ static int gp_stroke_lock_color_exec(bContext *C, wmOperator *UNUSED(op))
           }
           /* unlock color */
           Material *tmp_ma = give_current_material(ob, gps->mat_nr + 1);
-
-          tmp_ma->gp_style->flag &= ~GP_STYLE_COLOR_LOCKED;
-          DEG_id_tag_update(&tmp_ma->id, ID_RECALC_COPY_ON_WRITE);
+          if (tmp_ma) {
+            tmp_ma->gp_style->flag &= ~GP_STYLE_COLOR_LOCKED;
+            DEG_id_tag_update(&tmp_ma->id, ID_RECALC_COPY_ON_WRITE);
+          }
         }
       }
     }
@@ -1581,7 +1580,9 @@ void GPENCIL_OT_stroke_lock_color(wmOperatorType *ot)
 /* ******************* Brush create presets ************************** */
 static int gp_brush_presets_create_exec(bContext *C, wmOperator *UNUSED(op))
 {
-  BKE_brush_gpencil_presets(C);
+  Main *bmain = CTX_data_main(C);
+  ToolSettings *ts = CTX_data_tool_settings(C);
+  BKE_brush_gpencil_presets(bmain, ts);
 
   /* notifiers */
   WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
@@ -2201,7 +2202,7 @@ int ED_gpencil_join_objects_exec(bContext *C, wmOperator *op)
 {
   Main *bmain = CTX_data_main(C);
   Scene *scene = CTX_data_scene(C);
-  Depsgraph *depsgraph = CTX_data_depsgraph(C);
+  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   Object *ob_active = CTX_data_active_object(C);
   bGPdata *gpd_dst = NULL;
   bool ok = false;
@@ -2292,7 +2293,7 @@ int ED_gpencil_join_objects_exec(bContext *C, wmOperator *op)
         short *totcol = give_totcolp(ob_src);
 
         for (short i = 0; i < *totcol; i++) {
-          Material *tmp_ma = give_current_material(ob_src, i + 1);
+          Material *tmp_ma = BKE_material_gpencil_get(ob_src, i + 1);
           BKE_gpencil_object_material_ensure(bmain, ob_dst, tmp_ma);
         }
 
@@ -2326,7 +2327,7 @@ int ED_gpencil_join_objects_exec(bContext *C, wmOperator *op)
             for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
 
               /* Reassign material. Look old material and try to find in destination. */
-              ma_src = give_current_material(ob_src, gps->mat_nr + 1);
+              ma_src = BKE_material_gpencil_get(ob_src, gps->mat_nr + 1);
               gps->mat_nr = BKE_gpencil_object_material_ensure(bmain, ob_dst, ma_src);
 
               bGPDspoint *pt;
@@ -2434,7 +2435,7 @@ static int gpencil_lock_layer_exec(bContext *C, wmOperator *UNUSED(op))
   }
 
   for (short i = 0; i < *totcol; i++) {
-    ma = give_current_material(ob, i + 1);
+    ma = BKE_material_gpencil_get(ob, i + 1);
     if (ma) {
       gp_style = ma->gp_style;
       gp_style->flag |= GP_STYLE_COLOR_LOCKED;
@@ -2454,7 +2455,7 @@ static int gpencil_lock_layer_exec(bContext *C, wmOperator *UNUSED(op))
           continue;
         }
 
-        ma = give_current_material(ob, gps->mat_nr + 1);
+        ma = BKE_material_gpencil_get(ob, gps->mat_nr + 1);
         DEG_id_tag_update(&ma->id, ID_RECALC_COPY_ON_WRITE);
 
         gp_style = ma->gp_style;
@@ -2497,7 +2498,7 @@ static int gpencil_color_isolate_exec(bContext *C, wmOperator *op)
 {
   bGPdata *gpd = ED_gpencil_data_get_active(C);
   Object *ob = CTX_data_active_object(C);
-  Material *active_ma = give_current_material(ob, ob->actcol);
+  Material *active_ma = BKE_material_gpencil_get(ob, ob->actcol);
   MaterialGPencilStyle *active_color = BKE_material_gpencil_settings_get(ob, ob->actcol);
   MaterialGPencilStyle *gp_style;
 
@@ -2517,7 +2518,7 @@ static int gpencil_color_isolate_exec(bContext *C, wmOperator *op)
   Material *ma = NULL;
   short *totcol = give_totcolp(ob);
   for (short i = 0; i < *totcol; i++) {
-    ma = give_current_material(ob, i + 1);
+    ma = BKE_material_gpencil_get(ob, i + 1);
     /* Skip if this is the active one */
     if ((ma == NULL) || (ma == active_ma)) {
       continue;
@@ -2537,7 +2538,7 @@ static int gpencil_color_isolate_exec(bContext *C, wmOperator *op)
   if (isolate) {
     /* Set flags on all "other" colors */
     for (short i = 0; i < *totcol; i++) {
-      ma = give_current_material(ob, i + 1);
+      ma = BKE_material_gpencil_get(ob, i + 1);
       if (ma == NULL) {
         continue;
       }
@@ -2554,7 +2555,7 @@ static int gpencil_color_isolate_exec(bContext *C, wmOperator *op)
   else {
     /* Clear flags - Restore everything else */
     for (short i = 0; i < *totcol; i++) {
-      ma = give_current_material(ob, i + 1);
+      ma = BKE_material_gpencil_get(ob, i + 1);
       if (ma == NULL) {
         continue;
       }
@@ -2619,7 +2620,7 @@ static int gpencil_color_hide_exec(bContext *C, wmOperator *op)
     /* hide unselected */
     MaterialGPencilStyle *color = NULL;
     for (short i = 0; i < *totcol; i++) {
-      ma = give_current_material(ob, i + 1);
+      ma = BKE_material_gpencil_get(ob, i + 1);
       if (ma) {
         color = ma->gp_style;
         if (active_color != color) {
@@ -2682,7 +2683,7 @@ static int gpencil_color_reveal_exec(bContext *C, wmOperator *UNUSED(op))
   MaterialGPencilStyle *gp_style = NULL;
 
   for (short i = 0; i < *totcol; i++) {
-    ma = give_current_material(ob, i + 1);
+    ma = BKE_material_gpencil_get(ob, i + 1);
     if (ma) {
       gp_style = ma->gp_style;
       gp_style->flag &= ~GP_STYLE_COLOR_HIDE;
@@ -2735,7 +2736,7 @@ static int gpencil_color_lock_all_exec(bContext *C, wmOperator *UNUSED(op))
   MaterialGPencilStyle *gp_style = NULL;
 
   for (short i = 0; i < *totcol; i++) {
-    ma = give_current_material(ob, i + 1);
+    ma = BKE_material_gpencil_get(ob, i + 1);
     if (ma) {
       gp_style = ma->gp_style;
       gp_style->flag |= GP_STYLE_COLOR_LOCKED;
@@ -2788,7 +2789,7 @@ static int gpencil_color_unlock_all_exec(bContext *C, wmOperator *UNUSED(op))
   MaterialGPencilStyle *gp_style = NULL;
 
   for (short i = 0; i < *totcol; i++) {
-    ma = give_current_material(ob, i + 1);
+    ma = BKE_material_gpencil_get(ob, i + 1);
     if (ma) {
       gp_style = ma->gp_style;
       gp_style->flag &= ~GP_STYLE_COLOR_LOCKED;
@@ -2887,7 +2888,7 @@ static int gpencil_color_select_exec(bContext *C, wmOperator *op)
   CTX_DATA_END;
 
   /* copy on write tag is needed, or else no refresh happens */
-  DEG_id_tag_update(&gpd->id, ID_RECALC_COPY_ON_WRITE);
+  DEG_id_tag_update(&gpd->id, ID_RECALC_GEOMETRY | ID_RECALC_COPY_ON_WRITE);
 
   /* notifiers */
   WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
@@ -2912,6 +2913,54 @@ void GPENCIL_OT_color_select(wmOperatorType *ot)
   /* props */
   ot->prop = RNA_def_boolean(ot->srna, "deselect", 0, "Deselect", "Unselect strokes");
   RNA_def_property_flag(ot->prop, PROP_HIDDEN | PROP_SKIP_SAVE);
+}
+
+/* ***************** Set selected stroke material the active material ************************ */
+
+static int gpencil_set_active_material_exec(bContext *C, wmOperator *op)
+{
+  Object *ob = CTX_data_active_object(C);
+  bGPdata *gpd = ED_gpencil_data_get_active(C);
+  bool changed = false;
+
+  /* Sanity checks. */
+  if (gpd == NULL) {
+    BKE_report(op->reports, RPT_ERROR, "No Grease Pencil data");
+    return OPERATOR_CANCELLED;
+  }
+
+  /* Loop all selected strokes. */
+  GP_EDITABLE_STROKES_BEGIN (gpstroke_iter, C, gpl, gps) {
+    if (gps->flag & GP_STROKE_SELECT) {
+      /* Change Active material. */
+      ob->actcol = gps->mat_nr + 1;
+      changed = true;
+      break;
+    }
+  }
+  GP_EDITABLE_STROKES_END(gpstroke_iter);
+
+  /* notifiers */
+  if (changed) {
+    WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
+  }
+
+  return OPERATOR_FINISHED;
+}
+
+void GPENCIL_OT_set_active_material(wmOperatorType *ot)
+{
+  /* identifiers */
+  ot->name = "Set active material";
+  ot->idname = "GPENCIL_OT_set_active_material";
+  ot->description = "Set the selected stroke material as the active material";
+
+  /* callbacks */
+  ot->exec = gpencil_set_active_material_exec;
+  ot->poll = gpencil_active_color_poll;
+
+  /* flags */
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
 /* Parent GPencil object to Lattice */

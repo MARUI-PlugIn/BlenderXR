@@ -124,7 +124,7 @@ static int vertex_parent_set_exec(bContext *C, wmOperator *op)
   Main *bmain = CTX_data_main(C);
   Scene *scene = CTX_data_scene(C);
   View3D *v3d = CTX_wm_view3d(C);
-  Depsgraph *depsgraph = CTX_data_depsgraph(C);
+  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   ViewLayer *view_layer = CTX_data_view_layer(C);
   Object *obedit = CTX_data_edit_object(C);
   BMVert *eve;
@@ -149,7 +149,7 @@ static int vertex_parent_set_exec(bContext *C, wmOperator *op)
     em = me->edit_mesh;
 
     EDBM_mesh_normals_update(em);
-    BKE_editmesh_tessface_calc(em);
+    BKE_editmesh_looptri_calc(em);
 
     /* Make sure the evaluated mesh is updated.
      *
@@ -677,7 +677,7 @@ bool ED_object_parent_set(ReportList *reports,
                           const int vert_par[3])
 {
   Main *bmain = CTX_data_main(C);
-  Depsgraph *depsgraph = CTX_data_depsgraph(C);
+  Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   bPoseChannel *pchan = NULL;
   bPoseChannel *pchan_eval = NULL;
   const bool pararm = ELEM(
@@ -1434,7 +1434,7 @@ static int make_links_scene_exec(bContext *C, wmOperator *op)
     return OPERATOR_CANCELLED;
   }
 
-  Collection *collection_to = BKE_collection_master(scene_to);
+  Collection *collection_to = scene_to->master_collection;
   CTX_DATA_BEGIN (C, Base *, base, selected_bases) {
     BKE_collection_object_add(bmain, collection_to, base->object);
   }
@@ -1582,6 +1582,7 @@ static int make_links_data_exec(bContext *C, wmOperator *op)
               id_us_plus(&ob_dst->instance_collection->id);
               ob_dst->transflag |= OB_DUPLICOLLECTION;
             }
+            DEG_id_tag_update(&ob_dst->id, ID_RECALC_COPY_ON_WRITE);
             break;
           case MAKE_LINKS_MODIFIERS:
             BKE_object_link_modifiers(scene, ob_dst, ob_src);
@@ -1726,7 +1727,7 @@ static Collection *single_object_users_collection(Main *bmain,
                                                   const bool is_master_collection)
 {
   /* Generate new copies for objects in given collection and all its children,
-   * and optionnaly also copy collections themselves. */
+   * and optionally also copy collections themselves. */
   if (copy_collections && !is_master_collection) {
     collection = ID_NEW_SET(collection, BKE_collection_copy(bmain, NULL, collection));
   }
@@ -1743,7 +1744,7 @@ static Collection *single_object_users_collection(Main *bmain,
   }
 
   /* Since master collection has already be duplicated as part of scene copy,
-   * we do not duplictae it here.
+   * we do not duplicate it here.
    * However, this means its children need to be re-added manually here,
    * otherwise their parent lists are empty (which will lead to crashes, see T63101). */
   CollectionChild *child_next, *child = collection->children.first;
@@ -1770,7 +1771,7 @@ static void single_object_users(
     Main *bmain, Scene *scene, View3D *v3d, const int flag, const bool copy_collections)
 {
   /* duplicate all the objects of the scene (and matching collections, if required). */
-  Collection *master_collection = BKE_collection_master(scene);
+  Collection *master_collection = scene->master_collection;
   single_object_users_collection(bmain, scene, master_collection, flag, copy_collections, true);
 
   /* duplicate collections that consist entirely of duplicated objects */
@@ -1815,6 +1816,10 @@ static void single_object_users(
   ID_NEW_REMAP(scene->camera);
   if (v3d) {
     ID_NEW_REMAP(v3d->camera);
+  }
+  /* Camera pointers of markers. */
+  for (TimeMarker *marker = scene->markers.first; marker; marker = marker->next) {
+    ID_NEW_REMAP(marker->camera);
   }
 
   /* Making single user may affect other scenes if they share
@@ -2045,6 +2050,13 @@ void ED_object_single_users(Main *bmain,
     single_obdata_users(bmain, scene, NULL, NULL, 0);
     single_object_action_users(bmain, scene, NULL, NULL, 0);
     single_mat_users_expand(bmain);
+    /* Duplicating obdata and other IDs may require another update of the collections and objects
+     * pointers, especially regarding drivers and custom props, see T66641.
+     * Note that this whole scene duplication code and 'make single user' functions have te be
+     * rewritten at some point to make use of proper modern ID management code,
+     * but that is no small task.
+     * For now we are doomed to that kind of band-aid to try to cover most of remapping cases. */
+    libblock_relink_collection(scene->master_collection);
   }
 
   /* Relink nodetrees' pointers that have been duplicated. */
@@ -2425,6 +2437,16 @@ static int make_override_library_exec(bContext *C, wmOperator *op)
 
   if (!ID_IS_LINKED(obact) && obact->instance_collection != NULL &&
       ID_IS_LINKED(obact->instance_collection)) {
+    if (!ID_IS_OVERRIDABLE_LIBRARY(obact->instance_collection)) {
+      BKE_reportf(op->reports,
+                  RPT_ERROR_INVALID_INPUT,
+                  "Collection '%s' (instantiated by the active object) is not overridable",
+                  obact->instance_collection->id.name + 2);
+      return OPERATOR_CANCELLED;
+    }
+
+    BKE_main_id_tag_all(bmain, LIB_TAG_DOIT, false);
+
     Object *obcollection = obact;
     Collection *collection = obcollection->instance_collection;
 
@@ -2470,7 +2492,11 @@ static int make_override_library_exec(bContext *C, wmOperator *op)
           DEG_id_tag_update_ex(bmain, &new_ob->id, ID_RECALC_TRANSFORM | ID_RECALC_BASE_FLAGS);
         }
         /* parent to 'collection' empty */
-        if (new_ob->parent == NULL) {
+        /* Disabled for now, according to some artist this is probably not really useful anyway.
+         * And it breaks things like objects parented to bones
+         * (most likely due to missing proper setting of inverse parent matrix?)... */
+        /* Note: we might even actually want to get rid of that instanciating empty... */
+        if (0 && new_ob->parent == NULL) {
           new_ob->parent = obcollection;
         }
         if (new_ob == (Object *)obact->id.newid) {
@@ -2498,7 +2524,14 @@ static int make_override_library_exec(bContext *C, wmOperator *op)
 
     /* Cleanup. */
     BKE_main_id_clear_newpoins(bmain);
-    BKE_main_id_tag_listbase(&bmain->objects, LIB_TAG_DOIT, false);
+    BKE_main_id_tag_all(bmain, LIB_TAG_DOIT, false);
+  }
+  else if (!ID_IS_OVERRIDABLE_LIBRARY(obact)) {
+    BKE_reportf(op->reports,
+                RPT_ERROR_INVALID_INPUT,
+                "Active object '%s' is not overridable",
+                obact->id.name + 2);
+    return OPERATOR_CANCELLED;
   }
   /* Else, poll func ensures us that ID_IS_LINKED(obact) is true. */
   else if (obact->type == OB_ARMATURE) {
@@ -2517,11 +2550,14 @@ static int make_override_library_exec(bContext *C, wmOperator *op)
 
     /* Cleanup. */
     BKE_main_id_clear_newpoins(bmain);
-    BKE_main_id_tag_listbase(&bmain->objects, LIB_TAG_DOIT, false);
+    BKE_main_id_tag_all(bmain, LIB_TAG_DOIT, false);
   }
   /* TODO: probably more cases where we want to do automated smart things in the future! */
   else {
-    success = (BKE_override_library_create_from_id(bmain, &obact->id) != NULL);
+    /* For now, remapp all local usages of linked ID to local override one here. */
+    BKE_main_id_tag_all(bmain, LIB_TAG_DOIT, true);
+    success = (BKE_override_library_create_from_id(bmain, &obact->id, true) != NULL);
+    BKE_main_id_tag_all(bmain, LIB_TAG_DOIT, false);
   }
 
   WM_event_add_notifier(C, NC_WINDOW, NULL);
@@ -2705,7 +2741,7 @@ static int object_unlink_data_exec(bContext *C, wmOperator *op)
     return OPERATOR_CANCELLED;
   }
 
-  id = pprop.ptr.id.data;
+  id = pprop.ptr.owner_id;
 
   if (GS(id->name) == ID_OB) {
     Object *ob = (Object *)id;

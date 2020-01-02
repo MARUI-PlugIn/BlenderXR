@@ -19,7 +19,7 @@
 bl_info = {
     "name": "BlenderKit Asset Library",
     "author": "Vilem Duha, Petr Dlouhy",
-    "version": (1, 0, 26),
+    "version": (1, 0, 28),
     "blender": (2, 80, 0),
     "location": "View3D > Properties > BlenderKit",
     "description": "Online BlenderKit library (materials, models, brushes and more)",
@@ -91,6 +91,17 @@ def scene_load(context):
     preferences = bpy.context.preferences.addons['blenderkit'].preferences
     preferences.login_attempt = False
 
+def check_timers_timer():
+    ''' checks if all timers are registered regularly. Prevents possible bugs from stopping the addon.'''
+    if not bpy.app.timers.is_registered(search.timer_update):
+        bpy.app.timers.register(search.timer_update)
+    if not bpy.app.timers.is_registered(download.timer_update):
+        bpy.app.timers.register(download.timer_update)
+    if not (bpy.app.timers.is_registered(tasks_queue.queue_worker)):
+        bpy.app.timers.register(tasks_queue.queue_worker)
+    if not bpy.app.timers.is_registered(bg_blender.bg_update):
+        bpy.app.timers.register(bg_blender.bg_update)
+    return 5.0
 
 licenses = (
     ('royalty_free', 'Royalty Free', 'royalty free commercial license'),
@@ -108,8 +119,8 @@ model_styles = (
     ('PAINTERLY', 'Painterly', 'hand painted with visible strokes, mostly for games'),
     ('LOWPOLY', 'Lowpoly', "Lowpoly art -don't mix up with polycount!"),
     ('ANIME', 'Anime', 'Anime style'),
-    ('2D VECTOR', '2d Vector', '2d vector'),
-    ('3D GRAPHICS', '3d Graphics', '3d graphics'),
+    ('2D_VECTOR', '2d Vector', '2d vector'),
+    ('3D_GRAPHICS', '3d Graphics', '3d graphics'),
     ('OTHER', 'Other', 'Other style'),
 )
 search_model_styles = (
@@ -117,8 +128,8 @@ search_model_styles = (
     ('PAINTERLY', 'Painterly', 'hand painted with visible strokes, mostly for games'),
     ('LOWPOLY', 'Lowpoly', "Lowpoly art -don't mix up with polycount!"),
     ('ANIME', 'Anime', 'Anime style'),
-    ('2D VECTOR', '2d Vector', '2d vector'),
-    ('3D GRAPHICS', '3d Graphics', '3d graphics'),
+    ('2D_VECTOR', '2d Vector', '2d vector'),
+    ('3D_GRAPHICS', '3d Graphics', '3d graphics'),
     ('OTHER', 'Other', 'Other Style'),
     ('ANY', 'Any', 'Any Style'),
 )
@@ -274,7 +285,7 @@ class BlenderKitUIProps(PropertyGroup):
     thumb_size: IntProperty(name="Thumbnail Size", default=thumb_size_def, min=-1, max=256)
 
     margin: IntProperty(name="Margin", default=margin_def, min=-1, max=256)
-    highlight_margin: IntProperty(name="Higlight Margin", default=int(margin_def / 2), min=-10, max=256)
+    highlight_margin: IntProperty(name="Highlight Margin", default=int(margin_def / 2), min=-10, max=256)
 
     bar_height: IntProperty(name="Bar Height", default=thumb_size_def + 2 * margin_def, min=-1, max=2048)
     bar_x_offset: IntProperty(name="Bar X Offset", default=20, min=0, max=5000)
@@ -371,18 +382,8 @@ class BlenderKitCommonSearchProps(object):
 def name_update(self, context):
     ''' checks for name change, because it decides if whole asset has to be re-uploaded. Name is stored in the blend file
     and that's the reason.'''
-    props = utils.get_upload_props()
-    if props.name_old != props.name:
-        props.name_changed = True
-        props.name_old = props.name
-        nname = props.name.strip()
-        nname = nname.replace('_', ' ')
-        if nname.isupper():
-            nname = nname.lower()
-        nname = nname[0].upper() + nname[1:]
-        props.name = nname
-        asset = utils.get_active_asset()
-        asset.name = nname
+    utils.name_update()
+
 
 
 def update_tags(self, context):
@@ -409,7 +410,19 @@ def update_tags(self, context):
     if props.tags != ns:
         props.tags = ns
 
+def update_free(self, context):
+    if self.is_free == False:
+        self.is_free = True
+        title = "All BlenderKit materials are free"
+        message = "Any material uploaded to BlenderKit is free." \
+                  " However, it can still earn money for the author," \
+                  " based on our fair share system. " \
+                  "Part of subscription is sent to artists based on usage by paying users."
 
+        def draw_message(self, context):
+            ui_panels.label_multiline(self.layout, text=message, icon='NONE', width=-1)
+
+        bpy.context.window_manager.popup_menu(draw_message, title=title, icon='INFO')
 
 class BlenderKitCommonUploadProps(object):
     id: StringProperty(
@@ -608,6 +621,10 @@ class BlenderKitMaterialUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
         description="shaders used in asset, autofilled",
         default="",
     )
+    is_free: BoolProperty(name="Free for Everyone",
+                          description="You consent you want to release this asset as free for everyone",
+                          default=True, update=update_free
+                          )
 
     uv: BoolProperty(name="Needs UV", description="needs an UV set", default=False)
     # printable_3d : BoolProperty( name = "3d printable", description = "can be 3d printed", default = False)
@@ -624,7 +641,7 @@ class BlenderKitMaterialUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
                                    description="size of material preview object in meters "
                                                "- change for materials that look better at sizes different than 1m",
                                    default=1, min=0.00001, max=10)
-    thumbnail_background: BoolProperty(name="Thumbnail Background",
+    thumbnail_background: BoolProperty(name="Thumbnail Background (for Glass only)",
                                        description="For refractive materials, you might need a background. "
                                                    "Don't use if thumbnail looks good without it!",
                                        default=False)
@@ -818,6 +835,13 @@ class BlenderKitModelUploadProps(PropertyGroup, BlenderKitCommonUploadProps):
         items=thumbnail_snap,
         default='GROUND',
         description='typical placing of the interior. Leave on ground for most objects that respect gravity :)',
+    )
+
+    thumbnail_resolution: EnumProperty(
+        name="Resolution",
+        items=thumbnail_resolutions,
+        description="Thumbnail resolution.",
+        default="512",
     )
 
     thumbnail_samples: IntProperty(name="Cycles Samples",
@@ -1170,11 +1194,11 @@ class BlenderKitModelSearchProps(PropertyGroup, BlenderKitCommonSearchProps):
     append_method: EnumProperty(
         name="Import Method",
         items=(
-            ('LINK_GROUP', 'Link Group', ''),
+            ('LINK_COLLECTION', 'Link Collection', ''),
             ('APPEND_OBJECTS', 'Append Objects', ''),
         ),
         description="choose if the assets will be linked or appended",
-        default="LINK_GROUP"
+        default="LINK_COLLECTION"
     )
     append_link: EnumProperty(
         name="How to Attach",
@@ -1276,6 +1300,24 @@ class BlenderKitAddonPreferences(AddonPreferences):
         subtype="PASSWORD",
     )
 
+    api_key_timeout: IntProperty(
+        name = 'api key timeout',
+        description = 'time where the api key will need to be refreshed',
+        default = 0,
+    )
+
+    api_key_life: IntProperty(
+        name='api key life time',
+        description='maximum lifetime of the api key, in seconds',
+        default=0,
+    )
+
+    refresh_in_progress: BoolProperty(
+        name="Api key refresh in progress",
+        description="Api key is currently being refreshed. Don't refresh it again.",
+        default=False
+    )
+
     login_attempt: BoolProperty(
         name="Login/Signup attempt",
         description="When this is on, BlenderKit is trying to connect and login.",
@@ -1342,6 +1384,10 @@ class BlenderKitAddonPreferences(AddonPreferences):
                                    min=0,
                                    max=20)
 
+
+    thumb_size: IntProperty(name="Assetbar thumbnail Size", default=96, min=-1, max=256)
+
+
     asset_counter: IntProperty(name="Usage Counter",
                                description="Counts usages so it asks for registration only after reaching a limit",
                                default=0,
@@ -1381,6 +1427,7 @@ class BlenderKitAddonPreferences(AddonPreferences):
         layout.prop(self, "thumbnail_use_gpu")
         # layout.prop(self, "allow_proximity")
         # layout.prop(self, "panel_behaviour")
+        layout.prop(self, "thumb_size")
         layout.prop(self, "max_assetbar_rows")
 
 
@@ -1461,10 +1508,15 @@ def register():
     bkit_oauth.register()
     tasks_queue.register()
 
+    bpy.app.timers.register(check_timers_timer)
+
     bpy.app.handlers.load_post.append(scene_load)
 
 
 def unregister():
+
+    bpy.app.timers.unregister(check_timers_timer)
+
     ui.unregister_ui()
     search.unregister_search()
     asset_inspector.unregister_asset_inspector()

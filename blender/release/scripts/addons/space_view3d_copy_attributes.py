@@ -27,7 +27,7 @@ bl_info = {
     "description": "Copy Attributes Menu from Blender 2.4",
     "wiki_url": "https://wiki.blender.org/index.php/Extensions:2.6/Py/"
                 "Scripts/3D_interaction/Copy_Attributes_Menu",
-    "category": "3D View",
+    "category": "Interface",
 }
 
 import bpy
@@ -144,7 +144,7 @@ def pLoopExec(self, context, funk):
         funk(bone, active, context)
 
 
-# The following functions are used o copy attributes from active to bone
+# The following functions are used to copy attributes from active to bone
 
 def pLocLocExec(bone, active, context):
     bone.location = active.location
@@ -316,7 +316,7 @@ def world_to_basis(active, ob, context):
     return(mat)
 
 
-# The following functions are used o copy attributes from
+# The following functions are used to copy attributes from
 # active to selected object
 
 def obLoc(ob, active, context):

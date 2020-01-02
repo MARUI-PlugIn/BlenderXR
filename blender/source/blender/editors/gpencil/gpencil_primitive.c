@@ -114,16 +114,8 @@ static void gp_session_validatebuffer(tGPDprimitive *p)
   bGPdata *gpd = p->gpd;
 
   /* clear memory of buffer (or allocate it if starting a new session) */
-  if (gpd->runtime.sbuffer) {
-    memset(gpd->runtime.sbuffer, 0, sizeof(tGPspoint) * GP_STROKE_BUFFER_MAX);
-  }
-  else {
-    gpd->runtime.sbuffer = MEM_callocN(sizeof(tGPspoint) * GP_STROKE_BUFFER_MAX,
-                                       "gp_session_strokebuffer");
-  }
-
-  /* reset indices */
-  gpd->runtime.sbuffer_size = 0;
+  gpd->runtime.sbuffer = ED_gpencil_sbuffer_ensure(
+      gpd->runtime.sbuffer, &gpd->runtime.sbuffer_size, &gpd->runtime.sbuffer_used, true);
 
   /* reset flags */
   gpd->runtime.sbuffer_sflag = 0;
@@ -305,8 +297,8 @@ static void gpencil_primitive_allocate_memory(tGPDprimitive *tgpi)
 /* Helper: Create internal strokes primitives data */
 static void gp_primitive_set_initdata(bContext *C, tGPDprimitive *tgpi)
 {
-  Depsgraph *depsgraph = CTX_data_depsgraph(C);
-  int cfra_eval = (int)DEG_get_ctime(depsgraph);
+  Scene *scene = CTX_data_scene(C);
+  int cfra = CFRA;
 
   bGPDlayer *gpl = CTX_data_active_gpencil_layer(C);
 
@@ -318,7 +310,7 @@ static void gp_primitive_set_initdata(bContext *C, tGPDprimitive *tgpi)
 
   /* create a new temporary frame */
   tgpi->gpf = MEM_callocN(sizeof(bGPDframe), "Temp bGPDframe");
-  tgpi->gpf->framenum = tgpi->cframe = cfra_eval;
+  tgpi->gpf->framenum = tgpi->cframe = cfra;
 
   /* create new temp stroke */
   bGPDstroke *gps = MEM_callocN(sizeof(bGPDstroke), "Temp bGPDstroke");
@@ -338,7 +330,15 @@ static void gp_primitive_set_initdata(bContext *C, tGPDprimitive *tgpi)
 
   gps->flag |= GP_STROKE_3DSPACE;
 
-  gps->mat_nr = BKE_gpencil_object_material_get_index(tgpi->ob, tgpi->mat);
+  gps->mat_nr = BKE_gpencil_object_material_get_index_from_brush(tgpi->ob, tgpi->brush);
+  if (gps->mat_nr < 0) {
+    if (tgpi->ob->actcol - 1 < 0) {
+      gps->mat_nr = 0;
+    }
+    else {
+      gps->mat_nr = tgpi->ob->actcol - 1;
+    }
+  }
 
   /* allocate memory for storage points, but keep empty */
   gps->totpoints = 0;
@@ -712,13 +712,13 @@ static void gp_primitive_update_strokes(bContext *C, tGPDprimitive *tgpi)
   gp_session_validatebuffer(tgpi);
   gp_init_colors(tgpi);
   if (gset->flag & GP_SCULPT_SETT_FLAG_PRIMITIVE_CURVE) {
-    curvemapping_initialize(ts->gp_sculpt.cur_primitive);
+    BKE_curvemapping_initialize(ts->gp_sculpt.cur_primitive);
   }
   if (tgpi->brush->gpencil_settings->flag & GP_BRUSH_USE_JITTER_PRESSURE) {
-    curvemapping_initialize(tgpi->brush->gpencil_settings->curve_jitter);
+    BKE_curvemapping_initialize(tgpi->brush->gpencil_settings->curve_jitter);
   }
   if (tgpi->brush->gpencil_settings->flag & GP_BRUSH_USE_STENGTH_PRESSURE) {
-    curvemapping_initialize(tgpi->brush->gpencil_settings->curve_strength);
+    BKE_curvemapping_initialize(tgpi->brush->gpencil_settings->curve_strength);
   }
 
   /* get an array of depths, far depths are blended */
@@ -828,7 +828,7 @@ static void gp_primitive_update_strokes(bContext *C, tGPDprimitive *tgpi)
     }
 
     /* Copy points to buffer */
-    tGPspoint *tpt = ((tGPspoint *)(gpd->runtime.sbuffer) + gpd->runtime.sbuffer_size);
+    tGPspoint *tpt = ((tGPspoint *)(gpd->runtime.sbuffer) + gpd->runtime.sbuffer_used);
 
     /* Store original points */
     float tmp_xyp[2];
@@ -842,7 +842,7 @@ static void gp_primitive_update_strokes(bContext *C, tGPDprimitive *tgpi)
     /* normalize value to evaluate curve */
     if (gset->flag & GP_SCULPT_SETT_FLAG_PRIMITIVE_CURVE) {
       float value = (float)i / (gps->totpoints - 1);
-      curve_pressure = curvemapping_evaluateF(gset->cur_primitive, 0, value);
+      curve_pressure = BKE_curvemapping_evaluateF(gset->cur_primitive, 0, value);
       pressure = curve_pressure;
     }
 
@@ -852,7 +852,8 @@ static void gp_primitive_update_strokes(bContext *C, tGPDprimitive *tgpi)
       float jitter;
 
       if (brush->gpencil_settings->flag & GP_BRUSH_USE_JITTER_PRESSURE) {
-        jitter = curvemapping_evaluateF(brush->gpencil_settings->curve_jitter, 0, curve_pressure);
+        jitter = BKE_curvemapping_evaluateF(
+            brush->gpencil_settings->curve_jitter, 0, curve_pressure);
         jitter *= brush->gpencil_settings->draw_sensitivity;
       }
       else {
@@ -898,7 +899,7 @@ static void gp_primitive_update_strokes(bContext *C, tGPDprimitive *tgpi)
 
     /* color strength */
     if (brush->gpencil_settings->flag & GP_BRUSH_USE_STENGTH_PRESSURE) {
-      float curvef = curvemapping_evaluateF(
+      float curvef = BKE_curvemapping_evaluateF(
           brush->gpencil_settings->curve_strength, 0, curve_pressure);
       strength *= curvef * brush->gpencil_settings->draw_sensitivity;
       strength *= brush->gpencil_settings->draw_strength;
@@ -927,10 +928,10 @@ static void gp_primitive_update_strokes(bContext *C, tGPDprimitive *tgpi)
     tpt->time = p2d->time;
 
     /* point uv */
-    if (gpd->runtime.sbuffer_size > 0) {
+    if (gpd->runtime.sbuffer_used > 0) {
       MaterialGPencilStyle *gp_style = tgpi->mat->gp_style;
       const float pixsize = gp_style->texture_pixsize / 1000000.0f;
-      tGPspoint *tptb = (tGPspoint *)gpd->runtime.sbuffer + gpd->runtime.sbuffer_size - 1;
+      tGPspoint *tptb = (tGPspoint *)gpd->runtime.sbuffer + gpd->runtime.sbuffer_used - 1;
       bGPDspoint spt, spt2;
 
       /* get origin to reproject point */
@@ -958,11 +959,15 @@ static void gp_primitive_update_strokes(bContext *C, tGPDprimitive *tgpi)
 
     tpt->uv_rot = p2d->uv_rot;
 
-    gpd->runtime.sbuffer_size++;
+    gpd->runtime.sbuffer_used++;
+
+    /* check if still room in buffer or add more */
+    gpd->runtime.sbuffer = ED_gpencil_sbuffer_ensure(
+        gpd->runtime.sbuffer, &gpd->runtime.sbuffer_size, &gpd->runtime.sbuffer_used, false);
 
     /* add small offset to keep stroke over the surface */
     if ((depth_arr) && (gpd->zdepth_offset > 0.0f)) {
-      depth_arr[i] *= (1.0f - gpd->zdepth_offset);
+      depth_arr[i] *= (1.0f - (gpd->zdepth_offset / 1000.0f));
     }
 
     /* convert screen-coordinates to 3D coordinates */
@@ -1078,6 +1083,7 @@ static void gpencil_primitive_exit(bContext *C, wmOperator *op)
     gpd->runtime.sbuffer = NULL;
 
     /* clear flags */
+    gpd->runtime.sbuffer_used = 0;
     gpd->runtime.sbuffer_size = 0;
     gpd->runtime.sbuffer_sflag = 0;
   }
@@ -1096,10 +1102,7 @@ static void gpencil_primitive_init(bContext *C, wmOperator *op)
   bGPdata *gpd = CTX_data_gpencil_data(C);
   Main *bmain = CTX_data_main(C);
   Scene *scene = CTX_data_scene(C);
-  Depsgraph *depsgraph = CTX_data_depsgraph(C);
   Paint *paint = &ts->gp_paint->paint;
-
-  int cfra_eval = (int)DEG_get_ctime(depsgraph);
 
   /* create temporary operator data */
   tGPDprimitive *tgpi = MEM_callocN(sizeof(tGPDprimitive), "GPencil Primitive Data");
@@ -1115,14 +1118,14 @@ static void gpencil_primitive_init(bContext *C, wmOperator *op)
   tgpi->ar = CTX_wm_region(C);
   tgpi->rv3d = tgpi->ar->regiondata;
   tgpi->v3d = tgpi->sa->spacedata.first;
-  tgpi->depsgraph = CTX_data_depsgraph(C);
+  tgpi->depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   tgpi->win = CTX_wm_window(C);
 
   /* save original type */
   tgpi->orign_type = RNA_enum_get(op->ptr, "type");
 
   /* set current frame number */
-  tgpi->cframe = cfra_eval;
+  tgpi->cframe = CFRA;
 
   /* set GP datablock */
   tgpi->gpd = gpd;
@@ -1131,9 +1134,14 @@ static void gpencil_primitive_init(bContext *C, wmOperator *op)
 
   /* if brush doesn't exist, create a new set (fix damaged files from old versions) */
   if ((paint->brush == NULL) || (paint->brush->gpencil_settings == NULL)) {
-    BKE_brush_gpencil_presets(C);
+    BKE_brush_gpencil_presets(bmain, ts);
   }
-  tgpi->brush = paint->brush;
+
+  /* Set Draw brush. */
+  Brush *brush = BKE_paint_toolslots_brush_get(paint, 0);
+  BKE_brush_tool_set(brush, paint, 0);
+  BKE_paint_brush_set(paint, brush);
+  tgpi->brush = brush;
 
   /* control points */
   tgpi->gpd->runtime.cp_points = MEM_callocN(sizeof(bGPDcontrolpoint) * MAX_CP,
@@ -1206,7 +1214,7 @@ static int gpencil_primitive_invoke(bContext *C, wmOperator *op, const wmEvent *
   op->flag |= OP_IS_MODAL_CURSOR_REGION;
 
   /* set cursor to indicate modal */
-  WM_cursor_modal_set(win, BC_CROSSCURSOR);
+  WM_cursor_modal_set(win, WM_CURSOR_CROSS);
 
   /* update sindicator in header */
   gpencil_primitive_status_indicators(C, tgpi);
@@ -1311,18 +1319,18 @@ static void gpencil_primitive_edit_event_handling(
   if (tgpi->flag == IN_CURVE_EDIT) {
     if ((a < BIG_SIZE_CTL && tgpi->tot_stored_edges == 0) || b < BIG_SIZE_CTL) {
       move = MOVE_ENDS;
-      WM_cursor_modal_set(win, BC_NSEW_SCROLLCURSOR);
+      WM_cursor_modal_set(win, WM_CURSOR_NSEW_SCROLL);
     }
     else if (tgpi->curve) {
       move = MOVE_CP;
-      WM_cursor_modal_set(win, BC_HANDCURSOR);
+      WM_cursor_modal_set(win, WM_CURSOR_HAND);
     }
     else {
-      WM_cursor_modal_set(win, BC_CROSSCURSOR);
+      WM_cursor_modal_set(win, WM_CURSOR_CROSS);
     }
   }
   else if (tgpi->flag == IN_PROGRESS) {
-    WM_cursor_modal_set(win, BC_NSEW_SCROLLCURSOR);
+    WM_cursor_modal_set(win, WM_CURSOR_NSEW_SCROLL);
   }
 
   switch (event->type) {
@@ -1394,7 +1402,7 @@ static void gpencil_primitive_edit_event_handling(
     case EKEY: {
       if (tgpi->flag == IN_CURVE_EDIT && !ELEM(tgpi->type, GP_STROKE_BOX, GP_STROKE_CIRCLE)) {
         tgpi->flag = IN_PROGRESS;
-        WM_cursor_modal_set(win, BC_NSEW_SCROLLCURSOR);
+        WM_cursor_modal_set(win, WM_CURSOR_NSEW_SCROLL);
         gpencil_primitive_add_segment(tgpi);
         copy_v2_v2(tgpi->start, tgpi->end);
         copy_v2_v2(tgpi->origin, tgpi->start);
@@ -1600,6 +1608,7 @@ static int gpencil_primitive_modal(bContext *C, wmOperator *op, const wmEvent *e
     }
     case SPACEKEY: /* confirm */
     case MIDDLEMOUSE:
+    case PADENTER:
     case RETKEY: {
       tgpi->flag = IDLE;
       gpencil_primitive_interaction_end(C, op, win, tgpi);
@@ -1657,7 +1666,7 @@ static int gpencil_primitive_modal(bContext *C, wmOperator *op, const wmEvent *e
     {
       if ((event->val == KM_PRESS)) {
         tgpi->flag = IN_MOVE;
-        WM_cursor_modal_set(win, BC_NSEW_SCROLLCURSOR);
+        WM_cursor_modal_set(win, WM_CURSOR_NSEW_SCROLL);
       }
       break;
     }
@@ -1670,7 +1679,7 @@ static int gpencil_primitive_modal(bContext *C, wmOperator *op, const wmEvent *e
         else {
           tgpi->flag = IN_BRUSH_SIZE;
         }
-        WM_cursor_modal_set(win, BC_NS_SCROLLCURSOR);
+        WM_cursor_modal_set(win, WM_CURSOR_NS_SCROLL);
       }
       break;
     }
@@ -1696,7 +1705,7 @@ static int gpencil_primitive_modal(bContext *C, wmOperator *op, const wmEvent *e
     case TABKEY: {
       if (tgpi->flag == IN_CURVE_EDIT) {
         tgpi->flag = IN_PROGRESS;
-        WM_cursor_modal_set(win, BC_NSEW_SCROLLCURSOR);
+        WM_cursor_modal_set(win, WM_CURSOR_NSEW_SCROLL);
         gp_primitive_update_cps(tgpi);
         gpencil_primitive_update(C, op, tgpi);
       }

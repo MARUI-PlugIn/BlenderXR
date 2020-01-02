@@ -24,6 +24,7 @@ from io_scene_gltf2.io.com.gltf2_io_debug import print_console
 
 @cached
 def gather_mesh(blender_mesh: bpy.types.Mesh,
+                blender_object: Optional[bpy.types.Object],
                 vertex_groups: Optional[bpy.types.VertexGroups],
                 modifiers: Optional[bpy.types.ObjectModifiers],
                 skip_filter: bool,
@@ -37,7 +38,7 @@ def gather_mesh(blender_mesh: bpy.types.Mesh,
         extensions=__gather_extensions(blender_mesh, vertex_groups, modifiers, export_settings),
         extras=__gather_extras(blender_mesh, vertex_groups, modifiers, export_settings),
         name=__gather_name(blender_mesh, vertex_groups, modifiers, export_settings),
-        primitives=__gather_primitives(blender_mesh, vertex_groups, modifiers, material_names, export_settings),
+        primitives=__gather_primitives(blender_mesh, blender_object, vertex_groups, modifiers, material_names, export_settings),
         weights=__gather_weights(blender_mesh, vertex_groups, modifiers, export_settings)
     )
 
@@ -83,7 +84,8 @@ def __gather_extras(blender_mesh: bpy.types.Mesh,
             target_names = []
             for blender_shape_key in blender_mesh.shape_keys.key_blocks:
                 if blender_shape_key != blender_shape_key.relative_key:
-                    target_names.append(blender_shape_key.name)
+                    if blender_shape_key.mute is False:
+                        target_names.append(blender_shape_key.name)
             extras['targetNames'] = target_names
 
     if extras:
@@ -101,12 +103,14 @@ def __gather_name(blender_mesh: bpy.types.Mesh,
 
 
 def __gather_primitives(blender_mesh: bpy.types.Mesh,
+                        blender_object: Optional[bpy.types.Object],
                         vertex_groups: Optional[bpy.types.VertexGroups],
                         modifiers: Optional[bpy.types.ObjectModifiers],
                         material_names: Tuple[str],
                         export_settings
                         ) -> List[gltf2_io.MeshPrimitive]:
     return gltf2_blender_gather_primitives.gather_primitives(blender_mesh,
+                                                             blender_object,
                                                              vertex_groups,
                                                              modifiers,
                                                              material_names,
@@ -130,7 +134,8 @@ def __gather_weights(blender_mesh: bpy.types.Mesh,
 
     for blender_shape_key in blender_mesh.shape_keys.key_blocks:
         if blender_shape_key != blender_shape_key.relative_key:
-            weights.append(blender_shape_key.value)
+            if blender_shape_key.mute is False:
+                weights.append(blender_shape_key.value)
 
     return weights
 
