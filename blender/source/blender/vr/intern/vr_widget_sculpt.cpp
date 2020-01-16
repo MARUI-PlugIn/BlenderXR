@@ -77,6 +77,7 @@
 #include "BKE_mesh.h"
 #include "BKE_mesh_mapping.h"
 #include "BKE_modifier.h"
+#include "BKE_subsurf.h"
 #include "BKE_multires.h"
 #include "BKE_node.h"
 #include "BKE_object.h"
@@ -100,7 +101,7 @@ struct ARegion *BKE_area_find_region_xy(struct ScrArea *sa, const int regiontype
 
 #include "DEG_depsgraph_query.h"
 
-#include "ED_object.h"
+//#include "ED_object.h"
 #include "BKE_scene.h"
 #include "ED_screen.h"
 #include "ED_view3d.h"
@@ -112,7 +113,413 @@ struct ARegion *BKE_area_find_region_xy(struct ScrArea *sa, const int regiontype
 #include "MEM_guardedalloc.h"
 
 #include "paint_intern.h"
-#include "sculpt_intern.h"
+// #include "sculpt_intern.h"
+///
+#include "DNA_listBase.h"
+#include "DNA_vec_types.h"
+#include "DNA_key_types.h"
+#include "BLI_bitmap.h"
+#include "BLI_threads.h"
+
+typedef enum {
+  SCULPT_UNDO_COORDS,
+  SCULPT_UNDO_HIDDEN,
+  SCULPT_UNDO_MASK,
+  SCULPT_UNDO_DYNTOPO_BEGIN,
+  SCULPT_UNDO_DYNTOPO_END,
+  SCULPT_UNDO_DYNTOPO_SYMMETRIZE,
+  SCULPT_UNDO_GEOMETRY,
+} SculptUndoType;
+
+typedef struct SculptUndoNode {
+  struct SculptUndoNode *next, *prev;
+
+  SculptUndoType type;
+
+  char idname[MAX_ID_NAME]; /* name instead of pointer*/
+  void *node;               /* only during push, not valid afterwards! */
+
+  float (*co)[3];
+  float (*orig_co)[3];
+  short (*no)[3];
+  float *mask;
+  int totvert;
+
+  /* non-multires */
+  int maxvert; /* to verify if totvert it still the same */
+  int *index;  /* to restore into right location */
+  BLI_bitmap *vert_hidden;
+
+  /* multires */
+  int maxgrid;  /* same for grid */
+  int gridsize; /* same for grid */
+  int totgrid;  /* to restore into right location */
+  int *grids;   /* to restore into right location */
+  BLI_bitmap **grid_hidden;
+
+  /* bmesh */
+  struct BMLogEntry *bm_entry;
+  bool applied;
+
+  /* shape keys */
+  char shapeName[sizeof(((KeyBlock *)0))->name];
+
+  /* geometry modification operations and bmesh enter data */
+  CustomData geom_vdata;
+  CustomData geom_edata;
+  CustomData geom_ldata;
+  CustomData geom_pdata;
+  int geom_totvert;
+  int geom_totedge;
+  int geom_totloop;
+  int geom_totpoly;
+
+  /* pivot */
+  float pivot_pos[3];
+  float pivot_rot[4];
+
+  size_t undo_size;
+} SculptUndoNode;
+
+typedef struct {
+  struct BMLog *bm_log;
+
+  SculptUndoNode *unode;
+  float (*coords)[3];
+  short (*normals)[3];
+  const float *vmasks;
+
+  /* Original coordinate, normal, and mask */
+  const float *co;
+  const short *no;
+  float mask;
+} SculptOrigVertData;
+
+/* Factor of brush to have rake point following behind
+ * (could be configurable but this is reasonable default). */
+#define SCULPT_RAKE_BRUSH_FACTOR 0.25f
+
+struct SculptRakeData {
+  float follow_dist;
+  float follow_co[3];
+};
+
+/* Single struct used by all BLI_task threaded callbacks, let's avoid adding 10's of those... */
+typedef struct SculptThreadedTaskData {
+  struct bContext *C;
+  struct Sculpt *sd;
+  struct Object *ob;
+  const struct Brush *brush;
+  struct PBVHNode **nodes;
+  int totnode;
+
+  struct VPaint *vp;
+  struct VPaintData *vpd;
+  struct WPaintData *wpd;
+  struct WeightPaintInfo *wpi;
+  unsigned int *lcol;
+  struct Mesh *me;
+  /* For passing generic params. */
+  void *custom_data;
+
+  /* Data specific to some callbacks. */
+
+  /* Note: even if only one or two of those are used at a time,
+   *       keeping them separated, names help figuring out
+   *       what it is, and memory overhead is ridiculous anyway. */
+  float flippedbstrength;
+  float angle;
+  float strength;
+  bool smooth_mask;
+  bool has_bm_orco;
+
+  struct SculptProjectVector *spvc;
+  float *offset;
+  float *grab_delta;
+  float *cono;
+  float *area_no;
+  float *area_no_sp;
+  float *area_co;
+  float (*mat)[4];
+  float (*vertCos)[3];
+
+  int filter_type;
+  float filter_strength;
+
+  bool use_area_cos;
+  bool use_area_nos;
+  bool any_vertex_sampled;
+
+  float *prev_mask;
+
+  float *pose_origin;
+  float *pose_initial_co;
+  float *pose_factor;
+  float (*transform_rot)[4], (*transform_trans)[4], (*transform_trans_inv)[4];
+
+  float max_distance_squared;
+  float nearest_vertex_search_co[3];
+
+  int mask_expand_update_it;
+  bool mask_expand_invert_mask;
+  bool mask_expand_use_normals;
+  bool mask_expand_keep_prev_mask;
+
+  float transform_mats[8][4][4];
+
+  float dirty_mask_min;
+  float dirty_mask_max;
+  bool dirty_mask_dirty_only;
+
+  ThreadMutex mutex;
+
+} SculptThreadedTaskData;
+
+typedef enum SculptUpdateType {
+  SCULPT_UPDATE_COORDS = 1 << 0,
+  SCULPT_UPDATE_MASK = 1 << 1,
+} SculptUpdateType;
+
+
+typedef struct SculptCursorGeometryInfo {
+  float location[3];
+  float normal[3];
+  float active_vertex_co[3];
+} SculptCursorGeometryInfo;
+
+static bool sculpt_stroke_get_location(struct bContext *C, float out[3], const float mouse[2]);
+static bool sculpt_cursor_geometry_info_update(bContext *C,
+                                        SculptCursorGeometryInfo *out,
+                                        const float mouse[2],
+                                        bool use_sampled_normal);
+static void sculpt_geometry_preview_lines_update(bContext *C, struct SculptSession *ss, float radius);
+static void sculpt_pose_calc_pose_data(struct Sculpt *sd,
+                                struct Object *ob,
+                                struct SculptSession *ss,
+                                float initial_location[3],
+                                float radius,
+                                float pose_offset,
+                                float *r_pose_origin,
+                                float *r_pose_factor);
+
+
+/* Dynamic topology */
+static void sculpt_pbvh_clear(Object *ob);
+static void sculpt_dyntopo_node_layers_add(struct SculptSession *ss);
+static void sculpt_dynamic_topology_disable(bContext *C, struct SculptUndoNode *unode);
+
+
+/* Factor of brush to have rake point following behind
+ * (could be configurable but this is reasonable default). */
+#define SCULPT_RAKE_BRUSH_FACTOR 0.25f
+
+
+
+
+/*************** Brush testing declarations ****************/
+typedef struct SculptBrushTest {
+  float radius_squared;
+  float location[3];
+  float dist;
+  int mirror_symmetry_pass;
+
+  /* For circle (not sphere) projection. */
+  float plane_view[4];
+
+  /* Some tool code uses a plane for it's calculateions. */
+  float plane_tool[4];
+
+  /* View3d clipping - only set rv3d for clipping */
+  struct RegionView3D *clip_rv3d;
+} SculptBrushTest;
+
+typedef bool (*SculptBrushTestFn)(SculptBrushTest *test, const float co[3]);
+
+typedef struct {
+  struct Sculpt *sd;
+  struct SculptSession *ss;
+  float radius_squared;
+  float *center;
+  bool original;
+  bool ignore_fully_masked;
+} SculptSearchSphereData;
+
+typedef struct {
+  struct Sculpt *sd;
+  struct SculptSession *ss;
+  float radius_squared;
+  bool original;
+  bool ignore_fully_masked;
+  struct DistRayAABB_Precalc *dist_ray_to_aabb_precalc;
+} SculptSearchCircleData;
+
+static void sculpt_brush_test_init(struct SculptSession *ss, SculptBrushTest *test);
+static bool sculpt_brush_test_sphere(SculptBrushTest *test, const float co[3]);
+static bool sculpt_brush_test_sphere_sq(SculptBrushTest *test, const float co[3]);
+static bool sculpt_brush_test_sphere_fast(const SculptBrushTest *test, const float co[3]);
+static bool sculpt_brush_test_cube(SculptBrushTest *test, const float co[3], float local[4][4]);
+static bool sculpt_brush_test_circle_sq(SculptBrushTest *test, const float co[3]);
+static bool sculpt_search_sphere_cb(PBVHNode *node, void *data_v);
+static bool sculpt_search_circle_cb(PBVHNode *node, void *data_v);
+
+static SculptBrushTestFn sculpt_brush_test_init_with_falloff_shape(SculptSession *ss,
+                                                            SculptBrushTest *test,
+                                                            char falloff_shape);
+static const float *sculpt_brush_frontface_normal_from_falloff_shape(SculptSession *ss,
+                                                              char falloff_shape);
+
+static float tex_strength(struct SculptSession *ss,
+                   const struct Brush *br,
+                   const float point[3],
+                   const float len,
+                   const short vno[3],
+                   const float fno[3],
+                   const float mask,
+                   const int vertex_index,
+                   const int thread_id);
+
+/* just for vertex paint. */
+static bool sculpt_pbvh_calc_area_normal(const struct Brush *brush,
+                                  Object *ob,
+                                  PBVHNode **nodes,
+                                  int totnode,
+                                  bool use_threading,
+                                  float r_area_no[3]);
+
+
+typedef struct StrokeCache {
+  /* Invariants */
+  float initial_radius;
+  float scale[3];
+  int flag;
+  float clip_tolerance[3];
+  float initial_mouse[2];
+
+  /* Variants */
+  float radius;
+  float radius_squared;
+  float true_location[3];
+  float true_last_location[3];
+  float location[3];
+  float last_location[3];
+  bool is_last_valid;
+
+  bool pen_flip;
+  bool invert;
+  float pressure;
+  float mouse[2];
+  float bstrength;
+  float normal_weight; /* from brush (with optional override) */
+
+  /* The rest is temporary storage that isn't saved as a property */
+
+  bool first_time; /* Beginning of stroke may do some things special */
+
+  /* from ED_view3d_ob_project_mat_get() */
+  float projection_mat[4][4];
+
+  /* Clean this up! */
+  struct ViewContext *vc;
+  const struct Brush *brush;
+
+  float special_rotation;
+  float grab_delta[3], grab_delta_symmetry[3];
+  float old_grab_location[3], orig_grab_location[3];
+
+  /* screen-space rotation defined by mouse motion */
+  float rake_rotation[4], rake_rotation_symmetry[4];
+  bool is_rake_rotation_valid;
+  struct SculptRakeData rake_data;
+
+  /* Symmetry index between 0 and 7 bit combo 0 is Brush only;
+   * 1 is X mirror; 2 is Y mirror; 3 is XY; 4 is Z; 5 is XZ; 6 is YZ; 7 is XYZ */
+  int symmetry;
+  int mirror_symmetry_pass; /* the symmetry pass we are currently on between 0 and 7*/
+  float true_view_normal[3];
+  float view_normal[3];
+
+  /* sculpt_normal gets calculated by calc_sculpt_normal(), then the
+   * sculpt_normal_symm gets updated quickly with the usual symmetry
+   * transforms */
+  float sculpt_normal[3];
+  float sculpt_normal_symm[3];
+
+  /* Used for area texture mode, local_mat gets calculated by
+   * calc_brush_local_mat() and used in tex_strength(). */
+  float brush_local_mat[4][4];
+
+  float plane_offset[3]; /* used to shift the plane around when doing tiled strokes */
+  int tile_pass;
+
+  float last_center[3];
+  int radial_symmetry_pass;
+  float symm_rot_mat[4][4];
+  float symm_rot_mat_inv[4][4];
+  bool original;
+  float anchored_location[3];
+
+  /* Pose brush */
+  float *pose_factor;
+  float pose_initial_co[3];
+  float pose_origin[3];
+
+  float vertex_rotation; /* amount to rotate the vertices when using rotate brush */
+  struct Dial *dial;
+
+  char saved_active_brush_name[MAX_ID_NAME];
+  char saved_mask_brush_tool;
+  int saved_smooth_size; /* smooth tool copies the size of the current tool */
+  bool alt_smooth;
+
+  float plane_trim_squared;
+
+  bool supports_gravity;
+  float true_gravity_direction[3];
+  float gravity_direction[3];
+
+  float *automask;
+
+  rcti previous_r; /* previous redraw rectangle */
+  rcti current_r;  /* current redraw rectangle */
+
+} StrokeCache;
+
+typedef struct FilterCache {
+  bool enabled_axis[3];
+  int random_seed;
+
+  /* unmasked nodes */
+  PBVHNode **nodes;
+  int totnode;
+
+  /* mask expand iteration caches */
+  int mask_update_current_it;
+  int mask_update_last_it;
+  int *mask_update_it;
+  float *normal_factor;
+  float *edge_factor;
+  float *prev_mask;
+  float mask_expand_initial_co[3];
+} FilterCache;
+
+static void sculpt_cache_calc_brushdata_symm(StrokeCache *cache,
+                                      const char symm,
+                                      const char axis,
+                                      const float angle);
+static void sculpt_cache_free(StrokeCache *cache);
+
+extern "C" SculptUndoNode *sculpt_undo_push_node(Object *ob, PBVHNode *node, SculptUndoType type);
+extern "C" SculptUndoNode *sculpt_undo_get_node(PBVHNode *node);
+extern "C" void sculpt_undo_push_begin(const char *name);
+extern "C" void sculpt_undo_push_end(void);
+
+static void sculpt_vertcos_to_key(Object *ob, KeyBlock *kb, const float (*vertCos)[3]);
+
+static void sculpt_update_object_bounding_box(struct Object *ob);
+
+
+
+///
 
 #include "WM_api.h"
 #include "wm_message_bus.h"
@@ -5842,15 +6249,16 @@ static bool sculpt_mode_poll_view3d(bContext *C)
   return (sculpt_mode_poll(C) && CTX_wm_region_view3d(C));
 }
 
+static bool sculpt_poll(bContext *C)
+{
+  return sculpt_mode_poll(C) && paint_poll(C);
+}
+
 static bool sculpt_poll_view3d(bContext *C)
 {
   return (sculpt_poll(C) && CTX_wm_region_view3d(C));
 }
 
-static bool sculpt_poll(bContext *C)
-{
-  return sculpt_mode_poll(C) && paint_poll(C);
-}
 
 static const char *sculpt_tool_name(Sculpt *sd)
 {
@@ -7961,6 +8369,64 @@ static void ED_object_sculptmode_exit(bContext *C, Depsgraph *depsgraph)
   ViewLayer *view_layer = CTX_data_view_layer(C);
   Object *ob = OBACT(view_layer);
   ED_object_sculptmode_exit_ex(bmain, depsgraph, scene, ob);
+}
+
+static const char *object_mode_op_string(eObjectMode mode)
+{
+  if (mode & OB_MODE_EDIT) {
+    return "OBJECT_OT_editmode_toggle";
+  }
+  if (mode == OB_MODE_SCULPT) {
+    return "SCULPT_OT_sculptmode_toggle";
+  }
+  if (mode == OB_MODE_VERTEX_PAINT) {
+    return "PAINT_OT_vertex_paint_toggle";
+  }
+  if (mode == OB_MODE_WEIGHT_PAINT) {
+    return "PAINT_OT_weight_paint_toggle";
+  }
+  if (mode == OB_MODE_TEXTURE_PAINT) {
+    return "PAINT_OT_texture_paint_toggle";
+  }
+  if (mode == OB_MODE_PARTICLE_EDIT) {
+    return "PARTICLE_OT_particle_edit_toggle";
+  }
+  if (mode == OB_MODE_POSE) {
+    return "OBJECT_OT_posemode_toggle";
+  }
+  if (mode == OB_MODE_EDIT_GPENCIL) {
+    return "GPENCIL_OT_editmode_toggle";
+  }
+  if (mode == OB_MODE_PAINT_GPENCIL) {
+    return "GPENCIL_OT_paintmode_toggle";
+  }
+  if (mode == OB_MODE_SCULPT_GPENCIL) {
+    return "GPENCIL_OT_sculptmode_toggle";
+  }
+  if (mode == OB_MODE_WEIGHT_GPENCIL) {
+    return "GPENCIL_OT_weightmode_toggle";
+  }
+  return NULL;
+}
+
+static bool ED_object_mode_compat_set(bContext *C, Object *ob, eObjectMode mode, ReportList *reports)
+{
+  bool ok;
+  if (!ELEM(ob->mode, mode, OB_MODE_OBJECT)) {
+    const char *opstring = object_mode_op_string((eObjectMode)ob->mode);
+
+    WM_operator_name_call(C, opstring, WM_OP_EXEC_REGION_WIN, NULL);
+    ok = ELEM(ob->mode, mode, OB_MODE_OBJECT);
+    if (!ok) {
+      wmOperatorType *ot = WM_operatortype_find(opstring, false);
+      BKE_reportf(reports, RPT_ERROR, "Unable to execute '%s', error changing modes", ot->name);
+    }
+  }
+  else {
+    ok = true;
+  }
+
+  return ok;
 }
 
 static int sculpt_mode_toggle_exec(bContext *C, wmOperator *op)
