@@ -373,6 +373,15 @@ int VR_Steam::acquireHMD()
             this->hmd_type = VR::HMDType_Index;
             return VR::Error_None;
         }
+
+        // For RiftCat:
+        // Prop_ManufacturerName_String   == "Riftcat"
+        // Prop_TrackingSystemName_String == "vridge"
+        // Prop_ModelNumber_String        == "Vridge"
+        if (strncmp(str, "Riftcat", str_max) == 0) {
+            this->hmd_type = VR::HMDType_Oculus;
+            return VR::Error_None;
+        }
 	}
 
 	// If we arrive here, we could not find any supported HMD
