@@ -311,7 +311,7 @@ int VR_Steam::acquireHMD()
 		// Prop_TrackingSystemName_String == "oculus"
 		// Prop_ModelNumber_String        == "Oculus Rift CV1"
 		if (strncmp(str, "Oculus", str_max) == 0) {
-#if 1
+#if 0
 			// we do not handle Oculus HMDs via steam
 			vr::VR_Shutdown();
 			this->hmd = 0;
@@ -360,7 +360,7 @@ int VR_Steam::acquireHMD()
         // Prop_ManufacturerName_String   == "Pimax VR, Inc."
         // Prop_TrackingSystemName_String == "aapvr"
         // Prop_ModelNumber_String        == "Pimax 5K Plus"
-        if (strncmp(str, "Pimax", str_max) == 0) {
+        if (strncmp(str, "Pimax", 5) == 0) {
             this->hmd_type = VR::HMDType_Pimax;
             return VR::Error_None;
         }
@@ -378,7 +378,7 @@ int VR_Steam::acquireHMD()
         // Prop_ManufacturerName_String   == "Riftcat"
         // Prop_TrackingSystemName_String == "vridge"
         // Prop_ModelNumber_String        == "Vridge"
-        if (strncmp(str, "Riftcat", str_max) == 0) {
+        if (true || strncmp(str, "Riftcat", 7) == 0) { // work-around: treat all unknown HMDs as RiftCat until the RiftCat guys can get their shit together.
             this->hmd_type = VR::HMDType_Oculus;
             return VR::Error_None;
         }
