@@ -302,20 +302,33 @@ int VR_Steam::acquireHMD()
 			continue;
 		}
 
-		char str[64];
-		const size_t str_max = sizeof(str);
-		this->hmd->GetStringTrackedDeviceProperty(i, vr::ETrackedDeviceProperty::Prop_ManufacturerName_String, str, str_max);
+		char str_ManufacturerName[128] = { 0 };
+		char str_TrackingSystemName[128] = { 0 };
+		char str_ModelNumber[128] = { 0 };
+		const size_t str_max = 128 * sizeof(char);
+		this->hmd->GetStringTrackedDeviceProperty(i, vr::ETrackedDeviceProperty::Prop_ManufacturerName_String,   str_ManufacturerName, str_max);
+		this->hmd->GetStringTrackedDeviceProperty(i, vr::ETrackedDeviceProperty::Prop_TrackingSystemName_String, str_TrackingSystemName, str_max);
+		this->hmd->GetStringTrackedDeviceProperty(i, vr::ETrackedDeviceProperty::Prop_ModelNumber_String,        str_ModelNumber, str_max);
+		str_ManufacturerName[127] = 0;
+		str_TrackingSystemName[127] = 0;
+		str_ModelNumber[127] = 0;
+		FILE* fp = 0;
+		fopen_s(&fp, "DetectedDevices.log", "a");
+		if (fp) {
+			fprintf_s(fp, "ManufacturerName=%s\n", str_ManufacturerName);
+			fprintf_s(fp, "TrackingSystemName=%s\n", str_TrackingSystemName);
+			fprintf_s(fp, "ModelNumber=%s\n\n", str_ModelNumber);
+			fclose(fp);
+		}
 
 		// For Oculus Rift:
 		// Prop_ManufacturerName_String   == "Oculus"
 		// Prop_TrackingSystemName_String == "oculus"
 		// Prop_ModelNumber_String        == "Oculus Rift CV1"
-		if (strncmp(str, "Oculus", str_max) == 0) {
-#if 0
+		if (strncmp(str_ManufacturerName, "Oculus", str_max) == 0) {
+#if 1
 			// we do not handle Oculus HMDs via steam
-			vr::VR_Shutdown();
-			this->hmd = 0;
-			return VR::Error_InvalidParameter;
+			continue;
 #else
 			this->hmd_type = VR::HMDType_Oculus;
 			return VR::Error_None;
@@ -326,12 +339,10 @@ int VR_Steam::acquireHMD()
 		// Prop_ManufacturerName_String   == "FOV
 		// Prop_TrackingSystemName_String == "fove"
 		// Prop_ModelNumber_String        == "FOVE0001"
-		if (strncmp(str, "FOV", str_max) == 0) {
+		if (strncmp(str_ManufacturerName, "FOV", str_max) == 0) {
 #if 1
 			// we do not handle Fove HMDs via steam
-			vr::VR_Shutdown();
-			this->hmd = 0;
-			return VR::Error_InvalidParameter;
+			continue;
 #else
 			this->hmd_type = VR::HMDType_Fove;
 			return VR::Error_None;
@@ -342,7 +353,7 @@ int VR_Steam::acquireHMD()
 		// Prop_ManufacturerName_String   == "HTC"
 		// Prop_TrackingSystemName_String == "lighthouse"
 		// Prop_ModelNumber_String        == "Vive. MV"
-		if (strncmp(str, "HTC", str_max) == 0) {
+		if (strncmp(str_ManufacturerName, "HTC", str_max) == 0) {
 			this->hmd_type = VR::HMDType_Vive;
 			return VR::Error_None;
 		}
@@ -351,7 +362,7 @@ int VR_Steam::acquireHMD()
 		// Prop_ManufacturerName_String   == "WindowsMR"
 		// Prop_TrackingSystemName_String == "holographic"
 		// Prop_ModelNumber_String        == "DELL VISOR VR118"
-		if (strncmp(str, "WindowsMR", str_max) == 0) {
+		if (strncmp(str_ManufacturerName, "WindowsMR", str_max) == 0) {
 			this->hmd_type = VR::HMDType_WindowsMR;
 			return VR::Error_None;
 		}
@@ -360,7 +371,7 @@ int VR_Steam::acquireHMD()
         // Prop_ManufacturerName_String   == "Pimax VR, Inc."
         // Prop_TrackingSystemName_String == "aapvr"
         // Prop_ModelNumber_String        == "Pimax 5K Plus"
-        if (strncmp(str, "Pimax", 5) == 0) {
+        if (strncmp(str_ManufacturerName, "Pimax", str_max) == 0) {
             this->hmd_type = VR::HMDType_Pimax;
             return VR::Error_None;
         }
@@ -369,7 +380,7 @@ int VR_Steam::acquireHMD()
         // Prop_ManufacturerName_String   == "Valve"
         // Prop_TrackingSystemName_String == "lighthouse"?
         // Prop_ModelNumber_String        == "Index"?
-        if (strncmp(str, "Valve", str_max) == 0) {
+        if (strncmp(str_ManufacturerName, "Valve", str_max) == 0) {
             this->hmd_type = VR::HMDType_Index;
             return VR::Error_None;
         }
