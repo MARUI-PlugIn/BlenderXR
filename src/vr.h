@@ -76,7 +76,9 @@ public:
 		,
 		HMDType_MagicLeap = 7 //!< Magic Leap One.
 		,
-		HMDTypes = 8 //!< Number of HMD types.
+		HMDType_Cosmos = 8 //!< HTC Vive Cosmos.
+		,
+		HMDTypes = 9 //!< Number of HMD types.
 	} HMDType; //!< HMD / device used for VR.
 
 	//                                                              ____________________

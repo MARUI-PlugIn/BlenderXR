@@ -349,12 +349,12 @@ int VR_Steam::acquireHMD()
 #endif
 		}
 
-		// For HTC Vive:
+		// For HTC Vive / Cosmos:
 		// Prop_ManufacturerName_String   == "HTC"
-		// Prop_TrackingSystemName_String == "lighthouse"
-		// Prop_ModelNumber_String        == "Vive. MV"
+		// Prop_TrackingSystemName_String == "lighthouse" | "vive_eyes"
+		// Prop_ModelNumber_String        == "Vive. MV" | "vive_cosmos"
 		if (strncmp(str_ManufacturerName, "HTC", str_max) == 0) {
-			this->hmd_type = VR::HMDType_Vive;
+			this->hmd_type = strncmp(str_ModelNumber, "vive_cosmos", str_max) == 0 ? VR::HMDType_Cosmos : VR::HMDType_Vive;
 			return VR::Error_None;
 		}
 
@@ -389,7 +389,7 @@ int VR_Steam::acquireHMD()
         // Prop_ManufacturerName_String   == "Riftcat"
         // Prop_TrackingSystemName_String == "vridge"
         // Prop_ModelNumber_String        == "Vridge"
-        if (true || strncmp(str, "Riftcat", 7) == 0) { // work-around: treat all unknown HMDs as RiftCat until the RiftCat guys can get their shit together.
+        if (strncmp(str_ManufacturerName, "Riftcat", str_max) == 0) {
             this->hmd_type = VR::HMDType_Oculus;
             return VR::Error_None;
         }
@@ -527,6 +527,8 @@ int VR_Steam::init(void* display, void* drawable, void* context)
 	const char* binding_windowsmr_path_str = binding_windowsmr_path.c_str();
 	std::string binding_index_path = tmp_folder + std::string("binding_index.json");
 	const char* binding_index_path_str = binding_index_path.c_str();
+	std::string binding_cosmos_path = tmp_folder + std::string("binding_cosmos.json");
+	const char* binding_cosmos_path_str = binding_cosmos_path.c_str();
 	std::string binding_logitechink_path = tmp_folder + std::string("binding_logitechink.json");
 	const char* binding_logitechink_path_str = binding_logitechink_path.c_str();
 
@@ -545,6 +547,10 @@ int VR_Steam::init(void* display, void* drawable, void* context)
 	fclose(fp);
 	fp = fopen(binding_index_path_str, "w");
 	fwrite(Input::binding_index, sizeof(char), strlen(Input::binding_index), fp);
+	fflush(fp);
+	fclose(fp);
+	fp = fopen(binding_cosmos_path_str, "w");
+	fwrite(Input::binding_cosmos, sizeof(char), strlen(Input::binding_cosmos), fp);
 	fflush(fp);
 	fclose(fp);
 	fp = fopen(binding_logitechink_path_str, "w");
@@ -1675,6 +1681,10 @@ const char* const VR_Steam::Input::action_manifest = R"ACTION_MANIFEST(
       {
          "controller_type" : "logitech_stylus",
          "binding_url" : "binding_logitechink.json"
+      },
+      {
+         "controller_type" : "vive_cosmos_controller",
+         "binding_url" : "binding_cosmos.json"
       }
    ],
    "localization" : [
@@ -2175,6 +2185,199 @@ const char* const VR_Steam::Input::binding_index = R"BINDING_INDEX({
    "simulated_actions" : []
 }
 )BINDING_INDEX";
+
+//                                                                          ________________________
+//_________________________________________________________________________/    binding_cosmos
+/**
+ * Binding for HTC Vive Cosmos controllers.
+ */
+const char* const VR_Steam::Input::binding_cosmos = R"BINDING_COSMOS({
+   "alias_info" : {},
+   "app_key" : "system.generated.maya.exe",
+   "bindings" : {
+      "/actions/main" : {
+         "haptics" : [
+            {
+               "output" : "/actions/main/out/haptic_right",
+               "path" : "/user/hand/right/output/haptic"
+            },
+            {
+               "output" : "/actions/main/out/haptic_left",
+               "path" : "/user/hand/left/output/haptic"
+            }
+         ],
+         "poses" : [
+            {
+               "output" : "/actions/main/in/pos_left",
+               "path" : "/user/hand/left/pose/raw"
+            },
+            {
+               "output" : "/actions/main/in/pos_right",
+               "path" : "/user/hand/right/pose/raw"
+            }
+         ],
+         "sources" : [
+            {
+               "path" : "/user/hand/left/input/system",
+               "mode" : "button",
+               "inputs" : {
+                  "click" : {
+                     "output" : "/actions/main/in/button_menu_left"
+                  }
+               }
+            },
+            {
+               "path" : "/user/hand/right/input/system",
+               "mode" : "button",
+               "inputs" : {
+                  "click" : {
+                     "output" : "/actions/main/in/button_menu_right"
+                  }
+               }
+            },
+            {
+               "path" : "/user/hand/left/input/grip",
+               "mode" : "button",
+               "inputs" : {
+                  "click" : {
+                     "output" : "/actions/main/in/grip_left"
+                  },
+				  "touch": {
+					 "output": "/actions/main/in/grip_touch_left"
+				  }
+               }
+            },
+            {
+               "path" : "/user/hand/right/input/grip",
+               "mode" : "button",
+               "inputs" : {
+                  "click" : {
+                     "output" : "/actions/main/in/grip_right"
+                  },
+				  "touch": {
+					 "output": "/actions/main/in/grip_touch_right"
+				  }
+               }
+            },
+			{
+               "path" : "/user/hand/left/input/bumper",
+               "mode" : "button",
+               "inputs" : {
+                  "click" : {
+                     "output" : "/actions/main/in/left_bumper_press"
+                  }
+               }
+            },
+			{
+               "path" : "/user/hand/right/input/bumper",
+               "mode" : "button",
+               "inputs" : {
+                  "click" : {
+                     "output" : "/actions/main/in/right_bumper_press"
+                  }
+               }
+            },
+            {
+               "path" : "/user/hand/left/input/joystick",
+               "mode" : "joystick",
+               "inputs" : {
+                  "position" : {
+                     "output" : "/actions/main/in/thumbstick_left"
+                  },
+                  "click" : {
+                     "output" : "/actions/main/in/thumbstick_press_left"
+                  },
+                  "touch" : {
+                     "output" : "/actions/main/in/thumbstick_touch_left"
+                  }
+               }
+            },
+            {
+               "path" : "/user/hand/right/input/joystick",
+               "mode" : "joystick",
+               "inputs" : {
+                  "position" : {
+                     "output" : "/actions/main/in/thumbstick_right"
+                  },
+                  "click" : {
+                     "output" : "/actions/main/in/thumbstick_press_right"
+                  },
+                  "touch" : {
+                     "output" : "/actions/main/in/thumbstick_touch_right"
+                  }
+               }
+            },
+            {
+               "path" : "/user/hand/left/input/trigger",
+               "mode" : "trigger",
+               "inputs" : {
+                  "pull" : {
+                     "output" : "/actions/main/in/trigger_left"
+                  },
+                  "touch" : {
+                     "output" : "/actions/main/in/trigger_touch_left"
+                  }
+               }
+            },
+            {
+               "path" : "/user/hand/right/input/trigger",
+               "mode" : "trigger",
+               "inputs" : {
+                  "pull" : {
+                     "output" : "/actions/main/in/trigger_right"
+                  },
+                  "touch" : {
+                     "output" : "/actions/main/in/trigger_touch_right"
+                  }
+               }
+            },
+			{
+               "path" : "/user/hand/left/input/x",
+               "mode" : "button",
+               "inputs" : {
+                  "click" : {
+                     "output" : "/actions/main/in/button_a_left"
+                  }
+               }
+            },          
+			{
+               "path" : "/user/hand/right/input/a",
+               "mode" : "button",
+               "inputs" : {
+                  "click" : {
+                     "output" : "/actions/main/in/button_a_right"
+                  }
+               }
+            },
+			{
+               "path" : "/user/hand/left/input/y",
+               "mode" : "button",
+               "inputs" : {
+                  "click" : {
+                     "output" : "/actions/main/in/button_b_left"
+                  }
+               }
+            },
+			{
+               "path" : "/user/hand/right/input/b",
+               "mode" : "button",
+               "inputs" : {
+                  "click" : {
+                     "output" : "/actions/main/in/button_b_right"
+                  }
+               }
+            }
+         ]
+      }
+   },
+   "controller_type" : "vive_cosmos_controller",
+   "description" : "Binding for MARUI for Vive Cosmos controllers (v1)",
+   "name" : "MARUI binding for Vive Cosmos controllers (v1)",
+   "options" : {},
+   "simulated_actions" : []
+}
+)BINDING_COSMOS";
+
 
 //                                                                          ________________________
 //_________________________________________________________________________/    binding_logitechink

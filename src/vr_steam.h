@@ -114,6 +114,7 @@ private:
 		static const char* const binding_vive;
 		static const char* const binding_windowsmr;
 		static const char* const binding_index;
+		static const char* const binding_cosmos;
 		static const char* const binding_logitechink;
 	};
 	Input input;
