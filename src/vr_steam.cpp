@@ -371,7 +371,7 @@ int VR_Steam::acquireHMD()
         // Prop_ManufacturerName_String   == "Pimax VR, Inc."
         // Prop_TrackingSystemName_String == "aapvr"
         // Prop_ModelNumber_String        == "Pimax 5K Plus"
-        if (strncmp(str_ManufacturerName, "Pimax", str_max) == 0) {
+        if (strncmp(str_ManufacturerName, "Pimax VR, Inc.", str_max) == 0) {
             this->hmd_type = VR::HMDType_Pimax;
             return VR::Error_None;
         }
@@ -393,6 +393,10 @@ int VR_Steam::acquireHMD()
             this->hmd_type = VR::HMDType_Oculus;
             return VR::Error_None;
         }
+
+		// Other SteamVR compatible device:
+		this->hmd_type = VR::HMDType_Vive;
+		return VR::Error_None;
 	}
 
 	// If we arrive here, we could not find any supported HMD
